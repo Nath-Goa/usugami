@@ -1,6 +1,64 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">PDFer</string>
+    <string name="back">Back</string>
+
+    <!-- Home and PDF tools -->
+    <string name="home_title">PDFer</string>
+    <string name="home_subtitle">Your PDFs stay on this phone. No ads, account, or uploads.</string>
+    <string name="tool_images">Images to PDF</string>
+    <string name="tool_images_detail">Combine JPGs and PNGs, with optional text recognition</string>
+    <string name="tool_split">Split PDF</string>
+    <string name="tool_split_detail">Extract pages or split into smaller files</string>
+    <string name="tool_merge">Merge PDF</string>
+    <string name="tool_merge_detail">Combine files and arrange individual pages</string>
+    <string name="tool_compress">Compress PDF</string>
+    <string name="tool_compress_detail">Reduce image size while keeping text and drawings</string>
+    <string name="pick_pdf">Choose PDF</string>
+    <string name="add_pdfs">Add PDFs</string>
+    <string name="replace_pdf">Choose another PDF</string>
+    <string name="pdf_import_failed">Couldn\'t open that PDF. It may be damaged or unsupported.</string>
+    <string name="pdf_wrong_password">That password didn\'t open the PDF.</string>
+    <string name="pdf_password_title">PDF password</string>
+    <string name="pdf_password_body">This file is protected. Enter its password to continue.</string>
+    <string name="pdf_password_hint">Password</string>
+    <string name="pdf_unlock">Open PDF</string>
+    <string name="pdf_invalid_pages">Check the page numbers and try again.</string>
+    <string name="pdf_process_failed">Couldn\'t process this PDF. Check the file and free storage.</string>
+    <string name="pdf_saved_downloads">Saved to Downloads</string>
+    <string name="pdf_working">Working on your PDF…</string>
+    <string name="pdf_page_summary">%1$d pages · %2$s</string>
+    <string name="pdf_file_mode">Files</string>
+    <string name="pdf_page_mode">Pages</string>
+    <string name="pdf_file_mode_hint">Move whole PDFs into the order you want.</string>
+    <string name="pdf_page_mode_hint">Arrange, rotate, or remove individual pages.</string>
+    <string name="pdf_sort_az">Sort A to Z</string>
+    <string name="pdf_sort_za">Sort Z to A</string>
+    <string name="pdf_reset_pages">Reset pages</string>
+    <string name="pdf_selected">Selected pages</string>
+    <string name="pdf_selected_hint">For example: 1,3,5-8. Tap page previews to select them.</string>
+    <string name="pdf_custom">Custom ranges</string>
+    <string name="pdf_custom_hint">For example: 1-3;5-7;9</string>
+    <string name="pdf_fixed">Fixed chunks</string>
+    <string name="pdf_fixed_hint">Pages per PDF</string>
+    <string name="pdf_every_page">Every page</string>
+    <string name="pdf_combine_selected">Combine selected pages into one PDF</string>
+    <string name="pdf_combine_ranges">Combine all ranges into one PDF</string>
+    <string name="pdf_split_action">Split PDF</string>
+    <string name="pdf_merge_action">Merge PDFs</string>
+    <string name="pdf_compress_action">Compress PDF</string>
+    <string name="pdf_no_reduction">This PDF is already compact; the original size was kept.</string>
+    <string name="pdf_compress_note">Text and drawings stay sharp. Images are reduced where it saves space.</string>
+    <string name="pdf_need_two">Add at least two PDFs to merge.</string>
+    <string name="pdf_need_page">Keep at least one page.</string>
+    <string name="pdf_unsaved_back_title">Leave this PDF?</string>
+    <string name="pdf_unsaved_back_body">Save or share the result before leaving if you want to keep it.</string>
+    <string name="ocr_title">Make text searchable (OCR)</string>
+    <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>
+    <string name="ocr_language">Text language</string>
+    <string name="ocr_english">English</string>
+    <string name="ocr_hindi">Hindi</string>
+    <string name="ocr_no_text">No text was recognized. The PDF was created without a text layer.</string>
 
     <!-- Editor -->
     <string name="editor_title">Images to PDF</string>

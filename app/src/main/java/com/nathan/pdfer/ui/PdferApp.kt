@@ -2,7 +2,6 @@ package com.nathan.pdfer.ui
 
 import android.content.ActivityNotFoundException
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -20,13 +19,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nathan.pdfer.R
 import com.nathan.pdfer.data.PdfSaver
 
 @Composable
 fun PdferApp(vm: MainViewModel) {
     val context = LocalContext.current
-    val activity = LocalActivity.current
+    val pdfVm: PdfToolsViewModel = viewModel()
     val items by vm.items.collectAsStateWithLifecycle()
     val layout by vm.layout.collectAsStateWithLifecycle()
     val merge by vm.merge.collectAsStateWithLifecycle()
@@ -36,19 +36,40 @@ fun PdferApp(vm: MainViewModel) {
     val result by vm.result.collectAsStateWithLifecycle()
     val saved by vm.saved.collectAsStateWithLifecycle()
     val busySaving by vm.busySaving.collectAsStateWithLifecycle()
+    val pdfResult by pdfVm.result.collectAsStateWithLifecycle()
+    val pdfSaved by pdfVm.saved.collectAsStateWithLifecycle()
+    val pdfSaving by pdfVm.saving.collectAsStateWithLifecycle()
+
+    var route by rememberSaveable { mutableStateOf(if (vm.items.value.isNotEmpty()) "images" else "home") }
 
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm) {
         vm.messages.collect { snackbar.showSnackbar(it) }
     }
+    LaunchedEffect(pdfVm) {
+        pdfVm.messages.collect { snackbar.showSnackbar(it) }
+    }
+    LaunchedEffect(items.size) {
+        if (items.isNotEmpty() && route == "home") route = "images"
+    }
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { vm.addImages(it) }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.addImages(it) }
+    val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) pdfVm.addPdfs(listOf(uri), replace = true)
+    }
+    val pdfMultiPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        pdfVm.addPdfs(uris, replace = false)
+    }
     val createDocument = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(PdfSaver.PDF_MIME)) { uri ->
-        if (uri != null) vm.saveTo(uri)
+        if (uri != null) {
+            if (route == "images") vm.saveTo(uri) else pdfVm.saveTo(uri)
+        }
     }
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) vm.saveToFolder(uri)
+        if (uri != null) {
+            if (route == "images") vm.saveToFolder(uri) else pdfVm.saveToFolder(uri)
+        }
     }
 
     fun launch(block: () -> Unit) {
@@ -62,9 +83,16 @@ fun PdferApp(vm: MainViewModel) {
     var showConvertSheet by rememberSaveable { mutableStateOf(false) }
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
 
-    val files = result
-    if (files == null) {
-        BackHandler(enabled = items.isNotEmpty()) { confirmDiscard = true }
+    if (route == "home") {
+        HomeScreen(
+            onImages = { route = "images" },
+            onTool = { tool ->
+                pdfVm.reset()
+                route = tool.name.lowercase()
+            },
+        )
+    } else if (route == "images" && result == null) {
+        BackHandler { if (items.isEmpty()) route = "home" else confirmDiscard = true }
         EditorScreen(
             items = items,
             layout = layout,
@@ -85,6 +113,7 @@ fun PdferApp(vm: MainViewModel) {
                 clearAll = vm::clearAll,
                 convert = { showConvertSheet = true },
             ),
+            onBack = { if (items.isEmpty()) route = "home" else confirmDiscard = true },
         )
         if (showConvertSheet && items.isNotEmpty()) {
             ConvertSheet(
@@ -94,13 +123,14 @@ fun PdferApp(vm: MainViewModel) {
                 initialCompression = compression,
                 defaultName = remember { vm.defaultFileName() },
                 onDismiss = { showConvertSheet = false },
-                onCreate = { mergeAll, name, level ->
+                onCreate = { mergeAll, name, level, ocr ->
                     showConvertSheet = false
-                    vm.convert(mergeAll, name, level)
+                    vm.convert(mergeAll, name, level, ocr)
                 },
             )
         }
-    } else {
+    } else if (route == "images") {
+        val files = result ?: emptyList()
         BackHandler { vm.backToEditing() }
         ResultScreen(
             files = files,
@@ -120,6 +150,40 @@ fun PdferApp(vm: MainViewModel) {
                 startOver = vm::startOver,
             ),
         )
+    } else {
+        val tool = PdfTool.entries.first { it.name.equals(route, ignoreCase = true) }
+        if (pdfResult == null) {
+            BackHandler { route = "home" }
+            PdfToolScreen(
+                tool = tool,
+                vm = pdfVm,
+                snackbar = snackbar,
+                onBack = { route = "home" },
+                pickSingle = { pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
+                pickMultiple = { pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
+            )
+        } else {
+            val files = pdfResult ?: emptyList()
+            BackHandler { pdfVm.backToEditing() }
+            ResultScreen(
+                files = files,
+                saved = pdfSaved,
+                busy = pdfSaving,
+                snackbar = snackbar,
+                actions = ResultActions(
+                    back = pdfVm::backToEditing,
+                    open = { file -> launch { context.startActivity(pdfVm.viewIntent(file)) } },
+                    share = { launch { context.startActivity(pdfVm.shareIntent(files)) } },
+                    saveToDownloads = if (pdfVm.canSaveToDownloads) pdfVm::saveToDownloads else null,
+                    saveAs = {
+                        launch {
+                            if (files.size == 1) createDocument.launch(files[0].name) else pickFolder.launch(null)
+                        }
+                    },
+                    startOver = pdfVm::startOver,
+                ),
+            )
+        }
     }
 
     progress?.let { ProgressDialog(it, onCancel = vm::cancelConversion) }
@@ -133,7 +197,7 @@ fun PdferApp(vm: MainViewModel) {
                 TextButton(onClick = {
                     confirmDiscard = false
                     vm.clearAll()
-                    activity?.finish()
+                    route = "home"
                 }) { Text(stringResource(R.string.discard)) }
             },
             dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.keep)) } },

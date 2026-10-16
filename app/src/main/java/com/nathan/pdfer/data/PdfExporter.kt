@@ -36,7 +36,7 @@ class ImageUnreadableException(val imageName: String) : Exception("Unreadable im
  * unless keeping the original is smaller. Output lives in files/output until the next export.
  */
 class PdfExporter(context: Context) {
-    private val outputDir = File(context.filesDir, "output")
+    private val outputDir = File(context.filesDir, "output/images")
 
     fun clearOutput() {
         outputDir.deleteRecursively()

@@ -1,6 +1,7 @@
 package com.nathan.pdfer.ui
 
 import android.app.Application
+import android.util.Log
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -18,6 +19,8 @@ import com.nathan.pdfer.data.ImageItem
 import com.nathan.pdfer.data.ImageStore
 import com.nathan.pdfer.data.ImageUnreadableException
 import com.nathan.pdfer.data.PdfExporter
+import com.nathan.pdfer.data.PdfOcr
+import com.nathan.pdfer.data.OcrLanguage
 import com.nathan.pdfer.data.PdfFile
 import com.nathan.pdfer.data.PdfSaver
 import com.nathan.pdfer.data.SettingsStore
@@ -46,6 +49,7 @@ data class Progress(val done: Int, val total: Int)
 class MainViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
     private val store = ImageStore(app)
     private val exporter = PdfExporter(app)
+    private val ocr = PdfOcr(app)
     private val saver = PdfSaver(app)
     private val settingsStore = SettingsStore(app)
     val thumbnails = Thumbnails()
@@ -193,7 +197,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         return "PDFer_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT))
     }
 
-    fun convert(merge: Boolean, fileName: String, compression: Compression) {
+    fun convert(merge: Boolean, fileName: String, compression: Compression, ocrLanguage: OcrLanguage? = null) {
         val snapshot = items.value
         if (snapshot.isEmpty() || _progress.value != null || _pendingImports.value > 0) return
         if (snapshot.size > 1) {
@@ -206,11 +210,17 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         _progress.value = Progress(0, snapshot.size)
         conversion = viewModelScope.launch {
             try {
-                val files = withContext(Dispatchers.IO) {
-                    exporter.export(snapshot, layout, compression, merge || snapshot.size == 1, fileName, app.getString(R.string.app_name)) { done ->
+                val output = withContext(Dispatchers.IO) {
+                    val files = exporter.export(snapshot, layout, compression, merge || snapshot.size == 1, fileName, app.getString(R.string.app_name)) { done ->
                         _progress.value = Progress(done, snapshot.size)
                     }
+                    if (ocrLanguage == null) null to files else {
+                        val recognized = ocr.apply(files, ocrLanguage)
+                        recognized.lineCount to recognized.files
+                    }
                 }
+                val (lineCount, files) = output
+                if (lineCount == 0) message(R.string.ocr_no_text)
                 _saved.value = false
                 _result.value = files
             } catch (e: CancellationException) {
@@ -218,10 +228,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             } catch (e: ImageUnreadableException) {
                 message(R.string.msg_convert_failed, app.getString(R.string.msg_image_unreadable, e.imageName))
             } catch (e: IOException) {
+                Log.e("PDFer", "PDF generation failed", e)
                 message(R.string.msg_convert_failed, app.getString(if (isOutOfSpace(e)) R.string.msg_out_of_space else R.string.msg_unknown_error))
             } catch (e: OutOfMemoryError) {
                 message(R.string.msg_convert_failed, app.getString(R.string.msg_out_of_memory))
             } catch (e: Exception) {
+                Log.e("PDFer", "PDF generation failed", e)
                 message(R.string.msg_convert_failed, app.getString(R.string.msg_unknown_error))
             } finally {
                 _progress.value = null

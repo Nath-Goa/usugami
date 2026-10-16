@@ -13,8 +13,9 @@ android {
         applicationId = "com.nathan.pdfer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = 2
+        versionName = "1.1"
     }
 
     buildTypes {
@@ -51,4 +52,9 @@ dependencies {
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("sh.calvin.reorderable:reorderable:3.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-devanagari:16.0.1")
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("junit:junit:4.13.2")
 }
