@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PDFer</string>
+
+    <!-- Editor -->
+    <string name="editor_title">Images to PDF</string>
+    <string name="empty_title">Turn JPG and PNG images into a PDF</string>
+    <string name="empty_body">Pick your images, put them in order and convert. Everything happens on this phone. Nothing is uploaded.</string>
+    <string name="empty_share_hint">Tip: you can also share images to PDFer from your gallery.</string>
+    <string name="add_from_photos">Photos</string>
+    <string name="add_from_files">Files</string>
+    <string name="add_images">Add images</string>
+    <string name="add_more">Add more</string>
+    <string name="convert">Convert to PDF</string>
+    <string name="reorder_hint">Long-press a page and drag to reorder</string>
+    <string name="adding_images">Adding images…</string>
+    <string name="sort">Sort</string>
+    <string name="sort_name_az">Name (A to Z)</string>
+    <string name="sort_name_za">Name (Z to A)</string>
+    <string name="sort_reverse">Reverse order</string>
+    <string name="clear_all">Remove all</string>
+    <string name="rotate_left">Rotate left</string>
+    <string name="rotate_right">Rotate right</string>
+    <string name="remove">Remove</string>
+    <string name="move_earlier">Move earlier</string>
+    <string name="move_later">Move later</string>
+    <plurals name="image_count">
+        <item quantity="one">%d image</item>
+        <item quantity="other">%d images</item>
+    </plurals>
+
+    <!-- Options -->
+    <string name="option_page_size">Page size</string>
+    <string name="option_orientation">Orientation</string>
+    <string name="option_margin">Margin</string>
+    <string name="size_fit">Fit (same as image)</string>
+    <string name="size_fit_short">Fit</string>
+    <string name="size_a4">A4</string>
+    <string name="size_letter">US Letter</string>
+    <string name="size_legal">US Legal</string>
+    <string name="size_a3">A3</string>
+    <string name="size_a5">A5</string>
+    <string name="orientation_auto">Auto</string>
+    <string name="orientation_portrait">Portrait</string>
+    <string name="orientation_landscape">Landscape</string>
+    <string name="orientation_fit_note">Same as image</string>
+    <string name="margin_none">No margin</string>
+    <string name="margin_small">Small</string>
+    <string name="margin_big">Big</string>
+    <string name="margin_small_long">Small margin</string>
+    <string name="margin_big_long">Big margin</string>
+
+    <!-- Convert sheet -->
+    <string name="convert_title">Create PDF</string>
+    <string name="merge_title">Merge all images into one PDF</string>
+    <string name="merge_on_summary">One PDF with a page for each image</string>
+    <string name="merge_off_summary">A separate PDF for each image, named after it</string>
+    <string name="file_name">File name</string>
+    <string name="create_pdf">Create PDF</string>
+    <string name="compression_title">Compression</string>
+    <string name="compression_less">Less</string>
+    <string name="compression_recommended">Recommended</string>
+    <string name="compression_extreme">Extreme</string>
+    <string name="compression_less_summary">Best quality, smaller file (200 dpi)</string>
+    <string name="compression_recommended_summary">Good quality, much smaller file (150 dpi)</string>
+    <string name="compression_extreme_summary">Smallest file, lower quality (100 dpi)</string>
+    <string name="compressed_from">Compressed from %1$s (%2$d%% smaller)</string>
+    <plurals name="create_pdfs">
+        <item quantity="one">Create %d PDF</item>
+        <item quantity="other">Create %d PDFs</item>
+    </plurals>
+
+    <!-- Progress -->
+    <string name="creating_pdf">Creating and compressing PDF…</string>
+    <plurals name="progress_images">
+        <item quantity="one">%1$d of %2$d image</item>
+        <item quantity="other">%1$d of %2$d images</item>
+    </plurals>
+    <string name="cancel">Cancel</string>
+
+    <!-- Result -->
+    <string name="result_title">Done</string>
+    <string name="result_heading_one">Your PDF is ready</string>
+    <string name="result_heading_many">Your PDFs are ready</string>
+    <string name="result_details">%1$s · %2$s</string>
+    <plurals name="page_count">
+        <item quantity="one">%d page</item>
+        <item quantity="other">%d pages</item>
+    </plurals>
+    <string name="open">Open</string>
+    <string name="share">Share</string>
+    <string name="share_all">Share all</string>
+    <string name="save_to_downloads">Save to Downloads</string>
+    <string name="save_as">Save as…</string>
+    <string name="save_all_to_folder">Save to folder…</string>
+    <string name="back_to_editing">Back to editing</string>
+    <string name="start_over">Start over</string>
+    <string name="start_over_title">Start over?</string>
+    <string name="not_saved_note">Not saved yet. Save it or share it before you start over.</string>
+
+    <!-- Dialogs -->
+    <string name="discard_title">Discard these images?</string>
+    <string name="discard_body">The images you picked and their order will be cleared. Your original photos are not affected.</string>
+    <string name="discard">Discard</string>
+    <string name="clear_title">Remove all images?</string>
+    <string name="keep">Keep</string>
+
+    <!-- Messages -->
+    <plurals name="msg_skipped_unsupported">
+        <item quantity="one">Skipped %d file: only JPG and PNG images are supported.</item>
+        <item quantity="other">Skipped %d files: only JPG and PNG images are supported.</item>
+    </plurals>
+    <plurals name="msg_failed_import">
+        <item quantity="one">Couldn\'t read %d image.</item>
+        <item quantity="other">Couldn\'t read %d images.</item>
+    </plurals>
+    <string name="msg_saved_downloads">Saved to Downloads as %1$s</string>
+    <plurals name="msg_saved_downloads_many">
+        <item quantity="one">Saved %d PDF to Downloads</item>
+        <item quantity="other">Saved %d PDFs to Downloads</item>
+    </plurals>
+    <string name="msg_saved">Saved</string>
+    <plurals name="msg_saved_folder">
+        <item quantity="one">Saved %d PDF to the folder</item>
+        <item quantity="other">Saved %d PDFs to the folder</item>
+    </plurals>
+    <string name="msg_save_failed">Couldn\'t save the PDF. Check that there is enough free storage.</string>
+    <string name="msg_convert_failed">Couldn\'t create the PDF: %1$s</string>
+    <string name="msg_image_unreadable">\"%1$s\" could not be read</string>
+    <string name="msg_out_of_memory">not enough memory for an image this large</string>
+    <string name="msg_out_of_space">not enough free storage</string>
+    <string name="msg_unknown_error">an unexpected error occurred</string>
+    <string name="msg_no_pdf_app">No app on this phone can open PDFs.</string>
+</resources>

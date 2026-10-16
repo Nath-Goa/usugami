@@ -1,0 +1,193 @@
+package com.nathan.pdfer.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
+import com.nathan.pdfer.R
+import com.nathan.pdfer.core.Compression
+import com.nathan.pdfer.core.LayoutSettings
+import com.nathan.pdfer.core.Margin
+import com.nathan.pdfer.core.PageSize
+
+/** The last step before converting: one PDF or one per image, and the file name. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ConvertSheet(
+    imageCount: Int,
+    layout: LayoutSettings,
+    initialMerge: Boolean,
+    initialCompression: Compression,
+    defaultName: String,
+    onDismiss: () -> Unit,
+    onCreate: (merge: Boolean, fileName: String, compression: Compression) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var merge by rememberSaveable { mutableStateOf(initialMerge) }
+    var name by rememberSaveable { mutableStateOf(defaultName) }
+    var compression by rememberSaveable { mutableStateOf(initialCompression) }
+    val oneFile = merge || imageCount == 1
+    val create = { onCreate(merge, name, compression) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+        ) {
+            Text(stringResource(R.string.convert_title), style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(4.dp))
+            Text(summary(imageCount, layout), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            if (imageCount > 1) {
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .toggleable(value = merge, role = Role.Switch, onValueChange = { merge = it })
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.merge_title), style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(if (merge) R.string.merge_on_summary else R.string.merge_off_summary),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Switch(checked = merge, onCheckedChange = null)
+                }
+            }
+
+            if (oneFile) {
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.file_name)) },
+                    suffix = { Text(".pdf") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { create() }),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.titleSmall)
+            Spacer(Modifier.height(8.dp))
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                Compression.entries.forEachIndexed { index, level ->
+                    SegmentedButton(
+                        selected = compression == level,
+                        onClick = { compression = level },
+                        shape = SegmentedButtonDefaults.itemShape(index, Compression.entries.size),
+                        label = { Text(compressionLabel(level), maxLines = 1) },
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(
+                    when (compression) {
+                        Compression.LESS -> R.string.compression_less_summary
+                        Compression.RECOMMENDED -> R.string.compression_recommended_summary
+                        Compression.EXTREME -> R.string.compression_extreme_summary
+                    },
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(24.dp))
+            Button(onClick = create, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    if (oneFile) stringResource(R.string.create_pdf)
+                    else pluralStringResource(R.plurals.create_pdfs, imageCount, imageCount),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun compressionLabel(level: Compression): String = stringResource(
+    when (level) {
+        Compression.LESS -> R.string.compression_less
+        Compression.RECOMMENDED -> R.string.compression_recommended
+        Compression.EXTREME -> R.string.compression_extreme
+    },
+)
+
+@Composable
+private fun summary(imageCount: Int, layout: LayoutSettings): String {
+    val parts = mutableListOf(pluralStringResource(R.plurals.image_count, imageCount, imageCount), label(layout.pageSize))
+    if (layout.pageSize != PageSize.FIT) parts += label(layout.orientation)
+    parts += stringResource(
+        when (layout.margin) {
+            Margin.NONE -> R.string.margin_none
+            Margin.SMALL -> R.string.margin_small_long
+            Margin.BIG -> R.string.margin_big_long
+        },
+    )
+    return parts.joinToString(" · ")
+}
+
+@Composable
+fun ProgressDialog(progress: Progress, onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        title = { Text(stringResource(R.string.creating_pdf)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LinearProgressIndicator(
+                    progress = { if (progress.total == 0) 0f else progress.done.toFloat() / progress.total },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(pluralStringResource(R.plurals.progress_images, progress.total, progress.done, progress.total))
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+    )
+}
