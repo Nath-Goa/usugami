@@ -45,6 +45,7 @@ import com.nathan.pdfer.core.Compression
 import com.nathan.pdfer.core.LayoutSettings
 import com.nathan.pdfer.core.Margin
 import com.nathan.pdfer.core.PageSize
+import com.nathan.pdfer.data.OcrLanguage
 
 /** The last step before converting: one PDF or one per image, and the file name. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -56,14 +57,16 @@ fun ConvertSheet(
     initialCompression: Compression,
     defaultName: String,
     onDismiss: () -> Unit,
-    onCreate: (merge: Boolean, fileName: String, compression: Compression) -> Unit,
+    onCreate: (merge: Boolean, fileName: String, compression: Compression, ocr: OcrLanguage?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var merge by rememberSaveable { mutableStateOf(initialMerge) }
     var name by rememberSaveable { mutableStateOf(defaultName) }
     var compression by rememberSaveable { mutableStateOf(initialCompression) }
+    var ocrEnabled by rememberSaveable { mutableStateOf(false) }
+    var ocrLanguage by rememberSaveable { mutableStateOf(OcrLanguage.ENGLISH) }
     val oneFile = merge || imageCount == 1
-    val create = { onCreate(merge, name, compression) }
+    val create = { onCreate(merge, name, compression, if (ocrEnabled) ocrLanguage else null) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
@@ -137,6 +140,35 @@ fun ConvertSheet(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            Spacer(Modifier.height(16.dp))
+            Row(
+                Modifier.fillMaxWidth().toggleable(value = ocrEnabled, role = Role.Switch, onValueChange = { ocrEnabled = it })
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.ocr_title), style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.ocr_detail), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.width(16.dp))
+                Switch(checked = ocrEnabled, onCheckedChange = null)
+            }
+            if (ocrEnabled) {
+                Text(stringResource(R.string.ocr_language), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    OcrLanguage.entries.forEachIndexed { index, language ->
+                        SegmentedButton(
+                            selected = ocrLanguage == language,
+                            onClick = { ocrLanguage = language },
+                            shape = SegmentedButtonDefaults.itemShape(index, OcrLanguage.entries.size),
+                            label = { Text(stringResource(if (language == OcrLanguage.ENGLISH) R.string.ocr_english else R.string.ocr_hindi)) },
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(24.dp))
             Button(onClick = create, modifier = Modifier.fillMaxWidth()) {

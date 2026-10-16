@@ -29,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
@@ -107,6 +108,7 @@ fun EditorScreen(
     thumbnails: Thumbnails,
     snackbar: SnackbarHostState,
     actions: EditorActions,
+    onBack: () -> Unit,
 ) {
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     Scaffold(
@@ -122,6 +124,11 @@ fun EditorScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
