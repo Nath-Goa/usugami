@@ -199,10 +199,17 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun runCompress(level: PdfCompression, fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
-        process { check -> listOf(engine.compress(input, level, fileName, check)) }
+        process(afterResult = { files ->
+            // The engine keeps the original file when re-encoding would not make an unprotected PDF
+            // smaller. Say so, otherwise the result looks like nothing happened.
+            val file = files.single()
+            if (input.password.isEmpty() && file.sizeBytes >= file.originalBytes) {
+                message(app.getString(R.string.pdf_no_reduction))
+            }
+        }) { check -> listOf(engine.compress(input, level, fileName, check)) }
     }
 
-    private fun process(block: (() -> Unit) -> List<PdfFile>) {
+    private fun process(afterResult: (List<PdfFile>) -> Unit = {}, block: (() -> Unit) -> List<PdfFile>) {
         if (_processing.value || _importing.value) return
         _processing.value = true
         task = viewModelScope.launch {
@@ -211,6 +218,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 val files = withContext(fileOps) { block { job.ensureActive() } }
                 _saved.value = false
                 _result.value = files
+                afterResult(files)
             } catch (_: CancellationException) {
                 // The engine removes partial output on cancellation.
             } catch (_: OutOfMemoryError) {
