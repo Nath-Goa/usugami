@@ -1,5 +1,6 @@
 package com.nathan.pdfer.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,7 +82,8 @@ private fun <T> OptionChip(
         AssistChip(
             onClick = { expanded = true },
             enabled = enabled,
-            label = { Text("$label: $value") },
+            // When the chosen value changes length, the chip (and the chips after it) resize smoothly.
+            label = { Text("$label: $value", modifier = Modifier.animateContentSize(Motion.medium())) },
             trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, contentDescription = null) },
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

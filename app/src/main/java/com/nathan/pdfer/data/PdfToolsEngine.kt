@@ -7,6 +7,8 @@ import android.os.Parcelable
 import android.provider.OpenableColumns
 import com.nathan.pdfer.core.FileNames
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSStream
@@ -67,9 +69,7 @@ class PdfToolsEngine(private val context: Context) {
         try {
             val input = context.contentResolver.openInputStream(uri) ?: throw IOException("Could not open PDF")
             input.use { source -> file.outputStream().use { source.copyTo(it, 64 * 1024) } }
-            if (!file.inputStream().use { it.readNBytes(5).contentEquals("%PDF-".toByteArray()) }) {
-                throw IOException("This file is not a PDF")
-            }
+            if (!hasPdfHeader(file)) throw IOException("This file is not a PDF")
             return inspect(inputInfo, password)
         } catch (e: InvalidPasswordException) {
             throw PdfPasswordRequired(inputInfo)
@@ -173,9 +173,10 @@ class PdfToolsEngine(private val context: Context) {
                 }
                 val maxDimension = minOf(4000, (maxPageSide * level.dpi / 72f).toInt().coerceAtLeast(1))
                 val seen = Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>())
+                val done = IdentityHashMap<COSBase, PDImageXObject?>()
                 for (page in doc.pages) {
                     check()
-                    compressResources(doc, page.resources, level, maxDimension, seen, check)
+                    compressResources(doc, page.resources, level, maxDimension, seen, done, check)
                 }
                 doc.isAllSecurityToBeRemoved = true
                 doc.save(candidate)
@@ -197,6 +198,7 @@ class PdfToolsEngine(private val context: Context) {
         level: PdfCompression,
         maxDimension: Int,
         seen: MutableSet<COSDictionary>,
+        done: MutableMap<COSBase, PDImageXObject?>,
         check: () -> Unit,
     ) {
         if (resources == null || !seen.add(resources.cosObject)) return
@@ -204,9 +206,19 @@ class PdfToolsEngine(private val context: Context) {
             check()
             val obj = try { resources.getXObject(name) } catch (_: IOException) { continue }
             when (obj) {
-                is PDFormXObject -> compressResources(doc, obj.resources, level, maxDimension, seen, check)
+                is PDFormXObject -> compressResources(doc, obj.resources, level, maxDimension, seen, done, check)
                 is PDImageXObject -> {
+                    // Pages often share one image stream (a logo or background). Encode it once and
+                    // reuse the result; decoding it again would hand back PDFBox's cached bitmap,
+                    // which was recycled after the first use.
+                    val stream = obj.cosObject
+                    if (done.containsKey(stream)) {
+                        done[stream]?.let { resources.put(name, it) }
+                        continue
+                    }
+                    done[stream] = null
                     if (obj.isStencil || obj.softMask != null || obj.mask != null || obj.colorKeyMask != null) continue
+                    if (!canDecodeFaithfully(obj)) continue
                     val originalLength = (obj.cosObject as? COSStream)?.length ?: continue
                     if (originalLength < 2048L || obj.width <= 0 || obj.height <= 0) continue
                     try {
@@ -215,12 +227,15 @@ class PdfToolsEngine(private val context: Context) {
                         // Some PDFBox-Android decoders fail while cropping a subsampled
                         // bitmap whose dimensions are not divisible by the sample factor.
                         // Decode at full size for ordinary images in that case.
-                        var bitmap = try {
+                        // BitmapFactory returns null for JPEG streams it cannot decode, and PDFBox
+                        // passes that through, so the result must be treated as nullable.
+                        val decoded: Bitmap? = try {
                             obj.getImage(null, sample)
                         } catch (_: IllegalArgumentException) {
                             if (obj.width.toLong() * obj.height > 20_000_000L) continue
                             obj.image
                         }
+                        var bitmap: Bitmap = decoded ?: continue
                         try {
                             val scale = minOf(1f, maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height))
                             if (scale < 1f) {
@@ -228,8 +243,15 @@ class PdfToolsEngine(private val context: Context) {
                                 bitmap.recycle()
                                 bitmap = smaller
                             }
+                            // Masked images were skipped above, so the image is opaque. PDFBox's raw
+                            // decoder still marks its bitmaps as having alpha (gray ones use the gray
+                            // value as alpha), which would make JPEGFactory add a bogus soft mask.
+                            bitmap.setHasAlpha(false)
                             val replacement = JPEGFactory.createFromImage(doc, bitmap, level.quality)
-                            if ((replacement.cosObject as COSStream).length < originalLength) resources.put(name, replacement)
+                            if ((replacement.cosObject as COSStream).length < originalLength) {
+                                done[stream] = replacement
+                                resources.put(name, replacement)
+                            }
                         } finally {
                             bitmap.recycle()
                         }
@@ -237,10 +259,45 @@ class PdfToolsEngine(private val context: Context) {
                         // Leave an unsupported image unchanged; other images can still be reduced.
                     } catch (_: IllegalArgumentException) {
                         // Leave an unsupported image unchanged; other images can still be reduced.
+                    } catch (_: OutOfMemoryError) {
+                        // Leave an image too large to decode unchanged; its buffers are already unreachable.
                     }
                 }
             }
         }
+    }
+
+    /**
+     * PDFBox-Android decodes JPEG through BitmapFactory, but its raw decoder only understands
+     * 8-bit RGB and gray. It maps every other color space (CMYK, indexed, separation, Lab...) to
+     * RGB and returns scrambled pixels without an error, so those images are left unchanged.
+     */
+    private fun canDecodeFaithfully(obj: PDImageXObject): Boolean {
+        if (obj.decode != null) return false
+        if (obj.suffix == "jpg") return true
+        if (obj.bitsPerComponent != 8) return false
+        return when (val colorSpace = obj.cosObject.getDictionaryObject(COSName.COLORSPACE)) {
+            COSName.DEVICERGB, COSName.DEVICEGRAY -> true
+            is COSArray -> colorSpace.size() == 2 && colorSpace.getObject(0) == COSName.ICCBASED &&
+                (colorSpace.getObject(1) as? COSStream)?.getInt(COSName.N) == 3
+            else -> false
+        }
+    }
+
+    /** Reads the first five bytes without InputStream.readNBytes, which needs API 33. */
+    private fun hasPdfHeader(file: File): Boolean {
+        val expected = "%PDF-".toByteArray()
+        val header = ByteArray(expected.size)
+        val read = file.inputStream().use { input ->
+            var total = 0
+            while (total < header.size) {
+                val count = input.read(header, total, header.size - total)
+                if (count < 0) break
+                total += count
+            }
+            total
+        }
+        return read == header.size && header.contentEquals(expected)
     }
 
     private fun displayName(uri: Uri): String? = try {

@@ -90,11 +90,17 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
 
+    private var unlockJob: Job? = null
+
     fun unlock(password: String) {
         val pending = _locked.value ?: return
-        viewModelScope.launch {
+        // A second tap while the first unlock is still loading would add the same PDF twice.
+        if (unlockJob?.isActive == true) return
+        unlockJob = viewModelScope.launch {
             try {
                 val input = withContext(fileOps) { engine.inspect(pending, password) }
+                // The dialog may have been cancelled while loading; its file is already deleted.
+                if (_locked.value != pending) return@launch
                 _locked.value = null
                 append(input)
             } catch (_: Exception) {
@@ -110,6 +116,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     private fun append(input: PdfInput) {
+        if (inputs.value.any { it.id == input.id }) return
         setInputs(inputs.value + input)
         setPages(pages.value + (0 until input.pageCount).map { PdfPageRef(input.id, it) })
     }
@@ -206,6 +213,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 _result.value = files
             } catch (_: CancellationException) {
                 // The engine removes partial output on cancellation.
+            } catch (_: OutOfMemoryError) {
+                // A very large image can exhaust the heap; the engine has already removed partial output.
+                message(app.getString(R.string.pdf_process_failed))
             } catch (e: Exception) {
                 message(if (e is IOException) app.getString(R.string.pdf_process_failed) else app.getString(R.string.pdf_process_failed))
             } finally {

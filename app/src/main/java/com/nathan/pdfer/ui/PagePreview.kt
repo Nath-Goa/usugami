@@ -1,5 +1,6 @@
 package com.nathan.pdfer.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -41,6 +42,12 @@ fun PagePreview(item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails,
     val thumbnail by produceState<ImageBitmap?>(thumbnails.cached(item.id)?.asImageBitmap(), item.id) {
         if (value == null) value = thumbnails.load(item)?.asImageBitmap()
     }
+    // A thumbnail that has to be decoded fades in over the placeholder; a cached one shows at once.
+    val thumbnailAlpha by animateFloatAsState(
+        targetValue = if (thumbnail != null) 1f else 0f,
+        animationSpec = Motion.short(),
+        label = "thumbnail fade",
+    )
     val placeholder = MaterialTheme.colorScheme.surfaceVariant
     val rotation = item.rotation
 
@@ -58,10 +65,11 @@ fun PagePreview(item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails,
             val width = geometry.imageWidth.toFloat() * scale
             val height = geometry.imageHeight.toFloat() * scale
             val image = thumbnail
-            if (image == null) {
+            val imageAlpha = thumbnailAlpha
+            if (image == null || imageAlpha < 1f) {
                 drawRect(placeholder, Offset(left, top), Size(width, height))
-                return@Canvas
             }
+            if (image == null) return@Canvas
             // The thumbnail is upright; turn it by the user's rotation around the image centre.
             val sideways = rotation % 180 != 0
             val drawW = if (sideways) height else width
@@ -74,6 +82,7 @@ fun PagePreview(item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails,
                     srcSize = IntSize(image.width, image.height),
                     dstOffset = IntOffset((center.x - drawW / 2).roundToInt(), (center.y - drawH / 2).roundToInt()),
                     dstSize = IntSize(drawW.roundToInt().coerceAtLeast(1), drawH.roundToInt().coerceAtLeast(1)),
+                    alpha = imageAlpha,
                     filterQuality = FilterQuality.Medium,
                 )
             }

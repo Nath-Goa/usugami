@@ -1,5 +1,14 @@
 package com.nathan.pdfer.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -90,29 +99,39 @@ fun ConvertSheet(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.merge_title), style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            stringResource(if (merge) R.string.merge_on_summary else R.string.merge_off_summary),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        AnimatedContent(targetState = merge, transitionSpec = { textSwap() }, label = "mergeSummary") { on ->
+                            Text(
+                                stringResource(if (on) R.string.merge_on_summary else R.string.merge_off_summary),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     Spacer(Modifier.width(16.dp))
                     Switch(checked = merge, onCheckedChange = null)
                 }
             }
 
-            if (oneFile) {
-                Spacer(Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.file_name)) },
-                    suffix = { Text(".pdf") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { create() }),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            // The name field only applies to a single PDF, so it folds away when merging is turned off.
+            AnimatedVisibility(
+                visible = oneFile,
+                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                label = "fileName",
+            ) {
+                Column {
+                    Spacer(Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text(stringResource(R.string.file_name)) },
+                        suffix = { Text(".pdf") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { create() }),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
 
             Spacer(Modifier.height(20.dp))
@@ -129,17 +148,19 @@ fun ConvertSheet(
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Text(
-                stringResource(
-                    when (compression) {
-                        Compression.LESS -> R.string.compression_less_summary
-                        Compression.RECOMMENDED -> R.string.compression_recommended_summary
-                        Compression.EXTREME -> R.string.compression_extreme_summary
-                    },
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            AnimatedContent(targetState = compression, transitionSpec = { textSwap() }, label = "compressionSummary") { level ->
+                Text(
+                    stringResource(
+                        when (level) {
+                            Compression.LESS -> R.string.compression_less_summary
+                            Compression.RECOMMENDED -> R.string.compression_recommended_summary
+                            Compression.EXTREME -> R.string.compression_extreme_summary
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             Spacer(Modifier.height(16.dp))
             Row(
@@ -155,31 +176,52 @@ fun ConvertSheet(
                 Spacer(Modifier.width(16.dp))
                 Switch(checked = ocrEnabled, onCheckedChange = null)
             }
-            if (ocrEnabled) {
-                Text(stringResource(R.string.ocr_language), style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    OcrLanguage.entries.forEachIndexed { index, language ->
-                        SegmentedButton(
-                            selected = ocrLanguage == language,
-                            onClick = { ocrLanguage = language },
-                            shape = SegmentedButtonDefaults.itemShape(index, OcrLanguage.entries.size),
-                            label = { Text(stringResource(if (language == OcrLanguage.ENGLISH) R.string.ocr_english else R.string.ocr_hindi)) },
-                        )
+            AnimatedVisibility(
+                visible = ocrEnabled,
+                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                label = "ocrLanguage",
+            ) {
+                Column {
+                    Text(stringResource(R.string.ocr_language), style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(8.dp))
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        OcrLanguage.entries.forEachIndexed { index, language ->
+                            SegmentedButton(
+                                selected = ocrLanguage == language,
+                                onClick = { ocrLanguage = language },
+                                shape = SegmentedButtonDefaults.itemShape(index, OcrLanguage.entries.size),
+                                label = { Text(stringResource(if (language == OcrLanguage.ENGLISH) R.string.ocr_english else R.string.ocr_hindi)) },
+                            )
+                        }
                     }
                 }
             }
 
             Spacer(Modifier.height(24.dp))
             Button(onClick = create, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    if (oneFile) stringResource(R.string.create_pdf)
-                    else pluralStringResource(R.plurals.create_pdfs, imageCount, imageCount),
-                )
+                AnimatedContent(
+                    targetState = oneFile,
+                    transitionSpec = { textSwap() },
+                    contentAlignment = Alignment.Center,
+                    label = "createLabel",
+                ) { single ->
+                    Text(
+                        if (single) stringResource(R.string.create_pdf)
+                        else pluralStringResource(R.plurals.create_pdfs, imageCount, imageCount),
+                    )
+                }
             }
         }
     }
 }
+
+/** A quick cross-fade for text that changes in place; if its size changes, that glides too. */
+private fun textSwap(): ContentTransform = ContentTransform(
+    targetContentEnter = fadeIn(Motion.short()),
+    initialContentExit = fadeOut(Motion.short()),
+    sizeTransform = SizeTransform { _, _ -> Motion.medium() },
+)
 
 @Composable
 private fun compressionLabel(level: Compression): String = stringResource(
@@ -206,6 +248,12 @@ private fun summary(imageCount: Int, layout: LayoutSettings): String {
 
 @Composable
 fun ProgressDialog(progress: Progress, onCancel: () -> Unit) {
+    // The bar glides to each new step instead of jumping as every image finishes.
+    val fraction by animateFloatAsState(
+        targetValue = if (progress.total == 0) 0f else progress.done.toFloat() / progress.total,
+        animationSpec = Motion.medium(),
+        label = "progress",
+    )
     AlertDialog(
         onDismissRequest = {},
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
@@ -213,7 +261,7 @@ fun ProgressDialog(progress: Progress, onCancel: () -> Unit) {
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 LinearProgressIndicator(
-                    progress = { if (progress.total == 0) 0f else progress.done.toFloat() / progress.total },
+                    progress = { fraction },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(pluralStringResource(R.plurals.progress_images, progress.total, progress.done, progress.total))

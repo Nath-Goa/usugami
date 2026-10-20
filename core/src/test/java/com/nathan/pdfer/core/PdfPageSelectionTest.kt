@@ -23,4 +23,12 @@ class PdfPageSelectionTest {
         }
         assertThrows(IllegalArgumentException::class.java) { PdfPageSelection.customRanges("1-2;", 6) }
     }
+
+    @Test fun badChunkSizeExplainsTheLimit() {
+        // The split screen shows this message directly, so it must not be Kotlin's "Failed requirement."
+        for (size in listOf(0, -1, 4)) {
+            val error = assertThrows(IllegalArgumentException::class.java) { PdfPageSelection.fixed(3, size) }
+            assertEquals("Pages per PDF must be between 1 and 3", error.message)
+        }
+    }
 }

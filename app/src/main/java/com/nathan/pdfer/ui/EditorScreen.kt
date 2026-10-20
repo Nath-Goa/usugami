@@ -1,6 +1,17 @@
 package com.nathan.pdfer.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +22,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -67,10 +80,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -117,9 +132,16 @@ fun EditorScreen(
                 title = {
                     Column {
                         Text(stringResource(R.string.editor_title))
-                        if (items.isNotEmpty()) {
+                        // Keeps the last count while the line animates away after the last image goes.
+                        val shownCount = freezeWhen(items.isEmpty(), items.size)
+                        AnimatedVisibility(
+                            visible = items.isNotEmpty(),
+                            enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                            exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                            label = "image count",
+                        ) {
                             Text(
-                                pluralStringResource(R.plurals.image_count, items.size, items.size),
+                                pluralStringResource(R.plurals.image_count, shownCount, shownCount),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -132,9 +154,21 @@ fun EditorScreen(
                     }
                 },
                 actions = {
-                    if (items.size > 1) SortMenu(actions.sort)
-                    if (items.isNotEmpty()) {
-                        IconButton(onClick = { confirmClear = true }) {
+                    AnimatedVisibility(
+                        visible = items.size > 1,
+                        enter = fadeIn(Motion.short()),
+                        exit = fadeOut(Motion.short()),
+                        label = "sort action",
+                    ) {
+                        SortMenu(actions.sort)
+                    }
+                    AnimatedVisibility(
+                        visible = items.isNotEmpty(),
+                        enter = fadeIn(Motion.short()),
+                        exit = fadeOut(Motion.short()),
+                        label = "clear action",
+                    ) {
+                        IconButton(onClick = { if (items.isNotEmpty()) confirmClear = true }) {
                             Icon(Icons.Rounded.DeleteSweep, contentDescription = stringResource(R.string.clear_all))
                         }
                     }
@@ -142,7 +176,14 @@ fun EditorScreen(
             )
         },
         bottomBar = {
-            if (items.isNotEmpty()) {
+            // Slides up when the first image arrives. It leaves at once: a bar that slid or shrank
+            // away would hold the content padding to the end and then make the page jump.
+            AnimatedVisibility(
+                visible = items.isNotEmpty(),
+                enter = slideInVertically(Motion.medium()) { fullHeight -> fullHeight },
+                exit = ExitTransition.None,
+                label = "bottom actions",
+            ) {
                 BottomActions(
                     convertEnabled = pendingImports == 0,
                     onAddPhotos = actions.addFromPhotos,
@@ -153,15 +194,41 @@ fun EditorScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            if (pendingImports > 0) {
+        val layoutDirection = LocalLayoutDirection.current
+        // The bottom padding is applied per branch below, so a branch that is fading out can keep
+        // the padding it had instead of jumping when the bottom bar appears or disappears.
+        Column(
+            Modifier
+                .padding(
+                    start = padding.calculateStartPadding(layoutDirection),
+                    top = padding.calculateTopPadding(),
+                    end = padding.calculateEndPadding(layoutDirection),
+                )
+                .fillMaxSize(),
+        ) {
+            AnimatedVisibility(
+                visible = pendingImports > 0,
+                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                label = "import progress",
+            ) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             }
-            if (items.isEmpty()) {
-                EmptyState(pendingImports > 0, actions.addFromPhotos, actions.addFromFiles)
-            } else {
-                OptionsRow(layout, actions.changeLayout, Modifier.padding(top = 4.dp, bottom = 4.dp))
-                PageGrid(items, layout, thumbnails, actions)
+            Crossfade(targetState = items.isEmpty(), animationSpec = Motion.medium(), label = "editor content") { empty ->
+                if (empty) {
+                    val bottom = freezeWhen(items.isNotEmpty(), padding.calculateBottomPadding())
+                    Box(Modifier.fillMaxSize().padding(bottom = bottom)) {
+                        EmptyState(pendingImports > 0, actions.addFromPhotos, actions.addFromFiles)
+                    }
+                } else {
+                    // Keeps showing the last pages while they fade out after the last image goes.
+                    val shownItems = freezeWhen(items.isEmpty(), items)
+                    val bottom = freezeWhen(items.isEmpty(), padding.calculateBottomPadding())
+                    Column(Modifier.fillMaxSize().padding(bottom = bottom)) {
+                        OptionsRow(layout, actions.changeLayout, Modifier.padding(top = 4.dp, bottom = 4.dp))
+                        PageGrid(shownItems, layout, thumbnails, actions)
+                    }
+                }
             }
         }
     }
@@ -186,6 +253,18 @@ fun EditorScreen(
 private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails: Thumbnails, actions: EditorActions) {
     val haptic = LocalHapticFeedback.current
     val gridState = rememberLazyGridState()
+    // The reorder hint is inserted above the first page when the second image arrives. The grid
+    // keeps the first page in place, which would leave the hint scrolled out of view, so stay at
+    // the top when the grid was already there.
+    val showHint = items.size > 1
+    val hintWasShown = remember { booleanArrayOf(showHint) }
+    if (showHint && !hintWasShown[0]) {
+        val atTop = Snapshot.withoutReadObservation {
+            gridState.firstVisibleItemIndex == 0 && gridState.firstVisibleItemScrollOffset == 0
+        }
+        if (atTop) gridState.requestScrollToItem(0)
+    }
+    hintWasShown[0] = showHint
     val reorderState = rememberReorderableLazyGridState(gridState) { from, to ->
         val fromId = from.key as? Long ?: return@rememberReorderableLazyGridState
         val toId = to.key as? Long ?: return@rememberReorderableLazyGridState
@@ -200,13 +279,13 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize(),
     ) {
-        if (items.size > 1) {
+        if (showHint) {
             item(key = "hint", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
                     stringResource(R.string.reorder_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    modifier = Modifier.animateItem().padding(horizontal = 4.dp),
                 )
             }
         }
@@ -234,7 +313,7 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
             }
         }
         item(key = "add") {
-            AddMoreCard(actions.addFromPhotos, actions.addFromFiles)
+            AddMoreCard(actions.addFromPhotos, actions.addFromFiles, Modifier.animateItem())
         }
     }
 }
@@ -285,9 +364,9 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
 }
 
 @Composable
-private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit) {
+private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit, modifier: Modifier = Modifier) {
     var menu by remember { mutableStateOf(false) }
-    Box {
+    Box(modifier) {
         OutlinedCard(
             onClick = { menu = true },
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -407,11 +486,21 @@ private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: 
             Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.padding(24.dp).size(56.dp))
         }
         Spacer(Modifier.height(24.dp))
-        Text(
-            stringResource(if (importing) R.string.adding_images else R.string.empty_title),
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
-        )
+        AnimatedContent(
+            targetState = importing,
+            transitionSpec = {
+                val resize = SizeTransform { _, _ -> Motion.medium() }
+                (fadeIn(Motion.short()) togetherWith fadeOut(Motion.short())).using(resize)
+            },
+            contentAlignment = Alignment.Center,
+            label = "empty title",
+        ) { adding ->
+            Text(
+                stringResource(if (adding) R.string.adding_images else R.string.empty_title),
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center,
+            )
+        }
         Spacer(Modifier.height(12.dp))
         Text(
             stringResource(R.string.empty_body),

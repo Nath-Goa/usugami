@@ -1,6 +1,13 @@
 package com.nathan.pdfer.ui
 
 import android.text.format.Formatter
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,12 +49,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
@@ -78,6 +88,15 @@ fun ResultScreen(
 ) {
     var confirmStartOver by rememberSaveable { mutableStateOf(false) }
     val single = files.size == 1
+    // The success check mark grows in once when the result arrives. Saved, so it does not
+    // replay after a rotation.
+    var checkShown by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { checkShown = true }
+    val checkScale by animateFloatAsState(
+        targetValue = if (checkShown) 1f else 0.7f,
+        animationSpec = tween(Motion.MEDIUM, delayMillis = Motion.SHORT, easing = Motion.EnterEasing),
+        label = "checkScale",
+    )
     Scaffold(
         topBar = {
             TopAppBar(
@@ -104,7 +123,12 @@ fun ResultScreen(
                 Icons.Rounded.CheckCircle,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(64.dp),
+                modifier = Modifier
+                    .size(64.dp)
+                    .graphicsLayer {
+                        scaleX = checkScale
+                        scaleY = checkScale
+                    },
             )
             Spacer(Modifier.height(12.dp))
             Text(
@@ -142,14 +166,21 @@ fun ResultScreen(
                 )
             }
 
-            if (!saved) {
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    stringResource(R.string.not_saved_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
+            AnimatedVisibility(
+                visible = !saved,
+                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                label = "notSavedNote",
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        stringResource(R.string.not_saved_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
             Spacer(Modifier.height(16.dp))
             TextButton(onClick = { if (saved) actions.startOver() else confirmStartOver = true }) {
@@ -179,7 +210,10 @@ fun ResultScreen(
 @Composable
 private fun FileRow(file: PdfFile, showOpen: Boolean, onOpen: () -> Unit) {
     val context = LocalContext.current
-    val size = Formatter.formatShortFileSize(context, file.sizeBytes)
+    // Read the size once. Start over deletes the files while this screen is still animating away,
+    // and reading the size again then would show "0 B".
+    val sizeBytes = remember(file) { file.sizeBytes }
+    val size = Formatter.formatShortFileSize(context, sizeBytes)
     val pages = pluralStringResource(R.plurals.page_count, file.pageCount, file.pageCount)
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -192,8 +226,8 @@ private fun FileRow(file: PdfFile, showOpen: Boolean, onOpen: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (file.originalBytes > file.sizeBytes) {
-                    val percent = ((file.originalBytes - file.sizeBytes) * 100 / file.originalBytes).toInt()
+                if (file.originalBytes > sizeBytes) {
+                    val percent = ((file.originalBytes - sizeBytes) * 100 / file.originalBytes).toInt()
                     Text(
                         stringResource(R.string.compressed_from, Formatter.formatShortFileSize(context, file.originalBytes), percent),
                         style = MaterialTheme.typography.bodySmall,
