@@ -27,7 +27,6 @@
     <string name="pdf_process_failed">Couldn\'t process this PDF. Check the file and free storage.</string>
     <string name="pdf_saved_downloads">Saved to Downloads</string>
     <string name="pdf_working">Working on your PDF…</string>
-    <string name="pdf_page_summary">%1$d pages · %2$s</string>
     <string name="pdf_file_mode">Files</string>
     <string name="pdf_page_mode">Pages</string>
     <string name="pdf_file_mode_hint">Move whole PDFs into the order you want.</string>

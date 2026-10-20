@@ -1,9 +1,18 @@
 package com.nathan.pdfer.ui
 
 import android.text.format.Formatter
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -48,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +67,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -130,38 +141,51 @@ fun PdfToolScreen(
     ) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            if (importing) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (inputs.isEmpty()) {
-                OutlinedCard(onClick = if (tool == PdfTool.MERGE) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
-                        Spacer(Modifier.height(12.dp))
-                        Text(stringResource(if (tool == PdfTool.MERGE) R.string.add_pdfs else R.string.pick_pdf))
+            // The bar sits outside the spaced column below and carries its own gap, so the gap opens and
+            // closes with the bar instead of snapping once the bar has gone.
+            AnimatedVisibility(visible = importing, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "importing") {
+                LinearProgressIndicator(Modifier.padding(bottom = 16.dp).fillMaxWidth())
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (inputs.isEmpty()) {
+                    OutlinedCard(onClick = if (tool == PdfTool.MERGE) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+                            Spacer(Modifier.height(12.dp))
+                            Text(stringResource(if (tool == PdfTool.MERGE) R.string.add_pdfs else R.string.pick_pdf))
+                        }
                     }
-                }
-            } else {
-                if (tool == PdfTool.MERGE) {
-                    MergeInputs(inputs, vm, pickMultiple, pageMode, onPageMode = { pageMode = it })
-                    if (pageMode) MergePages(inputs, pages, vm)
                 } else {
-                    PdfInputCard(inputs[0], onRemove = vm::startOver)
-                    OutlinedButton(onClick = pickSingle) { Text(stringResource(R.string.replace_pdf)) }
+                    if (tool == PdfTool.MERGE) {
+                        MergeInputs(inputs, vm, pageMode, onPageMode = { pageMode = it })
+                        // The page list carries the gap above it, so the gap opens and closes with the list.
+                        Column {
+                            OutlinedButton(onClick = pickMultiple) { Text(stringResource(R.string.add_pdfs)) }
+                            AnimatedVisibility(visible = pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page list") {
+                                Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    MergePages(inputs, pages, vm)
+                                }
+                            }
+                        }
+                    } else {
+                        PdfInputCard(inputs[0], onRemove = vm::startOver)
+                        OutlinedButton(onClick = pickSingle) { Text(stringResource(R.string.replace_pdf)) }
+                    }
+                    when (tool) {
+                        PdfTool.SPLIT -> SplitOptions(inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
+                        PdfTool.MERGE -> Unit
+                        PdfTool.COMPRESS -> CompressOptions(level, onLevel = { level = it })
+                    }
+                    OutlinedTextField(
+                        value = fileName,
+                        onValueChange = { fileName = it },
+                        label = { Text(stringResource(R.string.file_name)) },
+                        suffix = { Text(".pdf") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                when (tool) {
-                    PdfTool.SPLIT -> SplitOptions(inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
-                    PdfTool.MERGE -> Unit
-                    PdfTool.COMPRESS -> CompressOptions(level, onLevel = { level = it })
-                }
-                OutlinedTextField(
-                    value = fileName,
-                    onValueChange = { fileName = it },
-                    label = { Text(stringResource(R.string.file_name)) },
-                    suffix = { Text(".pdf") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
             }
         }
     }
@@ -202,7 +226,7 @@ private fun PdfInputCard(input: PdfInput, onRemove: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(input.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                Text(stringResource(R.string.pdf_page_summary, input.pageCount, Formatter.formatShortFileSize(context, input.file.length())),
+                Text(stringResource(R.string.result_details, pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), Formatter.formatShortFileSize(context, input.file.length())),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove)) }
@@ -211,41 +235,45 @@ private fun PdfInputCard(input: PdfInput, onRemove: () -> Unit) {
 }
 
 @Composable
-private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, onAdd: () -> Unit, pageMode: Boolean, onPageMode: (Boolean) -> Unit) {
+private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode: Boolean, onPageMode: (Boolean) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.pdf_file_mode), modifier = Modifier.weight(1f))
         Switch(checked = pageMode, onCheckedChange = onPageMode)
         Text(stringResource(R.string.pdf_page_mode), modifier = Modifier.padding(start = 8.dp))
     }
-    Text(stringResource(if (pageMode) R.string.pdf_page_mode_hint else R.string.pdf_file_mode_hint),
-        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    if (!pageMode) {
-        inputs.forEachIndexed { index, input ->
-            OutlinedCard(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("${index + 1}.", modifier = Modifier.padding(horizontal = 8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(input.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${input.pageCount} pages", style = MaterialTheme.typography.bodySmall)
+    // The file list carries the gap above it, so the gap opens and closes with the list.
+    Column {
+        Text(stringResource(if (pageMode) R.string.pdf_page_mode_hint else R.string.pdf_file_mode_hint),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        AnimatedVisibility(visible = !pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "file list") {
+            Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                inputs.forEachIndexed { index, input ->
+                    OutlinedCard(Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${index + 1}.", modifier = Modifier.padding(horizontal = 8.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(input.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), style = MaterialTheme.typography.bodySmall)
+                            }
+                            IconButton(onClick = { vm.moveInput(input.id, -1) }, enabled = index > 0) {
+                                Icon(Icons.Rounded.ArrowUpward, contentDescription = stringResource(R.string.move_earlier))
+                            }
+                            IconButton(onClick = { vm.moveInput(input.id, 1) }, enabled = index < inputs.lastIndex) {
+                                Icon(Icons.Rounded.ArrowDownward, contentDescription = stringResource(R.string.move_later))
+                            }
+                            IconButton(onClick = { vm.removeInput(input.id) }) {
+                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove))
+                            }
+                        }
                     }
-                    IconButton(onClick = { vm.moveInput(input.id, -1) }, enabled = index > 0) {
-                        Icon(Icons.Rounded.ArrowUpward, contentDescription = stringResource(R.string.move_earlier))
-                    }
-                    IconButton(onClick = { vm.moveInput(input.id, 1) }, enabled = index < inputs.lastIndex) {
-                        Icon(Icons.Rounded.ArrowDownward, contentDescription = stringResource(R.string.move_later))
-                    }
-                    IconButton(onClick = { vm.removeInput(input.id) }) {
-                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove))
-                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { vm.sortInputs() }) { Text(stringResource(R.string.pdf_sort_az)) }
+                    TextButton(onClick = { vm.sortInputs(true) }) { Text(stringResource(R.string.pdf_sort_za)) }
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { vm.sortInputs() }) { Text(stringResource(R.string.pdf_sort_az)) }
-            TextButton(onClick = { vm.sortInputs(true) }) { Text(stringResource(R.string.pdf_sort_za)) }
-        }
     }
-    OutlinedButton(onClick = onAdd) { Text(stringResource(R.string.add_pdfs)) }
 }
 
 @Composable
@@ -258,23 +286,29 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
         val b = pages.firstOrNull { "${it.inputId}:${it.page}" == to.key }
         if (a != null && b != null) vm.movePage(a, b)
     }
-    LazyColumn(state = state, modifier = Modifier.fillMaxWidth().height(450.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        itemsIndexed(pages, key = { _, ref -> "${ref.inputId}:${ref.page}" }) { index, ref ->
-            val input = byId[ref.inputId] ?: return@itemsIndexed
-            ReorderableItem(reorder, key = "${ref.inputId}:${ref.page}") { _ ->
-                OutlinedCard(Modifier.fillMaxWidth().longPressDraggableHandle()) {
-                    Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        PdfThumbnail(input, ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer(rotationZ = ref.rotation.toFloat()))
-                        Spacer(Modifier.width(8.dp))
-                        Text("${index + 1}. ${input.name} · ${ref.page + 1}", modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        IconButton(onClick = { vm.rotatePage(ref, 90) }) { Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_right)) }
-                        IconButton(onClick = { vm.removePage(ref) }) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove)) }
+    // The message under the list carries the gap above it, so the gap opens and closes with the message.
+    Column {
+        LazyColumn(state = state, modifier = Modifier.fillMaxWidth().height(450.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            itemsIndexed(pages, key = { _, ref -> "${ref.inputId}:${ref.page}" }) { index, ref ->
+                val input = byId[ref.inputId] ?: return@itemsIndexed
+                ReorderableItem(reorder, key = "${ref.inputId}:${ref.page}") { _ ->
+                    val angle by animatePdfPageRotationAsState(ref.rotation)
+                    OutlinedCard(Modifier.fillMaxWidth().longPressDraggableHandle()) {
+                        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            PdfThumbnail(input, ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle })
+                            Spacer(Modifier.width(8.dp))
+                            Text("${index + 1}. ${input.name} · ${ref.page + 1}", modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            IconButton(onClick = { vm.rotatePage(ref, 90) }) { Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_right)) }
+                            IconButton(onClick = { vm.removePage(ref) }) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove)) }
+                        }
                     }
                 }
             }
         }
+        AnimatedVisibility(visible = pages.isEmpty(), enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "no pages error") {
+            Text(stringResource(R.string.pdf_need_page), modifier = Modifier.padding(top = 16.dp), color = MaterialTheme.colorScheme.error)
+        }
     }
-    if (pages.isEmpty()) Text(stringResource(R.string.pdf_need_page), color = MaterialTheme.colorScheme.error)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -287,6 +321,8 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
         SplitMode.FIXED to R.string.pdf_fixed,
         SplitMode.EVERY_PAGE to R.string.pdf_every_page,
     )
+    // The sections under the chips carry the gap above them, so each gap opens and closes with its
+    // section instead of snapping once the section has gone.
     Column {
         modes.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -295,37 +331,48 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
                 }
             }
         }
-    }
-    if (mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM || mode == SplitMode.FIXED) {
-        OutlinedTextField(
-            value = text, onValueChange = onText,
-            label = { Text(stringResource(if (mode == SplitMode.FIXED) R.string.pdf_fixed_hint else if (mode == SplitMode.CUSTOM) R.string.pdf_custom else R.string.pdf_selected)) },
-            supportingText = { Text(stringResource(if (mode == SplitMode.CUSTOM) R.string.pdf_custom_hint else if (mode == SplitMode.FIXED) R.string.pdf_fixed_hint else R.string.pdf_selected_hint)) },
-            singleLine = true, modifier = Modifier.fillMaxWidth(),
-        )
-    }
-    if (mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(if (mode == SplitMode.CUSTOM) R.string.pdf_combine_ranges else R.string.pdf_combine_selected), modifier = Modifier.weight(1f))
-            Switch(checked = combine, onCheckedChange = onCombine)
+        val showRange = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM || mode == SplitMode.FIXED
+        // While a section animates away it keeps its old labels instead of switching to another mode's.
+        val rangeMode = freezeWhen(!showRange, mode)
+        AnimatedVisibility(visible = showRange, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "range field") {
+            OutlinedTextField(
+                value = text, onValueChange = onText,
+                label = { Text(stringResource(if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_hint else if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom else R.string.pdf_selected)) },
+                supportingText = { Text(stringResource(if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom_hint else if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_hint else R.string.pdf_selected_hint)) },
+                singleLine = true, modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
+            )
         }
-    }
-    if (mode == SplitMode.SELECTED) {
-        val selected = try { PdfPageSelection.selected(text, input.pageCount).toSet() } catch (_: Exception) { emptySet() }
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            items(input.pageCount) { i ->
-                val active = i in selected
-                OutlinedCard(
-                    onClick = {
-                        val new = selected.toMutableSet()
-                        if (active) new.remove(i) else new.add(i)
-                        onText(new.sorted().joinToString(",") { (it + 1).toString() })
-                    },
-                    border = BorderStroke(if (active) 2.dp else 1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier.width(105.dp),
-                ) {
-                    PdfThumbnail(input, i, Modifier.fillMaxWidth().height(130.dp))
-                    Text("${i + 1}", modifier = Modifier.align(Alignment.CenterHorizontally).padding(6.dp))
+        val showCombine = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM
+        val combineMode = freezeWhen(!showCombine, mode)
+        AnimatedVisibility(visible = showCombine, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "combine switch") {
+            Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(if (combineMode == SplitMode.CUSTOM) R.string.pdf_combine_ranges else R.string.pdf_combine_selected), modifier = Modifier.weight(1f))
+                Switch(checked = combine, onCheckedChange = onCombine)
+            }
+        }
+        AnimatedVisibility(visible = mode == SplitMode.SELECTED, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page picker") {
+            val selected = try { PdfPageSelection.selected(text, input.pageCount).toSet() } catch (_: Exception) { emptySet() }
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
+                items(input.pageCount) { i ->
+                    val active = i in selected
+                    val borderWidth by animateDpAsState(if (active) 2.dp else 1.dp, Motion.short(), label = "page border width")
+                    val borderColor by animateColorAsState(
+                        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        Motion.short(),
+                        label = "page border color",
+                    )
+                    OutlinedCard(
+                        onClick = {
+                            val new = selected.toMutableSet()
+                            if (active) new.remove(i) else new.add(i)
+                            onText(new.sorted().joinToString(",") { (it + 1).toString() })
+                        },
+                        border = BorderStroke(borderWidth, borderColor),
+                        modifier = Modifier.width(105.dp),
+                    ) {
+                        PdfThumbnail(input, i, Modifier.fillMaxWidth().height(130.dp))
+                        Text("${i + 1}", modifier = Modifier.align(Alignment.CenterHorizontally).padding(6.dp))
+                    }
                 }
             }
         }
@@ -349,4 +396,26 @@ private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> 
     }
     Text(stringResource(R.string.pdf_compress_note), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** How optional sections on this screen appear: fading in while opening downwards. */
+private fun pdfSectionEnter(): EnterTransition =
+    fadeIn(Motion.medium()) + expandVertically(Motion.medium(), expandFrom = Alignment.Top)
+
+/** How optional sections on this screen disappear: fading out while closing upwards. */
+private fun pdfSectionExit(): ExitTransition =
+    fadeOut(Motion.medium()) + shrinkVertically(Motion.medium(), shrinkTowards = Alignment.Top)
+
+/**
+ * Animates a page's rotation. Rotations are stored as 0, 90, 180 or 270, so this keeps a running
+ * angle instead: turning from 270 to 0 then moves a quarter turn forward rather than three quarters
+ * back. Updating the running angle here is idempotent, so recomposing again changes nothing.
+ */
+@Composable
+private fun animatePdfPageRotationAsState(degrees: Int): State<Float> {
+    val running = remember { intArrayOf(degrees) }
+    var delta = Math.floorMod(degrees - running[0], 360)
+    if (delta > 180) delta -= 360
+    running[0] += delta
+    return animateFloatAsState(running[0].toFloat(), Motion.medium(), label = "page rotation")
 }

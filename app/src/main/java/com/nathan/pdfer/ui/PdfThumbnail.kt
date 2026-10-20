@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -43,8 +44,16 @@ fun PdfThumbnail(input: PdfInput, pageIndex: Int, modifier: Modifier = Modifier)
             } catch (_: Exception) { null }
         }
     }
-    Box(modifier.background(androidx.compose.ui.graphics.Color.White), contentAlignment = Alignment.Center) {
-        if (preview != null) Image(preview!!, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-        else Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+    // The page fades in over the placeholder once it has been rendered, instead of popping in.
+    Crossfade(
+        targetState = preview,
+        modifier = modifier.background(androidx.compose.ui.graphics.Color.White),
+        animationSpec = Motion.short(),
+        label = "pdf thumbnail",
+    ) { bitmap ->
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+            else Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        }
     }
 }

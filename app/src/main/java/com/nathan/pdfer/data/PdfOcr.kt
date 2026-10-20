@@ -103,8 +103,11 @@ class PdfOcr(private val context: Context) {
                             while (offset < line.text.length) {
                                 val cp = line.text.codePointAt(offset)
                                 val character = String(Character.toChars(cp))
+                                // PDFBox throws IllegalArgumentException, not IOException, when the
+                                // font has no glyph for a character. Such characters become spaces.
                                 try { font.encode(character); append(character) }
                                 catch (_: IOException) { append(' ') }
+                                catch (_: IllegalArgumentException) { append(' ') }
                                 offset += Character.charCount(cp)
                             }
                         }

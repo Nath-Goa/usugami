@@ -20,7 +20,7 @@ object PdfPageSelection {
     }
 
     fun fixed(pageCount: Int, pagesPerFile: Int): List<List<Int>> {
-        require(pageCount > 0 && pagesPerFile in 1..pageCount)
+        require(pageCount > 0 && pagesPerFile in 1..pageCount) { "Pages per PDF must be between 1 and $pageCount" }
         return (0 until pageCount).chunked(pagesPerFile)
     }
 
