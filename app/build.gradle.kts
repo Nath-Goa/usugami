@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.nathan.pdfer"
+    namespace = "io.github.nathgoa.pdfer"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.nathan.pdfer"
+        applicationId = "io.github.nathgoa.pdfer"
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
