@@ -1,6 +1,18 @@
+# Normalize line endings in the repository; Windows scripts keep CRLF.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.jar binary
 *.apk binary
+*.aab binary
 *.pdf binary
 *.jpg binary
 *.jpeg binary
 *.png binary
+*.webp binary
 *.ttf binary
+*.otf binary
+*.jks binary
+*.keystore binary
+*.p12 binary
