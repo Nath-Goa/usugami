@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.pdfer.data.OcrLanguage
+import io.github.nath_goa.pdfer.data.PdfCertificateEncrypted
 import io.github.nath_goa.pdfer.data.PdfCompression
 import io.github.nath_goa.pdfer.data.PdfFile
 import io.github.nath_goa.pdfer.data.PdfOcr
@@ -94,6 +95,20 @@ class PdfToolsDeviceTest {
             val unlockedCompressed = save(engine.compress(unlocked, PdfCompression.LESS, "protected_compressed").file, "protected_compressed.pdf")
             assertTrue(text(unlockedCompressed).contains("ALPHA ONE"))
         }
+    }
+
+    /**
+     * certificate.pdf is alpha.pdf encrypted for a certificate (Adobe.PubSec) instead of a password,
+     * made by app/src/androidTest/fixtures/make_certificate_pdf.py. PDFBox needs BouncyCastle for
+     * those, which isn't bundled, so the PDF must be refused with a clear error, not a crash.
+     */
+    @Test fun certificateEncryptedPdfIsRefused() {
+        try {
+            engine.import(Uri.fromFile(fixture("certificate.pdf")), 1006)
+            fail("Certificate-encrypted PDFs should be refused")
+        } catch (_: PdfCertificateEncrypted) {
+        }
+        assertFalse("The copy should be removed", File(context.cacheDir, "pdf-inputs/1006.pdf").exists())
     }
 
     /** Standard edition: Play services downloads the model the first time (needs internet). */

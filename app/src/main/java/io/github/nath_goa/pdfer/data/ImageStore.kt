@@ -13,10 +13,12 @@ import java.io.InputStream
 /**
  * Keeps private copies of picked images. Copying at pick time means the PDF can still be made
  * later even if the picker's temporary access ends or the app is restarted by the system.
+ * The copies live in the cache, so the system can reclaim them (and "Clear cache" removes them);
+ * check [exists] before relying on one.
  */
 class ImageStore(context: Context) {
     private val resolver = context.contentResolver
-    private val dir = File(context.filesDir, "images")
+    private val dir = File(context.cacheDir, "images")
 
     sealed interface ImportResult {
         data class Added(val item: ImageItem) : ImportResult
@@ -76,6 +78,8 @@ class ImageStore(context: Context) {
     fun delete(item: ImageItem) {
         File(item.path).delete()
     }
+
+    fun exists(item: ImageItem): Boolean = File(item.path).isFile
 
     /** Deletes every stored image except those in [keep]. */
     fun deleteAllExcept(keep: Collection<ImageItem>) {

@@ -9,10 +9,13 @@ import android.os.Build
 import android.os.Environment
 import android.provider.DocumentsContract
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.IOException
+import java.io.OutputStream
 
 /** Saving finished PDFs to shared storage and handing them to other apps. */
 class PdfSaver(private val context: Context) {
@@ -21,6 +24,7 @@ class PdfSaver(private val context: Context) {
     /** Copies [file] into the public Downloads folder and returns the name it got there. */
     @RequiresApi(Build.VERSION_CODES.Q)
     fun saveToDownloads(file: File): String {
+        requireExists(listOf(file))
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, file.name)
@@ -44,10 +48,19 @@ class PdfSaver(private val context: Context) {
     }
 
     /** Writes [file] into a document the user created with the system "Save as" screen. */
-    fun saveTo(file: File, target: Uri) = copy(file, target)
+    fun saveTo(file: File, target: Uri) {
+        if (!file.isFile) {
+            // The system cleared the PDF from the cache while the picker was open. Don't leave the
+            // empty document the picker made behind (a document the user chose to overwrite isn't empty).
+            deleteIfEmpty(target)
+            throw FileNotFoundException(file.name)
+        }
+        copy(file, target)
+    }
 
     /** Creates a copy of each file inside a folder the user picked with the system folder picker. */
     fun saveToFolder(files: List<File>, tree: Uri) {
+        requireExists(files)
         val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
         for (file in files) {
             val target = DocumentsContract.createDocument(resolver, parent, PDF_MIME, file.name)
@@ -76,8 +89,38 @@ class PdfSaver(private val context: Context) {
     private fun contentUri(file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
 
     private fun copy(file: File, target: Uri) {
-        val out = resolver.openOutputStream(target, "w") ?: throw IOException("Could not open $target")
-        out.use { stream -> file.inputStream().use { it.copyTo(stream, 64 * 1024) } }
+        openForWriting(target).use { stream -> file.inputStream().use { it.copyTo(stream, 64 * 1024) } }
+    }
+
+    /**
+     * "wt" truncates, so overwriting a bigger file can't leave its tail behind ("w" doesn't truncate
+     * with some providers). A few providers reject "wt"; they get "w".
+     */
+    private fun openForWriting(target: Uri): OutputStream {
+        val out = try {
+            resolver.openOutputStream(target, "wt")
+        } catch (_: FileNotFoundException) {
+            resolver.openOutputStream(target, "w")
+        } catch (_: IllegalArgumentException) {
+            resolver.openOutputStream(target, "w")
+        }
+        return out ?: throw IOException("Could not open $target")
+    }
+
+    /** The finished PDFs live in the cache, which the system may clear while PDFer is in the background. */
+    private fun requireExists(files: List<File>) {
+        files.firstOrNull { !it.isFile }?.let { throw FileNotFoundException(it.name) }
+    }
+
+    private fun deleteIfEmpty(target: Uri) {
+        try {
+            val size = resolver.query(target, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
+            }
+            if (size == 0L) DocumentsContract.deleteDocument(resolver, target)
+        } catch (_: Exception) {
+            // Best effort: the provider may not report sizes or allow deleting.
+        }
     }
 
     companion object {

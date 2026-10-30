@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -46,6 +48,7 @@ fun PdferApp(vm: MainViewModel) {
     val pdfResult by pdfVm.result.collectAsStateWithLifecycle()
     val pdfSaved by pdfVm.saved.collectAsStateWithLifecycle()
     val pdfSaving by pdfVm.saving.collectAsStateWithLifecycle()
+    val pdfPasswordRemoved by pdfVm.passwordRemoved.collectAsStateWithLifecycle()
 
     var route by rememberSaveable { mutableStateOf(if (vm.items.value.isNotEmpty()) "images" else "home") }
 
@@ -59,7 +62,8 @@ fun PdferApp(vm: MainViewModel) {
         pdfVm.messages.collect { snackbar.showSnackbar(it) }
     }
     LaunchedEffect(items.size) {
-        if (items.isNotEmpty() && route == "home") route = "images"
+        // Images shared from another app can arrive on any screen, a PDF tool's included: show them.
+        if (items.isNotEmpty() && route != "images") route = "images"
     }
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { vm.addImages(it) }
@@ -81,11 +85,12 @@ fun PdferApp(vm: MainViewModel) {
         }
     }
 
-    fun launch(block: () -> Unit) {
+    /** Starts another app's screen; [noApp] is shown when no app can handle it. */
+    fun launch(@StringRes noApp: Int, block: () -> Unit) {
         try {
             block()
-        } catch (e: ActivityNotFoundException) {
-            vm.showMessage(R.string.msg_no_pdf_app)
+        } catch (_: ActivityNotFoundException) {
+            vm.showMessage(noApp)
         }
     }
 
@@ -110,6 +115,13 @@ fun PdferApp(vm: MainViewModel) {
         val active = transition.targetState == EnterExitState.Visible
         val screenSnackbar = if (active) snackbar else idleSnackbar
         Box {
+            if (current == "home" || current.startsWith("images")) {
+                // Once a PDF tool's screens have gone (the user went home, or shared images opened the
+                // editor), nothing of that tool can be shown again: opening a tool starts afresh. Its
+                // copies and results are freed as soon as the new screen has settled.
+                val settled = transition.currentState == EnterExitState.Visible && transition.targetState == EnterExitState.Visible
+                LaunchedEffect(settled) { if (settled) pdfVm.reset() }
+            }
             when {
                 current == "home" -> HomeScreen(
                     onImages = { route = "images" },
@@ -153,12 +165,14 @@ fun PdferApp(vm: MainViewModel) {
                         snackbar = screenSnackbar,
                         actions = ResultActions(
                             back = vm::backToEditing,
-                            open = { file -> launch { context.startActivity(vm.viewIntent(file)) } },
-                            share = { launch { context.startActivity(vm.shareIntent(files)) } },
+                            open = { file -> launch(R.string.msg_no_pdf_app) { if (vm.checkResult()) context.startActivity(vm.viewIntent(file)) } },
+                            share = { launch(R.string.msg_no_share_app) { if (vm.checkResult()) context.startActivity(vm.shareIntent(files)) } },
                             saveToDownloads = if (vm.canSaveToDownloads) vm::saveToDownloads else null,
                             saveAs = {
-                                launch {
-                                    if (files.size == 1) createDocument.launch(files[0].name) else pickFolder.launch(null)
+                                launch(R.string.msg_no_file_picker) {
+                                    if (vm.checkResult()) {
+                                        if (files.size == 1) createDocument.launch(files[0].name) else pickFolder.launch(null)
+                                    }
                                 }
                             },
                             startOver = vm::startOver,
@@ -175,16 +189,19 @@ fun PdferApp(vm: MainViewModel) {
                         snackbar = screenSnackbar,
                         actions = ResultActions(
                             back = pdfVm::backToEditing,
-                            open = { file -> launch { context.startActivity(pdfVm.viewIntent(file)) } },
-                            share = { launch { context.startActivity(pdfVm.shareIntent(files)) } },
+                            open = { file -> launch(R.string.msg_no_pdf_app) { if (pdfVm.checkResult()) context.startActivity(pdfVm.viewIntent(file)) } },
+                            share = { launch(R.string.msg_no_share_app) { if (pdfVm.checkResult()) context.startActivity(pdfVm.shareIntent(files)) } },
                             saveToDownloads = if (pdfVm.canSaveToDownloads) pdfVm::saveToDownloads else null,
                             saveAs = {
-                                launch {
-                                    if (files.size == 1) createDocument.launch(files[0].name) else pickFolder.launch(null)
+                                launch(R.string.msg_no_file_picker) {
+                                    if (pdfVm.checkResult()) {
+                                        if (files.size == 1) createDocument.launch(files[0].name) else pickFolder.launch(null)
+                                    }
                                 }
                             },
                             startOver = pdfVm::startOver,
                         ),
+                        note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else null,
                     )
                 }
                 else -> {
