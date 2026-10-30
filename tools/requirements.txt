@@ -1,0 +1,13 @@
+# Python packages for tools/validate_pdfs.py (development only; nothing here ships in the app).
+#   python -m venv .venv
+#   .venv/bin/pip install -r tools/requirements.txt        (Windows: .venv\Scripts\pip)
+# See docs/TESTING.md for how to run the check.
+#
+# PyMuPDF is AGPL-3.0 and is only used here to render test PDFs. It stays on 1.x because 2.0 adds
+# large machine-learning dependencies that this check does not need.
+# tools/make_ocr_font.py needs fonttools==4.66.1 instead (see that script).
+numpy==2.5.4
+pikepdf==10.17.0
+pillow==13.0.0
+pymupdf==1.28.2
+pypdf==6.21.4

@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test, lint, build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
+        with:
+          cache-provider: basic # open-source cache; wrapper validation is on by default
+
+      # No signing key here, so the release builds are unsigned. Building them still runs R8
+      # and resource shrinking, which is where release-only problems show up.
+      - name: Unit tests, lint, debug and release builds
+        run: >-
+          ./gradlew --stacktrace
+          :core:test
+          :app:lintStandardDebug :app:lintOfflineDebug
+          :app:assembleStandardDebug :app:assembleOfflineDebug
+          :app:assembleStandardRelease :app:assembleOfflineRelease
+
+      - name: No network or advertising-ID permissions
+        run: >-
+          bash .github/scripts/check-apk-permissions.sh
+          app/build/outputs/apk/standard/release/*.apk
+          app/build/outputs/apk/offline/release/*.apk
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
