@@ -180,7 +180,7 @@ abstract class CopyLegalAssets : DefaultTask() {
 }
 
 val copyLegalAssets = tasks.register<CopyLegalAssets>("copyLegalAssets") {
-    sources.from(rootProject.files("LICENSE", "PRIVACY.md", "THIRD_PARTY_NOTICES.md"))
+    sources.from(rootProject.files("LICENSE", "LICENSE-EXCEPTION.md", "PRIVACY.md", "THIRD_PARTY_NOTICES.md"))
 }
 
 androidComponents {
