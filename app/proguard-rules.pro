@@ -2,7 +2,8 @@
 # during compression; split and merge preserve their PDF objects directly.
 -dontwarn com.gemalto.jp2.**
 
-# ML Kit's bundled OCR registers its factories by class name. Keep these
-# components so release shrinking does not remove or merge their providers.
--keep class com.google.mlkit.** { *; }
--keep class com.google.firebase.components.** { *; }
+# BouncyCastle is excluded in build.gradle.kts. PDFBox only needs it for
+# certificate-encrypted PDFs, which PDFer reports as unsupported.
+-dontwarn org.bouncycastle.**
+
+# ML Kit's libraries ship their own keep rules for the classes they load by name.

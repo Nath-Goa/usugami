@@ -49,5 +49,18 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!--
+            ML Kit includes Google's usage-metrics uploader. The app has no internet permission, so
+            it could never send anything, but it would still queue events in a local database (up to
+            10 MB). Removing its only backend makes it drop events immediately instead.
+        -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="merge">
+            <meta-data
+                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+                tools:node="remove" />
+        </service>
     </application>
 </manifest>

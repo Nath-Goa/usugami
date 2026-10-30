@@ -1,11 +1,33 @@
+# Gradle / Kotlin / Android Studio
 .gradle/
 .kotlin/
+**/build/
+.cxx/
+.externalNativeBuild/
+captures/
+local.properties
 .idea/
 *.iml
-local.properties
-**/build/
-captures/
+.vscode/
+*.hprof
+
+# Build outputs (APKs are published on GitHub Releases, not committed)
+*.apk
+*.aab
+*.apks
+*.idsig
+app/release/
+
+# Signing secrets: never commit
+keystore.properties
 *.jks
 *.keystore
+*.p12
+*.pem
+
+# Python tooling
+.venv/
+__pycache__/
+
 .DS_Store
-*.apk
+Thumbs.db
