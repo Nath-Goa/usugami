@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">PDFer</string>
     <string name="back">Back</string>
 
@@ -42,6 +42,8 @@
     <string name="pdf_fixed">Fixed chunks</string>
     <string name="pdf_fixed_hint">Pages per PDF</string>
     <string name="pdf_every_page">Every page</string>
+    <string name="pdf_page_mode_switch">Arrange individual pages</string>
+    <string name="pdf_page_number">Page %1$d</string>
     <string name="pdf_combine_selected">Combine selected pages into one PDF</string>
     <string name="pdf_combine_ranges">Combine all ranges into one PDF</string>
     <string name="pdf_split_action">Split PDF</string>
@@ -71,6 +73,25 @@
     <string name="ocr_problem_storage">There isn\'t enough free storage to download text recognition. Free up some space and try again.</string>
     <string name="ocr_problem_help">In this edition of PDFer, text recognition comes from Google Play services and needs an internet connection once, to download it. The offline edition of PDFer has it built in. To create the PDF now, turn off OCR and try again.</string>
 
+    <!-- About -->
+    <string name="about">About PDFer</string>
+    <string name="about_title">About</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_edition_standard">Standard edition: text recognition through Google Play services</string>
+    <string name="about_edition_offline">Offline edition: text recognition built in</string>
+    <string name="about_privacy">No ads, no tracking, no account. PDFer has no internet permission, and your files never leave your phone.</string>
+    <string name="about_privacy_standard">For text recognition, Google Play services downloads the text-recognition model once, the first time you use it.</string>
+    <string name="about_privacy_policy">Privacy policy</string>
+    <string name="about_licenses">Open-source licenses</string>
+    <string name="about_licenses_detail">The libraries and fonts PDFer is built with</string>
+    <string name="about_license">License</string>
+    <string name="about_license_detail">GNU GPL v3 or later</string>
+    <string name="about_source">Source code</string>
+    <string name="about_source_detail">github.com/Nath-Goa/pdfer</string>
+    <string name="about_copyright">© 2026 Nathan Kumtakar</string>
+    <string name="about_document_missing">This text isn\'t included in this copy of PDFer. You can read it at github.com/Nath-Goa/pdfer.</string>
+    <string name="msg_no_browser">No app on this phone can open web links.</string>
+
     <!-- Editor -->
     <string name="editor_title">Images to PDF</string>
     <string name="empty_title">Turn JPG and PNG images into a PDF</string>
@@ -88,8 +109,10 @@
     <string name="sort_name_za">Name (Z to A)</string>
     <string name="sort_reverse">Reverse order</string>
     <string name="clear_all">Remove all</string>
-    <string name="rotate_left">Rotate left</string>
-    <string name="rotate_right">Rotate right</string>
+    <!-- %1$d is a page number, not a count, so these are not plurals. -->
+    <string name="rotate_page_left" tools:ignore="PluralsCandidate">Rotate page %1$d left</string>
+    <string name="rotate_page_right" tools:ignore="PluralsCandidate">Rotate page %1$d right</string>
+    <string name="remove_page">Remove page %1$d</string>
     <string name="remove">Remove</string>
     <string name="move_earlier">Move earlier</string>
     <string name="move_later">Move later</string>

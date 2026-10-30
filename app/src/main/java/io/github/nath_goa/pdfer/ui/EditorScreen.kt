@@ -350,14 +350,15 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
             modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp),
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            // Each card has these buttons, so their labels name the page they act on.
             IconButton(onClick = { actions.rotate(item.id, -90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.rotate_left))
+                Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.rotate_page_left, pageNumber))
             }
             IconButton(onClick = { actions.rotate(item.id, 90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_right))
+                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, pageNumber))
             }
             IconButton(onClick = { actions.remove(item.id) }) {
-                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove))
+                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, pageNumber))
             }
         }
     }

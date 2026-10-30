@@ -1,6 +1,7 @@
 package io.github.nath_goa.pdfer.ui
 
 import android.content.ActivityNotFoundException
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -26,9 +27,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nath_goa.pdfer.R
+import io.github.nath_goa.pdfer.data.LegalDocument
 import io.github.nath_goa.pdfer.data.PdfSaver
 
 @Composable
@@ -98,10 +101,11 @@ fun PdferApp(vm: MainViewModel) {
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
 
     // Which screen is showing. The result screens sit one level deeper than their editors, which
-    // sit one level deeper than home; that depth decides the slide direction.
-    val screen = when (route) {
-        "home" -> "home"
-        "images" -> if (result == null) "images" else "images/result"
+    // sit one level deeper than home, and so do About ("about") and the texts it opens
+    // ("about/privacy"); that depth decides the slide direction.
+    val screen = when {
+        route == "home" || route.startsWith("about") -> route
+        route == "images" -> if (result == null) "images" else "images/result"
         else -> if (pdfResult == null) route else "$route/result"
     }
 
@@ -129,7 +133,24 @@ fun PdferApp(vm: MainViewModel) {
                         pdfVm.reset()
                         route = tool.name.lowercase()
                     },
+                    onAbout = { route = "about" },
                 )
+                current == "about" -> {
+                    BackHandler(enabled = active) { route = "home" }
+                    AboutScreen(
+                        snackbar = screenSnackbar,
+                        onBack = { route = "home" },
+                        onDocument = { document -> route = "about/${document.name.lowercase()}" },
+                        onSourceCode = {
+                            launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
+                        },
+                    )
+                }
+                current.startsWith("about/") -> {
+                    val document = LegalDocument.valueOf(current.substringAfter('/').uppercase())
+                    BackHandler(enabled = active) { route = "about" }
+                    LegalDocumentScreen(document, onBack = { route = "about" })
+                }
                 current == "images" -> {
                     BackHandler(enabled = active) { if (items.isEmpty()) route = "home" else confirmDiscard = true }
                     EditorScreen(
@@ -266,9 +287,5 @@ fun PdferApp(vm: MainViewModel) {
     }
 }
 
-/** How deep a screen is: home 0, a tool's editor 1, a result 2. */
-private fun screenDepth(screen: String): Int = when {
-    screen == "home" -> 0
-    screen.endsWith("/result") -> 2
-    else -> 1
-}
+/** How deep a screen is: home 0, a tool's editor or About 1, a result or a text opened from About 2. */
+private fun screenDepth(screen: String): Int = if (screen == "home") 0 else 1 + screen.count { it == '/' }

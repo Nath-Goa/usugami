@@ -16,17 +16,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -69,6 +75,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -134,13 +144,25 @@ fun PdfToolScreen(
                     }
                 },
                 enabled = ready && !importing && !processing,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                // Edge to edge: keep the button clear of the navigation bar.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
             ) { Text(stringResource(action)) }
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
+        // The keyboard covers the bottom bar; the form ends above the keyboard instead, so the
+        // file name field can be scrolled into view while typing.
         Column(
-            Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
+            Modifier
+                .padding(padding)
+                .consumeWindowInsets(padding)
+                .imePadding()
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 12.dp),
         ) {
             // The bar sits outside the spaced column below and carries its own gap, so the gap opens and
             // closes with the bar instead of snapping once the bar has gone.
@@ -236,9 +258,18 @@ private fun PdfInputCard(input: PdfInput, onRemove: () -> Unit) {
 
 @Composable
 private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode: Boolean, onPageMode: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    // The whole row flips the switch, and a screen reader hears what the switch turns on.
+    val switchLabel = stringResource(R.string.pdf_page_mode_switch)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .toggleable(value = pageMode, role = Role.Switch, onValueChange = onPageMode)
+            .semantics { contentDescription = switchLabel }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(stringResource(R.string.pdf_file_mode), modifier = Modifier.weight(1f))
-        Switch(checked = pageMode, onCheckedChange = onPageMode)
+        Switch(checked = pageMode, onCheckedChange = null)
         Text(stringResource(R.string.pdf_page_mode), modifier = Modifier.padding(start = 8.dp))
     }
     // The file list carries the gap above it, so the gap opens and closes with the list.
@@ -298,8 +329,12 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                             PdfThumbnail(input, ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle })
                             Spacer(Modifier.width(8.dp))
                             Text("${index + 1}. ${input.name} · ${ref.page + 1}", modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            IconButton(onClick = { vm.rotatePage(ref, 90) }) { Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_right)) }
-                            IconButton(onClick = { vm.removePage(ref) }) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove)) }
+                            IconButton(onClick = { vm.rotatePage(ref, 90) }) {
+                                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, index + 1))
+                            }
+                            IconButton(onClick = { vm.removePage(ref) }) {
+                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, index + 1))
+                            }
                         }
                     }
                 }
@@ -345,9 +380,18 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
         val showCombine = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM
         val combineMode = freezeWhen(!showCombine, mode)
         AnimatedVisibility(visible = showCombine, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "combine switch") {
-            Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // The whole row flips the switch, and its text labels it for a screen reader.
+            Row(
+                Modifier
+                    .padding(top = 16.dp)
+                    .fillMaxWidth()
+                    .toggleable(value = combine, role = Role.Switch, onValueChange = onCombine)
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(stringResource(if (combineMode == SplitMode.CUSTOM) R.string.pdf_combine_ranges else R.string.pdf_combine_selected), modifier = Modifier.weight(1f))
-                Switch(checked = combine, onCheckedChange = onCombine)
+                Spacer(Modifier.width(16.dp))
+                Switch(checked = combine, onCheckedChange = null)
             }
         }
         AnimatedVisibility(visible = mode == SplitMode.SELECTED, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page picker") {
@@ -361,6 +405,7 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
                         Motion.short(),
                         label = "page border color",
                     )
+                    val pageLabel = stringResource(R.string.pdf_page_number, i + 1)
                     OutlinedCard(
                         onClick = {
                             val new = selected.toMutableSet()
@@ -368,10 +413,17 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
                             onText(new.sorted().joinToString(",") { (it + 1).toString() })
                         },
                         border = BorderStroke(borderWidth, borderColor),
-                        modifier = Modifier.width(105.dp),
+                        modifier = Modifier.width(105.dp).semantics { this.selected = active },
                     ) {
                         PdfThumbnail(input, i, Modifier.fillMaxWidth().height(130.dp))
-                        Text("${i + 1}", modifier = Modifier.align(Alignment.CenterHorizontally).padding(6.dp))
+                        // A screen reader says "Page 3" rather than a bare "3".
+                        Text(
+                            "${i + 1}",
+                            modifier = Modifier
+                                .align(Alignment.CenterHorizontally)
+                                .semantics { contentDescription = pageLabel }
+                                .padding(6.dp),
+                        )
                     }
                 }
             }
