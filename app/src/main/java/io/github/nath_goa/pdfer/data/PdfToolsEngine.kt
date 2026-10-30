@@ -40,19 +40,30 @@ enum class PdfCompression(val dpi: Int, val quality: Float) {
 
 class PdfPasswordRequired(val input: PdfInput) : IOException("Password required")
 
+/** The PDF is encrypted for a certificate (digital ID) rather than with a password; PDFer can't open those. */
+class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encrypted PDFs aren't supported", cause)
+
+/**
+ * Split, merge and compress. Input copies, results and PDFBox's scratch files all live in the cache,
+ * so the system can reclaim them (and "Clear cache" removes them); callers must cope with a file
+ * that has gone.
+ */
 class PdfToolsEngine(private val context: Context) {
-    private val inputDir = File(context.filesDir, "pdf-inputs")
-    private val outputDir = File(context.filesDir, "output/tools")
+    private val inputDir = File(context.cacheDir, "pdf-inputs")
+    private val outputDir = File(context.cacheDir, "output/tools")
     private val scratchDir = File(context.cacheDir, "pdfbox")
 
     init {
         PDFBoxResourceLoader.init(context.applicationContext)
-        scratchDir.mkdirs()
     }
 
-    private fun memory() = MemoryUsageSetting.setupMixed(24L * 1024 * 1024).setTempDir(scratchDir)
+    // The folder is created each time: the system may have cleared the cache since the last run.
+    private fun memory() = MemoryUsageSetting.setupMixed(24L * 1024 * 1024).setTempDir(scratchDir.apply { mkdirs() })
 
     fun clearOutput() { outputDir.deleteRecursively() }
+
+    /** Scratch files are deleted when PDFBox closes a document, but not when the app is killed mid-run. */
+    fun clearScratch() { scratchDir.deleteRecursively() }
 
     fun delete(input: PdfInput) { input.file.delete() }
 
@@ -80,7 +91,7 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     fun inspect(input: PdfInput, password: String): PdfInput =
-        PDDocument.load(input.file, password, memory()).use { doc ->
+        load(input.file, password).use { doc ->
             if (doc.numberOfPages == 0) throw IOException("This PDF has no pages")
             input.copy(pageCount = doc.numberOfPages, password = password)
         }
@@ -92,7 +103,7 @@ class PdfToolsEngine(private val context: Context) {
         val base = FileNames.sanitize(baseName, "Split")
         val taken = HashSet<String>()
         try {
-            PDDocument.load(input.file, input.password, memory()).use { source ->
+            load(input.file, input.password).use { source ->
                 return groups.mapIndexed { index, pages ->
                     check()
                     require(pages.all { it in 0 until source.numberOfPages })
@@ -133,7 +144,7 @@ class PdfToolsEngine(private val context: Context) {
                 for (input in inputs) {
                     check()
                     offsets[input.id] = dest.numberOfPages
-                    PDDocument.load(input.file, input.password, memory()).use { source ->
+                    load(input.file, input.password).use { source ->
                         merger.appendDocument(dest, source)
                     }
                 }
@@ -166,7 +177,7 @@ class PdfToolsEngine(private val context: Context) {
         val target = File(outputDir, "${FileNames.sanitize(fileName, "Compressed")}.pdf")
         val candidate = File(outputDir, "candidate.tmp")
         try {
-            PDDocument.load(input.file, input.password, memory()).use { doc ->
+            load(input.file, input.password).use { doc ->
                 val maxPageSide = (0 until doc.numberOfPages).maxOf { p ->
                     val box = doc.getPage(p).mediaBox
                     maxOf(box.width, box.height)
@@ -281,6 +292,46 @@ class PdfToolsEngine(private val context: Context) {
             is COSArray -> colorSpace.size() == 2 && colorSpace.getObject(0) == COSName.ICCBASED &&
                 (colorSpace.getObject(1) as? COSStream)?.getInt(COSName.N) == 3
             else -> false
+        }
+    }
+
+    /**
+     * Opens [file] with PDFBox. Certificate encryption (Adobe.PubSec) needs BouncyCastle, which isn't
+     * bundled: PDFBox then throws an IOException, or would hit a missing class, so both become
+     * [PdfCertificateEncrypted].
+     */
+    private fun load(file: File, password: String): PDDocument = try {
+        PDDocument.load(file, password, memory())
+    } catch (e: InvalidPasswordException) {
+        throw e
+    } catch (e: Exception) {
+        val certificate = try { usesCertificateEncryption(file) } catch (_: IOException) { false }
+        if (certificate) throw PdfCertificateEncrypted(e)
+        throw e
+    } catch (e: LinkageError) {
+        throw PdfCertificateEncrypted(e)
+    }
+
+    /**
+     * Whether [file] names the certificate security handler. The encryption dictionary is never
+     * inside a compressed object stream, so the name is plain text. Only read after a failed load.
+     */
+    private fun usesCertificateEncryption(file: File): Boolean {
+        val needle = "/Adobe.PubSec".toByteArray()
+        val buffer = ByteArray(64 * 1024)
+        var carried = 0
+        file.inputStream().use { input ->
+            while (true) {
+                val read = input.read(buffer, carried, buffer.size - carried)
+                if (read < 0) return false
+                val end = carried + read
+                for (start in 0..end - needle.size) {
+                    if (needle.indices.all { buffer[start + it] == needle[it] }) return true
+                }
+                // Keep the tail, in case the name straddles two reads.
+                carried = minOf(needle.size - 1, end)
+                System.arraycopy(buffer, end - carried, buffer, 0, carried)
+            }
         }
     }
 

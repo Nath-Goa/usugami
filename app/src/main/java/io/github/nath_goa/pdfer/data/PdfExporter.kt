@@ -22,7 +22,7 @@ import kotlinx.coroutines.job
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-/** A finished PDF in app storage, ready to save or share. [originalBytes] is the size of its source images. */
+/** A finished PDF in the app's cache, ready to save or share. [originalBytes] is the size of its source images. */
 data class PdfFile(val file: File, val pageCount: Int, val originalBytes: Long) {
     val name: String get() = file.name
     val sizeBytes: Long get() = file.length()
@@ -33,10 +33,10 @@ class ImageUnreadableException(val imageName: String) : Exception("Unreadable im
 /**
  * Builds PDFs from the picked images, always compressed: each image is shrunk to the
  * [Compression] level's resolution for the space it fills on the page and stored as JPEG,
- * unless keeping the original is smaller. Output lives in files/output until the next export.
+ * unless keeping the original is smaller. Output lives in the cache (output/images) until the next export.
  */
 class PdfExporter(context: Context) {
-    private val outputDir = File(context.filesDir, "output/images")
+    private val outputDir = File(context.cacheDir, "output/images")
 
     fun clearOutput() {
         outputDir.deleteRecursively()

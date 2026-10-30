@@ -85,6 +85,7 @@ fun ResultScreen(
     busy: Boolean,
     snackbar: SnackbarHostState,
     actions: ResultActions,
+    note: String? = null,
 ) {
     var confirmStartOver by rememberSaveable { mutableStateOf(false) }
     val single = files.size == 1
@@ -140,6 +141,15 @@ fun ResultScreen(
 
             Column(Modifier.widthIn(max = 480.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 files.forEach { file -> FileRow(file, showOpen = !single, onOpen = { actions.open(file) }) }
+            }
+            if (note != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    note,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
             }
 
             Spacer(Modifier.height(24.dp))

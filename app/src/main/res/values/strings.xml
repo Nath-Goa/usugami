@@ -18,6 +18,7 @@
     <string name="add_pdfs">Add PDFs</string>
     <string name="replace_pdf">Choose another PDF</string>
     <string name="pdf_import_failed">Couldn\'t open that PDF. It may be damaged or unsupported.</string>
+    <string name="pdf_certificate_unsupported">This PDF is locked with a certificate (digital ID). PDFer can only open PDFs locked with a password.</string>
     <string name="pdf_wrong_password">That password didn\'t open the PDF.</string>
     <string name="pdf_password_title">PDF password</string>
     <string name="pdf_password_body">This file is protected. Enter its password to continue.</string>
@@ -48,6 +49,10 @@
     <string name="pdf_compress_action">Compress PDF</string>
     <string name="pdf_no_reduction">This PDF is already compact; the original size was kept.</string>
     <string name="pdf_compress_note">Text and drawings stay sharp. Images are reduced where it saves space.</string>
+    <plurals name="pdf_password_removed">
+        <item quantity="one">The new PDF has no password.</item>
+        <item quantity="other">The new PDFs have no password.</item>
+    </plurals>
     <string name="pdf_need_two">Add at least two PDFs to merge.</string>
     <string name="pdf_need_page">Keep at least one page.</string>
     <string name="pdf_unsaved_back_title">Leave this PDF?</string>
@@ -204,4 +209,14 @@
     <string name="msg_out_of_space">not enough free storage</string>
     <string name="msg_unknown_error">an unexpected error occurred</string>
     <string name="msg_no_pdf_app">No app on this phone can open PDFs.</string>
+    <string name="msg_no_share_app">No app on this phone can share PDFs.</string>
+    <string name="msg_no_file_picker">This phone has no file picker to save with.</string>
+    <plurals name="msg_files_cleared">
+        <item quantity="one">%d file was removed because its temporary copy was cleared. Please add it again.</item>
+        <item quantity="other">%d files were removed because their temporary copies were cleared. Please add them again.</item>
+    </plurals>
+    <plurals name="msg_result_cleared">
+        <item quantity="one">The PDF was cleared from temporary storage. Please create it again.</item>
+        <item quantity="other">The PDFs were cleared from temporary storage. Please create them again.</item>
+    </plurals>
 </resources>
