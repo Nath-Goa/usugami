@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.pdfer.R
 import io.github.nath_goa.pdfer.core.LayoutSettings
@@ -99,6 +101,8 @@ private fun <T> OptionChip(
                     } else {
                         null
                     },
+                    // The check mark is only drawn; this tells a screen reader which option is chosen.
+                    modifier = Modifier.semantics { this.selected = option == selected },
                 )
             }
         }
