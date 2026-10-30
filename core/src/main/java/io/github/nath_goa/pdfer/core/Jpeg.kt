@@ -66,7 +66,7 @@ object Jpeg {
                         )
                     }
                 }
-                marker == 0xEE && dataLength >= 5 && bytes.startsWithAscii(data, "Adobe") -> adobe = true
+                marker == APP14 && dataLength >= 5 && bytes.startsWithAscii(data, "Adobe") -> adobe = true
             }
             true
         }
@@ -77,9 +77,9 @@ object Jpeg {
     /**
      * Returns the image prepared for embedding: the primary image only, ending at its EOI marker
      * (dropping anything appended after it, such as the video of a "motion photo" or MPF
-     * secondary images), without EXIF/XMP (APP1), Photoshop/IPTC (APP13), comments and MPF
-     * index (APP2 "MPF") segments, which hold metadata like GPS location. Image data is copied
-     * byte for byte, so there is no quality loss.
+     * secondary images), with only the segments decoders need (see [writeIfNeeded]). Everything
+     * else, such as EXIF and XMP with the GPS location, is left out. Image data is copied byte for
+     * byte, so there is no quality loss.
      */
     fun stripForEmbedding(bytes: ByteArray): ByteArray {
         if (bytes.size < 4 || bytes.u8(0) != 0xFF || bytes.u8(1) != 0xD8) throw InvalidJpegException("Not a JPEG file")
@@ -92,24 +92,38 @@ object Jpeg {
                 scanStart = start
                 false
             } else {
-                val data = start + 4
-                val drop = marker == 0xE1 || marker == 0xED || marker == 0xFE ||
-                    (marker == 0xE2 && length >= 6 && bytes.startsWithAscii(data, "MPF\u0000"))
-                if (!drop) out.write(bytes, start, 2 + length)
+                writeIfNeeded(bytes, marker, start, length, out)
                 true
             }
         }
         if (scanStart < 0) throw InvalidJpegException("No image data")
-        val end = findEndOfImage(bytes, scanStart)
-        if (end > 0) {
-            out.write(bytes, scanStart, end - scanStart)
-        } else {
-            // Truncated file: keep what there is and close it so decoders show the partial image.
-            out.write(bytes, scanStart, bytes.size - scanStart)
-            out.write(0xFF)
-            out.write(0xD9)
-        }
+        copyScans(bytes, scanStart, out)
         return out.toByteArray()
+    }
+
+    /**
+     * Copies the segment at [start] to [out] if decoders need it: every segment except
+     * application data (APPn) and comments, plus three kinds of APPn that affect colours: the
+     * JFIF header (APP0, its thumbnail removed, as it could show the photo before it was edited),
+     * ICC profiles (APP2, which may span several segments) and the Adobe marker (APP14). Left out
+     * are EXIF and XMP (APP1), MPF and FlashPix (APP2), content credentials (APP11),
+     * Photoshop/IPTC (APP13), other vendor data and comments.
+     */
+    private fun writeIfNeeded(bytes: ByteArray, marker: Int, start: Int, length: Int, out: ByteArrayOutputStream) {
+        fun hasId(id: String) = length - 2 >= id.length && bytes.startsWithAscii(start + 4, id)
+        when {
+            marker != COM && marker !in APP0..APP15 -> out.write(bytes, start, 2 + length)
+            marker == APP0 && length >= JFIF_LENGTH && hasId("JFIF\u0000") -> {
+                val jfif = bytes.copyOfRange(start, start + 2 + JFIF_LENGTH)
+                jfif[2] = 0
+                jfif[3] = JFIF_LENGTH.toByte()
+                jfif[16] = 0 // thumbnail width
+                jfif[17] = 0 // thumbnail height
+                out.write(jfif)
+            }
+            (marker == APP2 && hasId("ICC_PROFILE\u0000")) || (marker == APP14 && hasId("Adobe")) ->
+                out.write(bytes, start, 2 + length)
+        }
     }
 
     /**
@@ -139,10 +153,14 @@ object Jpeg {
     }
 
     /**
-     * Walks entropy-coded data and any further segments (progressive scans, tables) starting at
-     * the first SOS, and returns the offset just past the EOI marker, or -1 if there is none.
+     * Copies everything from the first SOS through the EOI marker: entropy-coded data and any
+     * further segments (progressive scans, tables), filtered by [writeIfNeeded] like the header.
+     * A truncated file is copied as far as it goes (up to a cut-off segment) and closed so
+     * decoders show the partial image.
      */
-    private fun findEndOfImage(bytes: ByteArray, firstScan: Int): Int {
+    private fun copyScans(bytes: ByteArray, firstScan: Int, out: ByteArrayOutputStream) {
+        var copied = firstScan // everything before this has been written or left out
+        var end = bytes.size // where the copy stops if there is no EOI
         var pos = firstScan + 2 + bytes.u16(firstScan + 2)
         while (pos < bytes.size) {
             if (bytes.u8(pos) != 0xFF) {
@@ -151,26 +169,45 @@ object Jpeg {
             }
             var next = pos + 1
             while (next < bytes.size && bytes.u8(next) == 0xFF) next++
-            if (next >= bytes.size) return -1
+            if (next >= bytes.size) break
             val marker = bytes.u8(next)
             when {
                 marker == 0x00 || marker in 0xD0..0xD7 -> pos = next + 1 // stuffed byte or restart marker
-                marker == 0xD9 -> return next + 1
+                marker == 0xD9 -> {
+                    out.write(bytes, copied, next + 1 - copied)
+                    return
+                }
                 else -> {
-                    if (next + 3 > bytes.size) return -1
-                    val length = bytes.u16(next + 1)
-                    if (length < 2) return -1
-                    pos = next + 1 + length
+                    val start = next - 1
+                    val length = if (next + 3 <= bytes.size) bytes.u16(next + 1) else 0
+                    if (length < 2 || start + 2 + length > bytes.size) {
+                        end = start
+                        break
+                    }
+                    out.write(bytes, copied, start - copied)
+                    writeIfNeeded(bytes, marker, start, length, out)
+                    copied = start + 2 + length
+                    pos = copied
                 }
             }
         }
-        return -1
+        out.write(bytes, copied, end - copied)
+        out.write(0xFF)
+        out.write(0xD9)
     }
 
     private fun isFrameMarker(marker: Int) =
         marker in 0xC0..0xCF && marker != 0xC4 && marker != 0xC8 && marker != 0xCC
 
     private const val SOS = 0xDA
+    private const val COM = 0xFE
+    private const val APP0 = 0xE0
+    private const val APP2 = 0xE2
+    private const val APP14 = 0xEE
+    private const val APP15 = 0xEF
+
+    /** Length field of a JFIF segment without a thumbnail: itself (2) plus 14 bytes of header. */
+    private const val JFIF_LENGTH = 16
 }
 
 private fun ByteArray.u8(index: Int) = this[index].toInt() and 0xFF
