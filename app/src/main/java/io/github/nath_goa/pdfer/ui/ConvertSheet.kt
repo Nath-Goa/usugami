@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,6 +39,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -55,6 +58,7 @@ import io.github.nath_goa.pdfer.core.LayoutSettings
 import io.github.nath_goa.pdfer.core.Margin
 import io.github.nath_goa.pdfer.core.PageSize
 import io.github.nath_goa.pdfer.data.OcrLanguage
+import io.github.nath_goa.pdfer.data.OcrProblem
 
 /** The last step before converting: one PDF or one per image, and the file name. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,10 +82,13 @@ fun ConvertSheet(
     val create = { onCreate(merge, name, compression, if (ocrEnabled) ocrLanguage else null) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        // Scrolls when the sheet doesn't fit (landscape, small screens, keyboard open), so the
+        // Create button can always be reached.
         Column(
             Modifier
                 .fillMaxWidth()
                 .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
         ) {
             Text(stringResource(R.string.convert_title), style = MaterialTheme.typography.headlineSmall)
@@ -248,26 +255,78 @@ private fun summary(imageCount: Int, layout: LayoutSettings): String {
 
 @Composable
 fun ProgressDialog(progress: Progress, onCancel: () -> Unit) {
-    // The bar glides to each new step instead of jumping as every image finishes.
-    val fraction by animateFloatAsState(
-        targetValue = if (progress.total == 0) 0f else progress.done.toFloat() / progress.total,
-        animationSpec = Motion.medium(),
-        label = "progress",
-    )
+    // The bar glides to each new step instead of jumping as every image finishes. Each stage gets
+    // a fresh bar, so it never slides backwards when the next stage starts from zero.
+    val fraction by key(progress.stage) {
+        animateFloatAsState(
+            targetValue = if (progress.total == 0) 0f else progress.done.toFloat() / progress.total,
+            animationSpec = Motion.medium(),
+            label = "progress",
+        )
+    }
     AlertDialog(
         onDismissRequest = {},
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-        title = { Text(stringResource(R.string.creating_pdf)) },
+        title = {
+            Text(
+                stringResource(
+                    when (progress.stage) {
+                        Progress.Stage.DOWNLOAD_OCR -> R.string.ocr_downloading
+                        Progress.Stage.CREATE -> R.string.creating_pdf
+                        Progress.Stage.READ_TEXT -> R.string.ocr_reading
+                    },
+                ),
+            )
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                LinearProgressIndicator(
-                    progress = { fraction },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Text(pluralStringResource(R.plurals.progress_images, progress.total, progress.done, progress.total))
+                if (progress.total == 0) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                } else {
+                    LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                }
+                when (progress.stage) {
+                    Progress.Stage.DOWNLOAD_OCR -> {
+                        if (progress.total > 0) Text(stringResource(R.string.ocr_download_percent, progress.done))
+                        Text(
+                            stringResource(R.string.ocr_download_note),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Progress.Stage.CREATE ->
+                        Text(pluralStringResource(R.plurals.progress_images, progress.total, progress.done, progress.total))
+                    Progress.Stage.READ_TEXT ->
+                        Text(pluralStringResource(R.plurals.progress_pages, progress.total, progress.done, progress.total))
+                }
             }
         },
         confirmButton = {},
         dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** Shown instead of converting when text recognition can't run; the user can turn OCR off and retry. */
+@Composable
+fun OcrProblemDialog(problem: OcrProblem, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.ocr_problem_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    stringResource(
+                        when (problem) {
+                            OcrProblem.NO_PLAY_SERVICES -> R.string.ocr_problem_no_play_services
+                            OcrProblem.PLAY_SERVICES_OUTDATED -> R.string.ocr_problem_outdated
+                            OcrProblem.DOWNLOAD_FAILED -> R.string.ocr_problem_download
+                            OcrProblem.NO_STORAGE -> R.string.ocr_problem_storage
+                        },
+                    ),
+                )
+                Text(stringResource(R.string.ocr_problem_help))
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) } },
     )
 }

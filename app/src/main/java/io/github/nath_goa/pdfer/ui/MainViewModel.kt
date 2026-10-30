@@ -21,6 +21,9 @@ import io.github.nath_goa.pdfer.data.ImageUnreadableException
 import io.github.nath_goa.pdfer.data.PdfExporter
 import io.github.nath_goa.pdfer.data.PdfOcr
 import io.github.nath_goa.pdfer.data.OcrLanguage
+import io.github.nath_goa.pdfer.data.OcrProblem
+import io.github.nath_goa.pdfer.data.OcrUnavailableException
+import io.github.nath_goa.pdfer.data.ocrModels
 import io.github.nath_goa.pdfer.data.PdfFile
 import io.github.nath_goa.pdfer.data.PdfSaver
 import io.github.nath_goa.pdfer.data.SettingsStore
@@ -44,12 +47,16 @@ import java.util.Locale
 
 enum class SortMode { NAME_ASC, NAME_DESC, REVERSE }
 
-data class Progress(val done: Int, val total: Int)
+/** [done] of [total] steps of [stage]; a [total] of 0 means the amount isn't known yet. */
+data class Progress(val done: Int, val total: Int, val stage: Stage = Stage.CREATE) {
+    enum class Stage { DOWNLOAD_OCR, CREATE, READ_TEXT }
+}
 
 class MainViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
     private val store = ImageStore(app)
     private val exporter = PdfExporter(app)
     private val ocr = PdfOcr(app)
+    private val ocrModels = ocrModels(app)
     private val saver = PdfSaver(app)
     private val settingsStore = SettingsStore(app)
     val thumbnails = Thumbnails()
@@ -88,6 +95,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     private val _busySaving = MutableStateFlow(false)
     val busySaving: StateFlow<Boolean> = _busySaving.asStateFlow()
+
+    /** Non-null while the "text recognition isn't available" dialog is showing. */
+    private val _ocrProblem = MutableStateFlow<OcrProblem?>(null)
+    val ocrProblem: StateFlow<OcrProblem?> = _ocrProblem.asStateFlow()
 
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = _messages.receiveAsFlow()
@@ -210,21 +221,27 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         _progress.value = Progress(0, snapshot.size)
         conversion = viewModelScope.launch {
             try {
-                val output = withContext(Dispatchers.IO) {
+                val files = withContext(Dispatchers.IO) {
+                    if (ocrLanguage != null) {
+                        // Before any PDF work, so a missing recognizer is reported straight away.
+                        ocrModels.ensureReady(ocrLanguage) { fraction ->
+                            _progress.value = if (fraction == null) Progress(0, 0, Progress.Stage.DOWNLOAD_OCR)
+                            else Progress((fraction * 100).toInt(), 100, Progress.Stage.DOWNLOAD_OCR)
+                        }
+                        _progress.value = Progress(0, snapshot.size)
+                    }
                     val files = exporter.export(snapshot, layout, compression, merge || snapshot.size == 1, fileName, app.getString(R.string.app_name)) { done ->
                         _progress.value = Progress(done, snapshot.size)
                     }
-                    if (ocrLanguage == null) null to files else {
-                        val recognized = ocr.apply(files, ocrLanguage)
-                        recognized.lineCount to recognized.files
-                    }
+                    if (ocrLanguage == null) files else addTextLayer(files, ocrLanguage)
                 }
-                val (lineCount, files) = output
-                if (lineCount == 0) message(R.string.ocr_no_text)
                 _saved.value = false
                 _result.value = files
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: OcrUnavailableException) {
+                Log.w("PDFer", "Text recognition unavailable", e)
+                _ocrProblem.value = e.problem
             } catch (e: ImageUnreadableException) {
                 message(R.string.msg_convert_failed, app.getString(R.string.msg_image_unreadable, e.imageName))
             } catch (e: IOException) {
@@ -242,8 +259,36 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
     }
 
+    /**
+     * Returns [files] with a searchable text layer. If recognition fails, the PDFs are kept as they
+     * are, without the text layer, and a message says so.
+     */
+    private suspend fun addTextLayer(files: List<PdfFile>, language: OcrLanguage): List<PdfFile> {
+        val pages = files.sumOf { it.pageCount }
+        _progress.value = Progress(0, pages, Progress.Stage.READ_TEXT)
+        return try {
+            val output = ocr.apply(files, language) { done -> _progress.value = Progress(done, pages, Progress.Stage.READ_TEXT) }
+            if (output.lineCount == 0) message(R.string.ocr_no_text)
+            output.files
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("PDFer", "Text recognition failed", e)
+            message(R.string.ocr_failed)
+            files
+        } catch (e: OutOfMemoryError) {
+            Log.w("PDFer", "Text recognition ran out of memory", e)
+            message(R.string.ocr_failed)
+            files
+        }
+    }
+
     fun cancelConversion() {
         conversion?.cancel()
+    }
+
+    fun dismissOcrProblem() {
+        _ocrProblem.value = null
     }
 
     // ---- Result ----
