@@ -181,12 +181,24 @@ abstract class CopyLegalAssets : DefaultTask() {
 }
 
 val copyLegalAssets = tasks.register<CopyLegalAssets>("copyLegalAssets") {
-    sources.from(rootProject.files("LICENSE", "LICENSE-EXCEPTION.md", "PRIVACY.md", "THIRD_PARTY_NOTICES.md"))
+    sources.from(
+        rootProject.files(
+            "LICENSE", "LICENSE-EXCEPTION.md", "PRIVACY.md", "THIRD_PARTY_NOTICES.md",
+            "third_party/google-notices.txt",
+        ),
+    )
+}
+// Notices for the bundled text-recognition libraries, which only the offline edition contains.
+val copyOfflineLegalAssets = tasks.register<CopyLegalAssets>("copyOfflineLegalAssets") {
+    sources.from(rootProject.files("third_party/google-notices-offline.txt"))
 }
 
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(copyLegalAssets, CopyLegalAssets::output)
+        if (variant.productFlavors.contains("ocr" to "offline")) {
+            variant.sources.assets?.addGeneratedSourceDirectory(copyOfflineLegalAssets, CopyLegalAssets::output)
+        }
         val prune = tasks.register<PrunePdfboxAssets>("prune${variant.name.replaceFirstChar(Char::uppercase)}PdfboxAssets")
         variant.artifacts.use(prune)
             .wiredWithDirectories(PrunePdfboxAssets::input, PrunePdfboxAssets::output)
