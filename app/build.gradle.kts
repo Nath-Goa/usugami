@@ -158,8 +158,34 @@ abstract class PrunePdfboxAssets : DefaultTask() {
     }
 }
 
+/** Copies the repo's license, privacy policy and notices into assets/legal/ for the About screen. */
+abstract class CopyLegalAssets : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val sources: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val output: DirectoryProperty
+
+    @get:Inject
+    abstract val fs: FileSystemOperations
+
+    @TaskAction
+    fun copy() {
+        fs.sync {
+            from(sources)
+            into(output.dir("legal"))
+        }
+    }
+}
+
+val copyLegalAssets = tasks.register<CopyLegalAssets>("copyLegalAssets") {
+    sources.from(rootProject.files("LICENSE", "PRIVACY.md", "THIRD_PARTY_NOTICES.md"))
+}
+
 androidComponents {
     onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(copyLegalAssets, CopyLegalAssets::output)
         val prune = tasks.register<PrunePdfboxAssets>("prune${variant.name.replaceFirstChar(Char::uppercase)}PdfboxAssets")
         variant.artifacts.use(prune)
             .wiredWithDirectories(PrunePdfboxAssets::input, PrunePdfboxAssets::output)
