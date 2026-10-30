@@ -141,7 +141,11 @@ class PdfExporter(context: Context) {
         }
     }
 
-    /** Decodes the image shrunk by [scale], flattens any transparency onto white and encodes it as JPEG. */
+    /**
+     * Decodes the image shrunk by [scale], flattens any transparency onto white and encodes it as
+     * JPEG. An Ultra HDR photo decodes with its gain map, and encoding writes that back (an extra
+     * image plus XMP and MPF segments), so the result is stripped like an original.
+     */
     private fun compressToJpeg(item: ImageItem, scale: Double, quality: Int): PageImage.Jpeg {
         var bitmap = decode(item, scale)
         try {
@@ -156,7 +160,7 @@ class PdfExporter(context: Context) {
             }
             val out = ByteArrayOutputStream()
             if (!bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)) throw ImageUnreadableException(item.name)
-            val bytes = out.toByteArray()
+            val bytes = Jpeg.stripForEmbedding(out.toByteArray())
             return PageImage.Jpeg(bytes, Jpeg.parse(bytes))
         } finally {
             bitmap.recycle()
