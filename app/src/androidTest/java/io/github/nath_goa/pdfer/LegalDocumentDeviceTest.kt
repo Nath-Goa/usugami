@@ -27,6 +27,16 @@ class LegalDocumentDeviceTest {
         assertTrue("The GPL text is there, after LICENSE-EXCEPTION.md", gpl > 0)
     }
 
+    @Test fun googleNoticesMatchTheEdition() {
+        assertNotNull("google-notices.txt is missing", loadLegalText(assets, listOf("google-notices.txt")))
+        val offline = loadLegalText(assets, listOf("google-notices-offline.txt"))
+        if (BuildConfig.OCR_BUNDLED) {
+            assertNotNull("The offline edition needs the bundled-OCR notices", offline)
+        } else {
+            assertNull("The standard edition doesn't contain the bundled-OCR libraries", offline)
+        }
+    }
+
     @Test fun missingFilesAreSkipped() {
         assertNull(loadLegalText(assets, listOf("no-such-file.md")))
         val withMissing = loadLegalText(assets, listOf("no-such-file.md", "PRIVACY.md"))
