@@ -134,6 +134,8 @@ dependencies {
  * Drops PDFBox data files that PDFer's code paths never read (about 1.2 MB).
  * Predefined CJK CMaps are only read when PDFBox parses existing CJK fonts (text extraction,
  * rendering, form appearances); PDFer only needs Identity-H for the OCR text layer.
+ * BidiMirroring.txt (7 KB) stays: PDFTextStripper's static initializer crashes without it, and
+ * the device tests use PDFTextStripper to check the OCR text layer.
  */
 abstract class PrunePdfboxAssets : DefaultTask() {
     @get:InputDirectory
@@ -153,7 +155,6 @@ abstract class PrunePdfboxAssets : DefaultTask() {
             into(output)
             exclude { it.path.startsWith("com/tom_roush/fontbox/resources/cmap/") && !it.name.startsWith("Identity-") }
             exclude("com/tom_roush/fontbox/resources/unicode/Scripts.txt")
-            exclude("com/tom_roush/pdfbox/resources/text/BidiMirroring.txt")
         }
     }
 }

@@ -58,6 +58,13 @@
     <string name="ocr_english">English</string>
     <string name="ocr_hindi">Hindi</string>
     <string name="ocr_no_text">No text was recognized. The PDF was created without a text layer.</string>
+    <string name="ocr_failed">Text recognition failed, so the PDF was created without searchable text.</string>
+    <string name="ocr_problem_title">Text recognition isn\'t available</string>
+    <string name="ocr_problem_no_play_services">Google Play services isn\'t available on this phone.</string>
+    <string name="ocr_problem_outdated">Google Play services on this phone needs to be updated first.</string>
+    <string name="ocr_problem_download">Text recognition couldn\'t be downloaded. Check your internet connection and try again.</string>
+    <string name="ocr_problem_storage">There isn\'t enough free storage to download text recognition. Free up some space and try again.</string>
+    <string name="ocr_problem_help">In this edition of PDFer, text recognition comes from Google Play services and needs an internet connection once, to download it. The offline edition of PDFer has it built in. To create the PDF now, turn off OCR and try again.</string>
 
     <!-- Editor -->
     <string name="editor_title">Images to PDF</string>
@@ -133,6 +140,14 @@
         <item quantity="one">%1$d of %2$d image</item>
         <item quantity="other">%1$d of %2$d images</item>
     </plurals>
+    <string name="ocr_downloading">Downloading text recognition…</string>
+    <string name="ocr_download_percent">%1$d%% downloaded</string>
+    <string name="ocr_download_note">This happens only once and needs an internet connection.</string>
+    <string name="ocr_reading">Reading text…</string>
+    <plurals name="progress_pages">
+        <item quantity="one">%1$d of %2$d page</item>
+        <item quantity="other">%1$d of %2$d pages</item>
+    </plurals>
     <string name="cancel">Cancel</string>
 
     <!-- Result -->
@@ -161,6 +176,7 @@
     <string name="discard">Discard</string>
     <string name="clear_title">Remove all images?</string>
     <string name="keep">Keep</string>
+    <string name="ok">OK</string>
 
     <!-- Messages -->
     <plurals name="msg_skipped_unsupported">

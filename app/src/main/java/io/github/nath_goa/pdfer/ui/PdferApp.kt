@@ -39,6 +39,7 @@ fun PdferApp(vm: MainViewModel) {
     val compression by vm.compression.collectAsStateWithLifecycle()
     val pendingImports by vm.pendingImports.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
+    val ocrProblem by vm.ocrProblem.collectAsStateWithLifecycle()
     val result by vm.result.collectAsStateWithLifecycle()
     val saved by vm.saved.collectAsStateWithLifecycle()
     val busySaving by vm.busySaving.collectAsStateWithLifecycle()
@@ -229,6 +230,7 @@ fun PdferApp(vm: MainViewModel) {
     }
 
     progress?.let { ProgressDialog(it, onCancel = vm::cancelConversion) }
+    ocrProblem?.let { OcrProblemDialog(it, onDismiss = vm::dismissOcrProblem) }
 
     if (confirmDiscard) {
         AlertDialog(

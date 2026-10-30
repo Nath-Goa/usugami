@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Standard edition: Google Play services downloads text recognition the first time it is used. -->
+    <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF. The first time, text recognition is downloaded once, which needs an internet connection.</string>
+</resources>

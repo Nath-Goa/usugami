@@ -1,6 +1,8 @@
 package io.github.nath_goa.pdfer
 
+import android.graphics.Rect
 import android.net.Uri
+import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.pdfer.data.OcrLanguage
 import io.github.nath_goa.pdfer.data.PdfCompression
@@ -9,7 +11,10 @@ import io.github.nath_goa.pdfer.data.PdfOcr
 import io.github.nath_goa.pdfer.data.PdfPageRef
 import io.github.nath_goa.pdfer.data.PdfPasswordRequired
 import io.github.nath_goa.pdfer.data.PdfToolsEngine
+import io.github.nath_goa.pdfer.data.ocrModels
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -91,20 +96,67 @@ class PdfToolsDeviceTest {
         }
     }
 
-    @Test fun offlineOcrEnglishAndHindi() = runBlocking {
+    /** Standard edition: Play services downloads the model the first time (needs internet). */
+    private suspend fun ensureOcrReady(language: OcrLanguage) {
+        ocrModels(context).ensureReady(language) { fraction -> Log.i(TAG, "Downloading $language text recognition: $fraction") }
+    }
+
+    @Test fun ocrEnglishAndHindi() = runBlocking {
         val ocr = PdfOcr(context)
         for ((language, fixtureName, expected) in listOf(
             Triple(OcrLanguage.ENGLISH, "english_image.pdf", "SCHOOL NOTES"),
             Triple(OcrLanguage.HINDI, "hindi_image.pdf", "भारत"),
         )) {
+            ensureOcrReady(language)
             val original = fixture(fixtureName)
             val working = original.copyTo(File(context.filesDir, "ocr_${language.name}.pdf"), overwrite = true)
             assertTrue(text(working).isBlank())
-            val output = ocr.apply(listOf(PdfFile(working, 1, original.length())), language)
+            val pages = ArrayList<Int>()
+            val output = ocr.apply(listOf(PdfFile(working, 1, original.length())), language) { pages += it }
             assertTrue("No OCR lines for $language", output.lineCount > 0)
+            assertEquals(listOf(1), pages)
+            assertFalse("The original should be replaced", working.exists())
             val searchable = save(output.files.single().file, "ocr_${language.name.lowercase()}.pdf")
             assertEquals(1, PDDocument.load(searchable).use { it.numberOfPages })
             assertTrue("Missing $expected in ${text(searchable)}", text(searchable).contains(expected))
         }
+    }
+
+    @Test fun ocrFailureLeavesPdfsUntouched() = runBlocking {
+        ensureOcrReady(OcrLanguage.ENGLISH)
+        val dir = File(context.filesDir, "ocr_failure").apply { deleteRecursively(); mkdirs() }
+        val good = fixture("english_image.pdf").copyTo(File(dir, "good.pdf"))
+        val broken = File(dir, "broken.pdf").apply { writeText("not a PDF") }
+        try {
+            PdfOcr(context).apply(listOf(PdfFile(good, 1, good.length()), PdfFile(broken, 1, broken.length())), OcrLanguage.ENGLISH)
+            fail("The broken file should make OCR fail")
+        } catch (_: Exception) {
+        }
+        assertEquals(setOf("good.pdf", "broken.pdf"), dir.list()!!.toSet())
+        assertTrue(text(good).isBlank())
+    }
+
+    /** Hindi mode recognizes Latin text too; the text layer must keep both scripts. */
+    @Test fun textLayerKeepsDevanagariAndLatin() = runBlocking {
+        val blank = File(context.filesDir, "blank.pdf")
+        PDDocument().use { doc ->
+            doc.addPage(PDPage(PDRectangle.A4))
+            doc.save(blank)
+        }
+        // A4 page rendered at 2.0 scale: 1190 × 1684 pixels.
+        val lines = listOf(
+            "भारत India 2024 test@example.com",
+            "क्षत्रिय श्री ₹500 Hello, World!",
+        ).mapIndexed { index, line -> PdfOcr.Line(0, line, Rect(100, 100 + index * 80, 1000, 150 + index * 80), 1190, 1684) }
+        val output = PdfOcr(context).embed(PdfFile(blank, 1, blank.length()), lines)
+        assertTrue("The source should be left alone", blank.exists())
+        val extracted = text(save(output.file, "ocr_mixed_scripts.pdf"))
+        for (expected in listOf("भारत India 2024 test@example.com", "क्षत्रिय श्री ₹500 Hello, World!")) {
+            assertTrue("Missing \"$expected\" in \"$extracted\"", extracted.contains(expected))
+        }
+    }
+
+    private companion object {
+        const val TAG = "PdferTest"
     }
 }

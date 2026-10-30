@@ -6,9 +6,12 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import androidx.annotation.VisibleForTesting
 import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
@@ -17,10 +20,12 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
 import com.tom_roush.pdfbox.pdmodel.graphics.state.RenderingMode
+import io.github.nath_goa.pdfer.core.FileNames
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ExecutionException
 
 enum class OcrLanguage { ENGLISH, HINDI }
 
@@ -28,30 +33,40 @@ data class OcrOutput(val files: List<PdfFile>, val lineCount: Int)
 
 /** Adds an invisible text layer to PDFs made from images. */
 class PdfOcr(private val context: Context) {
-    private data class Line(val page: Int, val text: String, val bounds: Rect, val pixelWidth: Int, val pixelHeight: Int)
+    /** One recognized line; [bounds] is in pixels of the [pixelWidth] × [pixelHeight] page image. */
+    @VisibleForTesting
+    internal data class Line(val page: Int, val text: String, val bounds: Rect, val pixelWidth: Int, val pixelHeight: Int)
 
     init { PDFBoxResourceLoader.init(context.applicationContext) }
 
-    suspend fun apply(files: List<PdfFile>, language: OcrLanguage): OcrOutput {
-        val recognizer = when (language) {
-            OcrLanguage.ENGLISH -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            OcrLanguage.HINDI -> TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
-        }
-        var count = 0
+    /**
+     * Returns [files] with a text layer added (as `<name>_searchable.pdf`; files without any text
+     * are returned as they are). [onPage] receives the number of pages read so far, across all files.
+     * If anything fails, every file is left as it was and the exception is rethrown.
+     */
+    suspend fun apply(files: List<PdfFile>, language: OcrLanguage, onPage: (Int) -> Unit = {}): OcrOutput {
+        val made = ArrayList<PdfFile>()
         try {
-            val results = files.map { source ->
-                currentCoroutineContext().ensureActive()
-                val lines = recognize(source.file, recognizer)
-                count += lines.size
-                if (lines.isEmpty()) source else embed(source, lines)
+            var count = 0
+            var pagesDone = 0
+            val results = newRecognizer(language).use { recognizer ->
+                files.map { source ->
+                    currentCoroutineContext().ensureActive()
+                    val lines = recognize(source.file, recognizer) { onPage(++pagesDone) }
+                    count += lines.size
+                    if (lines.isEmpty()) source else embed(source, lines).also { made += it }
+                }
             }
+            // The originals are only replaced once every file has its text layer.
+            files.filter { it !in results }.forEach { it.file.delete() }
             return OcrOutput(results, count)
-        } finally {
-            recognizer.close()
+        } catch (e: Throwable) {
+            made.forEach { it.file.delete() }
+            throw e
         }
     }
 
-    private suspend fun recognize(file: File, recognizer: com.google.mlkit.vision.text.TextRecognizer): List<Line> {
+    private suspend fun recognize(file: File, recognizer: TextRecognizer, onPageDone: () -> Unit): List<Line> {
         val lines = ArrayList<Line>()
         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
             PdfRenderer(descriptor).use { renderer ->
@@ -65,7 +80,17 @@ class PdfOcr(private val context: Context) {
                         try {
                             bitmap.eraseColor(Color.WHITE)
                             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                            val text = Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0)))
+                            val text = try {
+                                Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0)))
+                            } catch (e: ExecutionException) {
+                                // Standard edition: Play services doesn't have the model (not
+                                // downloaded yet, or removed since).
+                                val cause = e.cause
+                                if (cause is MlKitException && cause.errorCode == MlKitException.UNAVAILABLE) {
+                                    throw OcrUnavailableException(OcrProblem.DOWNLOAD_FAILED, cause)
+                                }
+                                throw e
+                            }
                             for (block in text.textBlocks) for (line in block.lines) {
                                 val box = line.boundingBox ?: continue
                                 if (line.text.isNotBlank()) lines += Line(i, line.text, box, width, height)
@@ -74,15 +99,20 @@ class PdfOcr(private val context: Context) {
                             bitmap.recycle()
                         }
                     }
+                    onPageDone()
                 }
             }
         }
         return lines
     }
 
-    private suspend fun embed(source: PdfFile, lines: List<Line>): PdfFile {
+    /** Writes a copy of [source] with [lines] as invisible text; [source] itself is left untouched. */
+    @VisibleForTesting
+    internal suspend fun embed(source: PdfFile, lines: List<Line>): PdfFile {
         val original = source.file
-        val target = File(original.parentFile, "${original.nameWithoutExtension}_searchable.pdf")
+        // Never overwrite another PDF, e.g. one made from an image that was itself named "x_searchable".
+        val taken = original.parentFile?.list().orEmpty().mapTo(HashSet()) { FileNames.baseName(it) }
+        val target = File(original.parentFile, FileNames.unique("${original.nameWithoutExtension}_searchable", taken) + ".pdf")
         val scratchDir = File(context.cacheDir, "pdfbox").apply { mkdirs() }
         PDDocument.load(original, "", MemoryUsageSetting.setupMixed(24L * 1024 * 1024).setTempDir(scratchDir)).use { doc ->
             // One glyph-less font covers Latin and Devanagari, so Hindi mode keeps English words too.
@@ -128,11 +158,16 @@ class PdfOcr(private val context: Context) {
             }
             doc.save(target)
         }
-        original.delete()
         return PdfFile(target, source.pageCount, source.originalBytes)
     }
 
-    private companion object {
-        const val OCR_FONT = "fonts/PdferOcr-Regular.ttf"
+    companion object {
+        private const val OCR_FONT = "fonts/PdferOcr-Regular.ttf"
+
+        /** Both editions use the same ML Kit API; only where the model comes from differs. */
+        fun newRecognizer(language: OcrLanguage): TextRecognizer = when (language) {
+            OcrLanguage.ENGLISH -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            OcrLanguage.HINDI -> TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
+        }
     }
 }
