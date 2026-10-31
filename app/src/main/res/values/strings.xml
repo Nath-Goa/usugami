@@ -21,7 +21,7 @@
     <string name="pdf_certificate_unsupported">This PDF is locked with a certificate (digital ID). Usugami can only open PDFs locked with a password.</string>
     <string name="pdf_wrong_password">That password didn\'t open the PDF.</string>
     <string name="pdf_password_title">PDF password</string>
-    <string name="pdf_password_body">This file is protected. Enter its password to continue.</string>
+    <string name="pdf_password_body">\"%1$s\" is protected. Enter its password to continue.</string>
     <string name="pdf_password_hint">Password</string>
     <string name="pdf_unlock">Open PDF</string>
     <string name="pdf_invalid_pages">Check the page numbers and try again.</string>

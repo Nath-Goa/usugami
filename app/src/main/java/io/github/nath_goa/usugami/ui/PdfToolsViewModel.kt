@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -19,6 +20,7 @@ import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.PdfWrongPassword
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,9 +44,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     val inputs: StateFlow<List<PdfInput>> = handle.getStateFlow(KEY_INPUTS, ArrayList<PdfInput>())
     val pages: StateFlow<List<PdfPageRef>> = handle.getStateFlow(KEY_PAGES, ArrayList<PdfPageRef>())
+    /** Picked PDFs that need a password, in the order they were picked. The dialog asks for the first. */
+    val locked: StateFlow<List<PdfInput>> = handle.getStateFlow(KEY_LOCKED, ArrayList<PdfInput>())
 
-    private val _locked = MutableStateFlow<PdfInput?>(null)
-    val locked = _locked.asStateFlow()
+    /** The password is being tried on the first locked PDF. */
+    private val _unlocking = MutableStateFlow(false)
+    val unlocking = _unlocking.asStateFlow()
+    /** The last password tried on the first locked PDF didn't open it. */
+    private val _wrongPassword = MutableStateFlow(false)
+    val wrongPassword = _wrongPassword.asStateFlow()
     private val _result = MutableStateFlow<List<PdfFile>?>(null)
     val result = _result.asStateFlow()
     private val _processing = MutableStateFlow(false)
@@ -61,12 +69,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
 
-    private var nextId = maxOf(System.currentTimeMillis(), (inputs.value.maxOfOrNull { it.id } ?: 0) + 1)
+    private var nextId = maxOf(System.currentTimeMillis(), ((inputs.value + locked.value).maxOfOrNull { it.id } ?: 0) + 1)
     private var task: Job? = null
     private var importJob: Job? = null
+    /** Changes when an import starts or is abandoned, so an abandoned one knows to stay quiet. */
+    private var importGeneration = 0
 
     init {
-        val keep = if (restored) inputs.value else emptyList()
+        val keep = if (restored) inputs.value + locked.value else emptyList()
         viewModelScope.launch {
             val missing = withContext(fileOps) {
                 // Leftovers from an earlier session, including PDFBox scratch files from a killed run.
@@ -83,66 +93,91 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun addPdfs(uris: List<Uri>, replace: Boolean) {
         if (uris.isEmpty() || _processing.value || _importing.value) return
         _importing.value = true
+        val generation = ++importGeneration
         importJob = viewModelScope.launch {
+            val job = coroutineContext[Job]!!
+            // reset() abandons an import by cancelling it, but a PDF already being read still finishes,
+            // and its outcome reaches here. Then it belongs to a tool that has gone: say nothing.
+            fun abandoned() = generation != importGeneration
+            fun failed(@StringRes reason: Int) { if (!abandoned()) message(app.getString(reason)) }
             if (replace) clearInputs()
             try {
                 for (uri in uris) {
                     val id = nextId++
                     try {
-                        val input = withContext(fileOps) { engine.import(uri, id) }
+                        val input = withContext(fileOps) { engine.import(uri, id) { job.ensureActive() } }
                         append(input)
                     } catch (e: PdfPasswordRequired) {
-                        _locked.value = e.input
+                        // Each locked PDF waits its turn in the password dialog. reset() deletes the copy
+                        // of an abandoned one.
+                        if (!abandoned()) setLocked(locked.value + e.input)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: PdfCertificateEncrypted) {
-                        message(app.getString(R.string.pdf_certificate_unsupported))
+                        failed(R.string.pdf_certificate_unsupported)
                     } catch (_: Exception) {
-                        message(app.getString(R.string.pdf_import_failed))
+                        failed(R.string.pdf_import_failed)
                     } catch (_: LinkageError) {
                         // Never crash on a PDF that PDFBox can't handle.
-                        message(app.getString(R.string.pdf_import_failed))
+                        failed(R.string.pdf_import_failed)
                     } catch (_: OutOfMemoryError) {
                         // A PDF with a huge number of objects can exhaust the heap while it is read.
-                        message(app.getString(R.string.pdf_import_failed))
+                        failed(R.string.pdf_import_failed)
                     }
                 }
             } finally {
-                _importing.value = false
+                // After reset() a newer import may be running, and it owns the flag.
+                if (!abandoned()) _importing.value = false
             }
         }
     }
 
     private var unlockJob: Job? = null
 
-    fun unlock(password: String) {
-        val pending = _locked.value ?: return
+    /** Tries [password] on [pending], the first locked PDF. A wrong one is reported in the dialog. */
+    fun unlock(pending: PdfInput, password: String) {
         // A second tap while the first unlock is still loading would add the same PDF twice.
-        if (unlockJob?.isActive == true) return
+        if (locked.value.firstOrNull() != pending || _unlocking.value) return
+        _unlocking.value = true
+        _wrongPassword.value = false
         unlockJob = viewModelScope.launch {
+            // The dialog may have been cancelled while loading, and its file deleted.
+            fun stillAsked() = locked.value.firstOrNull() == pending
             try {
-                val input = withContext(fileOps) { engine.inspect(pending, password) }
-                // The dialog may have been cancelled while loading; its file is already deleted.
-                if (_locked.value != pending) return@launch
-                _locked.value = null
+                val input = withContext(fileOps) { engine.unlock(pending, password) }
+                if (!stillAsked()) return@launch
+                setLocked(locked.value.drop(1))
                 append(input)
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: PdfCertificateEncrypted) {
-                message(app.getString(R.string.pdf_certificate_unsupported))
-            } catch (_: Exception) {
-                message(app.getString(R.string.pdf_wrong_password))
+            } catch (_: PdfWrongPassword) {
+                if (stillAsked()) _wrongPassword.value = true
+            } catch (e: Exception) {
+                if (stillAsked()) unlockFailed(pending, if (e is PdfCertificateEncrypted) R.string.pdf_certificate_unsupported else R.string.pdf_import_failed)
             } catch (_: LinkageError) {
-                message(app.getString(R.string.pdf_import_failed))
+                if (stillAsked()) unlockFailed(pending, R.string.pdf_import_failed)
             } catch (_: OutOfMemoryError) {
-                message(app.getString(R.string.pdf_import_failed))
+                if (stillAsked()) unlockFailed(pending, R.string.pdf_import_failed)
+            } finally {
+                _unlocking.value = false
             }
         }
     }
 
-    fun dismissPassword() {
-        val pending = _locked.value ?: return
-        _locked.value = null
+    /** No password will open [pending] (it is damaged, or its copy has gone): drop it, and say why. */
+    private fun unlockFailed(pending: PdfInput, @StringRes reason: Int) {
+        if (!pending.file.isFile) return forgetInputs(listOf(pending))
+        dismissPassword(pending)
+        message(app.getString(reason))
+    }
+
+    fun clearWrongPassword() { _wrongPassword.value = false }
+
+    /** Skips [pending], the first locked PDF; the dialog moves on to the next one. */
+    fun dismissPassword(pending: PdfInput) {
+        if (locked.value.firstOrNull() != pending) return
+        setLocked(locked.value.drop(1))
+        _wrongPassword.value = false
         viewModelScope.launch(fileOps) { engine.delete(pending) }
     }
 
@@ -157,6 +192,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val ids = missing.mapTo(HashSet()) { it.id }
         setInputs(inputs.value.filterNot { it.id in ids })
         setPages(pages.value.filterNot { it.inputId in ids })
+        setLocked(locked.value.filterNot { it.id in ids })
         pluralMessage(R.plurals.msg_files_cleared, ids.size)
     }
 
@@ -303,10 +339,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         importJob?.cancel()
         unlockJob?.cancel()
         task?.cancel()
-        _locked.value = null
+        // The abandoned import stops at its next chunk; the next tool can import straight away.
+        importGeneration++
+        importJob = null
+        _importing.value = false
+        _wrongPassword.value = false
         _result.value = null
         setInputs(emptyList())
         setPages(emptyList())
+        setLocked(emptyList())
         // Every copy goes, including one still being imported or waiting for its password. File work
         // runs one task at a time, so this waits for a cancelled import or run to stop first.
         viewModelScope.launch(fileOps) {
@@ -316,9 +357,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     private fun clearInputs() {
-        val old = inputs.value
+        val old = inputs.value + locked.value
         setInputs(emptyList())
         setPages(emptyList())
+        setLocked(emptyList())
+        _wrongPassword.value = false
         old.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
     }
 
@@ -400,6 +443,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     private fun setInputs(list: List<PdfInput>) { handle[KEY_INPUTS] = ArrayList(list) }
     private fun setPages(list: List<PdfPageRef>) { handle[KEY_PAGES] = ArrayList(list) }
+    private fun setLocked(list: List<PdfInput>) { handle[KEY_LOCKED] = ArrayList(list) }
     private fun message(text: String) { _messages.trySend(text) }
     private fun pluralMessage(@PluralsRes res: Int, count: Int) = message(app.resources.getQuantityString(res, count, count))
 
@@ -413,12 +457,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     override fun onCleared() {
         // Not when the system merely destroyed the activity: the saved state still lists the copies.
         if (!finishing) return
-        val old = inputs.value
+        val old = inputs.value + locked.value
         Thread { old.forEach(engine::delete) }.start()
     }
 
     private companion object {
         const val KEY_INPUTS = "pdf_inputs"
         const val KEY_PAGES = "pdf_pages"
+        const val KEY_LOCKED = "pdf_locked"
     }
 }

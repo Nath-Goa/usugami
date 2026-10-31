@@ -40,6 +40,9 @@ enum class PdfCompression(val dpi: Int, val quality: Float) {
 
 class PdfPasswordRequired(val input: PdfInput) : IOException("Password required")
 
+/** The password given to [PdfToolsEngine.unlock] didn't open the PDF. */
+class PdfWrongPassword : IOException("Wrong password")
+
 /** The PDF is encrypted for a certificate (digital ID) rather than with a password; Usugami can't open those. */
 class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encrypted PDFs aren't supported", cause)
 
@@ -72,14 +75,27 @@ class PdfToolsEngine(private val context: Context) {
         inputDir.listFiles()?.forEach { if (it.name !in names) it.delete() }
     }
 
-    /** A local copy keeps access after the system document picker's grant expires. */
-    fun import(uri: Uri, id: Long, password: String = ""): PdfInput {
+    /**
+     * A local copy keeps access after the system document picker's grant expires. [check] is called
+     * between chunks of the copy and throws to stop it: a large PDF from a cloud provider can take a while.
+     */
+    fun import(uri: Uri, id: Long, password: String = "", check: () -> Unit = {}): PdfInput {
         inputDir.mkdirs()
         val file = File(inputDir, "$id.pdf")
         val inputInfo = PdfInput(id, file.path, displayName(uri) ?: "Document.pdf", 0, password)
         try {
             val input = context.contentResolver.openInputStream(uri) ?: throw IOException("Could not open PDF")
-            input.use { source -> file.outputStream().use { source.copyTo(it, 64 * 1024) } }
+            input.use { source ->
+                file.outputStream().use { target ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        check()
+                        val read = source.read(buffer)
+                        if (read < 0) break
+                        target.write(buffer, 0, read)
+                    }
+                }
+            }
             if (!hasPdfHeader(file)) throw IOException("This file is not a PDF")
             return inspect(inputInfo, password)
         } catch (e: InvalidPasswordException) {
@@ -97,6 +113,13 @@ class PdfToolsEngine(private val context: Context) {
             if (doc.numberOfPages == 0) throw IOException("This PDF has no pages")
             input.copy(pageCount = doc.numberOfPages, password = password)
         }
+
+    /** Opens a copy that [import] found locked; throws [PdfWrongPassword] if [password] doesn't fit. */
+    fun unlock(input: PdfInput, password: String): PdfInput = try {
+        inspect(input, password)
+    } catch (_: InvalidPasswordException) {
+        throw PdfWrongPassword()
+    }
 
     fun split(input: PdfInput, groups: List<List<Int>>, baseName: String, check: () -> Unit = {}): List<PdfFile> {
         require(groups.isNotEmpty() && groups.all { it.isNotEmpty() })
