@@ -31,6 +31,7 @@ class ImageStore(context: Context) {
         dir.mkdirs()
         val name = displayName(uri) ?: "Image"
         val tmp = File(dir, "$id.tmp")
+        var stored: File? = null
         try {
             val format = resolver.openInputStream(uri)?.use { raw ->
                 val input = raw.buffered(64 * 1024)
@@ -49,6 +50,7 @@ class ImageStore(context: Context) {
 
             val file = File(dir, "$id.${format.extension}")
             if (!tmp.renameTo(file)) throw IOException("rename failed")
+            stored = file
 
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(file.path, bounds)
@@ -69,6 +71,11 @@ class ImageStore(context: Context) {
             )
         } catch (e: Exception) {
             // SecurityException (access revoked), IOException (provider or storage failure), ...
+            stored?.delete()
+            return ImportResult.Failed
+        } catch (e: OutOfMemoryError) {
+            // A damaged or crafted file can make a decoder ask for a huge buffer.
+            stored?.delete()
             return ImportResult.Failed
         } finally {
             tmp.delete()
@@ -106,6 +113,9 @@ class ImageStore(context: Context) {
             .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
             .takeIf { it in 1..8 } ?: 1
     } catch (e: Exception) {
+        1
+    } catch (e: OutOfMemoryError) {
+        // ExifInterface allocates whatever a PNG chunk's length field says before reading it.
         1
     }
 

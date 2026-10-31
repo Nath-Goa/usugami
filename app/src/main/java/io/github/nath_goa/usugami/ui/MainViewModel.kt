@@ -113,6 +113,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var nextId = maxOf(System.currentTimeMillis(), (items.value.maxOfOrNull { it.id } ?: 0L) + 1)
     private var conversion: Job? = null
 
+    /** Bumped by [clearAll], so imports still running drop their images instead of bringing the list back. */
+    private var importGeneration = 0
+
     /**
      * The choices of the last attempt that made no PDF (text recognition wasn't available, it failed
      * or it was cancelled), so the Convert sheet opens with them again instead of the defaults.
@@ -143,13 +146,20 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
         _result.value = null
         _pendingImports.update { it + uris.size }
+        val generation = importGeneration
         viewModelScope.launch {
             var unsupported = 0
             var failed = refused
             try {
                 for (uri in uris) {
                     val id = nextId++
-                    when (val r = withContext(fileOps) { store.import(uri, id) }) {
+                    val r = withContext(fileOps) { store.import(uri, id) }
+                    if (generation != importGeneration) {
+                        // Discarded while it was being copied.
+                        if (r is ImageStore.ImportResult.Added) viewModelScope.launch(fileOps) { store.delete(r.item) }
+                        return@launch
+                    }
+                    when (r) {
                         is ImageStore.ImportResult.Added -> setItems(items.value + r.item)
                         ImageStore.ImportResult.Unsupported -> unsupported++
                         ImageStore.ImportResult.Failed -> failed++
@@ -157,8 +167,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     _pendingImports.update { it - 1 }
                 }
             } finally {
-                if (unsupported > 0) pluralMessage(R.plurals.msg_skipped_unsupported, unsupported)
-                if (failed > 0) pluralMessage(R.plurals.msg_failed_import, failed)
+                // Nothing to report about images the user has discarded.
+                if (generation == importGeneration) {
+                    if (unsupported > 0) pluralMessage(R.plurals.msg_skipped_unsupported, unsupported)
+                    if (failed > 0) pluralMessage(R.plurals.msg_failed_import, failed)
+                }
             }
         }
     }
@@ -174,7 +187,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         viewModelScope.launch(fileOps) { store.delete(item) }
     }
 
+    /** Removes every image, including those still being imported. */
     fun clearAll() {
+        importGeneration++
+        _pendingImports.value = 0
         val all = items.value
         setItems(emptyList())
         all.forEach { thumbnails.remove(it.id) }
@@ -392,7 +408,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     /** Saves the single result into a document created with the system "Save as" screen. */
     fun saveTo(uri: Uri) {
-        val file = _result.value?.singleOrNull() ?: return
+        val file = _result.value?.singleOrNull()
+        if (file == null) {
+            // The system restarted Usugami while the screen was open, which cleared the PDF. Remove
+            // the empty document the screen made, and say so.
+            viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
+            resultCleared(1)
+            return
+        }
         save {
             saver.saveTo(file.file, uri)
             app.getString(R.string.msg_saved)
@@ -401,7 +424,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     /** Saves every result into a folder picked with the system folder picker. */
     fun saveToFolder(tree: Uri) {
-        val files = _result.value ?: return
+        // As in saveTo; the folder picker offered for several PDFs creates nothing itself.
+        val files = _result.value ?: return resultCleared(2)
         save {
             saver.saveToFolder(files.map { it.file }, tree)
             app.resources.getQuantityString(R.plurals.msg_saved_folder, files.size, files.size)
@@ -442,9 +466,19 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         _messages.trySend(app.resources.getQuantityString(res, count, count))
     }
 
+    private var finishing = false
+
+    /** Called when the activity is finishing for good, so [onCleared] can free the copies. */
+    fun activityFinishing() {
+        finishing = true
+    }
+
     override fun onCleared() {
-        // The activity is finishing for good: picked copies are no longer needed. Finished PDFs
-        // are kept until the next launch in case another app is still reading a shared one.
+        // A view model is also cleared when the system destroys the activity but keeps the process.
+        // The saved state still lists the copies then, so they're only freed when the user has left
+        // for good. Anything left behind goes at the next fresh launch. Finished PDFs are kept until
+        // then in case another app is still reading a shared one.
+        if (!finishing) return
         val all = items.value
         Thread { all.forEach(store::delete) }.start()
     }

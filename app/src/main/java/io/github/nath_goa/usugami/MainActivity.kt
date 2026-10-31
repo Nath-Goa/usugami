@@ -11,11 +11,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.core.content.IntentCompat
 import io.github.nath_goa.usugami.ui.MainViewModel
+import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.UsugamiApp
 import io.github.nath_goa.usugami.ui.UsugamiTheme
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
+    // The same instance UsugamiApp gets from viewModel().
+    private val pdfToolsViewModel: PdfToolsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -26,6 +29,17 @@ class MainActivity : ComponentActivity() {
             UsugamiTheme {
                 UsugamiApp(viewModel)
             }
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // The view models are cleared before onDestroy, and also when the system destroys the
+        // activity without finishing it (the saved state then still lists the working copies).
+        // Tell them here whether the user is leaving for good, so only then are the copies freed.
+        if (isFinishing) {
+            viewModel.activityFinishing()
+            pdfToolsViewModel.activityFinishing()
         }
     }
 
