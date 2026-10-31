@@ -22,7 +22,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -211,6 +213,9 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
     val content by produceState<DocumentContent>(DocumentContent.Loading, document) {
         value = withContext(Dispatchers.IO) { document.load(assets) }?.let(DocumentContent::Ready) ?: DocumentContent.Missing
     }
+    // Out here, not in the Crossfade, so the reading position survives rotation: the Crossfade keys
+    // its content by the Ready instance, and a recreated screen reads the document into a new one.
+    val listState = rememberLazyListState()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -234,18 +239,19 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(padding).padding(horizontal = 20.dp, vertical = 16.dp),
                 )
-                is DocumentContent.Ready -> DocumentText(state.blocks, padding)
+                is DocumentContent.Ready -> DocumentText(state.blocks, padding, listState)
             }
         }
     }
 }
 
 @Composable
-private fun DocumentText(blocks: List<TextBlock>, padding: PaddingValues) {
+private fun DocumentText(blocks: List<TextBlock>, padding: PaddingValues, listState: LazyListState) {
     val layoutDirection = LocalLayoutDirection.current
     // A lazy list, so only the paragraphs on screen are laid out.
     LazyColumn(
         Modifier.fillMaxSize(),
+        state = listState,
         contentPadding = PaddingValues(
             start = padding.calculateStartPadding(layoutDirection) + 20.dp,
             top = padding.calculateTopPadding() + 8.dp,
