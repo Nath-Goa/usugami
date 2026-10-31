@@ -150,7 +150,9 @@ fun ConvertSheet(
                         selected = compression == level,
                         onClick = { compression = level },
                         shape = SegmentedButtonDefaults.itemShape(index, Compression.entries.size),
-                        label = { Text(compressionLabel(level), maxLines = 1) },
+                        icon = {},
+                        contentPadding = SegmentPadding,
+                        label = { SegmentLabel(compressionLabel(level)) },
                     )
                 }
             }
@@ -198,7 +200,9 @@ fun ConvertSheet(
                                 selected = ocrLanguage == language,
                                 onClick = { ocrLanguage = language },
                                 shape = SegmentedButtonDefaults.itemShape(index, OcrLanguage.entries.size),
-                                label = { Text(stringResource(if (language == OcrLanguage.ENGLISH) R.string.ocr_english else R.string.ocr_hindi)) },
+                                icon = {},
+                                contentPadding = SegmentPadding,
+                                label = { SegmentLabel(stringResource(if (language == OcrLanguage.ENGLISH) R.string.ocr_english else R.string.ocr_hindi)) },
                             )
                         }
                     }
