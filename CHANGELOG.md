@@ -6,7 +6,7 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
-## [1.2.0] - 2026-10-30
+## [1.2.0] - 2026-10-31
 
 First public release, under a new name: PDFer is now **Usugami** (薄紙, Japanese for "thin paper").
 It is open source (GPL-3.0-or-later) and comes in two editions.
@@ -20,14 +20,14 @@ them. Install 1.2.0, then uninstall the old "PDFer".
 - Two editions with the same package name and signing key. Install one over the other to switch;
   your files and settings are kept.
   - **Usugami** (`Usugami.apk`, about 2.4 MB): text recognition (OCR) runs through Google Play
-    services. The first time you use it, Play services downloads Google's text-recognition model
-    once, which needs an internet connection that one time.
-  - **Usugami Offline** (`Usugami-offline.apk`, about 22 MB, ARM phones): the text-recognition model is
+    services. The first time you use each language (English or Hindi), Play services downloads
+    its text-recognition model, which needs an internet connection then.
+  - **Usugami Offline** (`Usugami-offline.apk`, about 22 MB, ARM phones): the text-recognition models are
     built in. Works with no internet at all and without Google Play services.
-- Text recognition shows its progress: the one-time download in the standard edition (with a
+- Text recognition shows its progress: the model download in the standard edition (with a
   percentage when known), creating the PDF, then reading the text page by page.
 - If text recognition isn't available, for example without Google Play services or without
-  internet for the first download, Usugami explains why and mentions Usugami Offline. If recognition
+  internet for the model download, Usugami explains why and mentions Usugami Offline. If recognition
   fails after the PDF is made, you keep the PDF without searchable text.
 - About screen with the license, the privacy policy and the open-source licenses, readable
   without internet.
@@ -49,8 +49,10 @@ them. Install 1.2.0, then uninstall the old "PDFer".
 - Photo metadata is removed with an allow-list: only what is needed to display the image is kept,
   so every other kind of embedded metadata is removed too, not only EXIF/GPS, XMP, IPTC and
   comments.
-- Google ML Kit's built-in usage-metrics uploader is removed from the app. (Usugami has no internet
-  permission, so it could never send anything; now ML Kit doesn't store those metrics either.)
+- Google ML Kit's built-in usage-metrics uploader is disabled. (Usugami has no internet
+  permission, so it could never upload them itself; now ML Kit doesn't store those metrics either.)
+- Usugami no longer starts EmojiCompat, which asked Google Play services for an emoji font every
+  time the app opened. Emoji are shown with the phone's own font.
 
 ### Fixed
 

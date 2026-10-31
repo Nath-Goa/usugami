@@ -138,8 +138,8 @@ Copyright Google LLC. Google ML Kit uses these internally.
 - com.google.firebase: firebase-annotations 16.0.0, firebase-components 16.1.0,
   firebase-encoders 16.1.0, firebase-encoders-json 17.1.0
 
-Usugami removes the upload backend of DataTransport from the app, and the app has no internet
-permission.
+Usugami unregisters DataTransport's upload backend, so ML Kit's usage metrics are dropped, and
+the app has no internet permission.
 
 ### Small libraries
 
@@ -406,8 +406,8 @@ Usugami Offline only, under the ML Kit Terms of Service:
   text-recognition-bundled-common 17.0.0. These contain the text-recognition models and the
   native recognition library (libmlkit_google_ocr_pipeline.so).
 
-In the standard edition, the text-recognition model is not part of Usugami. Google Play services
-downloads it on first use, under Google's own terms.
+In the standard edition, the text-recognition models are not part of Usugami. Google Play
+services downloads each language's model the first time it is used, under Google's own terms.
 
 Google's API terms: https://developers.google.com/terms
 
