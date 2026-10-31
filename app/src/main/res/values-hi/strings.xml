@@ -20,6 +20,8 @@
     <string name="tool_page_numbers_detail">पेज के ऊपर या नीचे नंबर लगाएं</string>
     <string name="tool_watermark">वॉटरमार्क जोड़ें</string>
     <string name="tool_watermark_detail">हर पेज पर तिरछा टेक्स्ट लगाएं</string>
+    <string name="tool_sign">PDF पर साइन करें</string>
+    <string name="tool_sign_detail">अपना हस्ताक्षर बनाएं और पेज पर लगाएं</string>
     <string name="pick_pdf">PDF चुनें</string>
     <string name="add_pdfs">PDF जोड़ें</string>
     <string name="replace_pdf">दूसरी PDF चुनें</string>
@@ -114,6 +116,27 @@
     <string name="watermark_preview">झलक</string>
     <string name="watermark_preview_description">वॉटरमार्क के साथ पेज 1</string>
     <string name="watermark_no_font">इस फ़ोन में इनमें से कुछ अक्षरों के लिए फ़ॉन्ट नहीं है। कोई दूसरा टेक्स्ट आज़माएं।</string>
+    <!-- Sign PDF: a picture of a handwritten signature, never a certified digital one -->
+    <string name="pdf_sign_action">PDF पर साइन करें</string>
+    <string name="sign_signature">हस्ताक्षर</string>
+    <string name="sign_draw">अपना हस्ताक्षर बनाएं</string>
+    <string name="sign_change">हस्ताक्षर बदलें</string>
+    <string name="sign_note">आपका हस्ताक्षर पेज पर इमेज के रूप में जुड़ता है। यह कोई प्रमाणित डिजिटल हस्ताक्षर नहीं है।</string>
+    <string name="sign_pad">हस्ताक्षर पैड</string>
+    <string name="sign_pad_hint">लाइन के ऊपर अपनी उंगली से साइन करें।</string>
+    <string name="sign_ink">स्याही</string>
+    <string name="sign_clear">मिटाएं</string>
+    <string name="sign_done">हो गया</string>
+    <string name="sign_page">किस पेज पर साइन करें</string>
+    <string name="sign_place">हस्ताक्षर की जगह चुनें</string>
+    <string name="sign_place_hint">हस्ताक्षर को खींचकर ले जाएं, या जहां लगाना हो वहां टैप करें।</string>
+    <string name="sign_preview_description">पेज %1$d पर आपका हस्ताक्षर</string>
+    <string name="sign_size">साइज़</string>
+    <string name="sign_size_description">हस्ताक्षर का साइज़</string>
+    <string name="sign_move_left">हस्ताक्षर बाईं ओर ले जाएं</string>
+    <string name="sign_move_up">हस्ताक्षर ऊपर ले जाएं</string>
+    <string name="sign_move_down">हस्ताक्षर नीचे ले जाएं</string>
+    <string name="sign_move_right">हस्ताक्षर दाईं ओर ले जाएं</string>
 
     <string name="ocr_title">टेक्स्ट को खोजने लायक बनाएं (OCR)</string>
     <string name="ocr_detail">इन इमेज में शब्द पहचानें और PDF में खोजने लायक टेक्स्ट जोड़ें।</string>

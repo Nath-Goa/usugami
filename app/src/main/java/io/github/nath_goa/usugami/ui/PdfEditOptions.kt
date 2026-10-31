@@ -326,7 +326,7 @@ internal fun WatermarkOptions(
         modifier = Modifier.fillMaxWidth(),
     )
     Text(stringResource(R.string.watermark_color), style = MaterialTheme.typography.titleMedium)
-    ColorSwatches(color, onColor)
+    ColorSwatches(WatermarkColor.entries, color, onColor, argb = { it.argb }, label = ::colorLabel)
     Text(stringResource(R.string.watermark_opacity), style = MaterialTheme.typography.titleMedium)
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
         WatermarkOpacity.entries.forEachIndexed { index, item ->
@@ -359,11 +359,11 @@ private fun colorLabel(color: WatermarkColor): Int = when (color) {
     WatermarkColor.GREEN -> R.string.color_green
 }
 
-/** One round swatch per colour, each a radio button named after its colour. */
+/** One round swatch per colour in [options], each a radio button named by [label] (a string resource). */
 @Composable
-private fun ColorSwatches(selected: WatermarkColor, onSelect: (WatermarkColor) -> Unit) {
+internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> Unit, argb: (T) -> Int, label: (T) -> Int) {
     Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        for (color in WatermarkColor.entries) {
+        for (color in options) {
             val chosen = color == selected
             val ring by animateColorAsState(
                 if (chosen) MaterialTheme.colorScheme.primary else Color.Transparent,
@@ -371,15 +371,15 @@ private fun ColorSwatches(selected: WatermarkColor, onSelect: (WatermarkColor) -
                 label = "swatch ring",
             )
             val check by animateFloatAsState(if (chosen) 1f else 0f, Motion.short(), label = "swatch check")
-            val label = stringResource(colorLabel(color))
+            val name = stringResource(label(color))
             Box(
                 Modifier
                     .size(52.dp)
                     .selectable(selected = chosen, role = Role.RadioButton, onClick = { onSelect(color) })
-                    .semantics { contentDescription = label }
+                    .semantics { contentDescription = name }
                     .border(2.dp, ring, CircleShape)
                     .padding(6.dp)
-                    .background(Color(color.argb), CircleShape)
+                    .background(Color(argb(color)), CircleShape)
                     // So black shows on the dark theme.
                     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                 contentAlignment = Alignment.Center,

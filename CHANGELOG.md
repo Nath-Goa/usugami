@@ -16,11 +16,19 @@ All notable changes to Usugami are listed here. The format is based on
 - **Add watermark**: text drawn large and diagonally across every page, in five colors and three
   opacities, with a preview of the first page. It is real text, drawn with the phone's own fonts,
   so accents and Hindi work too.
+- **Sign PDF**: draw your signature with a finger, in black or blue ink, choose the page, then drag
+  it into place on a preview and set its size (arrow buttons move it a step at a time). It goes on
+  the page as a sharp picture with a transparent background, exactly where the preview showed it,
+  also on turned or cropped pages. Usugami keeps the signature only while it is open, so you can
+  sign another PDF without drawing it again. It is a picture of a handwritten signature, not a
+  certified digital signature.
 
 ### Changed
 
 - Home groups the tools under **Create PDF** and **Edit PDF**, with smaller cards and shorter
   descriptions, so more of them fit on the screen.
+- **Back to editing** from a PDF tool's result now returns to your choices as you left them (such as
+  the pages typed, the watermark text or where a signature goes) instead of starting them afresh.
 
 ## [1.3.0] - 2026-10-31
 

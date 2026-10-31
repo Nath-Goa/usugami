@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -125,6 +126,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
 
+    // A tool's choices (its options, a signature's place) are kept while its result shows, so
+    // "Back to editing" returns to them. Opening the tool from Home starts afresh.
+    val toolStates = rememberSaveableStateHolder()
+
     var showConvertSheet by rememberSaveable { mutableStateOf(false) }
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
 
@@ -160,6 +165,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                     onImages = { route = "images" },
                     onTool = { tool ->
                         pdfVm.reset()
+                        toolStates.removeState(tool.name.lowercase())
                         route = tool.name.lowercase()
                     },
                     onSettings = { route = "settings" },
@@ -267,14 +273,16 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                 else -> {
                     val tool = PdfTool.entries.first { it.name.equals(current, ignoreCase = true) }
                     BackHandler(enabled = active) { route = "home" }
-                    PdfToolScreen(
-                        tool = tool,
-                        vm = pdfVm,
-                        snackbar = screenSnackbar,
-                        onBack = { route = "home" },
-                        pickSingle = { pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
-                        pickMultiple = { pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
-                    )
+                    toolStates.SaveableStateProvider(current) {
+                        PdfToolScreen(
+                            tool = tool,
+                            vm = pdfVm,
+                            snackbar = screenSnackbar,
+                            onBack = { route = "home" },
+                            pickSingle = { pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
+                            pickMultiple = { pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
+                        )
+                    }
                 }
             }
             if (!active) {

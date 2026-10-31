@@ -37,6 +37,9 @@ public, so please don't include personal details. To report a security problem p
   makes in its private cache on your phone, where other apps can't read them. Usugami deletes
   them automatically once they are no longer needed (for example, when you start over), and
   Android may also clear the cache when storage runs low.
+- Signatures: a signature you draw for "Sign PDF" is kept only while Usugami is open, in its
+  memory and in the screen state Android keeps for it, so you can use it again. It is never saved
+  in a file of its own, only in the PDFs you sign.
 - Settings: your last choices (such as page size, margins and compression level), stored
   privately on your phone.
 - Usugami excludes its data from Android's cloud backup and device-to-device transfer.

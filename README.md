@@ -1,7 +1,7 @@
 # Usugami
 
-**Turn photos into PDFs, and split, merge, compress, rotate, number and watermark PDFs, right on
-your Android phone. No ads, no tracking, no account, no uploads.**
+**Turn photos into PDFs, and split, merge, compress, rotate, number, watermark and sign PDFs,
+right on your Android phone. No ads, no tracking, no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
 It was called PDFer before version 1.2.0.
@@ -157,6 +157,17 @@ old "PDFer".
   page with the watermark.
 - Works in any language your phone has fonts for, accents and Hindi included. The watermark is
   real text, not a picture.
+
+**Sign PDF**
+
+- Draw your signature with a finger, in black or blue ink.
+- Pick the page, then drag the signature into place on a preview of it and choose its size. Arrow
+  buttons move it a step at a time, too.
+- It goes on the page as a sharp picture with a see-through background, exactly where the preview
+  shows it, also on pages turned sideways or cropped.
+- Usugami keeps your signature only while it is open, so you can sign another PDF without drawing
+  it again. It isn't saved anywhere else.
+- It's a picture of your handwritten signature, not a certified digital signature.
 
 **Everywhere**
 

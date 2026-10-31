@@ -22,6 +22,8 @@
     <string name="tool_page_numbers_detail">Number pages at the top or bottom</string>
     <string name="tool_watermark">Add watermark</string>
     <string name="tool_watermark_detail">Stamp text across every page</string>
+    <string name="tool_sign">Sign PDF</string>
+    <string name="tool_sign_detail">Draw your signature and place it</string>
     <string name="pick_pdf">Choose PDF</string>
     <string name="add_pdfs">Add PDFs</string>
     <string name="replace_pdf">Choose another PDF</string>
@@ -118,6 +120,27 @@
     <string name="watermark_preview">Preview</string>
     <string name="watermark_preview_description">Page 1 with the watermark</string>
     <string name="watermark_no_font">This phone has no font for some of these characters. Try different text.</string>
+    <!-- Sign PDF: a picture of a handwritten signature, never a certified digital one -->
+    <string name="pdf_sign_action">Sign PDF</string>
+    <string name="sign_signature">Signature</string>
+    <string name="sign_draw">Draw your signature</string>
+    <string name="sign_change">Change signature</string>
+    <string name="sign_note">Your signature is added to the page as a picture. This isn\'t a certified digital signature.</string>
+    <string name="sign_pad">Signature pad</string>
+    <string name="sign_pad_hint">Sign above the line with your finger.</string>
+    <string name="sign_ink">Ink</string>
+    <string name="sign_clear">Clear</string>
+    <string name="sign_done">Done</string>
+    <string name="sign_page">Page to sign</string>
+    <string name="sign_place">Place your signature</string>
+    <string name="sign_place_hint">Drag the signature, or tap where it should go.</string>
+    <string name="sign_preview_description">Your signature on page %1$d</string>
+    <string name="sign_size">Size</string>
+    <string name="sign_size_description">Signature size</string>
+    <string name="sign_move_left">Move signature left</string>
+    <string name="sign_move_up">Move signature up</string>
+    <string name="sign_move_down">Move signature down</string>
+    <string name="sign_move_right">Move signature right</string>
 
     <string name="ocr_title">Make text searchable (OCR)</string>
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>

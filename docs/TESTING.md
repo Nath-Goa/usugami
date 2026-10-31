@@ -14,8 +14,9 @@ release. CI runs the first layer, lint and both release builds on every push and
 
 They cover page layout and page sizes, EXIF orientation, JPEG parsing and metadata removal,
 lossless PNG encoding, compression sizing, PDF syntax, the PDF writer, file names, page
-selections such as `1-3;5;7-9`, and where page numbers and watermarks go on pages that are turned
-(`/Rotate`) or cropped.
+selections such as `1-3;5;7-9`, where page numbers, watermarks and signatures go on pages that
+are turned (`/Rotate`) or cropped, where a signature starts and how far it can grow, and how big its
+image is.
 
 ## 2. Device tests (Android)
 
@@ -38,10 +39,16 @@ extraction:
   none on skipped pages, checked both by text positions and by rendering the pages
 - watermark: centered along the shown diagonal of every page, translucent or opaque, real text with
   accents, Hindi shaped correctly, and text that no font on the phone can draw refused
+- signature: the image lands exactly where the preview put it on upright, turned and cropped pages
+  (checked by where the PDF draws it and by rendering the pages), starts in the lower right, has a
+  transparent background, is trimmed to the ink at 300 dpi, adds little to the file, and leaves the
+  other pages untouched
 - the screens, through the accessibility tree a screen reader uses: Home's section headings,
   turning pages with buttons, the page-number positions and watermark colors as named radio
-  buttons, a chosen position surviving the activity being recreated, and the messages for pages to
-  skip that can't be used
+  buttons, a chosen position surviving the activity being recreated, the messages for pages to
+  skip that can't be used, and a signature drawn on the pad (with injected touches), put on a chosen
+  page with the arrow buttons, surviving the activity being recreated, saved where the buttons
+  moved it, and still there after going back from the result
 - text recognition in English, French, Spanish and Hindi (French and Spanish accents kept),
   including a text layer with both Devanagari and Latin
   text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
@@ -76,8 +83,10 @@ On a phone or emulator, with the release APKs:
   (also on Android 12 or older, where Usugami applies the language itself).
 - Images to PDF from Photos, Files and a share from the gallery, with OCR on in each language.
 - Split, merge in page mode, and compress, including a password-protected PDF.
-- Rotate a few pages, add page numbers with a skipped cover, and add a watermark in Hindi; check
-  the results in another PDF viewer.
+- Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
+  page turned sideways; check the results in another PDF viewer.
+- Sign PDF in landscape and in the dark theme: the pad fills the screen, drawing feels smooth, and
+  dragging the signature doesn't scroll the screen (a swipe off it does).
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
 - Standard edition: the first OCR in each language downloads that model through Google Play services.
 - Offline edition: OCR works with the internet turned off.

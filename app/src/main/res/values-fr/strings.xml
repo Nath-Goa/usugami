@@ -20,6 +20,8 @@
     <string name="tool_page_numbers_detail">Des numéros en haut ou en bas des pages</string>
     <string name="tool_watermark">Ajouter un filigrane</string>
     <string name="tool_watermark_detail">Un texte en travers de chaque page</string>
+    <string name="tool_sign">Signer un PDF</string>
+    <string name="tool_sign_detail">Dessiner votre signature et la placer</string>
     <string name="pick_pdf">Choisir un PDF</string>
     <string name="add_pdfs">Ajouter des PDF</string>
     <string name="replace_pdf">Choisir un autre PDF</string>
@@ -115,6 +117,27 @@
     <string name="watermark_preview">Aperçu</string>
     <string name="watermark_preview_description">Page 1 avec le filigrane</string>
     <string name="watermark_no_font">Ce téléphone n\'a pas de police pour certains de ces caractères. Essayez un autre texte.</string>
+    <!-- Sign PDF: a picture of a handwritten signature, never a certified digital one -->
+    <string name="pdf_sign_action">Signer le PDF</string>
+    <string name="sign_signature">Signature</string>
+    <string name="sign_draw">Dessiner votre signature</string>
+    <string name="sign_change">Modifier la signature</string>
+    <string name="sign_note">Votre signature est ajoutée à la page sous forme d\'image. Ce n\'est pas une signature numérique certifiée.</string>
+    <string name="sign_pad">Zone de signature</string>
+    <string name="sign_pad_hint">Signez au-dessus de la ligne avec votre doigt.</string>
+    <string name="sign_ink">Encre</string>
+    <string name="sign_clear">Effacer</string>
+    <string name="sign_done">Terminé</string>
+    <string name="sign_page">Page à signer</string>
+    <string name="sign_place">Placer votre signature</string>
+    <string name="sign_place_hint">Faites glisser la signature, ou touchez l\'endroit où la placer.</string>
+    <string name="sign_preview_description">Votre signature sur la page %1$d</string>
+    <string name="sign_size">Taille</string>
+    <string name="sign_size_description">Taille de la signature</string>
+    <string name="sign_move_left">Déplacer la signature vers la gauche</string>
+    <string name="sign_move_up">Déplacer la signature vers le haut</string>
+    <string name="sign_move_down">Déplacer la signature vers le bas</string>
+    <string name="sign_move_right">Déplacer la signature vers la droite</string>
 
     <string name="ocr_title">Rendre le texte recherchable (OCR)</string>
     <string name="ocr_detail">Reconnaître les mots figurant sur ces images et ajouter du texte recherchable au PDF.</string>

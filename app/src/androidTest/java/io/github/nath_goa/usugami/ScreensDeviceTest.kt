@@ -4,10 +4,13 @@ import android.app.Application
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import androidx.core.content.FileProvider
@@ -19,8 +22,10 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCompression
+import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import org.junit.After
@@ -32,6 +37,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.util.Locale
+import kotlin.math.sin
 
 /**
  * The real screens, read and driven through the accessibility tree TalkBack uses. Pages can be moved
@@ -113,6 +119,21 @@ class ScreensDeviceTest {
             throw IllegalStateException("${e.message}. On screen: ${texts()}", e)
         }
         return found!!
+    }
+
+    /**
+     * Like [find], for what may be further down: Compose leaves what is off the screen out of the
+     * tree, so this scrolls down, as a screen reader does, until it shows.
+     */
+    private fun findBelow(what: String, match: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo {
+        val down = AccessibilityAction.ACTION_SCROLL_DOWN
+        repeat(10) {
+            nodes().firstOrNull(match)?.let { return it }
+            val scroller = nodes().firstOrNull { down in it.actionList } ?: return find(what, match)
+            scroller.performAction(down.id)
+            Thread.sleep(500)
+        }
+        return find(what, match)
     }
 
     private fun AccessibilityNodeInfo.says(text: String) =
@@ -212,6 +233,11 @@ class ScreensDeviceTest {
         }
     }
 
+    /** Whether a radio button is the chosen one. */
+    // isChecked gives way to getChecked() from Android 16, which older devices don't have.
+    @Suppress("DEPRECATION")
+    private val AccessibilityNodeInfo.chosen: Boolean get() = isChecked
+
     /** A choice shown as a radio button; Compose reports the selected one as checked. */
     private fun radio(label: String): AccessibilityNodeInfo {
         val node = find("the \"$label\" choice") { it.says(label) && ancestor(it) { node -> node.isCheckable } != null }
@@ -226,7 +252,7 @@ class ScreensDeviceTest {
         }
         val tools = listOf(
             R.string.tool_images, R.string.tool_split, R.string.tool_merge, R.string.tool_compress,
-            R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark,
+            R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_sign,
         )
         for (tool in tools) {
             val card = find("the ${app.getString(tool)} card") { it.text?.contains(app.getString(tool)) == true }
@@ -255,15 +281,15 @@ class ScreensDeviceTest {
         val first = launch()
         openToolWithAlpha(R.string.tool_page_numbers, first)
         val topLeft = app.getString(R.string.position_top_left)
-        assertTrue("Bottom center is the default", radio(app.getString(R.string.position_bottom_center)).isChecked)
-        assertFalse(radio(topLeft).isChecked)
+        assertTrue("Bottom center is the default", radio(app.getString(R.string.position_bottom_center)).chosen)
+        assertFalse(radio(topLeft).chosen)
         click(radio(topLeft))
-        waitUntil("top left to be chosen") { radio(topLeft).isChecked }
+        waitUntil("top left to be chosen") { radio(topLeft).chosen }
 
         // The choice survives the activity being recreated, as it is on rotation.
         onMain { first.recreate() }
         val activity = recreatedFrom(first)
-        waitUntil("top left to be chosen still") { radio(topLeft).isChecked }
+        waitUntil("top left to be chosen still") { radio(topLeft).chosen }
         val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
 
         // The first text field is the pages to skip; the file name comes last.
@@ -300,7 +326,7 @@ class ScreensDeviceTest {
         }
         val red = app.getString(R.string.color_red)
         click(radio(red))
-        waitUntil("red to be chosen") { radio(red).isChecked }
+        waitUntil("red to be chosen") { radio(red).chosen }
         click(radio(app.getString(R.string.opacity_opaque)))
 
         // Text no font on the phone can draw is refused, with a message.
@@ -312,6 +338,86 @@ class ScreensDeviceTest {
         click(actionButton(R.string.pdf_watermark_action))
         val glyphs = glyphsByPage(resultFile(pdfVm))
         for (page in glyphs) assertTrue(page.joinToString("") { it.unicode }.contains("Draft"))
+    }
+
+    /** Draws a made-up wave across [pad] with a finger, as the touchscreen would send it. */
+    private fun drawOn(pad: AccessibilityNodeInfo) {
+        val bounds = Rect().also(pad::getBoundsInScreen)
+        val start = SystemClock.uptimeMillis()
+        val points = (0..40).map { i -> 0.15f + 0.7f * i / 40 to 0.5f - 0.25f * sin(i * 0.5f) }
+        points.forEachIndexed { i, (x, y) ->
+            val action = when (i) {
+                0 -> MotionEvent.ACTION_DOWN
+                points.lastIndex -> MotionEvent.ACTION_UP
+                else -> MotionEvent.ACTION_MOVE
+            }
+            val event = MotionEvent.obtain(start, start + 16L * i, action, bounds.left + x * bounds.width(), bounds.top + y * bounds.height(), 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            assertTrue(automation.injectInputEvent(event, true))
+            event.recycle()
+        }
+    }
+
+    @Test fun signatureIsDrawnPlacedWithButtonsAndSaved() {
+        val first = launch()
+        openToolWithAlpha(R.string.tool_sign, first)
+        assertFalse("Nothing to sign without a signature", clickable(button(R.string.pdf_sign_action)).isEnabled)
+        click(find("the card to draw a signature") { it.says(app.getString(R.string.sign_draw)) })
+        val pad = find("the signature pad") { it.says(app.getString(R.string.sign_pad)) }
+        assertFalse("Nothing drawn yet", clickable(button(R.string.sign_done)).isEnabled)
+        drawOn(pad)
+        val blue = app.getString(R.string.color_blue)
+        click(radio(blue))
+        waitUntil("blue ink to be chosen") { radio(blue).chosen }
+        click(actionButton(R.string.sign_done))
+        find("the drawn signature") { it.says(app.getString(R.string.sign_change)) }
+
+        // A signature usually goes on the last page, so that is chosen first.
+        assertTrue(radio(app.getString(R.string.pdf_page_number, 3)).chosen)
+        val page2 = app.getString(R.string.pdf_page_number, 2)
+        click(radio(page2))
+        waitUntil("page 2 to be chosen") { radio(page2).chosen }
+        findBelow("page 2 in the preview") { it.says(app.getString(R.string.sign_preview_description, 2)) }
+        // Moved with buttons instead of dragging: five steps left and five up.
+        repeat(5) {
+            for (label in listOf(R.string.sign_move_left, R.string.sign_move_up)) {
+                click(findBelow("the move button") { it.says(app.getString(label)) })
+                // Each button moves on from where the signature is once the screen has caught up.
+                Thread.sleep(250)
+            }
+        }
+
+        // It all survives the activity being recreated, as it is on rotation: the signature, on
+        // page 2 (the preview says so), where the buttons moved it (the PDF below says so).
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        findBelow("page 2 in the preview, still") { it.says(app.getString(R.string.sign_preview_description, 2)) }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        val drawn = checkNotNull(onMain { pdfVm.signature.value })
+        assertEquals(SignatureInk.BLUE, drawn.ink)
+
+        /** Checks the signed PDF has the signature on page 2 only, where it starts moved a tenth of the page left and up. */
+        fun checkSigned() = PDDocument.load(resultFile(pdfVm)).use { doc ->
+            assertEquals(listOf(0, 1, 0), doc.pages.map { imagesOn(it).size })
+            val page = doc.getPage(1)
+            val width = page.cropBox.width
+            val height = page.cropBox.height
+            val start = SignatureLayout.default(width, height, drawn.aspect)
+            val moved = start.copy(centerX = start.centerX - 0.1f, centerY = start.centerY - 0.1f)
+            val area = SignatureLayout.pdfArea(moved, width, height, drawn.aspect)
+            val corner = imagesOn(page).single().corner(0f, 0f)
+            assertEquals(area.x, corner.x, 1f)
+            assertEquals(area.y, corner.y, 1f)
+        }
+        click(actionButton(R.string.pdf_sign_action))
+        checkSigned()
+
+        // Back from the result, the page and the place are still as they were.
+        click(find("the back button") { it.says(app.getString(R.string.back_to_editing)) })
+        waitUntil("the result to slide away") { nodes().none { it.says(app.getString(R.string.result_heading_one)) } }
+        findBelow("page 2 in the preview, after the result") { it.says(app.getString(R.string.sign_preview_description, 2)) }
+        click(actionButton(R.string.pdf_sign_action))
+        checkSigned()
     }
 
     @Test fun editorPagesCanBeMovedWithoutDragging() {

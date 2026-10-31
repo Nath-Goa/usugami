@@ -17,6 +17,7 @@ import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PageNumbers
 import io.github.nath_goa.usugami.core.PageSelectionException
 import io.github.nath_goa.usugami.core.PdfPageSelection
+import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
 import io.github.nath_goa.usugami.data.PdfCompression
@@ -27,6 +28,7 @@ import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.PdfWrongPassword
+import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkFontMissing
 import io.github.nath_goa.usugami.data.WatermarkOpacity
@@ -44,7 +46,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** The PDF tools. Each has a screen at its lowercase name; all but MERGE work on one PDF. */
-enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK }
+enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN }
 enum class SplitMode { SELECTED, CUSTOM, FIXED, EVERY_PAGE }
 
 class PdfToolsViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
@@ -60,6 +62,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     val pages: StateFlow<List<PdfPageRef>> = handle.getStateFlow(KEY_PAGES, ArrayList<PdfPageRef>())
     /** Picked PDFs that need a password, in the order they were picked. The dialog asks for the first. */
     val locked: StateFlow<List<PdfInput>> = handle.getStateFlow(KEY_LOCKED, ArrayList<PdfInput>())
+
+    /**
+     * The signature drawn for Sign PDF. It stays for the whole session, so it can go on another PDF
+     * without drawing it again: [reset] keeps it. It lives only here, in the saved state.
+     */
+    val signature: StateFlow<Signature?> = handle.getStateFlow(KEY_SIGNATURE, null)
 
     /** The password is being tried on the first locked PDF. */
     private val _unlocking = MutableStateFlow(false)
@@ -341,6 +349,18 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         process(listOf(input)) { check -> listOf(engine.addWatermark(input, text, color, opacity, fileName, check)) }
     }
 
+    fun setSignature(signature: Signature) {
+        if (!signature.isEmpty) handle[KEY_SIGNATURE] = signature
+    }
+
+    /** Signs page [page] (zero-based) where [placement] says, or in its lower right when it is null. */
+    fun runSign(page: Int, placement: SignaturePlacement?, fileName: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        val signature = signature.value ?: return
+        if (page !in 0 until input.pageCount) return
+        process(listOf(input)) { check -> listOf(engine.sign(input, signature, page, placement, fileName, check)) }
+    }
+
     /** Why the page numbers typed can't be used, in the user's language. */
     private fun pageSelectionMessage(e: PageSelectionException): String = when (e.problem) {
         PageSelectionException.Problem.FORMAT -> strings.getString(R.string.pdf_pages_format)
@@ -400,6 +420,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /**
      * Forgets the current tool's PDFs and results and frees their files: when a tool is opened, and
      * once the tool's screens have gone (nothing of them can come back: opening a tool starts afresh).
+     * The drawn signature stays, for the next PDF to sign.
      */
     fun reset() {
         importJob?.cancel()
@@ -507,6 +528,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.ROTATE -> "${base}_rotated"
             PdfTool.PAGE_NUMBERS -> "${base}_numbered"
             PdfTool.WATERMARK -> "${base}_watermarked"
+            PdfTool.SIGN -> "${base}_signed"
         }
     }
 
@@ -534,5 +556,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_INPUTS = "pdf_inputs"
         const val KEY_PAGES = "pdf_pages"
         const val KEY_LOCKED = "pdf_locked"
+        const val KEY_SIGNATURE = "signature"
     }
 }

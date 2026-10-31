@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.rounded.RotateRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Compress
+import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Splitscreen
@@ -49,7 +50,7 @@ import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 
 /** The tools under "Edit PDF" on Home, in order. */
-private val EditTools = listOf(PdfTool.SPLIT, PdfTool.MERGE, PdfTool.COMPRESS, PdfTool.ROTATE, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK)
+private val EditTools = listOf(PdfTool.SPLIT, PdfTool.MERGE, PdfTool.COMPRESS, PdfTool.ROTATE, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.SIGN)
 
 /** A tool's name: on its card on Home and at the top of its screen. */
 @get:StringRes
@@ -61,6 +62,7 @@ internal val PdfTool.title: Int
         PdfTool.ROTATE -> R.string.tool_rotate
         PdfTool.PAGE_NUMBERS -> R.string.tool_page_numbers
         PdfTool.WATERMARK -> R.string.tool_watermark
+        PdfTool.SIGN -> R.string.tool_sign
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -73,6 +75,7 @@ private val PdfTool.detail: Int
         PdfTool.ROTATE -> R.string.tool_rotate_detail
         PdfTool.PAGE_NUMBERS -> R.string.tool_page_numbers_detail
         PdfTool.WATERMARK -> R.string.tool_watermark_detail
+        PdfTool.SIGN -> R.string.tool_sign_detail
     }
 
 private val PdfTool.icon: ImageVector
@@ -83,6 +86,7 @@ private val PdfTool.icon: ImageVector
         PdfTool.ROTATE -> Icons.AutoMirrored.Rounded.RotateRight
         PdfTool.PAGE_NUMBERS -> Icons.Rounded.FormatListNumbered
         PdfTool.WATERMARK -> Icons.AutoMirrored.Rounded.BrandingWatermark
+        PdfTool.SIGN -> Icons.Rounded.Draw
     }
 
 @OptIn(ExperimentalMaterial3Api::class)

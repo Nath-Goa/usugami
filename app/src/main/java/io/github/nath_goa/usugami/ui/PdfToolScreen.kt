@@ -67,6 +67,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -95,6 +96,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PdfPageSelection
+import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
@@ -120,6 +122,7 @@ fun PdfToolScreen(
     val wrongPassword by vm.wrongPassword.collectAsStateWithLifecycle()
     val importing by vm.importing.collectAsStateWithLifecycle()
     val processing by vm.processing.collectAsStateWithLifecycle()
+    val signature by vm.signature.collectAsStateWithLifecycle()
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
     var pageText by rememberSaveable(tool) { mutableStateOf("") }
     var combine by rememberSaveable(tool) { mutableStateOf(true) }
@@ -131,12 +134,17 @@ fun PdfToolScreen(
     var watermarkText by rememberSaveable(tool) { mutableStateOf("") }
     var watermarkColor by rememberSaveable(tool) { mutableStateOf(WatermarkColor.GRAY) }
     var watermarkOpacity by rememberSaveable(tool) { mutableStateOf(WatermarkOpacity.TRANSLUCENT) }
+    // A signature usually goes at the end, so the last page is chosen first.
+    var signPage by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableIntStateOf(maxOf(0, (inputs.firstOrNull()?.pageCount ?: 1) - 1)) }
+    var signPlacement by rememberSaveable(tool, inputs.firstOrNull()?.id, stateSaver = SignaturePlacementSaver) { mutableStateOf<SignaturePlacement?>(null) }
+    var drawingSignature by rememberSaveable(tool) { mutableStateOf(false) }
     var fileName by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf(vm.defaultName(tool)) }
     val ready = when (tool) {
         PdfTool.SPLIT, PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS -> inputs.size == 1
         PdfTool.MERGE -> inputs.size >= 2 && (!pageMode || pages.isNotEmpty())
         PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
         PdfTool.WATERMARK -> inputs.size == 1 && watermarkText.isNotBlank()
+        PdfTool.SIGN -> inputs.size == 1 && signature != null
     }
     val title = tool.title
     val action = when (tool) {
@@ -146,6 +154,7 @@ fun PdfToolScreen(
         PdfTool.ROTATE -> R.string.pdf_rotate_action
         PdfTool.PAGE_NUMBERS -> R.string.pdf_page_numbers_action
         PdfTool.WATERMARK -> R.string.pdf_watermark_action
+        PdfTool.SIGN -> R.string.pdf_sign_action
     }
     Scaffold(
         topBar = {
@@ -164,6 +173,7 @@ fun PdfToolScreen(
                         PdfTool.ROTATE -> vm.runRotate(fileName)
                         PdfTool.PAGE_NUMBERS -> vm.runPageNumbers(numberPosition, numberSize, skipText, fileName)
                         PdfTool.WATERMARK -> vm.runWatermark(watermarkText, watermarkColor, watermarkOpacity, fileName)
+                        PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
                     }
                 },
                 enabled = ready && !importing && !processing,
@@ -234,6 +244,12 @@ fun PdfToolScreen(
                             watermarkColor, onColor = { watermarkColor = it },
                             watermarkOpacity, onOpacity = { watermarkOpacity = it },
                         )
+                        PdfTool.SIGN -> SignOptions(
+                            inputs[0],
+                            signature, onDraw = { drawingSignature = true },
+                            signPage, onPage = { signPage = it },
+                            signPlacement, onPlacement = { signPlacement = it },
+                        )
                     }
                     OutlinedTextField(
                         value = fileName,
@@ -248,6 +264,16 @@ fun PdfToolScreen(
         }
     }
 
+    if (drawingSignature && tool == PdfTool.SIGN) {
+        SignaturePadDialog(
+            initial = signature,
+            onDone = {
+                vm.setSignature(it)
+                drawingSignature = false
+            },
+            onDismiss = { drawingSignature = false },
+        )
+    }
     // Several locked PDFs picked at once are asked for one at a time.
     locked.firstOrNull()?.let { pending ->
         PasswordDialog(

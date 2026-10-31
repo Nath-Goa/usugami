@@ -6,6 +6,7 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -13,16 +14,22 @@ import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
+import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PageNumbers
+import io.github.nath_goa.usugami.core.SignatureLayout
+import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.Signature
+import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkFontMissing
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -31,8 +38,11 @@ import org.junit.Test
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.hypot
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
-/** Rotate, page numbers and watermarks, checked by reading the result back and by rendering it. */
+/** Rotate, page numbers, watermarks and signatures, checked by reading the result back and by rendering it. */
 class PdfEditingDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val engine = PdfToolsEngine(context)
@@ -272,6 +282,131 @@ class PdfEditingDeviceTest {
         try {
             engine.addWatermark(source, "Draft", WatermarkColor.GRAY, WatermarkOpacity.TRANSLUCENT, "cancelled") { if (++calls == 2) throw Stop() }
             fail("The watermark should have been stopped")
+        } catch (_: Stop) {
+        }
+        assertTrue(File(context.cacheDir, "output/tools").listFiles().isNullOrEmpty())
+    }
+
+    /** A made-up signature in pad units: a wave above a line, and a dot. */
+    private fun signature(ink: SignatureInk = SignatureInk.BLUE) = Signature(
+        listOf(
+            FloatArray(80) { i -> if (i % 2 == 0) 120f + 9f * (i / 2) else 250f - 80f * sin(0.4f * (i / 2)) },
+            floatArrayOf(150f, 360f, 500f, 372f, 820f, 355f),
+            floatArrayOf(860f, 140f),
+        ),
+        ink,
+    )
+
+    /** [page] as a viewer shows it. */
+    private fun frameOf(page: PDPage) = page.cropBox.let { PageFrame(it.lowerLeftX, it.lowerLeftY, it.width, it.height, page.rotation) }
+
+    /** What [page] draws, decoded. */
+    private fun contentOf(page: PDPage): ByteArray = page.contents.use { it.readBytes() }
+
+    /** A pixel of blue ink. */
+    private fun blueInk(pixel: Int) = Color.blue(pixel) - Color.red(pixel) > 40
+
+    @Test fun signatureGoesWhereThePreviewPutsIt() {
+        val source = import(mixedPages("sign.pdf"))
+        val drawn = signature()
+        // Up and to the left, away from where a signature starts.
+        val placement = SignaturePlacement(centerX = 0.3f, centerY = 0.25f, width = 0.35f)
+        val before = PDDocument.load(source.file).use { doc -> doc.pages.map(::contentOf) }
+        for (index in 0..3) {
+            val signed = save(engine.sign(source, drawn, index, placement, "signed").file, "signed_${index + 1}.pdf")
+            val frame = PDDocument.load(signed).use { doc ->
+                for ((i, page) in doc.pages.withIndex()) {
+                    if (i == index) continue
+                    assertTrue("Page ${i + 1} has no signature", imagesOn(page).isEmpty())
+                    assertArrayEquals("Page ${i + 1} is unchanged", before[i], contentOf(page))
+                }
+                val page = doc.getPage(index)
+                val frame = frameOf(page)
+                val area = SignatureLayout.pdfArea(placement, frame.shownWidth, frame.shownHeight, drawn.aspect)
+                val placed = imagesOn(page).single()
+                // The image's corners are the area's, the right way up on the page as shown.
+                for ((unit, shown) in listOf(
+                    (0f to 0f) to (area.x to area.y),
+                    (1f to 0f) to (area.x + area.width to area.y),
+                    (0f to 1f) to (area.x to area.y + area.height),
+                )) {
+                    val actual = placed.corner(unit.first, unit.second)
+                    val (x, y) = frame.toPage(shown.first, shown.second)
+                    assertEquals("Page ${index + 1}, corner $unit, x", x, actual.x, 0.01f)
+                    assertEquals("Page ${index + 1}, corner $unit, y", y, actual.y, 0.01f)
+                }
+                frame
+            }
+            assertTrue("Page ${index + 1}'s own text is kept", text(signed).contains("CAPTION${listOf("A", "B", "C", "D")[index]}"))
+
+            // Rendered, the blue ink fills just that area of the page as shown (y down here).
+            val scale = 2f
+            val area = SignatureLayout.pdfArea(placement, frame.shownWidth, frame.shownHeight, drawn.aspect)
+            val bitmap = render(signed, index, scale)
+            val ink = pixels(bitmap, ::blueInk)
+            assertTrue("No signature on page ${index + 1}", ink.size > 500)
+            val tolerance = 2 * scale
+            assertEquals("Page ${index + 1} left", area.x * scale, ink.minOf { it.first }.toFloat(), tolerance)
+            assertEquals("Page ${index + 1} right", (area.x + area.width) * scale, ink.maxOf { it.first } + 1f, tolerance)
+            assertEquals("Page ${index + 1} top", (frame.shownHeight - area.y - area.height) * scale, ink.minOf { it.second }.toFloat(), tolerance)
+            assertEquals("Page ${index + 1} bottom", (frame.shownHeight - area.y) * scale, ink.maxOf { it.second } + 1f, tolerance)
+        }
+    }
+
+    @Test fun signatureStartsInTheLowerRight() {
+        val source = import(mixedPages("sign_default.pdf"))
+        for (index in 0..3) {
+            val signed = engine.sign(source, signature(), index, null, "default").file
+            val bitmap = render(signed, index, 1f)
+            val ink = pixels(bitmap, ::blueInk)
+            assertTrue("No signature on page ${index + 1}", ink.isNotEmpty())
+            assertTrue("Page ${index + 1}: not on the right", ink.minOf { it.first } > bitmap.width / 2)
+            assertTrue("Page ${index + 1}: not at the bottom", ink.minOf { it.second } > bitmap.height * 3 / 4)
+        }
+    }
+
+    @Test fun signatureImageIsSharpSmallAndTrimmed() {
+        val source = import(asset("alpha.pdf"))
+        val drawn = signature(SignatureInk.BLUE)
+        val signed = save(engine.sign(source, drawn, 1, SignaturePlacement(0.5f, 0.5f, 0.3f), "sharp").file, "signed_sharp.pdf")
+        val added = signed.length() - source.file.length()
+        assertTrue("The signature added $added bytes", added < 40_000)
+        PDDocument.load(signed).use { doc ->
+            assertEquals(listOf(0, 1, 0), doc.pages.map { imagesOn(it).size })
+            val placed = imagesOn(doc.getPage(1)).single()
+            val image = placed.image
+            // 300 pixels per inch of the width it is drawn at.
+            val origin = placed.corner(0f, 0f)
+            val widthPoints = placed.corner(1f, 0f).let { hypot(it.x - origin.x, it.y - origin.y) }
+            assertEquals((widthPoints / 72 * 300).roundToInt().toFloat(), image.width.toFloat(), 1f)
+            assertEquals(image.width / drawn.aspect, image.height.toFloat(), 1.5f)
+
+            // Every pixel has the ink's colour; the soft mask's alpha alone draws the strokes.
+            val colors = (image.cosObject as COSStream).createInputStream().use { it.readBytes() }
+            assertEquals(image.width * image.height * 3, colors.size)
+            val ink = SignatureInk.BLUE.argb
+            assertTrue("Not all the ink's colour", colors.indices.all { colors[it].toInt() and 0xFF == (ink shr (16 - 8 * (it % 3))) and 0xFF })
+            val mask = checkNotNull(image.softMask) { "No transparency" }
+            assertEquals(image.width, mask.width)
+            val alpha = (mask.cosObject as COSStream).createInputStream().use { it.readBytes() }
+            assertEquals(mask.width * mask.height, alpha.size)
+            fun inked(x: Int, y: Int) = alpha[y * mask.width + x].toInt() and 0xFF > 0
+            // Trimmed to the ink: ink close to every edge, none in the corners.
+            val near = 0..2
+            assertTrue("Top", (0 until mask.width).any { x -> near.any { inked(x, it) } })
+            assertTrue("Bottom", (0 until mask.width).any { x -> near.any { inked(x, mask.height - 1 - it) } })
+            assertTrue("Left", (0 until mask.height).any { y -> near.any { inked(it, y) } })
+            assertTrue("Right", (0 until mask.height).any { y -> near.any { inked(mask.width - 1 - it, y) } })
+            assertFalse(inked(0, 0) || inked(mask.width - 1, mask.height - 1))
+        }
+    }
+
+    @Test fun cancellingASignatureLeavesNoOutput() {
+        class Stop : RuntimeException()
+        val source = import(mixedPages("sign_cancel.pdf"))
+        try {
+            engine.sign(source, signature(), 0, null, "cancelled") { throw Stop() }
+            fail("Signing should have been stopped")
         } catch (_: Stop) {
         }
         assertTrue(File(context.cacheDir, "output/tools").listFiles().isNullOrEmpty())

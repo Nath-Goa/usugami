@@ -25,11 +25,15 @@ import io.github.nath_goa.usugami.data.PdfInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** Page [index] drawn as it is shown, and its shown size in points. */
+class RenderedPage(val index: Int, val image: ImageBitmap, val width: Float, val height: Float)
+
 /**
- * Page [pageIndex] of [input] as it is shown (turned by its rotation), on white, with its longer
- * side [longSide] pixels. Null if it can't be rendered. Reads the file: call it off the main thread.
+ * Page [pageIndex] of [input] as it is shown (its crop box, turned by its rotation), on white, with
+ * its longer side [longSide] pixels. Null if it can't be rendered. Reads the file: call it off the
+ * main thread.
  */
-fun renderPdfPage(input: PdfInput, pageIndex: Int, longSide: Int): ImageBitmap? = try {
+fun renderShownPage(input: PdfInput, pageIndex: Int, longSide: Int): RenderedPage? = try {
     ParcelFileDescriptor.open(input.file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
         PdfRenderer(fd).use { renderer ->
             renderer.openPage(pageIndex).use { page ->
@@ -37,11 +41,14 @@ fun renderPdfPage(input: PdfInput, pageIndex: Int, longSide: Int): ImageBitmap? 
                 val bitmap = Bitmap.createBitmap(maxOf(1, (page.width * scale).toInt()), maxOf(1, (page.height * scale).toInt()), Bitmap.Config.ARGB_8888)
                 bitmap.eraseColor(Color.WHITE)
                 page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                bitmap.asImageBitmap()
+                RenderedPage(pageIndex, bitmap.asImageBitmap(), page.width.toFloat(), page.height.toFloat())
             }
         }
     }
 } catch (_: Exception) { null }
+
+/** Like [renderShownPage], the image only. */
+fun renderPdfPage(input: PdfInput, pageIndex: Int, longSide: Int): ImageBitmap? = renderShownPage(input, pageIndex, longSide)?.image
 
 @Composable
 fun PdfThumbnail(input: PdfInput, pageIndex: Int, modifier: Modifier = Modifier) {

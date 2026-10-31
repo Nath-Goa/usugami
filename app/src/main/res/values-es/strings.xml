@@ -20,6 +20,8 @@
     <string name="tool_page_numbers_detail">Números arriba o abajo de cada página</string>
     <string name="tool_watermark">Añadir marca de agua</string>
     <string name="tool_watermark_detail">Un texto en diagonal sobre cada página</string>
+    <string name="tool_sign">Firmar PDF</string>
+    <string name="tool_sign_detail">Dibuja tu firma y colócala</string>
     <string name="pick_pdf">Elegir PDF</string>
     <string name="add_pdfs">Añadir PDF</string>
     <string name="replace_pdf">Elegir otro PDF</string>
@@ -115,6 +117,27 @@
     <string name="watermark_preview">Vista previa</string>
     <string name="watermark_preview_description">Página 1 con la marca de agua</string>
     <string name="watermark_no_font">Este teléfono no tiene una fuente para algunos de estos caracteres. Prueba con otro texto.</string>
+    <!-- Sign PDF: a picture of a handwritten signature, never a certified digital one -->
+    <string name="pdf_sign_action">Firmar PDF</string>
+    <string name="sign_signature">Firma</string>
+    <string name="sign_draw">Dibuja tu firma</string>
+    <string name="sign_change">Cambiar la firma</string>
+    <string name="sign_note">Tu firma se añade a la página como una imagen. No es una firma digital certificada.</string>
+    <string name="sign_pad">Área de firma</string>
+    <string name="sign_pad_hint">Firma con el dedo encima de la línea.</string>
+    <string name="sign_ink">Tinta</string>
+    <string name="sign_clear">Borrar</string>
+    <string name="sign_done">Listo</string>
+    <string name="sign_page">Página para firmar</string>
+    <string name="sign_place">Coloca tu firma</string>
+    <string name="sign_place_hint">Arrastra la firma o toca donde debe ir.</string>
+    <string name="sign_preview_description">Tu firma en la página %1$d</string>
+    <string name="sign_size">Tamaño</string>
+    <string name="sign_size_description">Tamaño de la firma</string>
+    <string name="sign_move_left">Mover la firma a la izquierda</string>
+    <string name="sign_move_up">Mover la firma hacia arriba</string>
+    <string name="sign_move_down">Mover la firma hacia abajo</string>
+    <string name="sign_move_right">Mover la firma a la derecha</string>
 
     <string name="ocr_title">Hacer buscable el texto (OCR)</string>
     <string name="ocr_detail">Reconoce las palabras de estas imágenes y añade texto buscable al PDF.</string>

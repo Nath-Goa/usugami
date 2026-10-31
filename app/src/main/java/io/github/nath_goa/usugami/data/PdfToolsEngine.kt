@@ -10,6 +10,8 @@ import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PageNumbers
+import io.github.nath_goa.usugami.core.SignatureLayout
+import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.core.WatermarkLayout
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSArray
@@ -28,6 +30,7 @@ import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState
 import com.tom_roush.pdfbox.util.Matrix
@@ -58,7 +61,7 @@ class PdfWrongPassword : IOException("Wrong password")
 class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encrypted PDFs aren't supported", cause)
 
 /**
- * Split, merge, compress, rotate, page numbers and watermarks. Input copies, results and PDFBox's scratch files all live in the cache,
+ * Split, merge, compress, rotate, page numbers, watermarks and signatures. Input copies, results and PDFBox's scratch files all live in the cache,
  * so the system can reclaim them (and "Clear cache" removes them); callers must cope with a file
  * that has gone.
  */
@@ -298,6 +301,40 @@ class PdfToolsEngine(private val context: Context) {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Draws [signature] on page [pageIndex] (zero-based) where [placement] puts it on the page as
+     * shown, or in its lower right when [placement] is null. It goes in as an image with
+     * transparency, trimmed to the ink, at print resolution.
+     */
+    fun sign(
+        input: PdfInput,
+        signature: Signature,
+        pageIndex: Int,
+        placement: SignaturePlacement?,
+        fileName: String,
+        check: () -> Unit = {},
+    ): PdfFile = edit(input, fileName, "Signed", check) { doc ->
+        require(pageIndex in 0 until doc.numberOfPages && !signature.isEmpty)
+        val page = doc.getPage(pageIndex)
+        val frame = page.frame()
+        val width = frame.shownWidth
+        val height = frame.shownHeight
+        val aspect = signature.aspect
+        val place = SignatureLayout.clamp(placement ?: SignatureLayout.default(width, height, aspect), width, height, aspect)
+        val area = SignatureLayout.pdfArea(place, width, height, aspect)
+        val bitmap = signature.render(SignatureLayout.pixels(area.width, area.height).first)
+        val image = try {
+            LosslessFactory.createFromImage(doc, bitmap)
+        } finally {
+            bitmap.recycle()
+        }
+        check()
+        PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
+            content.transform(frame.toMatrix())
+            content.drawImage(image, area.x, area.y, area.width, area.height)
         }
     }
 
