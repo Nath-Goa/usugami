@@ -49,13 +49,21 @@ class PdfSaver(private val context: Context) {
 
     /** Writes [file] into a document the user created with the system "Save as" screen. */
     fun saveTo(file: File, target: Uri) {
+        // The picker makes a new, empty document; one the user chose to overwrite isn't empty and
+        // is never deleted.
+        val created = sizeOf(target) == 0L
         if (!file.isFile) {
-            // The system cleared the PDF from the cache while the picker was open. Don't leave the
-            // empty document the picker made behind (a document the user chose to overwrite isn't empty).
-            deleteIfEmpty(target)
+            // The system cleared the PDF from the cache while the picker was open.
+            if (created) delete(target)
             throw FileNotFoundException(file.name)
         }
-        copy(file, target)
+        try {
+            copy(file, target)
+        } catch (e: Exception) {
+            // Don't leave a half-written PDF behind (the storage may have run full).
+            if (created) delete(target)
+            throw e
+        }
     }
 
     /** Creates a copy of each file inside a folder the user picked with the system folder picker. */
@@ -65,8 +73,21 @@ class PdfSaver(private val context: Context) {
         for (file in files) {
             val target = DocumentsContract.createDocument(resolver, parent, PDF_MIME, file.name)
                 ?: throw IOException("Could not create ${file.name}")
-            copy(file, target)
+            try {
+                copy(file, target)
+            } catch (e: Exception) {
+                delete(target)
+                throw e
+            }
         }
+    }
+
+    /**
+     * Deletes the document the "Save as" screen made if nothing was written to it: used when the PDF
+     * to save has gone, for example because the system restarted Usugami while the screen was open.
+     */
+    fun discardIfEmpty(target: Uri) {
+        if (sizeOf(target) == 0L) delete(target)
     }
 
     fun shareIntent(files: List<File>): Intent {
@@ -88,8 +109,9 @@ class PdfSaver(private val context: Context) {
 
     private fun contentUri(file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
 
+    /** The source is opened first, so a PDF that can't be read doesn't truncate the target. */
     private fun copy(file: File, target: Uri) {
-        openForWriting(target).use { stream -> file.inputStream().use { it.copyTo(stream, 64 * 1024) } }
+        file.inputStream().use { source -> openForWriting(target).use { source.copyTo(it, 64 * 1024) } }
     }
 
     /**
@@ -112,14 +134,20 @@ class PdfSaver(private val context: Context) {
         files.firstOrNull { !it.isFile }?.let { throw FileNotFoundException(it.name) }
     }
 
-    private fun deleteIfEmpty(target: Uri) {
+    /** The document's size, or null when the provider doesn't say. */
+    private fun sizeOf(target: Uri): Long? = try {
+        resolver.query(target, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    private fun delete(target: Uri) {
         try {
-            val size = resolver.query(target, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
-                if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
-            }
-            if (size == 0L) DocumentsContract.deleteDocument(resolver, target)
+            DocumentsContract.deleteDocument(resolver, target)
         } catch (_: Exception) {
-            // Best effort: the provider may not report sizes or allow deleting.
+            // Best effort: the provider may not allow deleting.
         }
     }
 

@@ -83,10 +83,12 @@ class PdfToolsEngine(private val context: Context) {
             if (!hasPdfHeader(file)) throw IOException("This file is not a PDF")
             return inspect(inputInfo, password)
         } catch (e: InvalidPasswordException) {
+            // The copy is kept for the password dialog.
             throw PdfPasswordRequired(inputInfo)
-        } catch (e: Exception) {
+        } catch (t: Throwable) {
+            // Errors too (out of memory, a PDFBox class that fails to load): never leave the copy behind.
             file.delete()
-            throw e
+            throw t
         }
     }
 

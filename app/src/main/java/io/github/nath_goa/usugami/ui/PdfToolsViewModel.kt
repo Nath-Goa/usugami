@@ -102,6 +102,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     } catch (_: LinkageError) {
                         // Never crash on a PDF that PDFBox can't handle.
                         message(app.getString(R.string.pdf_import_failed))
+                    } catch (_: OutOfMemoryError) {
+                        // A PDF with a huge number of objects can exhaust the heap while it is read.
+                        message(app.getString(R.string.pdf_import_failed))
                     }
                 }
             } finally {
@@ -130,6 +133,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             } catch (_: Exception) {
                 message(app.getString(R.string.pdf_wrong_password))
             } catch (_: LinkageError) {
+                message(app.getString(R.string.pdf_import_failed))
+            } catch (_: OutOfMemoryError) {
                 message(app.getString(R.string.pdf_import_failed))
             }
         }
@@ -345,12 +350,20 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     fun saveTo(uri: Uri) {
-        val file = _result.value?.singleOrNull() ?: return
+        val file = _result.value?.singleOrNull()
+        if (file == null) {
+            // The system restarted Usugami while the "Save as" screen was open, which cleared the PDF.
+            // Remove the empty document the screen made, and say so.
+            viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
+            resultCleared(1)
+            return
+        }
         save { saver.saveTo(file.file, uri); app.getString(R.string.msg_saved) }
     }
 
     fun saveToFolder(tree: Uri) {
-        val files = _result.value ?: return
+        // As in saveTo; the folder picker offered for several PDFs creates nothing itself.
+        val files = _result.value ?: return resultCleared(2)
         save { saver.saveToFolder(files.map { it.file }, tree); app.getString(R.string.msg_saved) }
     }
 
@@ -390,7 +403,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun message(text: String) { _messages.trySend(text) }
     private fun pluralMessage(@PluralsRes res: Int, count: Int) = message(app.resources.getQuantityString(res, count, count))
 
+    private var finishing = false
+
+    /** Called when the activity is finishing for good, so [onCleared] can free the copies. */
+    fun activityFinishing() {
+        finishing = true
+    }
+
     override fun onCleared() {
+        // Not when the system merely destroyed the activity: the saved state still lists the copies.
+        if (!finishing) return
         val old = inputs.value
         Thread { old.forEach(engine::delete) }.start()
     }

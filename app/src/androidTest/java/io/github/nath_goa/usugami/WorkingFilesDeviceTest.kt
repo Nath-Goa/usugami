@@ -1,11 +1,18 @@
 package io.github.nath_goa.usugami
 
 import android.app.Application
+import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
 import android.os.SystemClock
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
+import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.ui.MainViewModel
@@ -17,11 +24,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
  * Working files live in the cache, which the system may clear while Usugami is in the background.
  * After the process is restored, items whose files are gone must be dropped (with a message).
+ * The copies must outlive the activity being recreated, and go when the user leaves or discards them.
  */
 class WorkingFilesDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -42,6 +51,24 @@ class WorkingFilesDeviceTest {
     }
 
     private fun file(path: String) = File(app.cacheDir, path).apply { parentFile!!.mkdirs(); writeText("x") }
+
+    /** A small picture outside Usugami's working folders, to import. */
+    private fun photo(name: String): Uri {
+        val file = File(app.cacheDir, "test-photos/$name").apply { parentFile!!.mkdirs() }
+        file.outputStream().use { Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 80, it) }
+        return Uri.fromFile(file)
+    }
+
+    private fun imageCopies(): Set<String> = File(app.cacheDir, "images").list().orEmpty().toSet()
+
+    /** Creates the view model in [store], the way the activity does, so clearing the store clears it. */
+    private inline fun <reified T : ViewModel> inStore(store: ViewModelStore, crossinline create: () -> T): T =
+        onMain {
+            ViewModelProvider(store, object : ViewModelProvider.Factory {
+                @Suppress("UNCHECKED_CAST")
+                override fun <V : ViewModel> create(modelClass: Class<V>): V = create() as V
+            })[T::class.java]
+        }
 
     @Test fun restoredImagesWhoseCopiesWereClearedAreDropped() {
         val kept = file("images/1.jpg")
@@ -81,5 +108,87 @@ class WorkingFilesDeviceTest {
         waitUntil("the input copies to be deleted") { File(app.cacheDir, "pdf-inputs").list().isNullOrEmpty() }
         assertFalse(kept.exists())
         assertTrue(vm.inputs.value.isEmpty())
+    }
+
+    @Test fun copiesSurviveTheActivityBeingDestroyedWithoutFinishing() {
+        val image = file("images/11.jpg")
+        val pdf = file("pdf-inputs/12.pdf")
+        fun images() = SavedStateHandle(mapOf("items" to arrayListOf(ImageItem(11, image.path, "a.jpg", ImageFormat.JPEG, 10, 10, 1))))
+        fun pdfs() = SavedStateHandle(mapOf("pdf_inputs" to arrayListOf(PdfInput(12, pdf.path, "a.pdf", 1))))
+
+        // "Don't keep activities", or the system reclaiming the activity: the view models are cleared,
+        // but the saved state still lists the copies for the next activity.
+        ViewModelStore().also { store ->
+            inStore(store) { MainViewModel(app, images()) }
+            inStore(store) { PdfToolsViewModel(app, pdfs()) }
+            onMain { store.clear() }
+        }
+        Thread.sleep(500)
+        assertTrue("The image copy is kept", image.isFile)
+        assertTrue("The PDF copy is kept", pdf.isFile)
+
+        // Leaving for good frees them.
+        ViewModelStore().also { store ->
+            val vm = inStore(store) { MainViewModel(app, images()) }
+            val pdfVm = inStore(store) { PdfToolsViewModel(app, pdfs()) }
+            onMain {
+                vm.activityFinishing()
+                pdfVm.activityFinishing()
+                store.clear()
+            }
+        }
+        waitUntil("the copies to be deleted") { !image.exists() && !pdf.exists() }
+    }
+
+    @Test fun finishingTheActivityFreesTheCopies() {
+        val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        val activity = instrumentation.startActivitySync(intent) as MainActivity
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        val photo = photo("finish.jpg")
+        onMain { vm.addImages(listOf(photo)) }
+        waitUntil("the image to be imported") { vm.items.value.size == 1 }
+        val copy = File(vm.items.value.single().path)
+        assertTrue(copy.isFile)
+
+        onMain { activity.finish() }
+        waitUntil("the copy to be deleted") { !copy.exists() }
+    }
+
+    @Test fun imagesStillImportingWhenDiscardedDontComeBack() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        val photos = listOf(photo("1.jpg"), photo("2.jpg"), photo("3.jpg"))
+        onMain {
+            vm.addImages(photos)
+            // The first image is being copied now.
+            vm.clearAll()
+        }
+        assertEquals(0, onMain { vm.pendingImports.value })
+
+        val later = photo("4.jpg")
+        onMain { vm.addImages(listOf(later)) }
+        waitUntil("only the later image to be there") {
+            vm.items.value.size == 1 && imageCopies() == setOf(File(vm.items.value.single().path).name)
+        }
+        Thread.sleep(500)
+        assertEquals("The discarded images stay discarded", 1, onMain { vm.items.value.size })
+        assertEquals(0, onMain { vm.pendingImports.value })
+    }
+
+    @Test fun pngWithAHugeExifChunkStillImports() {
+        val png = ByteArrayOutputStream().also {
+            Bitmap.createBitmap(8, 8, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it)
+        }.toByteArray()
+        // Before IEND (the last 12 bytes), an EXIF chunk claiming to be 2 GB: ExifInterface allocates
+        // that much before reading it, and runs out of memory.
+        val chunk = byteArrayOf(0x7F, 0xFF.toByte(), 0xFF.toByte(), 0xF0.toByte()) + "eXIfMM".toByteArray()
+        val file = File(app.cacheDir, "test-photos/huge-exif.png").apply { parentFile!!.mkdirs() }
+        file.writeBytes(png.copyOf(png.size - 12) + chunk + png.copyOfRange(png.size - 12, png.size))
+
+        val result = ImageStore(app).import(Uri.fromFile(file), 21)
+        assertTrue("$result", result is ImageStore.ImportResult.Added)
+        val item = (result as ImageStore.ImportResult.Added).item
+        assertEquals(8, item.width)
+        assertEquals(1, item.exifOrientation)
+        File(item.path).delete()
     }
 }

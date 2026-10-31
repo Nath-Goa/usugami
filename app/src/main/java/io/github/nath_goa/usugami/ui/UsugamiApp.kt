@@ -153,7 +153,9 @@ fun UsugamiApp(vm: MainViewModel) {
                     LegalDocumentScreen(document, onBack = { route = "about" })
                 }
                 current == "images" -> {
-                    BackHandler(enabled = active) { if (items.isEmpty()) route = "home" else confirmDiscard = true }
+                    // Images still being imported count too: they would arrive at home and reopen the editor.
+                    val leave: () -> Unit = { if (items.isEmpty() && pendingImports == 0) route = "home" else confirmDiscard = true }
+                    BackHandler(enabled = active, onBack = leave)
                     EditorScreen(
                         items = freezeWhen(!active, items),
                         layout = layout,
@@ -174,7 +176,7 @@ fun UsugamiApp(vm: MainViewModel) {
                             clearAll = vm::clearAll,
                             convert = { showConvertSheet = true },
                         ),
-                        onBack = { if (items.isEmpty()) route = "home" else confirmDiscard = true },
+                        onBack = leave,
                     )
                 }
                 current == "images/result" -> {
