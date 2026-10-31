@@ -103,7 +103,7 @@ jobs:
             esac
           done
 
-      - name: No network or advertising-ID permissions
+      - name: No permissions or blocked manifest entries
         run: bash .github/scripts/check-apk-permissions.sh dist/Usugami.apk dist/Usugami-offline.apk
 
       - name: Text recognition survives R8

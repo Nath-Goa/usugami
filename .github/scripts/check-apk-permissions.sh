@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Fails if any of the given APKs requests a network or advertising-ID permission.
-# Usugami promises "no internet permission"; this keeps a library update from quietly adding one.
+# Checks the privacy promises that live in each APK's manifest, so a library update can't quietly
+# break them. Fails if an APK:
+#   - requests any permission other than the app's own <package>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+#     (signature-level; AndroidX declares it to keep the app's broadcast receivers private), or
+#   - contains one of the manifest entries in forbidden_names below.
 #
 #   .github/scripts/check-apk-permissions.sh app.apk [more.apk ...]
 #
@@ -9,10 +12,14 @@ set -euo pipefail
 
 [ "$#" -gt 0 ] || { echo "usage: $0 APK..." >&2; exit 2; }
 
-forbidden=(
-  android.permission.INTERNET
-  android.permission.ACCESS_NETWORK_STATE
-  com.google.android.gms.permission.AD_ID
+# The only permission the APKs may request, after "<package>.".
+allowed_permission=DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+
+# Manifest android:name values (matched as prefixes) that must not be in the APK. Libraries add
+# them; app/src/main/AndroidManifest.xml removes them with tools:node="remove".
+forbidden_names=(
+  'backend:'                                    # an upload backend for ML Kit's usage metrics (DataTransport)
+  'androidx.emoji2.text.EmojiCompatInitializer' # asks Google Play services for an emoji font at startup
 )
 
 aapt2="${AAPT2:-}"
@@ -30,15 +37,32 @@ for apk in "$@"; do
   perms="$("$aapt2" dump permissions "$apk")"
   echo "$apk"
   printf '%s\n' "$perms" | sed 's/^/  /'
-  for permission in "${forbidden[@]}"; do
-    if printf '%s\n' "$perms" | grep -Fq "name='$permission'"; then
-      echo "::error file=$apk::$apk requests $permission"
+
+  package="$(printf '%s\n' "$perms" | sed -n 's/^package: //p')"
+  [ -n "$package" ] || { echo "::error file=$apk::$apk: aapt2 printed no package name"; status=1; continue; }
+
+  # "permission:" lines are permissions the app declares; only requests matter here.
+  mapfile -t requests < <(printf '%s\n' "$perms" | grep '^uses-permission' || true)
+  for line in "${requests[@]}"; do
+    if [ "$line" != "uses-permission: name='$package.$allowed_permission'" ]; then
+      echo "::error file=$apk::$apk requests a permission: $line"
+      status=1
+    fi
+  done
+
+  manifest="$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")"
+  names="$(printf '%s\n' "$manifest" | sed -n 's/.*android:name([^)]*)="\([^"]*\)".*/\1/p')"
+  [ -n "$names" ] || { echo "::error file=$apk::$apk: no android:name found in the manifest dump"; status=1; continue; }
+  for forbidden in "${forbidden_names[@]}"; do
+    found="$(printf '%s\n' "$names" | awk -v p="$forbidden" 'index($0, p) == 1' | paste -sd ' ' -)"
+    if [ -n "$found" ]; then
+      echo "::error file=$apk::$apk has a forbidden manifest entry: $found"
       status=1
     fi
   done
 done
 
 if [ "$status" -eq 0 ]; then
-  echo "OK: no INTERNET, ACCESS_NETWORK_STATE or AD_ID permission requested."
+  echo "OK: no permissions besides the app's own $allowed_permission, and no forbidden manifest entries."
 fi
 exit "$status"

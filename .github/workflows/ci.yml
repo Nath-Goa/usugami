@@ -42,7 +42,7 @@ jobs:
           :app:assembleStandardDebug :app:assembleOfflineDebug
           :app:assembleStandardRelease :app:assembleOfflineRelease
 
-      - name: No network or advertising-ID permissions
+      - name: No permissions or blocked manifest entries
         run: >-
           bash .github/scripts/check-apk-permissions.sh
           app/build/outputs/apk/standard/release/*.apk

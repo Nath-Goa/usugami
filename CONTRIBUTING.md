@@ -55,8 +55,11 @@ need one to contribute. [docs/TESTING.md](docs/TESTING.md) explains the tests.
 - Write plain, short UI text and comments.
 - If you add or update a dependency, update [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). For
   Google libraries, regenerate `third_party/` with `tools/google_notices.py`.
-- CI must pass. It also fails if either APK requests the internet, network-state or advertising-ID
-  permission.
+- CI must pass. It also fails if either APK requests any permission (besides the app's own
+  signature-level receiver permission), or if a library adds back ML Kit's metrics upload backend
+  or the EmojiCompat initializer. If a dependency update trips this, remove the entry in
+  `app/src/main/AndroidManifest.xml` with `tools:node="remove"`, or explain in the pull request
+  why Usugami needs it.
 
 ## License of contributions
 

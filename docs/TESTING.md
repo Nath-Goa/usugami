@@ -67,5 +67,7 @@ On a phone or emulator, with the release APKs:
 - Offline edition: OCR works with the internet turned off.
 - The About screen shows the license, privacy policy and notices.
 
-CI and the release workflow also check that neither APK requests the `INTERNET`,
-`ACCESS_NETWORK_STATE` or `AD_ID` permission.
+CI and the release workflow also check both APKs' manifests with
+`.github/scripts/check-apk-permissions.sh`. It fails if an APK requests any permission besides
+the app's own signature-level `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, or if a library brings
+back an upload backend for ML Kit's usage metrics or the EmojiCompat startup initializer.
