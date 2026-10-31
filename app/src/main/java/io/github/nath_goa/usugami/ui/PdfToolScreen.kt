@@ -439,11 +439,13 @@ private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> 
         PdfCompression.entries.forEachIndexed { index, item ->
             SegmentedButton(selected = level == item, onClick = { onLevel(item) },
                 shape = SegmentedButtonDefaults.itemShape(index, PdfCompression.entries.size),
-                label = { Text(stringResource(when (item) {
+                icon = {},
+                contentPadding = SegmentPadding,
+                label = { SegmentLabel(stringResource(when (item) {
                     PdfCompression.LESS -> R.string.compression_less
                     PdfCompression.RECOMMENDED -> R.string.compression_recommended
                     PdfCompression.EXTREME -> R.string.compression_extreme
-                }), maxLines = 1) })
+                })) })
         }
     }
     Text(stringResource(R.string.pdf_compress_note), style = MaterialTheme.typography.bodySmall,
