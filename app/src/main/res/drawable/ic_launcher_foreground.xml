@@ -1,20 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- A page with a folded corner holding a small picture. Kept inside the 66dp safe zone. -->
+<!--
+    Thin pages: three thin sheets fanned out from their bottom-left corner ("usugami" is Japanese
+    for thin paper). Each sheet is a 30 x 40 rectangle with a same-colour stroke that rounds its
+    corners; the back sheets are see-through, so their edges show where they overlap. Kept inside
+    the 66 dp safe zone of the 108 dp adaptive-icon canvas.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M38,28 L61,28 L74,41 L74,78 Q74,82 70,82 L38,82 Q34,82 34,78 L34,32 Q34,28 38,28 Z" />
-    <path
-        android:fillColor="#F4B9B9"
-        android:pathData="M61,28 L61,37 Q61,41 65,41 L74,41 Z" />
-    <path
-        android:fillColor="#D32F2F"
-        android:pathData="M40,73 L49,60 L55,67 L59,62 L68,73 Z" />
-    <path
-        android:fillColor="#D32F2F"
-        android:pathData="M58,53 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
+    <group
+        android:translateX="41"
+        android:translateY="33">
+        <group
+            android:pivotX="0"
+            android:pivotY="40"
+            android:rotation="-14">
+            <path
+                android:fillAlpha="0.5"
+                android:fillColor="#4A3F6B"
+                android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
+                android:strokeAlpha="0.5"
+                android:strokeColor="#4A3F6B"
+                android:strokeLineJoin="round"
+                android:strokeWidth="4" />
+        </group>
+        <group
+            android:pivotX="0"
+            android:pivotY="40"
+            android:rotation="-7">
+            <path
+                android:fillAlpha="0.69"
+                android:fillColor="#4A3F6B"
+                android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
+                android:strokeAlpha="0.69"
+                android:strokeColor="#4A3F6B"
+                android:strokeLineJoin="round"
+                android:strokeWidth="4" />
+        </group>
+        <path
+            android:fillColor="#4A3F6B"
+            android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
+            android:strokeColor="#4A3F6B"
+            android:strokeLineJoin="round"
+            android:strokeWidth="4" />
+    </group>
 </vector>
