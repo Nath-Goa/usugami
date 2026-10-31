@@ -89,6 +89,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -292,8 +293,8 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
         itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
             ReorderableItem(reorderState, key = item.id) { isDragging ->
                 val elevation by animateDpAsState(if (isDragging) 10.dp else 1.dp, label = "drag elevation")
-                val moveEarlier = stringResource(R.string.move_earlier)
-                val moveLater = stringResource(R.string.move_later)
+                val moveEarlier = stringResource(R.string.move_page_earlier, index + 1)
+                val moveLater = stringResource(R.string.move_page_later, index + 1)
                 ElevatedCard(
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation),
                     modifier = Modifier
@@ -301,11 +302,13 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
                             onDragStarted = { haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) },
                             onDragStopped = { haptic.performHapticFeedback(HapticFeedbackType.GestureEnd) },
                         )
-                        .semantics {
-                            customActions = listOf(
-                                CustomAccessibilityAction(moveEarlier) { actions.moveBy(item.id, -1); true },
-                                CustomAccessibilityAction(moveLater) { actions.moveBy(item.id, 1); true },
-                            )
+                        // Screen reader and switch users can't drag: the card offers the same moves as
+                        // actions. Merged, so it is one focusable item that carries them.
+                        .semantics(mergeDescendants = true) {
+                            customActions = buildList {
+                                if (index > 0) add(CustomAccessibilityAction(moveEarlier) { actions.moveBy(item.id, -1); true })
+                                if (index < items.lastIndex) add(CustomAccessibilityAction(moveLater) { actions.moveBy(item.id, 1); true })
+                            }
                         },
                 ) {
                     PageCardContent(index + 1, item, layout, thumbnails, actions)
@@ -329,16 +332,20 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
                 .padding(12.dp),
         ) {
             PagePreview(item, layout, thumbnails, Modifier.fillMaxSize())
+            val pageLabel = stringResource(R.string.pdf_page_number, pageNumber)
             Surface(
                 color = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(50),
                 modifier = Modifier.align(Alignment.TopStart),
             ) {
+                // A screen reader says "Page 3" rather than a bare "3".
                 Text(
                     pageNumber.toString(),
                     style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier
+                        .semantics { contentDescription = pageLabel }
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
         }

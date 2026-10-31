@@ -17,6 +17,10 @@
     <string name="pick_pdf">Choose PDF</string>
     <string name="add_pdfs">Add PDFs</string>
     <string name="replace_pdf">Choose another PDF</string>
+    <!-- %1$s is a file name. -->
+    <string name="move_file_earlier">Move %1$s earlier</string>
+    <string name="move_file_later">Move %1$s later</string>
+    <string name="remove_file">Remove %1$s</string>
     <string name="pdf_import_failed">Couldn\'t open that PDF. It may be damaged or unsupported.</string>
     <string name="pdf_certificate_unsupported">This PDF is locked with a certificate (digital ID). Usugami can only open PDFs locked with a password.</string>
     <string name="pdf_wrong_password">That password didn\'t open the PDF.</string>
@@ -117,9 +121,8 @@
     <string name="rotate_page_left" tools:ignore="PluralsCandidate">Rotate page %1$d left</string>
     <string name="rotate_page_right" tools:ignore="PluralsCandidate">Rotate page %1$d right</string>
     <string name="remove_page">Remove page %1$d</string>
-    <string name="remove">Remove</string>
-    <string name="move_earlier">Move earlier</string>
-    <string name="move_later">Move later</string>
+    <string name="move_page_earlier" tools:ignore="PluralsCandidate">Move page %1$d earlier</string>
+    <string name="move_page_later" tools:ignore="PluralsCandidate">Move page %1$d later</string>
     <plurals name="image_count">
         <item quantity="one">%d image</item>
         <item quantity="other">%d images</item>
@@ -194,6 +197,7 @@
         <item quantity="other">%d pages</item>
     </plurals>
     <string name="open">Open</string>
+    <string name="open_file">Open %1$s</string>
     <string name="share">Share</string>
     <string name="share_all">Share all</string>
     <string name="save_to_downloads">Save to Downloads</string>
