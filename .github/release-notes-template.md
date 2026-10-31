@@ -4,10 +4,10 @@
 
 | File | Size | Pick it if… | Text recognition (OCR) |
 |---|---|---|---|
-| **[PDFer.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/PDFer.apk)** (recommended) | ${STANDARD_MB} MB | You're not sure. Works on most phones. | Runs through Google Play services. The first time you use it, Play services downloads Google's text-recognition model once, which needs internet that one time. |
-| [PDFer-offline.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/PDFer-offline.apk) | ${OFFLINE_MB} MB | Your phone has no Google Play services, or you want no network use at all. ARM phones (virtually all phones). | Built into the app. Works without internet, ever. |
+| **[Usugami.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami.apk)** (recommended) | ${STANDARD_MB} MB | You're not sure. Works on most phones. | Runs through Google Play services. The first time you use it, Play services downloads Google's text-recognition model once, which needs internet that one time. |
+| [Usugami-offline.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-offline.apk) | ${OFFLINE_MB} MB | Your phone has no Google Play services, or you want no network use at all. ARM phones (virtually all phones). | Built into the app. Works without internet, ever. |
 
-Everything else (images to PDF, split, merge, compress) works offline in both, and PDFer itself has
+Everything else (images to PDF, split, merge, compress) works offline in both, and Usugami itself has
 no internet permission. Both files are signed with the same key: install one over the other to
 switch editions.
 
@@ -16,7 +16,7 @@ Needs Android 8.0 or newer. New to installing APKs? Follow the
 
 ## Verify your download (optional)
 
-- Package name: `io.github.nath_goa.pdfer`
+- Package name: `io.github.nath_goa.usugami`
 - Signing certificate SHA-256: `${CERT_SHA256}`
 
 On a phone, paste those two lines into [AppVerifier](https://github.com/soupslurpr/AppVerifier).
@@ -24,8 +24,8 @@ On a computer:
 
 ```sh
 sha256sum -c SHA256SUMS.txt
-apksigner verify --print-certs PDFer.apk
-gh attestation verify PDFer.apk --repo ${GITHUB_REPOSITORY}
+apksigner verify --print-certs Usugami.apk
+gh attestation verify Usugami.apk --repo ${GITHUB_REPOSITORY}
 ```
 
 SHA256SUMS.txt:

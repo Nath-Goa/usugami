@@ -20,7 +20,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Pdfer">
+        android:theme="@style/Theme.Usugami">
 
         <activity
             android:name=".MainActivity"

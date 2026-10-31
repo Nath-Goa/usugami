@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fails if any of the given APKs requests a network or advertising-ID permission.
-# PDFer promises "no internet permission"; this keeps a library update from quietly adding one.
+# Usugami promises "no internet permission"; this keeps a library update from quietly adding one.
 #
 #   .github/scripts/check-apk-permissions.sh app.apk [more.apk ...]
 #

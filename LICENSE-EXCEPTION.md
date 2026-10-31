@@ -1,6 +1,6 @@
-# PDFer license notice and additional permission
+# Usugami license notice and additional permission
 
-PDFer
+Usugami
 Copyright (C) 2026 Nathan Kumtakar
 
 This program is free software: you can redistribute it and/or modify it under the terms of the
@@ -29,9 +29,9 @@ licensors of this Program grant you additional permission to convey the resultin
 
 ## Why this permission exists
 
-PDFer's text recognition (OCR) uses Google ML Kit, which is not open source. Every PDFer APK
+Usugami's text recognition (OCR) uses Google ML Kit, which is not open source. Every Usugami APK
 contains ML Kit and Google Play services client code, and the GPL alone would not let other people
 share such an APK, or a modified version of it. This permission makes that possible. It covers
-only those Google libraries; every other part of PDFer stays under the GPL. As section 7 of the
-GPL allows, anyone who passes PDFer on may remove this permission from their copy (for example, a
+only those Google libraries; every other part of Usugami stays under the GPL. As section 7 of the
+GPL allows, anyone who passes Usugami on may remove this permission from their copy (for example, a
 fork that drops ML Kit).

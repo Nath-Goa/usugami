@@ -2,7 +2,7 @@
 End-to-end check of the PDF engine against independent tools.
 
   python tools/validate_pdfs.py gen   <dir>   # write test images + manifest.tsv
-  ./gradlew :core:test -PpdferFixtures=<dir>  # build the PDFs with the app's engine
+  ./gradlew :core:test -PusugamiFixtures=<dir>  # build the PDFs with the app's engine
   python tools/validate_pdfs.py check <dir>   # validate them
 
 Needs: pillow numpy pikepdf pypdf pymupdf
@@ -151,7 +151,7 @@ def check(out: Path):
             problems = pdf.check_pdf_syntax()
             assert not problems, (name, problems)
             assert len(pdf.pages) == len(pages)
-            assert str(pdf.docinfo["/Producer"]) == "PDFer"
+            assert str(pdf.docinfo["/Producer"]) == "Usugami"
             for i, (f, e, r) in enumerate(pages):
                 xobj = list(pdf.pages[i].Resources.XObject.values())[0]
                 raw = xobj.read_raw_bytes()

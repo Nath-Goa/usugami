@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to PDFer are listed here. The format is based on
+All notable changes to Usugami are listed here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) from 1.2.0 on.
 
@@ -8,7 +8,8 @@ All notable changes to PDFer are listed here. The format is based on
 
 ## [1.2.0] - 2026-10-30
 
-First public release. PDFer is now open source (GPL-3.0-or-later) and comes in two editions.
+First public release, under a new name: PDFer is now **Usugami** (薄紙, Japanese for "thin paper").
+It is open source (GPL-3.0-or-later) and comes in two editions.
 
 **Had PDFer 1.0 or 1.1?** Those were private test builds with a different package name
 (`com.nathan.pdfer`) and signing key, so Android treats 1.2.0 as a different app and can't update
@@ -18,15 +19,15 @@ them. Install 1.2.0, then uninstall the old "PDFer".
 
 - Two editions with the same package name and signing key. Install one over the other to switch;
   your files and settings are kept.
-  - **PDFer** (`PDFer.apk`, about 2.3 MB): text recognition (OCR) runs through Google Play
+  - **Usugami** (`Usugami.apk`, about 2.4 MB): text recognition (OCR) runs through Google Play
     services. The first time you use it, Play services downloads Google's text-recognition model
     once, which needs an internet connection that one time.
-  - **PDFer Offline** (`PDFer-offline.apk`, about 22 MB, ARM phones): the text-recognition model is
+  - **Usugami Offline** (`Usugami-offline.apk`, about 22 MB, ARM phones): the text-recognition model is
     built in. Works with no internet at all and without Google Play services.
 - Text recognition shows its progress: the one-time download in the standard edition (with a
   percentage when known), creating the PDF, then reading the text page by page.
 - If text recognition isn't available, for example without Google Play services or without
-  internet for the first download, PDFer explains why and mentions PDFer Offline. If recognition
+  internet for the first download, Usugami explains why and mentions Usugami Offline. If recognition
   fails after the PDF is made, you keep the PDF without searchable text.
 - About screen with the license, the privacy policy and the open-source licenses, readable
   without internet.
@@ -37,9 +38,10 @@ them. Install 1.2.0, then uninstall the old "PDFer".
 
 ### Changed
 
-- New package name `io.github.nath_goa.pdfer` and a new release signing key. The certificate
+- New name, Usugami, because "PDFer" was already used by several other PDF apps.
+- New package name `io.github.nath_goa.usugami` and a new release signing key. The certificate
   fingerprint is in the README and in every release.
-- The standard APK went from about 52 MB to about 2.3 MB: text recognition moved to Google Play
+- The standard APK went from about 52 MB to about 2.4 MB: text recognition moved to Google Play
   services, and unused PDFBox data files, BouncyCastle and library translations were removed.
 - The invisible text layer of searchable PDFs uses one 18 KB font instead of two Noto fonts
   (0.8 MB).
@@ -47,7 +49,7 @@ them. Install 1.2.0, then uninstall the old "PDFer".
 - Photo metadata is removed with an allow-list: only what is needed to display the image is kept,
   so every other kind of embedded metadata is removed too, not only EXIF/GPS, XMP, IPTC and
   comments.
-- Google ML Kit's built-in usage-metrics uploader is removed from the app. (PDFer has no internet
+- Google ML Kit's built-in usage-metrics uploader is removed from the app. (Usugami has no internet
   permission, so it could never send anything; now ML Kit doesn't store those metrics either.)
 
 ### Fixed
@@ -67,12 +69,12 @@ them. Install 1.2.0, then uninstall the old "PDFer".
 
 ### Security
 
-- Images shared to PDFer from other apps are checked, so a share can't make PDFer read its own
+- Images shared to Usugami from other apps are checked, so a share can't make Usugami read its own
   private files.
 
 ## [1.1] - 2026-10-16
 
-Private test build (package `com.nathan.pdfer`), not published.
+Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 
 ### Added
 
@@ -91,12 +93,12 @@ Private test build (package `com.nathan.pdfer`), not published.
 
 ## [1.0] - 2026-10-14
 
-Private test build (package `com.nathan.pdfer`), not published.
+Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 
 ### Added
 
 - JPG and PNG to PDF. Add images from Photos (the system photo picker), Files, or by sharing them
-  to PDFer from another app.
+  to Usugami from another app.
 - Live page previews. Long-press and drag to reorder; rotate, remove, sort by name or reverse.
 - Page size Fit (same as image), A4, US Letter, US Legal, A3 or A5; orientation Auto, Portrait or
   Landscape; no margin, small or big margin.
@@ -109,5 +111,5 @@ Private test build (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/pdfer/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/Nath-Goa/pdfer/releases/tag/v1.2.0
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Nath-Goa/usugami/releases/tag/v1.2.0

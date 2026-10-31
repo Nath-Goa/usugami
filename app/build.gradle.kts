@@ -9,7 +9,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.parcelize")
 }
 
-// Release signing: CI passes the keystore through PDFER_* environment variables; a local build reads
+// Release signing: CI passes the keystore through USUGAMI_* environment variables; a local build reads
 // the git-ignored keystore.properties. Without either, release APKs are left unsigned.
 val keystoreProperties = Properties().apply {
     val file = rootProject.file("keystore.properties")
@@ -19,11 +19,11 @@ fun signingValue(env: String, key: String): String? =
     providers.environmentVariable(env).orNull?.takeIf { it.isNotBlank() } ?: keystoreProperties.getProperty(key)
 
 android {
-    namespace = "io.github.nath_goa.pdfer"
+    namespace = "io.github.nath_goa.usugami"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "io.github.nath_goa.pdfer"
+        applicationId = "io.github.nath_goa.usugami"
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -32,13 +32,13 @@ android {
     }
 
     signingConfigs {
-        val storePath = signingValue("PDFER_KEYSTORE_PATH", "storeFile")
+        val storePath = signingValue("USUGAMI_KEYSTORE_PATH", "storeFile")
         if (storePath != null) {
             create("release") {
                 storeFile = rootProject.file(storePath)
-                storePassword = signingValue("PDFER_KEYSTORE_PASSWORD", "storePassword")
-                keyAlias = signingValue("PDFER_KEY_ALIAS", "keyAlias")
-                keyPassword = signingValue("PDFER_KEY_PASSWORD", "keyPassword")
+                storePassword = signingValue("USUGAMI_KEYSTORE_PASSWORD", "storePassword")
+                keyAlias = signingValue("USUGAMI_KEY_ALIAS", "keyAlias")
+                keyPassword = signingValue("USUGAMI_KEY_PASSWORD", "keyPassword")
                 enableV1Signing = false // only needed below Android 7.0; minSdk is 8.0
                 enableV2Signing = true
                 enableV3Signing = true // allows rotating the key later
@@ -117,7 +117,7 @@ dependencies {
     implementation("sh.calvin.reorderable:reorderable:3.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0") {
-        // BouncyCastle is only used for certificate-encrypted PDFs, which PDFer doesn't open.
+        // BouncyCastle is only used for certificate-encrypted PDFs, which Usugami doesn't open.
         // Leaving it out saves space and drops an outdated crypto library.
         exclude(group = "org.bouncycastle")
     }
@@ -131,9 +131,9 @@ dependencies {
 }
 
 /**
- * Drops PDFBox data files that PDFer's code paths never read (about 1.2 MB).
+ * Drops PDFBox data files that Usugami's code paths never read (about 1.2 MB).
  * Predefined CJK CMaps are only read when PDFBox parses existing CJK fonts (text extraction,
- * rendering, form appearances); PDFer only needs Identity-H for the OCR text layer.
+ * rendering, form appearances); Usugami only needs Identity-H for the OCR text layer.
  * BidiMirroring.txt (7 KB) stays: PDFTextStripper's static initializer crashes without it, and
  * the device tests use PDFTextStripper to check the OCR text layer.
  */

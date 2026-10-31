@@ -3,7 +3,7 @@
 -dontwarn com.gemalto.jp2.**
 
 # BouncyCastle is excluded in build.gradle.kts. PDFBox only needs it for
-# certificate-encrypted PDFs, which PDFer reports as unsupported.
+# certificate-encrypted PDFs, which Usugami reports as unsupported.
 -dontwarn org.bouncycastle.**
 
 # ML Kit's libraries ship their own keep rules for the classes they load by name.

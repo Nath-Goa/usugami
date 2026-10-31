@@ -1,4 +1,4 @@
-"""Builds app/src/main/assets/fonts/PdferOcr-Regular.ttf, the glyph-less font for PDFer's invisible
+"""Builds app/src/main/assets/fonts/UsugamiOcr-Regular.ttf, the glyph-less font for Usugami's invisible
 OCR text layer.
 
 The text layer is drawn with rendering mode 3 (invisible), so glyph outlines are never used. What
@@ -12,7 +12,7 @@ The source fonts are Noto Sans 2.008 and Noto Sans Devanagari 2.002 (SIL OFL 1.1
 https://github.com/notofonts/latin-greek-cyrillic and https://github.com/notofonts/devanagari.
 
     python -m pip install fonttools==4.66.1
-    python -I tools/make_ocr_font.py NotoSans-Regular.ttf NotoSansDevanagari-Regular.ttf         app/src/main/assets/fonts/PdferOcr-Regular.ttf
+    python -I tools/make_ocr_font.py NotoSans-Regular.ttf NotoSansDevanagari-Regular.ttf         app/src/main/assets/fonts/UsugamiOcr-Regular.ttf
 """
 import sys
 import unicodedata
@@ -67,9 +67,9 @@ def main(latin_path, devanagari_path, out_path):
 
     names = font["name"]
     names.names = [n for n in names.names if n.nameID in (0, 13, 14)]
-    for name_id, value in ((1, "PDFer OCR"), (2, "Regular"), (3, "PDFerOCR-Regular-1.0"),
-                           (4, "PDFer OCR Regular"), (5, "Version 1.0; glyph-less, from Noto Sans 2.008 and Noto Sans Devanagari 2.002"),
-                           (6, "PDFerOCR-Regular")):
+    for name_id, value in ((1, "Usugami OCR"), (2, "Regular"), (3, "UsugamiOCR-Regular-1.0"),
+                           (4, "Usugami OCR Regular"), (5, "Version 1.0; glyph-less, from Noto Sans 2.008 and Noto Sans Devanagari 2.002"),
+                           (6, "UsugamiOCR-Regular")):
         names.setName(value, name_id, 3, 1, 0x409)
 
     glyf, hmtx = font["glyf"], font["hmtx"]
