@@ -26,6 +26,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -41,7 +43,7 @@ import io.github.nath_goa.usugami.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(onImages: () -> Unit, onTool: (PdfTool) -> Unit, onAbout: () -> Unit) {
+fun HomeScreen(snackbar: SnackbarHostState, onImages: () -> Unit, onTool: (PdfTool) -> Unit, onAbout: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -53,6 +55,9 @@ fun HomeScreen(onImages: () -> Unit, onTool: (PdfTool) -> Unit, onAbout: () -> U
                 },
             )
         },
+        // Messages can arrive on any screen, such as about shared images Usugami can't use. One with
+        // nowhere to show would wait, and show up later on another screen.
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),

@@ -205,7 +205,7 @@ private sealed interface DocumentContent {
 /** Shows one of the bundled legal texts. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LegalDocumentScreen(document: LegalDocument, onBack: () -> Unit) {
+fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, onBack: () -> Unit) {
     val assets = LocalContext.current.assets
     // Read off the main thread: the GPL alone is about 35 KB.
     val content by produceState<DocumentContent>(DocumentContent.Loading, document) {
@@ -222,6 +222,8 @@ fun LegalDocumentScreen(document: LegalDocument, onBack: () -> Unit) {
                 },
             )
         },
+        // As on every screen: a message with nowhere to show would wait, and show up later elsewhere.
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Crossfade(content, animationSpec = Motion.medium(), label = "document") { state ->
             when (state) {
