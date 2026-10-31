@@ -20,7 +20,8 @@ accepted:
 - new proprietary libraries
 
 Text recognition in the standard edition is the one exception to "no network": Google Play
-services, a separate app, downloads the model once. Usugami itself never connects.
+services, a separate app, downloads the model the first time each language is used. Usugami
+itself never connects.
 
 ## Building
 

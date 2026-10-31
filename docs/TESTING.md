@@ -37,7 +37,7 @@ extraction:
   PDFs untouched
 
 The standard edition gets its text-recognition model from Google Play services, so its OCR tests
-need a device or emulator with Google Play services and, the first time, an internet connection.
+need a device or emulator with Google Play services and, the first time each language is tested, an internet connection.
 The offline edition's tests work without either.
 
 ## 3. End-to-end check with independent PDF tools
@@ -64,7 +64,7 @@ On a phone or emulator, with the release APKs:
 - Images to PDF from Photos, Files and a share from the gallery, with OCR on in both languages.
 - Split, merge in page mode, and compress, including a password-protected PDF.
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
-- Standard edition: the first OCR downloads the model through Google Play services.
+- Standard edition: the first OCR in each language downloads that model through Google Play services.
 - Offline edition: OCR works with the internet turned off.
 - The About screen shows the license, privacy policy and notices.
 
