@@ -1,6 +1,7 @@
 package io.github.nath_goa.usugami
 
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nath_goa.usugami.core.TextBlock
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.loadLegalText
 import org.junit.Assert.assertEquals
@@ -28,12 +29,18 @@ class LegalDocumentDeviceTest {
     }
 
     @Test fun googleNoticesMatchTheEdition() {
-        assertNotNull("google-notices.txt is missing", loadLegalText(assets, listOf("google-notices.txt")))
+        val standard = loadLegalText(assets, listOf("google-notices.txt"))
+        assertNotNull("google-notices.txt is missing", standard)
         val offline = loadLegalText(assets, listOf("google-notices-offline.txt"))
         if (BuildConfig.OCR_BUNDLED) {
             assertNotNull("The offline edition needs the bundled-OCR notices", offline)
         } else {
             assertNull("The standard edition doesn't contain the bundled-OCR libraries", offline)
+        }
+        // Each file starts with its own title, so it doesn't read as part of the text before it.
+        for (blocks in listOfNotNull(standard, offline)) {
+            val first = blocks.first()
+            assertTrue("Starts with ${first.text}", first is TextBlock.Heading && first.level == 1 && first.text.startsWith("Open-source notices"))
         }
     }
 

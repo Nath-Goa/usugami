@@ -97,6 +97,94 @@ class SimpleMarkdownTest {
         )
     }
 
+    // Laid out as tools/google_notices.py writes third_party/google-notices*.txt.
+    @Test fun plainTextTitleAndBoxedNames() {
+        val rule = "-".repeat(80)
+        val text = """
+            Open-source notices in Google libraries
+            =======================================
+
+            Libraries:
+              com.google.android.gms:play-services-mlkit-text-recognition-common:19.1.0
+              com.google.mlkit:vision-common:17.3.0
+
+
+            $rule
+            Abseil
+            Bazel Platforms
+            $rule
+
+            Some notice text.
+
+                                GNU GENERAL PUBLIC LICENSE
+                                   Version 2, June 1991
+
+            $rule
+            The next section applies to the files in:
+            jre_emul/android/time
+            $rule
+            Redistribution is permitted.
+            $rule
+            Text between rules that close nothing is not a title.
+
+            An underline further down
+            =========================
+        """.trimIndent()
+        assertEquals(
+            listOf(
+                Heading(1, "Open-source notices in Google libraries"),
+                Paragraph("Libraries:\ncom.google.android.gms:play-services-mlkit-text-recognition-common:19.1.0\ncom.google.mlkit:vision-common:17.3.0"),
+                Heading(2, "Abseil\nBazel Platforms"),
+                Paragraph("Some notice text."),
+                // Titles inside a component's notice rank below its name.
+                Heading(3, "GNU GENERAL PUBLIC LICENSE\nVersion 2, June 1991"),
+                Heading(2, "The next section applies to the files in:\njre_emul/android/time"),
+                Paragraph("Redistribution is permitted.\nText between rules that close nothing is not a title."),
+                Paragraph("An underline further down"),
+            ),
+            SimpleMarkdown.parsePlain(text),
+        )
+    }
+
+    @Test fun indentedClausesAndQuotationsAreNotTitles() {
+        val text = """
+            1. Grant of rights. You may reproduce and share the material under these terms
+            and conditions, as long as you keep the notices described below with every copy.
+
+                    ii. a copyright notice;
+
+                    a notice that refers to this Public License;
+
+                    (c)    Representations.
+
+                    V.1. In General.
+
+                    B. Any new file that contains any part of the Original Code or
+                    previous Modifications.
+
+                    The obligations of Section 3 apply to Netscape, except to
+                    the extent specified in this Amendment.
+
+                                          Preamble
+        """.trimIndent()
+        assertEquals(
+            listOf(
+                Paragraph(
+                    "1. Grant of rights. You may reproduce and share the material under these terms " +
+                        "and conditions, as long as you keep the notices described below with every copy.",
+                ),
+                Paragraph("ii. a copyright notice;"),
+                Paragraph("a notice that refers to this Public License;"),
+                Paragraph("(c) Representations."),
+                Paragraph("V.1. In General."),
+                Paragraph("B. Any new file that contains any part of the Original Code or previous Modifications."),
+                Paragraph("The obligations of Section 3 apply to Netscape, except to the extent specified in this Amendment."),
+                Heading(2, "Preamble"),
+            ),
+            SimpleMarkdown.parsePlain(text),
+        )
+    }
+
     @Test fun emptyInput() {
         assertEquals(emptyList<TextBlock>(), SimpleMarkdown.parse(""))
         assertEquals(emptyList<TextBlock>(), SimpleMarkdown.parsePlain("\n\n"))

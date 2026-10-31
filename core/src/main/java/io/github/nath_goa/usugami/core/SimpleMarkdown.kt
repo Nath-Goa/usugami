@@ -30,6 +30,11 @@ object SimpleMarkdown {
     private val RULE = Regex("""^ {0,3}([-*_])(?:\s*\1){2,}\s*$""")
     private val LIST_ITEM = Regex("""^(\s*)([-*+]|\d{1,3}[.)])\s+(.*)$""")
     private val DECORATION = Regex("""^\s*[-=_*~]{3,}\s*$""")
+    private val UNDERLINE = Regex("""^\s*={3,}\s*$""")
+    private val LONG_RULE = Regex("""^\s*-{60,}\s*$""")
+
+    // The number or letter that starts a clause, such as "a.", "(ii)", "3)" or "V.1.".
+    private val CLAUSE = Regex("""^\(?([a-z]{1,4}|[0-9]{1,3}|[A-Z])(\.[0-9]{1,3})*[.)]\s""")
     private val SPACES = Regex(" {2,}")
     private val LINK = Regex("""\[([^\]]+)]\(([^)\s]+)\)""")
     private val AUTOLINK = Regex("""<((?:https?|mailto):[^>\s]+)>""")
@@ -101,7 +106,9 @@ object SimpleMarkdown {
 
     /**
      * Parses plain text such as the GPL: paragraphs are separated by blank lines, and a short title
-     * indented by 8 or more spaces (a centered one) becomes a heading.
+     * indented by 8 or more spaces (a centered one) becomes a heading. So do a title underlined with
+     * "=" at the very top, and text boxed in by long rules of dashes, which is how
+     * tools/google_notices.py names the components in the Google notices.
      */
     fun parsePlain(text: String): List<TextBlock> = plain(text.lines(), headingLevel = 2)
 
@@ -109,17 +116,24 @@ object SimpleMarkdown {
         val blocks = mutableListOf<TextBlock>()
         val width = typicalWidth(lines)
         val paragraph = mutableListOf<String>()
-        fun flush() {
+        // Centered titles that follow a boxed name belong to that component's notice, so rank lower.
+        var centeredLevel = headingLevel
+        // Whether the last line opened a box, and whether the paragraph being collected is in one.
+        var ruleAbove = false
+        var boxed = false
+        fun flush(level: Int? = null) {
             if (paragraph.isEmpty()) return
-            val centered = paragraph.size <= 3 && paragraph.all { indent(it) >= 8 } && "://" !in paragraph[0]
-            blocks += if (centered) {
-                TextBlock.Heading(headingLevel, paragraph.joinToString("\n") { it.trim() })
+            val title = level ?: centeredLevel.takeIf { centered(paragraph) }
+            blocks += if (title != null) {
+                TextBlock.Heading(title, paragraph.joinToString("\n") { it.trim() })
             } else {
-                // A line much shorter than the others ends where its author wanted a new line. Runs
-                // of spaces (two after a full stop, for example) are typewriter habits: one is enough.
+                // A line much shorter than the others ends where its author wanted a new line, and
+                // so does a single word or path (a list of files, say). Runs of spaces (two after a
+                // full stop, for example) are typewriter habits: one is enough.
                 val joined = StringBuilder(paragraph[0].trim().replace(SPACES, " "))
                 for (index in 1 until paragraph.size) {
-                    joined.append(if (paragraph[index - 1].trimEnd().length < width * 6 / 10) '\n' else ' ')
+                    val previous = paragraph[index - 1].trimEnd()
+                    joined.append(if (previous.length < width * 6 / 10 || ' ' !in previous.trim()) '\n' else ' ')
                     joined.append(paragraph[index].trim().replace(SPACES, " "))
                 }
                 TextBlock.Paragraph(joined.toString())
@@ -127,14 +141,39 @@ object SimpleMarkdown {
             paragraph.clear()
         }
         for (line in lines) {
+            // A rule opens a box where no paragraph is open; otherwise it may close one.
+            val rule = LONG_RULE.matches(line)
+            val opensBox = rule && paragraph.isEmpty()
             when {
                 line.isBlank() -> flush()
+                UNDERLINE.matches(line) && blocks.isEmpty() && paragraph.size <= 3 -> flush(level = maxOf(headingLevel - 1, 1))
+                rule && boxed && paragraph.isNotEmpty() -> {
+                    flush(level = headingLevel)
+                    centeredLevel = headingLevel + 1
+                }
                 DECORATION.matches(line) -> Unit
-                else -> paragraph += line
+                else -> {
+                    if (paragraph.isEmpty()) boxed = ruleAbove
+                    paragraph += line
+                }
             }
+            ruleAbove = opensBox
         }
         flush()
         return blocks
+    }
+
+    /**
+     * Whether a paragraph is a short title indented by 8 or more spaces, as license texts center
+     * them, rather than an indented clause ("ii. a copyright notice;") or quotation.
+     */
+    private fun centered(paragraph: List<String>): Boolean {
+        val first = paragraph[0].trim()
+        val last = paragraph.last().trimEnd()
+        return paragraph.size <= 3 && paragraph.all { indent(it) >= 8 } && "://" !in first &&
+            !CLAUSE.containsMatchIn(first) && !last.endsWith(';') && !last.endsWith(',') &&
+            // The lines of a centered title start at different columns; those of a quotation don't.
+            (paragraph.size == 1 || paragraph.distinctBy(::indent).size > 1)
     }
 
     /** The width the text was wrapped at: the length most lines stay within. */
