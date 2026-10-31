@@ -33,6 +33,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -75,10 +77,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -104,6 +110,8 @@ fun PdfToolScreen(
     val inputs by vm.inputs.collectAsStateWithLifecycle()
     val pages by vm.pages.collectAsStateWithLifecycle()
     val locked by vm.locked.collectAsStateWithLifecycle()
+    val unlocking by vm.unlocking.collectAsStateWithLifecycle()
+    val wrongPassword by vm.wrongPassword.collectAsStateWithLifecycle()
     val importing by vm.importing.collectAsStateWithLifecycle()
     val processing by vm.processing.collectAsStateWithLifecycle()
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
@@ -171,7 +179,8 @@ fun PdfToolScreen(
             }
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (inputs.isEmpty()) {
-                    OutlinedCard(onClick = if (tool == PdfTool.MERGE) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth()) {
+                    // Picking is off while PDFs are being added: a second pick then would be ignored.
+                    OutlinedCard(onClick = if (tool == PdfTool.MERGE) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
                         Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
                             Spacer(Modifier.height(12.dp))
@@ -183,7 +192,7 @@ fun PdfToolScreen(
                         MergeInputs(inputs, vm, pageMode, onPageMode = { pageMode = it })
                         // The page list carries the gap above it, so the gap opens and closes with the list.
                         Column {
-                            OutlinedButton(onClick = pickMultiple) { Text(stringResource(R.string.add_pdfs)) }
+                            OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
                             AnimatedVisibility(visible = pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page list") {
                                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                     MergePages(inputs, pages, vm)
@@ -192,7 +201,7 @@ fun PdfToolScreen(
                         }
                     } else {
                         PdfInputCard(inputs[0], onRemove = vm::startOver)
-                        OutlinedButton(onClick = pickSingle) { Text(stringResource(R.string.replace_pdf)) }
+                        OutlinedButton(onClick = pickSingle, enabled = !importing) { Text(stringResource(R.string.replace_pdf)) }
                     }
                     when (tool) {
                         PdfTool.SPLIT -> SplitOptions(inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
@@ -212,20 +221,15 @@ fun PdfToolScreen(
         }
     }
 
-    if (locked != null) {
-        var password by rememberSaveable(locked?.id) { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = vm::dismissPassword,
-            title = { Text(stringResource(R.string.pdf_password_title)) },
-            text = {
-                Column {
-                    Text(stringResource(R.string.pdf_password_body))
-                    OutlinedTextField(password, onValueChange = { password = it }, label = { Text(stringResource(R.string.pdf_password_hint)) },
-                        visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                }
-            },
-            confirmButton = { TextButton(onClick = { vm.unlock(password) }) { Text(stringResource(R.string.pdf_unlock)) } },
-            dismissButton = { TextButton(onClick = vm::dismissPassword) { Text(stringResource(R.string.cancel)) } },
+    // Several locked PDFs picked at once are asked for one at a time.
+    locked.firstOrNull()?.let { pending ->
+        PasswordDialog(
+            input = pending,
+            wrongPassword = wrongPassword,
+            unlocking = unlocking,
+            onUnlock = { vm.unlock(pending, it) },
+            onEdit = vm::clearWrongPassword,
+            onDismiss = { vm.dismissPassword(pending) },
         )
     }
     if (processing) {
@@ -237,6 +241,49 @@ fun PdfToolScreen(
             dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
         )
     }
+}
+
+@Composable
+private fun PasswordDialog(
+    input: PdfInput,
+    wrongPassword: Boolean,
+    unlocking: Boolean,
+    onUnlock: (String) -> Unit,
+    onEdit: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var password by rememberSaveable(input.id) { mutableStateOf("") }
+    val canUnlock = password.isNotEmpty() && !unlocking
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.pdf_password_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.pdf_password_body, input.name))
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        onEdit()
+                    },
+                    label = { Text(stringResource(R.string.pdf_password_hint)) },
+                    // Shown here: a message under the dialog would be hidden by it and by the keyboard.
+                    isError = wrongPassword,
+                    supportingText = if (wrongPassword) {
+                        { Text(stringResource(R.string.pdf_wrong_password), Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+                    } else null,
+                    visualTransformation = PasswordVisualTransformation(),
+                    // A password keyboard shows no suggestions and learns nothing typed here.
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { if (canUnlock) onUnlock(password) }),
+                    singleLine = true,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = { onUnlock(password) }, enabled = canUnlock) { Text(stringResource(R.string.pdf_unlock)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 @Composable

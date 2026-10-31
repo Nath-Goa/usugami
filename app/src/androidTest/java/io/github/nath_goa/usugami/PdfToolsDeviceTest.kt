@@ -19,6 +19,7 @@ import io.github.nath_goa.usugami.data.PdfOcr
 import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.PdfWrongPassword
 import io.github.nath_goa.usugami.data.ocrModels
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
@@ -126,7 +127,13 @@ class PdfToolsDeviceTest {
             engine.import(Uri.fromFile(encrypted), 1004)
             fail("Password request expected")
         } catch (e: PdfPasswordRequired) {
-            val unlocked = engine.inspect(e.input, "test123")
+            assertTrue("The copy is kept for the password dialog", e.input.file.isFile)
+            try {
+                engine.unlock(e.input, "wrong")
+                fail("A wrong password should be refused")
+            } catch (_: PdfWrongPassword) {
+            }
+            val unlocked = engine.unlock(e.input, "test123")
             assertEquals(3, unlocked.pageCount)
             val split = save(engine.split(unlocked, listOf(listOf(1)), "protected_split").single().file, "protected_split.pdf")
             assertTrue(text(split).contains("ALPHA TWO"))
@@ -147,6 +154,20 @@ class PdfToolsDeviceTest {
         } catch (_: PdfCertificateEncrypted) {
         }
         assertFalse("The copy should be removed", File(context.cacheDir, "pdf-inputs/1006.pdf").exists())
+    }
+
+    /** Leaving a tool stops a slow import part way, and its partial copy goes. */
+    @Test fun importCanBeStoppedPartWay() {
+        class Stop : RuntimeException()
+        val source = fixture("scanned.pdf") // several 64 KB chunks
+        var chunks = 0
+        try {
+            engine.import(Uri.fromFile(source), 1007) { if (++chunks == 3) throw Stop() }
+            fail("The import should have been stopped")
+        } catch (_: Stop) {
+        }
+        assertEquals(3, chunks)
+        assertFalse("The partial copy should be removed", File(context.cacheDir, "pdf-inputs/1007.pdf").exists())
     }
 
     /** Standard edition: Play services downloads the model the first time (needs internet). */
