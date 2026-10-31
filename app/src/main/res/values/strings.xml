@@ -5,7 +5,7 @@
 
     <!-- Home and PDF tools -->
     <string name="home_title" translatable="false">Usugami</string>
-    <string name="home_subtitle">Your PDFs stay on this phone. No ads, account, or uploads.</string>
+    <string name="home_subtitle">Your files stay on this phone. No ads, account, or uploads.</string>
     <string name="tool_images">Images to PDF</string>
     <string name="tool_images_detail">JPGs and PNGs to PDF, with text recognition</string>
     <string name="tool_split">Split PDF</string>

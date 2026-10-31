@@ -3,7 +3,7 @@
     <string name="back">Atrás</string>
 
     <!-- Home and PDF tools -->
-    <string name="home_subtitle">Tus PDF se quedan en este teléfono. Sin anuncios, sin cuenta y sin subir nada.</string>
+    <string name="home_subtitle">Tus archivos se quedan en este teléfono. Sin anuncios, sin cuenta y sin subir nada.</string>
     <string name="tool_images">Imágenes a PDF</string>
     <string name="tool_images_detail">JPG y PNG a PDF, con reconocimiento de texto</string>
     <string name="tool_split">Dividir PDF</string>

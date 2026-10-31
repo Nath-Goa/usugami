@@ -3,7 +3,7 @@
     <string name="back">वापस जाएं</string>
 
     <!-- Home and PDF tools -->
-    <string name="home_subtitle">आपकी PDF इसी फ़ोन पर रहती हैं। न विज्ञापन, न खाता, न अपलोड।</string>
+    <string name="home_subtitle">आपकी फ़ाइलें इसी फ़ोन पर रहती हैं। न विज्ञापन, न खाता, न अपलोड।</string>
     <string name="tool_images">इमेज से PDF</string>
     <string name="tool_images_detail">JPG और PNG इमेज से PDF, टेक्स्ट पहचान के साथ</string>
     <string name="tool_split">PDF स्प्लिट करें</string>
