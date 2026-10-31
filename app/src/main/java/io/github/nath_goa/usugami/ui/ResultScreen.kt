@@ -247,7 +247,8 @@ private fun FileRow(file: PdfFile, showOpen: Boolean, onOpen: () -> Unit) {
             }
             if (showOpen) {
                 IconButton(onClick = onOpen) {
-                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = stringResource(R.string.open))
+                    // One per file, so the label names the file.
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = stringResource(R.string.open_file, file.name))
                 }
             } else {
                 Spacer(Modifier.width(12.dp))

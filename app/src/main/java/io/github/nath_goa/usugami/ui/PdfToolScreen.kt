@@ -77,9 +77,11 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -298,7 +300,7 @@ private fun PdfInputCard(input: PdfInput, onRemove: () -> Unit) {
                 Text(stringResource(R.string.result_details, pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), Formatter.formatShortFileSize(context, input.file.length())),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove)) }
+            IconButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, input.name)) }
         }
     }
 }
@@ -333,14 +335,15 @@ private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode:
                                 Text(input.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 Text(pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), style = MaterialTheme.typography.bodySmall)
                             }
+                            // Each file has these buttons, so their labels name the file they act on.
                             IconButton(onClick = { vm.moveInput(input.id, -1) }, enabled = index > 0) {
-                                Icon(Icons.Rounded.ArrowUpward, contentDescription = stringResource(R.string.move_earlier))
+                                Icon(Icons.Rounded.ArrowUpward, contentDescription = stringResource(R.string.move_file_earlier, input.name))
                             }
                             IconButton(onClick = { vm.moveInput(input.id, 1) }, enabled = index < inputs.lastIndex) {
-                                Icon(Icons.Rounded.ArrowDownward, contentDescription = stringResource(R.string.move_later))
+                                Icon(Icons.Rounded.ArrowDownward, contentDescription = stringResource(R.string.move_file_later, input.name))
                             }
                             IconButton(onClick = { vm.removeInput(input.id) }) {
-                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove))
+                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, input.name))
                             }
                         }
                     }
@@ -371,7 +374,21 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                 val input = byId[ref.inputId] ?: return@itemsIndexed
                 ReorderableItem(reorder, key = "${ref.inputId}:${ref.page}") { _ ->
                     val angle by animatePdfPageRotationAsState(ref.rotation)
-                    OutlinedCard(Modifier.fillMaxWidth().longPressDraggableHandle()) {
+                    val moveEarlier = stringResource(R.string.move_page_earlier, index + 1)
+                    val moveLater = stringResource(R.string.move_page_later, index + 1)
+                    OutlinedCard(
+                        Modifier
+                            .fillMaxWidth()
+                            .longPressDraggableHandle()
+                            // Screen reader and switch users can't drag: the card offers the same moves as
+                            // actions. Merged, so it is one focusable item that carries them.
+                            .semantics(mergeDescendants = true) {
+                                customActions = buildList {
+                                    if (index > 0) add(CustomAccessibilityAction(moveEarlier) { vm.movePageBy(ref, -1); true })
+                                    if (index < pages.lastIndex) add(CustomAccessibilityAction(moveLater) { vm.movePageBy(ref, 1); true })
+                                }
+                            },
+                    ) {
                         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             PdfThumbnail(input, ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle })
                             Spacer(Modifier.width(8.dp))
