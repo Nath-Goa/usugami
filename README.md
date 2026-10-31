@@ -14,7 +14,7 @@ It was called PDFer before version 1.2.0.
 ## Download
 
 <a href="https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk"><img src="docs/badges/get-it-on-github.png" alt="Get Usugami on GitHub" height="80"></a>
-<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%2233%3A4C%3A89%3AF3%3ACB%3A02%3AE2%3A2D%3ADA%3A09%3AD0%3A0F%3A28%3A40%3A3C%3AEC%3A07%3AB1%3AE9%3A57%3ADA%3A0B%3A15%3AB3%3A5B%3AEF%3A73%3A35%3A04%3A5C%3A90%3AEA%5C%22%7D%22%7D"><img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
+<a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D"><img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
 
 On your phone, tap **Get it on GitHub** to download **Usugami.apk** (about 2.4 MB), then follow the
 [install steps](#install). Usugami comes in two editions; if you're not sure, take the first one.
@@ -170,14 +170,14 @@ certificate, and only the developer has the key.
 | | |
 |---|---|
 | Package name | `io.github.nath_goa.usugami` |
-| Signing certificate SHA-256 | `33:4C:89:F3:CB:02:E2:2D:DA:09:D0:0F:28:40:3C:EC:07:B1:E9:57:DA:0B:15:B3:5B:EF:73:35:04:5C:90:EA` |
+| Signing certificate SHA-256 | `6F:4F:23:AD:E0:3E:63:6A:7C:C3:68:16:89:44:D0:CC:FC:81:32:EF:34:C5:0B:C5:A4:6B:0C:A4:CB:BD:F4:ED` |
 
 - **On your phone:** install [AppVerifier](https://github.com/soupslurpr/AppVerifier), then paste
   these two lines into it after installing Usugami:
 
   ```text
   io.github.nath_goa.usugami
-  33:4C:89:F3:CB:02:E2:2D:DA:09:D0:0F:28:40:3C:EC:07:B1:E9:57:DA:0B:15:B3:5B:EF:73:35:04:5C:90:EA
+  6F:4F:23:AD:E0:3E:63:6A:7C:C3:68:16:89:44:D0:CC:FC:81:32:EF:34:C5:0B:C5:A4:6B:0C:A4:CB:BD:F4:ED
   ```
 
 <details>
@@ -190,7 +190,7 @@ apksigner verify --print-certs Usugami.apk
 ```
 
 The `certificate SHA-256 digest` line must read
-`334c89f3cb02e22dda09d00f28403cec07b1e957da0b15b35bef7335045c90ea`. (`keytool -printcert -jarfile`
+`6f4f23ade03e636a7cc368168944d0ccfc8132ef34c50bc5a46b0ca4cbbdf4ed`. (`keytool -printcert -jarfile`
 doesn't work here: Usugami uses the newer APK signature schemes, which keytool can't read.)
 
 **Checksums:** download `SHA256SUMS.txt` from the same release, put it next to the APKs and run:
@@ -220,8 +220,8 @@ straight from their GitHub releases. These links add Usugami to Obtainium with t
 the signing certificate already set, so Obtainium refuses any APK that wasn't signed with Usugami's
 key:
 
-- [Add **Usugami** to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%2233%3A4C%3A89%3AF3%3ACB%3A02%3AE2%3A2D%3ADA%3A09%3AD0%3A0F%3A28%3A40%3A3C%3AEC%3A07%3AB1%3AE9%3A57%3ADA%3A0B%3A15%3AB3%3A5B%3AEF%3A73%3A35%3A04%3A5C%3A90%3AEA%5C%22%7D%22%7D) (standard edition)
-- [Add **Usugami Offline** to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%20Offline%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami-offline%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%2233%3A4C%3A89%3AF3%3ACB%3A02%3AE2%3A2D%3ADA%3A09%3AD0%3A0F%3A28%3A40%3A3C%3AEC%3A07%3AB1%3AE9%3A57%3ADA%3A0B%3A15%3AB3%3A5B%3AEF%3A73%3A35%3A04%3A5C%3A90%3AEA%5C%22%7D%22%7D)
+- [Add **Usugami** to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D) (standard edition)
+- [Add **Usugami Offline** to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%20Offline%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami-offline%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D)
 
 Open the link on your phone with Obtainium installed, and confirm. Add only one of the two: both
 editions share a package name, so a phone has one or the other.
