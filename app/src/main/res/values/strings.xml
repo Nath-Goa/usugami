@@ -141,6 +141,30 @@
     <string name="sign_move_up">Move signature up</string>
     <string name="sign_move_down">Move signature down</string>
     <string name="sign_move_right">Move signature right</string>
+    <!-- Word and PowerPoint to PDF. Word and PowerPoint are the names of Microsoft's apps, kept as they are;
+         .docx, .pptx, .doc and .ppt are file extensions. -->
+    <string name="tool_word">Word to PDF</string>
+    <string name="tool_word_detail">Documents (.docx), converted on this phone</string>
+    <string name="tool_powerpoint">PowerPoint to PDF</string>
+    <string name="tool_powerpoint_detail">Slides (.pptx), one page each</string>
+    <string name="pick_word">Choose Word file</string>
+    <string name="pick_powerpoint">Choose PowerPoint file</string>
+    <string name="replace_document">Choose another file</string>
+    <string name="document_word">Word document</string>
+    <string name="document_powerpoint">PowerPoint presentation</string>
+    <string name="office_note_word">Text, headings, lists, tables and pictures convert. Your phone\'s fonts stand in for the document\'s, so some lines may break differently.</string>
+    <string name="office_note_powerpoint">Each slide becomes a page; hidden slides are left out. Your phone\'s fonts stand in for the presentation\'s, and charts show as gray boxes.</string>
+    <string name="office_legacy_word">This is an old Word file (.doc). Save it as .docx in Word or another app, then try again.</string>
+    <string name="office_legacy_powerpoint">This is an old PowerPoint file (.ppt). Save it as .pptx in PowerPoint or another app, then try again.</string>
+    <string name="office_encrypted">This file is protected with a password. Remove the password in Word or PowerPoint, save the file, then try again.</string>
+    <string name="office_not_word">This isn\'t a Word document (.docx), or it\'s damaged.</string>
+    <string name="office_not_powerpoint">This isn\'t a PowerPoint presentation (.pptx), or it\'s damaged.</string>
+    <string name="office_no_slides">This presentation has no slides to convert. Hidden slides are left out.</string>
+    <string name="office_convert_failed">Couldn\'t convert this file. Check the file and free storage.</string>
+    <plurals name="progress_slides">
+        <item quantity="one">%1$d of %2$d slide</item>
+        <item quantity="other">%1$d of %2$d slides</item>
+    </plurals>
 
     <string name="ocr_title">Make text searchable (OCR)</string>
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>

@@ -26,6 +26,7 @@ import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.SignatureInk
+import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import org.junit.After
@@ -33,6 +34,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -179,8 +181,16 @@ class ScreensDeviceTest {
         return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
     }
 
+    /** A file with [bytes], the way a picker gives it. */
+    private fun picked(name: String, bytes: ByteArray): Uri {
+        val file = File(app.cacheDir, "output/test-picked/$name").apply { parentFile!!.mkdirs() }
+        file.writeBytes(bytes)
+        return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+    }
+
     private fun openTool(title: Int, activity: MainActivity): PdfToolsViewModel {
-        click(find("the tool on the home screen") { it.text?.contains(app.getString(title)) == true })
+        // The tools further down Home are scrolled to, as a screen reader would.
+        click(findBelow("the tool on the home screen") { it.text?.contains(app.getString(title)) == true })
         // Home stays in the tree while it slides away, and its cards name the tools as their buttons do.
         waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.home_section_edit)) } }
         return onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
@@ -251,11 +261,11 @@ class ScreensDeviceTest {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) assertTrue("A screen reader can jump to it", node.isHeading)
         }
         val tools = listOf(
-            R.string.tool_images, R.string.tool_split, R.string.tool_merge, R.string.tool_compress,
-            R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_sign,
+            R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_split, R.string.tool_merge,
+            R.string.tool_compress, R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_sign,
         )
         for (tool in tools) {
-            val card = find("the ${app.getString(tool)} card") { it.text?.contains(app.getString(tool)) == true }
+            val card = findBelow("the ${app.getString(tool)} card") { it.text?.contains(app.getString(tool)) == true }
             assertTrue(clickable(card).isEnabled)
         }
     }
@@ -418,6 +428,65 @@ class ScreensDeviceTest {
         findBelow("page 2 in the preview, after the result") { it.says(app.getString(R.string.sign_preview_description, 2)) }
         click(actionButton(R.string.pdf_sign_action))
         checkSigned()
+    }
+
+    @Test fun wordToPdfConvertsTheDocumentAndKeepsItThroughRecreation() {
+        val first = launch()
+        val firstVm = openTool(R.string.tool_word, first)
+        find("the card to pick a file") { it.says(app.getString(R.string.pick_word)) }
+        assertFalse("Nothing to convert yet", clickable(button(R.string.convert)).isEnabled)
+
+        // An old binary .doc is refused, saying what to do.
+        onMain { firstVm.addDocument(picked("minutes.doc", OLD_BINARY_HEADER + ByteArray(1024)), OfficeKind.WORD) }
+        find("the message") { it.says(app.getString(R.string.office_legacy_word)) }
+        assertNull(onMain { firstVm.document.value })
+
+        onMain { firstVm.addDocument(pdf("report.docx", "Garden report.docx"), OfficeKind.WORD) }
+        find("the document's card") { it.says("Garden report.docx") }
+        // Its remove button names it, and the PDF is named after it.
+        find("the remove button") { it.says(app.getString(R.string.remove_file, "Garden report.docx")) }
+        find("the file name") { it.isEditable && it.text?.toString() == "Garden report" }
+        find("what converts") { it.says(app.getString(R.string.office_note_word)) }
+
+        // The document survives the activity being recreated, as it is on rotation.
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        find("the document's card, still") { it.says("Garden report.docx") }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+
+        click(actionButton(R.string.convert))
+        val result = resultFile(pdfVm)
+        assertEquals("Garden report.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            assertEquals(5, doc.numberOfPages)
+            assertTrue(PDFTextStripper().getText(doc).contains("Riverside Community Garden"))
+        }
+
+        // Back from the result, the document is still there to convert again.
+        click(find("the back button") { it.says(app.getString(R.string.back_to_editing)) })
+        waitUntil("the result to slide away") { nodes().none { it.says(app.getString(R.string.result_heading_one)) } }
+        find("the document's card, after the result") { it.says("Garden report.docx") }
+        assertTrue(clickable(actionButton(R.string.convert)).isEnabled)
+    }
+
+    @Test fun powerPointToPdfRefusesOtherFilesAndConverts() {
+        val activity = launch()
+        val pdfVm = openTool(R.string.tool_powerpoint, activity)
+        find("the card to pick a file") { it.says(app.getString(R.string.pick_powerpoint)) }
+
+        // A Word document isn't a presentation.
+        onMain { pdfVm.addDocument(pdf("report.docx"), OfficeKind.POWERPOINT) }
+        find("the message") { it.says(app.getString(R.string.office_not_powerpoint)) }
+        assertNull(onMain { pdfVm.document.value })
+
+        onMain { pdfVm.addDocument(pdf("deck.pptx"), OfficeKind.POWERPOINT) }
+        find("the presentation's card") { it.says("deck.pptx") }
+        find("what converts") { it.says(app.getString(R.string.office_note_powerpoint)) }
+        click(actionButton(R.string.convert))
+        PDDocument.load(resultFile(pdfVm)).use { doc ->
+            // Seven slides, one of them hidden.
+            assertEquals(6, doc.numberOfPages)
+        }
     }
 
     @Test fun editorPagesCanBeMovedWithoutDragging() {
@@ -602,5 +671,10 @@ class ScreensDeviceTest {
         val vm = onMain { ViewModelProvider(french)[MainViewModel::class.java] }
         onMain { vm.showMessage(R.string.msg_no_browser) }
         find("a French message") { it.says(stringIn(AppLanguage.FRENCH, R.string.msg_no_browser)) }
+    }
+
+    private companion object {
+        /** How old binary Word and PowerPoint files (.doc, .ppt) start. */
+        val OLD_BINARY_HEADER = byteArrayOf(0xD0.toByte(), 0xCF.toByte(), 0x11, 0xE0.toByte(), 0xA1.toByte(), 0xB1.toByte(), 0x1A, 0xE1.toByte())
     }
 }

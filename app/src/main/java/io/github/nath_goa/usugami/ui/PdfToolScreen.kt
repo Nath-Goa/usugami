@@ -123,6 +123,10 @@ fun PdfToolScreen(
     val importing by vm.importing.collectAsStateWithLifecycle()
     val processing by vm.processing.collectAsStateWithLifecycle()
     val signature by vm.signature.collectAsStateWithLifecycle()
+    val document by vm.document.collectAsStateWithLifecycle()
+    val convertProgress by vm.convertProgress.collectAsStateWithLifecycle()
+    // Word and PowerPoint to PDF take one document instead of PDFs.
+    val officeKind = tool.officeKind
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
     var pageText by rememberSaveable(tool) { mutableStateOf("") }
     var combine by rememberSaveable(tool) { mutableStateOf(true) }
@@ -138,13 +142,15 @@ fun PdfToolScreen(
     var signPage by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableIntStateOf(maxOf(0, (inputs.firstOrNull()?.pageCount ?: 1) - 1)) }
     var signPlacement by rememberSaveable(tool, inputs.firstOrNull()?.id, stateSaver = SignaturePlacementSaver) { mutableStateOf<SignaturePlacement?>(null) }
     var drawingSignature by rememberSaveable(tool) { mutableStateOf(false) }
-    var fileName by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf(vm.defaultName(tool)) }
+    val inputKey = if (officeKind != null) document?.id else inputs.firstOrNull()?.id
+    var fileName by rememberSaveable(tool, inputKey) { mutableStateOf(vm.defaultName(tool)) }
     val ready = when (tool) {
         PdfTool.SPLIT, PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS -> inputs.size == 1
         PdfTool.MERGE -> inputs.size >= 2 && (!pageMode || pages.isNotEmpty())
         PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
         PdfTool.WATERMARK -> inputs.size == 1 && watermarkText.isNotBlank()
         PdfTool.SIGN -> inputs.size == 1 && signature != null
+        PdfTool.WORD, PdfTool.POWERPOINT -> document?.kind == officeKind
     }
     val title = tool.title
     val action = when (tool) {
@@ -155,6 +161,7 @@ fun PdfToolScreen(
         PdfTool.PAGE_NUMBERS -> R.string.pdf_page_numbers_action
         PdfTool.WATERMARK -> R.string.pdf_watermark_action
         PdfTool.SIGN -> R.string.pdf_sign_action
+        PdfTool.WORD, PdfTool.POWERPOINT -> R.string.convert
     }
     Scaffold(
         topBar = {
@@ -174,6 +181,7 @@ fun PdfToolScreen(
                         PdfTool.PAGE_NUMBERS -> vm.runPageNumbers(numberPosition, numberSize, skipText, fileName)
                         PdfTool.WATERMARK -> vm.runWatermark(watermarkText, watermarkColor, watermarkOpacity, fileName)
                         PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
+                        PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvert(fileName)
                     }
                 },
                 enabled = ready && !importing && !processing,
@@ -203,15 +211,29 @@ fun PdfToolScreen(
                 LinearProgressIndicator(Modifier.padding(bottom = 16.dp).fillMaxWidth())
             }
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (inputs.isEmpty()) {
+                if (if (officeKind != null) document == null else inputs.isEmpty()) {
                     // Picking is off while PDFs are being added: a second pick then would be ignored.
                     OutlinedCard(onClick = if (tool == PdfTool.MERGE) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
                         Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text(stringResource(if (tool == PdfTool.MERGE) R.string.add_pdfs else R.string.pick_pdf))
+                            Text(
+                                stringResource(
+                                    when (tool) {
+                                        PdfTool.MERGE -> R.string.add_pdfs
+                                        PdfTool.WORD -> R.string.pick_word
+                                        PdfTool.POWERPOINT -> R.string.pick_powerpoint
+                                        else -> R.string.pick_pdf
+                                    },
+                                ),
+                            )
                         }
                     }
+                } else if (officeKind != null) {
+                    document?.let { DocumentInputCard(it, onRemove = vm::startOver) }
+                    OutlinedButton(onClick = pickSingle, enabled = !importing) { Text(stringResource(R.string.replace_document)) }
+                    OfficeNote(officeKind)
+                    FileNameField(fileName, onChange = { fileName = it })
                 } else {
                     if (tool == PdfTool.MERGE) {
                         MergeInputs(inputs, vm, pageMode, onPageMode = { pageMode = it })
@@ -250,15 +272,9 @@ fun PdfToolScreen(
                             signPage, onPage = { signPage = it },
                             signPlacement, onPlacement = { signPlacement = it },
                         )
+                        PdfTool.WORD, PdfTool.POWERPOINT -> Unit
                     }
-                    OutlinedTextField(
-                        value = fileName,
-                        onValueChange = { fileName = it },
-                        label = { Text(stringResource(R.string.file_name)) },
-                        suffix = { Text(".pdf") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    FileNameField(fileName, onChange = { fileName = it })
                 }
             }
         }
@@ -285,7 +301,9 @@ fun PdfToolScreen(
             onDismiss = { vm.dismissPassword(pending) },
         )
     }
-    if (processing) {
+    if (processing && officeKind != null) {
+        OfficeProgressDialog(convertProgress, onCancel = vm::cancel)
+    } else if (processing) {
         AlertDialog(
             onDismissRequest = {},
             title = { Text(stringResource(R.string.pdf_working)) },
@@ -294,6 +312,18 @@ fun PdfToolScreen(
             dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
         )
     }
+}
+
+@Composable
+private fun FileNameField(fileName: String, onChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = fileName,
+        onValueChange = onChange,
+        label = { Text(stringResource(R.string.file_name)) },
+        suffix = { Text(".pdf") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable

@@ -138,6 +138,29 @@
     <string name="sign_move_up">Mover la firma hacia arriba</string>
     <string name="sign_move_down">Mover la firma hacia abajo</string>
     <string name="sign_move_right">Mover la firma a la derecha</string>
+    <string name="tool_word">Word a PDF</string>
+    <string name="tool_word_detail">Documentos (.docx), convertidos en este teléfono</string>
+    <string name="tool_powerpoint">PowerPoint a PDF</string>
+    <string name="tool_powerpoint_detail">Diapositivas (.pptx), una página cada una</string>
+    <string name="pick_word">Elegir archivo de Word</string>
+    <string name="pick_powerpoint">Elegir archivo de PowerPoint</string>
+    <string name="replace_document">Elegir otro archivo</string>
+    <string name="document_word">Documento de Word</string>
+    <string name="document_powerpoint">Presentación de PowerPoint</string>
+    <string name="office_note_word">Se convierten el texto, los títulos, las listas, las tablas y las imágenes. Las fuentes de tu teléfono sustituyen a las del documento, así que algunas líneas pueden cortarse en otro sitio.</string>
+    <string name="office_note_powerpoint">Cada diapositiva se convierte en una página; las diapositivas ocultas se omiten. Las fuentes de tu teléfono sustituyen a las de la presentación, y los gráficos aparecen como recuadros grises.</string>
+    <string name="office_legacy_word">Es un archivo antiguo de Word (.doc). Guárdalo como .docx en Word u otra app y vuelve a intentarlo.</string>
+    <string name="office_legacy_powerpoint">Es un archivo antiguo de PowerPoint (.ppt). Guárdalo como .pptx en PowerPoint u otra app y vuelve a intentarlo.</string>
+    <string name="office_encrypted">Este archivo está protegido con contraseña. Quita la contraseña en Word o PowerPoint, guarda el archivo y vuelve a intentarlo.</string>
+    <string name="office_not_word">Este archivo no es un documento de Word (.docx), o está dañado.</string>
+    <string name="office_not_powerpoint">Este archivo no es una presentación de PowerPoint (.pptx), o está dañado.</string>
+    <string name="office_no_slides">Esta presentación no tiene diapositivas para convertir. Las diapositivas ocultas se omiten.</string>
+    <string name="office_convert_failed">No se pudo convertir este archivo. Revisa el archivo y el almacenamiento libre.</string>
+    <plurals name="progress_slides">
+        <item quantity="one">%1$d de %2$d diapositiva</item>
+        <item quantity="many">%1$d de %2$d diapositivas</item>
+        <item quantity="other">%1$d de %2$d diapositivas</item>
+    </plurals>
 
     <string name="ocr_title">Hacer buscable el texto (OCR)</string>
     <string name="ocr_detail">Reconoce las palabras de estas imágenes y añade texto buscable al PDF.</string>

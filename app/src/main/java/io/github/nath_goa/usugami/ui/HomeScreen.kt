@@ -22,9 +22,11 @@ import androidx.compose.material.icons.automirrored.rounded.RotateRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Compress
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -49,6 +51,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 
+/** The tools under "Create PDF" on Home, after Images to PDF, in order. */
+private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT)
+
 /** The tools under "Edit PDF" on Home, in order. */
 private val EditTools = listOf(PdfTool.SPLIT, PdfTool.MERGE, PdfTool.COMPRESS, PdfTool.ROTATE, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.SIGN)
 
@@ -63,6 +68,8 @@ internal val PdfTool.title: Int
         PdfTool.PAGE_NUMBERS -> R.string.tool_page_numbers
         PdfTool.WATERMARK -> R.string.tool_watermark
         PdfTool.SIGN -> R.string.tool_sign
+        PdfTool.WORD -> R.string.tool_word
+        PdfTool.POWERPOINT -> R.string.tool_powerpoint
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -76,6 +83,8 @@ private val PdfTool.detail: Int
         PdfTool.PAGE_NUMBERS -> R.string.tool_page_numbers_detail
         PdfTool.WATERMARK -> R.string.tool_watermark_detail
         PdfTool.SIGN -> R.string.tool_sign_detail
+        PdfTool.WORD -> R.string.tool_word_detail
+        PdfTool.POWERPOINT -> R.string.tool_powerpoint_detail
     }
 
 private val PdfTool.icon: ImageVector
@@ -87,6 +96,8 @@ private val PdfTool.icon: ImageVector
         PdfTool.PAGE_NUMBERS -> Icons.Rounded.FormatListNumbered
         PdfTool.WATERMARK -> Icons.AutoMirrored.Rounded.BrandingWatermark
         PdfTool.SIGN -> Icons.Rounded.Draw
+        PdfTool.WORD -> Icons.Rounded.Description
+        PdfTool.POWERPOINT -> Icons.Rounded.Slideshow
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,6 +124,7 @@ fun HomeScreen(snackbar: SnackbarHostState, onImages: () -> Unit, onTool: (PdfTo
             // To add a tool, add its card to its section.
             ToolSection(R.string.home_section_create) {
                 ToolCard(Icons.Rounded.PictureAsPdf, R.string.tool_images, R.string.tool_images_detail, onImages)
+                for (tool in CreateTools) ToolCard(tool.icon, tool.title, tool.detail) { onTool(tool) }
             }
             ToolSection(R.string.home_section_edit) {
                 for (tool in EditTools) ToolCard(tool.icon, tool.title, tool.detail) { onTool(tool) }

@@ -21,8 +21,8 @@ public, so please don't include personal details. To report a security problem p
 
 ## What Usugami can access
 
-- Only the images and PDFs you choose. You pick them with Android's photo picker or file picker,
-  or you share them to Usugami from another app. Android then gives Usugami access to those files
+- Only the images, PDFs, and Word and PowerPoint files you choose. You pick them with Android's
+  photo picker or file picker, or you share images to Usugami from another app. Android then gives Usugami access to those files
   only. Usugami cannot browse your photos or other files.
 - Usugami asks for no permissions: no storage, camera, location, contacts or microphone access.
 - Usugami has no internet permission, so Android does not let it connect to the internet, and it
@@ -74,8 +74,8 @@ Google or anyone else.
   that would upload ML Kit's metrics from inside Usugami, so those metrics are dropped. Google
   Play services is a separate app, and what it sends is covered by Google's policies, not by
   Usugami.
-- Everything else in Usugami (images to PDF and all the PDF tools) works without Google Play
-  services and without internet.
+- Everything else in Usugami (images, Word and PowerPoint to PDF, and all the PDF tools) works
+  without Google Play services and without internet.
 
 ### Usugami Offline
 

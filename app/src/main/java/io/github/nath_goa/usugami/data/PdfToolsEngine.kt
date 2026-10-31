@@ -209,6 +209,20 @@ class PdfToolsEngine(private val context: Context) {
         }
     }
 
+    /** Joins the PDFs in [files] into [target], in order. For PDFs Usugami made itself in parts. */
+    fun join(files: List<File>, target: File, check: () -> Unit = {}): File {
+        PDDocument(memory()).use { dest ->
+            val merger = PDFMergerUtility()
+            for (file in files) {
+                check()
+                load(file, "").use { merger.appendDocument(dest, it) }
+            }
+            check()
+            dest.save(target)
+        }
+        return target
+    }
+
     /**
      * Turns pages clockwise by [rotations] (page index to degrees, a multiple of 90), on top of the
      * turn they already have. Only the pages' /Rotate changes; their content is left as it is.

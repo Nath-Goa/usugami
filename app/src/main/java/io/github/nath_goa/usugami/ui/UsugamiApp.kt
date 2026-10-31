@@ -104,6 +104,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     val pdfMultiPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         pdfVm.addPdfs(uris, replace = false)
     }
+    // For Word to PDF and PowerPoint to PDF: the tool showing says which kind of file it takes.
+    val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val kind = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }?.officeKind
+        if (uri != null && kind != null) pdfVm.addDocument(uri, kind)
+    }
     val createDocument = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(PdfSaver.PDF_MIME)) { uri ->
         if (uri != null) {
             if (route == "images") vm.saveTo(uri) else pdfVm.saveTo(uri)
@@ -279,7 +284,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                             vm = pdfVm,
                             snackbar = screenSnackbar,
                             onBack = { route = "home" },
-                            pickSingle = { pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
+                            pickSingle = {
+                                val kind = tool.officeKind
+                                if (kind != null) documentPicker.launch(kind.pickerTypes) else pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
+                            },
                             pickMultiple = { pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
                         )
                     }

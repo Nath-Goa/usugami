@@ -33,6 +33,15 @@ import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkFontMissing
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
+import io.github.nath_goa.usugami.data.office.OfficeConverter
+import io.github.nath_goa.usugami.data.office.OfficeEncrypted
+import io.github.nath_goa.usugami.data.office.OfficeFileProblem
+import io.github.nath_goa.usugami.data.office.OfficeInput
+import io.github.nath_goa.usugami.data.office.OfficeKind
+import io.github.nath_goa.usugami.data.office.OfficeLegacyFormat
+import io.github.nath_goa.usugami.data.office.OfficeNotRecognized
+import io.github.nath_goa.usugami.data.office.OfficeNothingToConvert
+import io.github.nath_goa.usugami.data.office.OfficeProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -45,8 +54,19 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** The PDF tools. Each has a screen at its lowercase name; all but MERGE work on one PDF. */
-enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN }
+/**
+ * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD
+ * and POWERPOINT, which turn one Word or PowerPoint file into a PDF.
+ */
+enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT }
+
+/** The kind of file a tool converts to PDF; null for the tools that work on PDFs. */
+val PdfTool.officeKind: OfficeKind?
+    get() = when (this) {
+        PdfTool.WORD -> OfficeKind.WORD
+        PdfTool.POWERPOINT -> OfficeKind.POWERPOINT
+        else -> null
+    }
 enum class SplitMode { SELECTED, CUSTOM, FIXED, EVERY_PAGE }
 
 class PdfToolsViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
@@ -54,6 +74,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val strings: Resources get() = AppLanguages.localized(app).resources
 
     private val engine = PdfToolsEngine(app)
+    private val office = OfficeConverter(app, engine)
     private val saver = PdfSaver(app)
     private val fileOps = Dispatchers.IO.limitedParallelism(1)
     private val restored = handle.contains(KEY_INPUTS)
@@ -68,6 +89,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      * without drawing it again: [reset] keeps it. It lives only here, in the saved state.
      */
     val signature: StateFlow<Signature?> = handle.getStateFlow(KEY_SIGNATURE, null)
+
+    /** The Word or PowerPoint file picked for Word to PDF or PowerPoint to PDF. */
+    val document: StateFlow<OfficeInput?> = handle.getStateFlow(KEY_DOCUMENT, null)
+
+    /** How far converting [document] has got, while it is being converted. */
+    private val _convertProgress = MutableStateFlow<OfficeProgress?>(null)
+    val convertProgress = _convertProgress.asStateFlow()
 
     /** The password is being tried on the first locked PDF. */
     private val _unlocking = MutableStateFlow(false)
@@ -99,16 +127,20 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     init {
         val keep = if (restored) inputs.value + locked.value else emptyList()
+        val keepDocument = document.value
         viewModelScope.launch {
-            val missing = withContext(fileOps) {
+            val (missing, documentMissing) = withContext(fileOps) {
                 // Leftovers from an earlier session, including PDFBox scratch files from a killed run.
                 engine.deleteAllExcept(keep)
+                office.deleteAllExcept(keepDocument)
                 engine.clearOutput()
                 engine.clearScratch()
+                office.clearWork()
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
-                keep.filterNot { it.file.isFile }
+                keep.filterNot { it.file.isFile } to (keepDocument != null && !keepDocument.file.isFile)
             }
             if (missing.isNotEmpty()) forgetInputs(missing)
+            if (documentMissing) forgetDocument()
         }
     }
 
@@ -152,6 +184,62 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 if (!abandoned()) _importing.value = false
             }
         }
+    }
+
+    /** Copies the Word or PowerPoint file at [uri] in, in place of the one picked before. */
+    fun addDocument(uri: Uri, kind: OfficeKind) {
+        if (_processing.value || _importing.value) return
+        _importing.value = true
+        val generation = ++importGeneration
+        importJob = viewModelScope.launch {
+            val job = coroutineContext[Job]!!
+            fun abandoned() = generation != importGeneration
+            fun failed(text: String) { if (!abandoned()) message(text) }
+            try {
+                val input = withContext(fileOps) { office.import(uri, nextId++, kind) { job.ensureActive() } }
+                if (abandoned()) {
+                    withContext(fileOps) { office.delete(input) }
+                    return@launch
+                }
+                val old = document.value
+                handle[KEY_DOCUMENT] = input
+                if (old != null) viewModelScope.launch(fileOps) { office.delete(old) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: OfficeFileProblem) {
+                failed(officeMessage(e, kind))
+            } catch (_: Exception) {
+                failed(officeMessage(OfficeNotRecognized(), kind))
+            } catch (_: OutOfMemoryError) {
+                failed(officeMessage(OfficeNotRecognized(), kind))
+            } finally {
+                if (!abandoned()) _importing.value = false
+            }
+        }
+    }
+
+    /** Converts [document] to a PDF named [fileName]. */
+    fun runConvert(fileName: String) {
+        val input = document.value ?: return
+        process(emptyList(), input) { check ->
+            listOf(office.convert(input, fileName, check) { _convertProgress.value = it })
+        }
+    }
+
+    /** Why a Word or PowerPoint file can't be converted, in the user's language. */
+    private fun officeMessage(e: OfficeFileProblem, kind: OfficeKind): String = strings.getString(
+        when (e) {
+            is OfficeLegacyFormat -> if (kind == OfficeKind.WORD) R.string.office_legacy_word else R.string.office_legacy_powerpoint
+            is OfficeEncrypted -> R.string.office_encrypted
+            is OfficeNothingToConvert -> R.string.office_no_slides
+            is OfficeNotRecognized -> if (kind == OfficeKind.WORD) R.string.office_not_word else R.string.office_not_powerpoint
+        },
+    )
+
+    /** The picked document's copy was cleared from the cache: drop it, and say so. */
+    private fun forgetDocument() {
+        handle[KEY_DOCUMENT] = null
+        pluralMessage(R.plurals.msg_files_cleared, 1)
     }
 
     private var unlockJob: Job? = null
@@ -368,16 +456,29 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         PageSelectionException.Problem.CHUNK_SIZE -> strings.getString(R.string.pdf_pages_chunk, e.pageCount)
     }
 
-    /** Runs [block], which reads [sources]. Every tool writes PDFs without a password. */
-    private fun process(sources: List<PdfInput>, afterResult: (List<PdfFile>) -> Unit = {}, block: (() -> Unit) -> List<PdfFile>) {
+    /**
+     * Runs [block], which reads [sources] (or the Word or PowerPoint file [document]). Every tool
+     * writes PDFs without a password.
+     */
+    private fun process(
+        sources: List<PdfInput>,
+        document: OfficeInput? = null,
+        afterResult: (List<PdfFile>) -> Unit = {},
+        block: (() -> Unit) -> List<PdfFile>,
+    ) {
         if (_processing.value || _importing.value) return
         _processing.value = true
+        _convertProgress.value = null
         task = viewModelScope.launch {
             try {
                 val job = coroutineContext[Job]!!
                 val missing = withContext(fileOps) { sources.filterNot { it.file.isFile } }
                 if (missing.isNotEmpty()) {
                     forgetInputs(missing)
+                    return@launch
+                }
+                if (document != null && withContext(fileOps) { !document.file.isFile }) {
+                    forgetDocument()
                     return@launch
                 }
                 val files = withContext(fileOps) { block { job.ensureActive() } }
@@ -389,7 +490,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 // The engine removes partial output on cancellation.
             } catch (_: OutOfMemoryError) {
                 // A very large image can exhaust the heap; the engine has already removed partial output.
-                message(strings.getString(R.string.pdf_process_failed))
+                message(strings.getString(if (document != null) R.string.office_convert_failed else R.string.pdf_process_failed))
+            } catch (e: OfficeFileProblem) {
+                message(officeMessage(e, document?.kind ?: OfficeKind.WORD))
             } catch (_: PdfCertificateEncrypted) {
                 message(strings.getString(R.string.pdf_certificate_unsupported))
             } catch (_: WatermarkFontMissing) {
@@ -397,12 +500,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             } catch (e: Exception) {
                 message(
                     if (e.isOutOfSpace()) strings.getString(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_space))
-                    else strings.getString(R.string.pdf_process_failed),
+                    else strings.getString(if (document != null) R.string.office_convert_failed else R.string.pdf_process_failed),
                 )
             } catch (_: LinkageError) {
-                message(strings.getString(R.string.pdf_process_failed))
+                message(strings.getString(if (document != null) R.string.office_convert_failed else R.string.pdf_process_failed))
             } finally {
                 _processing.value = false
+                _convertProgress.value = null
                 task = null
             }
         }
@@ -435,21 +539,27 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setInputs(emptyList())
         setPages(emptyList())
         setLocked(emptyList())
+        handle[KEY_DOCUMENT] = null
         // Every copy goes, including one still being imported or waiting for its password. File work
         // runs one task at a time, so this waits for a cancelled import or run to stop first.
         viewModelScope.launch(fileOps) {
             engine.deleteAllExcept(emptyList())
+            office.deleteAllExcept(null)
             engine.clearOutput()
+            office.clearWork()
         }
     }
 
     private fun clearInputs() {
         val old = inputs.value + locked.value
+        val oldDocument = document.value
         setInputs(emptyList())
         setPages(emptyList())
         setLocked(emptyList())
+        handle[KEY_DOCUMENT] = null
         _wrongPassword.value = false
         old.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
+        oldDocument?.let { viewModelScope.launch(fileOps) { office.delete(it) } }
     }
 
     val canSaveToDownloads get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
@@ -522,6 +632,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun defaultName(tool: PdfTool): String {
         val base = inputs.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"
         return when (tool) {
+            // A converted document keeps its name: Report.docx becomes Report.pdf.
+            PdfTool.WORD, PdfTool.POWERPOINT -> document.value?.name?.let(FileNames::baseName) ?: "Usugami"
             PdfTool.SPLIT -> "${base}_split"
             PdfTool.COMPRESS -> "${base}_compressed"
             PdfTool.MERGE -> "Merged_PDF"
@@ -549,7 +661,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         // Not when the system merely destroyed the activity: the saved state still lists the copies.
         if (!finishing) return
         val old = inputs.value + locked.value
-        Thread { old.forEach(engine::delete) }.start()
+        val oldDocument = document.value
+        Thread {
+            old.forEach(engine::delete)
+            oldDocument?.let(office::delete)
+        }.start()
     }
 
     private companion object {
@@ -557,5 +673,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_PAGES = "pdf_pages"
         const val KEY_LOCKED = "pdf_locked"
         const val KEY_SIGNATURE = "signature"
+        const val KEY_DOCUMENT = "document"
     }
 }

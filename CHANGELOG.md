@@ -8,6 +8,14 @@ All notable changes to Usugami are listed here. The format is based on
 
 ### Added
 
+- **Word to PDF** and **PowerPoint to PDF**, under Create PDF on Home. Usugami reads .docx documents
+  and .pptx presentations itself, on your phone, with no upload and no extra library. Text stays
+  searchable; styles and headings, lists, tables (split across pages, header rows repeated),
+  pictures, headers and footers, page sizes and landscape pages, slide backgrounds, shapes, and
+  the slide master's text styles carry over. Hidden slides are left out, and pictures are
+  compressed. Fonts become the phone's own, and charts show as gray boxes with their title. Old
+  .doc and .ppt files and password-protected ones are refused with a message saying what to do.
+
 - **Rotate PDF**: turn single pages, or all of them, left or right. Only the way each page is shown
   changes; nothing is re-encoded.
 - **Add page numbers**: at the top or bottom, left, center or right, in three sizes, skipping the

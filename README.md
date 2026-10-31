@@ -1,7 +1,8 @@
 # Usugami
 
-**Turn photos into PDFs, and split, merge, compress, rotate, number, watermark and sign PDFs,
-right on your Android phone. No ads, no tracking, no account, no uploads.**
+**Turn photos, Word documents and PowerPoint slides into PDFs, and split, merge, compress, rotate,
+number, watermark and sign PDFs, right on your Android phone. No ads, no tracking, no account, no
+uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
 It was called PDFer before version 1.2.0.
@@ -26,7 +27,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 | | **Usugami** (recommended) | **Usugami Offline** |
 |---|---|---|
 | Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 2.5 MB | **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**, about 22 MB |
-| Images to PDF and every PDF tool | Fully offline | Fully offline |
+| Images, Word and PowerPoint to PDF, and every PDF tool | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Built into the app. Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never |
 | Needs Google Play services | Only for text recognition | No |
@@ -119,6 +120,24 @@ old "PDFer".
 - Optional **searchable PDF** with text recognition (OCR) in **English**, **French**,
   **Spanish** or **Hindi**. Hindi mode also keeps any English text.
 
+**Word to PDF**
+
+- Turns **.docx** documents into PDFs on your phone. Nothing is uploaded.
+- Keeps the page size and margins, headings and other styles, bold, italic, underlined, colored and
+  highlighted text, bulleted and numbered lists, tables (split across pages, with their header row
+  repeated), pictures, page breaks, landscape pages, and headers and footers with page numbers.
+- The text stays real text, so you can search and select it in the PDF.
+- Pictures are compressed as in Compress PDF (Recommended), so the PDF stays small.
+
+**PowerPoint to PDF**
+
+- Turns **.pptx** presentations into PDFs: one page per slide, in order, the size of the slides.
+  Hidden slides are left out.
+- Keeps backgrounds, text and bullets in the presentation's own styles, shapes, pictures and tables.
+  Text too long for its box is shrunk to fit, as PowerPoint does.
+- Some things are simplified: see *What converts from Word and PowerPoint?* under
+  [Questions and troubleshooting](#questions-and-troubleshooting).
+
 **Split PDF**
 
 - Pick pages by tapping previews or typing numbers like `1,3,5-8`.
@@ -186,7 +205,7 @@ old "PDFer".
   upload your files.
 - **No ads, no analytics, no tracking, no accounts, no in-app purchases.**
 - **Only the files you pick.** Usugami asks for no permissions; Android gives it access to just the
-  images and PDFs you choose or share.
+  images, PDFs and documents you choose or share.
 - **Temporary copies are cleaned up.** While you work, copies live in Usugami's private cache and
   are deleted automatically.
 - **Standard edition and Google Play services:** text recognition runs on your phone, through
@@ -364,6 +383,27 @@ recognition with each of those needs an internet connection.
 </details>
 
 <details>
+<summary><b>What converts from Word and PowerPoint?</b></summary>
+
+Usugami reads the file itself, on your phone, and lays it out again. The PDF is close to the
+original, but not always identical:
+
+- **Converts:** text and its formatting, headings and other styles, lists, tables, pictures, page
+  and slide sizes, slide backgrounds and shapes, and headers and footers.
+- **Simplified:** your phone's fonts stand in for the document's (such as Calibri or Times New
+  Roman), so lines can break in slightly different places. Text doesn't wrap around floating
+  pictures, and several columns become one. Charts become gray boxes with their title, and so does
+  SmartArt in Word documents. Shadows, 3-D effects, animations and videos are left out, as are
+  comments, footnotes and speaker notes.
+- **Not converted:** old **.doc** and **.ppt** files (save them as .docx or .pptx in Word,
+  PowerPoint or another office app first), password-protected files (remove the password first),
+  and Excel spreadsheets.
+- The text in the PDF is real text you can search and copy. In Hindi and other scripts with joined
+  letters, copied text can come out jumbled, even though it looks right on the page.
+
+</details>
+
+<details>
 <summary><b>Where are my PDFs saved?</b></summary>
 
 Nowhere until you choose. When a PDF is ready you can:
@@ -459,14 +499,17 @@ readable code.
 
 ```text
 app/                  Android app (Kotlin, Jetpack Compose, Material 3)
-  src/main/           shared code: screens, PDF tools, OCR text layer, saving and sharing
+  src/main/           shared code: screens, PDF tools, Word and PowerPoint conversion, OCR text
+                      layer, saving and sharing
   src/standard/       text recognition through Google Play services
   src/offline/        built-in text recognition
   src/androidTest/    device tests
 core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, page layout,
-                      JPEG/PNG handling, metadata removal, compression sizing, page ranges
+                      JPEG/PNG handling, metadata removal, compression sizing, page ranges,
+                      and the Word and PowerPoint helpers (units, colors, list numbers)
 tools/                validate_pdfs.py (checks output with independent PDF tools),
-                      make_ocr_font.py (builds the OCR font), google_notices.py
+                      make_ocr_font.py (builds the OCR font), make_office_fixtures.py (the
+                      made-up Word and PowerPoint test files), google_notices.py
 third_party/          license notices that Google ships in its libraries
 docs/                 testing guide, badges, screenshots
 .github/              CI and release workflows
@@ -474,6 +517,8 @@ docs/                 testing guide, badges, screenshots
 
 The PDF tools use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);
 text recognition uses [Google ML Kit](https://developers.google.com/ml-kit/vision/text-recognition/v2).
+Word and PowerPoint files are read with Android's own XML parser and drawn with its built-in PDF
+writer, so they need no extra library.
 
 ## Contributing
 
@@ -509,4 +554,4 @@ Components by others are listed, with their licenses, in
   (CC BY-SA 3.0, based on the F-Droid badge by flocke), and the Obtainium badge from
   [Obtainium](https://github.com/ImranR98/Obtainium) (GPL-3.0). See [docs/badges](docs/badges/README.md).
 
-Usugami is not affiliated with or endorsed by Google, GitHub or Obtainium.
+Usugami is not affiliated with or endorsed by Google, Microsoft, GitHub or Obtainium.

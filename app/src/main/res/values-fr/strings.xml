@@ -138,6 +138,29 @@
     <string name="sign_move_up">Déplacer la signature vers le haut</string>
     <string name="sign_move_down">Déplacer la signature vers le bas</string>
     <string name="sign_move_right">Déplacer la signature vers la droite</string>
+    <string name="tool_word">Word en PDF</string>
+    <string name="tool_word_detail">Documents (.docx), convertis sur ce téléphone</string>
+    <string name="tool_powerpoint">PowerPoint en PDF</string>
+    <string name="tool_powerpoint_detail">Diapositives (.pptx), une page chacune</string>
+    <string name="pick_word">Choisir un fichier Word</string>
+    <string name="pick_powerpoint">Choisir un fichier PowerPoint</string>
+    <string name="replace_document">Choisir un autre fichier</string>
+    <string name="document_word">Document Word</string>
+    <string name="document_powerpoint">Présentation PowerPoint</string>
+    <string name="office_note_word">Le texte, les titres, les listes, les tableaux et les images sont convertis. Les polices de votre téléphone remplacent celles du document : certaines lignes peuvent donc se couper ailleurs.</string>
+    <string name="office_note_powerpoint">Chaque diapositive devient une page ; les diapositives masquées sont ignorées. Les polices de votre téléphone remplacent celles de la présentation, et les graphiques apparaissent sous forme de cadres gris.</string>
+    <string name="office_legacy_word">C\'est un ancien fichier Word (.doc). Enregistrez-le au format .docx dans Word ou une autre application, puis réessayez.</string>
+    <string name="office_legacy_powerpoint">C\'est un ancien fichier PowerPoint (.ppt). Enregistrez-le au format .pptx dans PowerPoint ou une autre application, puis réessayez.</string>
+    <string name="office_encrypted">Ce fichier est protégé par un mot de passe. Retirez le mot de passe dans Word ou PowerPoint, enregistrez le fichier, puis réessayez.</string>
+    <string name="office_not_word">Ce fichier n\'est pas un document Word (.docx), ou il est endommagé.</string>
+    <string name="office_not_powerpoint">Ce fichier n\'est pas une présentation PowerPoint (.pptx), ou il est endommagé.</string>
+    <string name="office_no_slides">Cette présentation n\'a aucune diapositive à convertir. Les diapositives masquées sont ignorées.</string>
+    <string name="office_convert_failed">Impossible de convertir ce fichier. Vérifiez le fichier et l\'espace de stockage disponible.</string>
+    <plurals name="progress_slides">
+        <item quantity="one">%1$d sur %2$d diapositive</item>
+        <item quantity="many">%1$d sur %2$d diapositives</item>
+        <item quantity="other">%1$d sur %2$d diapositives</item>
+    </plurals>
 
     <string name="ocr_title">Rendre le texte recherchable (OCR)</string>
     <string name="ocr_detail">Reconnaître les mots figurant sur ces images et ajouter du texte recherchable au PDF.</string>

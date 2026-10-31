@@ -15,6 +15,8 @@ import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
+import io.github.nath_goa.usugami.data.office.OfficeInput
+import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import kotlinx.coroutines.flow.first
@@ -22,6 +24,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -30,7 +33,8 @@ import java.io.File
 /**
  * Working files live in the cache, which the system may clear while Usugami is in the background.
  * After the process is restored, items whose files are gone must be dropped (with a message).
- * The copies must outlive the activity being recreated, and go when the user leaves or discards them.
+ * The copies (images, PDFs, Word and PowerPoint files) must outlive the activity being recreated,
+ * and go when the user leaves or discards them.
  */
 class WorkingFilesDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -108,6 +112,30 @@ class WorkingFilesDeviceTest {
         waitUntil("the input copies to be deleted") { File(app.cacheDir, "pdf-inputs").list().isNullOrEmpty() }
         assertFalse(kept.exists())
         assertTrue(vm.inputs.value.isEmpty())
+    }
+
+    @Test fun restoredDocumentsAreKeptOrDroppedAndResetFreesThem() {
+        val kept = file("office-inputs/21.docx")
+        val leftover = file("office-inputs/20.pptx")
+        val work = file("office-work/part-1.pdf")
+        // "document" is PdfToolsViewModel's saved-state key for the Word or PowerPoint file.
+        fun restore(input: OfficeInput) = onMain { PdfToolsViewModel(app, SavedStateHandle(mapOf("document" to input))) }
+
+        val vm = restore(OfficeInput(21, kept.path, "notes.docx", OfficeKind.WORD))
+        waitUntil("an earlier session's files to be removed") { !leftover.exists() && !work.exists() }
+        assertTrue(kept.isFile)
+        assertEquals(21L, vm.document.value?.id)
+        // Leaving the tool frees the copy.
+        onMain { vm.reset() }
+        waitUntil("the copy to be deleted") { !kept.exists() }
+        assertNull(vm.document.value)
+
+        // The system cleared the cache while Usugami was away: the document is dropped, with a message.
+        val gone = File(app.cacheDir, "office-inputs/22.docx").apply { delete() }
+        val restored = restore(OfficeInput(22, gone.path, "gone.docx", OfficeKind.WORD))
+        waitUntil("the missing document to be dropped") { restored.document.value == null }
+        val message = runBlocking { withTimeout(10_000) { restored.messages.first() } }
+        assertTrue(message, message.contains("cleared"))
     }
 
     @Test fun copiesSurviveTheActivityBeingDestroyedWithoutFinishing() {
