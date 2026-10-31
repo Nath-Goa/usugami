@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="back">वापस जाएं</string>
+
+    <!-- Home and PDF tools -->
+    <string name="home_subtitle">आपकी PDF इसी फ़ोन पर रहती हैं। न विज्ञापन, न खाता, न अपलोड।</string>
+    <string name="tool_images">इमेज से PDF</string>
+    <string name="tool_images_detail">JPG और PNG इमेज मिलाएं, चाहें तो टेक्स्ट पहचान के साथ</string>
+    <string name="tool_split">PDF स्प्लिट करें</string>
+    <string name="tool_split_detail">पेज निकालें या छोटी फ़ाइलों में बांटें</string>
+    <string name="tool_merge">PDF मर्ज करें</string>
+    <string name="tool_merge_detail">फ़ाइलें मिलाएं और अलग-अलग पेज क्रम में लगाएं</string>
+    <string name="tool_compress">PDF कंप्रेस करें</string>
+    <string name="tool_compress_detail">टेक्स्ट और ड्रॉइंग बनाए रखते हुए इमेज का साइज़ कम करें</string>
+    <string name="pick_pdf">PDF चुनें</string>
+    <string name="add_pdfs">PDF जोड़ें</string>
+    <string name="replace_pdf">दूसरी PDF चुनें</string>
+    <!-- %1$s is a file name. -->
+    <string name="move_file_earlier">%1$s को पहले ले जाएं</string>
+    <string name="move_file_later">%1$s को बाद में ले जाएं</string>
+    <string name="remove_file">%1$s हटाएं</string>
+    <string name="pdf_import_failed">वह PDF नहीं खोली जा सकी। हो सकता है कि वह खराब हो या समर्थित न हो।</string>
+    <string name="pdf_certificate_unsupported">यह PDF सर्टिफ़िकेट (डिजिटल आईडी) से लॉक है। Usugami सिर्फ़ पासवर्ड से लॉक की गई PDF खोल सकता है।</string>
+    <string name="pdf_wrong_password">उस पासवर्ड से PDF नहीं खुली।</string>
+    <string name="pdf_password_title">PDF पासवर्ड</string>
+    <string name="pdf_password_body">\"%1$s\" पासवर्ड से सुरक्षित है। जारी रखने के लिए इसका पासवर्ड डालें।</string>
+    <string name="pdf_password_hint">पासवर्ड</string>
+    <string name="pdf_unlock">PDF खोलें</string>
+    <string name="pdf_invalid_pages">पेज नंबर जांचें और फिर से कोशिश करें।</string>
+    <string name="pdf_pages_format" tools:ignore="TypographyDashes">1,3-5 जैसे पेज नंबर इस्तेमाल करें।</string>
+    <!-- %1$d is the number of pages in the PDF: the highest page number allowed. -->
+    <string name="pdf_pages_range" tools:ignore="PluralsCandidate">पेज 1 से %1$d के बीच होने चाहिए।</string>
+    <string name="pdf_pages_chunk" tools:ignore="PluralsCandidate">हर PDF में पेज की संख्या 1 से %1$d के बीच होनी चाहिए।</string>
+    <string name="pdf_process_failed">इस PDF को प्रोसेस नहीं किया जा सका। फ़ाइल और स्टोरेज में खाली जगह जांचें।</string>
+    <string name="pdf_saved_downloads">डाउनलोड में सेव किया गया</string>
+    <string name="pdf_working">आपकी PDF पर काम चल रहा है…</string>
+    <string name="pdf_file_mode">फ़ाइलें</string>
+    <string name="pdf_page_mode">पेज</string>
+    <string name="pdf_file_mode_hint">पूरी PDF फ़ाइलों को अपने मनचाहे क्रम में लगाएं।</string>
+    <string name="pdf_page_mode_hint">अलग-अलग पेजों को क्रम में लगाएं, घुमाएं या हटाएं।</string>
+    <string name="pdf_sort_az">A से Z क्रम में लगाएं</string>
+    <string name="pdf_sort_za">Z से A क्रम में लगाएं</string>
+    <string name="pdf_reset_pages">पेज रीसेट करें</string>
+    <string name="pdf_selected">चुने गए पेज</string>
+    <string name="pdf_selected_hint" tools:ignore="TypographyDashes">पेज चुनने के लिए उनकी झलक पर टैप करें। उदाहरण के लिए: 1,3,5-8</string>
+    <string name="pdf_custom">कस्टम रेंज</string>
+    <string name="pdf_custom_hint" tools:ignore="TypographyDashes">उदाहरण के लिए: 1-3;5-7;9</string>
+    <string name="pdf_fixed">तय हिस्से</string>
+    <string name="pdf_fixed_hint">हर PDF में पेज</string>
+    <string name="pdf_every_page">हर पेज</string>
+    <string name="pdf_page_mode_switch">अलग-अलग पेज क्रम में लगाएं</string>
+    <string name="pdf_page_number">पेज %1$d</string>
+    <string name="pdf_combine_selected">चुने गए पेजों को एक PDF में मिलाएं</string>
+    <string name="pdf_combine_ranges">सभी रेंज को एक PDF में मिलाएं</string>
+    <string name="pdf_split_action">PDF स्प्लिट करें</string>
+    <string name="pdf_merge_action">PDF मर्ज करें</string>
+    <string name="pdf_compress_action">PDF कंप्रेस करें</string>
+    <string name="pdf_no_reduction">यह PDF पहले से ही छोटी है; इसका मूल साइज़ रखा गया।</string>
+    <string name="pdf_compress_note">टेक्स्ट और ड्रॉइंग साफ़ रहते हैं। जहां जगह बचती है, वहां इमेज छोटी की जाती हैं।</string>
+    <plurals name="pdf_password_removed" tools:ignore="ImpliedQuantity">
+        <item quantity="one">नई PDF में कोई पासवर्ड नहीं है।</item>
+        <item quantity="other">नई PDF फ़ाइलों में कोई पासवर्ड नहीं है।</item>
+    </plurals>
+    <string name="pdf_need_two">मर्ज करने के लिए कम से कम दो PDF जोड़ें।</string>
+    <string name="pdf_need_page">कम से कम एक पेज रखें।</string>
+    <string name="pdf_discard_title">इस PDF को खारिज करें?</string>
+    <string name="pdf_discard_shared_body">आपकी शेयर की गई इमेज कन्वर्ट करने के लिए तैयार हैं, लेकिन यह PDF अभी सेव नहीं हुई है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव या शेयर करें।</string>
+    <string name="ocr_title">टेक्स्ट को खोजने लायक बनाएं (OCR)</string>
+    <string name="ocr_detail">इन इमेज में शब्द पहचानें और PDF में खोजने लायक टेक्स्ट जोड़ें।</string>
+    <string name="ocr_language">टेक्स्ट की भाषा</string>
+    <string name="ocr_english">अंग्रेज़ी</string>
+    <string name="ocr_french">फ़्रेंच</string>
+    <string name="ocr_spanish">स्पैनिश</string>
+    <string name="ocr_hindi">हिंदी</string>
+    <string name="ocr_no_text">कोई टेक्स्ट नहीं पहचाना गया। PDF बिना टेक्स्ट लेयर के बनाई गई।</string>
+    <string name="ocr_failed">टेक्स्ट पहचान काम नहीं कर पाई, इसलिए PDF बिना खोजने लायक टेक्स्ट के बनाई गई।</string>
+    <string name="ocr_failed_no_space">खोजने लायक टेक्स्ट जोड़ने के लिए स्टोरेज में काफ़ी खाली जगह नहीं थी, इसलिए PDF उसके बिना बनाई गई।</string>
+    <string name="ocr_not_ready">टेक्स्ट पहचान तैयार नहीं थी, इसलिए PDF बिना खोजने लायक टेक्स्ट के बनाई गई। कृपया फिर से कोशिश करें।</string>
+    <string name="ocr_problem_title">टेक्स्ट पहचान उपलब्ध नहीं है</string>
+    <string name="ocr_problem_no_play_services">इस फ़ोन पर Google Play सेवाएं उपलब्ध नहीं हैं।</string>
+    <string name="ocr_problem_outdated">पहले इस फ़ोन पर Google Play सेवाओं को अपडेट करना होगा।</string>
+    <string name="ocr_problem_download">टेक्स्ट पहचान डाउनलोड नहीं की जा सकी। अपना इंटरनेट कनेक्शन जांचें और फिर से कोशिश करें।</string>
+    <string name="ocr_problem_storage">टेक्स्ट पहचान डाउनलोड करने के लिए स्टोरेज में काफ़ी खाली जगह नहीं है। कुछ जगह खाली करें और फिर से कोशिश करें।</string>
+    <string name="ocr_problem_failed">किसी अनचाही गड़बड़ी की वजह से टेक्स्ट पहचान शुरू नहीं हो सकी। अगर ऐसा बार-बार होता है, तो कृपया github.com/Nath-Goa/usugami पर इसकी रिपोर्ट करें।</string>
+    <string name="ocr_problem_help">Usugami के इस संस्करण में टेक्स्ट पहचान Google Play सेवाओं से मिलती है, जो हर भाषा का पहली बार इस्तेमाल करने पर इसे डाउनलोड करती हैं। इसके लिए इंटरनेट कनेक्शन ज़रूरी है। Usugami के ऑफ़लाइन संस्करण में यह पहले से शामिल है।</string>
+    <string name="ocr_problem_retry">अभी PDF बनाने के लिए, OCR बंद करें और फिर से कोशिश करें।</string>
+
+    <!-- Language and settings. The language names themselves are written in each language, in code. -->
+    <string name="language_title">अपनी भाषा चुनें</string>
+    <string name="language_subtitle">आप इसे बाद में सेटिंग में बदल सकते हैं।</string>
+    <string name="settings">सेटिंग</string>
+    <string name="settings_language">भाषा</string>
+    <string name="settings_github">GitHub पर सोर्स कोड</string>
+    <string name="settings_about_detail">वर्शन, निजता नीति और लाइसेंस</string>
+
+    <!-- About -->
+    <string name="about">Usugami के बारे में</string>
+    <string name="about_title">इसके बारे में</string>
+    <string name="about_version">वर्शन %1$s</string>
+    <string name="about_edition_standard">स्टैंडर्ड संस्करण: Google Play सेवाओं के ज़रिए टेक्स्ट पहचान</string>
+    <string name="about_edition_offline">ऑफ़लाइन संस्करण: टेक्स्ट पहचान पहले से शामिल</string>
+    <string name="about_privacy">न विज्ञापन, न ट्रैकिंग, न खाता। Usugami के पास इंटरनेट की अनुमति नहीं है, और आपकी फ़ाइलें कभी आपके फ़ोन से बाहर नहीं जातीं।</string>
+    <string name="about_privacy_standard">टेक्स्ट पहचान Google Play सेवाओं से मिलती है, जो हर भाषा का पहली बार इस्तेमाल करने पर उसका मॉडल डाउनलोड करती हैं। Google Play सेवाएं Google को इस बारे में आंकड़े भी भेज सकती हैं कि टेक्स्ट पहचान का इस्तेमाल कैसे होता है, लेकिन आपकी इमेज या पहचाना गया टेक्स्ट कभी नहीं भेजतीं। Usugami Offline टेक्स्ट पहचान के लिए Google Play सेवाओं का इस्तेमाल नहीं करता।</string>
+    <string name="about_privacy_policy">निजता नीति</string>
+    <string name="about_licenses">ओपन सोर्स लाइसेंस</string>
+    <string name="about_licenses_detail">वे लाइब्रेरी और फ़ॉन्ट जिनसे Usugami बना है</string>
+    <string name="about_license">लाइसेंस</string>
+    <string name="about_license_detail">GNU GPL v3 या उसके बाद का वर्शन</string>
+    <string name="about_source">सोर्स कोड</string>
+    <string name="about_document_missing">Usugami की इस कॉपी में यह टेक्स्ट शामिल नहीं है। आप इसे github.com/Nath-Goa/usugami पर पढ़ सकते हैं।</string>
+    <string name="msg_no_browser">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो वेब लिंक खोल सके।</string>
+
+    <!-- Editor -->
+    <string name="editor_title">इमेज से PDF</string>
+    <string name="empty_title">JPG और PNG इमेज को PDF में बदलें</string>
+    <string name="empty_body">अपनी इमेज चुनें, उन्हें क्रम में लगाएं और कन्वर्ट करें। सब कुछ इसी फ़ोन पर होता है। कुछ भी अपलोड नहीं किया जाता।</string>
+    <string name="empty_share_hint">सलाह: आप अपनी गैलरी से इमेज को Usugami पर शेयर भी कर सकते हैं।</string>
+    <string name="add_from_photos">फ़ोटो</string>
+    <string name="add_from_files">फ़ाइलें</string>
+    <string name="add_images">जोड़ें</string>
+    <string name="add_more">और जोड़ें</string>
+    <string name="convert">PDF में बदलें</string>
+    <string name="reorder_hint">क्रम बदलने के लिए किसी पेज को दबाकर रखें और खींचें</string>
+    <string name="adding_images">इमेज जोड़ी जा रही हैं…</string>
+    <string name="sort">क्रम से लगाएं</string>
+    <string name="sort_name_az">नाम (A से Z)</string>
+    <string name="sort_name_za">नाम (Z से A)</string>
+    <string name="sort_reverse">उल्टा क्रम</string>
+    <string name="clear_all">सभी हटाएं</string>
+    <!-- %1$d is a page number, not a count, so these are not plurals. -->
+    <string name="rotate_page_left" tools:ignore="PluralsCandidate">पेज %1$d को बाईं ओर घुमाएं</string>
+    <string name="rotate_page_right" tools:ignore="PluralsCandidate">पेज %1$d को दाईं ओर घुमाएं</string>
+    <string name="remove_page">पेज %1$d हटाएं</string>
+    <string name="move_page_earlier" tools:ignore="PluralsCandidate">पेज %1$d को पहले ले जाएं</string>
+    <string name="move_page_later" tools:ignore="PluralsCandidate">पेज %1$d को बाद में ले जाएं</string>
+    <plurals name="image_count">
+        <item quantity="one">%d इमेज</item>
+        <item quantity="other">%d इमेज</item>
+    </plurals>
+
+    <!-- Options -->
+    <string name="option_value">%1$s: %2$s</string>
+    <string name="option_page_size">पेज का साइज़</string>
+    <string name="option_orientation">ओरिएंटेशन</string>
+    <string name="option_margin">मार्जिन</string>
+    <string name="size_fit">फ़िट (इमेज जैसा)</string>
+    <string name="size_fit_short">फ़िट</string>
+    <string name="size_letter">US लेटर</string>
+    <string name="size_legal">US लीगल</string>
+    <string name="orientation_auto">अपने-आप</string>
+    <string name="orientation_portrait">पोर्ट्रेट</string>
+    <string name="orientation_landscape">लैंडस्केप</string>
+    <string name="orientation_fit_note">इमेज जैसा</string>
+    <string name="margin_none">कोई मार्जिन नहीं</string>
+    <string name="margin_small">छोटा</string>
+    <string name="margin_big">बड़ा</string>
+    <string name="margin_small_long">छोटा मार्जिन</string>
+    <string name="margin_big_long">बड़ा मार्जिन</string>
+
+    <!-- Convert sheet -->
+    <string name="convert_title">PDF बनाएं</string>
+    <string name="merge_title">सभी इमेज को एक PDF में मिलाएं</string>
+    <string name="merge_on_summary">एक PDF, जिसमें हर इमेज का एक पेज हो</string>
+    <string name="merge_off_summary">हर इमेज के लिए अलग PDF, उसी इमेज के नाम पर</string>
+    <string name="file_name">फ़ाइल का नाम</string>
+    <string name="create_pdf">PDF बनाएं</string>
+    <string name="compression_title">कंप्रेशन</string>
+    <string name="compression_less">कम</string>
+    <string name="compression_recommended">सुझाया गया</string>
+    <string name="compression_extreme">बहुत ज़्यादा</string>
+    <string name="compression_less_summary">सबसे अच्छी क्वालिटी, छोटी फ़ाइल (200 dpi)</string>
+    <string name="compression_recommended_summary">अच्छी क्वालिटी, काफ़ी छोटी फ़ाइल (150 dpi)</string>
+    <string name="compression_extreme_summary">सबसे छोटी फ़ाइल, कम क्वालिटी (100 dpi)</string>
+    <string name="compressed_from">%1$s से कंप्रेस की गई (%2$d%% छोटी)</string>
+    <plurals name="create_pdfs">
+        <item quantity="one">%d PDF बनाएं</item>
+        <item quantity="other">%d PDF बनाएं</item>
+    </plurals>
+
+    <!-- Progress -->
+    <string name="creating_pdf">PDF बनाई और कंप्रेस की जा रही है…</string>
+    <plurals name="progress_images">
+        <item quantity="one">%2$d में से %1$d इमेज</item>
+        <item quantity="other">%2$d में से %1$d इमेज</item>
+    </plurals>
+    <string name="ocr_downloading">टेक्स्ट पहचान डाउनलोड हो रही है…</string>
+    <string name="ocr_download_percent">%1$d%% डाउनलोड हुआ</string>
+    <string name="ocr_download_note">ऐसा हर भाषा का पहली बार इस्तेमाल करने पर होता है और इसके लिए इंटरनेट कनेक्शन ज़रूरी है।</string>
+    <string name="ocr_reading">टेक्स्ट पढ़ा जा रहा है…</string>
+    <string name="ocr_adding_text">खोजने लायक टेक्स्ट जोड़ा जा रहा है…</string>
+    <plurals name="progress_pages">
+        <item quantity="one">%2$d में से %1$d पेज</item>
+        <item quantity="other">%2$d में से %1$d पेज</item>
+    </plurals>
+    <string name="cancel">रद्द करें</string>
+    <string name="cancelling">रद्द किया जा रहा है…</string>
+
+    <!-- Result -->
+    <string name="result_title">हो गया</string>
+    <string name="result_heading_one">आपकी PDF तैयार है</string>
+    <string name="result_heading_many">आपकी PDF फ़ाइलें तैयार हैं</string>
+    <plurals name="page_count">
+        <item quantity="one">%d पेज</item>
+        <item quantity="other">%d पेज</item>
+    </plurals>
+    <string name="open">खोलें</string>
+    <string name="open_file">%1$s खोलें</string>
+    <string name="share">शेयर करें</string>
+    <string name="share_all">सभी शेयर करें</string>
+    <string name="save_to_downloads">डाउनलोड में सेव करें</string>
+    <string name="save_as">इस रूप में सेव करें…</string>
+    <string name="save_all_to_folder">फ़ोल्डर में सेव करें…</string>
+    <string name="back_to_editing">एडिटिंग पर वापस जाएं</string>
+    <string name="start_over">फिर से शुरू करें</string>
+    <string name="start_over_title">फिर से शुरू करें?</string>
+    <string name="not_saved_note">अभी सेव नहीं हुई है। फिर से शुरू करने से पहले इसे सेव या शेयर करें।</string>
+
+    <!-- Dialogs -->
+    <string name="discard_title">इन इमेज को खारिज करें?</string>
+    <string name="discard_body">आपकी चुनी गई इमेज और उनका क्रम हटा दिया जाएगा। आपकी मूल फ़ोटो पर कोई असर नहीं पड़ेगा।</string>
+    <string name="discard">खारिज करें</string>
+    <string name="clear_title">सभी इमेज हटाएं?</string>
+    <string name="keep">रखें</string>
+    <string name="ok">ठीक है</string>
+
+    <!-- Messages -->
+    <plurals name="msg_skipped_unsupported">
+        <item quantity="one">%d फ़ाइल छोड़ दी गई: सिर्फ़ JPG और PNG इमेज समर्थित हैं।</item>
+        <item quantity="other">%d फ़ाइलें छोड़ दी गईं: सिर्फ़ JPG और PNG इमेज समर्थित हैं।</item>
+    </plurals>
+    <plurals name="msg_failed_import">
+        <item quantity="one">%d इमेज नहीं पढ़ी जा सकी।</item>
+        <item quantity="other">%d इमेज नहीं पढ़ी जा सकीं।</item>
+    </plurals>
+    <string name="msg_saved_downloads">डाउनलोड में %1$s के रूप में सेव किया गया</string>
+    <plurals name="msg_saved_downloads_many">
+        <item quantity="one">%d PDF डाउनलोड में सेव की गई</item>
+        <item quantity="other">%d PDF डाउनलोड में सेव की गईं</item>
+    </plurals>
+    <string name="msg_saved">सेव किया गया</string>
+    <plurals name="msg_saved_folder">
+        <item quantity="one">%d PDF फ़ोल्डर में सेव की गई</item>
+        <item quantity="other">%d PDF फ़ोल्डर में सेव की गईं</item>
+    </plurals>
+    <string name="msg_save_failed">PDF सेव नहीं की जा सकी। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
+    <string name="msg_convert_failed">PDF नहीं बनाई जा सकी: %1$s</string>
+    <string name="msg_image_unreadable">\"%1$s\" को पढ़ा नहीं जा सका</string>
+    <string name="msg_out_of_memory">इतनी बड़ी इमेज के लिए काफ़ी मेमोरी नहीं है</string>
+    <string name="msg_out_of_space">स्टोरेज में काफ़ी खाली जगह नहीं है</string>
+    <string name="msg_unknown_error">कोई अनचाही गड़बड़ी हुई</string>
+    <string name="msg_no_pdf_app">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो PDF खोल सके।</string>
+    <string name="msg_no_share_app">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो PDF शेयर कर सके।</string>
+    <string name="msg_no_file_picker">इस फ़ोन पर सेव करने के लिए फ़ाइल चुनने वाला कोई ऐप नहीं है।</string>
+    <plurals name="msg_files_cleared">
+        <item quantity="one">%d फ़ाइल हटा दी गई, क्योंकि उसकी अस्थायी कॉपी मिटा दी गई थी। कृपया उसे फिर से जोड़ें।</item>
+        <item quantity="other">%d फ़ाइलें हटा दी गईं, क्योंकि उनकी अस्थायी कॉपी मिटा दी गई थीं। कृपया उन्हें फिर से जोड़ें।</item>
+    </plurals>
+    <plurals name="msg_result_cleared" tools:ignore="ImpliedQuantity">
+        <item quantity="one">PDF को अस्थायी स्टोरेज से हटा दिया गया। कृपया इसे फिर से बनाएं।</item>
+        <item quantity="other">PDF फ़ाइलों को अस्थायी स्टोरेज से हटा दिया गया। कृपया उन्हें फिर से बनाएं।</item>
+    </plurals>
+</resources>

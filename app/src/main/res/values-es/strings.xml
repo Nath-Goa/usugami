@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="back">Atrás</string>
+
+    <!-- Home and PDF tools -->
+    <string name="home_subtitle">Tus PDF se quedan en este teléfono. Sin anuncios, sin cuenta y sin subir nada.</string>
+    <string name="tool_images">Imágenes a PDF</string>
+    <string name="tool_images_detail">Combina archivos JPG y PNG, con reconocimiento de texto opcional</string>
+    <string name="tool_split">Dividir PDF</string>
+    <string name="tool_split_detail">Extrae páginas o divide el PDF en archivos más pequeños</string>
+    <string name="tool_merge">Unir PDF</string>
+    <string name="tool_merge_detail">Combina archivos y ordena páginas individuales</string>
+    <string name="tool_compress">Comprimir PDF</string>
+    <string name="tool_compress_detail">Reduce el tamaño de las imágenes y conserva el texto y los dibujos</string>
+    <string name="pick_pdf">Elegir PDF</string>
+    <string name="add_pdfs">Añadir PDF</string>
+    <string name="replace_pdf">Elegir otro PDF</string>
+    <!-- %1$s is a file name. -->
+    <string name="move_file_earlier">Mover %1$s una posición antes</string>
+    <string name="move_file_later">Mover %1$s una posición después</string>
+    <string name="remove_file">Quitar %1$s</string>
+    <string name="pdf_import_failed">No se pudo abrir ese PDF. Puede que esté dañado o que no sea compatible.</string>
+    <string name="pdf_certificate_unsupported">Este PDF está bloqueado con un certificado (ID digital). Usugami solo puede abrir PDF bloqueados con contraseña.</string>
+    <string name="pdf_wrong_password">Con esa contraseña no se pudo abrir el PDF.</string>
+    <string name="pdf_password_title">Contraseña del PDF</string>
+    <string name="pdf_password_body">\"%1$s\" está protegido. Escribe su contraseña para continuar.</string>
+    <string name="pdf_password_hint">Contraseña</string>
+    <string name="pdf_unlock">Abrir PDF</string>
+    <string name="pdf_invalid_pages">Revisa los números de página y vuelve a intentarlo.</string>
+    <string name="pdf_pages_format" tools:ignore="TypographyDashes">Usa números de página como 1,3-5.</string>
+    <!-- %1$d is the number of pages in the PDF: the highest page number allowed. -->
+    <string name="pdf_pages_range" tools:ignore="PluralsCandidate">Las páginas deben estar entre 1 y %1$d.</string>
+    <string name="pdf_pages_chunk" tools:ignore="PluralsCandidate">El número de páginas por PDF debe estar entre 1 y %1$d.</string>
+    <string name="pdf_process_failed">No se pudo procesar este PDF. Revisa el archivo y el almacenamiento libre.</string>
+    <string name="pdf_saved_downloads">Guardado en Descargas</string>
+    <string name="pdf_working">Procesando tu PDF…</string>
+    <string name="pdf_file_mode">Archivos</string>
+    <string name="pdf_page_mode">Páginas</string>
+    <string name="pdf_file_mode_hint">Coloca los PDF completos en el orden que quieras.</string>
+    <string name="pdf_page_mode_hint">Ordena, gira o quita páginas individuales.</string>
+    <string name="pdf_sort_az">Ordenar de la A a la Z</string>
+    <string name="pdf_sort_za">Ordenar de la Z a la A</string>
+    <string name="pdf_reset_pages">Restablecer páginas</string>
+    <string name="pdf_selected">Páginas elegidas</string>
+    <string name="pdf_selected_hint" tools:ignore="TypographyDashes">Por ejemplo: 1,3,5-8. Toca las vistas previas de las páginas para elegirlas.</string>
+    <string name="pdf_custom">Rangos a medida</string>
+    <string name="pdf_custom_hint" tools:ignore="TypographyDashes">Por ejemplo: 1-3;5-7;9</string>
+    <string name="pdf_fixed">Bloques fijos</string>
+    <string name="pdf_fixed_hint">Páginas por PDF</string>
+    <string name="pdf_every_page">Cada página</string>
+    <string name="pdf_page_mode_switch">Ordenar páginas individuales</string>
+    <string name="pdf_page_number">Página %1$d</string>
+    <string name="pdf_combine_selected">Combinar las páginas elegidas en un PDF</string>
+    <string name="pdf_combine_ranges">Combinar todos los rangos en un PDF</string>
+    <string name="pdf_split_action">Dividir PDF</string>
+    <string name="pdf_merge_action">Unir PDF</string>
+    <string name="pdf_compress_action">Comprimir PDF</string>
+    <string name="pdf_no_reduction">Este PDF ya es compacto; se conservó el tamaño original.</string>
+    <string name="pdf_compress_note">El texto y los dibujos se mantienen nítidos. Las imágenes se reducen cuando así se ahorra espacio.</string>
+    <plurals name="pdf_password_removed">
+        <item quantity="one">El nuevo PDF no tiene contraseña.</item>
+        <item quantity="many">Los nuevos PDF no tienen contraseña.</item>
+        <item quantity="other">Los nuevos PDF no tienen contraseña.</item>
+    </plurals>
+    <string name="pdf_need_two">Añade al menos dos PDF para unirlos.</string>
+    <string name="pdf_need_page">Conserva al menos una página.</string>
+    <string name="pdf_discard_title">¿Descartar este PDF?</string>
+    <string name="pdf_discard_shared_body">Las imágenes que compartiste están listas para convertir, pero este PDF aún no se ha guardado. Guárdalo o compártelo primero si quieres conservarlo.</string>
+    <string name="ocr_title">Hacer buscable el texto (OCR)</string>
+    <string name="ocr_detail">Reconoce las palabras de estas imágenes y añade texto buscable al PDF.</string>
+    <string name="ocr_language">Idioma del texto</string>
+    <string name="ocr_english">Inglés</string>
+    <string name="ocr_french">Francés</string>
+    <string name="ocr_spanish">Español</string>
+    <string name="ocr_hindi">Hindi</string>
+    <string name="ocr_no_text">No se reconoció ningún texto. El PDF se creó sin capa de texto.</string>
+    <string name="ocr_failed">Falló el reconocimiento de texto, así que el PDF se creó sin texto buscable.</string>
+    <string name="ocr_failed_no_space">No había suficiente almacenamiento libre para añadir texto buscable, así que el PDF se creó sin él.</string>
+    <string name="ocr_not_ready">El reconocimiento de texto no estaba listo, así que el PDF se creó sin texto buscable. Vuelve a intentarlo.</string>
+    <string name="ocr_problem_title">El reconocimiento de texto no está disponible</string>
+    <string name="ocr_problem_no_play_services">Los Servicios de Google Play no están disponibles en este teléfono.</string>
+    <string name="ocr_problem_outdated">Primero hay que actualizar los Servicios de Google Play de este teléfono.</string>
+    <string name="ocr_problem_download">No se pudo descargar el reconocimiento de texto. Revisa tu conexión a Internet y vuelve a intentarlo.</string>
+    <string name="ocr_problem_storage">No hay suficiente almacenamiento libre para descargar el reconocimiento de texto. Libera espacio y vuelve a intentarlo.</string>
+    <string name="ocr_problem_failed">El reconocimiento de texto no pudo iniciarse por un error inesperado. Si sigue ocurriendo, informa del problema en github.com/Nath-Goa/usugami.</string>
+    <string name="ocr_problem_help">En esta edición de Usugami, el reconocimiento de texto lo proporcionan los Servicios de Google Play, que lo descargan la primera vez que usas cada idioma. Para ello se necesita conexión a Internet. La edición sin conexión de Usugami lo trae integrado.</string>
+    <string name="ocr_problem_retry">Para crear el PDF ahora, desactiva el OCR y vuelve a intentarlo.</string>
+
+    <!-- Language and settings. The language names themselves are written in each language, in code. -->
+    <string name="language_title">Elige tu idioma</string>
+    <string name="language_subtitle">Puedes cambiarlo más tarde en Ajustes.</string>
+    <string name="settings">Ajustes</string>
+    <string name="settings_language">Idioma</string>
+    <string name="settings_github">Código fuente en GitHub</string>
+    <string name="settings_about_detail">Versión, política de privacidad y licencias</string>
+
+    <!-- About -->
+    <string name="about">Acerca de Usugami</string>
+    <string name="about_title">Acerca de</string>
+    <string name="about_version">Versión %1$s</string>
+    <string name="about_edition_standard">Edición estándar: reconocimiento de texto mediante los Servicios de Google Play</string>
+    <string name="about_edition_offline">Edición sin conexión: reconocimiento de texto integrado</string>
+    <string name="about_privacy">Sin anuncios, sin seguimiento y sin cuenta. Usugami no tiene permiso de acceso a Internet y tus archivos nunca salen de tu teléfono.</string>
+    <string name="about_privacy_standard">El reconocimiento de texto lo proporcionan los Servicios de Google Play, que descargan el modelo de cada idioma la primera vez que lo usas. Los Servicios de Google Play también pueden enviar a Google estadísticas sobre el uso del reconocimiento de texto, pero nunca tus imágenes ni el texto reconocido. Usugami Offline no usa los Servicios de Google Play para el reconocimiento de texto.</string>
+    <string name="about_privacy_policy">Política de privacidad</string>
+    <string name="about_licenses">Licencias de código abierto</string>
+    <string name="about_licenses_detail">Las bibliotecas y fuentes con las que está hecho Usugami</string>
+    <string name="about_license">Licencia</string>
+    <string name="about_license_detail">GNU GPL v3 o posterior</string>
+    <string name="about_source">Código fuente</string>
+    <string name="about_document_missing">Este texto no está incluido en esta copia de Usugami. Puedes leerlo en github.com/Nath-Goa/usugami.</string>
+    <string name="msg_no_browser">Ninguna aplicación de este teléfono puede abrir enlaces web.</string>
+
+    <!-- Editor -->
+    <string name="editor_title">Imágenes a PDF</string>
+    <string name="empty_title">Convierte imágenes JPG y PNG en un PDF</string>
+    <string name="empty_body">Elige tus imágenes, ordénalas y conviértelas. Todo ocurre en este teléfono. No se sube nada.</string>
+    <string name="empty_share_hint">Consejo: también puedes compartir imágenes con Usugami desde tu galería.</string>
+    <string name="add_from_photos">Fotos</string>
+    <string name="add_from_files">Archivos</string>
+    <string name="add_images">Añadir</string>
+    <string name="add_more">Añadir más</string>
+    <string name="convert">Convertir a PDF</string>
+    <string name="reorder_hint">Mantén presionada una página y arrástrala para cambiar el orden</string>
+    <string name="adding_images">Añadiendo imágenes…</string>
+    <string name="sort">Ordenar</string>
+    <string name="sort_name_az">Nombre (de la A a la Z)</string>
+    <string name="sort_name_za">Nombre (de la Z a la A)</string>
+    <string name="sort_reverse">Invertir orden</string>
+    <string name="clear_all">Quitar todo</string>
+    <!-- %1$d is a page number, not a count, so these are not plurals. -->
+    <string name="rotate_page_left" tools:ignore="PluralsCandidate">Girar la página %1$d a la izquierda</string>
+    <string name="rotate_page_right" tools:ignore="PluralsCandidate">Girar la página %1$d a la derecha</string>
+    <string name="remove_page">Quitar la página %1$d</string>
+    <string name="move_page_earlier" tools:ignore="PluralsCandidate">Mover la página %1$d una posición antes</string>
+    <string name="move_page_later" tools:ignore="PluralsCandidate">Mover la página %1$d una posición después</string>
+    <plurals name="image_count">
+        <item quantity="one">%d imagen</item>
+        <item quantity="many">%d imágenes</item>
+        <item quantity="other">%d imágenes</item>
+    </plurals>
+
+    <!-- Options -->
+    <string name="option_value">%1$s: %2$s</string>
+    <string name="option_page_size">Tamaño de página</string>
+    <string name="option_orientation">Orientación</string>
+    <string name="option_margin">Margen</string>
+    <string name="size_fit">Ajustar (igual que la imagen)</string>
+    <string name="size_fit_short">Ajustar</string>
+    <string name="size_letter">Carta EE. UU.</string>
+    <string name="size_legal">Legal EE. UU.</string>
+    <string name="orientation_auto">Auto</string>
+    <string name="orientation_portrait">Vertical</string>
+    <string name="orientation_landscape">Horizontal</string>
+    <string name="orientation_fit_note">Igual que la imagen</string>
+    <string name="margin_none">Sin margen</string>
+    <string name="margin_small">Pequeño</string>
+    <string name="margin_big">Grande</string>
+    <string name="margin_small_long">Margen pequeño</string>
+    <string name="margin_big_long">Margen grande</string>
+
+    <!-- Convert sheet -->
+    <string name="convert_title">Crear PDF</string>
+    <string name="merge_title">Unir todas las imágenes en un PDF</string>
+    <string name="merge_on_summary">Un PDF con una página por cada imagen</string>
+    <string name="merge_off_summary">Un PDF independiente por cada imagen, con el nombre de la imagen</string>
+    <string name="file_name">Nombre del archivo</string>
+    <string name="create_pdf">Crear PDF</string>
+    <string name="compression_title">Compresión</string>
+    <string name="compression_less">Menos</string>
+    <string name="compression_recommended">Recomendada</string>
+    <string name="compression_extreme">Extrema</string>
+    <string name="compression_less_summary">Máxima calidad, archivo más pequeño (200 ppp)</string>
+    <string name="compression_recommended_summary">Buena calidad, archivo mucho más pequeño (150 ppp)</string>
+    <string name="compression_extreme_summary">El archivo más pequeño, menor calidad (100 ppp)</string>
+    <string name="compressed_from">Comprimido desde %1$s (un %2$d %% más pequeño)</string>
+    <plurals name="create_pdfs">
+        <item quantity="one">Crear %d PDF</item>
+        <item quantity="many">Crear %d PDF</item>
+        <item quantity="other">Crear %d PDF</item>
+    </plurals>
+
+    <!-- Progress -->
+    <string name="creating_pdf">Creando y comprimiendo el PDF…</string>
+    <plurals name="progress_images">
+        <item quantity="one">%1$d de %2$d imagen</item>
+        <item quantity="many">%1$d de %2$d imágenes</item>
+        <item quantity="other">%1$d de %2$d imágenes</item>
+    </plurals>
+    <string name="ocr_downloading">Descargando el reconocimiento de texto…</string>
+    <string name="ocr_download_percent">%1$d %% descargado</string>
+    <string name="ocr_download_note">Esto ocurre la primera vez que usas cada idioma y requiere conexión a Internet.</string>
+    <string name="ocr_reading">Leyendo el texto…</string>
+    <string name="ocr_adding_text">Añadiendo texto buscable…</string>
+    <plurals name="progress_pages">
+        <item quantity="one">%1$d de %2$d página</item>
+        <item quantity="many">%1$d de %2$d páginas</item>
+        <item quantity="other">%1$d de %2$d páginas</item>
+    </plurals>
+    <string name="cancel">Cancelar</string>
+    <string name="cancelling">Cancelando…</string>
+
+    <!-- Result -->
+    <string name="result_title">Listo</string>
+    <string name="result_heading_one">Tu PDF está listo</string>
+    <string name="result_heading_many">Tus PDF están listos</string>
+    <plurals name="page_count">
+        <item quantity="one">%d página</item>
+        <item quantity="many">%d páginas</item>
+        <item quantity="other">%d páginas</item>
+    </plurals>
+    <string name="open">Abrir</string>
+    <string name="open_file">Abrir %1$s</string>
+    <string name="share">Compartir</string>
+    <string name="share_all">Compartir todos</string>
+    <string name="save_to_downloads">Guardar en Descargas</string>
+    <string name="save_as">Guardar como…</string>
+    <string name="save_all_to_folder">Guardar en una carpeta…</string>
+    <string name="back_to_editing">Volver a editar</string>
+    <string name="start_over">Empezar de nuevo</string>
+    <string name="start_over_title">¿Empezar de nuevo?</string>
+    <string name="not_saved_note">Aún no está guardado. Guárdalo o compártelo antes de empezar de nuevo.</string>
+
+    <!-- Dialogs -->
+    <string name="discard_title">¿Descartar estas imágenes?</string>
+    <string name="discard_body">Se borrarán las imágenes que elegiste y su orden. Tus fotos originales no se verán afectadas.</string>
+    <string name="discard">Descartar</string>
+    <string name="clear_title">¿Quitar todas las imágenes?</string>
+    <string name="keep">Conservar</string>
+    <string name="ok">Aceptar</string>
+
+    <!-- Messages -->
+    <plurals name="msg_skipped_unsupported">
+        <item quantity="one">Se omitió %d archivo: solo se admiten imágenes JPG y PNG.</item>
+        <item quantity="many">Se omitieron %d archivos: solo se admiten imágenes JPG y PNG.</item>
+        <item quantity="other">Se omitieron %d archivos: solo se admiten imágenes JPG y PNG.</item>
+    </plurals>
+    <plurals name="msg_failed_import">
+        <item quantity="one">No se pudo leer %d imagen.</item>
+        <item quantity="many">No se pudieron leer %d imágenes.</item>
+        <item quantity="other">No se pudieron leer %d imágenes.</item>
+    </plurals>
+    <string name="msg_saved_downloads">Guardado en Descargas como %1$s</string>
+    <plurals name="msg_saved_downloads_many">
+        <item quantity="one">Se guardó %d PDF en Descargas</item>
+        <item quantity="many">Se guardaron %d PDF en Descargas</item>
+        <item quantity="other">Se guardaron %d PDF en Descargas</item>
+    </plurals>
+    <string name="msg_saved">Guardado</string>
+    <plurals name="msg_saved_folder">
+        <item quantity="one">Se guardó %d PDF en la carpeta</item>
+        <item quantity="many">Se guardaron %d PDF en la carpeta</item>
+        <item quantity="other">Se guardaron %d PDF en la carpeta</item>
+    </plurals>
+    <string name="msg_save_failed">No se pudo guardar el PDF. Comprueba que haya suficiente almacenamiento libre.</string>
+    <string name="msg_convert_failed">No se pudo crear el PDF: %1$s</string>
+    <string name="msg_image_unreadable">\"%1$s\" no se pudo leer</string>
+    <string name="msg_out_of_memory">no hay suficiente memoria para una imagen tan grande</string>
+    <string name="msg_out_of_space">no hay suficiente almacenamiento libre</string>
+    <string name="msg_unknown_error">se produjo un error inesperado</string>
+    <string name="msg_no_pdf_app">Ninguna aplicación de este teléfono puede abrir archivos PDF.</string>
+    <string name="msg_no_share_app">Ninguna aplicación de este teléfono puede compartir archivos PDF.</string>
+    <string name="msg_no_file_picker">Este teléfono no tiene un selector de archivos con el que guardar.</string>
+    <plurals name="msg_files_cleared">
+        <item quantity="one">Se quitó %d archivo porque se borró su copia temporal. Vuelve a añadirlo.</item>
+        <item quantity="many">Se quitaron %d archivos porque se borraron sus copias temporales. Vuelve a añadirlos.</item>
+        <item quantity="other">Se quitaron %d archivos porque se borraron sus copias temporales. Vuelve a añadirlos.</item>
+    </plurals>
+    <plurals name="msg_result_cleared">
+        <item quantity="one">El PDF se borró del almacenamiento temporal. Vuelve a crearlo.</item>
+        <item quantity="many">Los PDF se borraron del almacenamiento temporal. Vuelve a crearlos.</item>
+        <item quantity="other">Los PDF se borraron del almacenamiento temporal. Vuelve a crearlos.</item>
+    </plurals>
+</resources>

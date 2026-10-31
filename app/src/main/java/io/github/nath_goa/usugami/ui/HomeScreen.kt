@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.PictureAsPdf
@@ -43,14 +43,14 @@ import io.github.nath_goa.usugami.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(snackbar: SnackbarHostState, onImages: () -> Unit, onTool: (PdfTool) -> Unit, onAbout: () -> Unit) {
+fun HomeScreen(snackbar: SnackbarHostState, onImages: () -> Unit, onTool: (PdfTool) -> Unit, onSettings: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.home_title)) },
                 actions = {
-                    IconButton(onClick = onAbout) {
-                        Icon(Icons.Outlined.Info, contentDescription = stringResource(R.string.about))
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
                     }
                 },
             )

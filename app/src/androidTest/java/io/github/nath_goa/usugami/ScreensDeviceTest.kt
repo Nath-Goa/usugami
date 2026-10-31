@@ -2,6 +2,7 @@ package io.github.nath_goa.usugami
 
 import android.app.Application
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
@@ -14,16 +15,20 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.util.Locale
 
 /**
  * The real screens, read and driven through the accessibility tree TalkBack uses. Pages can be moved
@@ -51,15 +56,37 @@ class ScreensDeviceTest {
         }
     }
 
-    private fun launch(): MainActivity {
+    /** Starts Usugami. Unless [firstRun], it is as if the user had already picked a language. */
+    private fun launch(firstRun: Boolean = false): MainActivity {
+        if (firstRun) AppLanguages.reset(app) else AppLanguages.skipChoice(app)
         val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         return (instrumentation.startActivitySync(intent) as MainActivity).also { activity = it }
     }
 
+    /** Set by tests that change the app's language, which outlives the activity. */
+    private var languageChanged = false
+
     @After fun tearDown() {
         activity?.let { onMain { it.finish() } }
         File(app.cacheDir, "output/test-picked").deleteRecursively()
+        if (languageChanged) AppLanguages.reset(app)
     }
+
+    /** The resumed MainActivity once it is a new one, after [old] was recreated. */
+    private fun recreatedFrom(old: MainActivity): MainActivity {
+        var found: MainActivity? = null
+        waitUntil("the activity to be recreated") {
+            val resumed = onMain { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED) }
+            found = (resumed.singleOrNull() as? MainActivity)?.takeIf { it !== old }
+            found != null
+        }
+        return found!!.also { activity = it }
+    }
+
+    /** [res] in [language], as the translated screens show it. */
+    private fun stringIn(language: AppLanguage, res: Int): String =
+        app.createConfigurationContext(Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag(language.tag)) })
+            .getString(res)
 
     /** Every node in the window that has focus (a dialog's, while one is open). */
     private fun nodes(): List<AccessibilityNodeInfo> {
@@ -74,9 +101,13 @@ class ScreensDeviceTest {
 
     private fun find(what: String, match: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo {
         var found: AccessibilityNodeInfo? = null
-        waitUntil(what) {
-            found = nodes().firstOrNull(match)
-            found != null
+        try {
+            waitUntil(what) {
+                found = nodes().firstOrNull(match)
+                found != null
+            }
+        } catch (e: IllegalStateException) {
+            throw IllegalStateException("${e.message}. On screen: ${texts()}", e)
         }
         return found!!
     }
@@ -254,7 +285,8 @@ class ScreensDeviceTest {
     /** A long text keeps the reader's place when the activity is recreated, as it is on rotation. */
     @Test fun legalTextKeepsItsPlaceWhenRecreated() {
         val first = launch()
-        click(find("About on Home") { it.says(app.getString(R.string.about)) })
+        click(find("Settings on Home") { it.says(app.getString(R.string.settings)) })
+        click(find("About in Settings") { it.says(app.getString(R.string.about)) })
         click(find("the licenses entry") { it.says(app.getString(R.string.about_licenses)) })
         val title = "Third-party notices" // the heading of THIRD_PARTY_NOTICES.md
         find("the notices") { it.says(title) }
@@ -271,11 +303,44 @@ class ScreensDeviceTest {
         val below = shown - atTop
 
         onMain { first.recreate() }
-        waitUntil("the activity to be recreated") {
-            val resumed = onMain { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED) }
-            (resumed.singleOrNull() as? MainActivity)?.takeIf { it !== first }?.also { activity = it } != null
-        }
+        recreatedFrom(first)
         find("the text that was showing") { it.text?.toString() in below }
         assertTrue("The notices went back to the top", texts().none { it == title })
+    }
+
+    /** The first launch asks for a language, then opens Home; later launches go straight to Home. */
+    @Test fun firstLaunchAsksForLanguage() {
+        languageChanged = true
+        launch(firstRun = true)
+        for (language in AppLanguage.entries) find(language.nativeName) { it.says(language.nativeName) }
+        click(find("English") { it.says(AppLanguage.ENGLISH.nativeName) })
+        find("Home") { it.text?.contains(app.getString(R.string.tool_images)) == true }
+        assertTrue(AppLanguages.isChosen(app))
+        onMain { activity!!.finish() }
+        launch(firstRun = false)
+        find("Home on the next launch") { it.text?.contains(app.getString(R.string.tool_images)) == true }
+        assertTrue("The language screen came back", nodes().none { it.says(AppLanguage.FRENCH.nativeName) })
+    }
+
+    /** Settings links to the source code and switches the language of every screen. */
+    @Test fun settingsLinksToGitHubAndSwitchesLanguage() {
+        languageChanged = true
+        val first = launch()
+        click(find("Settings on Home") { it.says(app.getString(R.string.settings)) })
+        find("the GitHub link") { it.says(app.getString(R.string.about_source_detail)) }
+        find("About in Settings") { it.says(app.getString(R.string.about)) }
+        click(find("the language entry") { it.says(app.getString(R.string.settings_language)) })
+        for (language in AppLanguage.entries) find("${language.nativeName} in the dialog") { it.says(language.nativeName) }
+        click(find("Français") { it.says(AppLanguage.FRENCH.nativeName) })
+
+        val french = recreatedFrom(first)
+        assertEquals("fr", onMain { french.resources.configuration.locales[0].language })
+        // Still on Settings, now in French.
+        find("Settings in French") { it.says(stringIn(AppLanguage.FRENCH, R.string.settings)) }
+        assertNotEquals("Settings isn't translated", stringIn(AppLanguage.ENGLISH, R.string.settings), stringIn(AppLanguage.FRENCH, R.string.settings))
+        // Messages made outside the screens are in French too.
+        val vm = onMain { ViewModelProvider(french)[MainViewModel::class.java] }
+        onMain { vm.showMessage(R.string.msg_no_browser) }
+        find("a French message") { it.says(stringIn(AppLanguage.FRENCH, R.string.msg_no_browser)) }
     }
 }

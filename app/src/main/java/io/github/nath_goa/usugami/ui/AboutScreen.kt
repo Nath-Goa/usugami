@@ -104,14 +104,14 @@ fun AboutScreen(
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(vertical = 8.dp)) {
             AboutHeader()
             PrivacyNote(Modifier.padding(16.dp))
-            AboutEntry(Icons.Rounded.Policy, stringResource(R.string.about_privacy_policy)) { onDocument(LegalDocument.PRIVACY) }
-            AboutEntry(Icons.AutoMirrored.Rounded.LibraryBooks, stringResource(R.string.about_licenses), stringResource(R.string.about_licenses_detail)) {
+            ListRow(Icons.Rounded.Policy, stringResource(R.string.about_privacy_policy)) { onDocument(LegalDocument.PRIVACY) }
+            ListRow(Icons.AutoMirrored.Rounded.LibraryBooks, stringResource(R.string.about_licenses), stringResource(R.string.about_licenses_detail)) {
                 onDocument(LegalDocument.NOTICES)
             }
-            AboutEntry(Icons.Rounded.Gavel, stringResource(R.string.about_license), stringResource(R.string.about_license_detail)) {
+            ListRow(Icons.Rounded.Gavel, stringResource(R.string.about_license), stringResource(R.string.about_license_detail)) {
                 onDocument(LegalDocument.LICENSE)
             }
-            AboutEntry(Icons.Rounded.Code, stringResource(R.string.about_source), stringResource(R.string.about_source_detail), external = true, onClick = onSourceCode)
+            ListRow(Icons.Rounded.Code, stringResource(R.string.about_source), stringResource(R.string.about_source_detail), external = true, onClick = onSourceCode)
             Text(
                 stringResource(R.string.about_copyright),
                 style = MaterialTheme.typography.bodySmall,
@@ -129,13 +129,7 @@ private fun AboutHeader() {
         Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // The launcher icon: its background color with its artwork, cropped to the part a launcher shows.
-        Box(
-            Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)).background(colorResource(R.color.brand)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.requiredSize(108.dp))
-        }
+        AppIcon()
         Spacer(Modifier.height(16.dp))
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
@@ -150,6 +144,17 @@ private fun AboutHeader() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+/** The launcher icon: its background color with its artwork, cropped to the part a launcher shows. */
+@Composable
+internal fun AppIcon() {
+    Box(
+        Modifier.size(72.dp).clip(RoundedCornerShape(20.dp)).background(colorResource(R.color.brand)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(painterResource(R.drawable.ic_launcher_foreground), contentDescription = null, modifier = Modifier.requiredSize(108.dp))
     }
 }
 
@@ -173,9 +178,12 @@ private fun PrivacyNote(modifier: Modifier = Modifier) {
     }
 }
 
-/** A list row laid out like a Material list item (a plain Row keeps Material's ListItem out of the APK). */
+/**
+ * A list row laid out like a Material list item (a plain Row keeps Material's ListItem out of the
+ * APK), used by About and Settings. [external] adds an icon saying it opens another app.
+ */
 @Composable
-private fun AboutEntry(icon: ImageVector, title: String, detail: String? = null, external: Boolean = false, onClick: () -> Unit) {
+internal fun ListRow(icon: ImageVector, title: String, detail: String? = null, external: Boolean = false, onClick: () -> Unit) {
     val iconColor = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         Modifier

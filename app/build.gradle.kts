@@ -79,8 +79,13 @@ android {
         buildConfig = true
     }
     androidResources {
-        // The app is English only; this drops 80+ unused library translations (~320 KB).
-        localeFilters += listOf("en")
+        // Usugami comes in English, French, Spanish and Hindi (also listed in res/xml/locales_config.xml);
+        // this drops the libraries' 80+ other translations (~300 KB).
+        localeFilters += listOf("en", "fr", "es", "hi")
+    }
+    // The language can be switched inside the app, so an app bundle must not split languages off.
+    bundle {
+        language { enableSplit = false }
     }
     // Don't embed the dependency list that only Google can decrypt (F-Droid/IzzyOnDroid flag it).
     dependenciesInfo {

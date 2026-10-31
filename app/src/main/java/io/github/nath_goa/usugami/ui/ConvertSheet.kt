@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -57,6 +58,7 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.Margin
 import io.github.nath_goa.usugami.core.PageSize
+import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrProblem
 
@@ -77,7 +79,9 @@ fun ConvertSheet(
     var name by rememberSaveable { mutableStateOf(initialChoices.fileName) }
     var compression by rememberSaveable { mutableStateOf(initialCompression) }
     var ocrEnabled by rememberSaveable { mutableStateOf(initialChoices.ocrLanguage != null) }
-    var ocrLanguage by rememberSaveable { mutableStateOf(initialChoices.ocrLanguage ?: OcrLanguage.ENGLISH) }
+    // Text recognition reads the app's language unless the user picked another one for these images.
+    val appOcrLanguage = AppLanguage.shownIn(LocalContext.current).ocr
+    var ocrLanguage by rememberSaveable { mutableStateOf(initialChoices.ocrLanguage ?: appOcrLanguage) }
     val oneFile = merge || imageCount == 1
     val create = { onCreate(merge, name, compression, if (ocrEnabled) ocrLanguage else null) }
 
@@ -202,7 +206,7 @@ fun ConvertSheet(
                                 shape = SegmentedButtonDefaults.itemShape(index, OcrLanguage.entries.size),
                                 icon = {},
                                 contentPadding = SegmentPadding,
-                                label = { SegmentLabel(stringResource(if (language == OcrLanguage.ENGLISH) R.string.ocr_english else R.string.ocr_hindi)) },
+                                label = { SegmentLabel(stringResource(language.label)) },
                             )
                         }
                     }
@@ -344,3 +348,12 @@ fun OcrProblemDialog(problem: OcrProblem, onDismiss: () -> Unit) {
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) } },
     )
 }
+
+/** The name of a text-recognition language, in the app's language. */
+private val OcrLanguage.label: Int
+    get() = when (this) {
+        OcrLanguage.ENGLISH -> R.string.ocr_english
+        OcrLanguage.FRENCH -> R.string.ocr_french
+        OcrLanguage.SPANISH -> R.string.ocr_spanish
+        OcrLanguage.HINDI -> R.string.ocr_hindi
+    }

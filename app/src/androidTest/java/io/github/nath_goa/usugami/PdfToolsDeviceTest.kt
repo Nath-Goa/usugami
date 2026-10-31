@@ -1,10 +1,13 @@
 package io.github.nath_goa.usugami
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Point
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
@@ -232,6 +235,44 @@ class PdfToolsDeviceTest {
             assertEquals(1, PDDocument.load(searchable).use { it.numberOfPages })
             assertTrue("Missing $expected in ${text(searchable)}", text(searchable).contains(expected))
         }
+    }
+
+    /** French and Spanish keep their accents: ML Kit reads them and the OCR font has them. */
+    @Test fun ocrFrenchAndSpanishKeepAccents() = runBlocking {
+        val ocr = PdfOcr(context)
+        for ((language, lines, expected) in listOf(
+            Triple(OcrLanguage.FRENCH, listOf("Le garçon et l'élève", "fêtent Noël à Paris"), listOf("garçon", "élève", "Noël")),
+            Triple(OcrLanguage.SPANISH, listOf("El niño pequeño", "cumple años mañana"), listOf("niño", "pequeño", "mañana")),
+        )) {
+            ensureOcrReady(language)
+            val page = scannedText(lines, File(context.filesDir, "ocr_${language.name}.pdf"))
+            assertTrue(text(page).isBlank())
+            val output = ocr.apply(listOf(PdfFile(page, 1, page.length())), language)
+            val searchable = save(output.files.single().file, "ocr_${language.name.lowercase()}.pdf")
+            val found = text(searchable)
+            for (word in expected) assertTrue("Missing $word in $found", found.contains(word))
+        }
+    }
+
+    /** A one-page PDF that holds [lines] only as a picture, like a scan. */
+    private fun scannedText(lines: List<String>, file: File): File {
+        val bitmap = Bitmap.createBitmap(1240, 1754, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(Color.WHITE)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.BLACK
+            textSize = 64f
+            typeface = Typeface.SANS_SERIF
+        }
+        val canvas = Canvas(bitmap)
+        lines.forEachIndexed { index, line -> canvas.drawText(line, 120f, 300f + index * 110f, paint) }
+        val document = PdfDocument()
+        val page = document.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
+        page.canvas.drawBitmap(bitmap, null, RectF(0f, 0f, 595f, 842f), null)
+        document.finishPage(page)
+        file.outputStream().use(document::writeTo)
+        document.close()
+        bitmap.recycle()
+        return file
     }
 
     @Test fun ocrFailureLeavesPdfsUntouched() = runBlocking {

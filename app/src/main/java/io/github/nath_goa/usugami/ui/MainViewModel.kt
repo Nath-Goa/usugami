@@ -1,10 +1,11 @@
 package io.github.nath_goa.usugami.ui
 
 import android.app.Application
-import android.util.Log
 import android.content.Intent
+import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.lifecycle.AndroidViewModel
@@ -15,19 +16,20 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.NaturalOrder
+import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.ImageUnreadableException
-import io.github.nath_goa.usugami.data.PdfExporter
-import io.github.nath_goa.usugami.data.PdfOcr
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.data.OcrUnavailableException
-import io.github.nath_goa.usugami.data.ocrModels
+import io.github.nath_goa.usugami.data.PdfExporter
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.data.PdfOcr
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.SettingsStore
 import io.github.nath_goa.usugami.data.Thumbnails
+import io.github.nath_goa.usugami.data.ocrModels
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -56,6 +58,9 @@ data class Progress(val done: Int, val total: Int, val stage: Stage = Stage.CREA
 data class ConvertChoices(val fileName: String, val ocrLanguage: OcrLanguage?)
 
 class MainViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
+    // Messages are written here, in the language the user picked (see AppLanguages.localized).
+    private val strings: Resources get() = AppLanguages.localized(app).resources
+
     private val store = ImageStore(app)
     private val exporter = PdfExporter(app)
     private val ocr = PdfOcr(app)
@@ -286,7 +291,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                         }
                         _progress.value = Progress(0, snapshot.size)
                     }
-                    val files = exporter.export(snapshot, layout, compression, merge || snapshot.size == 1, fileName, app.getString(R.string.app_name)) { done ->
+                    val files = exporter.export(snapshot, layout, compression, merge || snapshot.size == 1, fileName, strings.getString(R.string.app_name)) { done ->
                         _progress.value = Progress(done, snapshot.size)
                     }
                     if (ocrLanguage == null) files else addTextLayer(files, ocrLanguage)
@@ -304,15 +309,15 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 // Its copy may have been cleared from the cache while the PDF was being made.
                 val missing = withContext(Dispatchers.IO) { snapshot.filterNot(store::exists) }
                 if (missing.isNotEmpty()) forgetMissing(missing)
-                else message(R.string.msg_convert_failed, app.getString(R.string.msg_image_unreadable, e.imageName))
+                else message(R.string.msg_convert_failed, strings.getString(R.string.msg_image_unreadable, e.imageName))
             } catch (e: IOException) {
                 Log.e("Usugami", "PDF generation failed", e)
-                message(R.string.msg_convert_failed, app.getString(if (e.isOutOfSpace()) R.string.msg_out_of_space else R.string.msg_unknown_error))
+                message(R.string.msg_convert_failed, strings.getString(if (e.isOutOfSpace()) R.string.msg_out_of_space else R.string.msg_unknown_error))
             } catch (e: OutOfMemoryError) {
-                message(R.string.msg_convert_failed, app.getString(R.string.msg_out_of_memory))
+                message(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_memory))
             } catch (e: Exception) {
                 Log.e("Usugami", "PDF generation failed", e)
-                message(R.string.msg_convert_failed, app.getString(R.string.msg_unknown_error))
+                message(R.string.msg_convert_failed, strings.getString(R.string.msg_unknown_error))
             } finally {
                 _progress.value = null
                 _cancelling.value = false
@@ -393,7 +398,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     private fun resultCleared(count: Int) {
         _result.value = null
-        _messages.trySend(app.resources.getQuantityString(R.plurals.msg_result_cleared, count))
+        _messages.trySend(strings.getQuantityString(R.plurals.msg_result_cleared, count))
     }
 
     fun saveToDownloads() {
@@ -401,8 +406,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
         save {
             val names = files.map { saver.saveToDownloads(it.file) }
-            if (names.size == 1) app.getString(R.string.msg_saved_downloads, names[0])
-            else app.resources.getQuantityString(R.plurals.msg_saved_downloads_many, names.size, names.size)
+            if (names.size == 1) strings.getString(R.string.msg_saved_downloads, names[0])
+            else strings.getQuantityString(R.plurals.msg_saved_downloads_many, names.size, names.size)
         }
     }
 
@@ -418,7 +423,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
         save {
             saver.saveTo(file.file, uri)
-            app.getString(R.string.msg_saved)
+            strings.getString(R.string.msg_saved)
         }
     }
 
@@ -428,7 +433,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val files = _result.value ?: return resultCleared(2)
         save {
             saver.saveToFolder(files.map { it.file }, tree)
-            app.resources.getQuantityString(R.plurals.msg_saved_folder, files.size, files.size)
+            strings.getQuantityString(R.plurals.msg_saved_folder, files.size, files.size)
         }
     }
 
@@ -459,11 +464,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     private fun message(@StringRes res: Int, vararg args: Any) {
-        _messages.trySend(app.getString(res, *args))
+        _messages.trySend(strings.getString(res, *args))
     }
 
     private fun pluralMessage(@PluralsRes res: Int, count: Int) {
-        _messages.trySend(app.resources.getQuantityString(res, count, count))
+        _messages.trySend(strings.getQuantityString(res, count, count))
     }
 
     private var finishing = false

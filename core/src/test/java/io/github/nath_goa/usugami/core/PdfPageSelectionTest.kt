@@ -24,8 +24,21 @@ class PdfPageSelectionTest {
         assertThrows(IllegalArgumentException::class.java) { PdfPageSelection.customRanges("1-2;", 6) }
     }
 
+    @Test fun badInputSaysWhy() {
+        // The split screen turns the problem into a message in the user's language.
+        fun problem(block: () -> Unit) = assertThrows(PageSelectionException::class.java, block).problem
+        assertEquals(PageSelectionException.Problem.FORMAT, problem { PdfPageSelection.selected("one", 6) })
+        assertEquals(PageSelectionException.Problem.FORMAT, problem { PdfPageSelection.selected("", 6) })
+        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.selected("7", 6) })
+        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.selected("2-1", 6) })
+        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.selected("99999999999", 6) })
+        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.customRanges("1-99999999999", 6) })
+        assertEquals(PageSelectionException.Problem.CHUNK_SIZE, problem { PdfPageSelection.fixed(3, 4) })
+        assertEquals(6, assertThrows(PageSelectionException::class.java) { PdfPageSelection.selected("7", 6) }.pageCount)
+    }
+
     @Test fun badChunkSizeExplainsTheLimit() {
-        // The split screen shows this message directly, so it must not be Kotlin's "Failed requirement."
+        // The English message stays readable, not Kotlin's "Failed requirement."
         for (size in listOf(0, -1, 4)) {
             val error = assertThrows(IllegalArgumentException::class.java) { PdfPageSelection.fixed(3, size) }
             assertEquals("Pages per PDF must be between 1 and 3", error.message)

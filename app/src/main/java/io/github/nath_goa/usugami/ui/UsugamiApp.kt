@@ -31,12 +31,24 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.PdfSaver
 
 @Composable
-fun UsugamiApp(vm: MainViewModel) {
+fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     val context = LocalContext.current
+    // The first time Usugami opens, it asks for a language before anything else. Choosing one
+    // usually recreates the activity in that language; this state carries over, so Home follows.
+    var languageChosen by rememberSaveable { mutableStateOf(AppLanguages.isChosen(context)) }
+    if (!languageChosen) {
+        LanguageScreen { language ->
+            languageChosen = true
+            onChooseLanguage(language)
+        }
+        return
+    }
     val pdfVm: PdfToolsViewModel = viewModel()
     val items by vm.items.collectAsStateWithLifecycle()
     val layout by vm.layout.collectAsStateWithLifecycle()
@@ -111,14 +123,16 @@ fun UsugamiApp(vm: MainViewModel) {
         }
     }
 
+    fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
+
     var showConvertSheet by rememberSaveable { mutableStateOf(false) }
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
 
     // Which screen is showing. The result screens sit one level deeper than their editors, which
-    // sit one level deeper than home, and so do About ("about") and the texts it opens
-    // ("about/privacy"); that depth decides the slide direction.
+    // sit one level deeper than home, and so do Settings ("settings"), About ("settings/about") and
+    // the texts About opens ("settings/about/privacy"); that depth decides the slide direction.
     val screen = when {
-        route == "home" || route.startsWith("about") -> route
+        route == "home" || route.startsWith("settings") -> route
         route == "images" -> if (result == null) "images" else "images/result"
         else -> if (pdfResult == null) route else "$route/result"
     }
@@ -148,23 +162,31 @@ fun UsugamiApp(vm: MainViewModel) {
                         pdfVm.reset()
                         route = tool.name.lowercase()
                     },
-                    onAbout = { route = "about" },
+                    onSettings = { route = "settings" },
                 )
-                current == "about" -> {
+                current == "settings" -> {
                     BackHandler(enabled = active) { route = "home" }
-                    AboutScreen(
+                    SettingsScreen(
                         snackbar = screenSnackbar,
                         onBack = { route = "home" },
-                        onDocument = { document -> route = "about/${document.name.lowercase()}" },
-                        onSourceCode = {
-                            launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
-                        },
+                        onChooseLanguage = onChooseLanguage,
+                        onSourceCode = { openSourceCode() },
+                        onAbout = { route = "settings/about" },
                     )
                 }
-                current.startsWith("about/") -> {
-                    val document = LegalDocument.valueOf(current.substringAfter('/').uppercase())
-                    BackHandler(enabled = active) { route = "about" }
-                    LegalDocumentScreen(document, snackbar = screenSnackbar, onBack = { route = "about" })
+                current == "settings/about" -> {
+                    BackHandler(enabled = active) { route = "settings" }
+                    AboutScreen(
+                        snackbar = screenSnackbar,
+                        onBack = { route = "settings" },
+                        onDocument = { document -> route = "settings/about/${document.name.lowercase()}" },
+                        onSourceCode = { openSourceCode() },
+                    )
+                }
+                current.startsWith("settings/about/") -> {
+                    val document = LegalDocument.valueOf(current.substringAfterLast('/').uppercase())
+                    BackHandler(enabled = active) { route = "settings/about" }
+                    LegalDocumentScreen(document, snackbar = screenSnackbar, onBack = { route = "settings/about" })
                 }
                 current == "images" -> {
                     // Images still being imported count too: they would arrive at home and reopen the editor.
@@ -327,5 +349,5 @@ fun UsugamiApp(vm: MainViewModel) {
 /** Whether [route] is a PDF tool's screen (its result included: that shares the tool's route). */
 private fun isPdfToolRoute(route: String): Boolean = PdfTool.entries.any { it.name.equals(route, ignoreCase = true) }
 
-/** How deep a screen is: home 0, a tool's editor or About 1, a result or a text opened from About 2. */
+/** How deep a screen is: home 0, a tool's editor or Settings 1, a result or About 2, a text About opens 3. */
 private fun screenDepth(screen: String): Int = if (screen == "home") 0 else 1 + screen.count { it == '/' }

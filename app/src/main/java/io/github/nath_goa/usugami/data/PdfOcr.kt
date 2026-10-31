@@ -32,7 +32,12 @@ import java.io.IOException
 import kotlin.math.atan2
 import kotlin.math.hypot
 
-enum class OcrLanguage { ENGLISH, HINDI }
+/**
+ * The languages text recognition offers. English, French and Spanish share ML Kit's Latin-script
+ * model (one download in the standard edition); Hindi uses the Devanagari model, which also keeps
+ * English words.
+ */
+enum class OcrLanguage { ENGLISH, FRENCH, SPANISH, HINDI }
 
 data class OcrOutput(val files: List<PdfFile>, val lineCount: Int)
 
@@ -206,7 +211,7 @@ class PdfOcr(private val context: Context) {
 
         /** Both editions use the same ML Kit API; only where the model comes from differs. */
         fun newRecognizer(language: OcrLanguage): TextRecognizer = when (language) {
-            OcrLanguage.ENGLISH -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            OcrLanguage.ENGLISH, OcrLanguage.FRENCH, OcrLanguage.SPANISH -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
             OcrLanguage.HINDI -> TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
         }
     }

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name">Usugami</string>
+    <string name="app_name" translatable="false">Usugami</string>
     <string name="back">Back</string>
 
     <!-- Home and PDF tools -->
-    <string name="home_title">Usugami</string>
+    <string name="home_title" translatable="false">Usugami</string>
     <string name="home_subtitle">Your PDFs stay on this phone. No ads, account, or uploads.</string>
     <string name="tool_images">Images to PDF</string>
     <string name="tool_images_detail">Combine JPGs and PNGs, with optional text recognition</string>
@@ -29,6 +29,10 @@
     <string name="pdf_password_hint">Password</string>
     <string name="pdf_unlock">Open PDF</string>
     <string name="pdf_invalid_pages">Check the page numbers and try again.</string>
+    <string name="pdf_pages_format" tools:ignore="TypographyDashes">Use page numbers such as 1,3-5.</string>
+    <!-- %1$d is the number of pages in the PDF: the highest page number allowed. -->
+    <string name="pdf_pages_range" tools:ignore="PluralsCandidate">Pages must be between 1 and %1$d.</string>
+    <string name="pdf_pages_chunk" tools:ignore="PluralsCandidate">Pages per PDF must be between 1 and %1$d.</string>
     <string name="pdf_process_failed">Couldn\'t process this PDF. Check the file and free storage.</string>
     <string name="pdf_saved_downloads">Saved to Downloads</string>
     <string name="pdf_working">Working on your PDF…</string>
@@ -40,9 +44,10 @@
     <string name="pdf_sort_za">Sort Z to A</string>
     <string name="pdf_reset_pages">Reset pages</string>
     <string name="pdf_selected">Selected pages</string>
-    <string name="pdf_selected_hint">For example: 1,3,5-8. Tap page previews to select them.</string>
+    <!-- The examples use the hyphen people type, not an en dash. -->
+    <string name="pdf_selected_hint" tools:ignore="TypographyDashes">For example: 1,3,5-8. Tap page previews to select them.</string>
     <string name="pdf_custom">Custom ranges</string>
-    <string name="pdf_custom_hint">For example: 1-3;5-7;9</string>
+    <string name="pdf_custom_hint" tools:ignore="TypographyDashes">For example: 1-3;5-7;9</string>
     <string name="pdf_fixed">Fixed chunks</string>
     <string name="pdf_fixed_hint">Pages per PDF</string>
     <string name="pdf_every_page">Every page</string>
@@ -55,6 +60,7 @@
     <string name="pdf_compress_action">Compress PDF</string>
     <string name="pdf_no_reduction">This PDF is already compact; the original size was kept.</string>
     <string name="pdf_compress_note">Text and drawings stay sharp. Images are reduced where it saves space.</string>
+    <!-- Counts PDFs, so never 0: in French and Hindi "one" may leave the number out. -->
     <plurals name="pdf_password_removed">
         <item quantity="one">The new PDF has no password.</item>
         <item quantity="other">The new PDFs have no password.</item>
@@ -67,6 +73,8 @@
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>
     <string name="ocr_language">Text language</string>
     <string name="ocr_english">English</string>
+    <string name="ocr_french">French</string>
+    <string name="ocr_spanish">Spanish</string>
     <string name="ocr_hindi">Hindi</string>
     <string name="ocr_no_text">No text was recognized. The PDF was created without a text layer.</string>
     <string name="ocr_failed">Text recognition failed, so the PDF was created without searchable text.</string>
@@ -80,6 +88,14 @@
     <string name="ocr_problem_failed">Text recognition couldn\'t start because of an unexpected error. If this keeps happening, please report it at github.com/Nath-Goa/usugami.</string>
     <string name="ocr_problem_help">In this edition of Usugami, text recognition comes from Google Play services, which downloads it the first time you use each language. That needs an internet connection. The offline edition of Usugami has it built in.</string>
     <string name="ocr_problem_retry">To create the PDF now, turn off OCR and try again.</string>
+
+    <!-- Language and settings. The language names themselves are written in each language, in code. -->
+    <string name="language_title">Choose your language</string>
+    <string name="language_subtitle">You can change it later in Settings.</string>
+    <string name="settings">Settings</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_github">Source code on GitHub</string>
+    <string name="settings_about_detail">Version, privacy policy and licenses</string>
 
     <!-- About -->
     <string name="about">About Usugami</string>
@@ -95,8 +111,8 @@
     <string name="about_license">License</string>
     <string name="about_license_detail">GNU GPL v3 or later</string>
     <string name="about_source">Source code</string>
-    <string name="about_source_detail">github.com/Nath-Goa/usugami</string>
-    <string name="about_copyright">© 2026 Nathan Kumtakar</string>
+    <string name="about_source_detail" translatable="false">github.com/Nath-Goa/usugami</string>
+    <string name="about_copyright" translatable="false">© 2026 Nathan Kumtakar</string>
     <string name="about_document_missing">This text isn\'t included in this copy of Usugami. You can read it at github.com/Nath-Goa/usugami.</string>
     <string name="msg_no_browser">No app on this phone can open web links.</string>
 
@@ -107,6 +123,7 @@
     <string name="empty_share_hint">Tip: you can also share images to Usugami from your gallery.</string>
     <string name="add_from_photos">Photos</string>
     <string name="add_from_files">Files</string>
+    <!-- Beside "Convert to PDF" on a phone-wide bar; a translation can be just the verb ("Add"). -->
     <string name="add_images">Add images</string>
     <string name="add_more">Add more</string>
     <string name="convert">Convert to PDF</string>
@@ -129,16 +146,18 @@
     </plurals>
 
     <!-- Options -->
+    <!-- An option and its current value on the editor's chips, e.g. "Margin: Small". -->
+    <string name="option_value">%1$s: %2$s</string>
     <string name="option_page_size">Page size</string>
     <string name="option_orientation">Orientation</string>
     <string name="option_margin">Margin</string>
     <string name="size_fit">Fit (same as image)</string>
     <string name="size_fit_short">Fit</string>
-    <string name="size_a4">A4</string>
+    <string name="size_a4" translatable="false">A4</string>
     <string name="size_letter">US Letter</string>
     <string name="size_legal">US Legal</string>
-    <string name="size_a3">A3</string>
-    <string name="size_a5">A5</string>
+    <string name="size_a3" translatable="false">A3</string>
+    <string name="size_a5" translatable="false">A5</string>
     <string name="orientation_auto">Auto</string>
     <string name="orientation_portrait">Portrait</string>
     <string name="orientation_landscape">Landscape</string>
@@ -191,7 +210,7 @@
     <string name="result_title">Done</string>
     <string name="result_heading_one">Your PDF is ready</string>
     <string name="result_heading_many">Your PDFs are ready</string>
-    <string name="result_details">%1$s · %2$s</string>
+    <string name="result_details" translatable="false">%1$s · %2$s</string>
     <plurals name="page_count">
         <item quantity="one">%d page</item>
         <item quantity="other">%d pages</item>
@@ -248,6 +267,7 @@
         <item quantity="one">%d file was removed because its temporary copy was cleared. Please add it again.</item>
         <item quantity="other">%d files were removed because their temporary copies were cleared. Please add them again.</item>
     </plurals>
+    <!-- Counts PDFs, so never 0: in French and Hindi "one" may leave the number out. -->
     <plurals name="msg_result_cleared">
         <item quantity="one">The PDF was cleared from temporary storage. Please create it again.</item>
         <item quantity="other">The PDFs were cleared from temporary storage. Please create them again.</item>

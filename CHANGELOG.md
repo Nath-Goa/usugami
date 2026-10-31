@@ -6,6 +6,20 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Usugami now comes in **French**, **Spanish** and **Hindi** as well as English. The first time you
+  open it, you pick a language; you can change it any time in Settings (on Android 13 and newer,
+  also in the phone's settings for Usugami). The license and privacy policy stay in English.
+- Text recognition reads **French** and **Spanish** too, accents included. It starts on the app's
+  language. In the standard edition, French and Spanish use the same download as English.
+- A Settings page (the gear on Home) with the language, a link to the source code on GitHub, and
+  About.
+
+### Changed
+
+- About is now in Settings.
+
 ## [1.2.0] - 2026-10-31
 
 First public release, under a new name: PDFer is now **Usugami** (薄紙, Japanese for "thin paper").

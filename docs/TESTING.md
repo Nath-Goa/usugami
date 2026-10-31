@@ -32,7 +32,8 @@ extraction:
 - merge: file order and page mode (reorder, rotate, remove)
 - compress: all three levels, selectable text kept, never larger than the original
 - password-protected PDFs: opening with the password, then split and compress
-- text recognition in English and Hindi, including a text layer with both Devanagari and Latin
+- text recognition in English, French, Spanish and Hindi (French and Spanish accents kept),
+  including a text layer with both Devanagari and Latin
   text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
   PDFs untouched
 
@@ -61,7 +62,9 @@ sizes are right, and that MuPDF renders every page like the expected layout.
 
 On a phone or emulator, with the release APKs:
 
-- Images to PDF from Photos, Files and a share from the gallery, with OCR on in both languages.
+- First launch: the language screen, then Home; Settings → Language switches every screen
+  (also on Android 12 or older, where Usugami applies the language itself).
+- Images to PDF from Photos, Files and a share from the gallery, with OCR on in each language.
 - Split, merge in page mode, and compress, including a password-protected PDF.
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
 - Standard edition: the first OCR in each language downloads that model through Google Play services.

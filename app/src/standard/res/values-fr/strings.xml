@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
+    <string name="ocr_detail">Reconnaître les mots figurant sur ces images et ajouter du texte recherchable au PDF. La première fois que vous utilisez une langue, sa reconnaissance de texte est téléchargée, ce qui nécessite une connexion Internet.</string>
+</resources>

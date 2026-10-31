@@ -54,8 +54,8 @@ Google or anyone else.
 
 - Text recognition runs through Google Play services, a separate app from Google that is
   installed on most Android phones.
-- The first time you use each text language (English or Hindi), Google Play services downloads
-  Google's text-recognition model for it. This needs an internet connection at that time. Google
+- The first time you use a text language, Google Play services downloads Google's
+  text-recognition model for it (one model covers English, French and Spanish; Hindi has its own). This needs an internet connection at that time. Google
   Play services then keeps the model for later use; if it removes a model, it downloads it again
   the next time you use that language. Google Play services does these downloads, not Usugami,
   and Google's Privacy Policy applies to them: https://policies.google.com/privacy

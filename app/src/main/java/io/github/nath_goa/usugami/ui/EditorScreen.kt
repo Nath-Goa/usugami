@@ -40,6 +40,7 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -55,6 +56,7 @@ import androidx.compose.material.icons.rounded.Rotate90DegreesCcw
 import androidx.compose.material.icons.rounded.Rotate90DegreesCw
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -95,6 +97,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.data.ImageItem
@@ -458,18 +461,29 @@ private fun BottomActions(
         ) {
             var menu by remember { mutableStateOf(false) }
             Box {
-                OutlinedButton(onClick = { menu = true }) {
+                OutlinedButton(onClick = { menu = true }, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
                     Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.add_images))
+                    Text(stringResource(R.string.add_images), maxLines = 1)
                 }
                 AddMenu(menu, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
             }
             Spacer(Modifier.width(12.dp))
-            Button(onClick = onConvert, enabled = convertEnabled, modifier = Modifier.weight(1f)) {
+            Button(
+                onClick = onConvert,
+                enabled = convertEnabled,
+                modifier = Modifier.weight(1f),
+                contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+            ) {
                 Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.convert), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Shrinks a little on narrow phones, large text or a long translation, rather than being cut off.
+                Text(
+                    stringResource(R.string.convert),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = MaterialTheme.typography.labelLarge.fontSize, stepSize = 0.5.sp),
+                )
             }
         }
     }

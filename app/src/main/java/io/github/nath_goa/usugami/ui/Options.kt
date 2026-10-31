@@ -85,7 +85,7 @@ private fun <T> OptionChip(
             onClick = { expanded = true },
             enabled = enabled,
             // When the chosen value changes length, the chip (and the chips after it) resize smoothly.
-            label = { Text("$label: $value", modifier = Modifier.animateContentSize(Motion.medium())) },
+            label = { Text(stringResource(R.string.option_value, label, value), modifier = Modifier.animateContentSize(Motion.medium())) },
             trailingIcon = { Icon(Icons.Rounded.ArrowDropDown, contentDescription = null) },
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {

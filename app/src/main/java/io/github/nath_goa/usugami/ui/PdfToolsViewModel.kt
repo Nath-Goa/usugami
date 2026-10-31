@@ -2,6 +2,7 @@ package io.github.nath_goa.usugami.ui
 
 import android.app.Application
 import android.content.Intent
+import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
 import androidx.annotation.PluralsRes
@@ -11,7 +12,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.PageSelectionException
 import io.github.nath_goa.usugami.core.PdfPageSelection
+import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
@@ -24,8 +27,8 @@ import io.github.nath_goa.usugami.data.PdfWrongPassword
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +40,9 @@ enum class PdfTool { SPLIT, MERGE, COMPRESS }
 enum class SplitMode { SELECTED, CUSTOM, FIXED, EVERY_PAGE }
 
 class PdfToolsViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
+    // Messages are written here, in the language the user picked (see AppLanguages.localized).
+    private val strings: Resources get() = AppLanguages.localized(app).resources
+
     private val engine = PdfToolsEngine(app)
     private val saver = PdfSaver(app)
     private val fileOps = Dispatchers.IO.limitedParallelism(1)
@@ -99,7 +105,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             // reset() abandons an import by cancelling it, but a PDF already being read still finishes,
             // and its outcome reaches here. Then it belongs to a tool that has gone: say nothing.
             fun abandoned() = generation != importGeneration
-            fun failed(@StringRes reason: Int) { if (!abandoned()) message(app.getString(reason)) }
+            fun failed(@StringRes reason: Int) { if (!abandoned()) message(strings.getString(reason)) }
             if (replace) clearInputs()
             try {
                 for (uri in uris) {
@@ -168,7 +174,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun unlockFailed(pending: PdfInput, @StringRes reason: Int) {
         if (!pending.file.isFile) return forgetInputs(listOf(pending))
         dismissPassword(pending)
-        message(app.getString(reason))
+        message(strings.getString(reason))
     }
 
     fun clearWrongPassword() { _wrongPassword.value = false }
@@ -258,8 +264,17 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 SplitMode.FIXED -> PdfPageSelection.fixed(input.pageCount, text.trim().toIntOrNull() ?: 0)
                 SplitMode.EVERY_PAGE -> PdfPageSelection.fixed(input.pageCount, 1)
             }
-        } catch (e: IllegalArgumentException) {
-            message(e.message ?: app.getString(R.string.pdf_invalid_pages))
+        } catch (e: PageSelectionException) {
+            message(
+                when (e.problem) {
+                    PageSelectionException.Problem.FORMAT -> strings.getString(R.string.pdf_pages_format)
+                    PageSelectionException.Problem.OUT_OF_RANGE -> strings.getString(R.string.pdf_pages_range, e.pageCount)
+                    PageSelectionException.Problem.CHUNK_SIZE -> strings.getString(R.string.pdf_pages_chunk, e.pageCount)
+                },
+            )
+            return
+        } catch (_: IllegalArgumentException) {
+            message(strings.getString(R.string.pdf_invalid_pages))
             return
         }
         process(listOf(input)) { check -> engine.split(input, groups, fileName, check) }
@@ -279,7 +294,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             // smaller. Say so, otherwise the result looks like nothing happened.
             val file = files.single()
             if (input.password.isEmpty() && file.sizeBytes >= file.originalBytes) {
-                message(app.getString(R.string.pdf_no_reduction))
+                message(strings.getString(R.string.pdf_no_reduction))
             }
         }) { check -> listOf(engine.compress(input, level, fileName, check)) }
     }
@@ -305,16 +320,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 // The engine removes partial output on cancellation.
             } catch (_: OutOfMemoryError) {
                 // A very large image can exhaust the heap; the engine has already removed partial output.
-                message(app.getString(R.string.pdf_process_failed))
+                message(strings.getString(R.string.pdf_process_failed))
             } catch (_: PdfCertificateEncrypted) {
-                message(app.getString(R.string.pdf_certificate_unsupported))
+                message(strings.getString(R.string.pdf_certificate_unsupported))
             } catch (e: Exception) {
                 message(
-                    if (e.isOutOfSpace()) app.getString(R.string.msg_convert_failed, app.getString(R.string.msg_out_of_space))
-                    else app.getString(R.string.pdf_process_failed),
+                    if (e.isOutOfSpace()) strings.getString(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_space))
+                    else strings.getString(R.string.pdf_process_failed),
                 )
             } catch (_: LinkageError) {
-                message(app.getString(R.string.pdf_process_failed))
+                message(strings.getString(R.string.pdf_process_failed))
             } finally {
                 _processing.value = false
                 task = null
@@ -380,7 +395,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     private fun resultCleared(count: Int) {
         _result.value = null
-        message(app.resources.getQuantityString(R.plurals.msg_result_cleared, count))
+        message(strings.getQuantityString(R.plurals.msg_result_cleared, count))
     }
 
     fun saveToDownloads() {
@@ -388,7 +403,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         if (!canSaveToDownloads) return
         save {
             files.forEach { saver.saveToDownloads(it.file) }
-            app.getString(R.string.pdf_saved_downloads)
+            strings.getString(R.string.pdf_saved_downloads)
         }
     }
 
@@ -401,13 +416,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             resultCleared(1)
             return
         }
-        save { saver.saveTo(file.file, uri); app.getString(R.string.msg_saved) }
+        save { saver.saveTo(file.file, uri); strings.getString(R.string.msg_saved) }
     }
 
     fun saveToFolder(tree: Uri) {
         // As in saveTo; the folder picker offered for several PDFs creates nothing itself.
         val files = _result.value ?: return resultCleared(2)
-        save { saver.saveToFolder(files.map { it.file }, tree); app.getString(R.string.msg_saved) }
+        save { saver.saveToFolder(files.map { it.file }, tree); strings.getString(R.string.msg_saved) }
     }
 
     private fun save(block: () -> String) {
@@ -422,7 +437,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             } catch (_: Exception) {
                 val files = _result.value
                 if (files != null && files.any { !it.file.isFile }) resultCleared(files.size)
-                else message(app.getString(R.string.msg_save_failed))
+                else message(strings.getString(R.string.msg_save_failed))
             } finally {
                 _saving.value = false
             }
@@ -445,7 +460,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun setPages(list: List<PdfPageRef>) { handle[KEY_PAGES] = ArrayList(list) }
     private fun setLocked(list: List<PdfInput>) { handle[KEY_LOCKED] = ArrayList(list) }
     private fun message(text: String) { _messages.trySend(text) }
-    private fun pluralMessage(@PluralsRes res: Int, count: Int) = message(app.resources.getQuantityString(res, count, count))
+    private fun pluralMessage(@PluralsRes res: Int, count: Int) = message(strings.getQuantityString(res, count, count))
 
     private var finishing = false
 
