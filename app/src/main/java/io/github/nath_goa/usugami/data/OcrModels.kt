@@ -1,7 +1,15 @@
 package io.github.nath_goa.usugami.data
 
 /** Why text recognition can't run on this phone right now. */
-enum class OcrProblem { NO_PLAY_SERVICES, PLAY_SERVICES_OUTDATED, DOWNLOAD_FAILED, NO_STORAGE }
+enum class OcrProblem {
+    NO_PLAY_SERVICES,
+    PLAY_SERVICES_OUTDATED,
+    DOWNLOAD_FAILED,
+    NO_STORAGE,
+
+    /** An unexpected error (most likely a bug), kept apart so it isn't mistaken for a network problem. */
+    FAILED_TO_START,
+}
 
 class OcrUnavailableException(val problem: OcrProblem, cause: Throwable? = null) :
     Exception("Text recognition unavailable: $problem", cause)

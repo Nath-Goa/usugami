@@ -44,6 +44,7 @@ fun UsugamiApp(vm: MainViewModel) {
     val compression by vm.compression.collectAsStateWithLifecycle()
     val pendingImports by vm.pendingImports.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
+    val cancelling by vm.cancelling.collectAsStateWithLifecycle()
     val ocrProblem by vm.ocrProblem.collectAsStateWithLifecycle()
     val result by vm.result.collectAsStateWithLifecycle()
     val saved by vm.saved.collectAsStateWithLifecycle()
@@ -258,7 +259,7 @@ fun UsugamiApp(vm: MainViewModel) {
             layout = layout,
             initialMerge = merge,
             initialCompression = compression,
-            defaultName = remember { vm.defaultFileName() },
+            initialChoices = remember { vm.initialChoices() },
             onDismiss = { showConvertSheet = false },
             onCreate = { mergeAll, name, level, ocr ->
                 showConvertSheet = false
@@ -267,7 +268,7 @@ fun UsugamiApp(vm: MainViewModel) {
         )
     }
 
-    progress?.let { ProgressDialog(it, onCancel = vm::cancelConversion) }
+    progress?.let { ProgressDialog(it, cancelling, onCancel = vm::cancelConversion) }
     ocrProblem?.let { OcrProblemDialog(it, onDismiss = vm::dismissOcrProblem) }
 
     if (confirmDiscard) {

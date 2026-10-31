@@ -66,12 +66,16 @@
     <string name="ocr_hindi">Hindi</string>
     <string name="ocr_no_text">No text was recognized. The PDF was created without a text layer.</string>
     <string name="ocr_failed">Text recognition failed, so the PDF was created without searchable text.</string>
+    <string name="ocr_failed_no_space">There wasn\'t enough free storage to add searchable text, so the PDF was created without it.</string>
+    <string name="ocr_not_ready">Text recognition wasn\'t ready, so the PDF was created without searchable text. Please try again.</string>
     <string name="ocr_problem_title">Text recognition isn\'t available</string>
     <string name="ocr_problem_no_play_services">Google Play services isn\'t available on this phone.</string>
     <string name="ocr_problem_outdated">Google Play services on this phone needs to be updated first.</string>
     <string name="ocr_problem_download">Text recognition couldn\'t be downloaded. Check your internet connection and try again.</string>
     <string name="ocr_problem_storage">There isn\'t enough free storage to download text recognition. Free up some space and try again.</string>
-    <string name="ocr_problem_help">In this edition of Usugami, text recognition comes from Google Play services and needs an internet connection once, to download it. The offline edition of Usugami has it built in. To create the PDF now, turn off OCR and try again.</string>
+    <string name="ocr_problem_failed">Text recognition couldn\'t start because of an unexpected error. If this keeps happening, please report it at github.com/Nath-Goa/usugami.</string>
+    <string name="ocr_problem_help">In this edition of Usugami, text recognition comes from Google Play services, which downloads it the first time you use each language. That needs an internet connection. The offline edition of Usugami has it built in.</string>
+    <string name="ocr_problem_retry">To create the PDF now, turn off OCR and try again.</string>
 
     <!-- About -->
     <string name="about">About Usugami</string>
@@ -80,7 +84,7 @@
     <string name="about_edition_standard">Standard edition: text recognition through Google Play services</string>
     <string name="about_edition_offline">Offline edition: text recognition built in</string>
     <string name="about_privacy">No ads, no tracking, no account. Usugami has no internet permission, and your files never leave your phone.</string>
-    <string name="about_privacy_standard">For text recognition, Google Play services downloads the text-recognition model once, the first time you use it.</string>
+    <string name="about_privacy_standard">Text recognition comes from Google Play services, which downloads the model for each language the first time you use it. Google Play services may also send Google statistics about how text recognition is used, but never your images or the recognized text. Usugami Offline doesn\'t use Google Play services for text recognition.</string>
     <string name="about_privacy_policy">Privacy policy</string>
     <string name="about_licenses">Open-source licenses</string>
     <string name="about_licenses_detail">The libraries and fonts Usugami is built with</string>
@@ -170,13 +174,15 @@
     </plurals>
     <string name="ocr_downloading">Downloading text recognition…</string>
     <string name="ocr_download_percent">%1$d%% downloaded</string>
-    <string name="ocr_download_note">This happens only once and needs an internet connection.</string>
+    <string name="ocr_download_note">This happens the first time you use each language and needs an internet connection.</string>
     <string name="ocr_reading">Reading text…</string>
+    <string name="ocr_adding_text">Adding searchable text…</string>
     <plurals name="progress_pages">
         <item quantity="one">%1$d of %2$d page</item>
         <item quantity="other">%1$d of %2$d pages</item>
     </plurals>
     <string name="cancel">Cancel</string>
+    <string name="cancelling">Cancelling…</string>
 
     <!-- Result -->
     <string name="result_title">Done</string>

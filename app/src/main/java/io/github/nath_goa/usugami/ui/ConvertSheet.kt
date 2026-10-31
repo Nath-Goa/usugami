@@ -60,7 +60,7 @@ import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrProblem
 
-/** The last step before converting: one PDF or one per image, and the file name. */
+/** The last step before converting: one PDF or one per image, the file name, compression and OCR. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConvertSheet(
@@ -68,16 +68,16 @@ fun ConvertSheet(
     layout: LayoutSettings,
     initialMerge: Boolean,
     initialCompression: Compression,
-    defaultName: String,
+    initialChoices: ConvertChoices,
     onDismiss: () -> Unit,
     onCreate: (merge: Boolean, fileName: String, compression: Compression, ocr: OcrLanguage?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var merge by rememberSaveable { mutableStateOf(initialMerge) }
-    var name by rememberSaveable { mutableStateOf(defaultName) }
+    var name by rememberSaveable { mutableStateOf(initialChoices.fileName) }
     var compression by rememberSaveable { mutableStateOf(initialCompression) }
-    var ocrEnabled by rememberSaveable { mutableStateOf(false) }
-    var ocrLanguage by rememberSaveable { mutableStateOf(OcrLanguage.ENGLISH) }
+    var ocrEnabled by rememberSaveable { mutableStateOf(initialChoices.ocrLanguage != null) }
+    var ocrLanguage by rememberSaveable { mutableStateOf(initialChoices.ocrLanguage ?: OcrLanguage.ENGLISH) }
     val oneFile = merge || imageCount == 1
     val create = { onCreate(merge, name, compression, if (ocrEnabled) ocrLanguage else null) }
 
@@ -257,8 +257,9 @@ private fun summary(imageCount: Int, layout: LayoutSettings): String {
     return parts.joinToString(" · ")
 }
 
+/** [cancelling]: Cancel was pressed and the current step is finishing (saving a PDF can't be interrupted). */
 @Composable
-fun ProgressDialog(progress: Progress, onCancel: () -> Unit) {
+fun ProgressDialog(progress: Progress, cancelling: Boolean, onCancel: () -> Unit) {
     // The bar glides to each new step instead of jumping as every image finishes. Each stage gets
     // a fresh bar, so it never slides backwards when the next stage starts from zero.
     val fraction by key(progress.stage) {
@@ -278,6 +279,7 @@ fun ProgressDialog(progress: Progress, onCancel: () -> Unit) {
                         Progress.Stage.DOWNLOAD_OCR -> R.string.ocr_downloading
                         Progress.Stage.CREATE -> R.string.creating_pdf
                         Progress.Stage.READ_TEXT -> R.string.ocr_reading
+                        Progress.Stage.ADD_TEXT -> R.string.ocr_adding_text
                     },
                 ),
             )
@@ -302,11 +304,16 @@ fun ProgressDialog(progress: Progress, onCancel: () -> Unit) {
                         Text(pluralStringResource(R.plurals.progress_images, progress.total, progress.done, progress.total))
                     Progress.Stage.READ_TEXT ->
                         Text(pluralStringResource(R.plurals.progress_pages, progress.total, progress.done, progress.total))
+                    Progress.Stage.ADD_TEXT -> Unit
                 }
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = {
+            TextButton(onClick = onCancel, enabled = !cancelling) {
+                Text(stringResource(if (cancelling) R.string.cancelling else R.string.cancel))
+            }
+        },
     )
 }
 
@@ -325,10 +332,13 @@ fun OcrProblemDialog(problem: OcrProblem, onDismiss: () -> Unit) {
                             OcrProblem.PLAY_SERVICES_OUTDATED -> R.string.ocr_problem_outdated
                             OcrProblem.DOWNLOAD_FAILED -> R.string.ocr_problem_download
                             OcrProblem.NO_STORAGE -> R.string.ocr_problem_storage
+                            OcrProblem.FAILED_TO_START -> R.string.ocr_problem_failed
                         },
                     ),
                 )
-                Text(stringResource(R.string.ocr_problem_help))
+                // How this edition gets text recognition: no help with an unexpected error.
+                if (problem != OcrProblem.FAILED_TO_START) Text(stringResource(R.string.ocr_problem_help))
+                Text(stringResource(R.string.ocr_problem_retry))
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) } },

@@ -1,7 +1,14 @@
 package io.github.nath_goa.usugami
 
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.Point
 import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.pdf.PdfDocument
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.OcrLanguage
@@ -17,10 +24,20 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.text.TextPosition
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.hypot
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
 class PdfToolsDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
@@ -38,6 +55,27 @@ class PdfToolsDeviceTest {
     private fun save(file: File, name: String): File = file.copyTo(File(results, name), overwrite = true)
 
     private fun text(file: File): String = PDDocument.load(file).use { PDFTextStripper().getText(it) }
+
+    private fun blankA4(name: String): File = File(context.filesDir, name).also { file ->
+        PDDocument().use { doc ->
+            doc.addPage(PDPage(PDRectangle.A4))
+            doc.save(file)
+        }
+    }
+
+    /** Every character of the text layer, with where and how it is drawn. */
+    private fun glyphs(file: File): List<TextPosition> = ArrayList<TextPosition>().also { glyphs ->
+        PDDocument.load(file).use { doc ->
+            object : PDFTextStripper() {
+                override fun processTextPosition(text: TextPosition) {
+                    glyphs += text
+                }
+            }.getText(doc)
+        }
+    }
+
+    /** The angle of a character's baseline, in degrees anticlockwise. */
+    private fun TextPosition.angle(): Double = Math.toDegrees(atan2(textMatrix.shearY, textMatrix.scaleX).toDouble())
 
     @Test fun splitMergeCompressAndPasswords() {
         val alpha = engine.import(Uri.fromFile(fixture("alpha.pdf")), 1001)
@@ -151,13 +189,27 @@ class PdfToolsDeviceTest {
         assertTrue(text(good).isBlank())
     }
 
+    /** Cancelling while a page is being read stops OCR and leaves the PDFs as they were. */
+    @Test fun ocrCancelLeavesPdfsUntouched() = runBlocking {
+        ensureOcrReady(OcrLanguage.ENGLISH)
+        val dir = File(context.filesDir, "ocr_cancel").apply { deleteRecursively(); mkdirs() }
+        val image = fixture("english_image.pdf")
+        val files = (1..3).map { image.copyTo(File(dir, "page$it.pdf")) }
+        val job = launch(Dispatchers.IO) {
+            PdfOcr(context).apply(files.map { PdfFile(it, 1, it.length()) }, OcrLanguage.ENGLISH)
+        }
+        delay(300) // well within reading the first of the three pages
+        job.cancelAndJoin()
+        assertTrue("OCR should have been cancelled, not finished", job.isCancelled)
+        assertEquals(setOf("page1.pdf", "page2.pdf", "page3.pdf"), dir.list()!!.toSet())
+        files.forEach { assertTrue(text(it).isBlank()) }
+        // ML Kit may still be reading the cancelled page's bitmap; that must not crash the app.
+        delay(2000)
+    }
+
     /** Hindi mode recognizes Latin text too; the text layer must keep both scripts. */
     @Test fun textLayerKeepsDevanagariAndLatin() = runBlocking {
-        val blank = File(context.filesDir, "blank.pdf")
-        PDDocument().use { doc ->
-            doc.addPage(PDPage(PDRectangle.A4))
-            doc.save(blank)
-        }
+        val blank = blankA4("blank.pdf")
         // A4 page rendered at 2.0 scale: 1190 × 1684 pixels.
         val lines = listOf(
             "भारत India 2024 test@example.com",
@@ -169,6 +221,77 @@ class PdfToolsDeviceTest {
         for (expected in listOf("भारत India 2024 test@example.com", "क्षत्रिय श्री ₹500 Hello, World!")) {
             assertTrue("Missing \"$expected\" in \"$extracted\"", extracted.contains(expected))
         }
+    }
+
+    /** A line on a tilted photo: the text follows the line's angle and height, not its upright bounds. */
+    @Test fun textLayerFollowsTiltedLines() = runBlocking {
+        val blank = blankA4("tilted.pdf")
+        // A 600 × 40 pixel line rising at 30° on the A4 page rendered at 1190 × 1684 pixels. Image y
+        // points down, so "along" and "up" have negative y.
+        val angle = Math.toRadians(30.0)
+        fun at(along: Double, up: Double) = Point(
+            (200 + along * cos(angle) - up * sin(angle)).roundToInt(),
+            (900 - along * sin(angle) - up * cos(angle)).roundToInt(),
+        )
+        val corners = listOf(at(0.0, 40.0), at(600.0, 40.0), at(600.0, 0.0), at(0.0, 0.0))
+        val bounds = Rect(corners.minOf { it.x }, corners.minOf { it.y }, corners.maxOf { it.x }, corners.maxOf { it.y })
+        val words = "This line was photographed at an angle"
+        val line = PdfOcr.Line(0, words, bounds, 1190, 1684, corners)
+        val output = PdfOcr(context).embed(PdfFile(blank, 1, blank.length()), listOf(line))
+
+        val glyphs = glyphs(save(output.file, "ocr_tilted_line.pdf"))
+        assertEquals(words, glyphs.joinToString("") { it.unicode })
+        val scale = PDRectangle.A4.height / 1684 // points per pixel
+        val first = glyphs.first().textMatrix
+        val last = glyphs.last().textMatrix
+        // Starts at the bottom-left corner...
+        assertEquals(200 * scale, first.translateX, 1f)
+        assertEquals(PDRectangle.A4.height - 900 * scale, first.translateY, 1f)
+        // ...runs at the line's angle, along most of its 600 pixels...
+        val dx = last.translateX - first.translateX
+        val dy = last.translateY - first.translateY
+        assertEquals(30.0, Math.toDegrees(atan2(dy, dx).toDouble()), 1.0)
+        assertEquals(30.0, glyphs.first().angle(), 1.0)
+        assertTrue("Text should span the line", hypot(dx, dy) in 500 * scale..600 * scale)
+        // ...and is as tall as the line (upright bounds would make it about 8 times taller).
+        assertEquals(40 * scale * 0.9f, glyphs.first().fontSize, 0.5f)
+    }
+
+    /** The same, end to end: ML Kit's corner points on a page photographed at an angle. */
+    @Test fun ocrOfTiltedPageFollowsItsLines() = runBlocking {
+        ensureOcrReady(OcrLanguage.ENGLISH)
+        val dir = File(context.filesDir, "ocr_tilted").apply { deleteRecursively(); mkdirs() }
+        val upright = fixture("english_image.pdf").copyTo(File(dir, "upright.pdf"))
+        val tilted = File(dir, "tilted.pdf")
+        // The fixture's page turned 8° anticlockwise.
+        ParcelFileDescriptor.open(upright, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
+                renderer.openPage(0).use { page ->
+                    val bitmap = Bitmap.createBitmap(page.width * 2, page.height * 2, Bitmap.Config.ARGB_8888)
+                    bitmap.eraseColor(Color.WHITE)
+                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    val document = PdfDocument()
+                    val out = document.startPage(PdfDocument.PageInfo.Builder(page.width, page.height, 1).create())
+                    out.canvas.drawColor(Color.WHITE)
+                    out.canvas.rotate(-8f, page.width / 2f, page.height / 2f)
+                    out.canvas.drawBitmap(bitmap, null, RectF(0f, 0f, page.width.toFloat(), page.height.toFloat()), null)
+                    document.finishPage(out)
+                    tilted.outputStream().use(document::writeTo)
+                    document.close()
+                    bitmap.recycle()
+                }
+            }
+        }
+        val ocr = PdfOcr(context)
+        val uprightGlyphs = glyphs(ocr.apply(listOf(PdfFile(upright, 1, upright.length())), OcrLanguage.ENGLISH).files.single().file)
+        val tiltedFile = save(ocr.apply(listOf(PdfFile(tilted, 1, tilted.length())), OcrLanguage.ENGLISH).files.single().file, "ocr_tilted_page.pdf")
+        val tiltedGlyphs = glyphs(tiltedFile)
+        val tiltedText = tiltedGlyphs.joinToString("") { it.unicode }
+        assertTrue("Missing THE QUICK BROWN FOX in $tiltedText", tiltedText.contains("THE QUICK BROWN FOX"))
+        for (glyph in tiltedGlyphs) assertEquals("Angle of \"${glyph.unicode}\"", 8.0, glyph.angle(), 3.0)
+        // The tilt doesn't change the size of the text (upright bounds made it 3 times as big).
+        fun firstLineSize(glyphs: List<TextPosition>) = glyphs.first { it.unicode == "T" }.fontSize
+        assertEquals(1f, firstLineSize(tiltedGlyphs) / firstLineSize(uprightGlyphs), 0.2f)
     }
 
     private companion object {
