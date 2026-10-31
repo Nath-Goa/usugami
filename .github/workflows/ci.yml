@@ -48,6 +48,9 @@ jobs:
           app/build/outputs/apk/standard/release/*.apk
           app/build/outputs/apk/offline/release/*.apk
 
+      - name: Text recognition survives R8
+        run: bash .github/scripts/check-mlkit-registrars.sh standardRelease offlineRelease
+
       - name: Upload reports
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

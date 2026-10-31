@@ -106,6 +106,9 @@ jobs:
       - name: No network or advertising-ID permissions
         run: bash .github/scripts/check-apk-permissions.sh dist/Usugami.apk dist/Usugami-offline.apk
 
+      - name: Text recognition survives R8
+        run: bash .github/scripts/check-mlkit-registrars.sh standardRelease offlineRelease
+
       - name: Checksums
         run: |
           cd dist
