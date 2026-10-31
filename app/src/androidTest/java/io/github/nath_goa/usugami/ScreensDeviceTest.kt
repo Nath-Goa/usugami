@@ -12,6 +12,8 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
@@ -26,7 +28,8 @@ import java.io.File
 /**
  * The real screens, read and driven through the accessibility tree TalkBack uses. Pages can be moved
  * without dragging, buttons repeated per file name their file, the password dialog names its PDF and
- * says when a password is wrong, and messages and shared images don't get lost.
+ * says when a password is wrong, messages and shared images don't get lost, and a long text keeps
+ * its place.
  */
 class ScreensDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -233,5 +236,46 @@ class ScreensDeviceTest {
         find("the shared image in the editor") { it.says(app.getString(R.string.convert)) }
         waitUntil("the PDF to be discarded") { onMain { pdfVm.result.value == null && pdfVm.inputs.value.isEmpty() } }
         onMain { vm.clearAll() }
+    }
+
+    private fun texts() = nodes().mapNotNull { it.text?.toString() }.toSet()
+
+    /** The texts on screen once they stop changing, as they do when scrolling has finished. */
+    private fun settledTexts(): Set<String> {
+        var last = texts()
+        waitUntil("the screen to settle") {
+            Thread.sleep(300)
+            val now = texts()
+            (now == last).also { last = now }
+        }
+        return last
+    }
+
+    /** A long text keeps the reader's place when the activity is recreated, as it is on rotation. */
+    @Test fun legalTextKeepsItsPlaceWhenRecreated() {
+        val first = launch()
+        click(find("About on Home") { it.says(app.getString(R.string.about)) })
+        click(find("the licenses entry") { it.says(app.getString(R.string.about_licenses)) })
+        val title = "Third-party notices" // the heading of THIRD_PARTY_NOTICES.md
+        find("the notices") { it.says(title) }
+        waitUntil("About to slide away") { nodes().none { it.says(app.getString(R.string.about_privacy_policy)) } }
+        val atTop = settledTexts()
+        // Each scroll moves by about a screen, animated.
+        val forward = AccessibilityAction.ACTION_SCROLL_FORWARD
+        repeat(3) {
+            assertTrue(find("the scrolling notices") { forward in it.actionList }.performAction(forward.id))
+            settledTexts()
+        }
+        val shown = settledTexts()
+        assertTrue("The notices didn't scroll", title !in shown)
+        val below = shown - atTop
+
+        onMain { first.recreate() }
+        waitUntil("the activity to be recreated") {
+            val resumed = onMain { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED) }
+            (resumed.singleOrNull() as? MainActivity)?.takeIf { it !== first }?.also { activity = it } != null
+        }
+        find("the text that was showing") { it.text?.toString() in below }
+        assertTrue("The notices went back to the top", texts().none { it == title })
     }
 }
