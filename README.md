@@ -27,7 +27,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 |---|---|---|
 | Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 2.4 MB | **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**, about 22 MB |
 | Images to PDF, split, merge, compress | Fully offline | Fully offline |
-| Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model for each language (English, Hindi) the first time you use it. | Built into the app. Works with no internet, ever. |
+| Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model for each language (English, Hindi) the first time you use it. | Built into the app. Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never |
 | Needs Google Play services | Only for text recognition | No |
 | Works on | Android 8.0 or newer | Android 8.0 or newer, ARM phones (virtually all phones) |
