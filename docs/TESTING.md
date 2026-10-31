@@ -13,8 +13,9 @@ release. CI runs the first layer, lint and both release builds on every push and
 ```
 
 They cover page layout and page sizes, EXIF orientation, JPEG parsing and metadata removal,
-lossless PNG encoding, compression sizing, PDF syntax, the PDF writer, file names, and page
-selections such as `1-3;5;7-9`.
+lossless PNG encoding, compression sizing, PDF syntax, the PDF writer, file names, page
+selections such as `1-3;5;7-9`, and where page numbers and watermarks go on pages that are turned
+(`/Rotate`) or cropped.
 
 ## 2. Device tests (Android)
 
@@ -31,7 +32,16 @@ extraction:
 - split: selected pages, separate ranges and combined output
 - merge: file order and page mode (reorder, rotate, remove)
 - compress: all three levels, selectable text kept, never larger than the original
-- password-protected PDFs: opening with the password, then split and compress
+- password-protected PDFs: opening with the password, then split, compress and rotate
+- rotate: only the chosen pages turn, on top of the turn they already had, and nothing else changes
+- page numbers: each in the chosen corner of the page as shown (also on turned and cropped pages),
+  none on skipped pages, checked both by text positions and by rendering the pages
+- watermark: centered along the shown diagonal of every page, translucent or opaque, real text with
+  accents, Hindi shaped correctly, and text that no font on the phone can draw refused
+- the screens, through the accessibility tree a screen reader uses: Home's section headings,
+  turning pages with buttons, the page-number positions and watermark colors as named radio
+  buttons, a chosen position surviving the activity being recreated, and the messages for pages to
+  skip that can't be used
 - text recognition in English, French, Spanish and Hindi (French and Spanish accents kept),
   including a text layer with both Devanagari and Latin
   text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
@@ -66,6 +76,8 @@ On a phone or emulator, with the release APKs:
   (also on Android 12 or older, where Usugami applies the language itself).
 - Images to PDF from Photos, Files and a share from the gallery, with OCR on in each language.
 - Split, merge in page mode, and compress, including a password-protected PDF.
+- Rotate a few pages, add page numbers with a skipped cover, and add a watermark in Hindi; check
+  the results in another PDF viewer.
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
 - Standard edition: the first OCR in each language downloads that model through Google Play services.
 - Offline edition: OCR works with the internet turned off.

@@ -6,6 +6,11 @@ import android.net.Uri
 import android.os.Parcelable
 import android.provider.OpenableColumns
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.PageFrame
+import io.github.nath_goa.usugami.core.PageNumberPosition
+import io.github.nath_goa.usugami.core.PageNumberSize
+import io.github.nath_goa.usugami.core.PageNumbers
+import io.github.nath_goa.usugami.core.WatermarkLayout
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
@@ -13,13 +18,19 @@ import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
+import com.tom_roush.pdfbox.multipdf.LayerUtility
 import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
+import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState
+import com.tom_roush.pdfbox.util.Matrix
 import java.io.File
 import java.io.IOException
 import java.util.Collections
@@ -47,7 +58,7 @@ class PdfWrongPassword : IOException("Wrong password")
 class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encrypted PDFs aren't supported", cause)
 
 /**
- * Split, merge and compress. Input copies, results and PDFBox's scratch files all live in the cache,
+ * Split, merge, compress, rotate, page numbers and watermarks. Input copies, results and PDFBox's scratch files all live in the cache,
  * so the system can reclaim them (and "Clear cache" removes them); callers must cope with a file
  * that has gone.
  */
@@ -194,6 +205,128 @@ class PdfToolsEngine(private val context: Context) {
             throw t
         }
     }
+
+    /**
+     * Turns pages clockwise by [rotations] (page index to degrees, a multiple of 90), on top of the
+     * turn they already have. Only the pages' /Rotate changes; their content is left as it is.
+     */
+    fun rotate(input: PdfInput, rotations: Map<Int, Int>, fileName: String, check: () -> Unit = {}): PdfFile =
+        edit(input, fileName, "Rotated", check) { doc ->
+            for ((index, degrees) in rotations) {
+                check()
+                require(index in 0 until doc.numberOfPages && degrees % 90 == 0)
+                val page = doc.getPage(index)
+                page.rotation = Math.floorMod(page.rotation + degrees, 360)
+            }
+        }
+
+    /**
+     * Writes on each of [pages] (zero-based) its own page number, as text in Helvetica, at
+     * [position] on the page as it is shown.
+     */
+    fun addPageNumbers(
+        input: PdfInput,
+        pages: List<Int>,
+        position: PageNumberPosition,
+        size: PageNumberSize,
+        fileName: String,
+        check: () -> Unit = {},
+    ): PdfFile = edit(input, fileName, "Numbered", check) { doc ->
+        require(pages.isNotEmpty())
+        val font = PDType1Font.HELVETICA
+        // Digits are as tall as capitals.
+        val digitHeight = (font.fontDescriptor?.capHeight?.takeIf { it > 0 } ?: 718f) / 1000 * size.points
+        for (index in pages) {
+            check()
+            require(index in 0 until doc.numberOfPages)
+            val page = doc.getPage(index)
+            val frame = page.frame()
+            val label = (index + 1).toString()
+            val width = font.getStringWidth(label) / 1000 * size.points
+            val (x, y) = PageNumbers.origin(position, frame.shownWidth, frame.shownHeight, width, digitHeight)
+            // Added after the page's own drawing, which is wrapped in q/Q, so whatever state that
+            // leaves behind can't move or recolour the number.
+            PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
+                content.transform(frame.toMatrix())
+                content.setNonStrokingColor(0f)
+                content.beginText()
+                content.setFont(font, size.points)
+                content.newLineAtOffset(x, y)
+                content.showText(label)
+                content.endText()
+            }
+        }
+    }
+
+    /**
+     * Draws [text] large, diagonally across the middle of every page as it is shown, in [color] and
+     * with [opacity]. Throws [WatermarkFontMissing] if no font on the phone can draw [text].
+     */
+    fun addWatermark(
+        input: PdfInput,
+        text: String,
+        color: WatermarkColor,
+        opacity: WatermarkOpacity,
+        fileName: String,
+        check: () -> Unit = {},
+    ): PdfFile {
+        val stamp = WatermarkText.render(text.trim(), color.argb)
+        // Kept open until the result is saved: the text's font is copied from it.
+        return PDDocument.load(stamp).use { stampDoc ->
+            edit(input, fileName, "Watermarked", check) { doc ->
+                val form = LayerUtility(doc).importPageAsForm(stampDoc, 0)
+                // As a transparency group, the opacity below applies to the watermark as a whole, even
+                // if its own drawing sets an opacity.
+                form.cosObject.setItem(COSName.GROUP, COSDictionary().apply { setItem(COSName.S, COSName.TRANSPARENCY) })
+                val box = form.bBox
+                val state = PDExtendedGraphicsState().apply {
+                    nonStrokingAlphaConstant = opacity.alpha
+                    strokingAlphaConstant = opacity.alpha
+                }
+                for (page in doc.pages) {
+                    check()
+                    val frame = page.frame()
+                    val place = WatermarkLayout.place(frame.shownWidth, frame.shownHeight, box.width, box.height)
+                    PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
+                        content.transform(frame.toMatrix())
+                        content.setGraphicsStateParameters(state)
+                        content.transform(Matrix.getTranslateInstance(place.centerX, place.centerY))
+                        content.transform(Matrix.getRotateInstance(Math.toRadians(place.degrees.toDouble()), 0f, 0f))
+                        content.transform(Matrix.getScaleInstance(place.scale, place.scale))
+                        content.transform(Matrix.getTranslateInstance(-box.lowerLeftX - box.width / 2, -box.lowerLeftY - box.height / 2))
+                        content.drawForm(form)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Opens [input], lets [block] change it, and saves it as [fileName] without a password. [check]
+     * is called before saving too, since saving a large PDF takes a while.
+     */
+    private fun edit(input: PdfInput, fileName: String, fallbackName: String, check: () -> Unit, block: (PDDocument) -> Unit): PdfFile {
+        clearOutput()
+        outputDir.mkdirs()
+        val target = File(outputDir, "${FileNames.sanitize(fileName, fallbackName)}.pdf")
+        try {
+            load(input.file, input.password).use { doc ->
+                block(doc)
+                check()
+                doc.isAllSecurityToBeRemoved = true
+                doc.save(target)
+                return PdfFile(target, doc.numberOfPages, 0)
+            }
+        } catch (t: Throwable) {
+            clearOutput()
+            throw t
+        }
+    }
+
+    /** The page as a viewer shows it: its crop box, turned by its rotation. */
+    private fun PDPage.frame(): PageFrame = cropBox.let { box -> PageFrame(box.lowerLeftX, box.lowerLeftY, box.width, box.height, rotation) }
+
+    private fun PageFrame.toMatrix(): Matrix = matrix.let { m -> Matrix(m[0], m[1], m[2], m[3], m[4], m[5]) }
 
     /** Re-encodes only opaque image XObjects; text, vectors, and untouched images stay as PDF objects. */
     fun compress(input: PdfInput, level: PdfCompression, fileName: String, check: () -> Unit = {}): PdfFile {

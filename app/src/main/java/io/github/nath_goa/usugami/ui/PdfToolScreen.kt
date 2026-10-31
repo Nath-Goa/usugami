@@ -92,10 +92,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.PageNumberPosition
+import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
+import io.github.nath_goa.usugami.data.WatermarkColor
+import io.github.nath_goa.usugami.data.WatermarkOpacity
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -121,21 +125,27 @@ fun PdfToolScreen(
     var combine by rememberSaveable(tool) { mutableStateOf(true) }
     var pageMode by rememberSaveable(tool) { mutableStateOf(false) }
     var level by rememberSaveable(tool) { mutableStateOf(PdfCompression.RECOMMENDED) }
+    var numberPosition by rememberSaveable(tool) { mutableStateOf(PageNumberPosition.BOTTOM_CENTER) }
+    var numberSize by rememberSaveable(tool) { mutableStateOf(PageNumberSize.MEDIUM) }
+    var skipText by rememberSaveable(tool) { mutableStateOf("") }
+    var watermarkText by rememberSaveable(tool) { mutableStateOf("") }
+    var watermarkColor by rememberSaveable(tool) { mutableStateOf(WatermarkColor.GRAY) }
+    var watermarkOpacity by rememberSaveable(tool) { mutableStateOf(WatermarkOpacity.TRANSLUCENT) }
     var fileName by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf(vm.defaultName(tool)) }
     val ready = when (tool) {
-        PdfTool.SPLIT -> inputs.size == 1
+        PdfTool.SPLIT, PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS -> inputs.size == 1
         PdfTool.MERGE -> inputs.size >= 2 && (!pageMode || pages.isNotEmpty())
-        PdfTool.COMPRESS -> inputs.size == 1
+        PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
+        PdfTool.WATERMARK -> inputs.size == 1 && watermarkText.isNotBlank()
     }
-    val title = when (tool) {
-        PdfTool.SPLIT -> R.string.tool_split
-        PdfTool.MERGE -> R.string.tool_merge
-        PdfTool.COMPRESS -> R.string.tool_compress
-    }
+    val title = tool.title
     val action = when (tool) {
         PdfTool.SPLIT -> R.string.pdf_split_action
         PdfTool.MERGE -> R.string.pdf_merge_action
         PdfTool.COMPRESS -> R.string.pdf_compress_action
+        PdfTool.ROTATE -> R.string.pdf_rotate_action
+        PdfTool.PAGE_NUMBERS -> R.string.pdf_page_numbers_action
+        PdfTool.WATERMARK -> R.string.pdf_watermark_action
     }
     Scaffold(
         topBar = {
@@ -151,6 +161,9 @@ fun PdfToolScreen(
                         PdfTool.SPLIT -> vm.runSplit(splitMode, pageText, combine, fileName)
                         PdfTool.MERGE -> vm.runMerge(pageMode, fileName)
                         PdfTool.COMPRESS -> vm.runCompress(level, fileName)
+                        PdfTool.ROTATE -> vm.runRotate(fileName)
+                        PdfTool.PAGE_NUMBERS -> vm.runPageNumbers(numberPosition, numberSize, skipText, fileName)
+                        PdfTool.WATERMARK -> vm.runWatermark(watermarkText, watermarkColor, watermarkOpacity, fileName)
                     }
                 },
                 enabled = ready && !importing && !processing,
@@ -209,6 +222,18 @@ fun PdfToolScreen(
                         PdfTool.SPLIT -> SplitOptions(inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
                         PdfTool.MERGE -> Unit
                         PdfTool.COMPRESS -> CompressOptions(level, onLevel = { level = it })
+                        PdfTool.ROTATE -> RotateOptions(inputs[0], pages, vm)
+                        PdfTool.PAGE_NUMBERS -> PageNumberOptions(
+                            numberPosition, onPosition = { numberPosition = it },
+                            numberSize, onSize = { numberSize = it },
+                            skipText, onSkip = { skipText = it },
+                        )
+                        PdfTool.WATERMARK -> WatermarkOptions(
+                            inputs[0],
+                            watermarkText, onText = { watermarkText = it },
+                            watermarkColor, onColor = { watermarkColor = it },
+                            watermarkOpacity, onOpacity = { watermarkOpacity = it },
+                        )
                     }
                     OutlinedTextField(
                         value = fileName,
@@ -517,11 +542,11 @@ private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> 
 }
 
 /** How optional sections on this screen appear: fading in while opening downwards. */
-private fun pdfSectionEnter(): EnterTransition =
+internal fun pdfSectionEnter(): EnterTransition =
     fadeIn(Motion.medium()) + expandVertically(Motion.medium(), expandFrom = Alignment.Top)
 
 /** How optional sections on this screen disappear: fading out while closing upwards. */
-private fun pdfSectionExit(): ExitTransition =
+internal fun pdfSectionExit(): ExitTransition =
     fadeOut(Motion.medium()) + shrinkVertically(Motion.medium(), shrinkTowards = Alignment.Top)
 
 /**
@@ -530,7 +555,7 @@ private fun pdfSectionExit(): ExitTransition =
  * back. Updating the running angle here is idempotent, so recomposing again changes nothing.
  */
 @Composable
-private fun animatePdfPageRotationAsState(degrees: Int): State<Float> {
+internal fun animatePdfPageRotationAsState(degrees: Int): State<Float> {
     val running = remember { intArrayOf(degrees) }
     var delta = Math.floorMod(degrees - running[0], 360)
     if (delta > 180) delta -= 360

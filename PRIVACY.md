@@ -71,7 +71,7 @@ Google or anyone else.
   that would upload ML Kit's metrics from inside Usugami, so those metrics are dropped. Google
   Play services is a separate app, and what it sends is covered by Google's policies, not by
   Usugami.
-- Everything else in Usugami (images to PDF, split, merge, compress) works without Google Play
+- Everything else in Usugami (images to PDF and all the PDF tools) works without Google Play
   services and without internet.
 
 ### Usugami Offline

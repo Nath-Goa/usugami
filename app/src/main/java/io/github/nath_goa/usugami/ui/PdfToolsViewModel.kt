@@ -12,6 +12,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.PageNumberPosition
+import io.github.nath_goa.usugami.core.PageNumberSize
+import io.github.nath_goa.usugami.core.PageNumbers
 import io.github.nath_goa.usugami.core.PageSelectionException
 import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.data.AppLanguages
@@ -24,6 +27,10 @@ import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.PdfWrongPassword
+import io.github.nath_goa.usugami.data.WatermarkColor
+import io.github.nath_goa.usugami.data.WatermarkFontMissing
+import io.github.nath_goa.usugami.data.WatermarkOpacity
+import io.github.nath_goa.usugami.data.WatermarkText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,7 +43,8 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-enum class PdfTool { SPLIT, MERGE, COMPRESS }
+/** The PDF tools. Each has a screen at its lowercase name; all but MERGE work on one PDF. */
+enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK }
 enum class SplitMode { SELECTED, CUSTOM, FIXED, EVERY_PAGE }
 
 class PdfToolsViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
@@ -245,6 +253,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setPages(pages.value.map { if (it == ref) it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) else it })
     }
 
+    /** Turns every page by [degrees] more, as Rotate's "all pages" buttons do. */
+    fun rotateAll(degrees: Int) {
+        setPages(pages.value.map { it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) })
+    }
+
     fun removePage(ref: PdfPageRef) = setPages(pages.value - ref)
 
     fun resetPages() = setPages(inputs.value.flatMap { input -> (0 until input.pageCount).map { PdfPageRef(input.id, it) } })
@@ -265,13 +278,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 SplitMode.EVERY_PAGE -> PdfPageSelection.fixed(input.pageCount, 1)
             }
         } catch (e: PageSelectionException) {
-            message(
-                when (e.problem) {
-                    PageSelectionException.Problem.FORMAT -> strings.getString(R.string.pdf_pages_format)
-                    PageSelectionException.Problem.OUT_OF_RANGE -> strings.getString(R.string.pdf_pages_range, e.pageCount)
-                    PageSelectionException.Problem.CHUNK_SIZE -> strings.getString(R.string.pdf_pages_chunk, e.pageCount)
-                },
-            )
+            message(pageSelectionMessage(e))
             return
         } catch (_: IllegalArgumentException) {
             message(strings.getString(R.string.pdf_invalid_pages))
@@ -299,7 +306,49 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }) { check -> listOf(engine.compress(input, level, fileName, check)) }
     }
 
-    /** Runs [block], which reads [sources]. Split, merge and compress all write PDFs without a password. */
+    /** Saves the PDF with its pages turned as [pages] says; the button is off until one is turned. */
+    fun runRotate(fileName: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        val rotations = pages.value.filter { it.inputId == input.id && it.rotation != 0 }.associate { it.page to it.rotation }
+        if (rotations.isEmpty()) return
+        process(listOf(input)) { check -> listOf(engine.rotate(input, rotations, fileName, check)) }
+    }
+
+    /** [skip] lists pages to leave without a number, like "1" or "1-2,5"; it may be blank. */
+    fun runPageNumbers(position: PageNumberPosition, size: PageNumberSize, skip: String, fileName: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        val numbered = try {
+            PageNumbers.numbered(skip, input.pageCount)
+        } catch (e: PageSelectionException) {
+            message(pageSelectionMessage(e))
+            return
+        }
+        if (numbered.isEmpty()) {
+            message(strings.getString(R.string.page_numbers_all_skipped))
+            return
+        }
+        process(listOf(input)) { check -> listOf(engine.addPageNumbers(input, numbered, position, size, fileName, check)) }
+    }
+
+    fun runWatermark(text: String, color: WatermarkColor, opacity: WatermarkOpacity, fileName: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        if (text.isBlank()) return
+        // Checked here too, so the message comes at once rather than after the progress dialog.
+        if (!WatermarkText.canDraw(text)) {
+            message(strings.getString(R.string.watermark_no_font))
+            return
+        }
+        process(listOf(input)) { check -> listOf(engine.addWatermark(input, text, color, opacity, fileName, check)) }
+    }
+
+    /** Why the page numbers typed can't be used, in the user's language. */
+    private fun pageSelectionMessage(e: PageSelectionException): String = when (e.problem) {
+        PageSelectionException.Problem.FORMAT -> strings.getString(R.string.pdf_pages_format)
+        PageSelectionException.Problem.OUT_OF_RANGE -> strings.getString(R.string.pdf_pages_range, e.pageCount)
+        PageSelectionException.Problem.CHUNK_SIZE -> strings.getString(R.string.pdf_pages_chunk, e.pageCount)
+    }
+
+    /** Runs [block], which reads [sources]. Every tool writes PDFs without a password. */
     private fun process(sources: List<PdfInput>, afterResult: (List<PdfFile>) -> Unit = {}, block: (() -> Unit) -> List<PdfFile>) {
         if (_processing.value || _importing.value) return
         _processing.value = true
@@ -323,6 +372,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 message(strings.getString(R.string.pdf_process_failed))
             } catch (_: PdfCertificateEncrypted) {
                 message(strings.getString(R.string.pdf_certificate_unsupported))
+            } catch (_: WatermarkFontMissing) {
+                message(strings.getString(R.string.watermark_no_font))
             } catch (e: Exception) {
                 message(
                     if (e.isOutOfSpace()) strings.getString(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_space))
@@ -453,6 +504,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.SPLIT -> "${base}_split"
             PdfTool.COMPRESS -> "${base}_compressed"
             PdfTool.MERGE -> "Merged_PDF"
+            PdfTool.ROTATE -> "${base}_rotated"
+            PdfTool.PAGE_NUMBERS -> "${base}_numbered"
+            PdfTool.WATERMARK -> "${base}_watermarked"
         }
     }
 

@@ -15,6 +15,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCompression
@@ -157,7 +160,158 @@ class ScreensDeviceTest {
 
     private fun openTool(title: Int, activity: MainActivity): PdfToolsViewModel {
         click(find("the tool on the home screen") { it.text?.contains(app.getString(title)) == true })
+        // Home stays in the tree while it slides away, and its cards name the tools as their buttons do.
+        waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.home_section_edit)) } }
         return onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+    }
+
+    /** Opens the one-PDF tool [title] with alpha.pdf (three pages) in it. */
+    private fun openToolWithAlpha(title: Int, activity: MainActivity): PdfToolsViewModel {
+        val pdfVm = openTool(title, activity)
+        onMain { pdfVm.addPdfs(listOf(pdf("alpha.pdf")), replace = true) }
+        waitUntil("the PDF to be added") { onMain { pdfVm.inputs.value.size } == 1 }
+        return pdfVm
+    }
+
+    /** The nearest of [node] and its parents that [match]es, if any. */
+    private fun ancestor(node: AccessibilityNodeInfo, match: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo? {
+        var target: AccessibilityNodeInfo? = node
+        while (target != null && !match(target)) target = target.parent
+        return target
+    }
+
+    /** The button labelled [label] (not the screen's title, which may say the same). */
+    private fun button(label: Int) = find("the \"${app.getString(label)}\" button") {
+        it.says(app.getString(label)) && ancestor(it) { node -> node.isClickable } != null
+    }
+
+    /** The tool's main button, [label], once it can be pressed. */
+    private fun actionButton(label: Int) = find("the enabled \"${app.getString(label)}\" button") {
+        it.says(app.getString(label)) && ancestor(it) { node -> node.isClickable }?.isEnabled == true
+    }
+
+    /** The one PDF the tool made, once its result screen shows. */
+    private fun resultFile(pdfVm: PdfToolsViewModel): File {
+        find("the result screen") { it.says(app.getString(R.string.result_heading_one)) }
+        return onMain { pdfVm.result.value!!.single().file }
+    }
+
+    /** Each page's characters, with their place on the page as shown. */
+    private fun glyphsByPage(file: File): List<List<TextPosition>> = PDDocument.load(file).use { doc ->
+        (1..doc.numberOfPages).map { number ->
+            ArrayList<TextPosition>().also { glyphs ->
+                object : PDFTextStripper() {
+                    override fun processTextPosition(text: TextPosition) {
+                        glyphs += text
+                    }
+                }.apply {
+                    startPage = number
+                    endPage = number
+                }.getText(doc)
+            }
+        }
+    }
+
+    /** A choice shown as a radio button; Compose reports the selected one as checked. */
+    private fun radio(label: String): AccessibilityNodeInfo {
+        val node = find("the \"$label\" choice") { it.says(label) && ancestor(it) { node -> node.isCheckable } != null }
+        return ancestor(node) { it.isCheckable }!!
+    }
+
+    @Test fun homeGroupsTheToolsUnderHeadings() {
+        launch()
+        for (heading in listOf(R.string.home_section_create, R.string.home_section_edit)) {
+            val node = find("the heading") { it.says(app.getString(heading)) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) assertTrue("A screen reader can jump to it", node.isHeading)
+        }
+        val tools = listOf(
+            R.string.tool_images, R.string.tool_split, R.string.tool_merge, R.string.tool_compress,
+            R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark,
+        )
+        for (tool in tools) {
+            val card = find("the ${app.getString(tool)} card") { it.text?.contains(app.getString(tool)) == true }
+            assertTrue(clickable(card).isEnabled)
+        }
+    }
+
+    @Test fun rotateTurnsPagesWithButtons() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_rotate, activity)
+        // Nothing to save until a page is turned.
+        assertFalse(clickable(button(R.string.pdf_rotate_action)).isEnabled)
+
+        click(find("page 2's right button") { it.says(app.getString(R.string.rotate_page_right, 2)) })
+        waitUntil("page 2 to turn") { onMain { pdfVm.pages.value.map { it.rotation } } == listOf(0, 90, 0) }
+        find("the page saying how it turned") { it.says(app.getString(R.string.rotated_right)) }
+        click(find("the all-pages left button") { it.says(app.getString(R.string.rotate_all_left)) })
+        waitUntil("every page to turn") { onMain { pdfVm.pages.value.map { it.rotation } } == listOf(270, 0, 270) }
+
+        click(actionButton(R.string.pdf_rotate_action))
+        val rotated = resultFile(pdfVm)
+        assertEquals(listOf(270, 0, 270), PDDocument.load(rotated).use { doc -> doc.pages.map { it.rotation } })
+    }
+
+    @Test fun pageNumbersGoWhereChosenAndSkipPages() {
+        val first = launch()
+        openToolWithAlpha(R.string.tool_page_numbers, first)
+        val topLeft = app.getString(R.string.position_top_left)
+        assertTrue("Bottom center is the default", radio(app.getString(R.string.position_bottom_center)).isChecked)
+        assertFalse(radio(topLeft).isChecked)
+        click(radio(topLeft))
+        waitUntil("top left to be chosen") { radio(topLeft).isChecked }
+
+        // The choice survives the activity being recreated, as it is on rotation.
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        waitUntil("top left to be chosen still") { radio(topLeft).isChecked }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+
+        // The first text field is the pages to skip; the file name comes last.
+        type(find("the pages to skip") { it.isEditable }, "1")
+        click(actionButton(R.string.pdf_page_numbers_action))
+        val glyphs = glyphsByPage(resultFile(pdfVm))
+        // alpha.pdf has no digits near the top of its pages.
+        val numbers = glyphs.map { page -> page.filter { it.unicode.single().isDigit() && it.y < 72 } }
+        assertTrue("Page 1 was skipped", numbers[0].isEmpty())
+        for (page in 2..3) {
+            val number = numbers[page - 1].single()
+            assertEquals("$page", number.unicode)
+            assertTrue("Page $page is numbered at the top left", number.x < 72)
+        }
+    }
+
+    @Test fun pageNumbersExplainBadPagesToSkip() {
+        val activity = launch()
+        openToolWithAlpha(R.string.tool_page_numbers, activity)
+        type(find("the pages to skip") { it.isEditable }, "1-3")
+        click(actionButton(R.string.pdf_page_numbers_action))
+        find("the message") { it.says(app.getString(R.string.page_numbers_all_skipped)) }
+        type(find("the pages to skip") { it.isEditable }, "7")
+        click(actionButton(R.string.pdf_page_numbers_action))
+        find("the message") { it.says(app.getString(R.string.pdf_pages_range, 3)) }
+    }
+
+    @Test fun watermarkNeedsTextAndNamesItsColors() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_watermark, activity)
+        assertFalse("No watermark without text", clickable(button(R.string.pdf_watermark_action)).isEnabled)
+        for (color in listOf(R.string.color_gray, R.string.color_black, R.string.color_red, R.string.color_blue, R.string.color_green)) {
+            radio(app.getString(color))
+        }
+        val red = app.getString(R.string.color_red)
+        click(radio(red))
+        waitUntil("red to be chosen") { radio(red).isChecked }
+        click(radio(app.getString(R.string.opacity_opaque)))
+
+        // Text no font on the phone can draw is refused, with a message.
+        type(find("the watermark text") { it.isEditable }, "\u0378")
+        click(actionButton(R.string.pdf_watermark_action))
+        find("the message") { it.says(app.getString(R.string.watermark_no_font)) }
+
+        type(find("the watermark text") { it.isEditable }, "Draft")
+        click(actionButton(R.string.pdf_watermark_action))
+        val glyphs = glyphsByPage(resultFile(pdfVm))
+        for (page in glyphs) assertTrue(page.joinToString("") { it.unicode }.contains("Draft"))
     }
 
     @Test fun editorPagesCanBeMovedWithoutDragging() {

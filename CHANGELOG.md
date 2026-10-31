@@ -6,6 +6,22 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Rotate PDF**: turn single pages, or all of them, left or right. Only the way each page is shown
+  changes; nothing is re-encoded.
+- **Add page numbers**: at the top or bottom, left, center or right, in three sizes, skipping the
+  pages you choose (like a cover). Each page keeps its own number. Numbers sit at the bottom or top
+  of the page as it is shown, also on pages turned sideways or cropped.
+- **Add watermark**: text drawn large and diagonally across every page, in five colors and three
+  opacities, with a preview of the first page. It is real text, drawn with the phone's own fonts,
+  so accents and Hindi work too.
+
+### Changed
+
+- Home groups the tools under **Create PDF** and **Edit PDF**, with smaller cards and shorter
+  descriptions, so more of them fit on the screen.
+
 ## [1.3.0] - 2026-10-31
 
 ### Added

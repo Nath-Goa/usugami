@@ -1,7 +1,7 @@
 # Usugami
 
-**Turn photos into PDFs, and split, merge and compress PDFs, right on your Android phone. No ads,
-no tracking, no account, no uploads.**
+**Turn photos into PDFs, and split, merge, compress, rotate, number and watermark PDFs, right on
+your Android phone. No ads, no tracking, no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
 It was called PDFer before version 1.2.0.
@@ -26,7 +26,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 | | **Usugami** (recommended) | **Usugami Offline** |
 |---|---|---|
 | Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 2.5 MB | **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**, about 22 MB |
-| Images to PDF, split, merge, compress | Fully offline | Fully offline |
+| Images to PDF and every PDF tool | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Built into the app. Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never |
 | Needs Google Play services | Only for text recognition | No |
@@ -138,8 +138,29 @@ old "PDFer".
 - Never makes a PDF bigger: if compressing can't save space, you keep the original. (Except
   for password-protected PDFs, which are always saved again without the password.)
 
+**Rotate PDF**
+
+- Turn single pages left or right, or all of them at once, and watch them turn.
+- Only the way each page is shown changes: text, images and quality stay exactly as they were.
+
+**Add page numbers**
+
+- At the top or bottom, on the left, in the center or on the right; small, medium or large.
+- Skip pages, such as a cover (`1`) or `1-2,5`. Each page keeps its own number, so after a skipped
+  cover the next page is numbered 2.
+- Numbers go where you see the bottom (or top) of the page, even on pages turned sideways.
+
+**Add watermark**
+
+- Write any text, such as DRAFT or CONFIDENTIAL, large and diagonally across every page.
+- Gray, black, red, blue or green; translucent, semi-opaque or opaque. A preview shows the first
+  page with the watermark.
+- Works in any language your phone has fonts for, accents and Hindi included. The watermark is
+  real text, not a picture.
+
 **Everywhere**
 
+- Home groups the tools under **Create PDF** and **Edit PDF**.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
@@ -284,7 +305,7 @@ Setting names can differ slightly between Obtainium versions.
 <summary><b>My phone doesn't have Google Play services</b></summary>
 
 For example Huawei phones, or phones running LineageOS or /e/OS without Google apps. Images to
-PDF, split, merge and compress all work in either edition. Text recognition in the standard
+PDF and all the PDF tools work in either edition. Text recognition in the standard
 edition needs Google Play services; without it, Usugami tells you that text recognition isn't
 available, and you can still create the PDF with OCR turned off.
 
@@ -440,7 +461,7 @@ docs/                 testing guide, badges, screenshots
 .github/              CI and release workflows
 ```
 
-PDF splitting, merging and compression use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);
+The PDF tools use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);
 text recognition uses [Google ML Kit](https://developers.google.com/ml-kit/vision/text-recognition/v2).
 
 ## Contributing

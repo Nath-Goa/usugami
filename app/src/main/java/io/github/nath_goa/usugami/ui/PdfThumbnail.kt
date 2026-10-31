@@ -25,24 +25,28 @@ import io.github.nath_goa.usugami.data.PdfInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/**
+ * Page [pageIndex] of [input] as it is shown (turned by its rotation), on white, with its longer
+ * side [longSide] pixels. Null if it can't be rendered. Reads the file: call it off the main thread.
+ */
+fun renderPdfPage(input: PdfInput, pageIndex: Int, longSide: Int): ImageBitmap? = try {
+    ParcelFileDescriptor.open(input.file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+        PdfRenderer(fd).use { renderer ->
+            renderer.openPage(pageIndex).use { page ->
+                val scale = longSide.toFloat() / maxOf(page.width, page.height)
+                val bitmap = Bitmap.createBitmap(maxOf(1, (page.width * scale).toInt()), maxOf(1, (page.height * scale).toInt()), Bitmap.Config.ARGB_8888)
+                bitmap.eraseColor(Color.WHITE)
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                bitmap.asImageBitmap()
+            }
+        }
+    }
+} catch (_: Exception) { null }
+
 @Composable
 fun PdfThumbnail(input: PdfInput, pageIndex: Int, modifier: Modifier = Modifier) {
     val preview by produceState<ImageBitmap?>(null, input.path, pageIndex) {
-        value = withContext(Dispatchers.IO) {
-            try {
-                ParcelFileDescriptor.open(input.file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
-                    PdfRenderer(fd).use { renderer ->
-                        renderer.openPage(pageIndex).use { page ->
-                            val scale = 150f / maxOf(page.width, page.height)
-                            val bitmap = Bitmap.createBitmap(maxOf(1, (page.width * scale).toInt()), maxOf(1, (page.height * scale).toInt()), Bitmap.Config.ARGB_8888)
-                            bitmap.eraseColor(Color.WHITE)
-                            page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                            bitmap.asImageBitmap()
-                        }
-                    }
-                }
-            } catch (_: Exception) { null }
-        }
+        value = withContext(Dispatchers.IO) { renderPdfPage(input, pageIndex, 150) }
     }
     // The page fades in over the placeholder once it has been rendered, instead of popping in.
     Crossfade(
