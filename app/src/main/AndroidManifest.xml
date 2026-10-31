@@ -62,5 +62,22 @@
                 android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
                 tools:node="remove" />
         </service>
+
+        <!--
+            Compose includes EmojiCompat, which would ask the phone's font provider (Google Play
+            services, on most phones) for a newer emoji font at every launch. Usugami doesn't start
+            it, so emoji show in the phone's own font. The other startup initializers stay. (Lint
+            can't see this provider's class because only libraries depend on androidx.startup.)
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:ignore="MissingClass"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+                tools:node="remove" />
+        </provider>
     </application>
 </manifest>
