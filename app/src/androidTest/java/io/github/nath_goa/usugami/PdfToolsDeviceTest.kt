@@ -23,7 +23,11 @@ import io.github.nath_goa.usugami.data.PdfWrongPassword
 import io.github.nath_goa.usugami.data.ocrModels
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +66,40 @@ class PdfToolsDeviceTest {
             doc.addPage(PDPage(PDRectangle.A4))
             doc.save(file)
         }
+    }
+
+    /**
+     * A one-page "scan" whose image is random noise, the hardest case for compression. The noise
+     * is seeded, so every run gets the same file. Made here rather than stored, since such PDFs
+     * are megabytes each.
+     * - JPEG: a 1600x2000 photo on an A4 page, with a text caption that must stay selectable.
+     * - Lossless: a 1280x1600 image stored with Flate (like a PNG), filling a 600x800 page.
+     */
+    private fun noiseScan(name: String, lossless: Boolean): File = File(context.cacheDir, name).also { file ->
+        val (width, height) = if (lossless) 1280 to 1600 else 1600 to 2000
+        val random = java.util.Random(if (lossless) 2L else 1L)
+        val pixels = IntArray(width * height) { Color.BLACK or random.nextInt(0x1000000) }
+        // Opaque, as a scan is; otherwise PDFBox adds a soft mask for the alpha channel.
+        val bitmap = Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888).apply { setHasAlpha(false) }
+        PDDocument().use { doc ->
+            val page = PDPage(if (lossless) PDRectangle(600f, 800f) else PDRectangle.A4)
+            doc.addPage(page)
+            val image = if (lossless) LosslessFactory.createFromImage(doc, bitmap) else JPEGFactory.createFromImage(doc, bitmap, 0.95f)
+            PDPageContentStream(doc, page).use { content ->
+                if (lossless) {
+                    content.drawImage(image, 0f, 0f, 600f, 800f)
+                } else {
+                    content.drawImage(image, 50f, 70f, 495f, 650f)
+                    content.beginText()
+                    content.setFont(PDType1Font.HELVETICA, 12f)
+                    content.newLineAtOffset(60f, 40f)
+                    content.showText("Keep this selectable caption")
+                    content.endText()
+                }
+            }
+            doc.save(file)
+        }
+        bitmap.recycle()
     }
 
     /** Every character of the text layer, with where and how it is drawn. */
@@ -110,14 +148,14 @@ class PdfToolsDeviceTest {
         assertTrue(textCompressed.length() <= alpha.file.length())
         assertTrue(text(textCompressed).contains("ALPHA THREE"))
 
-        val scanned = engine.import(Uri.fromFile(fixture("scanned.pdf")), 1003)
+        val scanned = engine.import(Uri.fromFile(noiseScan("scanned.pdf", lossless = false)), 1003)
         for (level in PdfCompression.entries) {
             val compressed = save(engine.compress(scanned, level, "scan").file, "compress_${level.name.lowercase()}.pdf")
             assertEquals(1, PDDocument.load(compressed).use { it.numberOfPages })
             assertTrue(text(compressed).contains("Keep this selectable caption"))
             assertTrue(compressed.length() <= scanned.file.length())
         }
-        val pngScan = engine.import(Uri.fromFile(fixture("png_scanned.pdf")), 1005)
+        val pngScan = engine.import(Uri.fromFile(noiseScan("png_scanned.pdf", lossless = true)), 1005)
         val pngCompressed = save(engine.compress(pngScan, PdfCompression.RECOMMENDED, "png").file, "compress_png.pdf")
         assertTrue(pngCompressed.length() < pngScan.file.length())
         assertEquals(1, PDDocument.load(pngCompressed).use { it.numberOfPages })
@@ -159,7 +197,7 @@ class PdfToolsDeviceTest {
     /** Leaving a tool stops a slow import part way, and its partial copy goes. */
     @Test fun importCanBeStoppedPartWay() {
         class Stop : RuntimeException()
-        val source = fixture("scanned.pdf") // several 64 KB chunks
+        val source = noiseScan("scanned.pdf", lossless = false) // several 64 KB chunks
         var chunks = 0
         try {
             engine.import(Uri.fromFile(source), 1007) { if (++chunks == 3) throw Stop() }
