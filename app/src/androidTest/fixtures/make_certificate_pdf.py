@@ -1,5 +1,5 @@
 """Makes assets/certificate.pdf: alpha.pdf encrypted for a certificate (Adobe.PubSec) instead of a
-password. PDFer can't open such PDFs (PDFBox needs BouncyCastle for them, which isn't bundled), and
+password. Usugami can't open such PDFs (PDFBox needs BouncyCastle for them, which isn't bundled), and
 PdfToolsDeviceTest checks that it says so instead of crashing.
 
     pip install pyhanko==0.38.0 cryptography==50.0.2
@@ -23,7 +23,7 @@ ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
 def throwaway_certificate() -> asn1_x509.Certificate:
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "PDFer test recipient")])
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Usugami test recipient")])
     start = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
     cert = (
         x509.CertificateBuilder()

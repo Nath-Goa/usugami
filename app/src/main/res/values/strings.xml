@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name">PDFer</string>
+    <string name="app_name">Usugami</string>
     <string name="back">Back</string>
 
     <!-- Home and PDF tools -->
-    <string name="home_title">PDFer</string>
+    <string name="home_title">Usugami</string>
     <string name="home_subtitle">Your PDFs stay on this phone. No ads, account, or uploads.</string>
     <string name="tool_images">Images to PDF</string>
     <string name="tool_images_detail">Combine JPGs and PNGs, with optional text recognition</string>
@@ -18,7 +18,7 @@
     <string name="add_pdfs">Add PDFs</string>
     <string name="replace_pdf">Choose another PDF</string>
     <string name="pdf_import_failed">Couldn\'t open that PDF. It may be damaged or unsupported.</string>
-    <string name="pdf_certificate_unsupported">This PDF is locked with a certificate (digital ID). PDFer can only open PDFs locked with a password.</string>
+    <string name="pdf_certificate_unsupported">This PDF is locked with a certificate (digital ID). Usugami can only open PDFs locked with a password.</string>
     <string name="pdf_wrong_password">That password didn\'t open the PDF.</string>
     <string name="pdf_password_title">PDF password</string>
     <string name="pdf_password_body">This file is protected. Enter its password to continue.</string>
@@ -71,32 +71,32 @@
     <string name="ocr_problem_outdated">Google Play services on this phone needs to be updated first.</string>
     <string name="ocr_problem_download">Text recognition couldn\'t be downloaded. Check your internet connection and try again.</string>
     <string name="ocr_problem_storage">There isn\'t enough free storage to download text recognition. Free up some space and try again.</string>
-    <string name="ocr_problem_help">In this edition of PDFer, text recognition comes from Google Play services and needs an internet connection once, to download it. The offline edition of PDFer has it built in. To create the PDF now, turn off OCR and try again.</string>
+    <string name="ocr_problem_help">In this edition of Usugami, text recognition comes from Google Play services and needs an internet connection once, to download it. The offline edition of Usugami has it built in. To create the PDF now, turn off OCR and try again.</string>
 
     <!-- About -->
-    <string name="about">About PDFer</string>
+    <string name="about">About Usugami</string>
     <string name="about_title">About</string>
     <string name="about_version">Version %1$s</string>
     <string name="about_edition_standard">Standard edition: text recognition through Google Play services</string>
     <string name="about_edition_offline">Offline edition: text recognition built in</string>
-    <string name="about_privacy">No ads, no tracking, no account. PDFer has no internet permission, and your files never leave your phone.</string>
+    <string name="about_privacy">No ads, no tracking, no account. Usugami has no internet permission, and your files never leave your phone.</string>
     <string name="about_privacy_standard">For text recognition, Google Play services downloads the text-recognition model once, the first time you use it.</string>
     <string name="about_privacy_policy">Privacy policy</string>
     <string name="about_licenses">Open-source licenses</string>
-    <string name="about_licenses_detail">The libraries and fonts PDFer is built with</string>
+    <string name="about_licenses_detail">The libraries and fonts Usugami is built with</string>
     <string name="about_license">License</string>
     <string name="about_license_detail">GNU GPL v3 or later</string>
     <string name="about_source">Source code</string>
-    <string name="about_source_detail">github.com/Nath-Goa/pdfer</string>
+    <string name="about_source_detail">github.com/Nath-Goa/usugami</string>
     <string name="about_copyright">© 2026 Nathan Kumtakar</string>
-    <string name="about_document_missing">This text isn\'t included in this copy of PDFer. You can read it at github.com/Nath-Goa/pdfer.</string>
+    <string name="about_document_missing">This text isn\'t included in this copy of Usugami. You can read it at github.com/Nath-Goa/usugami.</string>
     <string name="msg_no_browser">No app on this phone can open web links.</string>
 
     <!-- Editor -->
     <string name="editor_title">Images to PDF</string>
     <string name="empty_title">Turn JPG and PNG images into a PDF</string>
     <string name="empty_body">Pick your images, put them in order and convert. Everything happens on this phone. Nothing is uploaded.</string>
-    <string name="empty_share_hint">Tip: you can also share images to PDFer from your gallery.</string>
+    <string name="empty_share_hint">Tip: you can also share images to Usugami from your gallery.</string>
     <string name="add_from_photos">Photos</string>
     <string name="add_from_files">Files</string>
     <string name="add_images">Add images</string>

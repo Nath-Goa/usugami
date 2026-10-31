@@ -1,18 +1,18 @@
-# Contributing to PDFer
+# Contributing to Usugami
 
 Thanks for helping! Bug reports, ideas and pull requests are all welcome.
 
 ## Reporting bugs and ideas
 
-Open an [issue](https://github.com/Nath-Goa/pdfer/issues). For bugs, include your phone model,
-Android version, the PDFer version and edition (PDFer or PDFer Offline) and the steps that
+Open an [issue](https://github.com/Nath-Goa/usugami/issues). For bugs, include your phone model,
+Android version, the Usugami version and edition (Usugami or Usugami Offline) and the steps that
 trigger it. Please don't attach private documents; a made-up file that shows the
 problem is perfect. Security problems go through private reporting instead (see
 [SECURITY.md](SECURITY.md)).
 
-## What fits PDFer
+## What fits Usugami
 
-PDFer is small, offline and private. Pull requests that add any of the following won't be
+Usugami is small, offline and private. Pull requests that add any of the following won't be
 accepted:
 
 - ads, analytics, crash reporting, tracking or accounts
@@ -20,7 +20,7 @@ accepted:
 - new proprietary libraries
 
 Text recognition in the standard edition is the one exception to "no network": Google Play
-services, a separate app, downloads the model once. PDFer itself never connects.
+services, a separate app, downloads the model once. Usugami itself never connects.
 
 ## Building
 
@@ -29,8 +29,8 @@ SDK, with its path in `local.properties` (`sdk.dir=...`; Android Studio creates 
 
 ```sh
 ./gradlew :core:test                          # PDF engine unit tests (JVM)
-./gradlew :app:assembleStandardDebug          # PDFer, debug build
-./gradlew :app:assembleOfflineDebug           # PDFer Offline, debug build
+./gradlew :app:assembleStandardDebug          # Usugami, debug build
+./gradlew :app:assembleOfflineDebug           # Usugami Offline, debug build
 ./gradlew :app:lintStandardDebug :app:lintOfflineDebug
 ./gradlew :app:connectedStandardDebugAndroidTest   # device tests, phone or emulator
 ./gradlew :app:connectedOfflineDebugAndroidTest
@@ -60,7 +60,7 @@ need one to contribute. [docs/TESTING.md](docs/TESTING.md) explains the tests.
 
 ## License of contributions
 
-PDFer is licensed under the GNU General Public License version 3 or later, with an additional
+Usugami is licensed under the GNU General Public License version 3 or later, with an additional
 permission under section 7 that allows linking with Google ML Kit and Google Play services
 ([LICENSE](LICENSE), [LICENSE-EXCEPTION.md](LICENSE-EXCEPTION.md)).
 

@@ -1,7 +1,7 @@
 # Badge artwork
 
 These images are used by the main [README](../../README.md). They are copies of other projects'
-artwork, kept in this repository instead of hotlinked, and they are not covered by PDFer's own
+artwork, kept in this repository instead of hotlinked, and they are not covered by Usugami's own
 license.
 
 | File | Source | License |
@@ -10,4 +10,4 @@ license.
 | `badge_obtainium.png` | [ImranR98/Obtainium](https://github.com/ImranR98/Obtainium) (`assets/graphics/badge_obtainium.png`, commit `298b48a`). Losslessly re-compressed (same pixels, smaller file). | [GPL-3.0](https://github.com/ImranR98/Obtainium/blob/main/LICENSE.txt) |
 
 GitHub and the GitHub logo are trademarks of GitHub, Inc. Obtainium is a project by Imran R. (ImranR98).
-Neither project endorses PDFer; the badges only link to where PDFer can be downloaded.
+Neither project endorses Usugami; the badges only link to where Usugami can be downloaded.

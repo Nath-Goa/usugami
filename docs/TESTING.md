@@ -1,6 +1,6 @@
-# How PDFer is tested
+# How Usugami is tested
 
-PDFer has three layers of automated checks, plus a manual pass on a phone or emulator before each
+Usugami has three layers of automated checks, plus a manual pass on a phone or emulator before each
 release. CI runs the first layer, lint and both release builds on every push and pull request
 (`.github/workflows/ci.yml`).
 
@@ -41,14 +41,14 @@ The offline edition's tests work without either.
 
 ## 3. End-to-end check with independent PDF tools
 
-`tools/validate_pdfs.py` checks the engine's output with tools that share no code with PDFer:
+`tools/validate_pdfs.py` checks the engine's output with tools that share no code with Usugami:
 qpdf (through pikepdf), pypdf and MuPDF rendering.
 
 ```sh
 python -m venv .venv
 .venv/bin/pip install -r tools/requirements.txt    # Windows: .venv\Scripts\pip
 .venv/bin/python tools/validate_pdfs.py gen  out    # test images + manifest.tsv
-./gradlew :core:test -PpdferFixtures=/absolute/path/to/out   # build the PDFs with PDFer's engine
+./gradlew :core:test -PusugamiFixtures=/absolute/path/to/out   # build the PDFs with Usugami's engine
 .venv/bin/python tools/validate_pdfs.py check out   # validate them
 ```
 

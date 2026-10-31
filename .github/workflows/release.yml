@@ -18,7 +18,7 @@ jobs:
     name: Build, sign, publish
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    # Holds PDFER_KEYSTORE_BASE64, PDFER_KEYSTORE_PASSWORD, PDFER_KEY_ALIAS and PDFER_KEY_PASSWORD.
+    # Holds USUGAMI_KEYSTORE_BASE64, USUGAMI_KEYSTORE_PASSWORD, USUGAMI_KEY_ALIAS and USUGAMI_KEY_PASSWORD.
     environment: release
     permissions:
       contents: write # create the release and upload assets
@@ -59,17 +59,17 @@ jobs:
 
       - name: Restore signing key
         env:
-          KEYSTORE_BASE64: ${{ secrets.PDFER_KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.USUGAMI_KEYSTORE_BASE64 }}
         run: |
-          [ -n "$KEYSTORE_BASE64" ] || { echo "::error::Secret PDFER_KEYSTORE_BASE64 is missing"; exit 1; }
+          [ -n "$KEYSTORE_BASE64" ] || { echo "::error::Secret USUGAMI_KEYSTORE_BASE64 is missing"; exit 1; }
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
-          echo "PDFER_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          echo "USUGAMI_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
 
       - name: Test and build signed APKs
         env:
-          PDFER_KEYSTORE_PASSWORD: ${{ secrets.PDFER_KEYSTORE_PASSWORD }}
-          PDFER_KEY_ALIAS: ${{ secrets.PDFER_KEY_ALIAS }}
-          PDFER_KEY_PASSWORD: ${{ secrets.PDFER_KEY_PASSWORD }}
+          USUGAMI_KEYSTORE_PASSWORD: ${{ secrets.USUGAMI_KEYSTORE_PASSWORD }}
+          USUGAMI_KEY_ALIAS: ${{ secrets.USUGAMI_KEY_ALIAS }}
+          USUGAMI_KEY_PASSWORD: ${{ secrets.USUGAMI_KEY_PASSWORD }}
         run: ./gradlew --no-daemon --stacktrace :core:test :app:assembleStandardRelease :app:assembleOfflineRelease
 
       - name: Remove signing key
@@ -79,18 +79,18 @@ jobs:
       - name: Collect APKs
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/standard/release/app-standard-release.apk dist/PDFer.apk
-          cp app/build/outputs/apk/offline/release/app-offline-release.apk dist/PDFer-offline.apk
+          cp app/build/outputs/apk/standard/release/app-standard-release.apk dist/Usugami.apk
+          cp app/build/outputs/apk/offline/release/app-offline-release.apk dist/Usugami-offline.apk
 
       - name: Check signer, package and version
         env:
-          EXPECTED_CERT_SHA256: ${{ vars.PDFER_CERT_SHA256 }}
+          EXPECTED_CERT_SHA256: ${{ vars.USUGAMI_CERT_SHA256 }}
         run: |
           set -euo pipefail
           tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
           expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': \n' | tr 'A-F' 'a-f')
-          [ -n "$expected" ] || { echo "::error::Repository variable PDFER_CERT_SHA256 is not set"; exit 1; }
-          for apk in dist/PDFer.apk dist/PDFer-offline.apk; do
+          [ -n "$expected" ] || { echo "::error::Repository variable USUGAMI_CERT_SHA256 is not set"; exit 1; }
+          for apk in dist/Usugami.apk dist/Usugami-offline.apk; do
             "${tools}apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
             actual=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | sort -u)
             [ "$actual" = "$expected" ] || { echo "::error::$apk is signed by '$actual', expected $expected"; exit 1; }
@@ -98,28 +98,28 @@ jobs:
             badging=$(sed -n '1p' "$RUNNER_TEMP/badging.txt")
             echo "$apk: $badging"
             case "$badging" in
-              *"name='io.github.nath_goa.pdfer'"*"versionName='$VERSION_NAME'"*) ;;
+              *"name='io.github.nath_goa.usugami'"*"versionName='$VERSION_NAME'"*) ;;
               *) echo "::error::$apk has the wrong package name or versionName (expected $VERSION_NAME)"; exit 1 ;;
             esac
           done
 
       - name: No network or advertising-ID permissions
-        run: bash .github/scripts/check-apk-permissions.sh dist/PDFer.apk dist/PDFer-offline.apk
+        run: bash .github/scripts/check-apk-permissions.sh dist/Usugami.apk dist/Usugami-offline.apk
 
       - name: Checksums
         run: |
           cd dist
-          sha256sum PDFer.apk PDFer-offline.apk > SHA256SUMS.txt
+          sha256sum Usugami.apk Usugami-offline.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Write release notes
         env:
-          CERT_SHA256: ${{ vars.PDFER_CERT_SHA256 }}
+          CERT_SHA256: ${{ vars.USUGAMI_CERT_SHA256 }}
         run: |
           set -euo pipefail
           SHA256SUMS="$(cat dist/SHA256SUMS.txt)"
-          STANDARD_MB=$(stat -c %s dist/PDFer.apk | awk '{printf "%.1f", $1 / 1000000}')
-          OFFLINE_MB=$(stat -c %s dist/PDFer-offline.apk | awk '{printf "%.0f", $1 / 1000000}')
+          STANDARD_MB=$(stat -c %s dist/Usugami.apk | awk '{printf "%.1f", $1 / 1000000}')
+          OFFLINE_MB=$(stat -c %s dist/Usugami-offline.apk | awk '{printf "%.0f", $1 / 1000000}')
           export SHA256SUMS STANDARD_MB OFFLINE_MB
           {
             awk -v v="$VERSION_NAME" '
@@ -136,18 +136,18 @@ jobs:
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: |
-            dist/PDFer.apk
-            dist/PDFer-offline.apk
+            dist/Usugami.apk
+            dist/Usugami-offline.apk
 
       # Uploads every file before publishing, so it also works with immutable releases.
       - name: Publish release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          name: PDFer ${{ env.VERSION_NAME }}
+          name: Usugami ${{ env.VERSION_NAME }}
           body_path: ${{ runner.temp }}/release-notes.md
           files: |
-            dist/PDFer.apk
-            dist/PDFer-offline.apk
+            dist/Usugami.apk
+            dist/Usugami-offline.apk
             dist/SHA256SUMS.txt
           fail_on_unmatched_files: true
           prerelease: ${{ env.PRERELEASE }}

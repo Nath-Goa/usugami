@@ -1,7 +1,7 @@
-Open-source notices in Google libraries used only by PDFer Offline
+Open-source notices in Google libraries used only by Usugami Offline
 ==================================================================
 
-These libraries are only part of PDFer Offline (the edition with built-in text
+These libraries are only part of Usugami Offline (the edition with built-in text
 recognition). The notices in google-notices.txt apply to it as well.
 
 Google LLC ships these notices inside its libraries (third_party_licenses.txt in each

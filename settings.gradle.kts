@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PDFer"
+rootProject.name = "Usugami"
 include(":app", ":core")

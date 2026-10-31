@@ -189,12 +189,12 @@ def main():
 
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "google-notices.txt").write_text(render(
-        "Open-source notices in Google libraries used by PDFer",
-        "These libraries are part of both editions of PDFer (PDFer and PDFer Offline).",
+        "Open-source notices in Google libraries used by Usugami",
+        "These libraries are part of both editions of Usugami (Usugami and Usugami Offline).",
         std_libs, std_found), encoding="utf-8", newline="\n")
     (args.out / "google-notices-offline.txt").write_text(render(
-        "Open-source notices in Google libraries used only by PDFer Offline",
-        "These libraries are only part of PDFer Offline (the edition with built-in text\n"
+        "Open-source notices in Google libraries used only by Usugami Offline",
+        "These libraries are only part of Usugami Offline (the edition with built-in text\n"
         "recognition). The notices in google-notices.txt apply to it as well.",
         off_libs, off_only), encoding="utf-8", newline="\n")
     print(f"{len(std_found)} components from {len(std_libs)} libraries; "

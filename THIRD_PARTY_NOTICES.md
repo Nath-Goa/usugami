@@ -1,15 +1,15 @@
 # Third-party notices
 
-PDFer is free software, licensed under the GNU General Public License version 3 or later, with an
+Usugami is free software, licensed under the GNU General Public License version 3 or later, with an
 additional permission for Google's ML Kit and Google Play services libraries. See LICENSE and
 LICENSE-EXCEPTION.md.
 
-PDFer is built with the software, fonts and data files listed here, made by other people. This
+Usugami is built with the software, fonts and data files listed here, made by other people. This
 file gives their versions, licenses and copyright notices, and the license texts they require.
-It applies to PDFer 1.2.0 and covers both editions:
+It applies to Usugami 1.2.0 and covers both editions:
 
-- "Both editions": PDFer (the standard edition) and PDFer Offline.
-- "PDFer Offline only": only in PDFer Offline, which has text recognition built in.
+- "Both editions": Usugami (the standard edition) and Usugami Offline.
+- "Usugami Offline only": only in Usugami Offline, which has text recognition built in.
 
 Each full license text appears once, in section 6 or next to the component that needs it.
 
@@ -90,7 +90,7 @@ Copyright The Android Open Source Project.
 - androidx.window: window, window-core, window-core-android 1.5.0
 
 Some of these (for example appcompat, fragment and the legacy libraries) are included only
-because Google ML Kit depends on them. PDFer itself doesn't use them, and the build's code
+because Google ML Kit depends on them. Usugami itself doesn't use them, and the build's code
 shrinker removes the parts that are never used.
 
 ### Compose Multiplatform metadata
@@ -138,7 +138,7 @@ Copyright Google LLC. Google ML Kit uses these internally.
 - com.google.firebase: firebase-annotations 16.0.0, firebase-components 16.1.0,
   firebase-encoders 16.1.0, firebase-encoders-json 17.1.0
 
-PDFer removes the upload backend of DataTransport from the app, and the app has no internet
+Usugami removes the upload backend of DataTransport from the app, and the app has no internet
 permission.
 
 ### Small libraries
@@ -155,7 +155,7 @@ permission.
 - License: Apache License, Version 2.0 (full text in section 6), plus the terms below for the
   components it includes.
 
-PDFer ships these PDFBox data files: the 14 Adobe Font Metrics (AFM) files for the standard PDF
+Usugami ships these PDFBox data files: the 14 Adobe Font Metrics (AFM) files for the standard PDF
 fonts, the Identity-H and Identity-V CMaps, the Adobe Glyph List, the ITC Zapf Dingbats Glyph
 List, PDFBox's additional glyph list, the Unicode file BidiMirroring.txt, and the font
 Liberation Sans (see section 3). The other CMaps and Scripts.txt are left out. BouncyCastle, an
@@ -351,7 +351,7 @@ authorization of the copyright holder.
 All fonts here are licensed under the SIL Open Font License, Version 1.1 (full text in section
 6).
 
-### PDFer OCR (fonts/PdferOcr-Regular.ttf), both editions
+### Usugami OCR (fonts/UsugamiOcr-Regular.ttf), both editions
 
 An invisible font used only for the searchable text layer that text recognition adds to a PDF.
 It has no visible letters (every glyph is empty) and keeps the character map and letter widths
@@ -361,8 +361,8 @@ of these fonts:
 - Noto Sans Devanagari 2.002. Copyright 2015-2022 Google Inc. All Rights Reserved.
 
 Noto is a trademark of Google LLC. The license file distributed with the Noto fonts reads
-"Copyright 2018 The Noto Project Authors (github.com/googlei18n/noto-fonts)". PDFer OCR is a
-modified version made with tools/make_ocr_font.py from PDFer's source code. It is renamed so it
+"Copyright 2018 The Noto Project Authors (github.com/googlei18n/noto-fonts)". Usugami OCR is a
+modified version made with tools/make_ocr_font.py from Usugami's source code. It is renamed so it
 uses no Reserved Font Name, and it is distributed under the same license.
 
 ### Liberation Sans 2.1.5, both editions
@@ -382,9 +382,9 @@ certain other jurisdictions.
 
 ## 4. Google ML Kit and Google Play services (not open source)
 
-PDFer uses Google ML Kit for text recognition (OCR). These libraries are made by Google LLC and are
-not open source. They are used under Google's terms, and PDFer's license gives an additional
-permission for them (LICENSE-EXCEPTION.md). Google does not endorse PDFer.
+Usugami uses Google ML Kit for text recognition (OCR). These libraries are made by Google LLC and are
+not open source. They are used under Google's terms, and Usugami's license gives an additional
+permission for them (LICENSE-EXCEPTION.md). Google does not endorse Usugami.
 
 Both editions, under the ML Kit Terms of Service (https://developers.google.com/ml-kit/terms):
 
@@ -400,13 +400,13 @@ Both editions, under the Android Software Development Kit License
   play-services-tasks 18.2.0
 - com.google.android.odml: image 1.0.0-beta1
 
-PDFer Offline only, under the ML Kit Terms of Service:
+Usugami Offline only, under the ML Kit Terms of Service:
 
 - com.google.mlkit: text-recognition 16.0.1, text-recognition-devanagari 16.0.1,
   text-recognition-bundled-common 17.0.0. These contain the text-recognition models and the
   native recognition library (libmlkit_google_ocr_pipeline.so).
 
-In the standard edition, the text-recognition model is not part of PDFer. Google Play services
+In the standard edition, the text-recognition model is not part of Usugami. Google Play services
 downloads it on first use, under Google's own terms.
 
 Google's API terms: https://developers.google.com/terms
@@ -415,17 +415,17 @@ Google's API terms: https://developers.google.com/terms
 ## 5. Open-source code inside Google's libraries
 
 Google's libraries contain open-source code from many projects, and Google ships the license
-notices for it inside each library. PDFer reproduces all of them in two files, unchanged except
+notices for it inside each library. Usugami reproduces all of them in two files, unchanged except
 that duplicate texts appear once (including the many copies of the Apache License 2.0, whose
 full text is in section 6):
 
 - third_party/google-notices.txt, for the libraries in both editions:
-  https://github.com/Nath-Goa/pdfer/blob/main/third_party/google-notices.txt
-- third_party/google-notices-offline.txt, for the libraries only in PDFer Offline:
-  https://github.com/Nath-Goa/pdfer/blob/main/third_party/google-notices-offline.txt
+  https://github.com/Nath-Goa/usugami/blob/main/third_party/google-notices.txt
+- third_party/google-notices-offline.txt, for the libraries only in Usugami Offline:
+  https://github.com/Nath-Goa/usugami/blob/main/third_party/google-notices-offline.txt
 
 Both files are also inside the app: About → Open-source licenses shows them after this
-document (the offline file only in PDFer Offline, the edition that contains those libraries).
+document (the offline file only in Usugami Offline, the edition that contains those libraries).
 
 Components listed by Google in the libraries used by both editions:
 
@@ -450,7 +450,7 @@ gsfclient; Guava JDK5; Guava JDK7; J2ObjC; Jakarta Inject; java_annotations;
 JsInterop Annotations; JSpecify; JSR 250; JSR 305; JSR 330; Kotlin; Kotlin coroutines;
 kotlinx_atomicfu; SafeParcelable library; TensorFlow Lite Support.
 
-Additional components listed by Google in the libraries used only by PDFer Offline (its built-in
+Additional components listed by Google in the libraries used only by Usugami Offline (its built-in
 text-recognition engine):
 
 Abseil; address_sorting; angle; Bazel Platforms; Boost; BoringSSL; Brotli; bzip2; c-ares; cblas;

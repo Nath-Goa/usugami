@@ -14,8 +14,8 @@ dependencies {
 }
 
 tasks.test {
-    // Optional end-to-end fixture run: ./gradlew :core:test -PpdferFixtures=<dir>
-    systemProperty("pdfer.fixtures", providers.gradleProperty("pdferFixtures").orElse("").get())
+    // Optional end-to-end fixture run: ./gradlew :core:test -PusugamiFixtures=<dir>
+    systemProperty("usugami.fixtures", providers.gradleProperty("usugamiFixtures").orElse("").get())
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
