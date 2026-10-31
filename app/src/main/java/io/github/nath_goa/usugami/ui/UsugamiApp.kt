@@ -65,9 +65,22 @@ fun UsugamiApp(vm: MainViewModel) {
     LaunchedEffect(pdfVm) {
         pdfVm.messages.collect { snackbar.showSnackbar(it) }
     }
+    // Set when images were shared while a PDF tool had a PDF that would be lost by leaving it.
+    var confirmLeavePdf by rememberSaveable { mutableStateOf(false) }
+    // The user chose to stay with that PDF: more shared images don't ask again until they leave the tool.
+    var stayOnPdf by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(route) {
+        if (!isPdfToolRoute(route)) {
+            confirmLeavePdf = false
+            stayOnPdf = false
+        }
+    }
     LaunchedEffect(items.size) {
         // Images shared from another app can arrive on any screen, a PDF tool's included: show them.
-        if (items.isNotEmpty() && route != "images") route = "images"
+        // Leaving a tool discards its PDF, so ask first while one is being made or isn't saved yet.
+        if (items.isEmpty() || route == "images" || stayOnPdf) return@LaunchedEffect
+        val unsavedPdf = pdfVm.processing.value || (pdfVm.result.value != null && !pdfVm.saved.value)
+        if (isPdfToolRoute(route) && unsavedPdf) confirmLeavePdf = true else route = "images"
     }
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { vm.addImages(it) }
@@ -129,6 +142,7 @@ fun UsugamiApp(vm: MainViewModel) {
             }
             when {
                 current == "home" -> HomeScreen(
+                    snackbar = screenSnackbar,
                     onImages = { route = "images" },
                     onTool = { tool ->
                         pdfVm.reset()
@@ -150,7 +164,7 @@ fun UsugamiApp(vm: MainViewModel) {
                 current.startsWith("about/") -> {
                     val document = LegalDocument.valueOf(current.substringAfter('/').uppercase())
                     BackHandler(enabled = active) { route = "about" }
-                    LegalDocumentScreen(document, onBack = { route = "about" })
+                    LegalDocumentScreen(document, snackbar = screenSnackbar, onBack = { route = "about" })
                 }
                 current == "images" -> {
                     // Images still being imported count too: they would arrive at home and reopen the editor.
@@ -288,7 +302,30 @@ fun UsugamiApp(vm: MainViewModel) {
             dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.keep)) } },
         )
     }
+
+    if (confirmLeavePdf) {
+        val keepPdf = {
+            confirmLeavePdf = false
+            stayOnPdf = true
+        }
+        AlertDialog(
+            onDismissRequest = keepPdf,
+            title = { Text(stringResource(R.string.pdf_discard_title)) },
+            text = { Text(stringResource(R.string.pdf_discard_shared_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmLeavePdf = false
+                    // The editor frees the tool's files once it has opened.
+                    route = "images"
+                }) { Text(stringResource(R.string.discard)) }
+            },
+            dismissButton = { TextButton(onClick = keepPdf) { Text(stringResource(R.string.keep)) } },
+        )
+    }
 }
+
+/** Whether [route] is a PDF tool's screen (its result included: that shares the tool's route). */
+private fun isPdfToolRoute(route: String): Boolean = PdfTool.entries.any { it.name.equals(route, ignoreCase = true) }
 
 /** How deep a screen is: home 0, a tool's editor or About 1, a result or a text opened from About 2. */
 private fun screenDepth(screen: String): Int = if (screen == "home") 0 else 1 + screen.count { it == '/' }

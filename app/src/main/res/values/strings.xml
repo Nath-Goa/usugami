@@ -61,8 +61,8 @@
     </plurals>
     <string name="pdf_need_two">Add at least two PDFs to merge.</string>
     <string name="pdf_need_page">Keep at least one page.</string>
-    <string name="pdf_unsaved_back_title">Leave this PDF?</string>
-    <string name="pdf_unsaved_back_body">Save or share the result before leaving if you want to keep it.</string>
+    <string name="pdf_discard_title">Discard this PDF?</string>
+    <string name="pdf_discard_shared_body">The images you shared are ready to convert, but this PDF isn\'t saved yet. Save or share it first if you want to keep it.</string>
     <string name="ocr_title">Make text searchable (OCR)</string>
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>
     <string name="ocr_language">Text language</string>
