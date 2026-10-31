@@ -1,7 +1,5 @@
 package io.github.nath_goa.usugami.core
 
-import java.io.ByteArrayOutputStream
-
 /** Header facts about a JPEG file needed to embed it in a PDF unchanged. */
 data class JpegInfo(
     val width: Int,
@@ -82,8 +80,19 @@ object Jpeg {
      * byte, so there is no quality loss.
      */
     fun stripForEmbedding(bytes: ByteArray): ByteArray {
+        val array = ByteArray(strippedSize(bytes))
+        strip(bytes, Output(array))
+        return array
+    }
+
+    /**
+     * The size of what [stripForEmbedding] returns, worked out without copying anything, so a large
+     * photo can be ruled out before it is copied in memory.
+     */
+    fun strippedSize(bytes: ByteArray): Int = Output(null).also { strip(bytes, it) }.size
+
+    private fun strip(bytes: ByteArray, out: Output) {
         if (bytes.size < 4 || bytes.u8(0) != 0xFF || bytes.u8(1) != 0xD8) throw InvalidJpegException("Not a JPEG file")
-        val out = ByteArrayOutputStream(bytes.size)
         out.write(0xFF)
         out.write(0xD8)
         var scanStart = -1
@@ -98,18 +107,38 @@ object Jpeg {
         }
         if (scanStart < 0) throw InvalidJpegException("No image data")
         copyScans(bytes, scanStart, out)
-        return out.toByteArray()
+    }
+
+    /**
+     * Where [strip] writes: an array of exactly the stripped size, or with no array, nowhere, only
+     * counting the bytes.
+     */
+    private class Output(val array: ByteArray?) {
+        var size = 0
+            private set
+
+        fun write(byte: Int) {
+            array?.set(size, byte.toByte())
+            size++
+        }
+
+        fun write(source: ByteArray, offset: Int = 0, length: Int = source.size) {
+            array?.let { source.copyInto(it, size, offset, offset + length) }
+            size += length
+        }
     }
 
     /**
      * Copies the segment at [start] to [out] if decoders need it: every segment except
-     * application data (APPn) and comments, plus three kinds of APPn that affect colours: the
-     * JFIF header (APP0, its thumbnail removed, as it could show the photo before it was edited),
-     * ICC profiles (APP2, which may span several segments) and the Adobe marker (APP14). Left out
-     * are EXIF and XMP (APP1), MPF and FlashPix (APP2), content credentials (APP11),
-     * Photoshop/IPTC (APP13), other vendor data and comments.
+     * application data (APPn) and comments, plus three kinds of APPn that tell decoders how to
+     * read the colours: the JFIF header (APP0, its thumbnail removed, as it could show the photo
+     * before it was edited), ICC profiles (APP2, which may span several segments) and the Adobe
+     * marker (APP14). PDF viewers go by the PDF's colour space rather than the ICC profile, so
+     * only sRGB photos should be embedded as they are; the profile is kept for apps that extract
+     * the image. Left out are EXIF and XMP (APP1), MPF and FlashPix (APP2), content credentials
+     * (APP11), Photoshop/IPTC (APP13), other vendor data and comments.
      */
-    private fun writeIfNeeded(bytes: ByteArray, marker: Int, start: Int, length: Int, out: ByteArrayOutputStream) {
+    private fun writeIfNeeded(bytes: ByteArray, marker: Int, start: Int, length: Int, out: Output) {
         fun hasId(id: String) = length - 2 >= id.length && bytes.startsWithAscii(start + 4, id)
         when {
             marker != COM && marker !in APP0..APP15 -> out.write(bytes, start, 2 + length)
@@ -158,7 +187,7 @@ object Jpeg {
      * A truncated file is copied as far as it goes (up to a cut-off segment) and closed so
      * decoders show the partial image.
      */
-    private fun copyScans(bytes: ByteArray, firstScan: Int, out: ByteArrayOutputStream) {
+    private fun copyScans(bytes: ByteArray, firstScan: Int, out: Output) {
         var copied = firstScan // everything before this has been written or left out
         var end = bytes.size // where the copy stops if there is no EOI
         var pos = firstScan + 2 + bytes.u16(firstScan + 2)

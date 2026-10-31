@@ -1,6 +1,9 @@
 package io.github.nath_goa.usugami
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.ColorSpace
 import android.graphics.Gainmap
 import android.graphics.Rect
 import androidx.exifinterface.media.ExifInterface
@@ -67,6 +70,21 @@ class ImageExportDeviceTest {
         assertTrue("Original image kept", pdf.indexOf(Jpeg.stripForEmbedding(file.readBytes())) >= 0)
         assertEquals(-1, pdf.indexOf("SecretCam"))
         assertEquals(-1, pdf.indexOf("Exif"))
+    }
+
+    /** PDF viewers read embedded JPEGs as sRGB, so a Display P3 original would show dull colours. */
+    @Test fun wideGamutOriginalIsConvertedToSrgb() {
+        val file = File(dir, "p3.jpg")
+        val p3 = Bitmap.createBitmap(400, 300, Bitmap.Config.ARGB_8888, false, ColorSpace.get(ColorSpace.Named.DISPLAY_P3))
+        Canvas(p3).drawBitmap(noise(400, 300), 0f, 0f, null)
+        // Low quality, so the original would be smaller than a re-encoded copy.
+        file.outputStream().use { p3.compress(Bitmap.CompressFormat.JPEG, 20, it) }
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        assumeTrue("This device did not tag the JPEG as Display P3", bounds.outColorSpace?.isSrgb == false)
+
+        val pdf = exportPdf(file, 400, 300)
+        assertEquals("Original image left out", -1, pdf.indexOf(Jpeg.stripForEmbedding(file.readBytes())))
     }
 
     @Test fun pdfDetailsAreGenericAfterTextRecognitionToo() {
