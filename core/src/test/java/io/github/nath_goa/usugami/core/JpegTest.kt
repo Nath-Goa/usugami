@@ -72,7 +72,7 @@ class JpegTest {
                 TestImages.segment(0xED, "Photoshop 3.0\u0000SECRET".toByteArray()),
             ) + "....ftypmp42 motion photo video SECRET".toByteArray() + byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte())
 
-            val stripped = Jpeg.stripForEmbedding(dirty)
+            val stripped = strip(dirty)
             assertEquals(-1, stripped.indexOf("SECRET".toByteArray()))
             assertEquals(-1, stripped.indexOf("MPF".toByteArray()))
             assertTrue("ICC profile kept", stripped.indexOf("ICC_PROFILE".toByteArray()) > 0)
@@ -111,7 +111,7 @@ class JpegTest {
                 TestImages.segment(0xEF, "SECRET".toByteArray()),
             )
 
-            val stripped = Jpeg.stripForEmbedding(dirty)
+            val stripped = strip(dirty)
             assertEquals(-1, stripped.indexOf("SECRET".toByteArray()))
             assertArrayEquals(TestImages.withSegments(clean, icc1, icc2, adobe), stripped)
             val info = Jpeg.parse(stripped)
@@ -134,7 +134,7 @@ class JpegTest {
         val withThumbnail = clean.copyOf(2) + TestImages.segment(0xE0, header + "SECRET".toByteArray()) +
             clean.copyOfRange(20, clean.size)
         assertTrue(Jpeg.parse(withThumbnail).canEmbedDirectly)
-        assertArrayEquals(clean, Jpeg.stripForEmbedding(withThumbnail))
+        assertArrayEquals(clean, strip(withThumbnail))
     }
 
     @Test
@@ -147,26 +147,26 @@ class JpegTest {
         val metadata = TestImages.segment(0xE1, "Exif\u0000\u0000SECRET".toByteArray()) +
             TestImages.segment(0xFE, "SECRET".toByteArray())
         val dirty = clean.copyOf(secondScan) + metadata + clean.copyOfRange(secondScan, clean.size)
-        assertArrayEquals(clean, Jpeg.stripForEmbedding(dirty))
+        assertArrayEquals(clean, strip(dirty))
 
         // Cut off inside the EXIF segment: the scans before it are kept, the partial segment is not.
         val truncated = dirty.copyOf(secondScan + 14)
         val eoi = byteArrayOf(0xFF.toByte(), 0xD9.toByte())
-        assertArrayEquals(clean.copyOf(secondScan) + eoi, Jpeg.stripForEmbedding(truncated))
+        assertArrayEquals(clean.copyOf(secondScan) + eoi, strip(truncated))
     }
 
     @Test
     fun stripIsIdentityForPlainFiles() {
         // ImageIO writes SOI, APP0 JFIF, tables, SOF, SOS, data, EOI: nothing to remove.
         val clean = TestImages.jpeg(TestImages.pattern(33, 17))
-        assertArrayEquals(clean, Jpeg.stripForEmbedding(clean))
+        assertArrayEquals(clean, strip(clean))
     }
 
     @Test
     fun truncatedFileGetsClosed() {
         val clean = TestImages.jpeg(TestImages.pattern(64, 64))
         val truncated = clean.copyOf(clean.size - 40)
-        val stripped = Jpeg.stripForEmbedding(truncated)
+        val stripped = strip(truncated)
         assertEquals(truncated.size + 2, stripped.size)
         assertEquals(0xD9, stripped.last().toInt() and 0xFF)
     }
@@ -179,6 +179,12 @@ class JpegTest {
     @Test(expected = InvalidJpegException::class)
     fun rejectsHeaderOnly() {
         Jpeg.parse(TestImages.jpeg(TestImages.pattern(8, 8)).copyOf(20))
+    }
+
+    /** Strips [bytes], checking that strippedSize, which sizes large photos before they're copied, agrees. */
+    private fun strip(bytes: ByteArray): ByteArray {
+        val size = Jpeg.strippedSize(bytes)
+        return Jpeg.stripForEmbedding(bytes).also { assertEquals("strippedSize", it.size, size) }
     }
 
     private fun iccChunk(sequence: Int, count: Int, part: ByteArray): ByteArray =

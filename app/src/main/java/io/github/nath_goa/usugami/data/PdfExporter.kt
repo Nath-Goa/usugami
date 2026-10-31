@@ -119,16 +119,7 @@ class PdfExporter(context: Context) {
         val compressed = compressToJpeg(item, scale, options.compression.jpegQuality)
         options.checkCancelled()
         return when (item.format) {
-            ImageFormat.JPEG -> {
-                val bytes = file.readBytes()
-                val original = try {
-                    val info = Jpeg.parse(bytes)
-                    if (info.canEmbedDirectly) PageImage.Jpeg(Jpeg.stripForEmbedding(bytes), info) else null
-                } catch (e: InvalidJpegException) {
-                    null
-                }
-                LoadedPage(if (original != null && original.data.size <= compressed.data.size) original else compressed)
-            }
+            ImageFormat.JPEG -> LoadedPage(original(file, compressed.data.size) ?: compressed)
             ImageFormat.PNG -> {
                 // Small PNGs (screenshots of plain colours, diagrams) can beat JPEG; keep those lossless.
                 if (file.length() <= compressed.data.size && scale >= 1.0) {
@@ -138,6 +129,28 @@ class PdfExporter(context: Context) {
                     LoadedPage(compressed)
                 }
             }
+        }
+    }
+
+    /**
+     * The original JPEG, stripped for embedding, if a PDF can show it as it is and it is no bigger
+     * than [maxSize] bytes; otherwise null.
+     */
+    private fun original(file: File, maxSize: Int): PageImage.Jpeg? {
+        // A PDF says how to read the colours (/DeviceRGB, as sRGB), and viewers ignore a profile in
+        // the JPEG, so a wide-gamut photo (Display P3, Adobe RGB) would look dull. The compressed
+        // copy has been converted to sRGB.
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        if (bounds.outColorSpace?.isSrgb == false) return null
+        val bytes = file.readBytes()
+        return try {
+            val info = Jpeg.parse(bytes)
+            // Sized first, so a big photo that can't beat the compressed copy isn't copied as well.
+            if (!info.canEmbedDirectly || Jpeg.strippedSize(bytes) > maxSize) null
+            else PageImage.Jpeg(Jpeg.stripForEmbedding(bytes), info)
+        } catch (e: InvalidJpegException) {
+            null
         }
     }
 
