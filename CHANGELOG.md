@@ -35,6 +35,9 @@ them. Install 1.2.0, then uninstall the old "PDFer".
   without a password.
 - Short animations between screens and for cards, lists and collapsing sections.
 - Compress tells you when a PDF was already compact and the original size was kept.
+- Add several password-protected PDFs at once: Usugami asks for each password in turn and names
+  the file it is asking about.
+- Screen readers can move pages earlier or later in the editor and in Merge, without dragging.
 
 ### Changed
 
@@ -67,7 +70,18 @@ them. Install 1.2.0, then uninstall the old "PDFer".
   in the font.
 - Split shows a clear message for an invalid chunk size, and page counts use "1 page" / "2 pages".
 - Accessibility and layout fixes, including screen-reader labels and controls that were hidden
-  behind the navigation bar or the keyboard.
+  behind the navigation bar or the keyboard. Buttons like "Recommended" are no longer cut off on
+  small screens or with large text.
+- The searchable text follows tilted lines, so selecting and searching text works on photos taken
+  at an angle.
+- A text-recognition download that makes no progress (for example without internet) stops after a
+  minute with a clear message instead of waiting forever.
+- A failed save no longer leaves a half-written file behind, and a PDF that can't be read no longer
+  empties the file you chose to overwrite.
+- Your images are kept when Android closes Usugami in the background, for example while you pick
+  more photos.
+- Wide-colour photos (Display P3, common on newer phones) keep their colours in the PDF.
+- The password field uses a password keyboard, so the keyboard doesn't learn PDF passwords.
 
 ### Security
 
