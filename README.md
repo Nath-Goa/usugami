@@ -17,24 +17,28 @@ It was called PDFer before version 1.2.0.
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D"><img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
 
 On your phone, tap **Get it on GitHub** to download **Usugami.apk** (about 2.4 MB), then follow the
-[install steps](#install). Usugami comes in two editions; if you're not sure, take the first one.
+[install steps](#install). Usugami comes in two editions, compared below; if you're not sure, take
+this one.
+
+Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 8.1,
+[add it by hand](#automatic-updates-with-obtainium) instead.
 
 | | **Usugami** (recommended) | **Usugami Offline** |
 |---|---|---|
 | Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 2.4 MB | **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**, about 22 MB |
 | Images to PDF, split, merge, compress | Fully offline | Fully offline |
-| Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services. The first time you use it, Play services downloads Google's text-recognition model once. | Built into the app. Works with no internet, ever. |
-| Internet needed | Only once, for that first text-recognition download | Never |
+| Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model for each language (English, Hindi) the first time you use it. | Built into the app. Works with no internet, ever. |
+| Internet needed | Only for text recognition, the first time you use each language | Never |
 | Needs Google Play services | Only for text recognition | No |
 | Works on | Android 8.0 or newer | Android 8.0 or newer, ARM phones (virtually all phones) |
 | Pick it if | You're not sure | Your phone has no Google services (for example Huawei or a de-Googled phone), or you want no network use at all |
 
 > [!NOTE]
 > **About internet access:** Usugami itself has **no internet permission** and uploads nothing.
-> The main **Usugami.apk** needs an internet connection **only for text recognition (OCR)**, and only
-> once: the first time you use it, Google Play services downloads the recognition model.
-> Everything else works offline. If you want text recognition built in, with no download ever,
-> get **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)** instead.
+> The main **Usugami.apk** needs an internet connection **only for text recognition (OCR)**: the
+> first time you use each language, Google Play services downloads its recognition model (and
+> again if Play services has removed it since). Everything else works offline. If you want text
+> recognition built in, with no download ever, get **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)** instead.
 
 Both editions use the same package name and signing key, so you can switch at any time by
 installing the other APK over the one you have. Your files and settings are kept. Every
@@ -145,19 +149,22 @@ old "PDFer".
 ## Privacy
 
 - **No internet permission.** Android doesn't let Usugami connect to the internet, so it can't
-  upload your files or send anything about you.
+  upload your files.
 - **No ads, no analytics, no tracking, no accounts, no in-app purchases.**
 - **Only the files you pick.** Usugami asks for no permissions; Android gives it access to just the
   images and PDFs you choose or share.
 - **Temporary copies are cleaned up.** While you work, copies live in Usugami's private cache and
   are deleted automatically.
-- **Standard edition and Google Play services:** text recognition runs on your phone. The first
-  time, Google Play services (a separate Google app) downloads the model. Per
-  [Google's ML Kit data disclosure](https://developers.google.com/ml-kit/android-data-disclosure),
-  Play services may collect diagnostics and usage metrics about the ML Kit feature. Your images
-  and the recognized text never leave your phone. Usugami also removes ML Kit's own metrics
-  uploader from the app.
-- **Usugami Offline** makes no network connections at all.
+- **Standard edition and Google Play services:** text recognition runs on your phone, through
+  Google Play services (a separate Google app), which downloads the model for each language the
+  first time you use it. For this, Google's libraries inside Usugami talk to Play services on your
+  phone, and Play services may report to Google how these Google APIs were used, along with
+  diagnostics and usage metrics about ML Kit (see
+  [Google's ML Kit data disclosure](https://developers.google.com/ml-kit/android-data-disclosure)).
+  Your images and the recognized text are not part of this and never leave your phone. Usugami
+  also disables ML Kit's own metrics uploader inside the app.
+- **Usugami Offline** has text recognition built in, doesn't need Google Play services and makes
+  no network connections.
 
 Read the full [privacy policy](PRIVACY.md). It's also inside the app.
 
@@ -172,13 +179,16 @@ certificate, and only the developer has the key.
 | Package name | `io.github.nath_goa.usugami` |
 | Signing certificate SHA-256 | `6F:4F:23:AD:E0:3E:63:6A:7C:C3:68:16:89:44:D0:CC:FC:81:32:EF:34:C5:0B:C5:A4:6B:0C:A4:CB:BD:F4:ED` |
 
-- **On your phone:** install [AppVerifier](https://github.com/soupslurpr/AppVerifier), then paste
-  these two lines into it after installing Usugami:
+- **On your phone (Android 9 or newer):** install
+  [AppVerifier](https://github.com/soupslurpr/AppVerifier), then paste these two lines into it
+  after installing Usugami:
 
   ```text
   io.github.nath_goa.usugami
   6F:4F:23:AD:E0:3E:63:6A:7C:C3:68:16:89:44:D0:CC:FC:81:32:EF:34:C5:0B:C5:A4:6B:0C:A4:CB:BD:F4:ED
   ```
+
+  AppVerifier doesn't run on Android 8.0 or 8.1; use a computer (below) instead.
 
 <details>
 <summary><b>On a computer: apksigner, checksums and build provenance</b></summary>
@@ -190,16 +200,22 @@ apksigner verify --print-certs Usugami.apk
 ```
 
 The `certificate SHA-256 digest` line must read
-`6f4f23ade03e636a7cc368168944d0ccfc8132ef34c50bc5a46b0ca4cbbdf4ed`. (`keytool -printcert -jarfile`
-doesn't work here: Usugami uses the newer APK signature schemes, which keytool can't read.)
+`6f4f23ade03e636a7cc368168944d0ccfc8132ef34c50bc5a46b0ca4cbbdf4ed`. The `certificate DN` line
+says `CN=Nathan Kumtakar, O=Usugami`, but anyone can put any name in a certificate, so only the
+digest proves who signed the APK. (`keytool -printcert -jarfile` doesn't work here: Usugami uses
+the newer APK signature schemes, which keytool can't read.)
 
-**Checksums:** download `SHA256SUMS.txt` from the same release, put it next to the APKs and run:
+**Checksums:** download `SHA256SUMS.txt` from the same release, put it next to the APK you
+downloaded and run:
 
 ```sh
-sha256sum -c SHA256SUMS.txt                     # Linux
-shasum -a 256 -c SHA256SUMS.txt                 # macOS
-Get-FileHash Usugami.apk -Algorithm SHA256        # Windows PowerShell: compare with the file
+sha256sum -c --ignore-missing SHA256SUMS.txt          # Linux
+shasum -a 256 -c --ignore-missing SHA256SUMS.txt      # macOS
+Get-FileHash Usugami.apk -Algorithm SHA256            # Windows PowerShell: compare with the file
 ```
+
+Your APK must show `OK`. (`SHA256SUMS.txt` lists both editions; `--ignore-missing` skips the one
+you didn't download.)
 
 GitHub also shows each file's SHA-256 next to it on the release page.
 
@@ -279,8 +295,9 @@ over your current Usugami: it has text recognition built in.
 <details>
 <summary><b>Text recognition is stuck downloading, or I have no internet</b></summary>
 
-In the standard edition, the first text recognition needs Google Play services to download the
-model once. If it doesn't finish:
+In the standard edition, Google Play services downloads text recognition the first time you use
+each language (English and Hindi are separate downloads), and again if it has removed it since.
+If it doesn't finish:
 
 - Check that you have a working Wi-Fi or mobile data connection.
 - Make sure the phone has some free storage.
@@ -288,6 +305,9 @@ model once. If it doesn't finish:
   it if you can.
 - Try again in a few minutes. Your images stay in Usugami, and you can also create the PDF with OCR
   turned off.
+
+Going somewhere without internet? Run text recognition once in each language you need while you're
+still online.
 
 If you often have no internet, or want no download at all, install
 **[Usugami Offline](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**
@@ -300,7 +320,8 @@ over your current Usugami.
 
 When you create the PDF, turn on **Make text searchable (OCR)** and choose **Hindi** under the text
 language. Hindi mode reads Devanagari and also keeps English words and numbers, so mixed text works.
-English and Hindi are the only languages for now.
+English and Hindi are the only languages for now. In the standard edition, Hindi is a separate
+download from English, so the first Hindi recognition needs an internet connection.
 
 </details>
 
@@ -323,7 +344,7 @@ automatically.
 
 The app takes about 2.4 MB (standard) or 22 MB (offline) to download. While you work, Usugami keeps
 temporary copies of your files in its cache and deletes them automatically; you can also clear it
-in Settings → Apps → Usugami → Storage. In the standard edition, the text-recognition model is
+in Settings → Apps → Usugami → Storage. In the standard edition, the text-recognition models are
 stored and managed by Google Play services, not by Usugami.
 
 </details>
@@ -389,6 +410,10 @@ keyPassword=...
 
 APKs you sign with your own key can't update the official ones, and the other way round.
 [docs/TESTING.md](docs/TESTING.md) explains how Usugami is tested.
+
+Release builds are shrunk and obfuscated by R8. Each release also has a `mapping-<version>.zip`
+with both editions' R8 mapping files, for turning stack traces in crash reports back into
+readable code.
 
 </details>
 

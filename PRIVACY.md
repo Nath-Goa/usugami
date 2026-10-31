@@ -1,14 +1,14 @@
 # Usugami Privacy Policy
 
-Effective date: 30 October 2026
+Effective date: 31 October 2026
 
 Usugami is an Android app that turns images into PDFs and splits, merges and compresses PDFs. It
 works on your phone. It has no ads, no analytics, no tracking, no accounts and no in-app
 purchases, and it does not collect, share or sell any data about you.
 
 This policy covers both editions of Usugami: "Usugami" (the standard edition) and "Usugami Offline".
-The only difference that matters for privacy is how text recognition (OCR) gets its model,
-explained below.
+The only difference that matters for privacy is how text recognition (OCR) works, explained
+below.
 
 ## Who is responsible
 
@@ -25,8 +25,8 @@ public, so please don't include personal details. To report a security problem p
   or you share them to Usugami from another app. Android then gives Usugami access to those files
   only. Usugami cannot browse your photos or other files.
 - Usugami asks for no permissions: no storage, camera, location, contacts or microphone access.
-- Usugami has no internet permission, so Android does not let it connect to the internet. It
-  cannot upload your files or send anything about you anywhere.
+- Usugami has no internet permission, so Android does not let it connect to the internet, and it
+  cannot upload your files.
 - When you save a PDF, it goes where you choose: the Downloads folder or a folder you pick with
   the system file picker. When you tap Share or Open, the PDF goes to the app you pick, and that
   app's own privacy policy applies.
@@ -54,24 +54,30 @@ Google or anyone else.
 
 - Text recognition runs through Google Play services, a separate app from Google that is
   installed on most Android phones.
-- The first time you use it, Google Play services downloads Google's text-recognition model
-  once. This needs an internet connection that one time. Google Play services then keeps the
-  model for later use. Google Play services does this download, not Usugami, and Google's
-  Privacy Policy applies to it: https://policies.google.com/privacy
-- According to Google's ML Kit data disclosure, ML Kit may collect diagnostic and usage
+- The first time you use each text language (English or Hindi), Google Play services downloads
+  Google's text-recognition model for it. This needs an internet connection at that time. Google
+  Play services then keeps the model for later use; if it removes a model, it downloads it again
+  the next time you use that language. Google Play services does these downloads, not Usugami,
+  and Google's Privacy Policy applies to them: https://policies.google.com/privacy
+- To download and run text recognition, Google's libraries inside Usugami talk to Google Play
+  services on your phone. Google Play services may report to Google how these Google APIs were
+  used (for example, whether a call succeeded).
+- According to Google's ML Kit data disclosure, ML Kit may also collect diagnostic and usage
   information about the ML Kit feature, such as device and app information and performance
   metrics, and send it to Google:
   https://developers.google.com/ml-kit/android-data-disclosure
-- Usugami has no internet permission, and it removes the part of Google's library that would
-  upload these metrics from inside Usugami, so Usugami itself sends nothing. Google Play services is
-  a separate app, and what it sends is covered by Google's policies, not by Usugami.
+- Your images and the recognized text are not part of any of this.
+- Usugami has no internet permission, and it disables (unregisters) the part of Google's library
+  that would upload ML Kit's metrics from inside Usugami, so those metrics are dropped. Google
+  Play services is a separate app, and what it sends is covered by Google's policies, not by
+  Usugami.
 - Everything else in Usugami (images to PDF, split, merge, compress) works without Google Play
   services and without internet.
 
 ### Usugami Offline
 
-- The text-recognition model is built into the app. It works with no internet connection and
-  without Google Play services.
+- The text-recognition models are built into the app. Text recognition works with no internet
+  connection and doesn't need Google Play services.
 - Usugami Offline makes no network connections at all.
 
 If you want no network use of any kind, install Usugami Offline.
@@ -92,7 +98,7 @@ Usugami does not collect personal information from anyone, including children.
   tap "Clear storage", or uninstall Usugami.
 - PDFs you saved to Downloads or another folder are your files. They stay until you delete them,
   even if you uninstall Usugami.
-- In the standard edition, the text-recognition model is kept and managed by Google Play
+- In the standard edition, the text-recognition models are kept and managed by Google Play
   services.
 
 ## Changes to this policy
