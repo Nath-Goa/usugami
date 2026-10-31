@@ -3,6 +3,10 @@ name: Release
 # Push a tag like v1.2.0 to build, sign and publish both APKs. The tag must equal "v" + versionName
 # in app/build.gradle.kts. A tag with a hyphen (v1.3.0-rc.1) becomes a draft prerelease, which
 # never changes the "latest" download links.
+#
+# Two jobs, so no Gradle plugin, dependency or test ever runs with write access: "build" gets the
+# signing key but can only read the repository; "publish" can write releases and attestations but
+# runs no build code, only checks the signed files and publishes them.
 on:
   push:
     tags: ['v[0-9]+.[0-9]+.[0-9]+*']
@@ -14,25 +18,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build, sign, publish
+  build:
+    name: Build and sign
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     # Holds USUGAMI_KEYSTORE_BASE64, USUGAMI_KEYSTORE_PASSWORD, USUGAMI_KEY_ALIAS and USUGAMI_KEY_PASSWORD.
     environment: release
     permissions:
-      contents: write # create the release and upload assets
-      id-token: write # build provenance attestation (Sigstore)
-      attestations: write
+      contents: read
+    outputs:
+      version-name: ${{ steps.version.outputs.version-name }}
     env:
       TAG: ${{ github.ref_name }}
-      PRERELEASE: ${{ contains(github.ref_name, '-') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Tag must match versionName
+        id: version
         run: |
           VERSION_NAME=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
           if [ -z "$VERSION_NAME" ] || [ "v$VERSION_NAME" != "$TAG" ]; then
@@ -40,6 +44,7 @@ jobs:
             exit 1
           fi
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "version-name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
       - name: CHANGELOG must have a section for this version
         run: |
@@ -76,11 +81,15 @@ jobs:
         if: always()
         run: rm -f "$RUNNER_TEMP/release.keystore"
 
-      - name: Collect APKs
+      # The R8 mappings turn obfuscated stack traces from crash reports back into readable ones
+      # (retrace mapping.txt trace.txt), so they are published with each release.
+      - name: Collect APKs and R8 mappings
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/standard/release/app-standard-release.apk dist/Usugami.apk
           cp app/build/outputs/apk/offline/release/app-offline-release.apk dist/Usugami-offline.apk
+          cd app/build/outputs/mapping
+          zip -9 -q "$GITHUB_WORKSPACE/dist/mapping-$VERSION_NAME.zip" standardRelease/mapping.txt offlineRelease/mapping.txt
 
       - name: Check signer, package and version
         env:
@@ -132,8 +141,59 @@ jobs:
             echo
             envsubst '${TAG} ${GITHUB_REPOSITORY} ${CERT_SHA256} ${SHA256SUMS} ${STANDARD_MB} ${OFFLINE_MB}' \
               < .github/release-notes-template.md
-          } > "$RUNNER_TEMP/release-notes.md"
-          cat "$RUNNER_TEMP/release-notes.md"
+          } > dist/release-notes.md
+          cat dist/release-notes.md
+
+      # Hands the files to the publish job; kept only briefly, since the release keeps them for good.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release
+          path: dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Attest and publish
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # create the release and upload assets
+      id-token: write # build provenance attestation (Sigstore)
+      attestations: write
+    env:
+      VERSION_NAME: ${{ needs.build.outputs.version-name }}
+      PRERELEASE: ${{ contains(github.ref_name, '-') }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release
+          path: dist
+
+      # Checked again here because this job attests and publishes whatever the build job uploaded.
+      # Uses the runner's Android SDK and Java; nothing from the repository runs in this job.
+      - name: Check signer, package, version and checksums
+        env:
+          EXPECTED_CERT_SHA256: ${{ vars.USUGAMI_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
+          expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': \n' | tr 'A-F' 'a-f')
+          [ -n "$expected" ] || { echo "::error::Repository variable USUGAMI_CERT_SHA256 is not set"; exit 1; }
+          [ -n "$VERSION_NAME" ] || { echo "::error::The build job did not pass on the versionName"; exit 1; }
+          for apk in dist/Usugami.apk dist/Usugami-offline.apk; do
+            "${tools}apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
+            actual=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | sort -u)
+            [ "$actual" = "$expected" ] || { echo "::error::$apk is signed by '$actual', expected $expected"; exit 1; }
+            "${tools}aapt2" dump badging "$apk" > "$RUNNER_TEMP/badging.txt"
+            badging=$(sed -n '1p' "$RUNNER_TEMP/badging.txt")
+            echo "$apk: $badging"
+            case "$badging" in
+              *"name='io.github.nath_goa.usugami'"*"versionName='$VERSION_NAME'"*) ;;
+              *) echo "::error::$apk has the wrong package name or versionName (expected $VERSION_NAME)"; exit 1 ;;
+            esac
+          done
+          (cd dist && sha256sum -c SHA256SUMS.txt)
 
       - name: Attest build provenance
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
@@ -147,11 +207,12 @@ jobs:
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           name: Usugami ${{ env.VERSION_NAME }}
-          body_path: ${{ runner.temp }}/release-notes.md
+          body_path: dist/release-notes.md
           files: |
             dist/Usugami.apk
             dist/Usugami-offline.apk
             dist/SHA256SUMS.txt
+            dist/mapping-${{ env.VERSION_NAME }}.zip
           fail_on_unmatched_files: true
           prerelease: ${{ env.PRERELEASE }}
           draft: ${{ env.PRERELEASE }}
