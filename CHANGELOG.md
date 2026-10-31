@@ -6,6 +6,8 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-31
+
 ### Added
 
 - Usugami now comes in **French**, **Spanish** and **Hindi** as well as English. The first time you
@@ -141,5 +143,6 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/Nath-Goa/usugami/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/Nath-Goa/usugami/releases/tag/v1.2.0
