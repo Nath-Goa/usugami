@@ -33,7 +33,8 @@ extraction:
 - compress: all three levels, selectable text kept, never larger than the original
 - password-protected PDFs: opening with the password, then split and compress
 - text recognition in English and Hindi, including a text layer with both Devanagari and Latin
-  text, and that a failed recognition leaves the PDFs untouched
+  text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
+  PDFs untouched
 
 The standard edition gets its text-recognition model from Google Play services, so its OCR tests
 need a device or emulator with Google Play services and, the first time, an internet connection.

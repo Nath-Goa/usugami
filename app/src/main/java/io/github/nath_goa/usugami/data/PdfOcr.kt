@@ -3,13 +3,16 @@ package io.github.nath_goa.usugami.data
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Point
+import android.graphics.PointF
 import android.graphics.Rect
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.annotation.VisibleForTesting
-import com.google.android.gms.tasks.Tasks
+import com.google.android.gms.tasks.Task
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions
@@ -20,12 +23,14 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
 import com.tom_roush.pdfbox.pdmodel.graphics.state.RenderingMode
+import com.tom_roush.pdfbox.util.Matrix
 import io.github.nath_goa.usugami.core.FileNames
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.ExecutionException
+import kotlin.math.atan2
+import kotlin.math.hypot
 
 enum class OcrLanguage { ENGLISH, HINDI }
 
@@ -33,9 +38,20 @@ data class OcrOutput(val files: List<PdfFile>, val lineCount: Int)
 
 /** Adds an invisible text layer to PDFs made from images. */
 class PdfOcr(private val context: Context) {
-    /** One recognized line; [bounds] is in pixels of the [pixelWidth] × [pixelHeight] page image. */
+    /**
+     * One recognized line, in pixels of the [pixelWidth] × [pixelHeight] page image. [corners] are the
+     * text's top-left, top-right, bottom-right and bottom-left corners, which also give its angle;
+     * without them the upright [bounds] are used.
+     */
     @VisibleForTesting
-    internal data class Line(val page: Int, val text: String, val bounds: Rect, val pixelWidth: Int, val pixelHeight: Int)
+    internal data class Line(
+        val page: Int,
+        val text: String,
+        val bounds: Rect,
+        val pixelWidth: Int,
+        val pixelHeight: Int,
+        val corners: List<Point>? = null,
+    )
 
     init { PDFBoxResourceLoader.init(context.applicationContext) }
 
@@ -77,26 +93,26 @@ class PdfOcr(private val context: Context) {
                         val width = maxOf(1, (page.width * scale).toInt())
                         val height = maxOf(1, (page.height * scale).toInt())
                         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        var recognition: Task<Text>? = null
                         try {
                             bitmap.eraseColor(Color.WHITE)
                             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            recognition = recognizer.process(InputImage.fromBitmap(bitmap, 0))
                             val text = try {
-                                Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0)))
-                            } catch (e: ExecutionException) {
-                                // Standard edition: Play services doesn't have the model (not
-                                // downloaded yet, or removed since).
-                                val cause = e.cause
-                                if (cause is MlKitException && cause.errorCode == MlKitException.UNAVAILABLE) {
-                                    throw OcrUnavailableException(OcrProblem.DOWNLOAD_FAILED, cause)
-                                }
+                                recognition.await()
+                            } catch (e: MlKitException) {
+                                // Standard edition: Play services no longer has the model (removed
+                                // since ensureReady checked).
+                                if (e.errorCode == MlKitException.UNAVAILABLE) throw OcrUnavailableException(OcrProblem.DOWNLOAD_FAILED, e)
                                 throw e
                             }
                             for (block in text.textBlocks) for (line in block.lines) {
                                 val box = line.boundingBox ?: continue
-                                if (line.text.isNotBlank()) lines += Line(i, line.text, box, width, height)
+                                if (line.text.isNotBlank()) lines += Line(i, line.text, box, width, height, line.cornerPoints?.toList())
                             }
                         } finally {
-                            bitmap.recycle()
+                            // After a cancel, ML Kit may still be reading the bitmap; it is freed with it then.
+                            if (recognition == null || recognition.isComplete) bitmap.recycle()
                         }
                     }
                     onPageDone()
@@ -106,13 +122,27 @@ class PdfOcr(private val context: Context) {
         return lines
     }
 
-    /** Writes a copy of [source] with [lines] as invisible text; [source] itself is left untouched. */
+    /**
+     * Writes a copy of [source] with [lines] as invisible text; [source] itself is left untouched.
+     * If this fails, no partial copy is left behind.
+     */
     @VisibleForTesting
     internal suspend fun embed(source: PdfFile, lines: List<Line>): PdfFile {
         val original = source.file
         // Never overwrite another PDF, e.g. one made from an image that was itself named "x_searchable".
         val taken = original.parentFile?.list().orEmpty().mapTo(HashSet()) { FileNames.baseName(it) }
         val target = File(original.parentFile, FileNames.unique("${original.nameWithoutExtension}_searchable", taken) + ".pdf")
+        try {
+            writeTextLayer(original, lines, target)
+        } catch (e: Throwable) {
+            // E.g. storage ran out while saving: a half-written copy would only take up more space.
+            target.delete()
+            throw e
+        }
+        return PdfFile(target, source.pageCount, source.originalBytes)
+    }
+
+    private suspend fun writeTextLayer(original: File, lines: List<Line>, target: File) {
         val scratchDir = File(context.cacheDir, "pdfbox").apply { mkdirs() }
         PDDocument.load(original, "", MemoryUsageSetting.setupMixed(24L * 1024 * 1024).setTempDir(scratchDir)).use { doc ->
             // One glyph-less font covers Latin and Devanagari, so Hindi mode keeps English words too.
@@ -140,17 +170,26 @@ class PdfOcr(private val context: Context) {
                             }
                         }
                         if (printable.isBlank()) continue
-                        val x = box.lowerLeftX + line.bounds.left * box.width / line.pixelWidth
-                        val y = box.lowerLeftY + box.height - line.bounds.bottom * box.height / line.pixelHeight
-                        val size = maxOf(3f, line.bounds.height() * box.height / line.pixelHeight * 0.9f)
-                        val targetWidth = line.bounds.width() * box.width / line.pixelWidth
+                        // From image pixels (y down) to PDF points (y up).
+                        fun toPage(p: Point) = PointF(
+                            box.lowerLeftX + p.x * box.width / line.pixelWidth,
+                            box.lowerLeftY + box.height - p.y * box.height / line.pixelHeight,
+                        )
+                        val corners = line.corners?.takeIf { it.size == 4 } ?: line.bounds.corners()
+                        val (topLeft, topRight, _, bottomLeft) = corners.map(::toPage)
+                        // The text starts at the bottom-left corner and runs along the top edge, so a
+                        // line on a tilted photo gets its real size and angle, not its upright bounds'.
+                        val width = hypot(topRight.x - topLeft.x, topRight.y - topLeft.y)
+                        val height = hypot(topLeft.x - bottomLeft.x, topLeft.y - bottomLeft.y)
+                        val angle = atan2(topRight.y - topLeft.y, topRight.x - topLeft.x)
+                        val size = maxOf(3f, height * 0.9f)
                         val textWidth = font.getStringWidth(printable) / 1000f * size
-                        val stretch = if (textWidth > 0) (targetWidth / textWidth * 100f).coerceIn(20f, 200f) else 100f
+                        val stretch = if (textWidth > 0) (width / textWidth * 100f).coerceIn(20f, 200f) else 100f
                         stream.beginText()
                         stream.setRenderingMode(RenderingMode.NEITHER)
                         stream.setFont(font, size)
                         stream.setHorizontalScaling(stretch)
-                        stream.newLineAtOffset(x, y)
+                        stream.setTextMatrix(Matrix.getRotateInstance(angle.toDouble(), bottomLeft.x, bottomLeft.y))
                         stream.showText(printable)
                         stream.endText()
                     }
@@ -158,8 +197,9 @@ class PdfOcr(private val context: Context) {
             }
             doc.save(target)
         }
-        return PdfFile(target, source.pageCount, source.originalBytes)
     }
+
+    private fun Rect.corners() = listOf(Point(left, top), Point(right, top), Point(right, bottom), Point(left, bottom))
 
     companion object {
         private const val OCR_FONT = "fonts/UsugamiOcr-Regular.ttf"

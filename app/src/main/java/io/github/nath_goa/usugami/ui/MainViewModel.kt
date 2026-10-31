@@ -49,8 +49,11 @@ enum class SortMode { NAME_ASC, NAME_DESC, REVERSE }
 
 /** [done] of [total] steps of [stage]; a [total] of 0 means the amount isn't known yet. */
 data class Progress(val done: Int, val total: Int, val stage: Stage = Stage.CREATE) {
-    enum class Stage { DOWNLOAD_OCR, CREATE, READ_TEXT }
+    enum class Stage { DOWNLOAD_OCR, CREATE, READ_TEXT, ADD_TEXT }
 }
+
+/** What the user chose in the Convert sheet. [ocrLanguage] is null when OCR is off. */
+data class ConvertChoices(val fileName: String, val ocrLanguage: OcrLanguage?)
 
 class MainViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
     private val store = ImageStore(app)
@@ -86,6 +89,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private val _progress = MutableStateFlow<Progress?>(null)
     val progress: StateFlow<Progress?> = _progress.asStateFlow()
 
+    /** True once Cancel has been pressed, until the work has stopped. */
+    private val _cancelling = MutableStateFlow(false)
+    val cancelling: StateFlow<Boolean> = _cancelling.asStateFlow()
+
     /** Non-null once PDFs have been created: the result screen is showing. */
     private val _result = MutableStateFlow<List<PdfFile>?>(null)
     val result: StateFlow<List<PdfFile>?> = _result.asStateFlow()
@@ -105,6 +112,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     private var nextId = maxOf(System.currentTimeMillis(), (items.value.maxOfOrNull { it.id } ?: 0L) + 1)
     private var conversion: Job? = null
+
+    /**
+     * The choices of the last attempt that made no PDF (text recognition wasn't available, it failed
+     * or it was cancelled), so the Convert sheet opens with them again instead of the defaults.
+     */
+    private var lastChoices: ConvertChoices? = null
 
     init {
         val keep = if (restored) items.value else emptyList()
@@ -206,6 +219,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     private fun setItems(list: List<ImageItem>) {
         handle[KEY_ITEMS] = ArrayList(list)
+        if (list.isEmpty()) lastChoices = null
     }
 
     /** Drops images whose copies the system has cleared from the cache, and says so. */
@@ -218,8 +232,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     // ---- Converting ----
 
+    /** What the Convert sheet starts with: the last attempt's choices if it made no PDF, otherwise the defaults. */
+    fun initialChoices(): ConvertChoices = lastChoices ?: ConvertChoices(defaultFileName(), ocrLanguage = null)
+
     /** Suggested name for a merged PDF: the image's own name for one image, otherwise a timestamp. */
-    fun defaultFileName(): String {
+    private fun defaultFileName(): String {
         val list = items.value
         if (list.size == 1) return FileNames.sanitize(FileNames.baseName(list[0].name), PdfExporter.DEFAULT_NAME)
         return "Usugami_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT))
@@ -234,6 +251,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
         _compression.value = compression
         settingsStore.compression = compression
+        lastChoices = ConvertChoices(fileName, ocrLanguage)
         val layout = _layout.value
         _progress.value = Progress(0, snapshot.size)
         conversion = viewModelScope.launch {
@@ -259,10 +277,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 }
                 _saved.value = false
                 _result.value = files
+                lastChoices = null
             } catch (e: CancellationException) {
                 throw e
             } catch (e: OcrUnavailableException) {
-                Log.w("Usugami", "Text recognition unavailable", e)
+                if (e.problem == OcrProblem.FAILED_TO_START) Log.e("Usugami", "Text recognition couldn't start", e)
+                else Log.w("Usugami", "Text recognition unavailable", e)
                 _ocrProblem.value = e.problem
             } catch (e: ImageUnreadableException) {
                 // Its copy may have been cleared from the cache while the PDF was being made.
@@ -279,6 +299,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 message(R.string.msg_convert_failed, app.getString(R.string.msg_unknown_error))
             } finally {
                 _progress.value = null
+                _cancelling.value = false
                 conversion = null
             }
         }
@@ -292,14 +313,25 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val pages = files.sumOf { it.pageCount }
         _progress.value = Progress(0, pages, Progress.Stage.READ_TEXT)
         return try {
-            val output = ocr.apply(files, language) { done -> _progress.value = Progress(done, pages, Progress.Stage.READ_TEXT) }
+            val output = ocr.apply(files, language) { done ->
+                // Once every page is read, only writing the text layer is left, which takes a while
+                // for a long PDF.
+                _progress.value = if (done < pages) Progress(done, pages, Progress.Stage.READ_TEXT)
+                else Progress(0, 0, Progress.Stage.ADD_TEXT)
+            }
             if (output.lineCount == 0) message(R.string.ocr_no_text)
             output.files
         } catch (e: CancellationException) {
             throw e
+        } catch (e: OcrUnavailableException) {
+            // The model went missing after ensureReady found it (standard edition). Not the OCR
+            // problem dialog: the PDF has been made, just without text.
+            Log.w("Usugami", "Text recognition unavailable", e)
+            message(R.string.ocr_not_ready)
+            files
         } catch (e: Exception) {
-            Log.w("Usugami", "Text recognition failed", e)
-            message(R.string.ocr_failed)
+            Log.e("Usugami", "Text recognition failed", e)
+            message(if (e.isOutOfSpace()) R.string.ocr_failed_no_space else R.string.ocr_failed)
             files
         } catch (e: OutOfMemoryError) {
             Log.w("Usugami", "Text recognition ran out of memory", e)
@@ -309,7 +341,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     fun cancelConversion() {
-        conversion?.cancel()
+        val job = conversion ?: return
+        _cancelling.value = true
+        job.cancel()
     }
 
     fun dismissOcrProblem() {
