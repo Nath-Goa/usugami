@@ -198,6 +198,51 @@
     <!-- XFA is a kind of PDF form; keep the name. -->
     <string name="flatten_xfa_only">This PDF\'s form is a dynamic XFA form, which Usugami can\'t flatten.</string>
     <string name="flatten_xfa_dropped">This PDF had a dynamic XFA form, which was removed. Its other form fields and comments were flattened.</string>
+    <!-- Edit PDF: text, drawings, highlights, shapes and pictures put on top of a PDF's pages. "Redact PDF" is the name of another tool. -->
+    <string name="tool_edit">Edit PDF</string>
+    <string name="tool_edit_detail">Add text, drawings, shapes and pictures</string>
+    <string name="pdf_edit_action">Save PDF</string>
+    <!-- The five tool buttons share one row: keep them short. -->
+    <string name="edit_text">Text</string>
+    <string name="edit_draw">Draw</string>
+    <string name="edit_highlight">Highlight</string>
+    <string name="edit_shape">Shape</string>
+    <string name="edit_picture">Picture</string>
+    <string name="redo">Redo</string>
+    <string name="edit_hint_start">Add text, a drawing, a shape or a picture to this page.</string>
+    <string name="edit_hint_select">Tap something you added to move or change it.</string>
+    <string name="edit_hint_selected">Drag it, or move it with the buttons below.</string>
+    <string name="edit_hint_draw">Draw with your finger. To scroll, swipe beside the page.</string>
+    <!-- %1$d is the page number. -->
+    <string name="edit_preview_description">Page %1$d, with what you added</string>
+    <string name="edit_text_add">Add text</string>
+    <string name="edit_text_change">Edit text</string>
+    <!-- What a screen reader calls each thing added to a page. %1$s is the text itself. -->
+    <string name="edit_item_text">Text: %1$s</string>
+    <string name="edit_item_drawing">Drawing</string>
+    <string name="edit_item_highlight">Highlight</string>
+    <string name="edit_item_rectangle">Rectangle</string>
+    <string name="edit_item_filled_rectangle">Filled rectangle</string>
+    <string name="edit_item_ellipse">Ellipse</string>
+    <string name="edit_item_filled_ellipse">Filled ellipse</string>
+    <string name="edit_item_line">Line</string>
+    <string name="edit_item_arrow">Arrow</string>
+    <!-- %1$s is what is chosen, such as "Rectangle" or "Text: Hello". -->
+    <string name="edit_selected">Selected: %1$s</string>
+    <string name="edit_delete">Delete</string>
+    <string name="edit_move_left">Move left</string>
+    <string name="edit_move_up">Move up</string>
+    <string name="edit_move_down">Move down</string>
+    <string name="edit_move_right">Move right</string>
+    <string name="edit_thickness">Thickness</string>
+    <string name="edit_fill">Filled</string>
+    <string name="color_yellow">Yellow</string>
+    <string name="color_white">White</string>
+    <string name="edit_cover_hint">A filled shape only covers what\'s under it, which stays in the file. To remove it for good, use Redact PDF.</string>
+    <string name="edit_picture_failed">Couldn\'t read that picture.</string>
+    <string name="edit_full">This PDF can\'t take any more additions. Save it, then edit the new PDF to add more.</string>
+    <!-- Said by a screen reader for a page in the row of pages that has something added to it. -->
+    <string name="edit_page_edited">Edited</string>
 
     <string name="ocr_title">Make text searchable (OCR)</string>
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>

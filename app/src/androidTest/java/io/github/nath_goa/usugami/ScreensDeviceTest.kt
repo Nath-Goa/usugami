@@ -4,10 +4,13 @@ import android.app.Application
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.pdf.PdfRenderer
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.InputDevice
 import android.view.MotionEvent
@@ -22,7 +25,11 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.core.InkItem
+import io.github.nath_goa.usugami.core.ShapeItem
+import io.github.nath_goa.usugami.core.ShapeKind
 import io.github.nath_goa.usugami.core.SignatureLayout
+import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.SignatureInk
@@ -133,6 +140,18 @@ class ScreensDeviceTest {
             nodes().firstOrNull(match)?.let { return it }
             val scroller = nodes().firstOrNull { down in it.actionList } ?: return find(what, match)
             scroller.performAction(down.id)
+            Thread.sleep(500)
+        }
+        return find(what, match)
+    }
+
+    /** Like [findBelow], scrolling up. */
+    private fun findAbove(what: String, match: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo {
+        val up = AccessibilityAction.ACTION_SCROLL_UP
+        repeat(10) {
+            nodes().firstOrNull(match)?.let { return it }
+            val scroller = nodes().firstOrNull { up in it.actionList } ?: return find(what, match)
+            scroller.performAction(up.id)
             Thread.sleep(500)
         }
         return find(what, match)
@@ -260,7 +279,7 @@ class ScreensDeviceTest {
         val sections = listOf(
             listOf(R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint),
             listOf(R.string.tool_merge, R.string.tool_split, R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate),
-            listOf(R.string.tool_sign, R.string.tool_page_numbers, R.string.tool_watermark),
+            listOf(R.string.tool_edit, R.string.tool_sign, R.string.tool_page_numbers, R.string.tool_watermark),
             listOf(R.string.tool_compress, R.string.tool_flatten),
         )
         val expected = headings.zip(sections).flatMap { (heading, tools) -> listOf(heading) + tools }.map(app::getString)
@@ -536,6 +555,124 @@ class ScreensDeviceTest {
             assertTrue(text, text.indexOf("ALPHATHREE") in 0 until text.indexOf("ALPHATWO"))
             assertFalse(text.contains("ALPHAONE"))
         }
+    }
+
+    /** Page [index] of [file] as shown, a pixel per point, on white. */
+    private fun renderPage(file: File, index: Int): Bitmap =
+        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
+                renderer.openPage(index).use { page ->
+                    Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888).also {
+                        it.eraseColor(Color.WHITE)
+                        page.render(it, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    }
+                }
+            }
+        }
+
+    /** How many pixels of [bitmap] [match]. */
+    private fun count(bitmap: Bitmap, match: (Int) -> Boolean): Int {
+        val all = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(all, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        return all.count(match)
+    }
+
+    /** A tool button of Edit PDF, by its name, once it can be pressed; the screen scrolls up to it. */
+    private fun editTool(label: Int) = findAbove("the \"${app.getString(label)}\" tool") {
+        it.says(app.getString(label)) && ancestor(it) { node -> node.isClickable }?.isEnabled == true
+    }
+
+    /** Picks [label] from the Shape menu, and waits for the menu to close. */
+    private fun addShape(label: Int) {
+        click(editTool(R.string.edit_shape))
+        click(find("the menu's \"${app.getString(label)}\"") { it.says(app.getString(label)) })
+        waitUntil("the menu to close") { nodes().any { it.says(app.getString(R.string.pdf_edit_action)) } }
+    }
+
+    @Test fun editPdfAddsWithButtonsUndoesAndKeepsItThroughRecreation() {
+        val first = launch()
+        val firstVm = openToolWithAlpha(R.string.tool_edit, first)
+        assertFalse("Nothing to save yet", clickable(button(R.string.pdf_edit_action)).isEnabled)
+        find("what to do first") { it.says(app.getString(R.string.edit_hint_start)) }
+        fun items() = onMain { firstVm.editItems.value }
+
+        // Text is typed in a dialog, then put in the middle of the page and chosen; a screen reader hears so.
+        click(editTool(R.string.edit_text))
+        find("the dialog") { it.says(app.getString(R.string.edit_text_add)) }
+        type(find("the text field") { it.isEditable }, "Checked by Ana")
+        click(actionButton(R.string.sign_done))
+        waitUntil("the dialog to close") { nodes().any { it.says(app.getString(R.string.pdf_edit_action)) } }
+        val textName = app.getString(R.string.edit_item_text, "Checked by Ana")
+        findBelow("the chosen text") { it.says(app.getString(R.string.edit_selected, textName)) }
+        val added = items().single() as TextItem
+        // Moved with a button rather than by dragging.
+        click(findBelow("the move button") { it.says(app.getString(R.string.edit_move_right)) })
+        waitUntil("the text to move right") { (items().single() as TextItem).x > added.x }
+
+        // A filled rectangle, from the Shape menu: the screen says it only covers what is under it.
+        addShape(R.string.edit_item_filled_rectangle)
+        waitUntil("the rectangle") { items().size == 2 }
+        findBelow("the hint about covering") { it.says(app.getString(R.string.edit_cover_hint)) }
+        // Undo takes it away, and Redo brings it back.
+        click(findAbove("Undo") { it.says(app.getString(R.string.undo)) && clickable(it).isEnabled })
+        waitUntil("the rectangle to go") { items().size == 1 }
+        click(find("Redo, once it can be pressed") { it.says(app.getString(R.string.redo)) && clickable(it).isEnabled })
+        waitUntil("the rectangle to come back") { (items().getOrNull(1) as? ShapeItem)?.filled == true }
+
+        // A screen reader finds what was added on the page by its name, and chooses it.
+        // The text is under the rectangle, but it is smaller, so it can still be reached.
+        val onPage = findBelow("the text on the page") { it.says(textName) && it.isClickable }
+        assertTrue(onPage.performAction(AccessibilityNodeInfo.ACTION_CLICK))
+        waitUntil("the text to be chosen") { onMain { firstVm.editSelected.value } == added.id }
+
+        // On page 2: an arrow, and a stroke drawn with the pen.
+        val page2 = app.getString(R.string.pdf_page_number, 2)
+        click(ancestor(findAbove("page 2") { it.says(page2) && ancestor(it) { node -> node.isCheckable } != null }) { it.isCheckable }!!)
+        addShape(R.string.edit_item_arrow)
+        waitUntil("the arrow on page 2") { items().any { it is ShapeItem && it.kind == ShapeKind.ARROW && it.page == 1 } }
+        click(editTool(R.string.edit_draw))
+        find("how to draw") { it.says(app.getString(R.string.edit_hint_draw)) }
+        drawOn(findBelow("page 2") { it.says(app.getString(R.string.edit_preview_description, 2)) })
+        waitUntil("a stroke on page 2") { items().any { it is InkItem && it.page == 1 && !it.highlighter } }
+        click(editTool(R.string.edit_draw))
+
+        // It all survives the activity being recreated, as it is on rotation, page 2 still showing.
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        findBelow("page 2, still") { it.says(app.getString(R.string.edit_preview_description, 2)) }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        assertEquals(4, onMain { pdfVm.editItems.value.size })
+
+        click(actionButton(R.string.pdf_edit_action))
+        val result = resultFile(pdfVm)
+        assertEquals("alpha_edited.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            val firstPage = PDFTextStripper().apply {
+                startPage = 1
+                endPage = 1
+            }.getText(doc)
+            assertTrue(firstPage, firstPage.contains("Checked by Ana"))
+        }
+        fun red(pixel: Int) = Color.red(pixel) > 160 && Color.green(pixel) < 90 && Color.blue(pixel) < 90
+        fun blue(pixel: Int) = Color.blue(pixel) > 120 && Color.red(pixel) < 80
+        // alpha.pdf's pages have a red box of their own. Page 2 has the red arrow and the blue
+        // stroke too; page 3 shows just what it did.
+        val original = File(app.cacheDir, "test-edit-original.pdf").apply { instrumentation.context.assets.open("alpha.pdf").use { input -> outputStream().use(input::copyTo) } }
+        val second = renderPage(result, 1)
+        // The arrow goes across the middle of the page, well below the page's own red box.
+        val middle = Bitmap.createBitmap(second, 0, second.height / 2 - 20, second.width, 40)
+        assertTrue("The arrow", count(middle, ::red) > 100)
+        assertTrue("The stroke", count(second, ::blue) > 30)
+        val third = renderPage(result, 2)
+        assertEquals(count(renderPage(original, 2), ::red), count(third, ::red))
+        assertEquals(0, count(third, ::blue))
+        original.delete()
+
+        // Back from the result, everything is still there to change.
+        click(find("the back button") { it.says(app.getString(R.string.back_to_editing)) })
+        waitUntil("the result to slide away") { nodes().none { it.says(app.getString(R.string.result_heading_one)) } }
+        assertEquals(4, onMain { pdfVm.editItems.value.size })
+        assertTrue(clickable(actionButton(R.string.pdf_edit_action)).isEnabled)
     }
 
     @Test fun flattenSaysWhatItDoesAndWhenThereIsNothingToFlatten() {

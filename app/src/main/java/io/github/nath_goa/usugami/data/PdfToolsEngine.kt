@@ -9,9 +9,11 @@ import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
+import io.github.nath_goa.usugami.core.PageItem
 import io.github.nath_goa.usugami.core.PageNumbers
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.SignaturePlacement
+import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.core.WatermarkLayout
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSArray
@@ -87,10 +89,10 @@ class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encry
 class FlattenResult(val file: PdfFile, val droppedDynamicXfa: Boolean)
 
 /**
- * Split, merge, compress, rotate, delete pages, reorganize, flatten, page numbers, watermarks and
- * signatures. Input copies, results and PDFBox's scratch files all live in the cache,
- * so the system can reclaim them (and "Clear cache" removes them); callers must cope with a file
- * that has gone.
+ * Split, merge, compress, rotate, delete pages, reorganize, flatten, page numbers, watermarks,
+ * signatures and Edit PDF's additions. Input copies, results and PDFBox's scratch files all live in
+ * the cache, so the system can reclaim them (and "Clear cache" removes them); callers must cope with
+ * a file that has gone.
  */
 class PdfToolsEngine(private val context: Context) {
     private val inputDir = File(context.cacheDir, "pdf-inputs")
@@ -487,6 +489,28 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     /**
+     * Draws Edit PDF's [items] (text, strokes, shapes and pictures) on [input]'s pages, exactly where
+     * the preview showed them on each page as shown. Pages without items are left as they are.
+     * Throws [WatermarkFontMissing] if no font on the phone can draw some of the text.
+     */
+    fun editPages(input: PdfInput, items: List<PageItem>, fileName: String, check: () -> Unit = {}): PdfFile {
+        require(items.isNotEmpty())
+        val texts = items.filterIsInstance<TextItem>()
+        val stamps = if (texts.isEmpty()) null else PDDocument.load(PageText.render(texts, check))
+        // Kept open until the result is saved: the text's font is copied from it.
+        return try {
+            edit(input, fileName, "Edited", check) { doc -> PageEditing.draw(doc, items, stamps, check) }
+        } finally {
+            stamps?.close()
+        }
+    }
+
+    /** The size of each of [input]'s pages as shown (see [shownPageSize]), in order. */
+    fun shownPageSizes(input: PdfInput): List<Pair<Float, Float>> = load(input.file, input.password).use { doc ->
+        doc.pages.map { page -> page.frame().let { it.shownWidth to it.shownHeight } }
+    }
+
+    /**
      * Opens [input], lets [block] change it, and saves it as [fileName] without a password. [check]
      * is called before saving too, since saving a large PDF takes a while.
      */
@@ -507,9 +531,6 @@ class PdfToolsEngine(private val context: Context) {
             throw t
         }
     }
-
-    /** The page as a viewer shows it: its crop box, turned by its rotation. */
-    private fun PDPage.frame(): PageFrame = cropBox.let { box -> PageFrame(box.lowerLeftX, box.lowerLeftY, box.width, box.height, rotation) }
 
     private fun PageFrame.toMatrix(): Matrix = matrix.let { m -> Matrix(m[0], m[1], m[2], m[3], m[4], m[5]) }
 
@@ -700,3 +721,6 @@ class PdfToolsEngine(private val context: Context) {
         }
     } catch (_: Exception) { null }
 }
+
+/** The page as a viewer shows it: its crop box, turned by its rotation. */
+internal fun PDPage.frame(): PageFrame = cropBox.let { box -> PageFrame(box.lowerLeftX, box.lowerLeftY, box.width, box.height, rotation) }

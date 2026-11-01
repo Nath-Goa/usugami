@@ -42,6 +42,14 @@ All notable changes to Usugami are listed here. The format is based on
   app left without an appearance are drawn first. A dynamic XFA form is removed, with a note, and
   its ordinary fields are flattened. A PDF with nothing to flatten is reported instead of saved again.
 
+- **Edit PDF**, first under Edit and sign: add text, drawings, highlights, shapes (rectangles,
+  filled or not, ellipses, lines and arrows) and pictures on top of any page. Each can be dragged,
+  resized with its handles or a slider, moved with arrow buttons, recolored and deleted, and Undo
+  and Redo go back and forth one change at a time. They land exactly where the preview shows them,
+  also on pages turned sideways or cropped: text stays real, searchable text (Hindi included),
+  drawings and shapes stay sharp vector lines, and photos are compressed; pages you don't change
+  stay exactly as they were. A filled box only covers what's under it, and Usugami says so.
+
 ### Changed
 
 - Home groups the tools in four sections, **Create PDF**, **Organize**, **Edit and sign** and

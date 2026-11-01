@@ -40,6 +40,8 @@ public, so please don't include personal details. To report a security problem p
 - Signatures: a signature you draw for "Sign PDF" is kept only while Usugami is open, in its
   memory and in the screen state Android keeps for it, so you can use it again. It is never saved
   in a file of its own, only in the PDFs you sign.
+- Edit PDF: the text, drawings and shapes you add to a PDF are kept the same way, until you leave
+  the tool, and only end up in the PDF you save. Pictures you add are working copies, as above.
 - Settings: your last choices (such as page size, margins and compression level), stored
   privately on your phone.
 - Usugami excludes its data from Android's cloud backup and device-to-device transfer.

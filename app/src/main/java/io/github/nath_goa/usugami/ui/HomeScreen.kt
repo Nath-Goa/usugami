@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Draw
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Layers
@@ -61,7 +62,7 @@ private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT)
 private val OrganizeTools = listOf(PdfTool.MERGE, PdfTool.SPLIT, PdfTool.REORGANIZE, PdfTool.DELETE_PAGES, PdfTool.ROTATE)
 
 /** The tools under "Edit and sign" on Home, in order: those that add to the pages. */
-private val EditTools = listOf(PdfTool.SIGN, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK)
+private val EditTools = listOf(PdfTool.EDIT, PdfTool.SIGN, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK)
 
 /** The tools under "Optimize and protect" on Home, in order. */
 private val OptimizeTools = listOf(PdfTool.COMPRESS, PdfTool.FLATTEN)
@@ -82,6 +83,7 @@ internal val PdfTool.title: Int
         PdfTool.DELETE_PAGES -> R.string.tool_delete_pages
         PdfTool.REORGANIZE -> R.string.tool_reorganize
         PdfTool.FLATTEN -> R.string.tool_flatten
+        PdfTool.EDIT -> R.string.tool_edit
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -100,6 +102,7 @@ private val PdfTool.detail: Int
         PdfTool.DELETE_PAGES -> R.string.tool_delete_pages_detail
         PdfTool.REORGANIZE -> R.string.tool_reorganize_detail
         PdfTool.FLATTEN -> R.string.tool_flatten_detail
+        PdfTool.EDIT -> R.string.tool_edit_detail
     }
 
 private val PdfTool.icon: ImageVector
@@ -116,6 +119,7 @@ private val PdfTool.icon: ImageVector
         PdfTool.DELETE_PAGES -> Icons.Rounded.Delete
         PdfTool.REORGANIZE -> Icons.Rounded.GridView
         PdfTool.FLATTEN -> Icons.Rounded.Layers
+        PdfTool.EDIT -> Icons.Rounded.EditNote
     }
 
 @OptIn(ExperimentalMaterial3Api::class)

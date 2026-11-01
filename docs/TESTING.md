@@ -18,6 +18,12 @@ selections such as `1-3;5;7-9`, where page numbers, watermarks and signatures go
 are turned (`/Rotate`) or cropped, where a signature starts and how far it can grow, how big its
 image is, page lists written back as ranges (`2,5-7`), that deleting every page is refused, and
 where a form field's or comment's appearance goes when Flatten PDF draws it into the page. For
+Edit PDF they cover how points on a page as shown map onto the page's own coordinates for every
+turn and crop, the pen's smooth curve and ellipses as cubic curves, arrow heads, moves that stop at
+the page's edges, handles (a box's opposite corner stays put, a picture keeps its shape, text grows
+within its font sizes), the size slider, which item a touch picks (outlines by their line, the
+chosen one first), new items stepping aside from one already in the middle, and the items surviving
+being saved and restored. For
 Word and PowerPoint files they cover units and colors, telling .docx and .pptx files from old
 binary and password-protected ones, list numbers and symbol-font bullets, table column widths,
 where a paragraph breaks between pages, and how group shapes place their contents.
@@ -61,6 +67,14 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   (checked by where the PDF draws it and by rendering the pages), starts in the lower right, has a
   transparent background, is trimmed to the ink at 300 dpi, adds little to the file, and leaves the
   other pages untouched
+- edit PDF: on upright, turned and cropped pages, a filled box, a pen stroke, an arrow, text and a
+  picture each land where the preview put them, checked by where the page's content draws them
+  (paths, the image's corners, the text's position, baseline and size) and by rendering the pages
+  (each item's color where the item is); the picture keeps its transparency; a highlighter is
+  see-through and multiplies, so text under it stays dark; Hindi text matches Android's own shaping
+  and placement when rendered; a sideways photo comes out upright as JPEG; pages without items keep
+  their content stream byte for byte; Undo, Redo, drags as one change, and the items surviving a
+  trip through a Parcel as Android saves them; cancelling leaves nothing behind
 - Word and PowerPoint to PDF, with the made-up report and deck and with small files the tests
   write themselves: page sizes (A4, A5, landscape sections, 4:3 and 16:9 slides), the text, numbered
   and bulleted lists, tables split over pages with their header row repeated on each, page breaks,
@@ -73,7 +87,12 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   the field, the count, and the messages for every page and for pages that don't exist; Reorganize
   PDF's buttons naming the chosen page, a blank page added and undone, a page removed with a screen
   reader's action, and the pages and the chosen one surviving the activity being recreated; Flatten
-  PDF's line saying what it does and its message when there is nothing to flatten;
+  PDF's line saying what it does and its message when there is nothing to flatten; Edit PDF's text
+  typed in a dialog and moved with a button, a filled rectangle from the Shape menu with the line
+  saying it only covers, Undo and Redo, the text reachable and chosen by a screen reader even under
+  the rectangle, an arrow and a pen stroke (with injected touches) on page 2, all of it surviving the
+  activity being recreated, the saved PDF, and the items still there after going back from the
+  result;
   turning pages with buttons, the page-number positions and watermark colors as named radio
   buttons, a chosen position surviving the activity being recreated, the messages for pages to
   skip that can't be used, and a signature drawn on the pad (with injected touches), put on a chosen
@@ -124,6 +143,10 @@ On a phone or emulator, with the release APKs:
   the result with the original, and check that an old .doc file is refused.
 - Sign PDF in landscape and in the dark theme: the pad fills the screen, drawing feels smooth, and
   dragging the signature doesn't scroll the screen (a swipe off it does).
+- Edit PDF on a page turned sideways: add text in Hindi, a photo and a PNG with transparency, draw
+  and highlight, drag and resize with the handles, undo and redo, then check the result in another
+  PDF viewer (the highlight see-through, the text selectable). Close Usugami from the recent apps
+  while editing and reopen it: the items are still there.
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
 - Standard edition: the first OCR in each language downloads that model through Google Play services.
 - Offline edition: OCR works with the internet turned off.

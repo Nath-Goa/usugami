@@ -108,6 +108,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     val pdfAddPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) pdfVm.addPdfs(listOf(uri), replace = false)
     }
+    // Edit PDF's pictures, from the system photo picker (or the file picker where there is none).
+    val picturePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) pdfVm.addPicture(uri)
+    }
     // For Word to PDF and PowerPoint to PDF: the tool showing says which kind of file it takes.
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val kind = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }?.officeKind
@@ -294,6 +298,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                             },
                             pickMultiple = { pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
                             pickAdd = { pdfAddPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
+                            pickPicture = {
+                                launch(R.string.msg_no_file_picker) {
+                                    picturePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                }
+                            },
                         )
                     }
                 }

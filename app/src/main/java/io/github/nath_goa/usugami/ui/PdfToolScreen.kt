@@ -115,6 +115,7 @@ fun PdfToolScreen(
     pickSingle: () -> Unit,
     pickMultiple: () -> Unit,
     pickAdd: () -> Unit,
+    pickPicture: () -> Unit,
 ) {
     val inputs by vm.inputs.collectAsStateWithLifecycle()
     val pages by vm.pages.collectAsStateWithLifecycle()
@@ -126,6 +127,7 @@ fun PdfToolScreen(
     val signature by vm.signature.collectAsStateWithLifecycle()
     val document by vm.document.collectAsStateWithLifecycle()
     val convertProgress by vm.convertProgress.collectAsStateWithLifecycle()
+    val editItems by vm.editItems.collectAsStateWithLifecycle()
     // Word and PowerPoint to PDF take one document instead of PDFs.
     val officeKind = tool.officeKind
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
@@ -160,6 +162,7 @@ fun PdfToolScreen(
         PdfTool.WORD, PdfTool.POWERPOINT -> document?.kind == officeKind
         PdfTool.DELETE_PAGES -> inputs.size == 1 && deleteText.isNotBlank()
         PdfTool.REORGANIZE -> reorganized
+        PdfTool.EDIT -> inputs.size == 1 && editItems.any { it.page < inputs[0].pageCount }
     }
     val title = tool.title
     val action = when (tool) {
@@ -174,6 +177,7 @@ fun PdfToolScreen(
         PdfTool.DELETE_PAGES -> R.string.pdf_delete_pages_action
         PdfTool.REORGANIZE -> R.string.pdf_reorganize_action
         PdfTool.FLATTEN -> R.string.pdf_flatten_action
+        PdfTool.EDIT -> R.string.pdf_edit_action
     }
     Scaffold(
         topBar = {
@@ -197,6 +201,7 @@ fun PdfToolScreen(
                         PdfTool.DELETE_PAGES -> vm.runDeletePages(deleteText, fileName)
                         PdfTool.REORGANIZE -> vm.runReorganize(fileName)
                         PdfTool.FLATTEN -> vm.runFlatten(fileName)
+                        PdfTool.EDIT -> vm.runEdit(fileName)
                     }
                 },
                 enabled = ready && !importing && !processing,
@@ -301,6 +306,10 @@ fun PdfToolScreen(
                             },
                         )
                         PdfTool.FLATTEN -> FlattenOptions()
+                        PdfTool.EDIT -> EditPdfOptions(inputs[0], vm, importing, onPickPicture = { page ->
+                            vm.prepareEditPicture(page)
+                            pickPicture()
+                        })
                     }
                     FileNameField(fileName, onChange = { fileName = it })
                 }

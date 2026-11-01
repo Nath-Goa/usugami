@@ -11,6 +11,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -61,6 +62,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.withTranslation
@@ -365,10 +367,13 @@ private fun colorLabel(color: WatermarkColor): Int = when (color) {
     WatermarkColor.GREEN -> R.string.color_green
 }
 
-/** One round swatch per colour in [options], each a radio button named by [label] (a string resource). */
+/**
+ * One round swatch per colour in [options], each a radio button named by [label] (a string
+ * resource), [swatchSize] across. They wrap onto another row on a narrow screen.
+ */
 @Composable
-internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> Unit, argb: (T) -> Int, label: (T) -> Int) {
-    Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> Unit, argb: (T) -> Int, label: (T) -> Int, swatchSize: Dp = 52.dp) {
+    FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         for (color in options) {
             val chosen = color == selected
             val ring by animateColorAsState(
@@ -380,7 +385,7 @@ internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> U
             val name = stringResource(label(color))
             Box(
                 Modifier
-                    .size(52.dp)
+                    .size(swatchSize)
                     .selectable(selected = chosen, role = Role.RadioButton, onClick = { onSelect(color) })
                     .semantics { contentDescription = name }
                     .border(2.dp, ring, CircleShape)

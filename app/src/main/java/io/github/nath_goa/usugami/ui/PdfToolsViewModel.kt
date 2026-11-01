@@ -11,15 +11,20 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.EditLayout
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.InkItem
+import io.github.nath_goa.usugami.core.PageItem
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PageNumbers
 import io.github.nath_goa.usugami.core.PageSelectionException
 import io.github.nath_goa.usugami.core.PdfPageSelection
+import io.github.nath_goa.usugami.core.PictureItem
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.NothingToFlatten
+import io.github.nath_goa.usugami.data.PagePictures
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
@@ -54,13 +59,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD
  * and POWERPOINT, which turn one Word or PowerPoint file into a PDF. REORGANIZE works on one PDF and
- * can take pages from others.
+ * can take pages from others. EDIT puts text, drawings, shapes and pictures on a PDF's pages.
  */
-enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, DELETE_PAGES, REORGANIZE, FLATTEN }
+enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, DELETE_PAGES, REORGANIZE, FLATTEN, EDIT }
 
 /** The kind of file a tool converts to PDF; null for the tools that work on PDFs. */
 val PdfTool.officeKind: OfficeKind?
@@ -78,6 +84,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val engine = PdfToolsEngine(app)
     private val office = OfficeConverter(app, engine)
     private val saver = PdfSaver(app)
+    private val pictures = PagePictures(app)
+    private val history = EditHistory(handle)
     private val fileOps = Dispatchers.IO.limitedParallelism(1)
     private val restored = handle.contains(KEY_INPUTS)
 
@@ -107,6 +115,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val undoStack = ArrayDeque<List<PdfPageRef>>()
     private val _canUndo = MutableStateFlow(false)
     val canUndo = _canUndo.asStateFlow()
+
+    /** Edit PDF's items on the PDF's pages, in the order they are drawn (the last on top). */
+    val editItems: StateFlow<List<PageItem>> = history.items
+
+    /** The id of the item chosen in Edit PDF, or null. */
+    val editSelected: StateFlow<Long?> = history.selected
+    val canUndoEdit = history.canUndo
+    val canRedoEdit = history.canRedo
 
     /** The password is being tried on the first locked PDF. */
     private val _unlocking = MutableStateFlow(false)
@@ -139,19 +155,23 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     init {
         val keep = if (restored) inputs.value + locked.value else emptyList()
         val keepDocument = document.value
+        val keepPictures = history.items.value.filterIsInstance<PictureItem>().map { it.path }
         viewModelScope.launch {
             val (missing, documentMissing) = withContext(fileOps) {
                 // Leftovers from an earlier session, including PDFBox scratch files from a killed run.
                 engine.deleteAllExcept(keep)
                 office.deleteAllExcept(keepDocument)
+                pictures.deleteAllExcept(keepPictures)
                 engine.clearOutput()
                 engine.clearScratch()
                 office.clearWork()
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
                 keep.filterNot { it.file.isFile } to (keepDocument != null && !keepDocument.file.isFile)
             }
+            val picturesMissing = withContext(fileOps) { keepPictures.filterNot { File(it).isFile } }
             if (missing.isNotEmpty()) forgetInputs(missing)
             if (documentMissing) forgetDocument()
+            if (picturesMissing.isNotEmpty()) forgetPictures(picturesMissing)
         }
     }
 
@@ -573,6 +593,129 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
 
+    fun selectEditItem(id: Long?) = history.select(id)
+
+    fun newEditItemId(): Long = history.newId()
+
+    /**
+     * Puts [item] on top of the others; it is chosen, unless it is a stroke just drawn. Refused, with
+     * a message, once the PDF has as much as the saved state can keep.
+     */
+    fun addEditItem(item: PageItem): Boolean {
+        val items = history.items.value
+        val points = (item as? InkItem)?.points?.size?.div(2) ?: 0
+        if (items.size >= MAX_EDIT_ITEMS || inkPoints(items) + points > MAX_INK_POINTS) {
+            message(strings.getString(R.string.edit_full))
+            return false
+        }
+        history.change(items + item)
+        if (item !is InkItem) history.select(item.id)
+        return true
+    }
+
+    /** How many more points pen and highlighter strokes can have on this PDF. */
+    fun inkRoom(): Int = maxOf(0, MAX_INK_POINTS - inkPoints(history.items.value))
+
+    private fun inkPoints(items: List<PageItem>) = items.sumOf { (it as? InkItem)?.points?.size?.div(2) ?: 0 }
+
+    /** Says the PDF can't take more strokes. */
+    fun editFull() = message(strings.getString(R.string.edit_full))
+
+    /** Puts [item] in place of the item with its id, as one change. */
+    fun changeEditItem(item: PageItem) = history.change(replaced(item))
+
+    /** A drag or a slider starts changing an item: its steps ([stepEditItem]) are one change for Undo. */
+    fun beginEditChange() = history.begin()
+
+    fun stepEditItem(item: PageItem) = history.step(replaced(item))
+
+    fun endEditChange() = history.end()
+
+    private fun replaced(item: PageItem) = history.items.value.map { if (it.id == item.id) item else it }
+
+    fun removeEditItem(id: Long) {
+        history.change(history.items.value.filterNot { it.id == id })
+        history.select(null)
+    }
+
+    /** Takes back the latest change to the items; returns the page it was on. */
+    fun undoEdit(): Int? = history.undo()
+
+    /** Makes the change Undo took back again; returns the page it is on. */
+    fun redoEdit(): Int? = history.redo()
+
+    /**
+     * The next picture picked goes on page [page] (zero-based). Kept in the saved state, since
+     * Android may stop Usugami while the photo picker is open.
+     */
+    fun prepareEditPicture(page: Int) {
+        handle[KEY_PICTURE_PAGE] = page
+    }
+
+    /** Copies the picture at [uri] in and puts it in the middle of the page [prepareEditPicture] named. */
+    fun addPicture(uri: Uri) {
+        val input = inputs.value.singleOrNull() ?: return
+        if (_processing.value || _importing.value) return
+        val page = handle.get<Int>(KEY_PICTURE_PAGE)?.takeIf { it in 0 until input.pageCount } ?: 0
+        if (history.items.value.size >= MAX_EDIT_ITEMS) return editFull()
+        _importing.value = true
+        val generation = ++importGeneration
+        importJob = viewModelScope.launch {
+            val job = coroutineContext[Job]!!
+            fun abandoned() = generation != importGeneration
+            fun failed() { if (!abandoned()) message(strings.getString(R.string.edit_picture_failed)) }
+            try {
+                val id = history.newId()
+                val picked = withContext(fileOps) { pictures.import(uri, id) { job.ensureActive() } }
+                // Once the tool has closed, its pictures' copies are deleted with the rest.
+                if (abandoned()) return@launch
+                if (picked == null) return@launch failed()
+                val (width, height) = withContext(fileOps) { engine.shownPageSize(input, page) }
+                val picture = EditLayout.newPicture(id, page, picked.path, picked.width.toFloat() / picked.height, picked.orientation, picked.jpeg, width, height)
+                addEditItem(EditLayout.clearOf(picture, history.items.value, width, height))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                failed()
+            } catch (_: OutOfMemoryError) {
+                failed()
+            } finally {
+                if (!abandoned()) _importing.value = false
+            }
+        }
+    }
+
+    /** The size of each page of [input] as shown, in points; null if the PDF can't be read. */
+    suspend fun shownPageSizes(input: PdfInput): List<Pair<Float, Float>>? = withContext(Dispatchers.IO) {
+        try {
+            engine.shownPageSizes(input)
+        } catch (_: Exception) {
+            null
+        } catch (_: OutOfMemoryError) {
+            null
+        }
+    }
+
+    /** Saves the PDF with Edit PDF's items drawn on its pages. */
+    fun runEdit(fileName: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        val items = history.items.value.filter { it.page in 0 until input.pageCount }
+        if (items.isEmpty() || _processing.value || _importing.value) return
+        val paths = items.filterIsInstance<PictureItem>().map { it.path }
+        viewModelScope.launch {
+            val missing = withContext(fileOps) { paths.filterNot { File(it).isFile } }
+            if (missing.isNotEmpty()) return@launch forgetPictures(missing)
+            process(listOf(input)) { check -> listOf(engine.editPages(input, items, fileName, check)) }
+        }
+    }
+
+    /** Drops pictures whose copies the system has cleared from the cache, and says so. */
+    private fun forgetPictures(paths: List<String>) {
+        val gone = paths.toSet()
+        history.change(history.items.value.filterNot { it is PictureItem && it.path in gone })
+        pluralMessage(R.plurals.msg_files_cleared, gone.size)
+    }
+
     fun setSignature(signature: Signature) {
         if (!signature.isEmpty) handle[KEY_SIGNATURE] = signature
     }
@@ -680,12 +823,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setLocked(emptyList())
         handle[KEY_DOCUMENT] = null
         handle[KEY_INSERT_AFTER] = null
+        handle[KEY_PICTURE_PAGE] = null
         clearUndo()
+        history.clear()
         // Every copy goes, including one still being imported or waiting for its password. File work
         // runs one task at a time, so this waits for a cancelled import or run to stop first.
         viewModelScope.launch(fileOps) {
             engine.deleteAllExcept(emptyList())
             office.deleteAllExcept(null)
+            pictures.deleteAllExcept(emptyList())
             engine.clearOutput()
             office.clearWork()
         }
@@ -700,9 +846,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         handle[KEY_DOCUMENT] = null
         handle[KEY_INSERT_AFTER] = null
         clearUndo()
+        // What was added belongs to the PDF's pages.
+        val hadItems = history.items.value.isNotEmpty()
+        history.clear()
         _wrongPassword.value = false
         old.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
         oldDocument?.let { viewModelScope.launch(fileOps) { office.delete(it) } }
+        if (hadItems) viewModelScope.launch(fileOps) { pictures.deleteAllExcept(emptyList()) }
     }
 
     val canSaveToDownloads get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
@@ -787,6 +937,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.DELETE_PAGES -> "${base}_pages_deleted"
             PdfTool.REORGANIZE -> "${base}_reorganized"
             PdfTool.FLATTEN -> "${base}_flattened"
+            PdfTool.EDIT -> "${base}_edited"
         }
     }
 
@@ -811,6 +962,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         Thread {
             old.forEach(engine::delete)
             oldDocument?.let(office::delete)
+            pictures.deleteAllExcept(emptyList())
         }.start()
     }
 
@@ -821,8 +973,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_SIGNATURE = "signature"
         const val KEY_DOCUMENT = "document"
         const val KEY_INSERT_AFTER = "insert_after"
+        const val KEY_PICTURE_PAGE = "edit_picture_page"
 
         /** Changes Undo can take back, one after another. */
         const val MAX_UNDO = 50
+
+        /**
+         * Edit PDF's items are kept in the saved state, which must stay well under the size Android
+         * allows it: at most this many items, with at most this many points in their strokes.
+         */
+        const val MAX_EDIT_ITEMS = 300
+        const val MAX_INK_POINTS = 20_000
     }
 }

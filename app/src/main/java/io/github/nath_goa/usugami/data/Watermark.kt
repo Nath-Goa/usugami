@@ -47,9 +47,8 @@ object WatermarkText {
     /** Where [paint] puts ink when it draws [text] at the origin: the stamp is just this big. */
     fun inkBounds(text: String, paint: Paint): Rect = Rect().also { paint.getTextBounds(text, 0, text.length, it) }
 
-    /** Whether a font on this phone has every character of [text] that needs drawing. */
-    fun canDraw(text: String): Boolean {
-        val paint = paint(0xFF000000.toInt())
+    /** Whether a font on this phone has every character of [text] that needs drawing with [paint]. */
+    fun canDraw(text: String, paint: Paint = paint(0xFF000000.toInt())): Boolean {
         var i = 0
         while (i < text.length) {
             val cp = text.codePointAt(i)

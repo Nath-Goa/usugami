@@ -1,7 +1,7 @@
 # Usugami
 
 **Turn photos, Word documents and PowerPoint slides into PDFs, and split, merge, reorganize, rotate,
-number, watermark, sign, compress and flatten PDFs, right on your Android phone. No ads, no
+edit, number, watermark, sign, compress and flatten PDFs, right on your Android phone. No ads, no
 tracking, no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
@@ -199,6 +199,22 @@ old "PDFer".
   page with the watermark.
 - Works in any language your phone has fonts for, accents and Hindi included. The watermark is
   real text, not a picture.
+
+**Edit PDF**
+
+- Add **text**, **drawings** with your finger, **highlights**, **shapes** (rectangles, filled or
+  not, ellipses, lines and arrows) and **pictures** from your phone on top of any page.
+- Each goes in the middle of the page, ready to drag into place, resize with its handles or the
+  size slider, or move a step at a time with arrow buttons. Six colors, and a thickness for lines.
+- Tap something you added to change or delete it. **Undo** and **Redo** take back or redo one
+  change at a time.
+- Everything lands exactly where the preview shows it, also on pages turned sideways or cropped.
+  Text stays real, searchable text in any language your phone has fonts for, Hindi included;
+  drawings and shapes stay sharp at any zoom; photos are compressed. Pages you don't change are left
+  exactly as they were.
+- It adds to the page; it doesn't change the text already there. A filled box only hides what's
+  under it: see *Can Edit PDF change or remove the text already in a PDF?* under
+  [Questions and troubleshooting](#questions-and-troubleshooting).
 
 **Sign PDF**
 
@@ -440,6 +456,16 @@ original, but not always identical:
 </details>
 
 <details>
+<summary><b>Can Edit PDF change or remove the text already in a PDF?</b></summary>
+
+No. Edit PDF adds text, drawings, shapes and pictures on top of the page; the PDF's own text stays
+as it was. You can cover something with a filled rectangle (white, say) and write over it, but the
+covered text is still in the file: anyone can select, copy or search it, or remove the rectangle in
+another app. To remove text or pictures for good, use Redact PDF instead.
+
+</details>
+
+<details>
 <summary><b>Where are my PDFs saved?</b></summary>
 
 Nowhere until you choose. When a PDF is ready you can:
@@ -542,7 +568,8 @@ app/                  Android app (Kotlin, Jetpack Compose, Material 3)
   src/androidTest/    device tests
 core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, page layout,
                       JPEG/PNG handling, metadata removal, compression sizing, page ranges,
-                      and the Word and PowerPoint helpers (units, colors, list numbers)
+                      where stamps, signatures and Edit PDF's additions go on a page, and the
+                      Word and PowerPoint helpers (units, colors, list numbers)
 tools/                validate_pdfs.py (checks output with independent PDF tools),
                       make_ocr_font.py (builds the OCR font), make_office_fixtures.py (the
                       made-up Word and PowerPoint test files), google_notices.py
