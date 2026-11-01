@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Draw
@@ -69,6 +71,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -182,9 +185,12 @@ private fun SignatureDrawing(signature: Signature, modifier: Modifier) {
     }
 }
 
-/** The pages in a row, each a radio button named after its number. */
+/**
+ * The pages in a row, each a radio button named after its number. Pages in [marked] have a dot
+ * under their number, and a screen reader says [markedLabel] for them.
+ */
 @Composable
-private fun PageStrip(input: PdfInput, selected: Int, onSelect: (Int) -> Unit) {
+internal fun PageStrip(input: PdfInput, selected: Int, onSelect: (Int) -> Unit, marked: Set<Int> = emptySet(), markedLabel: String? = null) {
     val state = rememberLazyListState(initialFirstVisibleItemIndex = maxOf(0, selected - 1))
     LazyRow(state = state, modifier = Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(input.pageCount) { index ->
@@ -196,24 +202,30 @@ private fun PageStrip(input: PdfInput, selected: Int, onSelect: (Int) -> Unit) {
                 label = "page border color",
             )
             val label = stringResource(R.string.pdf_page_number, index + 1)
+            val isMarked = index in marked
             OutlinedCard(
                 border = BorderStroke(borderWidth, borderColor),
                 modifier = Modifier
                     .width(72.dp)
                     .clip(CardDefaults.outlinedShape)
                     .selectable(selected = active, role = Role.RadioButton, onClick = { onSelect(index) })
-                    .semantics { contentDescription = label },
+                    .semantics {
+                        contentDescription = label
+                        if (isMarked && markedLabel != null) stateDescription = markedLabel
+                    },
             ) {
                 PdfThumbnail(input, index, Modifier.fillMaxWidth().height(92.dp))
-                Text(
-                    "${index + 1}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(4.dp)
-                        .clearAndSetSemantics {},
-                )
+                Row(Modifier.align(Alignment.CenterHorizontally).padding(4.dp).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "${index + 1}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    )
+                    if (isMarked) {
+                        Spacer(Modifier.width(4.dp))
+                        Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.primary, CircleShape))
+                    }
+                }
             }
         }
     }

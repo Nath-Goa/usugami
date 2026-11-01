@@ -14,6 +14,7 @@
     <string name="tool_compress_detail">Réduire les images, garder le texte net</string>
     <string name="home_section_create">Créer un PDF</string>
     <string name="home_section_edit">Modifier un PDF</string>
+    <string name="home_section_optimize">Optimiser et protéger</string>
     <string name="tool_rotate">Faire pivoter un PDF</string>
     <string name="tool_rotate_detail">Remettre les pages dans le bon sens</string>
     <string name="tool_page_numbers">Numéroter les pages</string>
@@ -22,6 +23,8 @@
     <string name="tool_watermark_detail">Un texte en travers de chaque page</string>
     <string name="tool_sign">Signer un PDF</string>
     <string name="tool_sign_detail">Dessiner votre signature et la placer</string>
+    <string name="tool_redact">Caviarder un PDF</string>
+    <string name="tool_redact_detail">Noircir du texte et des images pour de bon</string>
     <string name="pick_pdf">Choisir un PDF</string>
     <string name="add_pdfs">Ajouter des PDF</string>
     <string name="replace_pdf">Choisir un autre PDF</string>
@@ -138,6 +141,50 @@
     <string name="sign_move_up">Déplacer la signature vers le haut</string>
     <string name="sign_move_down">Déplacer la signature vers le bas</string>
     <string name="sign_move_right">Déplacer la signature vers la droite</string>
+    <string name="pdf_redact_action">Caviarder le PDF</string>
+    <string name="redact_note">Les pages caviardées sont enregistrées comme des images : leur texte ne peut plus être sélectionné.</string>
+    <string name="redact_find">Rechercher du texte</string>
+    <string name="redact_find_hint">Chaque occurrence, sur chaque page, reçoit un cadre que vous pourrez vérifier.</string>
+    <string name="redact_find_action">Rechercher</string>
+    <string name="redact_find_none">Aucun résultat. Le texte des numérisations et des images ne peut pas être recherché : dessinez plutôt des cadres dessus.</string>
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Trop d\'occurrences : Usugami garde jusqu\'à %1$d cadres. Essayez une expression plus longue.</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami garde jusqu\'à %1$d cadres.</string>
+    <string name="redact_find_failed">Impossible de rechercher dans ce PDF.</string>
+    <plurals name="redact_found">
+        <item quantity="one">%1$d occurrence trouvée et encadrée. Vérifiez-la avant d\'enregistrer.</item>
+        <item quantity="many">%1$d occurrences trouvées et encadrées. Vérifiez-les avant d\'enregistrer.</item>
+        <item quantity="other">%1$d occurrences trouvées et encadrées. Vérifiez-les avant d\'enregistrer.</item>
+    </plurals>
+    <string name="redact_page">Page</string>
+    <string name="redact_page_marked">Contient des cadres</string>
+    <string name="redact_mark">Indiquez ce qu\'il faut masquer</string>
+    <string name="redact_mark_hint">Faites glisser le doigt sur la page pour dessiner un cadre. Touchez un cadre pour le modifier.</string>
+    <plurals name="redact_preview_description">
+        <item quantity="one">Page %1$d, %2$d cadre</item>
+        <item quantity="many">Page %1$d, %2$d cadres</item>
+        <item quantity="other">Page %1$d, %2$d cadres</item>
+    </plurals>
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Cadre %1$d sur %2$d choisi</string>
+    <string name="redact_next_box">Choisir le cadre suivant</string>
+    <string name="redact_add_box">Ajouter un cadre</string>
+    <string name="redact_remove_all">Tout supprimer</string>
+    <string name="redact_remove_all_title">Supprimer tous les cadres ?</string>
+    <plurals name="redact_remove_all_body" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Le cadre sera supprimé.</item>
+        <item quantity="many">Les %1$d cadres seront supprimés, sur toutes les pages.</item>
+        <item quantity="other">Les %1$d cadres seront supprimés, sur toutes les pages.</item>
+    </plurals>
+    <string name="redact_move_left">Déplacer le cadre vers la gauche</string>
+    <string name="redact_move_up">Déplacer le cadre vers le haut</string>
+    <string name="redact_move_down">Déplacer le cadre vers le bas</string>
+    <string name="redact_move_right">Déplacer le cadre vers la droite</string>
+    <string name="redact_width">Largeur</string>
+    <string name="redact_height">Hauteur</string>
+    <string name="redact_narrower">Rendre le cadre plus étroit</string>
+    <string name="redact_wider">Rendre le cadre plus large</string>
+    <string name="redact_shorter">Rendre le cadre moins haut</string>
+    <string name="redact_taller">Rendre le cadre plus haut</string>
+    <string name="redact_delete_box">Supprimer le cadre</string>
     <string name="tool_word">Word en PDF</string>
     <string name="tool_word_detail">Documents (.docx), convertis sur ce téléphone</string>
     <string name="tool_powerpoint">PowerPoint en PDF</string>

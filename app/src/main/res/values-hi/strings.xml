@@ -14,6 +14,7 @@
     <string name="tool_compress_detail">इमेज छोटी करें, टेक्स्ट साफ़ रखें</string>
     <string name="home_section_create">PDF बनाएं</string>
     <string name="home_section_edit">PDF एडिट करें</string>
+    <string name="home_section_optimize">ऑप्टिमाइज़ और सुरक्षित करें</string>
     <string name="tool_rotate">PDF घुमाएं</string>
     <string name="tool_rotate_detail">पेजों को सही दिशा में घुमाएं</string>
     <string name="tool_page_numbers">पेज नंबर जोड़ें</string>
@@ -22,6 +23,8 @@
     <string name="tool_watermark_detail">हर पेज पर तिरछा टेक्स्ट लगाएं</string>
     <string name="tool_sign">PDF पर साइन करें</string>
     <string name="tool_sign_detail">अपना हस्ताक्षर बनाएं और पेज पर लगाएं</string>
+    <string name="tool_redact">PDF रिडैक्ट करें</string>
+    <string name="tool_redact_detail">टेक्स्ट और तस्वीरें हमेशा के लिए काली करें</string>
     <string name="pick_pdf">PDF चुनें</string>
     <string name="add_pdfs">PDF जोड़ें</string>
     <string name="replace_pdf">दूसरी PDF चुनें</string>
@@ -137,6 +140,47 @@
     <string name="sign_move_up">हस्ताक्षर ऊपर ले जाएं</string>
     <string name="sign_move_down">हस्ताक्षर नीचे ले जाएं</string>
     <string name="sign_move_right">हस्ताक्षर दाईं ओर ले जाएं</string>
+    <string name="pdf_redact_action">PDF रिडैक्ट करें</string>
+    <string name="redact_note">रिडैक्ट किए गए पेज तस्वीर के रूप में सेव होते हैं, इसलिए उनका टेक्स्ट अब चुना नहीं जा सकता।</string>
+    <string name="redact_find">टेक्स्ट खोजें</string>
+    <string name="redact_find_hint">हर पेज पर मिले हर नतीजे पर एक बॉक्स लग जाएगा, जिसे आप जांच सकते हैं।</string>
+    <string name="redact_find_action">खोजें</string>
+    <string name="redact_find_none">कुछ नहीं मिला। स्कैन और तस्वीरों का टेक्स्ट खोजा नहीं जा सकता, उसके ऊपर खुद बॉक्स बनाएं।</string>
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">बहुत ज़्यादा नतीजे: Usugami ज़्यादा से ज़्यादा %1$d बॉक्स रखता है। कोई लंबा वाक्यांश खोजकर देखें।</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami ज़्यादा से ज़्यादा %1$d बॉक्स रखता है।</string>
+    <string name="redact_find_failed">इस PDF में खोजा नहीं जा सका।</string>
+    <plurals name="redact_found">
+        <item quantity="one">%1$d नतीजा मिला और उस पर बॉक्स लगा दिया गया। सेव करने से पहले जांच लें।</item>
+        <item quantity="other">%1$d नतीजे मिले और उन पर बॉक्स लगा दिए गए। सेव करने से पहले जांच लें।</item>
+    </plurals>
+    <string name="redact_page">पेज</string>
+    <string name="redact_page_marked">इस पर बॉक्स हैं</string>
+    <string name="redact_mark">जो छिपाना है, उस पर बॉक्स बनाएं</string>
+    <string name="redact_mark_hint">बॉक्स बनाने के लिए पेज पर उंगली खींचें। किसी बॉक्स को बदलने के लिए उस पर टैप करें।</string>
+    <plurals name="redact_preview_description">
+        <item quantity="one">पेज %1$d, %2$d बॉक्स</item>
+        <item quantity="other">पेज %1$d, %2$d बॉक्स</item>
+    </plurals>
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">%2$d में से बॉक्स %1$d चुना गया</string>
+    <string name="redact_next_box">अगला बॉक्स चुनें</string>
+    <string name="redact_add_box">बॉक्स जोड़ें</string>
+    <string name="redact_remove_all">सब हटाएं</string>
+    <string name="redact_remove_all_title">सारे बॉक्स हटाएं?</string>
+    <plurals name="redact_remove_all_body" tools:ignore="ImpliedQuantity">
+        <item quantity="one">बॉक्स हटा दिया जाएगा।</item>
+        <item quantity="other">सभी पेजों से सारे %1$d बॉक्स हटा दिए जाएंगे।</item>
+    </plurals>
+    <string name="redact_move_left">बॉक्स बाईं ओर ले जाएं</string>
+    <string name="redact_move_up">बॉक्स ऊपर ले जाएं</string>
+    <string name="redact_move_down">बॉक्स नीचे ले जाएं</string>
+    <string name="redact_move_right">बॉक्स दाईं ओर ले जाएं</string>
+    <string name="redact_width">चौड़ाई</string>
+    <string name="redact_height">ऊंचाई</string>
+    <string name="redact_narrower">बॉक्स पतला करें</string>
+    <string name="redact_wider">बॉक्स चौड़ा करें</string>
+    <string name="redact_shorter">बॉक्स की ऊंचाई घटाएं</string>
+    <string name="redact_taller">बॉक्स की ऊंचाई बढ़ाएं</string>
+    <string name="redact_delete_box">बॉक्स हटाएं</string>
     <string name="tool_word">Word से PDF</string>
     <string name="tool_word_detail">डॉक्यूमेंट (.docx) इसी फ़ोन पर PDF में बदलें</string>
     <string name="tool_powerpoint">PowerPoint से PDF</string>

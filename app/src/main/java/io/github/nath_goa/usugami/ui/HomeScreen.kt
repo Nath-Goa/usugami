@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,7 +57,10 @@ import io.github.nath_goa.usugami.R
 private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB)
 
 /** The tools under "Edit PDF" on Home, in order. */
-private val EditTools = listOf(PdfTool.SPLIT, PdfTool.MERGE, PdfTool.COMPRESS, PdfTool.ROTATE, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.SIGN)
+private val EditTools = listOf(PdfTool.SPLIT, PdfTool.MERGE, PdfTool.ROTATE, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.SIGN)
+
+/** The tools under "Optimize and protect" on Home, in order. */
+private val OptimizeTools = listOf(PdfTool.COMPRESS, PdfTool.REDACT)
 
 /** A tool's name: on its card on Home and at the top of its screen. */
 @get:StringRes
@@ -72,6 +76,7 @@ internal val PdfTool.title: Int
         PdfTool.WORD -> R.string.tool_word
         PdfTool.POWERPOINT -> R.string.tool_powerpoint
         PdfTool.EPUB -> R.string.tool_epub
+        PdfTool.REDACT -> R.string.tool_redact
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -88,6 +93,7 @@ private val PdfTool.detail: Int
         PdfTool.WORD -> R.string.tool_word_detail
         PdfTool.POWERPOINT -> R.string.tool_powerpoint_detail
         PdfTool.EPUB -> R.string.tool_epub_detail
+        PdfTool.REDACT -> R.string.tool_redact_detail
     }
 
 private val PdfTool.icon: ImageVector
@@ -102,6 +108,7 @@ private val PdfTool.icon: ImageVector
         PdfTool.WORD -> Icons.Rounded.Description
         PdfTool.POWERPOINT -> Icons.Rounded.Slideshow
         PdfTool.EPUB -> Icons.Rounded.AutoStories
+        PdfTool.REDACT -> Icons.Rounded.VisibilityOff
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,6 +139,9 @@ fun HomeScreen(snackbar: SnackbarHostState, onImages: () -> Unit, onTool: (PdfTo
             }
             ToolSection(R.string.home_section_edit) {
                 for (tool in EditTools) ToolCard(tool.icon, tool.title, tool.detail) { onTool(tool) }
+            }
+            ToolSection(R.string.home_section_optimize) {
+                for (tool in OptimizeTools) ToolCard(tool.icon, tool.title, tool.detail) { onTool(tool) }
             }
         }
     }

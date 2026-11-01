@@ -16,6 +16,7 @@
     <string name="tool_compress_detail">Shrink images, keep text sharp</string>
     <string name="home_section_create">Create PDF</string>
     <string name="home_section_edit">Edit PDF</string>
+    <string name="home_section_optimize">Optimize and protect</string>
     <string name="tool_rotate">Rotate PDF</string>
     <string name="tool_rotate_detail">Turn pages the right way up</string>
     <string name="tool_page_numbers">Add page numbers</string>
@@ -24,6 +25,8 @@
     <string name="tool_watermark_detail">Stamp text across every page</string>
     <string name="tool_sign">Sign PDF</string>
     <string name="tool_sign_detail">Draw your signature and place it</string>
+    <string name="tool_redact">Redact PDF</string>
+    <string name="tool_redact_detail">Black out text and pictures for good</string>
     <string name="pick_pdf">Choose PDF</string>
     <string name="add_pdfs">Add PDFs</string>
     <string name="replace_pdf">Choose another PDF</string>
@@ -141,6 +144,52 @@
     <string name="sign_move_up">Move signature up</string>
     <string name="sign_move_down">Move signature down</string>
     <string name="sign_move_right">Move signature right</string>
+    <!-- Redact PDF: what is boxed is removed for good, as the redacted pages become pictures -->
+    <string name="pdf_redact_action">Redact PDF</string>
+    <string name="redact_note">Redacted pages are saved as pictures, so their text can no longer be selected.</string>
+    <string name="redact_find">Find text</string>
+    <string name="redact_find_hint">Every match on every page gets a box for you to check.</string>
+    <string name="redact_find_action">Find</string>
+    <string name="redact_find_none">Nothing found. Text in scans and pictures can\'t be searched: draw boxes over it instead.</string>
+    <!-- %1$d is the most boxes Usugami keeps (2000). -->
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Too many matches: Usugami keeps up to %1$d boxes. Try a longer phrase.</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami keeps up to %1$d boxes.</string>
+    <string name="redact_find_failed">Couldn\'t search this PDF.</string>
+    <plurals name="redact_found">
+        <item quantity="one">Found %1$d match and boxed it. Check it before saving.</item>
+        <item quantity="other">Found %1$d matches and boxed them. Check them before saving.</item>
+    </plurals>
+    <string name="redact_page">Page</string>
+    <string name="redact_page_marked">Has boxes</string>
+    <string name="redact_mark">Mark what to hide</string>
+    <string name="redact_mark_hint">Drag on the page to draw a box. Tap a box to change it.</string>
+    <!-- %1$d is a page number, %2$d the number of boxes on it. -->
+    <plurals name="redact_preview_description">
+        <item quantity="one">Page %1$d, %2$d box</item>
+        <item quantity="other">Page %1$d, %2$d boxes</item>
+    </plurals>
+    <!-- %1$d is the box's number, %2$d how many boxes the page has. -->
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Box %1$d of %2$d chosen</string>
+    <string name="redact_next_box">Choose next box</string>
+    <string name="redact_add_box">Add box</string>
+    <string name="redact_remove_all">Remove all</string>
+    <string name="redact_remove_all_title">Remove all boxes?</string>
+    <!-- Counts boxes, so never 0: the question is only asked when there are some. In French and Hindi "one" may leave the number out. -->
+    <plurals name="redact_remove_all_body">
+        <item quantity="one">The box will be removed.</item>
+        <item quantity="other">All %1$d boxes will be removed, on every page.</item>
+    </plurals>
+    <string name="redact_move_left">Move box left</string>
+    <string name="redact_move_up">Move box up</string>
+    <string name="redact_move_down">Move box down</string>
+    <string name="redact_move_right">Move box right</string>
+    <string name="redact_width">Width</string>
+    <string name="redact_height">Height</string>
+    <string name="redact_narrower">Make box narrower</string>
+    <string name="redact_wider">Make box wider</string>
+    <string name="redact_shorter">Make box shorter</string>
+    <string name="redact_taller">Make box taller</string>
+    <string name="redact_delete_box">Delete box</string>
     <!-- Word and PowerPoint to PDF. Word and PowerPoint are the names of Microsoft's apps, kept as they are;
          .docx, .pptx, .doc and .ppt are file extensions. -->
     <string name="tool_word">Word to PDF</string>

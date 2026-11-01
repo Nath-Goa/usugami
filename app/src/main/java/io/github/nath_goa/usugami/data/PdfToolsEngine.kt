@@ -10,6 +10,7 @@ import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PageNumbers
+import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.core.WatermarkLayout
@@ -61,7 +62,7 @@ class PdfWrongPassword : IOException("Wrong password")
 class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encrypted PDFs aren't supported", cause)
 
 /**
- * Split, merge, compress, rotate, page numbers, watermarks and signatures. Input copies, results and PDFBox's scratch files all live in the cache,
+ * Split, merge, compress, rotate, page numbers, watermarks, signatures and redaction. Input copies, results and PDFBox's scratch files all live in the cache,
  * so the system can reclaim them (and "Clear cache" removes them); callers must cope with a file
  * that has gone.
  */
@@ -82,7 +83,10 @@ class PdfToolsEngine(private val context: Context) {
     /** Scratch files are deleted when PDFBox closes a document, but not when the app is killed mid-run. */
     fun clearScratch() { scratchDir.deleteRecursively() }
 
-    fun delete(input: PdfInput) { input.file.delete() }
+    fun delete(input: PdfInput) {
+        input.file.delete()
+        viewFile(input).delete()
+    }
 
     fun deleteAllExcept(keep: Collection<PdfInput>) {
         val names = keep.mapTo(HashSet()) { it.file.name }
@@ -97,6 +101,8 @@ class PdfToolsEngine(private val context: Context) {
         inputDir.mkdirs()
         val file = File(inputDir, "$id.pdf")
         val inputInfo = PdfInput(id, file.path, displayName(uri) ?: "Document.pdf", 0, password)
+        // A view made for an earlier copy with this number would show the wrong PDF.
+        viewFile(inputInfo).delete()
         try {
             val input = context.contentResolver.openInputStream(uri) ?: throw IOException("Could not open PDF")
             input.use { source ->
@@ -354,6 +360,51 @@ class PdfToolsEngine(private val context: Context) {
             content.transform(frame.toMatrix())
             content.drawImage(image, area.x, area.y, area.width, area.height)
         }
+    }
+
+    /** Where Redact PDF keeps [input]'s view (see [redactionView]), beside the copy. */
+    private fun viewFile(input: PdfInput) = File(inputDir, "${input.id}-view.pdf")
+
+    /**
+     * The PDF Redact PDF shows, searches and draws its pictures from: [input] itself, or, when it
+     * has a password or annotations, a copy without the password in which each visible annotation is
+     * drawn into its page, as viewers show it (Android's renderer leaves annotations out). Made once
+     * and kept beside the copy until the PDF is put away.
+     */
+    fun redactionView(input: PdfInput, check: () -> Unit = {}): PdfInput {
+        val file = viewFile(input)
+        if (file.isFile) return input.copy(path = file.path, password = "")
+        load(input.file, input.password).use { doc ->
+            val drawn = Redactor.drawAnnotationsIntoPages(doc, check)
+            if (!drawn && input.password.isEmpty()) return input
+            check()
+            doc.isAllSecurityToBeRemoved = true
+            // Written whole before it takes the view's name, so a run cut short leaves no half view.
+            val partial = File(inputDir, "${input.id}-view.tmp")
+            try {
+                doc.save(partial)
+                if (!partial.renameTo(file)) throw IOException("Couldn't keep the view")
+            } finally {
+                partial.delete()
+            }
+        }
+        return input.copy(path = file.path, password = "")
+    }
+
+    /** Every place [query] is found in [input]'s text, as boxes over each line of it (see [Redactor.find]). */
+    fun findText(input: PdfInput, query: String, check: () -> Unit = {}): List<List<RedactBox>> {
+        val view = redactionView(input, check)
+        return load(view.file, view.password).use { doc -> Redactor.find(doc, query, check) }
+    }
+
+    /**
+     * Redacts [input]: each page with [boxes] becomes a picture of itself with the boxes solid
+     * black, and what else could leak the hidden content is removed (see [Redactor]).
+     */
+    fun redact(input: PdfInput, boxes: List<RedactBox>, fileName: String, check: () -> Unit = {}): PdfFile {
+        require(boxes.isNotEmpty())
+        val view = redactionView(input, check)
+        return edit(input, fileName, "Redacted", check) { doc -> Redactor.redact(doc, view.file, boxes, check) }
     }
 
     /**

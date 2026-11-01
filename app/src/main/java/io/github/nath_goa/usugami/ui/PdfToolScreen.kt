@@ -127,6 +127,8 @@ fun PdfToolScreen(
     val signature by vm.signature.collectAsStateWithLifecycle()
     val document by vm.document.collectAsStateWithLifecycle()
     val convertProgress by vm.convertProgress.collectAsStateWithLifecycle()
+    val redactBoxes by vm.redactBoxes.collectAsStateWithLifecycle()
+    val finding by vm.finding.collectAsStateWithLifecycle()
     // Word, PowerPoint and EPUB to PDF take one document instead of PDFs.
     val officeKind = tool.officeKind
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
@@ -154,6 +156,7 @@ fun PdfToolScreen(
         PdfTool.WATERMARK -> inputs.size == 1 && watermarkText.isNotBlank()
         PdfTool.SIGN -> inputs.size == 1 && signature != null
         PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> document?.kind == officeKind
+        PdfTool.REDACT -> inputs.size == 1 && redactBoxes.isNotEmpty() && !finding
     }
     val title = tool.title
     val action = when (tool) {
@@ -165,6 +168,7 @@ fun PdfToolScreen(
         PdfTool.WATERMARK -> R.string.pdf_watermark_action
         PdfTool.SIGN -> R.string.pdf_sign_action
         PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> R.string.convert
+        PdfTool.REDACT -> R.string.pdf_redact_action
     }
     Scaffold(
         topBar = {
@@ -186,6 +190,7 @@ fun PdfToolScreen(
                         PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
                         PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvert(fileName)
                         PdfTool.EPUB -> vm.runConvert(fileName, bookPage)
+                        PdfTool.REDACT -> vm.runRedact(fileName)
                     }
                 },
                 enabled = ready && !importing && !processing,
@@ -278,6 +283,7 @@ fun PdfToolScreen(
                             signPage, onPage = { signPage = it },
                             signPlacement, onPlacement = { signPlacement = it },
                         )
+                        PdfTool.REDACT -> RedactOptions(inputs[0], vm)
                         PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> Unit
                     }
                     FileNameField(fileName, onChange = { fileName = it })

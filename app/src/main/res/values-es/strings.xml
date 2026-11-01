@@ -14,6 +14,7 @@
     <string name="tool_compress_detail">Reduce las imágenes y mantén el texto nítido</string>
     <string name="home_section_create">Crear PDF</string>
     <string name="home_section_edit">Editar PDF</string>
+    <string name="home_section_optimize">Optimizar y proteger</string>
     <string name="tool_rotate">Girar PDF</string>
     <string name="tool_rotate_detail">Pon las páginas en la posición correcta</string>
     <string name="tool_page_numbers">Numerar páginas</string>
@@ -22,6 +23,8 @@
     <string name="tool_watermark_detail">Un texto en diagonal sobre cada página</string>
     <string name="tool_sign">Firmar PDF</string>
     <string name="tool_sign_detail">Dibuja tu firma y colócala</string>
+    <string name="tool_redact">Censurar PDF</string>
+    <string name="tool_redact_detail">Tapa texto e imágenes para siempre</string>
     <string name="pick_pdf">Elegir PDF</string>
     <string name="add_pdfs">Añadir PDF</string>
     <string name="replace_pdf">Elegir otro PDF</string>
@@ -138,6 +141,50 @@
     <string name="sign_move_up">Mover la firma hacia arriba</string>
     <string name="sign_move_down">Mover la firma hacia abajo</string>
     <string name="sign_move_right">Mover la firma a la derecha</string>
+    <string name="pdf_redact_action">Censurar PDF</string>
+    <string name="redact_note">Las páginas censuradas se guardan como imágenes, así que su texto ya no se puede seleccionar.</string>
+    <string name="redact_find">Buscar texto</string>
+    <string name="redact_find_hint">Cada coincidencia en cada página recibe un recuadro para que lo revises.</string>
+    <string name="redact_find_action">Buscar</string>
+    <string name="redact_find_none">No se encontró nada. El texto de los escaneos y las imágenes no se puede buscar: dibuja recuadros encima.</string>
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Demasiadas coincidencias: Usugami guarda hasta %1$d recuadros. Prueba con una frase más larga.</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami guarda hasta %1$d recuadros.</string>
+    <string name="redact_find_failed">No se pudo buscar en este PDF.</string>
+    <plurals name="redact_found">
+        <item quantity="one">Se encontró %1$d coincidencia y se marcó con un recuadro. Revísala antes de guardar.</item>
+        <item quantity="many">Se encontraron %1$d coincidencias y se marcaron con recuadros. Revísalas antes de guardar.</item>
+        <item quantity="other">Se encontraron %1$d coincidencias y se marcaron con recuadros. Revísalas antes de guardar.</item>
+    </plurals>
+    <string name="redact_page">Página</string>
+    <string name="redact_page_marked">Tiene recuadros</string>
+    <string name="redact_mark">Marca lo que quieres ocultar</string>
+    <string name="redact_mark_hint">Arrastra sobre la página para dibujar un recuadro. Toca un recuadro para cambiarlo.</string>
+    <plurals name="redact_preview_description">
+        <item quantity="one">Página %1$d, %2$d recuadro</item>
+        <item quantity="many">Página %1$d, %2$d recuadros</item>
+        <item quantity="other">Página %1$d, %2$d recuadros</item>
+    </plurals>
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Recuadro %1$d de %2$d elegido</string>
+    <string name="redact_next_box">Elegir el siguiente recuadro</string>
+    <string name="redact_add_box">Añadir recuadro</string>
+    <string name="redact_remove_all">Quitar todos</string>
+    <string name="redact_remove_all_title">¿Quitar todos los recuadros?</string>
+    <plurals name="redact_remove_all_body">
+        <item quantity="one">Se quitará el recuadro.</item>
+        <item quantity="many">Se quitarán los %1$d recuadros de todas las páginas.</item>
+        <item quantity="other">Se quitarán los %1$d recuadros de todas las páginas.</item>
+    </plurals>
+    <string name="redact_move_left">Mover el recuadro a la izquierda</string>
+    <string name="redact_move_up">Mover el recuadro hacia arriba</string>
+    <string name="redact_move_down">Mover el recuadro hacia abajo</string>
+    <string name="redact_move_right">Mover el recuadro a la derecha</string>
+    <string name="redact_width">Ancho</string>
+    <string name="redact_height">Alto</string>
+    <string name="redact_narrower">Hacer el recuadro más estrecho</string>
+    <string name="redact_wider">Hacer el recuadro más ancho</string>
+    <string name="redact_shorter">Hacer el recuadro más bajo</string>
+    <string name="redact_taller">Hacer el recuadro más alto</string>
+    <string name="redact_delete_box">Eliminar el recuadro</string>
     <string name="tool_word">Word a PDF</string>
     <string name="tool_word_detail">Documentos (.docx), convertidos en este teléfono</string>
     <string name="tool_powerpoint">PowerPoint a PDF</string>

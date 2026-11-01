@@ -41,6 +41,15 @@ All notable changes to Usugami are listed here. The format is based on
   sign another PDF without drawing it again. It is a picture of a handwritten signature, not a
   certified digital signature.
 
+- **Redact PDF**, under a new **Optimize and protect** section on Home with Compress PDF. Draw boxes
+  over what to hide, or let **Find text** box a word or phrase on every page (ignoring capitals and
+  accents), then move, resize or delete boxes by dragging or with buttons. It is true removal: each
+  page with a box is saved as a picture of itself at 200 dpi with the boxes painted black, so the
+  hidden text and images are gone from the file, while pages without boxes stay as they were. The
+  document's details and XMP metadata, bookmarks, accessibility tags, attachments, scripts, and the
+  comments and form fields of redacted pages are removed too. Password-protected PDFs work, and the
+  preview shows comments and filled-in form fields as other PDF viewers do.
+
 ### Changed
 
 - Home groups the tools under **Create PDF** and **Edit PDF**, with smaller cards and shorter

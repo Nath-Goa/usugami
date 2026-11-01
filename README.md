@@ -1,8 +1,8 @@
 # Usugami
 
 **Turn photos, Word documents, PowerPoint slides and EPUB e-books into PDFs, and split, merge,
-compress, rotate, number, watermark and sign PDFs, right on your Android phone. No ads, no tracking,
-no account, no uploads.**
+compress, rotate, number, watermark, sign and redact PDFs, right on your Android phone. No ads, no
+tracking, no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
 It was called PDFer before version 1.2.0.
@@ -206,9 +206,25 @@ old "PDFer".
   it again. It isn't saved anywhere else.
 - It's a picture of your handwritten signature, not a certified digital signature.
 
+**Redact PDF**
+
+- Black out names, numbers or anything else for good. Drag on a page to draw a box over it, or type
+  a word or phrase in **Find text** to box it on every page (capitals and accents don't matter).
+- Check the boxes before saving: they're see-through on the screen, and solid black in the PDF.
+  Tap a box to move, resize or delete it, also with buttons, or add one with **Add box**.
+- **True removal, not a black box on top:** each page with a box is saved as a picture of itself
+  with the boxes painted in, so what was under them is no longer in the file at all. Pages without
+  boxes stay exactly as they were.
+- Also removes what could give the hidden text away elsewhere in the file: the title, author and
+  other document details, bookmarks, accessibility tags, attached files, scripts, and the comments
+  and form fields of the redacted pages.
+- Redacted pages are pictures at 200 dpi, sharp enough for small print, so their text can't be
+  selected or searched any more. See *How does Redact PDF work?* under
+  [Questions and troubleshooting](#questions-and-troubleshooting).
+
 **Everywhere**
 
-- Home groups the tools under **Create PDF** and **Edit PDF**.
+- Home groups the tools under **Create PDF**, **Edit PDF** and **Optimize and protect**.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
@@ -442,6 +458,29 @@ Usugami reads the book itself and lays its pages out again, as an e-reader does:
   Kindle files (.mobi, .azw) aren't EPUB books.
 - The text in the PDF is real text you can search and copy. In Hindi and other scripts with joined
   letters, copied text can come out jumbled, even though it looks right on the page.
+
+</details>
+
+<details>
+<summary><b>How does Redact PDF work?</b></summary>
+
+Covering text with a black shape isn't enough: the text is still in the PDF underneath, and anyone
+can copy it out. So Usugami saves each page that has a box as a picture of the page, with the boxes
+painted solid black into the picture. What was under a box is gone from the file, and so is the
+text of the rest of that page (it is still there to read, as a picture).
+
+- **Pages without boxes** stay as they were, with their text, links and form fields.
+- **Pages with boxes** become pictures at 200 dpi. Their text can't be selected, searched or read
+  aloud any more, links on them stop working, and their comments and form fields become part of
+  the picture. The PDF usually gets bigger: each redacted page takes a few hundred KB.
+- **Also removed:** the document's title, author and other details (and its XMP metadata),
+  bookmarks, accessibility tags, attached files, JavaScript, application data some apps hide in
+  PDFs, form fields that were only on redacted pages, and images that only redacted pages showed.
+- **Find text** finds text the PDF stores as text. It can't find words in scans or photos (draw
+  boxes over those yourself), and it may miss text in PDFs whose text doesn't copy out correctly,
+  such as some PDFs in Hindi and other scripts with joined letters. Always look through the pages
+  before you save.
+- A digital (certificate) signature in the PDF no longer matches once anything is redacted.
 
 </details>
 

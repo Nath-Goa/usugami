@@ -18,6 +18,8 @@ import io.github.nath_goa.usugami.core.PageNumbers
 import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.core.PageSelectionException
 import io.github.nath_goa.usugami.core.PdfPageSelection
+import io.github.nath_goa.usugami.core.RedactBox
+import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
@@ -60,7 +62,7 @@ import kotlinx.coroutines.withContext
  * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD,
  * POWERPOINT and EPUB, which turn one Word, PowerPoint or EPUB file into a PDF.
  */
-enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB }
+enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB, REDACT }
 
 /** The kind of file a tool converts to PDF; null for the tools that work on PDFs. */
 val PdfTool.officeKind: OfficeKind?
@@ -96,6 +98,23 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** The Word, PowerPoint or EPUB file picked for Word, PowerPoint or EPUB to PDF. */
     val document: StateFlow<OfficeInput?> = handle.getStateFlow(KEY_DOCUMENT, null)
 
+    /**
+     * Redact PDF's boxes, on the pages as shown (see [RedactBox]), the page showing and the box
+     * chosen (an index into the boxes, or -1). They survive process death in the saved state.
+     */
+    private val _redactBoxes = MutableStateFlow(Redaction.unpack(handle[KEY_REDACT_BOXES] ?: FloatArray(0)))
+    val redactBoxes = _redactBoxes.asStateFlow()
+    val redactPage: StateFlow<Int> = handle.getStateFlow(KEY_REDACT_PAGE, 0)
+    val redactSelected: StateFlow<Int> = handle.getStateFlow(KEY_REDACT_SELECTED, -1)
+
+    /** The PDF Redact PDF draws its preview from (see [PdfToolsEngine.redactionView]); null until it is ready. */
+    private val _redactView = MutableStateFlow<PdfInput?>(null)
+    val redactView = _redactView.asStateFlow()
+
+    /** Find text is looking through the PDF. */
+    private val _finding = MutableStateFlow(false)
+    val finding = _finding.asStateFlow()
+
     /** How far converting [document] has got, while it is being converted. */
     private val _convertProgress = MutableStateFlow<OfficeProgress?>(null)
     val convertProgress = _convertProgress.asStateFlow()
@@ -125,6 +144,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var nextId = maxOf(System.currentTimeMillis(), ((inputs.value + locked.value).maxOfOrNull { it.id } ?: 0) + 1)
     private var task: Job? = null
     private var importJob: Job? = null
+    private var viewJob: Job? = null
+    private var findJob: Job? = null
     /** Changes when an import starts or is abandoned, so an abandoned one knows to stay quiet. */
     private var importGeneration = 0
 
@@ -308,6 +329,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** Drops PDFs whose copies the system has cleared from the cache, and says so. */
     private fun forgetInputs(missing: List<PdfInput>) {
         val ids = missing.mapTo(HashSet()) { it.id }
+        if (inputs.value.any { it.id in ids }) clearRedaction()
         setInputs(inputs.value.filterNot { it.id in ids })
         setPages(pages.value.filterNot { it.inputId in ids })
         setLocked(locked.value.filterNot { it.id in ids })
@@ -316,6 +338,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun removeInput(id: Long) {
         val input = inputs.value.firstOrNull { it.id == id } ?: return
+        clearRedaction()
         setInputs(inputs.value - input)
         setPages(pages.value.filterNot { it.inputId == id })
         viewModelScope.launch(fileOps) { engine.delete(input) }
@@ -457,6 +480,145 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         process(listOf(input)) { check -> listOf(engine.sign(input, signature, page, placement, fileName, check)) }
     }
 
+    /** Gets [input] ready for Redact PDF's preview: [redactView], once it is. */
+    fun prepareRedaction(input: PdfInput) {
+        if (_redactView.value?.id == input.id || viewJob?.isActive == true) return
+        viewJob = viewModelScope.launch {
+            val job = coroutineContext[Job]!!
+            try {
+                val view = withContext(fileOps) { if (input.file.isFile) engine.redactionView(input) { job.ensureActive() } else null }
+                if (inputs.value.singleOrNull()?.id == input.id) _redactView.value = view
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                failedView(input)
+            } catch (_: LinkageError) {
+                failedView(input)
+            } catch (_: OutOfMemoryError) {
+                failedView(input)
+            }
+        }
+    }
+
+    /** No preview can be drawn of [input]: say so, and put it away. */
+    private fun failedView(input: PdfInput) {
+        if (inputs.value.singleOrNull()?.id != input.id) return
+        message(strings.getString(R.string.pdf_import_failed))
+        removeInput(input.id)
+    }
+
+    fun showRedactPage(page: Int) {
+        handle[KEY_REDACT_PAGE] = page
+        handle[KEY_REDACT_SELECTED] = -1
+    }
+
+    fun selectRedactBox(index: Int) {
+        handle[KEY_REDACT_SELECTED] = if (index in _redactBoxes.value.indices) index else -1
+    }
+
+    /** Adds [box] and chooses it; says so instead when there are as many boxes as Usugami keeps. */
+    fun addRedactBox(box: RedactBox) {
+        val boxes = _redactBoxes.value
+        if (boxes.size >= Redaction.MAX_BOXES) {
+            message(strings.getString(R.string.redact_too_many, Redaction.MAX_BOXES))
+            return
+        }
+        setRedactBoxes(boxes + Redaction.clamp(box))
+        handle[KEY_REDACT_SELECTED] = boxes.size
+    }
+
+    fun changeRedactBox(index: Int, box: RedactBox) {
+        val boxes = _redactBoxes.value
+        if (index !in boxes.indices) return
+        setRedactBoxes(boxes.toMutableList().also { it[index] = Redaction.clamp(box) })
+    }
+
+    fun deleteRedactBox(index: Int) {
+        val boxes = _redactBoxes.value
+        if (index !in boxes.indices) return
+        setRedactBoxes(boxes.filterIndexed { i, _ -> i != index })
+        handle[KEY_REDACT_SELECTED] = -1
+    }
+
+    fun clearRedactBoxes() {
+        setRedactBoxes(emptyList())
+        handle[KEY_REDACT_SELECTED] = -1
+    }
+
+    /**
+     * Boxes every place [query] is found, on every page, for the user to check before saving.
+     * Boxes already there aren't added again.
+     */
+    fun findText(query: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        if (query.isBlank() || _finding.value || _processing.value) return
+        _finding.value = true
+        findJob = viewModelScope.launch {
+            val job = coroutineContext[Job]!!
+            try {
+                val matches = withContext(fileOps) {
+                    if (!input.file.isFile) null else engine.findText(input, query) { job.ensureActive() }
+                }
+                if (matches == null) {
+                    forgetInputs(listOf(input))
+                    return@launch
+                }
+                if (inputs.value.singleOrNull()?.id != input.id) return@launch
+                val found = matches.flatten()
+                val boxes = _redactBoxes.value
+                val new = ArrayList<RedactBox>()
+                for (box in found) if (boxes.none { Redaction.same(it, box) } && new.none { Redaction.same(it, box) }) new += box
+                when {
+                    found.isEmpty() -> message(strings.getString(R.string.redact_find_none))
+                    boxes.size + new.size > Redaction.MAX_BOXES -> message(strings.getString(R.string.redact_find_too_many, Redaction.MAX_BOXES))
+                    else -> {
+                        setRedactBoxes(boxes + new)
+                        // Shows a page with matches, unless the one showing has some.
+                        val pages = found.mapTo(HashSet()) { it.page }
+                        if (redactPage.value !in pages) showRedactPage(found.minOf { it.page }) else handle[KEY_REDACT_SELECTED] = -1
+                        pluralMessage(R.plurals.redact_found, matches.size)
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                message(strings.getString(R.string.redact_find_failed))
+            } catch (_: LinkageError) {
+                message(strings.getString(R.string.redact_find_failed))
+            } catch (_: OutOfMemoryError) {
+                message(strings.getString(R.string.redact_find_failed))
+            } finally {
+                // A search for another PDF may have started since this one was abandoned.
+                if (findJob === job) _finding.value = false
+            }
+        }
+    }
+
+    fun runRedact(fileName: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        val boxes = _redactBoxes.value.filter { it.page in 0 until input.pageCount }
+        if (boxes.isEmpty() || _finding.value) return
+        process(listOf(input)) { check -> listOf(engine.redact(input, boxes, fileName, check)) }
+    }
+
+    private fun setRedactBoxes(boxes: List<RedactBox>) {
+        _redactBoxes.value = boxes
+        handle[KEY_REDACT_BOXES] = Redaction.pack(boxes)
+    }
+
+    /** Redact PDF starts again: its boxes belong to the PDF they were drawn on. */
+    private fun clearRedaction() {
+        viewJob?.cancel()
+        findJob?.cancel()
+        viewJob = null
+        findJob = null
+        _finding.value = false
+        _redactView.value = null
+        setRedactBoxes(emptyList())
+        handle[KEY_REDACT_PAGE] = 0
+        handle[KEY_REDACT_SELECTED] = -1
+    }
+
     /** Why the page numbers typed can't be used, in the user's language. */
     private fun pageSelectionMessage(e: PageSelectionException): String = when (e.problem) {
         PageSelectionException.Problem.FORMAT -> strings.getString(R.string.pdf_pages_format)
@@ -548,6 +710,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setPages(emptyList())
         setLocked(emptyList())
         handle[KEY_DOCUMENT] = null
+        clearRedaction()
         // Every copy goes, including one still being imported or waiting for its password. File work
         // runs one task at a time, so this waits for a cancelled import or run to stop first.
         viewModelScope.launch(fileOps) {
@@ -565,6 +728,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setPages(emptyList())
         setLocked(emptyList())
         handle[KEY_DOCUMENT] = null
+        clearRedaction()
         _wrongPassword.value = false
         old.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
         oldDocument?.let { viewModelScope.launch(fileOps) { office.delete(it) } }
@@ -649,6 +813,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.PAGE_NUMBERS -> "${base}_numbered"
             PdfTool.WATERMARK -> "${base}_watermarked"
             PdfTool.SIGN -> "${base}_signed"
+            PdfTool.REDACT -> "${base}_redacted"
         }
     }
 
@@ -682,5 +847,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_LOCKED = "pdf_locked"
         const val KEY_SIGNATURE = "signature"
         const val KEY_DOCUMENT = "document"
+        const val KEY_REDACT_BOXES = "redact_boxes"
+        const val KEY_REDACT_PAGE = "redact_page"
+        const val KEY_REDACT_SELECTED = "redact_selected"
     }
 }

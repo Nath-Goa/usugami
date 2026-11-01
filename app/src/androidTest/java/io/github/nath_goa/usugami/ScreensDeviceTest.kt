@@ -22,6 +22,7 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCompression
@@ -256,17 +257,19 @@ class ScreensDeviceTest {
 
     @Test fun homeGroupsTheToolsUnderHeadings() {
         launch()
-        for (heading in listOf(R.string.home_section_create, R.string.home_section_edit)) {
-            val node = find("the heading") { it.says(app.getString(heading)) }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) assertTrue("A screen reader can jump to it", node.isHeading)
-        }
-        val tools = listOf(
-            R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_epub, R.string.tool_split, R.string.tool_merge,
-            R.string.tool_compress, R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_sign,
+        // Each heading, then its tools, read from the top down as a screen reader scrolls.
+        val sections = listOf(
+            R.string.home_section_create to listOf(R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_epub),
+            R.string.home_section_edit to listOf(R.string.tool_split, R.string.tool_merge, R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_sign),
+            R.string.home_section_optimize to listOf(R.string.tool_compress, R.string.tool_redact),
         )
-        for (tool in tools) {
-            val card = findBelow("the ${app.getString(tool)} card") { it.text?.contains(app.getString(tool)) == true }
-            assertTrue(clickable(card).isEnabled)
+        for ((heading, tools) in sections) {
+            val node = findBelow("the heading") { it.says(app.getString(heading)) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) assertTrue("A screen reader can jump to it", node.isHeading)
+            for (tool in tools) {
+                val card = findBelow("the ${app.getString(tool)} card") { it.text?.contains(app.getString(tool)) == true }
+                assertTrue(clickable(card).isEnabled)
+            }
         }
     }
 
@@ -428,6 +431,108 @@ class ScreensDeviceTest {
         findBelow("page 2 in the preview, after the result") { it.says(app.getString(R.string.sign_preview_description, 2)) }
         click(actionButton(R.string.pdf_sign_action))
         checkSigned()
+    }
+
+    /** Drags a finger across [node] from ([x0], [y0]) to ([x1], [y1]), as shares of its size. */
+    private fun dragOn(node: AccessibilityNodeInfo, x0: Float, y0: Float, x1: Float, y1: Float) {
+        val bounds = Rect().also(node::getBoundsInScreen)
+        val start = SystemClock.uptimeMillis()
+        val steps = 20
+        for (i in 0..steps + 1) {
+            val t = minOf(i, steps).toFloat() / steps
+            val action = when (i) {
+                0 -> MotionEvent.ACTION_DOWN
+                steps + 1 -> MotionEvent.ACTION_UP
+                else -> MotionEvent.ACTION_MOVE
+            }
+            val x = bounds.left + (x0 + (x1 - x0) * t) * bounds.width()
+            val y = bounds.top + (y0 + (y1 - y0) * t) * bounds.height()
+            val event = MotionEvent.obtain(start, start + 16L * i, action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            assertTrue(automation.injectInputEvent(event, true))
+            event.recycle()
+        }
+    }
+
+    @Test fun redactFindsTextAndBoxesAreAddedMovedDrawnAndSaved() {
+        val first = launch()
+        val firstVm = openToolWithAlpha(R.string.tool_redact, first)
+        assertFalse("Nothing to redact without a box", clickable(button(R.string.pdf_redact_action)).isEnabled)
+        find("the note") { it.says(app.getString(R.string.redact_note)) }
+
+        // Find text boxes the phrase on every page (each of alpha.pdf's three has it once).
+        type(find("the Find text field") { it.isEditable }, "selectable TEXT")
+        click(find("the Find button") { it.says(app.getString(R.string.redact_find_action)) && clickable(it).isEnabled })
+        find("the message") { it.says(app.resources.getQuantityString(R.plurals.redact_found, 3, 3)) }
+        assertEquals(listOf(0, 1, 2), onMain { firstVm.redactBoxes.value.map { it.page } })
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            for (number in 1..3) assertEquals(app.getString(R.string.redact_page_marked), radio(app.getString(R.string.pdf_page_number, number)).stateDescription)
+        }
+        assertTrue("A box makes the PDF ready", clickable(button(R.string.pdf_redact_action)).isEnabled)
+
+        // A box added with a button is chosen, then moved and widened with buttons.
+        click(findBelow("the Add box button") { it.says(app.getString(R.string.redact_add_box)) })
+        waitUntil("the box to be added and chosen") { onMain { firstVm.redactBoxes.value.size == 4 && firstVm.redactSelected.value == 3 } }
+        val added = onMain { firstVm.redactBoxes.value[3] }
+        assertEquals(0, added.page)
+        repeat(3) {
+            click(findBelow("the move right button") { it.says(app.getString(R.string.redact_move_right)) })
+            // Each button moves on from where the box is once the screen has caught up.
+            Thread.sleep(250)
+        }
+        click(findBelow("the wider button") { it.says(app.getString(R.string.redact_wider)) })
+        val step = Redaction.STEP
+        waitUntil("the box to move and widen") {
+            val box = onMain { firstVm.redactBoxes.value[3] }
+            kotlin.math.abs(box.left - (added.left + 2.5f * step)) < 1e-4f && kotlin.math.abs(box.width - (added.width + step)) < 1e-4f
+        }
+
+        // The preview tells a screen reader how many boxes the page has and which is chosen, and
+        // lets it step through them.
+        val description = app.resources.getQuantityString(R.plurals.redact_preview_description, 2, 1, 2)
+        val preview = findBelow("the preview") { it.says(description) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) assertEquals(app.getString(R.string.redact_box_chosen, 2, 2), preview.stateDescription)
+        assertTrue(preview.performAction(preview.action(app.getString(R.string.redact_next_box))!!.id))
+        waitUntil("the other box to be chosen") { onMain { firstVm.redactSelected.value } == 0 }
+
+        // A box drawn with a finger.
+        dragOn(find("the preview") { it.says(description) }, 0.1f, 0.85f, 0.6f, 0.95f)
+        waitUntil("the drawn box") { onMain { firstVm.redactBoxes.value.size } == 5 }
+        val drawn = onMain { firstVm.redactBoxes.value[4] }
+        assertEquals(0.1f, drawn.left, 0.02f)
+        assertEquals(0.95f, drawn.bottom, 0.02f)
+
+        // It all survives the activity being recreated, as it is on rotation.
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        findBelow("the preview, still") { it.says(app.resources.getQuantityString(R.plurals.redact_preview_description, 3, 1, 3)) }
+        assertEquals(5, onMain { pdfVm.redactBoxes.value.size })
+        assertEquals(4, onMain { pdfVm.redactSelected.value })
+
+        // The chosen box is deleted with its button; "Remove all" asks first.
+        click(findBelow("the delete button") { it.says(app.getString(R.string.redact_delete_box)) })
+        waitUntil("the box to go") { onMain { pdfVm.redactBoxes.value.size } == 4 }
+        click(findBelow("Remove all") { it.says(app.getString(R.string.redact_remove_all)) })
+        find("the question") { it.says(app.getString(R.string.redact_remove_all_title)) }
+        click(find("Cancel") { it.says(app.getString(R.string.cancel)) })
+        waitUntil("the dialog to close") { nodes().none { it.says(app.getString(R.string.redact_remove_all_title)) } }
+        assertEquals(4, onMain { pdfVm.redactBoxes.value.size })
+
+        click(actionButton(R.string.pdf_redact_action))
+        val result = resultFile(pdfVm)
+        assertEquals("alpha_redacted.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            assertEquals(3, doc.numberOfPages)
+            // Every page had a box, so every page is a picture now.
+            assertTrue(PDFTextStripper().getText(doc).isBlank())
+        }
+
+        // Back from the result, the boxes are still there.
+        click(find("the back button") { it.says(app.getString(R.string.back_to_editing)) })
+        waitUntil("the result to slide away") { nodes().none { it.says(app.getString(R.string.result_heading_one)) } }
+        assertEquals(4, onMain { pdfVm.redactBoxes.value.size })
+        assertTrue(clickable(actionButton(R.string.pdf_redact_action)).isEnabled)
     }
 
     @Test fun wordToPdfConvertsTheDocumentAndKeepsItThroughRecreation() {

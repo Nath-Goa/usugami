@@ -28,7 +28,12 @@ Cyrillic, superscripts and subscripts, and all three for a glyph without a chara
 positioning tables left out while GSUB and GDEF stay, shorter offsets, checksums right, and fonts
 left whole when they draw another script, have CJK ideographs, draw the rupee sign beside
 Devanagari letters, have no readable Unicode character map, or are PostScript, variable, bitmap
-or damaged (random damage never crashes it).
+or damaged (random damage never crashes it). For Redact PDF they cover where a box goes on a page
+as shown (turned or cropped pages included), drawing, moving and resizing boxes and keeping them on
+the page, where a new box goes, which box a tap picks, how big the picture of a page is (200 dpi,
+smaller for huge pages), which pixels a box blacks out, and Find text: capitals, accents,
+ligatures, spaces and line breaks, and one box per line of a match, also for text running down
+the page.
 
 ## 2. Device tests (Android)
 
@@ -72,6 +77,18 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   chapter, progress by chapter, a book of over 400 pages written in parts and joined with its
   bookmarks, a book without container.xml, books with DRM refused (scrambled fonts alone accepted),
   other files refused, and cancelling leaving nothing behind
+- redact: with a made-up PDF that hides one word everywhere a PDF can keep text (upright, turned
+  and cropped pages, a form drawing, a comment, a form field, the document details, XMP metadata, a
+  bookmark, a named destination, an attached file, JavaScript, tags, private application data and
+  a thumbnail), the word is gone from the redacted file: text extraction finds nothing on any page,
+  and neither does a search of every string and decoded stream, through PDFBox and straight from
+  the file's bytes. The word is drawn in red, and the redacted pages have no red pixels left. Find
+  text boxes every letter of every match and no other word; the boxes are black where they were
+  drawn, page sizes, crop boxes and turns are kept, redacted pages are one 200-dpi picture each
+  (lossless in grey for text, JPEG for photos), comments on them become part of the picture, the
+  page without boxes keeps its content, its form field and its look pixel for pixel, an image only
+  a redacted page showed is emptied although every page lists it, password-protected PDFs work,
+  the boxes come back after the process is stopped, and cancelling leaves nothing behind
 - fonts: those Android's PDF writer embeds whole are shrunk to the glyphs drawn (serif styles,
   monospace, a font with hinting instructions of its own, Greek, Cyrillic, superscripts, digits
   alone, accents on capitals), the Hebrew font is left whole, and the pages then render pixel for
@@ -86,7 +103,10 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   an old .doc file and a document picked as a presentation with their messages, and a picked
   document surviving the activity being recreated and the result; EPUB to PDF refusing a file that
   isn't a book and a book with DRM with their messages, and the book and A4 surviving the activity
-  being recreated
+  being recreated; Redact PDF's Find text boxing a phrase on every page, a box added, moved and
+  widened with buttons, the preview naming the chosen box and stepping to the next, a box drawn
+  with injected touches, all of it surviving the activity being recreated, deleting a box, "Remove
+  all" asking first, the redacted result, and the boxes still there after going back from it
 - text recognition in English, French, Spanish and Hindi (French and Spanish accents kept),
   including a text layer with both Devanagari and Latin
   text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
@@ -127,6 +147,9 @@ On a phone or emulator, with the release APKs:
   the result with the original, and check that an old .doc file is refused.
 - EPUB to PDF with a few real DRM-free books, one with a cover and one fixed-layout; check the
   bookmarks in another PDF viewer, and that a book with DRM is refused.
+- Redact PDF with a few real documents, a scanned one among them: find a name, draw a box on the
+  scan, and check in another PDF viewer that nothing under the boxes can be selected, searched or
+  copied, and that the pages without boxes still have their text.
 - Sign PDF in landscape and in the dark theme: the pad fills the screen, drawing feels smooth, and
   dragging the signature doesn't scroll the screen (a swipe off it does).
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
