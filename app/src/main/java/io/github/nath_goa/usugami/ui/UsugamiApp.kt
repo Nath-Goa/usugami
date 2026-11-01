@@ -38,12 +38,13 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ZipArchive
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.PdfSaver
 import kotlinx.coroutines.flow.merge
 
 @Composable
-fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
+fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onChooseAppearance: (Appearance) -> Unit) {
     val context = LocalContext.current
     // The first time Usugami opens, it asks for a language before anything else. Choosing one
     // usually recreates the activity in that language; this state carries over, so Home follows.
@@ -207,6 +208,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                         snackbar = screenSnackbar,
                         onBack = { route = "home" },
                         onChooseLanguage = onChooseLanguage,
+                        onChooseAppearance = onChooseAppearance,
                         onSourceCode = { openSourceCode() },
                         onAbout = { route = "settings/about" },
                     )

@@ -1,5 +1,6 @@
 package io.github.nath_goa.usugami.ui
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material3.AlertDialog
@@ -47,23 +49,36 @@ import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.data.Appearance
+import io.github.nath_goa.usugami.data.Appearances
 
-/** Settings: the language Usugami is shown in, its source code on GitHub, and About. */
+/**
+ * Settings: the language Usugami is shown in, its appearance (light, dark or as the phone is set),
+ * its source code on GitHub, and About.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     snackbar: SnackbarHostState,
     onBack: () -> Unit,
     onChooseLanguage: (AppLanguage) -> Unit,
+    onChooseAppearance: (Appearance) -> Unit,
     onSourceCode: () -> Unit,
     onAbout: () -> Unit,
 ) {
-    val current = AppLanguage.shownIn(LocalContext.current)
+    val context = LocalContext.current
+    val current = AppLanguage.shownIn(context)
+    // Choosing one recreates the activity only when that turns it light or dark, so the row is
+    // updated here too.
+    var appearance by remember { mutableStateOf(Appearances.current(context)) }
     var choosing by rememberSaveable { mutableStateOf(false) }
+    var choosingAppearance by rememberSaveable { mutableStateOf(false) }
     // Applied once the dialog has closed, so its window is gone before the activity is recreated
-    // in the new language.
+    // in the new language or appearance.
     var switchTo by remember { mutableStateOf<AppLanguage?>(null) }
     LaunchedEffect(switchTo) { switchTo?.let(onChooseLanguage) }
+    var appearanceTo by remember { mutableStateOf<Appearance?>(null) }
+    LaunchedEffect(appearanceTo) { appearanceTo?.let(onChooseAppearance) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -79,6 +94,7 @@ fun SettingsScreen(
     ) { padding ->
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(vertical = 8.dp)) {
             ListRow(Icons.Rounded.Language, stringResource(R.string.settings_language), current.nativeName) { choosing = true }
+            ListRow(Icons.Rounded.BrightnessMedium, stringResource(R.string.settings_appearance), stringResource(appearance.label)) { choosingAppearance = true }
             ListRow(Icons.Rounded.Code, stringResource(R.string.settings_github), stringResource(R.string.about_source_detail), external = true, onClick = onSourceCode)
             ListRow(Icons.Outlined.Info, stringResource(R.string.about), stringResource(R.string.settings_about_detail), onClick = onAbout)
         }
@@ -90,19 +106,9 @@ fun SettingsScreen(
             text = {
                 Column(Modifier.selectableGroup()) {
                     for (language in AppLanguage.entries) {
-                        Row(
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp)
-                                .selectable(selected = language == current, role = Role.RadioButton) {
-                                    choosing = false
-                                    if (language != current) switchTo = language
-                                },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = language == current, onClick = null)
-                            Spacer(Modifier.width(16.dp))
-                            Text(nativeName(language), style = MaterialTheme.typography.bodyLarge)
+                        RadioRow(nativeName(language), selected = language == current) {
+                            choosing = false
+                            if (language != current) switchTo = language
                         }
                     }
                 }
@@ -110,7 +116,51 @@ fun SettingsScreen(
             confirmButton = { TextButton(onClick = { choosing = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
+    if (choosingAppearance) {
+        AlertDialog(
+            onDismissRequest = { choosingAppearance = false },
+            title = { Text(stringResource(R.string.settings_appearance)) },
+            text = {
+                Column(Modifier.selectableGroup()) {
+                    for (option in Appearance.entries) {
+                        RadioRow(AnnotatedString(stringResource(option.label)), selected = option == appearance) {
+                            choosingAppearance = false
+                            if (option != appearance) {
+                                appearance = option
+                                appearanceTo = option
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { choosingAppearance = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
 }
+
+/** A choice in a dialog: the whole row is one radio button for a screen reader. */
+@Composable
+private fun RadioRow(text: AnnotatedString, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Spacer(Modifier.width(16.dp))
+        Text(text, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+/** How an appearance is named in Settings. */
+private val Appearance.label: Int
+    @StringRes get() = when (this) {
+        Appearance.SYSTEM -> R.string.appearance_system
+        Appearance.LIGHT -> R.string.appearance_light
+        Appearance.DARK -> R.string.appearance_dark
+    }
 
 /**
  * A language's own name, marked as being in that language, so a screen reader reads "Français"

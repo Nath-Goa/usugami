@@ -233,7 +233,8 @@ old "PDFer".
   ZIP** puts them all in one ZIP file, named after them, to share or save in one go.
 - Comes in **English**, **French**, **Spanish** and **Hindi**: pick one the first time you open
   Usugami, and change it any time in **Settings**. Text recognition starts on the same language.
-- Light and dark theme follow your phone.
+- Light and dark theme follow your phone, or pick **Light** or **Dark** in **Settings** →
+  **Appearance**.
 
 ## Privacy
 

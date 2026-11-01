@@ -252,6 +252,10 @@
     <string name="language_subtitle">You can change it later in Settings.</string>
     <string name="settings">Settings</string>
     <string name="settings_language">Language</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="appearance_system">System default</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
     <string name="settings_github">Source code on GitHub</string>
     <string name="settings_about_detail">Version, privacy policy and licenses</string>
 

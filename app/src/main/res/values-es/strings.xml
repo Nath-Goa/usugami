@@ -244,6 +244,10 @@
     <string name="language_subtitle">Puedes cambiarlo más tarde en Ajustes.</string>
     <string name="settings">Ajustes</string>
     <string name="settings_language">Idioma</string>
+    <string name="settings_appearance">Apariencia</string>
+    <string name="appearance_system">Predeterminado del sistema</string>
+    <string name="appearance_light">Claro</string>
+    <string name="appearance_dark">Oscuro</string>
     <string name="settings_github">Código fuente en GitHub</string>
     <string name="settings_about_detail">Versión, política de privacidad y licencias</string>
 

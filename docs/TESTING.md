@@ -117,7 +117,11 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   all" asking first, the redacted result, and the boxes still there after going back from it; the
   result screen's "Share or save as ZIP" menu for a split and for one PDF per image, with the share
   screen and the "Save as" screen it starts caught and answered (the type, the name and the ZIP
-  file written), and no such button for a single PDF
+  file written), and no such button for a single PDF; Settings → Appearance starting on the phone's
+  setting, then Dark and Light holding through the activity being recreated, Usugami being opened
+  again and the first-launch language screen (each checked by the configuration, the colors the
+  window draws and the status bar icons), both the way Android applies it from Android 12 and the
+  way Usugami applies it itself on older versions
 - text recognition in English, French, Spanish and Hindi (French and Spanish accents kept),
   including a text layer with both Devanagari and Latin
   text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
@@ -166,6 +170,9 @@ On a phone or emulator, with the release APKs:
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
 - Split a PDF into single pages, then Share or save as ZIP: share it to Files or a mail app and save
   it with Save as, then open the ZIP file in Files and check the PDFs in it.
+- Settings → Appearance: Light and Dark on Android 12 or newer and on an older version, with the
+  phone itself set to the other one: every screen, dialogs, the status and navigation bars, and the
+  first-launch language screen follow; System default follows the phone again.
 - Standard edition: the first OCR in each language downloads that model through Google Play services.
 - Offline edition: OCR works with the internet turned off.
 - The About screen shows the license, privacy policy and notices.

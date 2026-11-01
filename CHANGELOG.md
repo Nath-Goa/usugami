@@ -53,6 +53,9 @@ All notable changes to Usugami are listed here. The format is based on
   or one PDF per image): one ZIP file with exactly those PDFs, put in as they are, named after them
   (such as Report_split.zip). Share it, or save it anywhere with the system's Save screen. A big set
   shows its progress and can be cancelled.
+- **Appearance** in Settings: **System default** (as before), **Light** or **Dark**, for every
+  screen, the first-launch language screen included. On Android 12 and newer, Android keeps the
+  choice for Usugami and applies it from the first frame.
 
 ### Changed
 

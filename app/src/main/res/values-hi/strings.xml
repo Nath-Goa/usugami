@@ -239,6 +239,10 @@
     <string name="language_subtitle">आप इसे बाद में सेटिंग में बदल सकते हैं।</string>
     <string name="settings">सेटिंग</string>
     <string name="settings_language">भाषा</string>
+    <string name="settings_appearance">थीम</string>
+    <string name="appearance_system">सिस्टम डिफ़ॉल्ट</string>
+    <string name="appearance_light">लाइट</string>
+    <string name="appearance_dark">डार्क</string>
     <string name="settings_github">GitHub पर सोर्स कोड</string>
     <string name="settings_about_detail">वर्शन, निजता नीति और लाइसेंस</string>
 

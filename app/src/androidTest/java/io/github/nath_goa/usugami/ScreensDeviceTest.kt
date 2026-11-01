@@ -3,9 +3,12 @@ package io.github.nath_goa.usugami
 import android.app.Activity
 import android.app.Application
 import android.app.Instrumentation
+import android.app.UiModeManager
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Rect
 import android.net.Uri
 import android.os.Build
@@ -17,6 +20,7 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -29,6 +33,8 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.Appearance
+import io.github.nath_goa.usugami.data.Appearances
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.SignatureInk
@@ -43,6 +49,7 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume
 import org.junit.Test
 import java.io.File
 import java.io.InputStream
@@ -91,6 +98,10 @@ class ScreensDeviceTest {
         activity?.let { onMain { it.finish() } }
         File(app.cacheDir, "output/test-picked").deleteRecursively()
         if (languageChanged) AppLanguages.reset(app)
+        if (appearanceChanged) {
+            Appearances.reset(app)
+            Appearances.appliedByUsugami = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+        }
     }
 
     /** The resumed MainActivity once it is a new one, after [old] was recreated. */
@@ -952,6 +963,109 @@ class ScreensDeviceTest {
         unsavedCompressResult(activity)
         findBelow("Start over") { it.says(app.getString(R.string.start_over)) }
         assertTrue(nodes().none { it.says(app.getString(R.string.zip_button)) })
+    }
+
+    /** Set by tests that change the appearance, which outlives the activity (and Usugami, from Android 12). */
+    private var appearanceChanged = false
+
+    /**
+     * The middle brightness of a few spots low in [activity]'s window, where the screens have only
+     * their background. The window is drawn into a bitmap here rather than captured from the
+     * screen, which needs nothing from the graphics card of a busy emulator.
+     */
+    private fun backgroundLuminance(activity: MainActivity): Float {
+        val view = activity.window.decorView
+        val shot = onMain {
+            Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
+        }
+        val spots = listOf(0.05f, 0.5f, 0.95f).flatMap { x ->
+            listOf(0.8f, 0.86f, 0.92f).map { y -> Color.luminance(shot.getPixel((shot.width * x).toInt(), (shot.height * y).toInt())) }
+        }
+        shot.recycle()
+        return spots.sorted()[spots.size / 2]
+    }
+
+    /** [activity] is dark, or light: its configuration, what it draws, and its status bar icons. */
+    private fun assertShows(dark: Boolean, activity: MainActivity) {
+        val night = onMain { activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK }
+        assertEquals(if (dark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO, night)
+        waitUntil("the screen to be ${if (dark) "dark" else "light"}") {
+            val luminance = backgroundLuminance(activity)
+            if (dark) luminance < 0.1f else luminance > 0.8f
+        }
+        // Light icons on a dark screen, dark ones on a light screen.
+        assertEquals(!dark, onMain { WindowCompat.getInsetsController(activity.window, activity.window.decorView).isAppearanceLightStatusBars })
+    }
+
+    /** Opens Settings > Appearance and picks [choice]; the current choice is checked in the dialog. */
+    private fun chooseAppearance(current: Int, choice: Int) {
+        click(find("the appearance row") { it.says(app.getString(R.string.settings_appearance)) })
+        assertTrue("${app.getString(current)} is chosen", radio(app.getString(current)).chosen)
+        click(radio(app.getString(choice)))
+        waitUntil("the dialog to close") { nodes().none { it.isCheckable } }
+    }
+
+    /**
+     * Settings > Appearance starts on the phone's setting; Dark and Light then hold through the
+     * activity being recreated (as on rotation), Usugami being opened again and the first-launch
+     * language screen, and System follows the phone again.
+     */
+    private fun appearanceSwitchesAndStays() {
+        appearanceChanged = true
+        languageChanged = true
+        val phoneDark = app.getSystemService(UiModeManager::class.java).nightMode == UiModeManager.MODE_NIGHT_YES
+        assertEquals("The phone's setting is the default", Appearance.SYSTEM, Appearances.current(app))
+        var activity = launch()
+        click(find("Settings on Home") { it.says(app.getString(R.string.settings)) })
+        find("the appearance row saying System") { it.says(app.getString(R.string.appearance_system)) }
+        assertShows(phoneDark, activity)
+
+        chooseAppearance(R.string.appearance_system, R.string.appearance_dark)
+        if (!phoneDark) activity = recreatedFrom(activity)
+        assertShows(dark = true, activity)
+        find("the row saying Dark") { it.says(app.getString(R.string.appearance_dark)) }
+        assertEquals(Appearance.DARK, Appearances.current(app))
+
+        onMain { activity.recreate() }
+        activity = recreatedFrom(activity)
+        assertShows(dark = true, activity)
+        find("Settings, still") { it.says(app.getString(R.string.appearance_dark)) }
+
+        // Opened again, and the first launch's language screen too.
+        onMain { activity.finish() }
+        activity = launch()
+        assertShows(dark = true, activity)
+        onMain { activity.finish() }
+        activity = launch(firstRun = true)
+        find("the language screen") { it.says(AppLanguage.ENGLISH.nativeName) }
+        assertShows(dark = true, activity)
+        // Not choosing a language there, which could recreate the activity in it.
+        onMain { activity.finish() }
+        activity = launch()
+        click(find("Settings on Home") { it.says(app.getString(R.string.settings)) })
+
+        chooseAppearance(R.string.appearance_dark, R.string.appearance_light)
+        activity = recreatedFrom(activity)
+        assertShows(dark = false, activity)
+        find("the row saying Light") { it.says(app.getString(R.string.appearance_light)) }
+
+        chooseAppearance(R.string.appearance_light, R.string.appearance_system)
+        if (phoneDark) activity = recreatedFrom(activity)
+        assertShows(phoneDark, activity)
+        find("the row saying System") { it.says(app.getString(R.string.appearance_system)) }
+        assertEquals(Appearance.SYSTEM, Appearances.current(app))
+    }
+
+    /** From Android 12, the system keeps the appearance for Usugami and applies it. */
+    @Test fun appearanceAppliedBySystemSwitchesAndStays() {
+        Assume.assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+        appearanceSwitchesAndStays()
+    }
+
+    /** Below Android 12, Usugami applies it itself; tried here on any phone. */
+    @Test fun appearanceAppliedByUsugamiSwitchesAndStays() {
+        Appearances.appliedByUsugami = true
+        appearanceSwitchesAndStays()
     }
 
     private companion object {
