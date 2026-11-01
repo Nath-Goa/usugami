@@ -6,6 +6,8 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-01
+
 ### Added
 
 - **Word to PDF** and **PowerPoint to PDF**, under Create PDF on Home. Usugami reads .docx documents
@@ -83,6 +85,8 @@ All notable changes to Usugami are listed here. The format is based on
 
 ### Changed
 
+- A new app icon: three thin sheets of paper fanned out, deep purple on lavender, with a matching
+  themed icon on Android 13 and newer.
 - Home groups the tools in four sections, **Create PDF**, **Organize**, **Edit and sign** and
   **Optimize and protect**, with smaller cards and shorter descriptions, so more of them fit on the
   screen.
@@ -233,6 +237,7 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/Nath-Goa/usugami/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/Nath-Goa/usugami/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/Nath-Goa/usugami/releases/tag/v1.2.0
