@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.BrandingWatermark
 import androidx.compose.material.icons.automirrored.rounded.RotateRight
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.Description
@@ -52,7 +53,7 @@ import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 
 /** The tools under "Create PDF" on Home, after Images to PDF, in order. */
-private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT)
+private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB)
 
 /** The tools under "Edit PDF" on Home, in order. */
 private val EditTools = listOf(PdfTool.SPLIT, PdfTool.MERGE, PdfTool.COMPRESS, PdfTool.ROTATE, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.SIGN)
@@ -70,6 +71,7 @@ internal val PdfTool.title: Int
         PdfTool.SIGN -> R.string.tool_sign
         PdfTool.WORD -> R.string.tool_word
         PdfTool.POWERPOINT -> R.string.tool_powerpoint
+        PdfTool.EPUB -> R.string.tool_epub
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -85,6 +87,7 @@ private val PdfTool.detail: Int
         PdfTool.SIGN -> R.string.tool_sign_detail
         PdfTool.WORD -> R.string.tool_word_detail
         PdfTool.POWERPOINT -> R.string.tool_powerpoint_detail
+        PdfTool.EPUB -> R.string.tool_epub_detail
     }
 
 private val PdfTool.icon: ImageVector
@@ -98,6 +101,7 @@ private val PdfTool.icon: ImageVector
         PdfTool.SIGN -> Icons.Rounded.Draw
         PdfTool.WORD -> Icons.Rounded.Description
         PdfTool.POWERPOINT -> Icons.Rounded.Slideshow
+        PdfTool.EPUB -> Icons.Rounded.AutoStories
     }
 
 @OptIn(ExperimentalMaterial3Api::class)

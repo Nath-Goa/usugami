@@ -15,6 +15,13 @@ All notable changes to Usugami are listed here. The format is based on
   the slide master's text styles carry over. Hidden slides are left out, and pictures are
   compressed. Fonts become the phone's own, and charts show as gray boxes with their title. Old
   .doc and .ppt files and password-protected ones are refused with a message saying what to do.
+- **EPUB to PDF**, under Create PDF on Home. Usugami reads EPUB 2 and EPUB 3 e-books on your phone
+  and lays them out on A5 pages (or A4), the cover first and each chapter on a new page. Headings,
+  text styles, lists, quotes, simple tables and pictures carry over, with the basics of the book's
+  style sheet (alignment, indents, spacing, font sizes, page breaks). The table of contents becomes
+  the PDF's bookmarks, and the book's title, author and language go into the PDF. Fixed-layout
+  books get one page per page of the book. Books with DRM, and files that aren't e-books, are
+  refused with a message.
 
 - **Rotate PDF**: turn single pages, or all of them, left or right. Only the way each page is shown
   changes; nothing is re-encoded.

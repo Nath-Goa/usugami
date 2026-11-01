@@ -104,7 +104,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     val pdfMultiPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         pdfVm.addPdfs(uris, replace = false)
     }
-    // For Word to PDF and PowerPoint to PDF: the tool showing says which kind of file it takes.
+    // For Word, PowerPoint and EPUB to PDF: the tool showing says which kind of file it takes.
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val kind = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }?.officeKind
         if (uri != null && kind != null) pdfVm.addDocument(uri, kind)

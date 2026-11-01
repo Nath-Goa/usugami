@@ -161,6 +161,16 @@
         <item quantity="many">%1$d sur %2$d diapositives</item>
         <item quantity="other">%1$d sur %2$d diapositives</item>
     </plurals>
+    <string name="tool_epub">EPUB en PDF</string>
+    <string name="tool_epub_detail">Livres numériques (.epub), mis en pages</string>
+    <string name="pick_epub">Choisir un fichier EPUB</string>
+    <string name="document_epub">Livre numérique EPUB</string>
+    <string name="office_note_epub">Les chapitres, les titres, les styles de texte, les listes, les tableaux et les images sont convertis, et la table des matières devient des signets. Les polices de votre téléphone sont utilisées.</string>
+    <string name="book_page_note">Le format A5 est à peu près celui d\'un livre de poche ; le A4 convient mieux à l\'impression.</string>
+    <string name="epub_protected">Ce livre est protégé par des DRM (protection contre la copie) : Usugami ne peut donc pas le lire. Seuls les livres sans DRM peuvent être convertis.</string>
+    <string name="epub_not_recognized">Ce fichier n\'est pas un livre numérique EPUB, ou il est endommagé.</string>
+    <string name="epub_empty">Ce livre ne contient rien à convertir.</string>
+    <string name="progress_chapter">Chapitre %1$d sur %2$d</string>
 
     <string name="ocr_title">Rendre le texte recherchable (OCR)</string>
     <string name="ocr_detail">Reconnaître les mots figurant sur ces images et ajouter du texte recherchable au PDF.</string>

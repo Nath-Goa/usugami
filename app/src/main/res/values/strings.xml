@@ -165,6 +165,18 @@
         <item quantity="one">%1$d of %2$d slide</item>
         <item quantity="other">%1$d of %2$d slides</item>
     </plurals>
+    <!-- EPUB to PDF. EPUB is the name of the e-book format, kept as it is; .epub is its file extension.
+         DRM is the copy protection stores put on many books they sell. A5 and A4 are paper sizes. -->
+    <string name="tool_epub">EPUB to PDF</string>
+    <string name="tool_epub_detail">E-books (.epub), laid out as pages</string>
+    <string name="pick_epub">Choose EPUB file</string>
+    <string name="document_epub">EPUB e-book</string>
+    <string name="office_note_epub">Chapters, headings, text styles, lists, tables and pictures convert, and the table of contents becomes bookmarks. Your phone\'s fonts are used.</string>
+    <string name="book_page_note">A5 is about the size of a paperback; A4 suits printing.</string>
+    <string name="epub_protected">This book is protected with DRM (copy protection), so Usugami can\'t read it. Only books without DRM can be converted.</string>
+    <string name="epub_not_recognized">This isn\'t an EPUB e-book, or it\'s damaged.</string>
+    <string name="epub_empty">This book has nothing to convert.</string>
+    <string name="progress_chapter">Chapter %1$d of %2$d</string>
 
     <string name="ocr_title">Make text searchable (OCR)</string>
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>

@@ -209,8 +209,11 @@ class PdfToolsEngine(private val context: Context) {
         }
     }
 
-    /** Joins the PDFs in [files] into [target], in order. For PDFs Usugami made itself in parts. */
-    fun join(files: List<File>, target: File, check: () -> Unit = {}): File {
+    /**
+     * Joins the PDFs in [files] into [target], in order, letting [edit] add to the whole (such as
+     * bookmarks) before it is saved. For PDFs Usugami made itself in parts.
+     */
+    fun join(files: List<File>, target: File, check: () -> Unit = {}, edit: (PDDocument) -> Unit = {}): File {
         PDDocument(memory()).use { dest ->
             val merger = PDFMergerUtility()
             for (file in files) {
@@ -218,6 +221,7 @@ class PdfToolsEngine(private val context: Context) {
                 load(file, "").use { merger.appendDocument(dest, it) }
             }
             check()
+            edit(dest)
             dest.save(target)
         }
         return target

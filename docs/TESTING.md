@@ -18,7 +18,10 @@ selections such as `1-3;5;7-9`, where page numbers, watermarks and signatures go
 are turned (`/Rotate`) or cropped, where a signature starts and how far it can grow, and how big its
 image is. For Word and PowerPoint files they cover units and colors, telling .docx and .pptx files
 from old binary and password-protected ones, list numbers and symbol-font bullets, table column
-widths, where a paragraph breaks between pages, and how group shapes place their contents.
+widths, where a paragraph breaks between pages, and how group shapes place their contents. For EPUB
+books they cover HTML's named characters, links between the book's files, telling DRM from font
+obfuscation, the character set and DOCTYPE of XHTML files, white space, CSS selectors, cascading,
+lengths and font sizes, and table column widths.
 
 ## 2. Device tests (Android)
 
@@ -53,6 +56,15 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   them and decoded no bigger than needed, slides in the presentation's order (not the files'),
   hidden slides left out, progress by page and slide, old .doc and .ppt files, password-protected
   files, other files and XML with a DOCTYPE refused, and cancelling leaving nothing behind
+- EPUB to PDF, with small EPUB 2 and EPUB 3 books the tests write: A5 and A4 pages, chapters in the
+  reading order (not the manifest's), each on a new page, page breaks from the style sheet, HTML's
+  named characters, lists and tables, hidden parts and scripts left out, headings larger and bold,
+  the cover first (also one the book only declares), pictures, an SVG drawing replaced by its
+  description, bookmarks from an NCX file and from a navigation document (places further into a
+  chapter too), the title, author and language, fixed-layout books at one page each, a damaged
+  chapter, progress by chapter, a book of over 400 pages written in parts and joined with its
+  bookmarks, a book without container.xml, books with DRM refused (scrambled fonts alone accepted),
+  other files refused, and cancelling leaving nothing behind
 - the screens, through the accessibility tree a screen reader uses: Home's section headings,
   turning pages with buttons, the page-number positions and watermark colors as named radio
   buttons, a chosen position surviving the activity being recreated, the messages for pages to
@@ -60,7 +72,9 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   page with the arrow buttons, surviving the activity being recreated, saved where the buttons
   moved it, and still there after going back from the result, and Word and PowerPoint to PDF refusing
   an old .doc file and a document picked as a presentation with their messages, and a picked
-  document surviving the activity being recreated and the result
+  document surviving the activity being recreated and the result; EPUB to PDF refusing a file that
+  isn't a book and a book with DRM with their messages, and the book and A4 surviving the activity
+  being recreated
 - text recognition in English, French, Spanish and Hindi (French and Spanish accents kept),
   including a text layer with both Devanagari and Latin
   text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
@@ -99,6 +113,8 @@ On a phone or emulator, with the release APKs:
   page turned sideways; check the results in another PDF viewer.
 - Word to PDF and PowerPoint to PDF with a few real documents and presentations from Files; compare
   the result with the original, and check that an old .doc file is refused.
+- EPUB to PDF with a few real DRM-free books, one with a cover and one fixed-layout; check the
+  bookmarks in another PDF viewer, and that a book with DRM is refused.
 - Sign PDF in landscape and in the dark theme: the pad fills the screen, drawing feels smooth, and
   dragging the signature doesn't scroll the screen (a swipe off it does).
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….

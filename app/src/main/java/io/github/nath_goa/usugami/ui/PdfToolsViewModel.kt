@@ -15,6 +15,7 @@ import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PageNumbers
+import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.core.PageSelectionException
 import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.core.SignaturePlacement
@@ -33,6 +34,7 @@ import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkFontMissing
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
+import io.github.nath_goa.usugami.data.office.EpubProtected
 import io.github.nath_goa.usugami.data.office.OfficeConverter
 import io.github.nath_goa.usugami.data.office.OfficeEncrypted
 import io.github.nath_goa.usugami.data.office.OfficeFileProblem
@@ -55,16 +57,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD
- * and POWERPOINT, which turn one Word or PowerPoint file into a PDF.
+ * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD,
+ * POWERPOINT and EPUB, which turn one Word, PowerPoint or EPUB file into a PDF.
  */
-enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT }
+enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB }
 
 /** The kind of file a tool converts to PDF; null for the tools that work on PDFs. */
 val PdfTool.officeKind: OfficeKind?
     get() = when (this) {
         PdfTool.WORD -> OfficeKind.WORD
         PdfTool.POWERPOINT -> OfficeKind.POWERPOINT
+        PdfTool.EPUB -> OfficeKind.EPUB
         else -> null
     }
 enum class SplitMode { SELECTED, CUSTOM, FIXED, EVERY_PAGE }
@@ -90,7 +93,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      */
     val signature: StateFlow<Signature?> = handle.getStateFlow(KEY_SIGNATURE, null)
 
-    /** The Word or PowerPoint file picked for Word to PDF or PowerPoint to PDF. */
+    /** The Word, PowerPoint or EPUB file picked for Word, PowerPoint or EPUB to PDF. */
     val document: StateFlow<OfficeInput?> = handle.getStateFlow(KEY_DOCUMENT, null)
 
     /** How far converting [document] has got, while it is being converted. */
@@ -186,7 +189,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
 
-    /** Copies the Word or PowerPoint file at [uri] in, in place of the one picked before. */
+    /** Copies the Word, PowerPoint or EPUB file at [uri] in, in place of the one picked before. */
     fun addDocument(uri: Uri, kind: OfficeKind) {
         if (_processing.value || _importing.value) return
         _importing.value = true
@@ -218,21 +221,26 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
 
-    /** Converts [document] to a PDF named [fileName]. */
-    fun runConvert(fileName: String) {
+    /** Converts [document] to a PDF named [fileName]; a book is laid out on [bookPage] (A5 or A4). */
+    fun runConvert(fileName: String, bookPage: PageSize = PageSize.A5) {
         val input = document.value ?: return
         process(emptyList(), input) { check ->
-            listOf(office.convert(input, fileName, check) { _convertProgress.value = it })
+            listOf(office.convert(input, fileName, bookPage, check) { _convertProgress.value = it })
         }
     }
 
-    /** Why a Word or PowerPoint file can't be converted, in the user's language. */
+    /** Why a Word, PowerPoint or EPUB file can't be converted, in the user's language. */
     private fun officeMessage(e: OfficeFileProblem, kind: OfficeKind): String = strings.getString(
         when (e) {
             is OfficeLegacyFormat -> if (kind == OfficeKind.WORD) R.string.office_legacy_word else R.string.office_legacy_powerpoint
             is OfficeEncrypted -> R.string.office_encrypted
-            is OfficeNothingToConvert -> R.string.office_no_slides
-            is OfficeNotRecognized -> if (kind == OfficeKind.WORD) R.string.office_not_word else R.string.office_not_powerpoint
+            is EpubProtected -> R.string.epub_protected
+            is OfficeNothingToConvert -> if (kind == OfficeKind.EPUB) R.string.epub_empty else R.string.office_no_slides
+            is OfficeNotRecognized -> when (kind) {
+                OfficeKind.WORD -> R.string.office_not_word
+                OfficeKind.POWERPOINT -> R.string.office_not_powerpoint
+                OfficeKind.EPUB -> R.string.epub_not_recognized
+            }
         },
     )
 
@@ -633,7 +641,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val base = inputs.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"
         return when (tool) {
             // A converted document keeps its name: Report.docx becomes Report.pdf.
-            PdfTool.WORD, PdfTool.POWERPOINT -> document.value?.name?.let(FileNames::baseName) ?: "Usugami"
+            PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> document.value?.name?.let(FileNames::baseName) ?: "Usugami"
             PdfTool.SPLIT -> "${base}_split"
             PdfTool.COMPRESS -> "${base}_compressed"
             PdfTool.MERGE -> "Merged_PDF"

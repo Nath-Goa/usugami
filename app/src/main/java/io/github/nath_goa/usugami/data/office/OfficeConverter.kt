@@ -6,6 +6,7 @@ import android.os.Parcelable
 import android.provider.OpenableColumns
 import io.github.nath_goa.usugami.core.OfficeContainer
 import io.github.nath_goa.usugami.core.OfficeFileType
+import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfInput
@@ -14,10 +15,11 @@ import kotlinx.parcelize.Parcelize
 import java.io.File
 import java.io.IOException
 
-/** The two kinds of Office file Usugami converts. */
+/** The kinds of document Usugami converts: two Office formats, and EPUB e-books. */
 enum class OfficeKind(val extension: String, val fallbackName: String) {
     WORD("docx", "Document"),
     POWERPOINT("pptx", "Presentation"),
+    EPUB("epub", "Book"),
     ;
 
     /**
@@ -38,10 +40,13 @@ enum class OfficeKind(val extension: String, val fallbackName: String) {
                 "application/vnd.ms-powerpoint.presentation.macroEnabled.12",
                 "application/vnd.ms-powerpoint",
             )
+            // Some file providers don't know EPUB and call it just "binary data": those files can be
+            // picked too, and the content says whether they are e-books.
+            EPUB -> arrayOf("application/epub+zip", "application/octet-stream")
         }
 }
 
-/** A picked Word or PowerPoint file, copied into the cache. */
+/** A picked Word, PowerPoint or EPUB file, copied into the cache. */
 @Parcelize
 data class OfficeInput(val id: Long, val path: String, val name: String, val kind: OfficeKind) : Parcelable {
     val file: File get() = File(path)
@@ -59,17 +64,17 @@ class OfficeEncrypted : OfficeFileProblem("Password-protected Office file")
 /** Not a Word document or PowerPoint presentation (or not the kind asked for), or damaged. */
 class OfficeNotRecognized : OfficeFileProblem("Not a Word or PowerPoint file")
 
-/** A presentation with no slides, or only hidden ones. */
+/** A presentation with no slides, or only hidden ones; a book with nothing in its reading order. */
 class OfficeNothingToConvert : OfficeFileProblem("No slides to convert")
 
-/** How far a conversion has got: page or slide [done] of [total] (unknown for Word), then [compressing]. */
+/** How far a conversion has got: page, slide or chapter [done] of [total] (unknown for Word), then [compressing]. */
 data class OfficeProgress(val done: Int, val total: Int?, val compressing: Boolean = false)
 
 /**
- * Word and PowerPoint to PDF, entirely on the phone: [DocxConverter] and [PptxConverter] read the
- * file's XML and draw its pages with Android's PDF backend, then the PDF goes through Compress PDF
- * (Recommended), which stores the pictures as JPEG, as that backend can't. Copies of picked files
- * and working files live in the cache, like the PDF tools' copies.
+ * Word, PowerPoint and EPUB to PDF, entirely on the phone: [DocxConverter], [PptxConverter] and
+ * [EpubConverter] read the file's XML and draw its pages with Android's PDF backend, then the PDF
+ * goes through Compress PDF (Recommended), which stores the pictures as JPEG, as that backend can't.
+ * Copies of picked files and working files live in the cache, like the PDF tools' copies.
  */
 class OfficeConverter(private val context: Context, private val engine: PdfToolsEngine) {
     private val inputDir = File(context.cacheDir, "office-inputs")
@@ -115,7 +120,7 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
         }
     }
 
-    /** Throws an [OfficeFileProblem] unless [file] is a [kind] file in the Office Open XML format. */
+    /** Throws an [OfficeFileProblem] unless [file] is a [kind] file Usugami can convert. */
     fun verify(file: File, kind: OfficeKind) {
         val header = ByteArray(8)
         val read = file.inputStream().use { input ->
@@ -128,6 +133,7 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
             total
         }
         if (read < header.size) throw OfficeNotRecognized()
+        if (kind == OfficeKind.EPUB) return verifyBook(file, header)
         when (OfficeFileType.container(header)) {
             OfficeContainer.COMPOUND -> throw if (file.inputStream().buffered().use(OfficeFileType::isEncryptedPackage)) OfficeEncrypted() else OfficeLegacyFormat()
             OfficeContainer.OTHER -> throw OfficeNotRecognized()
@@ -139,6 +145,7 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
                             when (kind) {
                                 OfficeKind.WORD -> x.name == "document" && x.ns == Ns.WORD
                                 OfficeKind.POWERPOINT -> x.name == "presentation" && x.ns == Ns.SLIDE
+                                OfficeKind.EPUB -> false
                             }
                         } ?: false
                     }
@@ -150,28 +157,67 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
         }
     }
 
+    /** A zip with an EPUB package in it, without DRM. */
+    private fun verifyBook(file: File, header: ByteArray) {
+        if (OfficeFileType.container(header) != OfficeContainer.ZIP) throw OfficeNotRecognized()
+        try {
+            EpubArchive(file).use { EpubBook.read(it) {} }
+        } catch (e: OfficeFileProblem) {
+            throw e
+        } catch (_: Exception) {
+            throw OfficeNotRecognized()
+        }
+    }
+
     /**
      * Converts [input] to a PDF named [fileName] in the PDF tools' output folder. [progress] hears of
-     * each page or slide drawn; [check] is called often and throws to cancel, leaving nothing behind.
+     * each page, slide or chapter drawn; [check] is called often and throws to cancel, leaving nothing
+     * behind. A book is laid out on A5 pages.
      */
-    fun convert(input: OfficeInput, fileName: String, check: () -> Unit, progress: (OfficeProgress) -> Unit): PdfFile {
+    fun convert(input: OfficeInput, fileName: String, check: () -> Unit, progress: (OfficeProgress) -> Unit): PdfFile =
+        convert(input, fileName, PageSize.A5, check, progress)
+
+    /** As [convert], with a book laid out on [bookPage] (A5 or A4). Office files keep their own page size. */
+    fun convert(input: OfficeInput, fileName: String, bookPage: PageSize, check: () -> Unit, progress: (OfficeProgress) -> Unit): PdfFile {
         clearWork()
         workDir.mkdirs()
         try {
             var pages = 0
-            val parts = OfficePackage(input.file).use { pkg ->
-                PagedPdf(workDir).use { pdf ->
-                    val images = OfficeImages(pkg::open, pdf, check)
-                    pages = when (input.kind) {
-                        OfficeKind.WORD -> DocxConverter(pkg, pdf, images, check) { progress(OfficeProgress(it, null)) }.convert()
-                        OfficeKind.POWERPOINT -> PptxConverter(pkg, pdf, images, check) { slide, total -> progress(OfficeProgress(slide, total)) }.convert()
+            var info: BookInfo? = null
+            val parts = if (input.kind == OfficeKind.EPUB) {
+                EpubArchive(input.file).use { archive ->
+                    val book = EpubBook.read(archive, check)
+                    PagedPdf(workDir).use { pdf ->
+                        val images = OfficeImages(archive::open, pdf, check)
+                        info = EpubConverter(archive, book, pdf, images, bookPage, check) { chapter, total ->
+                            progress(OfficeProgress(chapter, total))
+                        }.convert()
+                        pages = pdf.pageCount
+                        pdf.finish()
                     }
-                    pdf.finish()
+                }
+            } else {
+                OfficePackage(input.file).use { pkg ->
+                    PagedPdf(workDir).use { pdf ->
+                        val images = OfficeImages(pkg::open, pdf, check)
+                        pages = when (input.kind) {
+                            OfficeKind.WORD -> DocxConverter(pkg, pdf, images, check) { progress(OfficeProgress(it, null)) }.convert()
+                            OfficeKind.POWERPOINT -> PptxConverter(pkg, pdf, images, check) { slide, total -> progress(OfficeProgress(slide, total)) }.convert()
+                            OfficeKind.EPUB -> 0
+                        }
+                        pdf.finish()
+                    }
                 }
             }
             check()
             progress(OfficeProgress(pages, pages, compressing = true))
-            val joined = parts.singleOrNull() ?: engine.join(parts, File(workDir, "joined.pdf"), check)
+            // A book's bookmarks, title and language go in as the parts are joined, even a single part.
+            val bookInfo = info
+            val joined = if (bookInfo != null) {
+                engine.join(parts, File(workDir, "joined.pdf"), check, bookInfo::applyTo)
+            } else {
+                parts.singleOrNull() ?: engine.join(parts, File(workDir, "joined.pdf"), check)
+            }
             val compressed = engine.compress(PdfInput(input.id, joined.path, input.name, pages), PdfCompression.RECOMMENDED, fileName, check)
             return PdfFile(compressed.file, pages, 0)
         } catch (t: Throwable) {

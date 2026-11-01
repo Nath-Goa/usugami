@@ -261,7 +261,7 @@ class ScreensDeviceTest {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) assertTrue("A screen reader can jump to it", node.isHeading)
         }
         val tools = listOf(
-            R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_split, R.string.tool_merge,
+            R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_epub, R.string.tool_split, R.string.tool_merge,
             R.string.tool_compress, R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_sign,
         )
         for (tool in tools) {
@@ -486,6 +486,67 @@ class ScreensDeviceTest {
         PDDocument.load(resultFile(pdfVm)).use { doc ->
             // Seven slides, one of them hidden.
             assertEquals(6, doc.numberOfPages)
+        }
+    }
+
+    /** A small EPUB 3 book, made up here; with [drm], its text is marked as encrypted. */
+    private fun book(drm: Boolean = false): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(out).use { zip ->
+            fun put(path: String, text: String) {
+                zip.putNextEntry(java.util.zip.ZipEntry(path))
+                zip.write(text.toByteArray())
+                zip.closeEntry()
+            }
+            put("mimetype", "application/epub+zip")
+            put("META-INF/container.xml", """<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="book.opf" media-type="application/oebps-package+xml"/></rootfiles></container>""")
+            put("book.opf", """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Tiny Tales</dc:title><dc:identifier id="id">x</dc:identifier></metadata><manifest><item id="c1" href="c1.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c1"/></spine></package>""")
+            put("c1.xhtml", """<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>1</title></head><body><h1>The First Tale</h1><p>Once upon a time.</p></body></html>""")
+            if (drm) put("META-INF/encryption.xml", """<encryption xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><EncryptedData xmlns="http://www.w3.org/2001/04/xmlenc#"><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes128-cbc"/></EncryptedData></encryption>""")
+        }
+        return out.toByteArray()
+    }
+
+    @Test fun epubToPdfRefusesOtherFilesAndKeepsThePageSizeChosen() {
+        val first = launch()
+        val firstVm = openTool(R.string.tool_epub, first)
+        find("the card to pick a file") { it.says(app.getString(R.string.pick_epub)) }
+        assertFalse("Nothing to convert yet", clickable(button(R.string.convert)).isEnabled)
+
+        // A file that isn't a book (pickable when a provider calls it just binary data), and a book with DRM.
+        onMain { firstVm.addDocument(picked("notes.epub", "Not a book at all".toByteArray()), OfficeKind.EPUB) }
+        find("the message") { it.says(app.getString(R.string.epub_not_recognized)) }
+        onMain { firstVm.addDocument(picked("locked.epub", book(drm = true)), OfficeKind.EPUB) }
+        find("the message") { it.says(app.getString(R.string.epub_protected)) }
+        assertNull(onMain { firstVm.document.value })
+
+        onMain { firstVm.addDocument(picked("Tiny Tales.epub", book()), OfficeKind.EPUB) }
+        find("the book's card") { it.says("Tiny Tales.epub") }
+        find("the remove button") { it.says(app.getString(R.string.remove_file, "Tiny Tales.epub")) }
+        find("the file name") { it.isEditable && it.text?.toString() == "Tiny Tales" }
+        find("what converts") { it.says(app.getString(R.string.office_note_epub)) }
+        val a5 = app.getString(R.string.size_a5)
+        val a4 = app.getString(R.string.size_a4)
+        assertTrue("A5 is the default", radio(a5).chosen)
+        click(radio(a4))
+        waitUntil("A4 to be chosen") { radio(a4).chosen }
+
+        // The book and the page size survive the activity being recreated, as on rotation.
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        find("the book's card, still") { it.says("Tiny Tales.epub") }
+        waitUntil("A4 to be chosen still") { radio(a4).chosen }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+
+        click(actionButton(R.string.convert))
+        val result = resultFile(pdfVm)
+        assertEquals("Tiny Tales.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            val box = doc.getPage(0).mediaBox
+            assertEquals(595f, box.width, 1.5f)
+            assertEquals(842f, box.height, 1.5f)
+            assertTrue(PDFTextStripper().getText(doc).contains("Once upon a time."))
+            assertEquals("The First Tale", doc.documentCatalog.documentOutline.firstChild.title)
         }
     }
 

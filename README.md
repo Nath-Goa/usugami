@@ -1,8 +1,8 @@
 # Usugami
 
-**Turn photos, Word documents and PowerPoint slides into PDFs, and split, merge, compress, rotate,
-number, watermark and sign PDFs, right on your Android phone. No ads, no tracking, no account, no
-uploads.**
+**Turn photos, Word documents, PowerPoint slides and EPUB e-books into PDFs, and split, merge,
+compress, rotate, number, watermark and sign PDFs, right on your Android phone. No ads, no tracking,
+no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
 It was called PDFer before version 1.2.0.
@@ -27,7 +27,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 | | **Usugami** (recommended) | **Usugami Offline** |
 |---|---|---|
 | Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 2.5 MB | **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**, about 22 MB |
-| Images, Word and PowerPoint to PDF, and every PDF tool | Fully offline | Fully offline |
+| Images, Word, PowerPoint and EPUB to PDF, and every PDF tool | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Built into the app. Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never |
 | Needs Google Play services | Only for text recognition | No |
@@ -137,6 +137,19 @@ old "PDFer".
   Text too long for its box is shrunk to fit, as PowerPoint does.
 - Some things are simplified: see *What converts from Word and PowerPoint?* under
   [Questions and troubleshooting](#questions-and-troubleshooting).
+
+**EPUB to PDF**
+
+- Turns **.epub** e-books into PDFs on your phone, on **A5** pages (about the size of a paperback)
+  or **A4** for printing.
+- The cover comes first, then the chapters in the book's reading order, each on a new page.
+- Keeps headings, paragraphs, bold, italic and underlined text, lists, quotes, simple tables and
+  pictures, and the simple parts of the book's style: alignment, indents, spacing, font sizes and
+  page breaks.
+- The table of contents becomes the PDF's **bookmarks**, and the book's title and author go into
+  the PDF.
+- Books with DRM (copy protection) can't be converted: see *What converts from an EPUB e-book?*
+  under [Questions and troubleshooting](#questions-and-troubleshooting).
 
 **Split PDF**
 
@@ -404,6 +417,28 @@ original, but not always identical:
 </details>
 
 <details>
+<summary><b>What converts from an EPUB e-book?</b></summary>
+
+Usugami reads the book itself and lays its pages out again, as an e-reader does:
+
+- **Converts:** EPUB 2 and EPUB 3 books: the cover, the chapters in reading order, headings,
+  paragraphs and line breaks, bold, italic, underlined and struck-through text, lists, quotes,
+  simple tables, pictures, and the table of contents as bookmarks. From the book's style sheet:
+  alignment, indents, spacing, font sizes, hidden parts and page breaks.
+- **Simplified:** your phone's serif, sans-serif or monospace font stands in for the book's own
+  fonts. Colors, backgrounds, borders, floating pictures and columns are left out, and links stay as
+  plain text. Footnotes stay where the book puts them. SVG drawings are left out (their description
+  is shown, if they have one).
+- **Fixed-layout books**, such as comics and picture books, get one PDF page per page of the book,
+  as best Usugami can: a page that is a single picture fills the PDF page, and anything else is
+  laid out in order and shrunk to fit, so text the book places over a picture comes after it.
+- **Not converted:** books protected with DRM (copy protection), as many bought from online stores
+  are. Usugami can't remove DRM; books without it, such as free public-domain books, convert fine.
+  Kindle files (.mobi, .azw) aren't EPUB books.
+
+</details>
+
+<details>
 <summary><b>Where are my PDFs saved?</b></summary>
 
 Nowhere until you choose. When a PDF is ready you can:
@@ -499,14 +534,15 @@ readable code.
 
 ```text
 app/                  Android app (Kotlin, Jetpack Compose, Material 3)
-  src/main/           shared code: screens, PDF tools, Word and PowerPoint conversion, OCR text
-                      layer, saving and sharing
+  src/main/           shared code: screens, PDF tools, Word, PowerPoint and EPUB conversion, OCR
+                      text layer, saving and sharing
   src/standard/       text recognition through Google Play services
   src/offline/        built-in text recognition
   src/androidTest/    device tests
 core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, page layout,
                       JPEG/PNG handling, metadata removal, compression sizing, page ranges,
-                      and the Word and PowerPoint helpers (units, colors, list numbers)
+                      the Word and PowerPoint helpers (units, colors, list numbers) and the
+                      EPUB helpers (links, HTML characters, simple CSS)
 tools/                validate_pdfs.py (checks output with independent PDF tools),
                       make_ocr_font.py (builds the OCR font), make_office_fixtures.py (the
                       made-up Word and PowerPoint test files), google_notices.py
@@ -517,8 +553,8 @@ docs/                 testing guide, badges, screenshots
 
 The PDF tools use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);
 text recognition uses [Google ML Kit](https://developers.google.com/ml-kit/vision/text-recognition/v2).
-Word and PowerPoint files are read with Android's own XML parser and drawn with its built-in PDF
-writer, so they need no extra library.
+Word and PowerPoint files and EPUB books are read with Android's own XML parser and drawn with its
+built-in PDF writer, so they need no extra library.
 
 ## Contributing
 

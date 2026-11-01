@@ -159,6 +159,16 @@
         <item quantity="one">%2$d में से %1$d स्लाइड</item>
         <item quantity="other">%2$d में से %1$d स्लाइड</item>
     </plurals>
+    <string name="tool_epub">EPUB से PDF</string>
+    <string name="tool_epub_detail">ई-बुक (.epub), पेजों में</string>
+    <string name="pick_epub">EPUB फ़ाइल चुनें</string>
+    <string name="document_epub">EPUB ई-बुक</string>
+    <string name="office_note_epub">अध्याय, हेडिंग, टेक्स्ट की स्टाइल, लिस्ट, टेबल और इमेज PDF में आ जाती हैं, और विषय-सूची बुकमार्क बन जाती है। आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं।</string>
+    <string name="book_page_note">A5 लगभग एक पेपरबैक किताब जितना होता है; A4 प्रिंट करने के लिए अच्छा है।</string>
+    <string name="epub_protected">यह किताब DRM (कॉपी सुरक्षा) से सुरक्षित है, इसलिए Usugami इसे नहीं पढ़ सकता। सिर्फ़ बिना DRM वाली किताबें बदली जा सकती हैं।</string>
+    <string name="epub_not_recognized">यह EPUB ई-बुक नहीं है, या फ़ाइल खराब है।</string>
+    <string name="epub_empty">इस किताब में बदलने के लिए कुछ नहीं है।</string>
+    <string name="progress_chapter">%2$d में से अध्याय %1$d</string>
 
     <string name="ocr_title">टेक्स्ट को खोजने लायक बनाएं (OCR)</string>
     <string name="ocr_detail">इन इमेज में शब्द पहचानें और PDF में खोजने लायक टेक्स्ट जोड़ें।</string>
