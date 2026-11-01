@@ -31,6 +31,7 @@ import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.PdfWrongPassword
+import io.github.nath_goa.usugami.data.ResultZip
 import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkFontMissing
@@ -141,6 +142,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
 
+    /** What the last run was named (the file name typed), which a ZIP file of its PDFs is named after. */
+    private var resultName = ""
+    private val zipper = ResultZipper(app, engine.zipDir, viewModelScope, { strings }, ::message, ::resultCleared)
+    /** How far the ZIP file of the result's PDFs has got, while it is being made. */
+    val zipProgress = zipper.progress
+    /** Share screens for ZIP files of the result's PDFs, once each is ready. */
+    val zipShares = zipper.shares
+
     private var nextId = maxOf(System.currentTimeMillis(), ((inputs.value + locked.value).maxOfOrNull { it.id } ?: 0) + 1)
     private var task: Job? = null
     private var importJob: Job? = null
@@ -245,7 +254,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** Converts [document] to a PDF named [fileName]; a book is laid out on [bookPage] (A5 or A4). */
     fun runConvert(fileName: String, bookPage: PageSize = PageSize.A5) {
         val input = document.value ?: return
-        process(emptyList(), input) { check ->
+        process(fileName, emptyList(), input) { check ->
             listOf(office.convert(input, fileName, bookPage, check) { _convertProgress.value = it })
         }
     }
@@ -411,19 +420,19 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             message(strings.getString(R.string.pdf_invalid_pages))
             return
         }
-        process(listOf(input)) { check -> engine.split(input, groups, fileName, check) }
+        process(fileName, listOf(input)) { check -> engine.split(input, groups, fileName, check) }
     }
 
     fun runMerge(pageMode: Boolean, fileName: String) {
         val source = inputs.value
         if (source.size < 2 || (pageMode && pages.value.isEmpty())) return
         val selected = if (pageMode) pages.value else null
-        process(source) { check -> listOf(engine.merge(source, selected, fileName, check)) }
+        process(fileName, source) { check -> listOf(engine.merge(source, selected, fileName, check)) }
     }
 
     fun runCompress(level: PdfCompression, fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
-        process(listOf(input), afterResult = { files ->
+        process(fileName, listOf(input), afterResult = { files ->
             // The engine keeps the original file when re-encoding would not make an unprotected PDF
             // smaller. Say so, otherwise the result looks like nothing happened.
             val file = files.single()
@@ -438,7 +447,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val input = inputs.value.singleOrNull() ?: return
         val rotations = pages.value.filter { it.inputId == input.id && it.rotation != 0 }.associate { it.page to it.rotation }
         if (rotations.isEmpty()) return
-        process(listOf(input)) { check -> listOf(engine.rotate(input, rotations, fileName, check)) }
+        process(fileName, listOf(input)) { check -> listOf(engine.rotate(input, rotations, fileName, check)) }
     }
 
     /** [skip] lists pages to leave without a number, like "1" or "1-2,5"; it may be blank. */
@@ -454,7 +463,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             message(strings.getString(R.string.page_numbers_all_skipped))
             return
         }
-        process(listOf(input)) { check -> listOf(engine.addPageNumbers(input, numbered, position, size, fileName, check)) }
+        process(fileName, listOf(input)) { check -> listOf(engine.addPageNumbers(input, numbered, position, size, fileName, check)) }
     }
 
     fun runWatermark(text: String, color: WatermarkColor, opacity: WatermarkOpacity, fileName: String) {
@@ -465,7 +474,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             message(strings.getString(R.string.watermark_no_font))
             return
         }
-        process(listOf(input)) { check -> listOf(engine.addWatermark(input, text, color, opacity, fileName, check)) }
+        process(fileName, listOf(input)) { check -> listOf(engine.addWatermark(input, text, color, opacity, fileName, check)) }
     }
 
     fun setSignature(signature: Signature) {
@@ -477,7 +486,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val input = inputs.value.singleOrNull() ?: return
         val signature = signature.value ?: return
         if (page !in 0 until input.pageCount) return
-        process(listOf(input)) { check -> listOf(engine.sign(input, signature, page, placement, fileName, check)) }
+        process(fileName, listOf(input)) { check -> listOf(engine.sign(input, signature, page, placement, fileName, check)) }
     }
 
     /** Gets [input] ready for Redact PDF's preview: [redactView], once it is. */
@@ -598,7 +607,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val input = inputs.value.singleOrNull() ?: return
         val boxes = _redactBoxes.value.filter { it.page in 0 until input.pageCount }
         if (boxes.isEmpty() || _finding.value) return
-        process(listOf(input)) { check -> listOf(engine.redact(input, boxes, fileName, check)) }
+        process(fileName, listOf(input)) { check -> listOf(engine.redact(input, boxes, fileName, check)) }
     }
 
     private fun setRedactBoxes(boxes: List<RedactBox>) {
@@ -627,10 +636,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /**
-     * Runs [block], which reads [sources] (or the Word or PowerPoint file [document]). Every tool
-     * writes PDFs without a password.
+     * Runs [block], which reads [sources] (or the Word or PowerPoint file [document]) and makes PDFs
+     * named after [name]. Every tool writes PDFs without a password.
      */
     private fun process(
+        name: String,
         sources: List<PdfInput>,
         document: OfficeInput? = null,
         afterResult: (List<PdfFile>) -> Unit = {},
@@ -654,6 +664,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 val files = withContext(fileOps) { block { job.ensureActive() } }
                 _saved.value = false
                 _passwordRemoved.value = sources.any { it.password.isNotEmpty() }
+                resultName = name
                 _result.value = files
                 afterResult(files)
             } catch (_: CancellationException) {
@@ -683,9 +694,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     fun cancel() { task?.cancel() }
-    fun backToEditing() { _result.value = null }
+
+    fun backToEditing() {
+        // A ZIP file of the result is no longer wanted once the result screen has gone.
+        zipper.cancel()
+        _result.value = null
+    }
 
     fun startOver() {
+        zipper.cancel()
         _result.value = null
         clearInputs()
         viewModelScope.launch(fileOps) { engine.clearOutput() }
@@ -700,6 +717,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         importJob?.cancel()
         unlockJob?.cancel()
         task?.cancel()
+        zipper.cancel()
         // The abandoned import stops at its next chunk; the next tool can import straight away.
         importGeneration++
         importJob = null
@@ -800,6 +818,29 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun shareIntent(files: List<PdfFile>): Intent = saver.shareIntent(files.map { it.file })
     fun viewIntent(file: PdfFile): Intent = saver.viewIntent(file.file)
+
+    /** The name the ZIP file of the result's PDFs gets, such as "Report_split.zip". */
+    fun zipFileName(): String = ResultZip.fileName(resultName)
+
+    /** Makes one ZIP file of the result's PDFs and shares it (see [zipShares]). */
+    fun shareZip() {
+        val files = _result.value ?: return
+        zipper.share(files, resultName)
+    }
+
+    /** Saves one ZIP file of the result's PDFs into a document created with the "Save as" screen. */
+    fun saveZipTo(uri: Uri) {
+        val files = _result.value
+        if (files == null) {
+            // As in saveTo: the system restarted Usugami while the screen was open.
+            viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
+            resultCleared(2)
+            return
+        }
+        zipper.saveTo(files, uri) { _saved.value = true }
+    }
+
+    fun cancelZip() = zipper.cancel()
 
     fun defaultName(tool: PdfTool): String {
         val base = inputs.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"

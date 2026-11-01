@@ -350,6 +350,11 @@
         <item quantity="many">%1$d sur %2$d pages</item>
         <item quantity="other">%1$d sur %2$d pages</item>
     </plurals>
+    <plurals name="progress_files">
+        <item quantity="one">%1$d sur %2$d fichier</item>
+        <item quantity="many">%1$d sur %2$d fichiers</item>
+        <item quantity="other">%1$d sur %2$d fichiers</item>
+    </plurals>
     <string name="cancel">Annuler</string>
     <string name="cancelling">Annulation…</string>
 
@@ -369,6 +374,10 @@
     <string name="save_to_downloads">Enregistrer dans Téléchargements</string>
     <string name="save_as">Enregistrer sous…</string>
     <string name="save_all_to_folder">Enregistrer dans un dossier…</string>
+    <string name="zip_button">Partager ou enregistrer en ZIP</string>
+    <string name="zip_share">Partager le ZIP</string>
+    <string name="zip_save">Enregistrer le ZIP sous…</string>
+    <string name="zip_making">Création du fichier ZIP…</string>
     <string name="back_to_editing">Retour à l\'édition</string>
     <string name="start_over">Recommencer</string>
     <string name="start_over_title">Recommencer ?</string>
@@ -406,6 +415,7 @@
         <item quantity="other">%d PDF enregistrés dans le dossier</item>
     </plurals>
     <string name="msg_save_failed">Impossible d\'enregistrer le PDF. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
+    <string name="zip_failed">Impossible de créer le fichier ZIP. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
     <string name="msg_convert_failed">Impossible de créer le PDF : %1$s</string>
     <string name="msg_image_unreadable">« %1$s » n\'a pas pu être lu</string>
     <string name="msg_out_of_memory">mémoire insuffisante pour une image aussi grande</string>

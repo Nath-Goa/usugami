@@ -229,6 +229,8 @@ old "PDFer".
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
   folder.
+- When a tool makes several PDFs (Split PDF in parts, or one PDF per image), **Share or save as
+  ZIP** puts them all in one ZIP file, named after them, to share or save in one go.
 - Comes in **English**, **French**, **Spanish** and **Hindi**: pick one the first time you open
   Usugami, and change it any time in **Settings**. Text recognition starts on the same language.
 - Light and dark theme follow your phone.
@@ -492,6 +494,9 @@ Nowhere until you choose. When a PDF is ready you can:
 - **Save to Downloads** (Android 10 and newer): it appears in the Downloads folder of your Files app.
 - **Save as…**: choose any folder, on any Android version.
 - **Share** it to another app, or **Open** it in a PDF viewer.
+
+Several PDFs at once (from Split PDF, or one PDF per image) can also go into one **ZIP** file, to
+share or save with **Share or save as ZIP**. The PDFs go in exactly as they are.
 
 Until you save or share it, the PDF stays in Usugami's private storage and is cleaned up
 automatically.

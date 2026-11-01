@@ -361,6 +361,10 @@
         <item quantity="one">%1$d of %2$d page</item>
         <item quantity="other">%1$d of %2$d pages</item>
     </plurals>
+    <plurals name="progress_files">
+        <item quantity="one">%1$d of %2$d file</item>
+        <item quantity="other">%1$d of %2$d files</item>
+    </plurals>
     <string name="cancel">Cancel</string>
     <string name="cancelling">Cancelling…</string>
 
@@ -380,6 +384,10 @@
     <string name="save_to_downloads">Save to Downloads</string>
     <string name="save_as">Save as…</string>
     <string name="save_all_to_folder">Save to folder…</string>
+    <string name="zip_button">Share or save as ZIP</string>
+    <string name="zip_share">Share ZIP</string>
+    <string name="zip_save">Save ZIP as…</string>
+    <string name="zip_making">Making the ZIP file…</string>
     <string name="back_to_editing">Back to editing</string>
     <string name="start_over">Start over</string>
     <string name="start_over_title">Start over?</string>
@@ -413,6 +421,7 @@
         <item quantity="other">Saved %d PDFs to the folder</item>
     </plurals>
     <string name="msg_save_failed">Couldn\'t save the PDF. Check that there is enough free storage.</string>
+    <string name="zip_failed">Couldn\'t make the ZIP file. Check that there is enough free storage.</string>
     <string name="msg_convert_failed">Couldn\'t create the PDF: %1$s</string>
     <string name="msg_image_unreadable">\"%1$s\" could not be read</string>
     <string name="msg_out_of_memory">not enough memory for an image this large</string>

@@ -49,6 +49,10 @@ All notable changes to Usugami are listed here. The format is based on
   document's details and XMP metadata, bookmarks, accessibility tags, attachments, scripts, and the
   comments and form fields of redacted pages are removed too. Password-protected PDFs work, and the
   preview shows comments and filled-in form fields as other PDF viewers do.
+- **Share or save as ZIP** on the result screen, when a tool makes several PDFs (Split PDF in parts,
+  or one PDF per image): one ZIP file with exactly those PDFs, put in as they are, named after them
+  (such as Report_split.zip). Share it, or save it anywhere with the system's Save screen. A big set
+  shows its progress and can be cancelled.
 
 ### Changed
 

@@ -80,6 +80,9 @@ class PdfToolsEngine(private val context: Context) {
 
     fun clearOutput() { outputDir.deleteRecursively() }
 
+    /** Where a ZIP file of the results is made, beside them, so it goes when they do. */
+    val zipDir get() = File(outputDir, "zip")
+
     /** Scratch files are deleted when PDFBox closes a document, but not when the app is killed mid-run. */
     fun clearScratch() { scratchDir.deleteRecursively() }
 

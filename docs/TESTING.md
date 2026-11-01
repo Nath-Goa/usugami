@@ -33,7 +33,9 @@ as shown (turned or cropped pages included), drawing, moving and resizing boxes 
 the page, where a new box goes, which box a tap picks, how big the picture of a page is (200 dpi,
 smaller for huge pages), which pixels a box blacks out, and Find text: capitals, accents,
 ligatures, spaces and line breaks, and one box per line of a match, also for text running down
-the page.
+the page. For the ZIP file of several PDFs they cover the files going in as they are (stored, not
+compressed again), in order and byte for byte, names made unique ignoring case and kept free of
+folders, names in other scripts, progress, and stopping part way.
 
 ## 2. Device tests (Android)
 
@@ -89,6 +91,12 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   page without boxes keeps its content, its form field and its look pixel for pixel, an image only
   a redacted page showed is emptied although every page lists it, password-protected PDFs work,
   the boxes come back after the process is stopped, and cancelling leaves nothing behind
+- ZIP of several PDFs: a split into one PDF per page and one PDF per image (two pictures named
+  alike) each go into one ZIP file holding exactly those PDFs, byte for byte; it is shared as
+  application/zip through Usugami's file provider, named after the run, or written into the document
+  picked (replacing a longer one), and saving it counts as saving the PDFs. Cancelling leaves no ZIP
+  file and no message, PDFs cleared from the cache are reported, and so is a "Save as" answered
+  after the PDFs have gone, and starting over clears the ZIP file
 - fonts: those Android's PDF writer embeds whole are shrunk to the glyphs drawn (serif styles,
   monospace, a font with hinting instructions of its own, Greek, Cyrillic, superscripts, digits
   alone, accents on capitals), the Hebrew font is left whole, and the pages then render pixel for
@@ -106,7 +114,10 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   being recreated; Redact PDF's Find text boxing a phrase on every page, a box added, moved and
   widened with buttons, the preview naming the chosen box and stepping to the next, a box drawn
   with injected touches, all of it surviving the activity being recreated, deleting a box, "Remove
-  all" asking first, the redacted result, and the boxes still there after going back from it
+  all" asking first, the redacted result, and the boxes still there after going back from it; the
+  result screen's "Share or save as ZIP" menu for a split and for one PDF per image, with the share
+  screen and the "Save as" screen it starts caught and answered (the type, the name and the ZIP
+  file written), and no such button for a single PDF
 - text recognition in English, French, Spanish and Hindi (French and Spanish accents kept),
   including a text layer with both Devanagari and Latin
   text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
@@ -153,6 +164,8 @@ On a phone or emulator, with the release APKs:
 - Sign PDF in landscape and in the dark theme: the pad fills the screen, drawing feels smooth, and
   dragging the signature doesn't scroll the screen (a swipe off it does).
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
+- Split a PDF into single pages, then Share or save as ZIP: share it to Files or a mail app and save
+  it with Save as, then open the ZIP file in Files and check the PDFs in it.
 - Standard edition: the first OCR in each language downloads that model through Google Play services.
 - Offline edition: OCR works with the internet turned off.
 - The About screen shows the license, privacy policy and notices.

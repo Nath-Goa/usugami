@@ -350,6 +350,11 @@
         <item quantity="many">%1$d de %2$d páginas</item>
         <item quantity="other">%1$d de %2$d páginas</item>
     </plurals>
+    <plurals name="progress_files">
+        <item quantity="one">%1$d de %2$d archivo</item>
+        <item quantity="many">%1$d de %2$d archivos</item>
+        <item quantity="other">%1$d de %2$d archivos</item>
+    </plurals>
     <string name="cancel">Cancelar</string>
     <string name="cancelling">Cancelando…</string>
 
@@ -369,6 +374,10 @@
     <string name="save_to_downloads">Guardar en Descargas</string>
     <string name="save_as">Guardar como…</string>
     <string name="save_all_to_folder">Guardar en una carpeta…</string>
+    <string name="zip_button">Compartir o guardar como ZIP</string>
+    <string name="zip_share">Compartir ZIP</string>
+    <string name="zip_save">Guardar ZIP como…</string>
+    <string name="zip_making">Creando el archivo ZIP…</string>
     <string name="back_to_editing">Volver a editar</string>
     <string name="start_over">Empezar de nuevo</string>
     <string name="start_over_title">¿Empezar de nuevo?</string>
@@ -406,6 +415,7 @@
         <item quantity="other">Se guardaron %d PDF en la carpeta</item>
     </plurals>
     <string name="msg_save_failed">No se pudo guardar el PDF. Comprueba que haya suficiente almacenamiento libre.</string>
+    <string name="zip_failed">No se pudo crear el archivo ZIP. Comprueba que haya suficiente almacenamiento libre.</string>
     <string name="msg_convert_failed">No se pudo crear el PDF: %1$s</string>
     <string name="msg_image_unreadable">\"%1$s\" no se pudo leer</string>
     <string name="msg_out_of_memory">no hay suficiente memoria para una imagen tan grande</string>

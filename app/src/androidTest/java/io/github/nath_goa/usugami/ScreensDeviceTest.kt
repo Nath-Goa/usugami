@@ -1,6 +1,8 @@
 package io.github.nath_goa.usugami
 
+import android.app.Activity
 import android.app.Application
+import android.app.Instrumentation
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -14,6 +16,7 @@ import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -22,14 +25,17 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfCompression
+import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import io.github.nath_goa.usugami.ui.SplitMode
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -39,7 +45,10 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.io.InputStream
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
 import kotlin.math.sin
 
 /**
@@ -837,6 +846,112 @@ class ScreensDeviceTest {
         val vm = onMain { ViewModelProvider(french)[MainViewModel::class.java] }
         onMain { vm.showMessage(R.string.msg_no_browser) }
         find("a French message") { it.says(stringIn(AppLanguage.FRENCH, R.string.msg_no_browser)) }
+    }
+
+    /**
+     * Catches the next screen of another app that Usugami starts with [action], such as the share
+     * screen, instead of starting it, and answers with [result].
+     */
+    private class Intercept(private val action: String, private val result: Instrumentation.ActivityResult) : Instrumentation.ActivityMonitor() {
+        @Volatile var intent: Intent? = null
+
+        override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+            if (intent.action != action) return null
+            this.intent = intent
+            return result
+        }
+    }
+
+    /** Runs [block] (which makes Usugami start a screen with [action]) and returns the intent caught. */
+    private fun intercept(action: String, result: Instrumentation.ActivityResult, block: () -> Unit): Intent {
+        val monitor = Intercept(action, result)
+        instrumentation.addMonitor(monitor)
+        try {
+            block()
+            waitUntil("Usugami to start $action") { monitor.intent != null }
+            return monitor.intent!!
+        } finally {
+            instrumentation.removeMonitor(monitor)
+        }
+    }
+
+    /** Each entry of a ZIP file: its name and bytes, in order. Every one must be stored as it is. */
+    private fun zipEntries(input: InputStream): List<Pair<String, ByteArray>> = ZipInputStream(input).use { zip ->
+        generateSequence { zip.nextEntry }.map { entry ->
+            assertEquals(ZipEntry.STORED, entry.method)
+            entry.name to zip.readBytes()
+        }.toList()
+    }
+
+    /** The ZIP file holds exactly [files], in order, byte for byte. */
+    private fun assertZipHolds(files: List<PdfFile>, entries: List<Pair<String, ByteArray>>) {
+        assertEquals(files.map { it.name }, entries.map { it.first })
+        for ((file, entry) in files.zip(entries)) assertTrue(file.name, file.file.readBytes().contentEquals(entry.second))
+    }
+
+    /** Saves the result's PDFs as one ZIP file through the menu and a "Save as" screen; returns what was written. */
+    private fun saveZipThroughTheMenu(expectedName: String): List<Pair<String, ByteArray>> {
+        val document = File(app.cacheDir, "output/test-picked/saved.zip").apply { parentFile!!.mkdirs(); writeBytes(ByteArray(0)) }
+        val picked = FileProvider.getUriForFile(app, "${app.packageName}.files", document)
+        click(findBelow("the ZIP button") { it.says(app.getString(R.string.zip_button)) })
+        val create = intercept(Intent.ACTION_CREATE_DOCUMENT, Instrumentation.ActivityResult(Activity.RESULT_OK, Intent().setData(picked))) {
+            click(find("Save ZIP in the menu") { it.says(app.getString(R.string.zip_save)) })
+        }
+        assertEquals("application/zip", create.type)
+        assertEquals("The ZIP file is named after the run", expectedName, create.getStringExtra(Intent.EXTRA_TITLE))
+        find("the message") { it.says(app.getString(R.string.msg_saved)) }
+        return document.inputStream().use(::zipEntries)
+    }
+
+    @Test fun severalPdfsAreSharedOrSavedAsOneZip() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_split, activity)
+        onMain { pdfVm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha_split") }
+        find("the result screen") { it.says(app.getString(R.string.result_heading_many)) }
+        val files = onMain { pdfVm.result.value!! }
+        assertEquals(3, files.size)
+
+        // The button opens a menu with the two ways; Share opens the share screen with the ZIP file.
+        click(findBelow("the ZIP button") { it.says(app.getString(R.string.zip_button)) })
+        find("Save ZIP in the menu") { it.says(app.getString(R.string.zip_save)) }
+        val chooser = intercept(Intent.ACTION_CHOOSER, Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)) {
+            click(find("Share ZIP in the menu") { it.says(app.getString(R.string.zip_share)) })
+        }
+        val send = IntentCompat.getParcelableExtra(chooser, Intent.EXTRA_INTENT, Intent::class.java)!!
+        assertEquals(Intent.ACTION_SEND, send.action)
+        assertEquals("application/zip", send.type)
+        assertTrue((send.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
+        val uri = IntentCompat.getParcelableExtra(send, Intent.EXTRA_STREAM, Uri::class.java)!!
+        assertEquals("alpha_split.zip", uri.lastPathSegment)
+        assertZipHolds(files, app.contentResolver.openInputStream(uri)!!.use(::zipEntries))
+        // Sharing isn't saving.
+        findBelow("the note that the PDFs aren't saved") { it.says(app.getString(R.string.not_saved_note)) }
+
+        // Save writes the ZIP file into the document the "Save as" screen made, and counts as saving.
+        assertZipHolds(files, saveZipThroughTheMenu("alpha_split.zip"))
+        assertTrue(onMain { pdfVm.saved.value })
+        waitUntil("the note to go") { nodes().none { it.says(app.getString(R.string.not_saved_note)) } }
+    }
+
+    @Test fun pdfsMadeOnePerImageCanBeSavedAsOneZip() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        onMain { vm.addImages(listOf(photo("first.jpg"), photo("second.jpg"))) }
+        waitUntil("the images to be added") { onMain { vm.items.value.size == 2 && vm.pendingImports.value == 0 } }
+        find("the editor") { it.says(app.getString(R.string.convert)) }
+        onMain { vm.convert(merge = false, fileName = "Trip", compression = Compression.RECOMMENDED) }
+        find("the result screen") { it.says(app.getString(R.string.result_heading_many)) }
+        val files = onMain { vm.result.value!! }
+        assertEquals(listOf("first.pdf", "second.pdf"), files.map { it.name })
+        assertZipHolds(files, saveZipThroughTheMenu("Trip.zip"))
+        onMain { vm.startOver() }
+    }
+
+    @Test fun aSinglePdfHasNoZipButton() {
+        val activity = launch()
+        unsavedCompressResult(activity)
+        findBelow("Start over") { it.says(app.getString(R.string.start_over)) }
+        assertTrue(nodes().none { it.says(app.getString(R.string.zip_button)) })
     }
 
     private companion object {
