@@ -6,6 +6,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import io.github.nath_goa.usugami.data.Appearance
 
 private val LightColors = lightColorScheme(
     primary = Color(0xFFB3261E),
@@ -63,7 +64,13 @@ private val DarkColors = darkColorScheme(
     surfaceContainerHighest = Color(0xFF3D3231),
 )
 
+/** Usugami's colors, light or dark as [appearance] says (see [io.github.nath_goa.usugami.data.Appearances.forTheme]). */
 @Composable
-fun UsugamiTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors, content = content)
+fun UsugamiTheme(appearance: Appearance = Appearance.SYSTEM, content: @Composable () -> Unit) {
+    val dark = when (appearance) {
+        Appearance.SYSTEM -> isSystemInDarkTheme()
+        Appearance.LIGHT -> false
+        Appearance.DARK -> true
+    }
+    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors, content = content)
 }

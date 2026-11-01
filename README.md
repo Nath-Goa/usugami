@@ -1,7 +1,8 @@
 # Usugami
 
-**Turn photos, Word documents and PowerPoint slides into PDFs, and split, merge, reorganize, rotate,
-edit, number, watermark, sign, compress and flatten PDFs, right on your Android phone. No ads, no
+**Turn photos, Word documents, PowerPoint slides and EPUB e-books into PDFs, and split, merge,
+reorganize, rotate, edit, number, watermark, sign, compress, flatten and redact PDFs, right on
+your Android phone. No ads, no
 tracking, no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
@@ -27,7 +28,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 | | **Usugami** (recommended) | **Usugami Offline** |
 |---|---|---|
 | Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 2.5 MB | **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**, about 22 MB |
-| Images, Word and PowerPoint to PDF, and every PDF tool | Fully offline | Fully offline |
+| Images, Word, PowerPoint and EPUB to PDF, and every PDF tool | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Built into the app. Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never |
 | Needs Google Play services | Only for text recognition | No |
@@ -127,7 +128,8 @@ old "PDFer".
   highlighted text, bulleted and numbered lists, tables (split across pages, with their header row
   repeated), pictures, page breaks, landscape pages, and headers and footers with page numbers.
 - The text stays real text, so you can search and select it in the PDF.
-- Pictures are compressed as in Compress PDF (Recommended), so the PDF stays small.
+- Pictures are compressed as in Compress PDF (Recommended), and only the letters the document uses
+  of your phone's fonts go into the PDF, so it stays small.
 
 **PowerPoint to PDF**
 
@@ -135,8 +137,25 @@ old "PDFer".
   Hidden slides are left out.
 - Keeps backgrounds, text and bullets in the presentation's own styles, shapes, pictures and tables.
   Text too long for its box is shrunk to fit, as PowerPoint does.
+- Pictures are compressed, and only the letters the slides use of your phone's fonts go into the
+  PDF, so it stays small.
 - Some things are simplified: see *What converts from Word and PowerPoint?* under
   [Questions and troubleshooting](#questions-and-troubleshooting).
+
+**EPUB to PDF**
+
+- Turns **.epub** e-books into PDFs on your phone, on **A5** pages (about the size of a paperback)
+  or **A4** for printing.
+- The cover comes first, then the chapters in the book's reading order, each on a new page.
+- Keeps headings, paragraphs, bold, italic and underlined text, lists, quotes, simple tables and
+  pictures, and the simple parts of the book's style: alignment, indents, spacing, font sizes and
+  page breaks.
+- The table of contents becomes the PDF's **bookmarks**, and the book's title and author go into
+  the PDF.
+- Pictures are compressed, and only the letters the book uses of your phone's fonts go into the
+  PDF, so it stays small.
+- Books with DRM (copy protection) can't be converted: see *What converts from an EPUB e-book?*
+  under [Questions and troubleshooting](#questions-and-troubleshooting).
 
 **Split PDF**
 
@@ -227,6 +246,22 @@ old "PDFer".
   it again. It isn't saved anywhere else.
 - It's a picture of your handwritten signature, not a certified digital signature.
 
+**Redact PDF**
+
+- Black out names, numbers or anything else for good. Drag on a page to draw a box over it, or type
+  a word or phrase in **Find text** to box it on every page (capitals and accents don't matter).
+- Check the boxes before saving: they're see-through on the screen, and solid black in the PDF.
+  Tap a box to move, resize or delete it, also with buttons, or add one with **Add box**.
+- **True removal, not a black box on top:** each page with a box is saved as a picture of itself
+  with the boxes painted in, so what was under them is no longer in the file at all. Pages without
+  boxes stay exactly as they were.
+- Also removes what could give the hidden text away elsewhere in the file: the title, author and
+  other document details, bookmarks, accessibility tags, attached files, scripts, and the comments
+  and form fields of the redacted pages.
+- Redacted pages are pictures at 200 dpi, sharp enough for small print, so their text can't be
+  selected or searched any more. See *How does Redact PDF work?* under
+  [Questions and troubleshooting](#questions-and-troubleshooting).
+
 **Everywhere**
 
 - Home groups the tools under **Create PDF**, **Organize**, **Edit and sign** and **Optimize and
@@ -238,9 +273,12 @@ old "PDFer".
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
   folder.
+- When a tool makes several PDFs (Split PDF in parts, or one PDF per image), **Share or save as
+  ZIP** puts them all in one ZIP file, named after them, to share or save in one go.
 - Comes in **English**, **French**, **Spanish** and **Hindi**: pick one the first time you open
   Usugami, and change it any time in **Settings**. Text recognition starts on the same language.
-- Light and dark theme follow your phone.
+- Light and dark theme follow your phone, or pick **Light** or **Dark** in **Settings** →
+  **Appearance**.
 
 ## Privacy
 
@@ -459,12 +497,59 @@ original, but not always identical:
 </details>
 
 <details>
+<summary><b>What converts from an EPUB e-book?</b></summary>
+
+Usugami reads the book itself and lays its pages out again, as an e-reader does:
+
+- **Converts:** EPUB 2 and EPUB 3 books: the cover, the chapters in reading order, headings,
+  paragraphs and line breaks, bold, italic, underlined and struck-through text, lists, quotes,
+  simple tables, pictures, and the table of contents as bookmarks. From the book's style sheet:
+  alignment, indents, spacing, font sizes, hidden parts and page breaks.
+- **Simplified:** your phone's serif, sans-serif or monospace font stands in for the book's own
+  fonts. Colors, backgrounds, borders, floating pictures and columns are left out, and links stay as
+  plain text. Footnotes stay where the book puts them. SVG drawings are left out (their description
+  is shown, if they have one).
+- **Fixed-layout books**, such as comics and picture books, get one PDF page per page of the book,
+  as best Usugami can: a page that is a single picture fills the PDF page, and anything else is
+  laid out in order and shrunk to fit, so text the book places over a picture comes after it.
+- **Not converted:** books protected with DRM (copy protection), as many bought from online stores
+  are. Usugami can't remove DRM; books without it, such as free public-domain books, convert fine.
+  Kindle files (.mobi, .azw) aren't EPUB books.
+- The text in the PDF is real text you can search and copy. In Hindi and other scripts with joined
+  letters, copied text can come out jumbled, even though it looks right on the page.
+
+</details>
+
+<details>
 <summary><b>Can Edit PDF change or remove the text already in a PDF?</b></summary>
 
 No. Edit PDF adds text, drawings, shapes and pictures on top of the page; the PDF's own text stays
 as it was. You can cover something with a filled rectangle (white, say) and write over it, but the
 covered text is still in the file: anyone can select, copy or search it, or remove the rectangle in
 another app. To remove text or pictures for good, use Redact PDF instead.
+
+</details>
+
+<details>
+<summary><b>How does Redact PDF work?</b></summary>
+
+Covering text with a black shape isn't enough: the text is still in the PDF underneath, and anyone
+can copy it out. So Usugami saves each page that has a box as a picture of the page, with the boxes
+painted solid black into the picture. What was under a box is gone from the file, and so is the
+text of the rest of that page (it is still there to read, as a picture).
+
+- **Pages without boxes** stay as they were, with their text, links and form fields.
+- **Pages with boxes** become pictures at 200 dpi. Their text can't be selected, searched or read
+  aloud any more, links on them stop working, and their comments and form fields become part of
+  the picture. The PDF usually gets bigger: each redacted page takes a few hundred KB.
+- **Also removed:** the document's title, author and other details (and its XMP metadata),
+  bookmarks, accessibility tags, attached files, JavaScript, application data some apps hide in
+  PDFs, form fields that were only on redacted pages, and images that only redacted pages showed.
+- **Find text** finds text the PDF stores as text. It can't find words in scans or photos (draw
+  boxes over those yourself), and it may miss text in PDFs whose text doesn't copy out correctly,
+  such as some PDFs in Hindi and other scripts with joined letters. Always look through the pages
+  before you save.
+- A digital (certificate) signature in the PDF no longer matches once anything is redacted.
 
 </details>
 
@@ -476,6 +561,9 @@ Nowhere until you choose. When a PDF is ready you can:
 - **Save to Downloads** (Android 10 and newer): it appears in the Downloads folder of your Files app.
 - **Save as…**: choose any folder, on any Android version.
 - **Share** it to another app, or **Open** it in a PDF viewer.
+
+Several PDFs at once (from Split PDF, or one PDF per image) can also go into one **ZIP** file, to
+share or save with **Share or save as ZIP**. The PDFs go in exactly as they are.
 
 Until you save or share it, the PDF stays in Usugami's private storage and is cleaned up
 automatically.
@@ -564,15 +652,16 @@ readable code.
 
 ```text
 app/                  Android app (Kotlin, Jetpack Compose, Material 3)
-  src/main/           shared code: screens, PDF tools, Word and PowerPoint conversion, OCR text
-                      layer, saving and sharing
+  src/main/           shared code: screens, PDF tools, Word, PowerPoint and EPUB conversion, OCR
+                      text layer, saving and sharing
   src/standard/       text recognition through Google Play services
   src/offline/        built-in text recognition
   src/androidTest/    device tests
 core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, page layout,
                       JPEG/PNG handling, metadata removal, compression sizing, page ranges,
-                      where stamps, signatures and Edit PDF's additions go on a page, and the
-                      Word and PowerPoint helpers (units, colors, list numbers)
+                      where stamps, signatures and Edit PDF's additions go on a page, the
+                      Word and PowerPoint helpers (units, colors, list numbers), the EPUB
+                      helpers (links, HTML characters, simple CSS) and font subsetting
 tools/                validate_pdfs.py (checks output with independent PDF tools),
                       make_ocr_font.py (builds the OCR font), make_office_fixtures.py (the
                       made-up Word and PowerPoint test files), google_notices.py
@@ -583,8 +672,8 @@ docs/                 testing guide, badges, screenshots
 
 The PDF tools use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);
 text recognition uses [Google ML Kit](https://developers.google.com/ml-kit/vision/text-recognition/v2).
-Word and PowerPoint files are read with Android's own XML parser and drawn with its built-in PDF
-writer, so they need no extra library.
+Word and PowerPoint files and EPUB books are read with Android's own XML parser and drawn with its
+built-in PDF writer, so they need no extra library.
 
 ## Contributing
 

@@ -29,16 +29,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.net.toUri
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.ZipArchive
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.PdfSaver
+import kotlinx.coroutines.flow.merge
 
 @Composable
-fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
+fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onChooseAppearance: (Appearance) -> Unit) {
     val context = LocalContext.current
     // The first time Usugami opens, it asks for a language before anything else. Choosing one
     // usually recreates the activity in that language; this state carries over, so Home follows.
@@ -66,6 +72,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     val pdfSaved by pdfVm.saved.collectAsStateWithLifecycle()
     val pdfSaving by pdfVm.saving.collectAsStateWithLifecycle()
     val pdfPasswordRemoved by pdfVm.passwordRemoved.collectAsStateWithLifecycle()
+    val zipProgress by vm.zipProgress.collectAsStateWithLifecycle()
+    val pdfZipProgress by pdfVm.zipProgress.collectAsStateWithLifecycle()
 
     var route by rememberSaveable { mutableStateOf(if (vm.items.value.isNotEmpty()) "images" else "home") }
 
@@ -77,6 +85,20 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     }
     LaunchedEffect(pdfVm) {
         pdfVm.messages.collect { snackbar.showSnackbar(it) }
+    }
+    // A ZIP file of the result's PDFs is shared once it is ready, while Usugami is on screen: an app
+    // in the background can't open the share screen.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(vm, pdfVm, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            merge(vm.zipShares, pdfVm.zipShares).collect { intent ->
+                try {
+                    context.startActivity(intent)
+                } catch (_: ActivityNotFoundException) {
+                    vm.showMessage(R.string.msg_no_share_app)
+                }
+            }
+        }
     }
     // Set when images were shared while a PDF tool had a PDF that would be lost by leaving it.
     var confirmLeavePdf by rememberSaveable { mutableStateOf(false) }
@@ -112,7 +134,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     val picturePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) pdfVm.addPicture(uri)
     }
-    // For Word to PDF and PowerPoint to PDF: the tool showing says which kind of file it takes.
+    // For Word, PowerPoint and EPUB to PDF: the tool showing says which kind of file it takes.
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val kind = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }?.officeKind
         if (uri != null && kind != null) pdfVm.addDocument(uri, kind)
@@ -125,6 +147,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             if (route == "images") vm.saveToFolder(uri) else pdfVm.saveToFolder(uri)
+        }
+    }
+    val createZip = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(ZipArchive.MIME)) { uri ->
+        if (uri != null) {
+            if (route == "images") vm.saveZipTo(uri) else pdfVm.saveZipTo(uri)
         }
     }
 
@@ -199,6 +226,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                         snackbar = screenSnackbar,
                         onBack = { route = "home" },
                         onChooseLanguage = onChooseLanguage,
+                        onChooseAppearance = onChooseAppearance,
                         onSourceCode = { openSourceCode() },
                         onAbout = { route = "settings/about" },
                     )
@@ -265,7 +293,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                                 }
                             },
                             startOver = vm::startOver,
+                            shareZip = { if (vm.checkResult()) vm.shareZip() },
+                            saveZip = { launch(R.string.msg_no_file_picker) { if (vm.checkResult()) createZip.launch(vm.zipFileName()) } },
+                            cancelZip = vm::cancelZip,
                         ),
+                        zipProgress = zipProgress,
                     )
                 }
                 current.endsWith("/result") -> {
@@ -289,7 +321,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                                 }
                             },
                             startOver = pdfVm::startOver,
+                            shareZip = { if (pdfVm.checkResult()) pdfVm.shareZip() },
+                            saveZip = { launch(R.string.msg_no_file_picker) { if (pdfVm.checkResult()) createZip.launch(pdfVm.zipFileName()) } },
+                            cancelZip = pdfVm::cancelZip,
                         ),
+                        zipProgress = pdfZipProgress,
                         note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else null,
                     )
                 }

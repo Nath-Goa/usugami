@@ -15,6 +15,16 @@ All notable changes to Usugami are listed here. The format is based on
   the slide master's text styles carry over. Hidden slides are left out, and pictures are
   compressed. Fonts become the phone's own, and charts show as gray boxes with their title. Old
   .doc and .ppt files and password-protected ones are refused with a message saying what to do.
+- **EPUB to PDF**, under Create PDF on Home. Usugami reads EPUB 2 and EPUB 3 e-books on your phone
+  and lays them out on A5 pages (or A4), the cover first and each chapter on a new page. Headings,
+  text styles, lists, quotes, simple tables and pictures carry over, with the basics of the book's
+  style sheet (alignment, indents, spacing, font sizes, page breaks). The table of contents becomes
+  the PDF's bookmarks, and the book's title, author and language go into the PDF. Fixed-layout
+  books get one page per page of the book. Books with DRM, and files that aren't e-books, are
+  refused with a message.
+- PDFs made from Word, PowerPoint and EPUB files keep only the letters they use of the phone's
+  fonts, so they are much smaller (a short sample book went from 490 KB to 121 KB) and look exactly
+  the same. Fonts for scripts other than Latin, Greek and Cyrillic still go in whole.
 
 - **Rotate PDF**: turn single pages, or all of them, left or right. Only the way each page is shown
   changes; nothing is re-encoded.
@@ -55,6 +65,21 @@ All notable changes to Usugami are listed here. The format is based on
   takes common English words). Case and accents don't matter, and every word typed must match. The
   tools found show in one list, Back clears the search, and a screen reader says how many were
   found.
+- **Redact PDF**, under **Optimize and protect** on Home. Draw boxes
+  over what to hide, or let **Find text** box a word or phrase on every page (ignoring capitals and
+  accents), then move, resize or delete boxes by dragging or with buttons. It is true removal: each
+  page with a box is saved as a picture of itself at 200 dpi with the boxes painted black, so the
+  hidden text and images are gone from the file, while pages without boxes stay as they were. The
+  document's details and XMP metadata, bookmarks, accessibility tags, attachments, scripts, and the
+  comments and form fields of redacted pages are removed too. Password-protected PDFs work, and the
+  preview shows comments and filled-in form fields as other PDF viewers do.
+- **Share or save as ZIP** on the result screen, when a tool makes several PDFs (Split PDF in parts,
+  or one PDF per image): one ZIP file with exactly those PDFs, put in as they are, named after them
+  (such as Report_split.zip). Share it, or save it anywhere with the system's Save screen. A big set
+  shows its progress and can be cancelled.
+- **Appearance** in Settings: **System default** (as before), **Light** or **Dark**, for every
+  screen, the first-launch language screen included. On Android 12 and newer, Android keeps the
+  choice for Usugami and applies it from the first frame.
 
 ### Changed
 

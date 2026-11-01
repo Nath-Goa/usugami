@@ -24,6 +24,8 @@
     <string name="tool_watermark_detail">Un texto en diagonal sobre cada página</string>
     <string name="tool_sign">Firmar PDF</string>
     <string name="tool_sign_detail">Dibuja tu firma y colócala</string>
+    <string name="tool_redact">Censurar PDF</string>
+    <string name="tool_redact_detail">Tapa texto e imágenes para siempre</string>
     <string name="pick_pdf">Elegir PDF</string>
     <string name="add_pdfs">Añadir PDF</string>
     <string name="replace_pdf">Elegir otro PDF</string>
@@ -140,6 +142,50 @@
     <string name="sign_move_up">Mover la firma hacia arriba</string>
     <string name="sign_move_down">Mover la firma hacia abajo</string>
     <string name="sign_move_right">Mover la firma a la derecha</string>
+    <string name="pdf_redact_action">Censurar PDF</string>
+    <string name="redact_note">Las páginas censuradas se guardan como imágenes, así que su texto ya no se puede seleccionar.</string>
+    <string name="redact_find">Buscar texto</string>
+    <string name="redact_find_hint">Cada coincidencia en cada página recibe un recuadro para que lo revises.</string>
+    <string name="redact_find_action">Buscar</string>
+    <string name="redact_find_none">No se encontró nada. El texto de los escaneos y las imágenes no se puede buscar: dibuja recuadros encima.</string>
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Demasiadas coincidencias: Usugami guarda hasta %1$d recuadros. Prueba con una frase más larga.</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami guarda hasta %1$d recuadros.</string>
+    <string name="redact_find_failed">No se pudo buscar en este PDF.</string>
+    <plurals name="redact_found">
+        <item quantity="one">Se encontró %1$d coincidencia y se marcó con un recuadro. Revísala antes de guardar.</item>
+        <item quantity="many">Se encontraron %1$d coincidencias y se marcaron con recuadros. Revísalas antes de guardar.</item>
+        <item quantity="other">Se encontraron %1$d coincidencias y se marcaron con recuadros. Revísalas antes de guardar.</item>
+    </plurals>
+    <string name="redact_page">Página</string>
+    <string name="redact_page_marked">Tiene recuadros</string>
+    <string name="redact_mark">Marca lo que quieres ocultar</string>
+    <string name="redact_mark_hint">Arrastra sobre la página para dibujar un recuadro. Toca un recuadro para cambiarlo.</string>
+    <plurals name="redact_preview_description">
+        <item quantity="one">Página %1$d, %2$d recuadro</item>
+        <item quantity="many">Página %1$d, %2$d recuadros</item>
+        <item quantity="other">Página %1$d, %2$d recuadros</item>
+    </plurals>
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Recuadro %1$d de %2$d elegido</string>
+    <string name="redact_next_box">Elegir el siguiente recuadro</string>
+    <string name="redact_add_box">Añadir recuadro</string>
+    <string name="redact_remove_all">Quitar todos</string>
+    <string name="redact_remove_all_title">¿Quitar todos los recuadros?</string>
+    <plurals name="redact_remove_all_body">
+        <item quantity="one">Se quitará el recuadro.</item>
+        <item quantity="many">Se quitarán los %1$d recuadros de todas las páginas.</item>
+        <item quantity="other">Se quitarán los %1$d recuadros de todas las páginas.</item>
+    </plurals>
+    <string name="redact_move_left">Mover el recuadro a la izquierda</string>
+    <string name="redact_move_up">Mover el recuadro hacia arriba</string>
+    <string name="redact_move_down">Mover el recuadro hacia abajo</string>
+    <string name="redact_move_right">Mover el recuadro a la derecha</string>
+    <string name="redact_width">Ancho</string>
+    <string name="redact_height">Alto</string>
+    <string name="redact_narrower">Hacer el recuadro más estrecho</string>
+    <string name="redact_wider">Hacer el recuadro más ancho</string>
+    <string name="redact_shorter">Hacer el recuadro más bajo</string>
+    <string name="redact_taller">Hacer el recuadro más alto</string>
+    <string name="redact_delete_box">Eliminar el recuadro</string>
     <string name="tool_word">Word a PDF</string>
     <string name="tool_word_detail">Documentos (.docx), convertidos en este teléfono</string>
     <string name="tool_powerpoint">PowerPoint a PDF</string>
@@ -228,6 +274,16 @@
     <string name="edit_picture_failed">No se pudo leer esa imagen.</string>
     <string name="edit_full">Este PDF no admite más elementos. Guárdalo y edita el PDF nuevo para añadir más.</string>
     <string name="edit_page_edited">Editada</string>
+    <string name="tool_epub">EPUB a PDF</string>
+    <string name="tool_epub_detail">Libros electrónicos (.epub), en páginas</string>
+    <string name="pick_epub">Elegir archivo EPUB</string>
+    <string name="document_epub">Libro electrónico EPUB</string>
+    <string name="office_note_epub">Se convierten los capítulos, los títulos, los estilos de texto, las listas, las tablas y las imágenes, y el índice pasa a ser marcadores. Se usan las fuentes de tu teléfono.</string>
+    <string name="book_page_note">A5 es más o menos el tamaño de un libro de bolsillo; A4 es mejor para imprimir.</string>
+    <string name="epub_protected">Este libro tiene DRM (protección contra copia), así que Usugami no puede leerlo. Solo se pueden convertir libros sin DRM.</string>
+    <string name="epub_not_recognized">Este archivo no es un libro electrónico EPUB, o está dañado.</string>
+    <string name="epub_empty">Este libro no tiene nada que convertir.</string>
+    <string name="progress_chapter">Capítulo %1$d de %2$d</string>
 
     <string name="ocr_title">Hacer buscable el texto (OCR)</string>
     <string name="ocr_detail">Reconoce las palabras de estas imágenes y añade texto buscable al PDF.</string>
@@ -254,6 +310,10 @@
     <string name="language_subtitle">Puedes cambiarlo más tarde en Ajustes.</string>
     <string name="settings">Ajustes</string>
     <string name="settings_language">Idioma</string>
+    <string name="settings_appearance">Apariencia</string>
+    <string name="appearance_system">Predeterminado del sistema</string>
+    <string name="appearance_light">Claro</string>
+    <string name="appearance_dark">Oscuro</string>
     <string name="settings_github">Código fuente en GitHub</string>
     <string name="settings_about_detail">Versión, política de privacidad y licencias</string>
 
@@ -360,6 +420,11 @@
         <item quantity="many">%1$d de %2$d páginas</item>
         <item quantity="other">%1$d de %2$d páginas</item>
     </plurals>
+    <plurals name="progress_files">
+        <item quantity="one">%1$d de %2$d archivo</item>
+        <item quantity="many">%1$d de %2$d archivos</item>
+        <item quantity="other">%1$d de %2$d archivos</item>
+    </plurals>
     <string name="cancel">Cancelar</string>
     <string name="cancelling">Cancelando…</string>
 
@@ -379,6 +444,10 @@
     <string name="save_to_downloads">Guardar en Descargas</string>
     <string name="save_as">Guardar como…</string>
     <string name="save_all_to_folder">Guardar en una carpeta…</string>
+    <string name="zip_button">Compartir o guardar como ZIP</string>
+    <string name="zip_share">Compartir ZIP</string>
+    <string name="zip_save">Guardar ZIP como…</string>
+    <string name="zip_making">Creando el archivo ZIP…</string>
     <string name="back_to_editing">Volver a editar</string>
     <string name="start_over">Empezar de nuevo</string>
     <string name="start_over_title">¿Empezar de nuevo?</string>
@@ -416,6 +485,7 @@
         <item quantity="other">Se guardaron %d PDF en la carpeta</item>
     </plurals>
     <string name="msg_save_failed">No se pudo guardar el PDF. Comprueba que haya suficiente almacenamiento libre.</string>
+    <string name="zip_failed">No se pudo crear el archivo ZIP. Comprueba que haya suficiente almacenamiento libre.</string>
     <string name="msg_convert_failed">No se pudo crear el PDF: %1$s</string>
     <string name="msg_image_unreadable">\"%1$s\" no se pudo leer</string>
     <string name="msg_out_of_memory">no hay suficiente memoria para una imagen tan grande</string>

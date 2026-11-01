@@ -26,6 +26,8 @@
     <string name="tool_watermark_detail">Stamp text across every page</string>
     <string name="tool_sign">Sign PDF</string>
     <string name="tool_sign_detail">Draw your signature and place it</string>
+    <string name="tool_redact">Redact PDF</string>
+    <string name="tool_redact_detail">Black out text and pictures for good</string>
     <string name="pick_pdf">Choose PDF</string>
     <string name="add_pdfs">Add PDFs</string>
     <string name="replace_pdf">Choose another PDF</string>
@@ -143,6 +145,52 @@
     <string name="sign_move_up">Move signature up</string>
     <string name="sign_move_down">Move signature down</string>
     <string name="sign_move_right">Move signature right</string>
+    <!-- Redact PDF: what is boxed is removed for good, as the redacted pages become pictures -->
+    <string name="pdf_redact_action">Redact PDF</string>
+    <string name="redact_note">Redacted pages are saved as pictures, so their text can no longer be selected.</string>
+    <string name="redact_find">Find text</string>
+    <string name="redact_find_hint">Every match on every page gets a box for you to check.</string>
+    <string name="redact_find_action">Find</string>
+    <string name="redact_find_none">Nothing found. Text in scans and pictures can\'t be searched: draw boxes over it instead.</string>
+    <!-- %1$d is the most boxes Usugami keeps (2000). -->
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Too many matches: Usugami keeps up to %1$d boxes. Try a longer phrase.</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami keeps up to %1$d boxes.</string>
+    <string name="redact_find_failed">Couldn\'t search this PDF.</string>
+    <plurals name="redact_found">
+        <item quantity="one">Found %1$d match and boxed it. Check it before saving.</item>
+        <item quantity="other">Found %1$d matches and boxed them. Check them before saving.</item>
+    </plurals>
+    <string name="redact_page">Page</string>
+    <string name="redact_page_marked">Has boxes</string>
+    <string name="redact_mark">Mark what to hide</string>
+    <string name="redact_mark_hint">Drag on the page to draw a box. Tap a box to change it.</string>
+    <!-- %1$d is a page number, %2$d the number of boxes on it. -->
+    <plurals name="redact_preview_description">
+        <item quantity="one">Page %1$d, %2$d box</item>
+        <item quantity="other">Page %1$d, %2$d boxes</item>
+    </plurals>
+    <!-- %1$d is the box's number, %2$d how many boxes the page has. -->
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Box %1$d of %2$d chosen</string>
+    <string name="redact_next_box">Choose next box</string>
+    <string name="redact_add_box">Add box</string>
+    <string name="redact_remove_all">Remove all</string>
+    <string name="redact_remove_all_title">Remove all boxes?</string>
+    <!-- Counts boxes, so never 0: the question is only asked when there are some. In French and Hindi "one" may leave the number out. -->
+    <plurals name="redact_remove_all_body">
+        <item quantity="one">The box will be removed.</item>
+        <item quantity="other">All %1$d boxes will be removed, on every page.</item>
+    </plurals>
+    <string name="redact_move_left">Move box left</string>
+    <string name="redact_move_up">Move box up</string>
+    <string name="redact_move_down">Move box down</string>
+    <string name="redact_move_right">Move box right</string>
+    <string name="redact_width">Width</string>
+    <string name="redact_height">Height</string>
+    <string name="redact_narrower">Make box narrower</string>
+    <string name="redact_wider">Make box wider</string>
+    <string name="redact_shorter">Make box shorter</string>
+    <string name="redact_taller">Make box taller</string>
+    <string name="redact_delete_box">Delete box</string>
     <!-- Word and PowerPoint to PDF. Word and PowerPoint are the names of Microsoft's apps, kept as they are;
          .docx, .pptx, .doc and .ppt are file extensions. -->
     <string name="tool_word">Word to PDF</string>
@@ -243,6 +291,18 @@
     <string name="edit_full">This PDF can\'t take any more additions. Save it, then edit the new PDF to add more.</string>
     <!-- Said by a screen reader for a page in the row of pages that has something added to it. -->
     <string name="edit_page_edited">Edited</string>
+    <!-- EPUB to PDF. EPUB is the name of the e-book format, kept as it is; .epub is its file extension.
+         DRM is the copy protection stores put on many books they sell. A5 and A4 are paper sizes. -->
+    <string name="tool_epub">EPUB to PDF</string>
+    <string name="tool_epub_detail">E-books (.epub), laid out as pages</string>
+    <string name="pick_epub">Choose EPUB file</string>
+    <string name="document_epub">EPUB e-book</string>
+    <string name="office_note_epub">Chapters, headings, text styles, lists, tables and pictures convert, and the table of contents becomes bookmarks. Your phone\'s fonts are used.</string>
+    <string name="book_page_note">A5 is about the size of a paperback; A4 suits printing.</string>
+    <string name="epub_protected">This book is protected with DRM (copy protection), so Usugami can\'t read it. Only books without DRM can be converted.</string>
+    <string name="epub_not_recognized">This isn\'t an EPUB e-book, or it\'s damaged.</string>
+    <string name="epub_empty">This book has nothing to convert.</string>
+    <string name="progress_chapter">Chapter %1$d of %2$d</string>
 
     <string name="ocr_title">Make text searchable (OCR)</string>
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>
@@ -269,6 +329,10 @@
     <string name="language_subtitle">You can change it later in Settings.</string>
     <string name="settings">Settings</string>
     <string name="settings_language">Language</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="appearance_system">System default</string>
+    <string name="appearance_light">Light</string>
+    <string name="appearance_dark">Dark</string>
     <string name="settings_github">Source code on GitHub</string>
     <string name="settings_about_detail">Version, privacy policy and licenses</string>
 
@@ -378,6 +442,10 @@
         <item quantity="one">%1$d of %2$d page</item>
         <item quantity="other">%1$d of %2$d pages</item>
     </plurals>
+    <plurals name="progress_files">
+        <item quantity="one">%1$d of %2$d file</item>
+        <item quantity="other">%1$d of %2$d files</item>
+    </plurals>
     <string name="cancel">Cancel</string>
     <string name="cancelling">Cancelling…</string>
 
@@ -397,6 +465,10 @@
     <string name="save_to_downloads">Save to Downloads</string>
     <string name="save_as">Save as…</string>
     <string name="save_all_to_folder">Save to folder…</string>
+    <string name="zip_button">Share or save as ZIP</string>
+    <string name="zip_share">Share ZIP</string>
+    <string name="zip_save">Save ZIP as…</string>
+    <string name="zip_making">Making the ZIP file…</string>
     <string name="back_to_editing">Back to editing</string>
     <string name="start_over">Start over</string>
     <string name="start_over_title">Start over?</string>
@@ -430,6 +502,7 @@
         <item quantity="other">Saved %d PDFs to the folder</item>
     </plurals>
     <string name="msg_save_failed">Couldn\'t save the PDF. Check that there is enough free storage.</string>
+    <string name="zip_failed">Couldn\'t make the ZIP file. Check that there is enough free storage.</string>
     <string name="msg_convert_failed">Couldn\'t create the PDF: %1$s</string>
     <string name="msg_image_unreadable">\"%1$s\" could not be read</string>
     <string name="msg_out_of_memory">not enough memory for an image this large</string>
@@ -474,6 +547,6 @@
     <string name="search_keywords_compress">shrink, reduce size, smaller, optimize, file size, email</string>
     <string name="search_keywords_flatten">form, fields, annotations, comments, lock, fillable</string>
     <!-- For the EPUB to PDF and Redact PDF cards, which join Home in this release. -->
-    <string name="search_keywords_epub" tools:ignore="UnusedResources">epub, ebook, e-book, book, novel</string>
-    <string name="search_keywords_redact" tools:ignore="UnusedResources">redact, black out, hide, censor, conceal, private, sensitive</string>
+    <string name="search_keywords_epub">epub, ebook, e-book, book, novel</string>
+    <string name="search_keywords_redact">redact, black out, hide, censor, conceal, private, sensitive</string>
 </resources>

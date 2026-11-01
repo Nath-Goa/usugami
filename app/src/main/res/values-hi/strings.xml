@@ -24,6 +24,8 @@
     <string name="tool_watermark_detail">हर पेज पर तिरछा टेक्स्ट लगाएं</string>
     <string name="tool_sign">PDF पर साइन करें</string>
     <string name="tool_sign_detail">अपना हस्ताक्षर बनाएं और पेज पर लगाएं</string>
+    <string name="tool_redact">PDF रिडैक्ट करें</string>
+    <string name="tool_redact_detail">टेक्स्ट और तस्वीरें हमेशा के लिए काली करें</string>
     <string name="pick_pdf">PDF चुनें</string>
     <string name="add_pdfs">PDF जोड़ें</string>
     <string name="replace_pdf">दूसरी PDF चुनें</string>
@@ -139,6 +141,47 @@
     <string name="sign_move_up">हस्ताक्षर ऊपर ले जाएं</string>
     <string name="sign_move_down">हस्ताक्षर नीचे ले जाएं</string>
     <string name="sign_move_right">हस्ताक्षर दाईं ओर ले जाएं</string>
+    <string name="pdf_redact_action">PDF रिडैक्ट करें</string>
+    <string name="redact_note">रिडैक्ट किए गए पेज तस्वीर के रूप में सेव होते हैं, इसलिए उनका टेक्स्ट अब चुना नहीं जा सकता।</string>
+    <string name="redact_find">टेक्स्ट खोजें</string>
+    <string name="redact_find_hint">हर पेज पर मिले हर नतीजे पर एक बॉक्स लग जाएगा, जिसे आप जांच सकते हैं।</string>
+    <string name="redact_find_action">खोजें</string>
+    <string name="redact_find_none">कुछ नहीं मिला। स्कैन और तस्वीरों का टेक्स्ट खोजा नहीं जा सकता, उसके ऊपर खुद बॉक्स बनाएं।</string>
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">बहुत ज़्यादा नतीजे: Usugami ज़्यादा से ज़्यादा %1$d बॉक्स रखता है। कोई लंबा वाक्यांश खोजकर देखें।</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami ज़्यादा से ज़्यादा %1$d बॉक्स रखता है।</string>
+    <string name="redact_find_failed">इस PDF में खोजा नहीं जा सका।</string>
+    <plurals name="redact_found">
+        <item quantity="one">%1$d नतीजा मिला और उस पर बॉक्स लगा दिया गया। सेव करने से पहले जांच लें।</item>
+        <item quantity="other">%1$d नतीजे मिले और उन पर बॉक्स लगा दिए गए। सेव करने से पहले जांच लें।</item>
+    </plurals>
+    <string name="redact_page">पेज</string>
+    <string name="redact_page_marked">इस पर बॉक्स हैं</string>
+    <string name="redact_mark">जो छिपाना है, उस पर बॉक्स बनाएं</string>
+    <string name="redact_mark_hint">बॉक्स बनाने के लिए पेज पर उंगली खींचें। किसी बॉक्स को बदलने के लिए उस पर टैप करें।</string>
+    <plurals name="redact_preview_description">
+        <item quantity="one">पेज %1$d, %2$d बॉक्स</item>
+        <item quantity="other">पेज %1$d, %2$d बॉक्स</item>
+    </plurals>
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">%2$d में से बॉक्स %1$d चुना गया</string>
+    <string name="redact_next_box">अगला बॉक्स चुनें</string>
+    <string name="redact_add_box">बॉक्स जोड़ें</string>
+    <string name="redact_remove_all">सब हटाएं</string>
+    <string name="redact_remove_all_title">सारे बॉक्स हटाएं?</string>
+    <plurals name="redact_remove_all_body" tools:ignore="ImpliedQuantity">
+        <item quantity="one">बॉक्स हटा दिया जाएगा।</item>
+        <item quantity="other">सभी पेजों से सारे %1$d बॉक्स हटा दिए जाएंगे।</item>
+    </plurals>
+    <string name="redact_move_left">बॉक्स बाईं ओर ले जाएं</string>
+    <string name="redact_move_up">बॉक्स ऊपर ले जाएं</string>
+    <string name="redact_move_down">बॉक्स नीचे ले जाएं</string>
+    <string name="redact_move_right">बॉक्स दाईं ओर ले जाएं</string>
+    <string name="redact_width">चौड़ाई</string>
+    <string name="redact_height">ऊंचाई</string>
+    <string name="redact_narrower">बॉक्स पतला करें</string>
+    <string name="redact_wider">बॉक्स चौड़ा करें</string>
+    <string name="redact_shorter">बॉक्स की ऊंचाई घटाएं</string>
+    <string name="redact_taller">बॉक्स की ऊंचाई बढ़ाएं</string>
+    <string name="redact_delete_box">बॉक्स हटाएं</string>
     <string name="tool_word">Word से PDF</string>
     <string name="tool_word_detail">डॉक्यूमेंट (.docx) इसी फ़ोन पर PDF में बदलें</string>
     <string name="tool_powerpoint">PowerPoint से PDF</string>
@@ -226,6 +269,16 @@
     <string name="edit_picture_failed">वह तस्वीर पढ़ी नहीं जा सकी।</string>
     <string name="edit_full">इस PDF में और कुछ नहीं जोड़ा जा सकता। इसे सेव करें, फिर नई PDF को एडिट करके और जोड़ें।</string>
     <string name="edit_page_edited">बदला गया</string>
+    <string name="tool_epub">EPUB से PDF</string>
+    <string name="tool_epub_detail">ई-बुक (.epub), पेजों में</string>
+    <string name="pick_epub">EPUB फ़ाइल चुनें</string>
+    <string name="document_epub">EPUB ई-बुक</string>
+    <string name="office_note_epub">अध्याय, हेडिंग, टेक्स्ट की स्टाइल, लिस्ट, टेबल और इमेज PDF में आ जाती हैं, और विषय-सूची बुकमार्क बन जाती है। आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं।</string>
+    <string name="book_page_note">A5 लगभग एक पेपरबैक किताब जितना होता है; A4 प्रिंट करने के लिए अच्छा है।</string>
+    <string name="epub_protected">यह किताब DRM (कॉपी सुरक्षा) से सुरक्षित है, इसलिए Usugami इसे नहीं पढ़ सकता। सिर्फ़ बिना DRM वाली किताबें बदली जा सकती हैं।</string>
+    <string name="epub_not_recognized">यह EPUB ई-बुक नहीं है, या फ़ाइल खराब है।</string>
+    <string name="epub_empty">इस किताब में बदलने के लिए कुछ नहीं है।</string>
+    <string name="progress_chapter">%2$d में से अध्याय %1$d</string>
 
     <string name="ocr_title">टेक्स्ट को खोजने लायक बनाएं (OCR)</string>
     <string name="ocr_detail">इन इमेज में शब्द पहचानें और PDF में खोजने लायक टेक्स्ट जोड़ें।</string>
@@ -252,6 +305,10 @@
     <string name="language_subtitle">आप इसे बाद में सेटिंग में बदल सकते हैं।</string>
     <string name="settings">सेटिंग</string>
     <string name="settings_language">भाषा</string>
+    <string name="settings_appearance">थीम</string>
+    <string name="appearance_system">सिस्टम डिफ़ॉल्ट</string>
+    <string name="appearance_light">लाइट</string>
+    <string name="appearance_dark">डार्क</string>
     <string name="settings_github">GitHub पर सोर्स कोड</string>
     <string name="settings_about_detail">वर्शन, निजता नीति और लाइसेंस</string>
 
@@ -354,6 +411,10 @@
         <item quantity="one">%2$d में से %1$d पेज</item>
         <item quantity="other">%2$d में से %1$d पेज</item>
     </plurals>
+    <plurals name="progress_files">
+        <item quantity="one">%2$d में से %1$d फ़ाइल</item>
+        <item quantity="other">%2$d में से %1$d फ़ाइलें</item>
+    </plurals>
     <string name="cancel">रद्द करें</string>
     <string name="cancelling">रद्द किया जा रहा है…</string>
 
@@ -372,6 +433,10 @@
     <string name="save_to_downloads">डाउनलोड में सेव करें</string>
     <string name="save_as">इस रूप में सेव करें…</string>
     <string name="save_all_to_folder">फ़ोल्डर में सेव करें…</string>
+    <string name="zip_button">ZIP के रूप में शेयर या सेव करें</string>
+    <string name="zip_share">ZIP शेयर करें</string>
+    <string name="zip_save">ZIP को इस रूप में सेव करें…</string>
+    <string name="zip_making">ZIP फ़ाइल बनाई जा रही है…</string>
     <string name="back_to_editing">एडिटिंग पर वापस जाएं</string>
     <string name="start_over">फिर से शुरू करें</string>
     <string name="start_over_title">फिर से शुरू करें?</string>
@@ -405,6 +470,7 @@
         <item quantity="other">%d PDF फ़ोल्डर में सेव की गईं</item>
     </plurals>
     <string name="msg_save_failed">PDF सेव नहीं की जा सकी। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
+    <string name="zip_failed">ZIP फ़ाइल नहीं बनाई जा सकी। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
     <string name="msg_convert_failed">PDF नहीं बनाई जा सकी: %1$s</string>
     <string name="msg_image_unreadable">\"%1$s\" को पढ़ा नहीं जा सका</string>
     <string name="msg_out_of_memory">इतनी बड़ी इमेज के लिए काफ़ी मेमोरी नहीं है</string>

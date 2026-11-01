@@ -42,6 +42,9 @@ class PdfExporter(context: Context) {
         outputDir.deleteRecursively()
     }
 
+    /** Where a ZIP file of the PDFs is made, beside them, so it goes when they do. */
+    val zipDir get() = File(outputDir, "zip")
+
     /**
      * Writes one PDF with all [items] (named [mergedName].pdf) or, when [merge] is false, one PDF per
      * image named after it. Blocking and cancellable: call from a background coroutine.

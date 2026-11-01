@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,16 +30,20 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.SaveAs
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -65,8 +70,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.data.PdfFile
+import kotlinx.coroutines.delay
 
 class ResultActions(
     val back: () -> Unit,
@@ -75,6 +83,10 @@ class ResultActions(
     val saveToDownloads: (() -> Unit)?,
     val saveAs: () -> Unit,
     val startOver: () -> Unit,
+    /** For several PDFs: one ZIP file of them, shared, or saved with the "Save as" screen. */
+    val shareZip: () -> Unit,
+    val saveZip: () -> Unit,
+    val cancelZip: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,10 +97,13 @@ fun ResultScreen(
     busy: Boolean,
     snackbar: SnackbarHostState,
     actions: ResultActions,
+    zipProgress: ZipProgress? = null,
     note: String? = null,
 ) {
     var confirmStartOver by rememberSaveable { mutableStateOf(false) }
     val single = files.size == 1
+    // Nothing else starts while a save or a ZIP file is under way.
+    val idle = !busy && zipProgress == null
     // The success check mark grows in once when the result arrives. Saved, so it does not
     // replay after a rotation.
     var checkShown by rememberSaveable { mutableStateOf(false) }
@@ -162,18 +177,19 @@ fun ResultScreen(
                         WideButton(Icons.Rounded.Share, stringResource(R.string.share), Modifier.weight(1f), tonal = true, onClick = actions.share)
                     }
                 } else {
-                    WideButton(Icons.Rounded.Share, stringResource(R.string.share_all), Modifier.fillMaxWidth(), primary = true, onClick = actions.share)
+                    WideButton(Icons.Rounded.Share, stringResource(R.string.share_all), Modifier.fillMaxWidth(), primary = true, enabled = zipProgress == null, onClick = actions.share)
                 }
                 actions.saveToDownloads?.let { save ->
-                    WideButton(Icons.Rounded.Download, stringResource(R.string.save_to_downloads), Modifier.fillMaxWidth(), enabled = !busy, onClick = save)
+                    WideButton(Icons.Rounded.Download, stringResource(R.string.save_to_downloads), Modifier.fillMaxWidth(), enabled = idle, onClick = save)
                 }
                 WideButton(
                     Icons.Rounded.SaveAs,
                     stringResource(if (single) R.string.save_as else R.string.save_all_to_folder),
                     Modifier.fillMaxWidth(),
-                    enabled = !busy,
+                    enabled = idle,
                     onClick = actions.saveAs,
                 )
+                if (!single) ZipButton(enabled = idle, onShare = actions.shareZip, onSave = actions.saveZip)
             }
 
             AnimatedVisibility(
@@ -201,6 +217,16 @@ fun ResultScreen(
         }
     }
 
+    // A small ZIP file is made in a moment: the dialog only shows for one that takes a while.
+    if (zipProgress != null) {
+        var show by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(ZIP_DIALOG_DELAY_MS)
+            show = true
+        }
+        if (show) ZipProgressDialog(zipProgress, onCancel = actions.cancelZip)
+    }
+
     if (confirmStartOver) {
         AlertDialog(
             onDismissRequest = { confirmStartOver = false },
@@ -216,6 +242,54 @@ fun ResultScreen(
         )
     }
 }
+
+/** "Share or save as ZIP": a menu with the two ways, under the button. */
+@Composable
+private fun ZipButton(enabled: Boolean, onShare: () -> Unit, onSave: () -> Unit) {
+    var menu by rememberSaveable { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth()) {
+        WideButton(Icons.Rounded.FolderZip, stringResource(R.string.zip_button), Modifier.fillMaxWidth(), enabled = enabled) { menu = true }
+        DropdownMenu(expanded = menu && enabled, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.zip_share)) },
+                leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
+                onClick = {
+                    menu = false
+                    onShare()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.zip_save)) },
+                leadingIcon = { Icon(Icons.Rounded.SaveAs, contentDescription = null) },
+                onClick = {
+                    menu = false
+                    onSave()
+                },
+            )
+        }
+    }
+}
+
+/** Making the ZIP file: how many of the PDFs are in, and Cancel. */
+@Composable
+private fun ZipProgressDialog(progress: ZipProgress, onCancel: () -> Unit) {
+    val fraction by animateFloatAsState(targetValue = progress.fraction, animationSpec = Motion.medium(), label = "zip progress")
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        title = { Text(stringResource(R.string.zip_making)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                Text(pluralStringResource(R.plurals.progress_files, progress.totalFiles, progress.files, progress.totalFiles))
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+private const val ZIP_DIALOG_DELAY_MS = 400L
 
 @Composable
 private fun FileRow(file: PdfFile, showOpen: Boolean, onOpen: () -> Unit) {

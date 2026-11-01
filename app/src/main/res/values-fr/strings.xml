@@ -24,6 +24,8 @@
     <string name="tool_watermark_detail">Un texte en travers de chaque page</string>
     <string name="tool_sign">Signer un PDF</string>
     <string name="tool_sign_detail">Dessiner votre signature et la placer</string>
+    <string name="tool_redact">Caviarder un PDF</string>
+    <string name="tool_redact_detail">Noircir du texte et des images pour de bon</string>
     <string name="pick_pdf">Choisir un PDF</string>
     <string name="add_pdfs">Ajouter des PDF</string>
     <string name="replace_pdf">Choisir un autre PDF</string>
@@ -140,6 +142,50 @@
     <string name="sign_move_up">Déplacer la signature vers le haut</string>
     <string name="sign_move_down">Déplacer la signature vers le bas</string>
     <string name="sign_move_right">Déplacer la signature vers la droite</string>
+    <string name="pdf_redact_action">Caviarder le PDF</string>
+    <string name="redact_note">Les pages caviardées sont enregistrées comme des images : leur texte ne peut plus être sélectionné.</string>
+    <string name="redact_find">Rechercher du texte</string>
+    <string name="redact_find_hint">Chaque occurrence, sur chaque page, reçoit un cadre que vous pourrez vérifier.</string>
+    <string name="redact_find_action">Rechercher</string>
+    <string name="redact_find_none">Aucun résultat. Le texte des numérisations et des images ne peut pas être recherché : dessinez plutôt des cadres dessus.</string>
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Trop d\'occurrences : Usugami garde jusqu\'à %1$d cadres. Essayez une expression plus longue.</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami garde jusqu\'à %1$d cadres.</string>
+    <string name="redact_find_failed">Impossible de rechercher dans ce PDF.</string>
+    <plurals name="redact_found">
+        <item quantity="one">%1$d occurrence trouvée et encadrée. Vérifiez-la avant d\'enregistrer.</item>
+        <item quantity="many">%1$d occurrences trouvées et encadrées. Vérifiez-les avant d\'enregistrer.</item>
+        <item quantity="other">%1$d occurrences trouvées et encadrées. Vérifiez-les avant d\'enregistrer.</item>
+    </plurals>
+    <string name="redact_page">Page</string>
+    <string name="redact_page_marked">Contient des cadres</string>
+    <string name="redact_mark">Indiquez ce qu\'il faut masquer</string>
+    <string name="redact_mark_hint">Faites glisser le doigt sur la page pour dessiner un cadre. Touchez un cadre pour le modifier.</string>
+    <plurals name="redact_preview_description">
+        <item quantity="one">Page %1$d, %2$d cadre</item>
+        <item quantity="many">Page %1$d, %2$d cadres</item>
+        <item quantity="other">Page %1$d, %2$d cadres</item>
+    </plurals>
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Cadre %1$d sur %2$d choisi</string>
+    <string name="redact_next_box">Choisir le cadre suivant</string>
+    <string name="redact_add_box">Ajouter un cadre</string>
+    <string name="redact_remove_all">Tout supprimer</string>
+    <string name="redact_remove_all_title">Supprimer tous les cadres ?</string>
+    <plurals name="redact_remove_all_body" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Le cadre sera supprimé.</item>
+        <item quantity="many">Les %1$d cadres seront supprimés, sur toutes les pages.</item>
+        <item quantity="other">Les %1$d cadres seront supprimés, sur toutes les pages.</item>
+    </plurals>
+    <string name="redact_move_left">Déplacer le cadre vers la gauche</string>
+    <string name="redact_move_up">Déplacer le cadre vers le haut</string>
+    <string name="redact_move_down">Déplacer le cadre vers le bas</string>
+    <string name="redact_move_right">Déplacer le cadre vers la droite</string>
+    <string name="redact_width">Largeur</string>
+    <string name="redact_height">Hauteur</string>
+    <string name="redact_narrower">Rendre le cadre plus étroit</string>
+    <string name="redact_wider">Rendre le cadre plus large</string>
+    <string name="redact_shorter">Rendre le cadre moins haut</string>
+    <string name="redact_taller">Rendre le cadre plus haut</string>
+    <string name="redact_delete_box">Supprimer le cadre</string>
     <string name="tool_word">Word en PDF</string>
     <string name="tool_word_detail">Documents (.docx), convertis sur ce téléphone</string>
     <string name="tool_powerpoint">PowerPoint en PDF</string>
@@ -228,6 +274,16 @@
     <string name="edit_picture_failed">Impossible de lire cette image.</string>
     <string name="edit_full">Ce PDF ne peut pas recevoir d\'autres ajouts. Enregistrez-le, puis modifiez le nouveau PDF pour en ajouter.</string>
     <string name="edit_page_edited">Modifiée</string>
+    <string name="tool_epub">EPUB en PDF</string>
+    <string name="tool_epub_detail">Livres numériques (.epub), mis en pages</string>
+    <string name="pick_epub">Choisir un fichier EPUB</string>
+    <string name="document_epub">Livre numérique EPUB</string>
+    <string name="office_note_epub">Les chapitres, les titres, les styles de texte, les listes, les tableaux et les images sont convertis, et la table des matières devient des signets. Les polices de votre téléphone sont utilisées.</string>
+    <string name="book_page_note">Le format A5 est à peu près celui d\'un livre de poche ; le A4 convient mieux à l\'impression.</string>
+    <string name="epub_protected">Ce livre est protégé par des DRM (protection contre la copie) : Usugami ne peut donc pas le lire. Seuls les livres sans DRM peuvent être convertis.</string>
+    <string name="epub_not_recognized">Ce fichier n\'est pas un livre numérique EPUB, ou il est endommagé.</string>
+    <string name="epub_empty">Ce livre ne contient rien à convertir.</string>
+    <string name="progress_chapter">Chapitre %1$d sur %2$d</string>
 
     <string name="ocr_title">Rendre le texte recherchable (OCR)</string>
     <string name="ocr_detail">Reconnaître les mots figurant sur ces images et ajouter du texte recherchable au PDF.</string>
@@ -254,6 +310,10 @@
     <string name="language_subtitle">Vous pourrez la modifier plus tard dans les paramètres.</string>
     <string name="settings">Paramètres</string>
     <string name="settings_language">Langue</string>
+    <string name="settings_appearance">Apparence</string>
+    <string name="appearance_system">Valeur par défaut du système</string>
+    <string name="appearance_light">Clair</string>
+    <string name="appearance_dark">Sombre</string>
     <string name="settings_github">Code source sur GitHub</string>
     <string name="settings_about_detail">Version, règles de confidentialité et licences</string>
 
@@ -360,6 +420,11 @@
         <item quantity="many">%1$d sur %2$d pages</item>
         <item quantity="other">%1$d sur %2$d pages</item>
     </plurals>
+    <plurals name="progress_files">
+        <item quantity="one">%1$d sur %2$d fichier</item>
+        <item quantity="many">%1$d sur %2$d fichiers</item>
+        <item quantity="other">%1$d sur %2$d fichiers</item>
+    </plurals>
     <string name="cancel">Annuler</string>
     <string name="cancelling">Annulation…</string>
 
@@ -379,6 +444,10 @@
     <string name="save_to_downloads">Enregistrer dans Téléchargements</string>
     <string name="save_as">Enregistrer sous…</string>
     <string name="save_all_to_folder">Enregistrer dans un dossier…</string>
+    <string name="zip_button">Partager ou enregistrer en ZIP</string>
+    <string name="zip_share">Partager le ZIP</string>
+    <string name="zip_save">Enregistrer le ZIP sous…</string>
+    <string name="zip_making">Création du fichier ZIP…</string>
     <string name="back_to_editing">Retour à l\'édition</string>
     <string name="start_over">Recommencer</string>
     <string name="start_over_title">Recommencer ?</string>
@@ -416,6 +485,7 @@
         <item quantity="other">%d PDF enregistrés dans le dossier</item>
     </plurals>
     <string name="msg_save_failed">Impossible d\'enregistrer le PDF. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
+    <string name="zip_failed">Impossible de créer le fichier ZIP. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
     <string name="msg_convert_failed">Impossible de créer le PDF : %1$s</string>
     <string name="msg_image_unreadable">« %1$s » n\'a pas pu être lu</string>
     <string name="msg_out_of_memory">mémoire insuffisante pour une image aussi grande</string>

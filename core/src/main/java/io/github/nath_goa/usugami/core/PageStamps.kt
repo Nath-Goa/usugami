@@ -36,6 +36,18 @@ class PageFrame(val left: Float, val bottom: Float, val width: Float, val height
         val m = matrix
         return (m[0] * x + m[2] * y + m[4]) to (m[1] * x + m[3] * y + m[5])
     }
+
+    /** The shown point (origin at its bottom-left corner, y up) at the page's own coordinates ([x], [y]). */
+    fun toShown(x: Float, y: Float): Pair<Float, Float> {
+        val dx = x - left
+        val dy = y - bottom
+        return when (rotation) {
+            0 -> dx to dy
+            90 -> dy to width - dx
+            180 -> width - dx to height - dy
+            else -> height - dy to dx
+        }
+    }
 }
 
 /** Where page numbers go on the shown page. */

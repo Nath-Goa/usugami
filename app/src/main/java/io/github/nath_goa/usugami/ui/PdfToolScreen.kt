@@ -95,6 +95,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
+import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.PdfCompression
@@ -102,6 +103,7 @@ import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
+import io.github.nath_goa.usugami.data.office.OfficeKind
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -128,7 +130,9 @@ fun PdfToolScreen(
     val document by vm.document.collectAsStateWithLifecycle()
     val convertProgress by vm.convertProgress.collectAsStateWithLifecycle()
     val editItems by vm.editItems.collectAsStateWithLifecycle()
-    // Word and PowerPoint to PDF take one document instead of PDFs.
+        val redactBoxes by vm.redactBoxes.collectAsStateWithLifecycle()
+    val finding by vm.finding.collectAsStateWithLifecycle()
+    // Word, PowerPoint and EPUB to PDF take one document instead of PDFs.
     val officeKind = tool.officeKind
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
     var pageText by rememberSaveable(tool) { mutableStateOf("") }
@@ -151,6 +155,7 @@ fun PdfToolScreen(
     // Saving is off until the pages differ from the PDF's own.
     val originalPages = remember(inputs.firstOrNull()) { vm.originalPages() }
     val reorganized = tool == PdfTool.REORGANIZE && inputs.isNotEmpty() && pages.isNotEmpty() && pages != originalPages
+    var bookPage by rememberSaveable(tool) { mutableStateOf(PageSize.A5) }
     val inputKey = if (officeKind != null) document?.id else inputs.firstOrNull()?.id
     var fileName by rememberSaveable(tool, inputKey) { mutableStateOf(vm.defaultName(tool)) }
     val ready = when (tool) {
@@ -159,10 +164,11 @@ fun PdfToolScreen(
         PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
         PdfTool.WATERMARK -> inputs.size == 1 && watermarkText.isNotBlank()
         PdfTool.SIGN -> inputs.size == 1 && signature != null
-        PdfTool.WORD, PdfTool.POWERPOINT -> document?.kind == officeKind
+        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> document?.kind == officeKind
         PdfTool.DELETE_PAGES -> inputs.size == 1 && deleteText.isNotBlank()
         PdfTool.REORGANIZE -> reorganized
         PdfTool.EDIT -> inputs.size == 1 && editItems.any { it.page < inputs[0].pageCount }
+        PdfTool.REDACT -> inputs.size == 1 && redactBoxes.isNotEmpty() && !finding
     }
     val title = tool.title
     val action = when (tool) {
@@ -173,11 +179,12 @@ fun PdfToolScreen(
         PdfTool.PAGE_NUMBERS -> R.string.pdf_page_numbers_action
         PdfTool.WATERMARK -> R.string.pdf_watermark_action
         PdfTool.SIGN -> R.string.pdf_sign_action
-        PdfTool.WORD, PdfTool.POWERPOINT -> R.string.convert
+        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> R.string.convert
         PdfTool.DELETE_PAGES -> R.string.pdf_delete_pages_action
         PdfTool.REORGANIZE -> R.string.pdf_reorganize_action
         PdfTool.FLATTEN -> R.string.pdf_flatten_action
         PdfTool.EDIT -> R.string.pdf_edit_action
+        PdfTool.REDACT -> R.string.pdf_redact_action
     }
     Scaffold(
         topBar = {
@@ -202,6 +209,8 @@ fun PdfToolScreen(
                         PdfTool.REORGANIZE -> vm.runReorganize(fileName)
                         PdfTool.FLATTEN -> vm.runFlatten(fileName)
                         PdfTool.EDIT -> vm.runEdit(fileName)
+                        PdfTool.EPUB -> vm.runConvert(fileName, bookPage)
+                        PdfTool.REDACT -> vm.runRedact(fileName)
                     }
                 },
                 enabled = ready && !importing && !processing,
@@ -243,6 +252,7 @@ fun PdfToolScreen(
                                         PdfTool.MERGE -> R.string.add_pdfs
                                         PdfTool.WORD -> R.string.pick_word
                                         PdfTool.POWERPOINT -> R.string.pick_powerpoint
+                                        PdfTool.EPUB -> R.string.pick_epub
                                         else -> R.string.pick_pdf
                                     },
                                 ),
@@ -253,6 +263,7 @@ fun PdfToolScreen(
                     document?.let { DocumentInputCard(it, onRemove = vm::startOver) }
                     OutlinedButton(onClick = pickSingle, enabled = !importing) { Text(stringResource(R.string.replace_document)) }
                     OfficeNote(officeKind)
+                    if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
                     FileNameField(fileName, onChange = { fileName = it })
                 } else {
                     if (tool == PdfTool.MERGE) {
@@ -292,7 +303,7 @@ fun PdfToolScreen(
                             signPage, onPage = { signPage = it },
                             signPlacement, onPlacement = { signPlacement = it },
                         )
-                        PdfTool.WORD, PdfTool.POWERPOINT -> Unit
+                        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> Unit
                         PdfTool.DELETE_PAGES -> DeletePagesOptions(inputs[0], deleteText, onText = { deleteText = it })
                         PdfTool.REORGANIZE -> ReorganizeOptions(
                             inputs, pages, vm,
@@ -310,6 +321,7 @@ fun PdfToolScreen(
                             vm.prepareEditPicture(page)
                             pickPicture()
                         })
+                        PdfTool.REDACT -> RedactOptions(inputs[0], vm)
                     }
                     FileNameField(fileName, onChange = { fileName = it })
                 }
@@ -339,7 +351,7 @@ fun PdfToolScreen(
         )
     }
     if (processing && officeKind != null) {
-        OfficeProgressDialog(convertProgress, onCancel = vm::cancel)
+        OfficeProgressDialog(convertProgress, officeKind, onCancel = vm::cancel)
     } else if (processing) {
         AlertDialog(
             onDismissRequest = {},

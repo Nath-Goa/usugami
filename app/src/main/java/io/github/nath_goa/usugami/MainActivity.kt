@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.core.content.IntentCompat
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.Appearances
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.UsugamiApp
@@ -22,9 +23,10 @@ class MainActivity : ComponentActivity() {
     // The same instance UsugamiApp gets from viewModel().
     private val pdfToolsViewModel: PdfToolsViewModel by viewModels()
 
-    // Below Android 13 the language the user picked is applied here; newer versions do it themselves.
+    // Below Android 13 the language the user picked is applied here, and below Android 12 the
+    // appearance (light or dark); newer versions do it themselves.
     override fun attachBaseContext(newBase: Context) {
-        super.attachBaseContext(AppLanguages.localized(newBase))
+        super.attachBaseContext(Appearances.applied(AppLanguages.localized(newBase)))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,8 +35,12 @@ class MainActivity : ComponentActivity() {
         // On recreation the shared images were already taken in (and are in the saved state).
         if (savedInstanceState == null) handleShare(intent)
         setContent {
-            UsugamiTheme {
-                UsugamiApp(viewModel, onChooseLanguage = { AppLanguages.choose(this, it) })
+            UsugamiTheme(Appearances.forTheme(this)) {
+                UsugamiApp(
+                    viewModel,
+                    onChooseLanguage = { AppLanguages.choose(this, it) },
+                    onChooseAppearance = { Appearances.choose(this, it) },
+                )
             }
         }
     }

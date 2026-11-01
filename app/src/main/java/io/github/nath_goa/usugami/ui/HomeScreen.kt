@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.BrandingWatermark
 import androidx.compose.material.icons.automirrored.rounded.RotateRight
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Compress
@@ -40,6 +41,7 @@ import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -74,7 +76,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ToolSearch
 
 /** The tools under "Create PDF" on Home, after Images to PDF, in order. */
-private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT)
+private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB)
 
 /** The tools under "Organize" on Home, in order: those that change which pages there are and how they lie. */
 private val OrganizeTools = listOf(PdfTool.MERGE, PdfTool.SPLIT, PdfTool.REORGANIZE, PdfTool.DELETE_PAGES, PdfTool.ROTATE)
@@ -83,7 +85,7 @@ private val OrganizeTools = listOf(PdfTool.MERGE, PdfTool.SPLIT, PdfTool.REORGAN
 private val EditTools = listOf(PdfTool.EDIT, PdfTool.SIGN, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK)
 
 /** The tools under "Optimize and protect" on Home, in order. */
-private val OptimizeTools = listOf(PdfTool.COMPRESS, PdfTool.FLATTEN)
+private val OptimizeTools = listOf(PdfTool.COMPRESS, PdfTool.REDACT, PdfTool.FLATTEN)
 
 /** A tool's name: on its card on Home and at the top of its screen. */
 @get:StringRes
@@ -102,6 +104,8 @@ internal val PdfTool.title: Int
         PdfTool.REORGANIZE -> R.string.tool_reorganize
         PdfTool.FLATTEN -> R.string.tool_flatten
         PdfTool.EDIT -> R.string.tool_edit
+        PdfTool.EPUB -> R.string.tool_epub
+        PdfTool.REDACT -> R.string.tool_redact
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -121,6 +125,8 @@ private val PdfTool.detail: Int
         PdfTool.REORGANIZE -> R.string.tool_reorganize_detail
         PdfTool.FLATTEN -> R.string.tool_flatten_detail
         PdfTool.EDIT -> R.string.tool_edit_detail
+        PdfTool.EPUB -> R.string.tool_epub_detail
+        PdfTool.REDACT -> R.string.tool_redact_detail
     }
 
 private val PdfTool.icon: ImageVector
@@ -138,6 +144,8 @@ private val PdfTool.icon: ImageVector
         PdfTool.REORGANIZE -> Icons.Rounded.GridView
         PdfTool.FLATTEN -> Icons.Rounded.Layers
         PdfTool.EDIT -> Icons.Rounded.EditNote
+        PdfTool.EPUB -> Icons.Rounded.AutoStories
+        PdfTool.REDACT -> Icons.Rounded.VisibilityOff
     }
 
 /** Hidden words, separated by commas, that also find a tool in Home's search. */
@@ -157,6 +165,8 @@ private val PdfTool.keywords: Int
         PdfTool.REORGANIZE -> R.string.search_keywords_reorganize
         PdfTool.FLATTEN -> R.string.search_keywords_flatten
         PdfTool.EDIT -> R.string.search_keywords_edit
+        PdfTool.EPUB -> R.string.search_keywords_epub
+        PdfTool.REDACT -> R.string.search_keywords_redact
     }
 
 /** A card on Home: Images to PDF, which has no [tool], or one of the PDF tools. */

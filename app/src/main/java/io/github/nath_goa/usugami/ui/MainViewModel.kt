@@ -16,6 +16,7 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.NaturalOrder
+import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
@@ -27,6 +28,7 @@ import io.github.nath_goa.usugami.data.PdfExporter
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfOcr
 import io.github.nath_goa.usugami.data.PdfSaver
+import io.github.nath_goa.usugami.data.ResultZip
 import io.github.nath_goa.usugami.data.SettingsStore
 import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.data.ocrModels
@@ -115,6 +117,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = _messages.receiveAsFlow()
 
+    /** The name the last PDFs were made with, which a ZIP file of them is named after. */
+    private var resultName = ""
+    private val zipper = ResultZipper(app, exporter.zipDir, viewModelScope, { strings }, { _messages.trySend(it) }, ::resultCleared)
+    /** How far the ZIP file of the result's PDFs has got, while it is being made. */
+    val zipProgress: StateFlow<ZipProgress?> = zipper.progress
+    /** Share screens for ZIP files of the result's PDFs, once each is ready. */
+    val zipShares: Flow<Intent> = zipper.shares
+
     private var nextId = maxOf(System.currentTimeMillis(), (items.value.maxOfOrNull { it.id } ?: 0L) + 1)
     private var conversion: Job? = null
 
@@ -150,6 +160,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             return
         }
         _result.value = null
+        // Shared images open the editor: a ZIP file of the PDFs that showed is no longer wanted.
+        zipper.cancel()
         _pendingImports.update { it + uris.size }
         val generation = importGeneration
         viewModelScope.launch {
@@ -297,6 +309,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     if (ocrLanguage == null) files else addTextLayer(files, ocrLanguage)
                 }
                 _saved.value = false
+                resultName = fileName
                 _result.value = files
                 lastChoices = null
             } catch (e: CancellationException) {
@@ -374,10 +387,13 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     // ---- Result ----
 
     fun backToEditing() {
+        // A ZIP file of the result is no longer wanted once the result screen has gone.
+        zipper.cancel()
         _result.value = null
     }
 
     fun startOver() {
+        zipper.cancel()
         _result.value = null
         clearAll()
         viewModelScope.launch(fileOps) { exporter.clearOutput() }
@@ -440,6 +456,29 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     fun shareIntent(files: List<PdfFile>): Intent = saver.shareIntent(files.map { it.file })
 
     fun viewIntent(file: PdfFile): Intent = saver.viewIntent(file.file)
+
+    /** The name the ZIP file of the result's PDFs gets: the name the Convert sheet had. */
+    fun zipFileName(): String = ResultZip.fileName(resultName)
+
+    /** Makes one ZIP file of the PDFs, one per image, and shares it (see [zipShares]). */
+    fun shareZip() {
+        val files = _result.value ?: return
+        zipper.share(files, resultName)
+    }
+
+    /** Saves one ZIP file of the PDFs into a document created with the system "Save as" screen. */
+    fun saveZipTo(uri: Uri) {
+        val files = _result.value
+        if (files == null) {
+            // As in saveTo: the system restarted Usugami while the screen was open.
+            viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
+            resultCleared(2)
+            return
+        }
+        zipper.saveTo(files, uri) { _saved.value = true }
+    }
+
+    fun cancelZip() = zipper.cancel()
 
     fun showMessage(@StringRes res: Int) = message(res)
 

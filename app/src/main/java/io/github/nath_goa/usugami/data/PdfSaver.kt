@@ -17,7 +17,7 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.OutputStream
 
-/** Saving finished PDFs to shared storage and handing them to other apps. */
+/** Saving finished PDFs (and ZIP files of them) to shared storage and handing them to other apps. */
 class PdfSaver(private val context: Context) {
     private val resolver = context.contentResolver
 
@@ -66,6 +66,23 @@ class PdfSaver(private val context: Context) {
         }
     }
 
+    /**
+     * Writes into a document the user created with the system "Save as" screen: [write] gets its
+     * stream and makes the content from [files]. A new document is deleted again if that fails or is
+     * cancelled.
+     */
+    fun writeTo(target: Uri, files: List<File>, write: (OutputStream) -> Unit) {
+        val created = sizeOf(target) == 0L
+        try {
+            // Checked first, so a document the user chose to overwrite isn't emptied for nothing.
+            requireExists(files)
+            openForWriting(target).use(write)
+        } catch (e: Exception) {
+            if (created) delete(target)
+            throw e
+        }
+    }
+
     /** Creates a copy of each file inside a folder the user picked with the system folder picker. */
     fun saveToFolder(files: List<File>, tree: Uri) {
         requireExists(files)
@@ -90,14 +107,15 @@ class PdfSaver(private val context: Context) {
         if (sizeOf(target) == 0L) delete(target)
     }
 
-    fun shareIntent(files: List<File>): Intent {
+    /** Hands [files] (PDFs, or one ZIP file with [type] application/zip) to an app the user picks. */
+    fun shareIntent(files: List<File>, type: String = PDF_MIME): Intent {
         val uris = files.map(::contentUri)
         val intent = if (uris.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
         } else {
             Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
         }
-        intent.type = PDF_MIME
+        intent.type = type
         intent.clipData = ClipData.newRawUri(files[0].name, uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         return Intent.createChooser(intent, null)
