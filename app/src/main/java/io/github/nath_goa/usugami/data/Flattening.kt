@@ -71,7 +71,7 @@ internal object Flattening {
      * keep the appearance their app gave them. A field PDFBox can't draw (say, in a font it can't
      * use) keeps what it has instead of stopping the rest.
      */
-    private fun redrawFields(form: PDAcroForm, fields: List<PDField>, check: () -> Unit) {
+    internal fun redrawFields(form: PDAcroForm, fields: List<PDField>, check: () -> Unit) {
         val all = form.needAppearances
         for (field in fields) {
             if (field !is PDTerminalField) continue
@@ -111,7 +111,7 @@ internal object Flattening {
     }
 
     /** What [annotation] looks like; made by PDFBox for the kinds it can draw when the PDF has none. */
-    private fun appearanceOf(doc: PDDocument, annotation: PDAnnotation): PDAppearanceStream? {
+    internal fun appearanceOf(doc: PDDocument, annotation: PDAnnotation): PDAppearanceStream? {
         var appearance = annotation.normalAppearanceStream
         if (appearance == null) {
             try {
@@ -126,7 +126,7 @@ internal object Flattening {
         return appearance
     }
 
-    private fun draw(content: PDPageContentStream, annotation: PDAnnotation, appearance: PDAppearanceStream) {
+    internal fun draw(content: PDPageContentStream, annotation: PDAnnotation, appearance: PDAppearanceStream) {
         val rect = annotation.rectangle
         val box = appearance.bBox
         val form = appearance.matrix

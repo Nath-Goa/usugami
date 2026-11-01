@@ -410,6 +410,26 @@ class EpubConverterDeviceTest {
         val all = pageTexts(convert(file, "broken")).joinToString(" ")
         assertTrue(all, "Unclosed" in all && "Tom" in all)
         assertTrue("The chapters before are all there", "Chapter Two" in all)
+
+        // HTML-style empty elements, without their slash: the head ends, and so does the heading.
+        val html = """<html><head><meta charset="utf-8"><link rel="icon" href="x.png"><title>T</title></head>""" +
+            """<body><h1>Alpha<br>Beta</h1><p>Body text</p></body></html>"""
+        val htmlFile = epub2("html.epub", extraChapter3 = "").let { plain ->
+            val parts = linkedMapOf<String, Any>()
+            java.util.zip.ZipFile(plain).use { zip -> zip.entries().asSequence().filter { it.name != "mimetype" }.forEach { parts[it.name] = zip.getInputStream(it).readBytes() } }
+            parts["OEBPS/text/chapter3.xhtml"] = html
+            epub("html2.epub", parts)
+        }
+        val sizes = HashMap<String, Float>()
+        PDDocument.load(convert(htmlFile, "html")).use { doc ->
+            object : PDFTextStripper() {
+                override fun writeString(text: String, positions: MutableList<TextPosition>) {
+                    sizes[text.trim()] = positions.maxOf { it.heightDir }
+                }
+            }.getText(doc)
+        }
+        val body = checkNotNull(sizes["Body text"]) { "The body is there: ${sizes.keys}" }
+        assertTrue("Body text in its own size: $sizes", body < 0.9f * sizes.getValue("Beta"))
     }
 
     @Test fun progressCountsChapters() {
@@ -447,6 +467,7 @@ class EpubConverterDeviceTest {
             assertEquals(401, (bookmarks[401].destination as PDPageDestination).retrievePageNumber())
             assertTrue(PDFTextStripper().apply { startPage = 402; endPage = 402 }.getText(doc).contains("Text of part 402"))
             // Both parts embedded the same fonts: each font's two copies became one smaller file.
+            // (Newer Android versions embed only each part's glyphs, so the copies differ there.)
             fun fontFiles(index: Int) = doc.getPage(index).resources.let { resources ->
                 resources.fontNames.mapNotNull { name ->
                     val font = resources.getFont(name) as? PDType0Font ?: return@mapNotNull null
@@ -456,7 +477,7 @@ class EpubConverterDeviceTest {
             val first = fontFiles(0)
             val last = fontFiles(401)
             assertTrue("$first and $last", first.keys.any { it in last })
-            for ((name, file) in first) last[name]?.let { assertTrue(name, it === file) }
+            if (androidEmbedsWholeFonts()) for ((name, file) in first) last[name]?.let { assertTrue(name, it === file) }
         }
     }
 

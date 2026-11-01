@@ -144,7 +144,7 @@ internal class XhtmlReader(
                 if (++events % 256 == 0) check()
                 when (p.next()) {
                     XmlPullParser.START_TAG -> start(p)
-                    XmlPullParser.END_TAG -> end()
+                    XmlPullParser.END_TAG -> end(p.localName().lowercase())
                     XmlPullParser.TEXT -> text(p.text)
                     XmlPullParser.END_DOCUMENT -> break
                 }
@@ -165,16 +165,19 @@ internal class XhtmlReader(
     private val currentBlock: Inherited get() = frames.lastOrNull { it.block }?.inherited ?: root
 
     private fun start(p: XmlPullParser) {
-        if (skip > 0) return run { skip++ }
-        if (styleDepth > 0) return run { styleDepth++ }
         val tag = p.localName().lowercase()
+        // An empty element written HTML-style (<br>, <meta>) has no end tag: it isn't counted.
+        if (skip > 0) return run { if (tag !in VOID) skip++ }
+        if (styleDepth > 0) return run { styleDepth++ }
         if (tag == "style") {
             styleDepth = 1
             styleText = StringBuilder()
             return
         }
+        // A missing </head> doesn't hide the body.
+        if (headDepth > 0 && tag == "body") headDepth = 0
         if (headDepth > 0) {
-            headDepth++
+            if (tag !in VOID) headDepth++
             head(tag, p)
             return
         }
@@ -204,22 +207,22 @@ internal class XhtmlReader(
         when (tag) {
             "img" -> {
                 image(p, inherited, css, fromSvg = false)
-                return void(node, inheritedFrom)
+                return
             }
             "br" -> {
                 startPara()
                 para!!.append("\n", inheritedFrom.text())
                 afterSpace = true
-                return void(node, inheritedFrom)
+                return
             }
             "hr" -> {
                 flushPara()
                 space = max(space, 0.5f * inherited.size)
                 emit(BookRule(blockStyle(inherited)))
                 space = max(space, 0.5f * inherited.size)
-                return void(node, inheritedFrom)
+                return
             }
-            "wbr", "col", "input", "area", "source", "track", "embed", "param", "meta", "link", "base" -> return void(node, inheritedFrom)
+            "wbr", "col", "input", "area", "source", "track", "embed", "param", "meta", "link", "base" -> return
             "q" -> {
                 appendText("\u201C", inherited)
                 frames += Frame(node, inherited, block = false) { appendText("\u201D", inherited) }
@@ -272,13 +275,13 @@ internal class XhtmlReader(
         }
     }
 
-    /** An element with no content (img, br...). Malformed files sometimes give it some anyway: read as if outside it. */
-    private fun void(node: CssNode, inherited: Inherited) {
-        frames += Frame(node, inherited, block = false)
-    }
-
-    private fun end() {
-        if (skip > 0) return run { skip-- }
+    /**
+     * The end of element [name]. An empty element (img, br...) has nothing to end: HTML-style, it has
+     * no end tag, and the parser then gives its parent's end tag first; anything malformed files put
+     * inside one is read as if outside it.
+     */
+    private fun end(name: String) {
+        if (skip > 0) return run { if (name !in VOID) skip-- }
         if (styleDepth > 0) {
             if (--styleDepth == 0) {
                 val parsed = SimpleCss.parse(styleText.toString())
@@ -287,8 +290,9 @@ internal class XhtmlReader(
             }
             return
         }
-        if (headDepth > 0) return run { headDepth-- }
+        if (headDepth > 0) return run { if (name == "head") headDepth = 0 else if (name !in VOID) headDepth-- }
         if (svgDepth > 0) return run { svgDepth-- }
+        if (name in VOID) return
         frames.removeLastOrNull()?.end?.invoke()
     }
 
@@ -315,6 +319,8 @@ internal class XhtmlReader(
             startPara()
             para!!.append(text, inherited.text())
             afterSpace = text.endsWith('\n')
+            // Like a long paragraph, long preformatted text goes on as a new one, at a line's end.
+            if (para!!.text.length > SPLIT_AT && afterSpace) flushPara(continued = true)
             return
         }
         appendText(raw, inherited)
@@ -587,6 +593,8 @@ internal class XhtmlReader(
         const val HIGHLIGHT = 0xFFFFF59D.toInt()
         val BULLETS = listOf("\u2022", "\u25E6", "\u25AA")
 
+        /** Elements that are always empty. */
+        val VOID = setOf("area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr")
         val SKIPPED = setOf(
             "script", "noscript", "template", "iframe", "object", "video", "audio", "canvas", "button", "select", "textarea",
             "map", "rt", "rp", "datalist", "dialog", "colgroup", "title",

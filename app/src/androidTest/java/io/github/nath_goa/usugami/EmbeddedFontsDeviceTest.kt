@@ -18,6 +18,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
@@ -110,12 +111,18 @@ class EmbeddedFontsDeviceTest {
         val after = fontFiles(shrunk)
         assertEquals(before.keys, after.keys)
         val serif = before.keys.filter { "NotoSerif" in it && "Hebrew" !in it }
-        assertTrue("Android embeds the serif font whole: $before", serif.size >= 3 && serif.all { before.getValue(it) > 100_000 })
-        assertTrue("Shrunk to what is drawn: $before to $after", serif.all { after.getValue(it) * 3 < before.getValue(it) })
+        assertTrue("The serif font's styles: $before", serif.size >= 3)
+        // Newer Android versions embed only the glyphs drawn already: little is left to shrink then,
+        // but the pages must still look and read the same.
+        val whole = androidEmbedsWholeFonts()
+        if (whole) {
+            assertTrue("Android embeds the serif font whole: $before", serif.all { before.getValue(it) > 100_000 })
+            assertTrue("Shrunk to what is drawn: $before to $after", serif.all { after.getValue(it) * 3 < before.getValue(it) })
+        }
         // Hebrew is hinted by letters the shrinking doesn't know: that font stays whole.
         val hebrew = before.keys.single { "Hebrew" in it }
         assertEquals(before[hebrew], after[hebrew])
-        assertTrue("${shrunk.length()} bytes, from ${original.length()}", shrunk.length() * 3 < original.length())
+        if (whole) assertTrue("${shrunk.length()} bytes, from ${original.length()}", shrunk.length() * 3 < original.length())
         // Exactly the same pixels, page by page, small (where hinting shows most) and large.
         for (scale in 1..3) {
             val a = render(original, scale)
@@ -128,4 +135,16 @@ class EmbeddedFontsDeviceTest {
         val shrunkText = text(shrunk)
         for (words in listOf("fluffy final file", "русский текст", "का पाठ और", "₹ 250")) assertTrue(words, shrunkText.contains(words))
     }
+}
+
+/** Whether Android's PDF writer embeds a font whole, as it did before it kept only the glyphs drawn. */
+internal fun androidEmbedsWholeFonts(): Boolean {
+    val doc = PdfDocument()
+    val page = doc.startPage(PdfDocument.PageInfo.Builder(100, 100, 1).create())
+    page.canvas.drawText("a", 10f, 50f, Paint().apply { typeface = Typeface.SERIF })
+    doc.finishPage(page)
+    val out = ByteArrayOutputStream()
+    doc.writeTo(out)
+    doc.close()
+    return out.size() > 100_000
 }

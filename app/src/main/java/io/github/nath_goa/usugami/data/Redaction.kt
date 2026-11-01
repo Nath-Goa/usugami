@@ -24,6 +24,7 @@ import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceGray
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
@@ -69,41 +70,25 @@ internal object Redactor {
 
     /**
      * Draws each visible annotation's appearance into its page, then removes the annotations, as a
-     * PDF viewer shows them. Returns whether any page had annotations.
+     * PDF viewer shows them. Returns whether any was drawn.
      */
     fun drawAnnotationsIntoPages(doc: PDDocument, check: () -> Unit): Boolean {
+        // As Flatten does: fields whose values viewers draw themselves (NeedAppearances) are drawn first.
+        doc.documentCatalog.getAcroForm(null)?.let { form -> Flattening.redrawFields(form, form.fieldTree.toList(), check) }
         var any = false
         for (page in doc.pages) {
             check()
             val annotations = try { page.annotations } catch (_: IOException) { continue }
             if (annotations.isEmpty()) continue
-            any = true
-            val shown = annotations.filter { !it.isHidden && !it.isNoView && it !is PDAnnotationPopup }
+            // Links show nothing of their own: a PDF with only links needs no view drawn.
+            val shown = annotations.filter { !it.isHidden && !it.isNoView && it !is PDAnnotationPopup && it !is PDAnnotationLink }
             if (shown.isNotEmpty()) {
+                any = true
                 PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
                     for (annotation in shown) {
-                        val appearance = try { annotation.normalAppearanceStream } catch (_: IOException) { null } ?: continue
-                        val rect = annotation.rectangle ?: continue
-                        val box = appearance.bBox ?: continue
-                        if (rect.width <= 0 || rect.height <= 0) continue
-                        // The appearance's box as its matrix turns it, stretched over the annotation's rectangle.
-                        val matrix = appearance.matrix
-                        val corners = listOf(
-                            matrix.transformPoint(box.lowerLeftX, box.lowerLeftY), matrix.transformPoint(box.upperRightX, box.lowerLeftY),
-                            matrix.transformPoint(box.lowerLeftX, box.upperRightY), matrix.transformPoint(box.upperRightX, box.upperRightY),
-                        )
-                        val left = corners.minOf { it.x }
-                        val bottom = corners.minOf { it.y }
-                        val width = corners.maxOf { it.x } - left
-                        val height = corners.maxOf { it.y } - bottom
-                        if (width <= 0 || height <= 0) continue
-                        val fit = Matrix.getTranslateInstance(rect.lowerLeftX, rect.lowerLeftY)
-                        fit.concatenate(Matrix.getScaleInstance(rect.width / width, rect.height / height))
-                        fit.concatenate(Matrix.getTranslateInstance(-left, -bottom))
-                        content.saveGraphicsState()
-                        content.transform(fit)
-                        content.drawForm(appearance)
-                        content.restoreGraphicsState()
+                        // Placed and made see-through (its /CA) as Flatten draws it.
+                        val appearance = try { Flattening.appearanceOf(doc, annotation) } catch (_: IOException) { null } ?: continue
+                        Flattening.draw(content, annotation, appearance)
                     }
                 }
             }
