@@ -434,4 +434,30 @@
         <item quantity="many">Les PDF ont été effacés de l\'espace de stockage temporaire. Veuillez les créer à nouveau.</item>
         <item quantity="other">Les PDF ont été effacés de l\'espace de stockage temporaire. Veuillez les créer à nouveau.</item>
     </plurals>
+
+    <!-- Searching for a tool on Home -->
+    <string name="home_search_hint">Rechercher un outil</string>
+    <string name="home_search_clear">Effacer la recherche</string>
+    <plurals name="home_search_results">
+        <item quantity="one">%d outil trouvé</item>
+        <item quantity="many">%d outils trouvés</item>
+        <item quantity="other">%d outils trouvés</item>
+    </plurals>
+    <string name="home_search_none">Aucun outil ne correspond à « %1$s »</string>
+    <string name="search_keywords_images">photo, image, JPEG, scanner, numériser, appareil photo, galerie, OCR</string>
+    <string name="search_keywords_word">doc, docx, document, Office, convertir, traitement de texte</string>
+    <string name="search_keywords_powerpoint">ppt, pptx, diapositives, présentation, diaporama, Office, convertir</string>
+    <string name="search_keywords_merge">assembler, combiner, joindre, réunir, regrouper, fusion</string>
+    <string name="search_keywords_split">séparer, couper, découper, extraire, scinder</string>
+    <string name="search_keywords_reorganize">réordonner, ordre, trier, ranger, déplacer, insérer, page blanche</string>
+    <string name="search_keywords_delete_pages">retirer, enlever, effacer, ôter</string>
+    <string name="search_keywords_rotate">tourner, pivoter, rotation, retourner, paysage, portrait, orientation</string>
+    <string name="search_keywords_edit">annoter, écrire, texte, stylo, dessiner, surligner, surligneur, flèche, photo</string>
+    <string name="search_keywords_sign">signature, signer, parapher, paraphe, initiales</string>
+    <string name="search_keywords_page_numbers">numérotation, pagination, numéro, pied de page, en-tête</string>
+    <string name="search_keywords_watermark">tampon, cachet, confidentiel, brouillon, copyright</string>
+    <string name="search_keywords_compress">réduire, alléger, taille, plus petit, optimiser, poids, e-mail</string>
+    <string name="search_keywords_flatten">formulaire, champs, annotations, commentaires, verrouiller, figer</string>
+    <string name="search_keywords_epub">epub, livre numérique, e-book, ebook, livre, roman, liseuse</string>
+    <string name="search_keywords_redact">caviarder, noircir, masquer, cacher, censurer, anonymiser, confidentiel</string>
 </resources>

@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami
 import android.app.Application
 import android.content.Intent
 import android.content.res.Configuration
+import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
@@ -13,7 +14,9 @@ import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.InputDevice
+import android.view.KeyEvent
 import android.view.MotionEvent
+import android.view.View
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import androidx.core.content.FileProvider
@@ -309,6 +312,122 @@ class ScreensDeviceTest {
             nodes().firstOrNull { down in it.actionList }?.performAction(down.id)
         }
         assertEquals("Each tool under its heading, in order", expected, seen)
+    }
+
+    /** Every tool's name, as its card on Home shows it. */
+    private val toolNames = listOf(
+        R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_merge, R.string.tool_split,
+        R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate, R.string.tool_edit, R.string.tool_sign,
+        R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_compress, R.string.tool_flatten,
+    )
+
+    /** The tools whose cards are on screen, top to bottom, named in [resources]' language. */
+    private fun shownTools(resources: Resources = app.resources): List<String> {
+        val names = toolNames.map(resources::getString)
+        return nodes()
+            .mapNotNull { node -> node.text?.toString()?.let { text -> names.firstOrNull { text.contains(it) } }?.let { node to it } }
+            .sortedBy { (node, _) -> Rect().also(node::getBoundsInScreen).top }
+            .map { it.second }
+    }
+
+    /** Home's search field. */
+    private fun searchField() = find("the search field") { it.isEditable }
+
+    /** Waits until the cards on screen are [tools] (names), in that order. */
+    private fun waitForTools(vararg tools: String, resources: Resources = app.resources) {
+        try {
+            waitUntil("the tools found to be ${tools.toList()}") { shownTools(resources) == tools.toList() }
+        } catch (e: IllegalStateException) {
+            throw IllegalStateException("${e.message}, not ${shownTools(resources)}", e)
+        }
+    }
+
+    private fun backKey() = instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+
+    private fun resumedMain(): MainActivity? =
+        onMain { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).singleOrNull() as? MainActivity }
+
+    /**
+     * Home's search: it finds tools by name, description and hidden words (any case, accents and word
+     * order), shows them without the sections, says when nothing matches, clears with its button,
+     * survives the activity being recreated, comes back after a tool opened from it, and Back clears
+     * it before leaving Usugami. A screen reader hears how many tools were found.
+     */
+    @Test fun homeSearchFindsToolsAndBackClearsItFirst() {
+        val first = launch()
+        val field = searchField()
+        // A screen reader says what the field is for: its placeholder is part of it.
+        assertNotNull("The field says what it is for", ancestor(find("the placeholder") { it.says(app.getString(R.string.home_search_hint)) }) { it.isEditable })
+
+        // The line over the results is read out by a screen reader each time it changes.
+        val one = app.resources.getQuantityString(R.plurals.home_search_results, 1, 1)
+        type(field, "Join")
+        waitForTools(app.getString(R.string.tool_merge))
+        val count = find("the count") { it.says(one) }
+        assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, count.liveRegion)
+        assertTrue("No section headings while searching", nodes().none { it.says(app.getString(R.string.home_section_organize)) })
+
+        // Every word must begin a word of the tool's texts, in any order, whatever the case and accents
+        // (here typed where the keyword "reduce size" has none).
+        type(searchField(), "SIZE réduce")
+        waitForTools(app.getString(R.string.tool_compress))
+        // Tools with the word in their name come first.
+        type(searchField(), "page")
+        waitUntil("tools named with \"page\" first") {
+            shownTools().take(2) == listOf(app.getString(R.string.tool_delete_pages), app.getString(R.string.tool_page_numbers))
+        }
+
+        type(searchField(), "zebra")
+        val none = find("the empty state") { it.says(app.getString(R.string.home_search_none, "zebra")) }
+        assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, none.liveRegion)
+        waitForTools()
+
+        click(find("the clear button") { it.says(app.getString(R.string.home_search_clear)) })
+        find("the sections again") { it.says(app.getString(R.string.home_section_create)) }
+        assertTrue("The field is empty", searchField().text.isNullOrEmpty())
+
+        // The search survives the activity being recreated, as it is on rotation.
+        type(searchField(), "combine")
+        waitForTools(app.getString(R.string.tool_merge))
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        find("the search, kept") { it.isEditable && it.text?.toString() == "combine" }
+        waitForTools(app.getString(R.string.tool_merge))
+
+        // A tool opened from the results goes back to them.
+        click(find("Merge PDF") { it.text?.contains(app.getString(R.string.tool_merge)) == true })
+        waitUntil("Home to slide away") { nodes().none { it.isEditable && it.text?.toString() == "combine" } }
+        backKey()
+        find("the search, still there") { it.isEditable && it.text?.toString() == "combine" }
+        waitForTools(app.getString(R.string.tool_merge))
+
+        // Back clears the search first, staying on Home...
+        backKey()
+        find("the sections again") { it.says(app.getString(R.string.home_section_create)) }
+        assertTrue("The field is empty", searchField().text.isNullOrEmpty())
+        assertTrue("Usugami is still showing", resumedMain() === activity)
+        // ...then leaves Usugami, as before.
+        backKey()
+        waitUntil("Usugami to leave") { resumedMain() == null }
+    }
+
+    /** In French, the search finds tools by French words, also without their accents. */
+    @Test fun homeSearchFindsFrenchKeywords() {
+        languageChanged = true
+        val first = launch()
+        onMain { AppLanguages.choose(first, AppLanguage.FRENCH) }
+        val french = recreatedFrom(first).resources
+        assertEquals("fr", french.configuration.locales[0].language)
+
+        // "assembler" is one of Merge PDF's hidden words in French.
+        type(searchField(), "assembler")
+        waitForTools(french.getString(R.string.tool_merge), resources = french)
+        find("the count in French") { it.says(french.getQuantityString(R.plurals.home_search_results, 1, 1)) }
+        // "réduire" and "taille" are Compress PDF's.
+        type(searchField(), "REDUIRE taille")
+        waitForTools(french.getString(R.string.tool_compress), resources = french)
+        type(searchField(), "zèbre")
+        find("the empty state in French") { it.says(french.getString(R.string.home_search_none, "zèbre")) }
     }
 
     @Test fun rotateTurnsPagesWithButtons() {

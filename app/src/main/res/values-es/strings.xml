@@ -434,4 +434,30 @@
         <item quantity="many">Los PDF se borraron del almacenamiento temporal. Vuelve a crearlos.</item>
         <item quantity="other">Los PDF se borraron del almacenamiento temporal. Vuelve a crearlos.</item>
     </plurals>
+
+    <!-- Searching for a tool on Home -->
+    <string name="home_search_hint">Buscar herramientas</string>
+    <string name="home_search_clear">Borrar búsqueda</string>
+    <plurals name="home_search_results">
+        <item quantity="one">%d herramienta encontrada</item>
+        <item quantity="many">%d herramientas encontradas</item>
+        <item quantity="other">%d herramientas encontradas</item>
+    </plurals>
+    <string name="home_search_none">Ninguna herramienta coincide con \"%1$s\"</string>
+    <string name="search_keywords_images">foto, imagen, JPEG, escanear, escáner, cámara, galería, OCR</string>
+    <string name="search_keywords_word">doc, docx, documento, Office, convertir</string>
+    <string name="search_keywords_powerpoint">ppt, pptx, diapositivas, presentación, Office, convertir</string>
+    <string name="search_keywords_merge">juntar, combinar, fusionar, unir, agrupar, anexar</string>
+    <string name="search_keywords_split">separar, cortar, extraer, dividir, partir</string>
+    <string name="search_keywords_reorganize">reordenar, ordenar, mover, organizar, insertar, página en blanco</string>
+    <string name="search_keywords_delete_pages">borrar, quitar, suprimir, eliminar</string>
+    <string name="search_keywords_rotate">girar, rotar, voltear, horizontal, vertical, orientación</string>
+    <string name="search_keywords_edit">anotar, escribir, texto, lápiz, dibujar, resaltar, subrayar, flecha, foto</string>
+    <string name="search_keywords_sign">firma, firmar, rúbrica, rubricar, iniciales</string>
+    <string name="search_keywords_page_numbers">numeración, paginación, número, pie de página, encabezado</string>
+    <string name="search_keywords_watermark">sello, confidencial, borrador, copyright, marca</string>
+    <string name="search_keywords_compress">reducir, achicar, tamaño, más pequeño, optimizar, peso, correo</string>
+    <string name="search_keywords_flatten">formulario, campos, anotaciones, comentarios, bloquear, aplanar</string>
+    <string name="search_keywords_epub">epub, libro electrónico, ebook, e-book, libro, novela</string>
+    <string name="search_keywords_redact">censurar, tachar, ocultar, tapar, esconder, anonimizar, confidencial</string>
 </resources>

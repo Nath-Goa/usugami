@@ -50,6 +50,12 @@ All notable changes to Usugami are listed here. The format is based on
   drawings and shapes stay sharp vector lines, and photos are compressed; pages you don't change
   stay exactly as they were. A filled box only covers what's under it, and Usugami says so.
 
+- **Search** at the top of Home: type to find a tool by its name, what it does or a word you might
+  use for it, such as "combine", "shrink" or "scan" (in each of the app's languages; Hindi also
+  takes common English words). Case and accents don't matter, and every word typed must match. The
+  tools found show in one list, Back clears the search, and a screen reader says how many were
+  found.
+
 ### Changed
 
 - Home groups the tools in four sections, **Create PDF**, **Organize**, **Edit and sign** and

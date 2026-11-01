@@ -421,4 +421,29 @@
         <item quantity="one">PDF को अस्थायी स्टोरेज से हटा दिया गया। कृपया इसे फिर से बनाएं।</item>
         <item quantity="other">PDF फ़ाइलों को अस्थायी स्टोरेज से हटा दिया गया। कृपया उन्हें फिर से बनाएं।</item>
     </plurals>
+
+    <!-- Searching for a tool on Home -->
+    <string name="home_search_hint">टूल खोजें</string>
+    <string name="home_search_clear">खोज मिटाएं</string>
+    <plurals name="home_search_results">
+        <item quantity="one">%d टूल मिला</item>
+        <item quantity="other">%d टूल मिले</item>
+    </plurals>
+    <string name="home_search_none">\"%1$s\" से मेल खाता कोई टूल नहीं मिला</string>
+    <string name="search_keywords_images">फ़ोटो, तस्वीर, स्कैन, कैमरा, गैलरी, photo, image, scan, JPEG, OCR</string>
+    <string name="search_keywords_word">डॉक्यूमेंट, दस्तावेज़, doc, docx, document, Office</string>
+    <string name="search_keywords_powerpoint">स्लाइड, प्रेज़ेंटेशन, ppt, pptx, slides, presentation</string>
+    <string name="search_keywords_merge">जोड़ें, मिलाएं, एक फ़ाइल, merge, combine, join</string>
+    <string name="search_keywords_split">अलग करें, बांटें, निकालें, split, separate, extract</string>
+    <string name="search_keywords_reorganize">क्रम बदलें, खिसकाएं, खाली पेज, reorder, rearrange, organize</string>
+    <string name="search_keywords_delete_pages">मिटाएं, निकालें, delete pages, remove</string>
+    <string name="search_keywords_rotate">घुमाएं, उल्टा, सीधा, rotate, turn</string>
+    <string name="search_keywords_edit">लिखें, टेक्स्ट, ड्रॉ, हाइलाइट, तीर, edit, annotate, highlight, draw</string>
+    <string name="search_keywords_sign">हस्ताक्षर, दस्तख़त, साइन, sign, signature</string>
+    <string name="search_keywords_page_numbers">नंबर, क्रमांक, पेज संख्या, page numbers, numbering</string>
+    <string name="search_keywords_watermark">मुहर, स्टैम्प, गोपनीय, watermark, stamp</string>
+    <string name="search_keywords_compress">छोटा करें, साइज़ घटाएं, कम करें, compress, shrink, reduce size</string>
+    <string name="search_keywords_flatten">फ़ॉर्म, फ़ील्ड, टिप्पणी, लॉक, flatten, form</string>
+    <string name="search_keywords_epub">ई-बुक, किताब, पुस्तक, epub, ebook, book</string>
+    <string name="search_keywords_redact">छिपाएं, काला करें, गोपनीय, सेंसर, redact, hide, censor</string>
 </resources>

@@ -447,4 +447,33 @@
         <item quantity="one">The PDF was cleared from temporary storage. Please create it again.</item>
         <item quantity="other">The PDFs were cleared from temporary storage. Please create them again.</item>
     </plurals>
+
+    <!-- Searching for a tool on Home -->
+    <string name="home_search_hint">Search tools</string>
+    <string name="home_search_clear">Clear search</string>
+    <!-- Over the tools a search found, and read out by screen readers as the user types. Never 0. -->
+    <plurals name="home_search_results">
+        <item quantity="one">%d tool found</item>
+        <item quantity="other">%d tools found</item>
+    </plurals>
+    <string name="home_search_none">No tools match \"%1$s\"</string>
+    <!-- Hidden words that also find a tool when searched for on Home, separated by commas. They are
+         never shown: use the words people would type in this language for what the tool does. -->
+    <string name="search_keywords_images">photo, picture, JPEG, scan, camera, gallery, OCR</string>
+    <string name="search_keywords_word">doc, docx, document, Office, convert</string>
+    <string name="search_keywords_powerpoint">ppt, pptx, slides, presentation, Office, convert</string>
+    <string name="search_keywords_merge">join, combine, append, put together</string>
+    <string name="search_keywords_split">separate, cut, divide, extract, break up</string>
+    <string name="search_keywords_reorganize">reorder, rearrange, order, sort, move, insert, blank page</string>
+    <string name="search_keywords_delete_pages">remove, erase, discard, get rid of</string>
+    <string name="search_keywords_rotate">turn, flip, sideways, upside down, landscape, portrait, orientation</string>
+    <string name="search_keywords_edit">annotate, write, type, pen, draw, highlight, markup, arrow, photo</string>
+    <string name="search_keywords_sign">signature, initials, autograph, e-sign</string>
+    <string name="search_keywords_page_numbers">numbering, paginate, pagination, footer, header</string>
+    <string name="search_keywords_watermark">stamp, confidential, draft, copyright, overlay</string>
+    <string name="search_keywords_compress">shrink, reduce size, smaller, optimize, file size, email</string>
+    <string name="search_keywords_flatten">form, fields, annotations, comments, lock, fillable</string>
+    <!-- For the EPUB to PDF and Redact PDF cards, which join Home in this release. -->
+    <string name="search_keywords_epub" tools:ignore="UnusedResources">epub, ebook, e-book, book, novel</string>
+    <string name="search_keywords_redact" tools:ignore="UnusedResources">redact, black out, hide, censor, conceal, private, sensitive</string>
 </resources>

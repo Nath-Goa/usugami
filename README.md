@@ -231,6 +231,9 @@ old "PDFer".
 
 - Home groups the tools under **Create PDF**, **Organize**, **Edit and sign** and **Optimize and
   protect**.
+- **Search** at the top of Home finds a tool as you type, by its name, what it does or a word you
+  might use for it ("combine", "shrink", "scan"), in the app's language. Case and accents don't
+  matter.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any

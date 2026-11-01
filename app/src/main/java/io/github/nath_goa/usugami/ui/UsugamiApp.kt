@@ -143,6 +143,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
     // "Back to editing" returns to them. Opening the tool from Home starts afresh.
     val toolStates = rememberSaveableStateHolder()
 
+    // What is typed into Home's search field. It is kept while a tool opened from the results shows,
+    // so going back returns to them.
+    var homeQuery by rememberSaveable { mutableStateOf("") }
+
     var showConvertSheet by rememberSaveable { mutableStateOf(false) }
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
 
@@ -173,16 +177,22 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit) {
                 LaunchedEffect(settled) { if (settled) pdfVm.reset() }
             }
             when {
-                current == "home" -> HomeScreen(
-                    snackbar = screenSnackbar,
-                    onImages = { route = "images" },
-                    onTool = { tool ->
-                        pdfVm.reset()
-                        toolStates.removeState(tool.name.lowercase())
-                        route = tool.name.lowercase()
-                    },
-                    onSettings = { route = "settings" },
-                )
+                current == "home" -> {
+                    // Back clears a search first, then leaves Usugami.
+                    BackHandler(enabled = active && homeQuery.isNotEmpty()) { homeQuery = "" }
+                    HomeScreen(
+                        snackbar = screenSnackbar,
+                        query = homeQuery,
+                        onQueryChange = { homeQuery = it },
+                        onImages = { route = "images" },
+                        onTool = { tool ->
+                            pdfVm.reset()
+                            toolStates.removeState(tool.name.lowercase())
+                            route = tool.name.lowercase()
+                        },
+                        onSettings = { route = "settings" },
+                    )
+                }
                 current == "settings" -> {
                     BackHandler(enabled = active) { route = "home" }
                     SettingsScreen(

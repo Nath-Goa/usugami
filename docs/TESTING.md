@@ -24,6 +24,10 @@ the page's edges, handles (a box's opposite corner stays put, a picture keeps it
 within its font sizes), the size slider, which item a touch picks (outlines by their line, the
 chosen one first), new items stepping aside from one already in the middle, and the items surviving
 being saved and restored. For
+Home's search they cover words being matched whatever their case and accents (and the Devanagari
+nukta and candrabindu), split at punctuation, each word typed having to begin a word of the tool's
+name, description or hidden words, in any order, tools named by the word coming first, and hidden
+words in English, French, Spanish and Hindi (in Devanagari and Latin letters). For
 Word and PowerPoint files they cover units and colors, telling .docx and .pptx files from old
 binary and password-protected ones, list numbers and symbol-font bullets, table column widths,
 where a paragraph breaks between pages, and how group shapes place their contents.
@@ -83,7 +87,11 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   hidden slides left out, progress by page and slide, old .doc and .ppt files, password-protected
   files, other files and XML with a DOCTYPE refused, and cancelling leaving nothing behind
 - the screens, through the accessibility tree a screen reader uses: Home's four section headings
-  with each tool under its own, in order; Delete pages' pages as named check boxes kept in step with
+  with each tool under its own, in order; Home's search finding tools by name, description and hidden
+  words (any case, accents or word order, tools named by the word first) in one list without the
+  headings, saying when nothing matches, the line with the count read out as it changes, the clear
+  button, the search surviving the activity being recreated and coming back after a tool opened from
+  it, Back clearing it before leaving Usugami, and French words finding French tools; Delete pages' pages as named check boxes kept in step with
   the field, the count, and the messages for every page and for pages that don't exist; Reorganize
   PDF's buttons naming the chosen page, a blank page added and undone, a page removed with a screen
   reader's action, and the pages and the chosen one surviving the activity being recreated; Flatten
@@ -132,6 +140,8 @@ On a phone or emulator, with the release APKs:
 
 - First launch: the language screen, then Home; Settings → Language switches every screen
   (also on Android 12 or older, where Usugami applies the language itself).
+- Home's search in each language with TalkBack on: type a few words, hear how many tools were
+  found, clear it with the button and with Back.
 - Images to PDF from Photos, Files and a share from the gallery, with OCR on in each language.
 - Split, merge in page mode, and compress, including a password-protected PDF.
 - Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
