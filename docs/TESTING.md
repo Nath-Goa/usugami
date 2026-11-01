@@ -15,10 +15,12 @@ release. CI runs the first layer, lint and both release builds on every push and
 They cover page layout and page sizes, EXIF orientation, JPEG parsing and metadata removal,
 lossless PNG encoding, compression sizing, PDF syntax, the PDF writer, file names, page
 selections such as `1-3;5;7-9`, where page numbers, watermarks and signatures go on pages that
-are turned (`/Rotate`) or cropped, where a signature starts and how far it can grow, and how big its
-image is. For Word and PowerPoint files they cover units and colors, telling .docx and .pptx files
-from old binary and password-protected ones, list numbers and symbol-font bullets, table column
-widths, where a paragraph breaks between pages, and how group shapes place their contents.
+are turned (`/Rotate`) or cropped, where a signature starts and how far it can grow, how big its
+image is, page lists written back as ranges (`2,5-7`), that deleting every page is refused, and
+where a form field's or comment's appearance goes when Flatten PDF draws it into the page. For
+Word and PowerPoint files they cover units and colors, telling .docx and .pptx files from old
+binary and password-protected ones, list numbers and symbol-font bullets, table column widths,
+where a paragraph breaks between pages, and how group shapes place their contents.
 
 ## 2. Device tests (Android)
 
@@ -34,7 +36,20 @@ They use small synthetic PDFs, a made-up Word report and a made-up slide deck in
 which needs python-docx and python-pptx), and check, with PDFBox text extraction:
 
 - split: selected pages, separate ranges and combined output
-- merge: file order and page mode (reorder, rotate, remove)
+- merge: file order and page mode (reorder with buttons and by dragging, rotate, remove), with pages
+  left out gone from the file, PDFs added still going at the end, and no copy, result or PDFBox
+  scratch file left once the tool is left
+- delete pages: the pages left, in order, and nothing of the deleted ones anywhere in the file (their
+  text, a form field's value, their bookmarks); bookmarks to the pages kept still lead there, a link
+  to a deleted page leads nowhere, and deleting every page is refused
+- reorganize: the new order, pages turned on top of the turn they had (an inherited one too) and
+  keeping an inherited page size, pages from another PDF (one with a password too) put in after the
+  chosen page, blank pages the size of the page before them as it shows, Undo, a page left out gone
+  from the file, and links between pages kept still working
+- flatten: field values and a ticked check box become part of the page (by text extraction and by
+  rendering), a field left without an appearance drawn, a comment with no appearance of its own
+  drawn, no fields or widgets left, links kept, a dynamic XFA form removed and the rest flattened,
+  nothing to flatten reported (an XFA-only form too), and cancelling leaving nothing behind
 - compress: all three levels, selectable text kept, never larger than the original
 - password-protected PDFs: opening with the password, then split, compress and rotate
 - rotate: only the chosen pages turn, on top of the turn they already had, and nothing else changes
@@ -53,7 +68,12 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   them and decoded no bigger than needed, slides in the presentation's order (not the files'),
   hidden slides left out, progress by page and slide, old .doc and .ppt files, password-protected
   files, other files and XML with a DOCTYPE refused, and cancelling leaving nothing behind
-- the screens, through the accessibility tree a screen reader uses: Home's section headings,
+- the screens, through the accessibility tree a screen reader uses: Home's four section headings
+  with each tool under its own, in order; Delete pages' pages as named check boxes kept in step with
+  the field, the count, and the messages for every page and for pages that don't exist; Reorganize
+  PDF's buttons naming the chosen page, a blank page added and undone, a page removed with a screen
+  reader's action, and the pages and the chosen one surviving the activity being recreated; Flatten
+  PDF's line saying what it does and its message when there is nothing to flatten;
   turning pages with buttons, the page-number positions and watermark colors as named radio
   buttons, a chosen position surviving the activity being recreated, the messages for pages to
   skip that can't be used, and a signature drawn on the pad (with injected touches), put on a chosen
@@ -97,6 +117,9 @@ On a phone or emulator, with the release APKs:
 - Split, merge in page mode, and compress, including a password-protected PDF.
 - Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
   page turned sideways; check the results in another PDF viewer.
+- Reorganize a PDF: drag a page, add the pages of a password-protected PDF and a blank page after a
+  page turned sideways, undo, and save. Delete a few pages of a PDF with bookmarks. Flatten a
+  filled-in form and a PDF with comments, and check in another viewer that nothing can be edited.
 - Word to PDF and PowerPoint to PDF with a few real documents and presentations from Files; compare
   the result with the original, and check that an old .doc file is refused.
 - Sign PDF in landscape and in the dark theme: the pad fills the screen, drawing feels smooth, and

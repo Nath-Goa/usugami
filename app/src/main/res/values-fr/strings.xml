@@ -13,7 +13,9 @@
     <string name="tool_compress">Compresser un PDF</string>
     <string name="tool_compress_detail">Réduire les images, garder le texte net</string>
     <string name="home_section_create">Créer un PDF</string>
-    <string name="home_section_edit">Modifier un PDF</string>
+    <string name="home_section_edit">Modifier et signer</string>
+    <string name="home_section_organize">Organiser</string>
+    <string name="home_section_optimize">Optimiser et protéger</string>
     <string name="tool_rotate">Faire pivoter un PDF</string>
     <string name="tool_rotate_detail">Remettre les pages dans le bon sens</string>
     <string name="tool_page_numbers">Numéroter les pages</string>
@@ -161,6 +163,32 @@
         <item quantity="many">%1$d sur %2$d diapositives</item>
         <item quantity="other">%1$d sur %2$d diapositives</item>
     </plurals>
+    <string name="tool_delete_pages">Supprimer des pages</string>
+    <string name="tool_delete_pages_detail">Retirer les pages inutiles</string>
+    <string name="tool_reorganize">Réorganiser un PDF</string>
+    <string name="tool_reorganize_detail">Déplacer, faire pivoter, retirer et ajouter des pages</string>
+    <string name="tool_flatten">Aplatir un PDF</string>
+    <string name="tool_flatten_detail">Intégrer formulaires et commentaires à la page</string>
+    <string name="pdf_delete_pages_action">Supprimer les pages</string>
+    <string name="delete_pages_field">Pages à supprimer</string>
+    <string name="delete_pages_hint" tools:ignore="TypographyDashes">Par exemple : 2,5-7. Ou touchez les pages ci-dessous.</string>
+    <string name="delete_pages_count">À supprimer : %1$d sur %2$d</string>
+    <string name="page_marked_delete">À supprimer</string>
+    <string name="page_kept">Conservée</string>
+    <string name="pdf_reorganize_action">Enregistrer le PDF</string>
+    <string name="reorganize_hint">Touchez une page pour la choisir ; les pages ajoutées se placent après elle. Appuyez de manière prolongée sur une page et faites-la glisser pour la déplacer.</string>
+    <string name="reorganize_add">Ajouter des pages</string>
+    <string name="reorganize_add_pdf">Pages d\'un PDF</string>
+    <string name="reorganize_add_blank">Page blanche</string>
+    <string name="reorganize_blank">Blanche</string>
+    <string name="reorganize_page_from">Page %1$d, provenant de %2$s</string>
+    <string name="reorganize_page_blank">Page %1$d, blanche</string>
+    <string name="undo">Annuler</string>
+    <string name="pdf_flatten_action">Aplatir le PDF</string>
+    <string name="flatten_note">Les champs de formulaire, les commentaires et les dessins sont intégrés à la page : ils ne peuvent plus être modifiés ni remplis. Les liens continuent de fonctionner.</string>
+    <string name="flatten_nothing">Ce PDF n\'a ni champs de formulaire ni commentaires à aplatir.</string>
+    <string name="flatten_xfa_only">Le formulaire de ce PDF est un formulaire XFA dynamique, qu\'Usugami ne peut pas aplatir.</string>
+    <string name="flatten_xfa_dropped">Ce PDF contenait un formulaire XFA dynamique, qui a été retiré. Ses autres champs de formulaire et ses commentaires ont été aplatis.</string>
 
     <string name="ocr_title">Rendre le texte recherchable (OCR)</string>
     <string name="ocr_detail">Reconnaître les mots figurant sur ces images et ajouter du texte recherchable au PDF.</string>

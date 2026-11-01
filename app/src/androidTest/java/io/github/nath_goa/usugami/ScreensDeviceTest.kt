@@ -256,18 +256,40 @@ class ScreensDeviceTest {
 
     @Test fun homeGroupsTheToolsUnderHeadings() {
         launch()
-        for (heading in listOf(R.string.home_section_create, R.string.home_section_edit)) {
-            val node = find("the heading") { it.says(app.getString(heading)) }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) assertTrue("A screen reader can jump to it", node.isHeading)
-        }
-        val tools = listOf(
-            R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_split, R.string.tool_merge,
-            R.string.tool_compress, R.string.tool_rotate, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_sign,
+        val headings = listOf(R.string.home_section_create, R.string.home_section_organize, R.string.home_section_edit, R.string.home_section_optimize)
+        val sections = listOf(
+            listOf(R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint),
+            listOf(R.string.tool_merge, R.string.tool_split, R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate),
+            listOf(R.string.tool_sign, R.string.tool_page_numbers, R.string.tool_watermark),
+            listOf(R.string.tool_compress, R.string.tool_flatten),
         )
-        for (tool in tools) {
-            val card = findBelow("the ${app.getString(tool)} card") { it.text?.contains(app.getString(tool)) == true }
-            assertTrue(clickable(card).isEnabled)
+        val expected = headings.zip(sections).flatMap { (heading, tools) -> listOf(heading) + tools }.map(app::getString)
+        val headingNames = headings.map(app::getString)
+
+        /** What [node] names: a heading, or the tool whose card it is. */
+        fun name(node: AccessibilityNodeInfo): String? {
+            val text = node.text?.toString() ?: return null
+            return if (text in headingNames) text else expected.firstOrNull { it !in headingNames && text.contains(it) }
         }
+        // Read top to bottom, as a screen reader scrolls, noting each heading and card as it shows.
+        val seen = ArrayList<String>()
+        val down = AccessibilityAction.ACTION_SCROLL_DOWN
+        repeat(12) {
+            Thread.sleep(400)
+            val shown = nodes().filter { name(it) != null }.sortedBy { Rect().also(it::getBoundsInScreen).top }
+            for (node in shown) {
+                val named = name(node)!!
+                if (named in seen) continue
+                seen += named
+                if (named in headingNames) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) assertTrue("A screen reader can jump to $named", node.isHeading)
+                } else {
+                    assertTrue("$named can be opened", clickable(node).isEnabled)
+                }
+            }
+            nodes().firstOrNull { down in it.actionList }?.performAction(down.id)
+        }
+        assertEquals("Each tool under its heading, in order", expected, seen)
     }
 
     @Test fun rotateTurnsPagesWithButtons() {
@@ -428,6 +450,112 @@ class ScreensDeviceTest {
         findBelow("page 2 in the preview, after the result") { it.says(app.getString(R.string.sign_preview_description, 2)) }
         click(actionButton(R.string.pdf_sign_action))
         checkSigned()
+    }
+
+    /** The text field of a tool, the first on its screen (the file name comes last). */
+    private fun firstField() = find("the text field") { it.isEditable }
+
+    @Test fun deletePagesMarksPagesAndSaysWhatIsWrong() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_delete_pages, activity)
+        assertFalse("Nothing to delete yet", clickable(button(R.string.pdf_delete_pages_action)).isEnabled)
+        find("the count") { it.says(app.getString(R.string.delete_pages_count, 0, 3)) }
+
+        // Tapping a page marks it: the field and the count follow.
+        // Each page is a check box named after it.
+        val page2 = app.getString(R.string.pdf_page_number, 2)
+        assertFalse(radio(page2).chosen)
+        click(radio(page2))
+        waitUntil("page 2 to be marked") { nodes().any { it.isEditable && it.text?.toString() == "2" } }
+        find("the new count") { it.says(app.getString(R.string.delete_pages_count, 1, 3)) }
+        waitUntil("page 2 to show as marked") { radio(page2).chosen }
+
+        // Every page can't go: the screen says so, and so does trying.
+        val keepOne = app.getString(R.string.pdf_need_page)
+        type(firstField(), "1-3")
+        find("the warning") { it.says(keepOne) }
+        click(actionButton(R.string.pdf_delete_pages_action))
+        waitUntil("the message too") { nodes().count { it.says(keepOne) } >= 2 }
+        type(firstField(), "9")
+        click(actionButton(R.string.pdf_delete_pages_action))
+        find("the message") { it.says(app.getString(R.string.pdf_pages_range, 3)) }
+
+        type(firstField(), "2")
+        click(actionButton(R.string.pdf_delete_pages_action))
+        val result = resultFile(pdfVm)
+        assertEquals("alpha_pages_deleted.pdf", result.name)
+        val text = PDDocument.load(result).use { doc ->
+            assertEquals(2, doc.numberOfPages)
+            PDFTextStripper().getText(doc)
+        }
+        assertTrue(text.contains("ALPHA ONE") && text.contains("ALPHA THREE"))
+        assertFalse(text.contains("ALPHA TWO"))
+    }
+
+    @Test fun reorganizeMovesTurnsAddsAndRemovesPagesWithButtons() {
+        val first = launch()
+        val firstVm = openToolWithAlpha(R.string.tool_reorganize, first)
+        assertFalse("Nothing to save until the pages change", clickable(button(R.string.pdf_reorganize_action)).isEnabled)
+        find("the page count") { it.says(app.resources.getQuantityString(R.plurals.page_count, 3, 3)) }
+        val (a, b, c) = onMain { firstVm.pages.value }
+
+        // Page 3 is chosen with a tap, then moved and turned with the buttons, which name it.
+        click(findBelow("page 3") { it.says(app.getString(R.string.pdf_page_number, 3)) && ancestor(it) { node -> node.isClickable } != null })
+        click(find("the move button") { it.says(app.getString(R.string.move_page_earlier, 3)) })
+        waitUntil("page 3 to come second") { onMain { firstVm.pages.value } == listOf(a, c, b) }
+        click(find("the turn button, for its new place") { it.says(app.getString(R.string.rotate_page_right, 2)) })
+        waitUntil("page 3 to turn") { onMain { firstVm.pages.value.map { it.rotation } } == listOf(0, 90, 0) }
+        assertTrue("Now there is something to save", clickable(actionButton(R.string.pdf_reorganize_action)).isEnabled)
+
+        // A blank page goes in after the chosen page; Undo takes it out again.
+        click(findBelow("Add pages") { it.says(app.getString(R.string.reorganize_add)) })
+        click(find("Blank page") { it.says(app.getString(R.string.reorganize_add_blank)) })
+        waitUntil("a blank page third") { onMain { firstVm.pages.value.getOrNull(2)?.isBlank == true } }
+        findBelow("the blank page, named for a screen reader") { it.says(app.getString(R.string.reorganize_page_blank, 3)) }
+        find("the new page count") { it.says(app.resources.getQuantityString(R.plurals.page_count, 4, 4)) }
+        click(find("Undo") { it.says(app.getString(R.string.undo)) })
+        waitUntil("the blank page to go") { onMain { firstVm.pages.value.none { it.isBlank } } }
+
+        // A screen reader removes page 1 with the action its card offers.
+        val remove = app.getString(R.string.remove_page, 1)
+        val card = cardWith(remove)
+        assertTrue(card.performAction(card.action(remove)!!.id))
+        waitUntil("page 1 to go") { onMain { firstVm.pages.value.map { it.page } } == listOf(2, 1) }
+
+        // The pages and the chosen one survive the activity being recreated, as on rotation.
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        find("the chosen page's buttons, still") { it.says(app.getString(R.string.rotate_page_right, 1)) }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        click(actionButton(R.string.pdf_reorganize_action))
+        val result = resultFile(pdfVm)
+        assertEquals("alpha_reorganized.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            assertEquals(listOf(90, 0), doc.pages.map { it.rotation })
+            val text = PDFTextStripper().getText(doc).filterNot(Char::isWhitespace)
+            assertTrue(text, text.indexOf("ALPHATHREE") in 0 until text.indexOf("ALPHATWO"))
+            assertFalse(text.contains("ALPHAONE"))
+        }
+    }
+
+    @Test fun flattenSaysWhatItDoesAndWhenThereIsNothingToFlatten() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_flatten, activity)
+        find("what flattening does") { it.says(app.getString(R.string.flatten_note)) }
+        click(actionButton(R.string.pdf_flatten_action))
+        find("the message") { it.says(app.getString(R.string.flatten_nothing)) }
+        assertNull(onMain { pdfVm.result.value })
+
+        val form = formPdf(File(app.cacheDir, "test-form.pdf"))
+        onMain { pdfVm.addPdfs(listOf(picked("form.pdf", form.readBytes())), replace = true) }
+        find("the form's card") { it.says("form.pdf") }
+        click(actionButton(R.string.pdf_flatten_action))
+        val result = resultFile(pdfVm)
+        assertEquals("form_flattened.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            assertTrue(doc.documentCatalog.acroForm?.fields.isNullOrEmpty())
+            assertTrue(PDFTextStripper().getText(doc).contains("Jane Doe"))
+        }
     }
 
     @Test fun wordToPdfConvertsTheDocumentAndKeepsItThroughRecreation() {

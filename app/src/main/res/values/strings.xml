@@ -15,7 +15,9 @@
     <string name="tool_compress">Compress PDF</string>
     <string name="tool_compress_detail">Shrink images, keep text sharp</string>
     <string name="home_section_create">Create PDF</string>
-    <string name="home_section_edit">Edit PDF</string>
+    <string name="home_section_edit">Edit and sign</string>
+    <string name="home_section_organize">Organize</string>
+    <string name="home_section_optimize">Optimize and protect</string>
     <string name="tool_rotate">Rotate PDF</string>
     <string name="tool_rotate_detail">Turn pages the right way up</string>
     <string name="tool_page_numbers">Add page numbers</string>
@@ -165,6 +167,37 @@
         <item quantity="one">%1$d of %2$d slide</item>
         <item quantity="other">%1$d of %2$d slides</item>
     </plurals>
+    <!-- Delete pages, Reorganize PDF and Flatten PDF. "Flatten" makes form fields and comments part of the page. -->
+    <string name="tool_delete_pages">Delete pages</string>
+    <string name="tool_delete_pages_detail">Remove the pages you don\'t need</string>
+    <string name="tool_reorganize">Reorganize PDF</string>
+    <string name="tool_reorganize_detail">Move, turn, remove and add pages</string>
+    <string name="tool_flatten">Flatten PDF</string>
+    <string name="tool_flatten_detail">Make forms and comments part of the page</string>
+    <string name="pdf_delete_pages_action">Delete pages</string>
+    <string name="delete_pages_field">Pages to delete</string>
+    <string name="delete_pages_hint" tools:ignore="TypographyDashes">For example: 2,5-7. Or tap the pages below.</string>
+    <!-- %1$d pages are marked, out of the %2$d pages in the PDF. -->
+    <string name="delete_pages_count">To delete: %1$d of %2$d</string>
+    <string name="page_marked_delete">Marked to delete</string>
+    <string name="page_kept">Kept</string>
+    <string name="pdf_reorganize_action">Save PDF</string>
+    <string name="reorganize_hint">Tap a page to choose it; pages you add go after it. Long-press a page and drag to move it.</string>
+    <string name="reorganize_add">Add pages</string>
+    <string name="reorganize_add_pdf">Pages from a PDF</string>
+    <string name="reorganize_add_blank">Blank page</string>
+    <!-- On a blank page's picture in the page grid. -->
+    <string name="reorganize_blank">Blank</string>
+    <!-- %1$d is the page's place in the new PDF, %2$s the name of the PDF it comes from. -->
+    <string name="reorganize_page_from">Page %1$d, from %2$s</string>
+    <string name="reorganize_page_blank">Page %1$d, blank</string>
+    <string name="undo">Undo</string>
+    <string name="pdf_flatten_action">Flatten PDF</string>
+    <string name="flatten_note">Form fields, comments and drawings become part of the page, so they can\'t be changed or filled in anymore. Links keep working.</string>
+    <string name="flatten_nothing">This PDF has no form fields or comments to flatten.</string>
+    <!-- XFA is a kind of PDF form; keep the name. -->
+    <string name="flatten_xfa_only">This PDF\'s form is a dynamic XFA form, which Usugami can\'t flatten.</string>
+    <string name="flatten_xfa_dropped">This PDF had a dynamic XFA form, which was removed. Its other form fields and comments were flattened.</string>
 
     <string name="ocr_title">Make text searchable (OCR)</string>
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF.</string>

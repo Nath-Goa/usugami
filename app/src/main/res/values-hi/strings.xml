@@ -13,7 +13,9 @@
     <string name="tool_compress">PDF कंप्रेस करें</string>
     <string name="tool_compress_detail">इमेज छोटी करें, टेक्स्ट साफ़ रखें</string>
     <string name="home_section_create">PDF बनाएं</string>
-    <string name="home_section_edit">PDF एडिट करें</string>
+    <string name="home_section_edit">एडिट और साइन करें</string>
+    <string name="home_section_organize">व्यवस्थित करें</string>
+    <string name="home_section_optimize">ऑप्टिमाइज़ और सुरक्षित करें</string>
     <string name="tool_rotate">PDF घुमाएं</string>
     <string name="tool_rotate_detail">पेजों को सही दिशा में घुमाएं</string>
     <string name="tool_page_numbers">पेज नंबर जोड़ें</string>
@@ -159,6 +161,32 @@
         <item quantity="one">%2$d में से %1$d स्लाइड</item>
         <item quantity="other">%2$d में से %1$d स्लाइड</item>
     </plurals>
+    <string name="tool_delete_pages">पेज हटाएं</string>
+    <string name="tool_delete_pages_detail">जिन पेजों की ज़रूरत नहीं, उन्हें हटाएं</string>
+    <string name="tool_reorganize">PDF के पेज व्यवस्थित करें</string>
+    <string name="tool_reorganize_detail">पेज खिसकाएं, घुमाएं, हटाएं और जोड़ें</string>
+    <string name="tool_flatten">PDF फ़्लैटन करें</string>
+    <string name="tool_flatten_detail">फ़ॉर्म और टिप्पणियों को पेज का हिस्सा बनाएं</string>
+    <string name="pdf_delete_pages_action">पेज हटाएं</string>
+    <string name="delete_pages_field">हटाने वाले पेज</string>
+    <string name="delete_pages_hint" tools:ignore="TypographyDashes">उदाहरण के लिए: 2,5-7। या नीचे दिए पेजों पर टैप करें।</string>
+    <string name="delete_pages_count">हटाने के लिए: %2$d में से %1$d</string>
+    <string name="page_marked_delete">हटाने के लिए चुना गया</string>
+    <string name="page_kept">रखा जाएगा</string>
+    <string name="pdf_reorganize_action">PDF सेव करें</string>
+    <string name="reorganize_hint">किसी पेज को चुनने के लिए उस पर टैप करें; जोड़े गए पेज उसके बाद आएंगे। किसी पेज को खिसकाने के लिए उसे दबाकर रखें और खींचें।</string>
+    <string name="reorganize_add">पेज जोड़ें</string>
+    <string name="reorganize_add_pdf">किसी PDF से पेज</string>
+    <string name="reorganize_add_blank">खाली पेज</string>
+    <string name="reorganize_blank">खाली</string>
+    <string name="reorganize_page_from">पेज %1$d, %2$s से</string>
+    <string name="reorganize_page_blank">पेज %1$d, खाली</string>
+    <string name="undo">पहले जैसा करें</string>
+    <string name="pdf_flatten_action">PDF फ़्लैटन करें</string>
+    <string name="flatten_note">फ़ॉर्म फ़ील्ड, टिप्पणियां और ड्रॉइंग पेज का हिस्सा बन जाती हैं, इसलिए उन्हें बदला या भरा नहीं जा सकता। लिंक काम करते रहते हैं।</string>
+    <string name="flatten_nothing">इस PDF में फ़्लैटन करने के लिए कोई फ़ॉर्म फ़ील्ड या टिप्पणी नहीं है।</string>
+    <string name="flatten_xfa_only">इस PDF का फ़ॉर्म एक डायनैमिक XFA फ़ॉर्म है, जिसे Usugami फ़्लैटन नहीं कर सकता।</string>
+    <string name="flatten_xfa_dropped">इस PDF में एक डायनैमिक XFA फ़ॉर्म था, जिसे हटा दिया गया। इसके बाकी फ़ॉर्म फ़ील्ड और टिप्पणियां फ़्लैटन कर दी गईं।</string>
 
     <string name="ocr_title">टेक्स्ट को खोजने लायक बनाएं (OCR)</string>
     <string name="ocr_detail">इन इमेज में शब्द पहचानें और PDF में खोजने लायक टेक्स्ट जोड़ें।</string>

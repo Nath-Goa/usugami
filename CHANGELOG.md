@@ -31,10 +31,25 @@ All notable changes to Usugami are listed here. The format is based on
   sign another PDF without drawing it again. It is a picture of a handwritten signature, not a
   certified digital signature.
 
+- **Reorganize PDF**: a PDF's pages in a grid, to move (with buttons or by dragging), turn and
+  remove, and to add pages after the chosen one, from another PDF (password-protected ones too) or
+  blank, the size of the page before. Undo takes back one change at a time. Bookmarks, links and
+  form fields of the pages kept stay as they were.
+- **Delete pages**: tap the pages to delete or type them like 2,5-7, and see how many will go. A PDF
+  keeps at least one page.
+- **Flatten PDF**: filled-in form fields, comments, highlights, drawings and stamps become part of
+  the page, so nothing can be changed or filled in any more; links keep working. Fields that a form
+  app left without an appearance are drawn first. A dynamic XFA form is removed, with a note, and
+  its ordinary fields are flattened. A PDF with nothing to flatten is reported instead of saved again.
+
 ### Changed
 
-- Home groups the tools under **Create PDF** and **Edit PDF**, with smaller cards and shorter
-  descriptions, so more of them fit on the screen.
+- Home groups the tools in four sections, **Create PDF**, **Organize**, **Edit and sign** and
+  **Optimize and protect**, with smaller cards and shorter descriptions, so more of them fit on the
+  screen.
+- Pages deleted or left out (in Delete pages, Reorganize PDF and Merge PDF's page mode) are really
+  gone from the new PDF: their bookmarks and form fields are removed, and links to them lead
+  nowhere, so none of their text, pictures or form values stays in the file.
 - **Back to editing** from a PDF tool's result now returns to your choices as you left them (such as
   the pages typed, the watermark text or where a signature goes) instead of starting them afresh.
 

@@ -37,6 +37,23 @@ class PdfPageSelectionTest {
         assertEquals(6, assertThrows(PageSelectionException::class.java) { PdfPageSelection.selected("7", 6) }.pageCount)
     }
 
+    @Test fun pagesToDeleteAreSortedAndMustLeaveOne() {
+        assertEquals(listOf(1, 4, 5, 6), PdfPageSelection.toDelete("5-7,2,6", 10))
+        val all = assertThrows(PageSelectionException::class.java) { PdfPageSelection.toDelete("1-3,4", 4) }
+        assertEquals(PageSelectionException.Problem.ALL_PAGES, all.problem)
+        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, assertThrows(PageSelectionException::class.java) { PdfPageSelection.toDelete("5", 4) }.problem)
+    }
+
+    @Test fun pagesAreWrittenAsRanges() {
+        assertEquals("2,5-7", PdfPageSelection.format(listOf(6, 1, 4, 5)))
+        assertEquals("1", PdfPageSelection.format(setOf(0)))
+        assertEquals("1-2,4", PdfPageSelection.format(listOf(3, 1, 0, 1)))
+        assertEquals("", PdfPageSelection.format(emptyList()))
+        // What it writes reads back as the same pages.
+        val pages = listOf(0, 2, 3, 4, 8, 9, 11)
+        assertEquals(pages, PdfPageSelection.selected(PdfPageSelection.format(pages), 12))
+    }
+
     @Test fun badChunkSizeExplainsTheLimit() {
         // The English message stays readable, not Kotlin's "Failed requirement."
         for (size in listOf(0, -1, 4)) {

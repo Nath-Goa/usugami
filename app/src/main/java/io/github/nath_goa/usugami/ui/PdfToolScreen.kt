@@ -114,6 +114,7 @@ fun PdfToolScreen(
     onBack: () -> Unit,
     pickSingle: () -> Unit,
     pickMultiple: () -> Unit,
+    pickAdd: () -> Unit,
 ) {
     val inputs by vm.inputs.collectAsStateWithLifecycle()
     val pages by vm.pages.collectAsStateWithLifecycle()
@@ -142,15 +143,23 @@ fun PdfToolScreen(
     var signPage by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableIntStateOf(maxOf(0, (inputs.firstOrNull()?.pageCount ?: 1) - 1)) }
     var signPlacement by rememberSaveable(tool, inputs.firstOrNull()?.id, stateSaver = SignaturePlacementSaver) { mutableStateOf<SignaturePlacement?>(null) }
     var drawingSignature by rememberSaveable(tool) { mutableStateOf(false) }
+    var deleteText by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf("") }
+    // Reorganize's chosen page, by its key.
+    var chosenPage by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf<String?>(null) }
+    // Saving is off until the pages differ from the PDF's own.
+    val originalPages = remember(inputs.firstOrNull()) { vm.originalPages() }
+    val reorganized = tool == PdfTool.REORGANIZE && inputs.isNotEmpty() && pages.isNotEmpty() && pages != originalPages
     val inputKey = if (officeKind != null) document?.id else inputs.firstOrNull()?.id
     var fileName by rememberSaveable(tool, inputKey) { mutableStateOf(vm.defaultName(tool)) }
     val ready = when (tool) {
-        PdfTool.SPLIT, PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS -> inputs.size == 1
+        PdfTool.SPLIT, PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.FLATTEN -> inputs.size == 1
         PdfTool.MERGE -> inputs.size >= 2 && (!pageMode || pages.isNotEmpty())
         PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
         PdfTool.WATERMARK -> inputs.size == 1 && watermarkText.isNotBlank()
         PdfTool.SIGN -> inputs.size == 1 && signature != null
         PdfTool.WORD, PdfTool.POWERPOINT -> document?.kind == officeKind
+        PdfTool.DELETE_PAGES -> inputs.size == 1 && deleteText.isNotBlank()
+        PdfTool.REORGANIZE -> reorganized
     }
     val title = tool.title
     val action = when (tool) {
@@ -162,6 +171,9 @@ fun PdfToolScreen(
         PdfTool.WATERMARK -> R.string.pdf_watermark_action
         PdfTool.SIGN -> R.string.pdf_sign_action
         PdfTool.WORD, PdfTool.POWERPOINT -> R.string.convert
+        PdfTool.DELETE_PAGES -> R.string.pdf_delete_pages_action
+        PdfTool.REORGANIZE -> R.string.pdf_reorganize_action
+        PdfTool.FLATTEN -> R.string.pdf_flatten_action
     }
     Scaffold(
         topBar = {
@@ -182,6 +194,9 @@ fun PdfToolScreen(
                         PdfTool.WATERMARK -> vm.runWatermark(watermarkText, watermarkColor, watermarkOpacity, fileName)
                         PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
                         PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvert(fileName)
+                        PdfTool.DELETE_PAGES -> vm.runDeletePages(deleteText, fileName)
+                        PdfTool.REORGANIZE -> vm.runReorganize(fileName)
+                        PdfTool.FLATTEN -> vm.runFlatten(fileName)
                     }
                 },
                 enabled = ready && !importing && !processing,
@@ -273,6 +288,19 @@ fun PdfToolScreen(
                             signPlacement, onPlacement = { signPlacement = it },
                         )
                         PdfTool.WORD, PdfTool.POWERPOINT -> Unit
+                        PdfTool.DELETE_PAGES -> DeletePagesOptions(inputs[0], deleteText, onText = { deleteText = it })
+                        PdfTool.REORGANIZE -> ReorganizeOptions(
+                            inputs, pages, vm,
+                            changed = reorganized,
+                            importing = importing,
+                            selected = chosenPage,
+                            onSelect = { chosenPage = it },
+                            onAddPdf = { after ->
+                                vm.prepareInsert(after)
+                                pickAdd()
+                            },
+                        )
+                        PdfTool.FLATTEN -> FlattenOptions()
                     }
                     FileNameField(fileName, onChange = { fileName = it })
                 }

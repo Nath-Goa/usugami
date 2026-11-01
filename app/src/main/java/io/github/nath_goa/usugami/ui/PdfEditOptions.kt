@@ -78,7 +78,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.sin
 
-// Options of the tools that change one PDF: Rotate, Page numbers and Watermark. They sit in
+// Options of the tools that change one PDF: Rotate, Page numbers, Watermark and Flatten. They sit in
 // PdfToolScreen's column, between the PDF and the file name.
 
 @Composable
@@ -133,7 +133,7 @@ private fun RotatePageCard(input: PdfInput, ref: PdfPageRef, onRotate: (Int) -> 
 }
 
 @StringRes
-private fun turnedLabel(rotation: Int): Int? = when (rotation) {
+internal fun turnedLabel(rotation: Int): Int? = when (rotation) {
     90 -> R.string.rotated_right
     180 -> R.string.rotated_upside_down
     270 -> R.string.rotated_left
@@ -142,21 +142,27 @@ private fun turnedLabel(rotation: Int): Int? = when (rotation) {
 
 /**
  * A page thumbnail turned by [rotation], animated. Turned sideways it shrinks, so a portrait page
- * lying on its side still fits the space of an upright one.
+ * lying on its side still fits the space of an upright one; [aspect] is that space's width over its
+ * height.
  */
 @Composable
-private fun TurnedThumbnail(input: PdfInput, page: Int, rotation: Int, modifier: Modifier) {
+internal fun TurnedThumbnail(input: PdfInput, page: Int, rotation: Int, modifier: Modifier, aspect: Float = 55f / 72f) {
     val angle by animatePdfPageRotationAsState(rotation)
-    PdfThumbnail(
-        input,
-        page,
-        modifier.graphicsLayer {
-            rotationZ = angle
-            val shrink = 1f - (1f - 55f / 72f) * abs(sin(Math.toRadians(angle.toDouble()))).toFloat()
-            scaleX = shrink
-            scaleY = shrink
-        },
-    )
+    PdfThumbnail(input, page, modifier.turnedBy(angle, aspect))
+}
+
+/** Turns the content [angle] degrees, shrinking it as it goes sideways so it stays in a box of [aspect]. */
+internal fun Modifier.turnedBy(angle: Float, aspect: Float): Modifier = graphicsLayer {
+    rotationZ = angle
+    val shrink = 1f - (1f - aspect) * abs(sin(Math.toRadians(angle.toDouble()))).toFloat()
+    scaleX = shrink
+    scaleY = shrink
+}
+
+/** Flatten PDF has no choices: one line says what it does. */
+@Composable
+internal fun FlattenOptions() {
+    Text(stringResource(R.string.flatten_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

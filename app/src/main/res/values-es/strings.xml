@@ -13,7 +13,9 @@
     <string name="tool_compress">Comprimir PDF</string>
     <string name="tool_compress_detail">Reduce las imágenes y mantén el texto nítido</string>
     <string name="home_section_create">Crear PDF</string>
-    <string name="home_section_edit">Editar PDF</string>
+    <string name="home_section_edit">Editar y firmar</string>
+    <string name="home_section_organize">Organizar</string>
+    <string name="home_section_optimize">Optimizar y proteger</string>
     <string name="tool_rotate">Girar PDF</string>
     <string name="tool_rotate_detail">Pon las páginas en la posición correcta</string>
     <string name="tool_page_numbers">Numerar páginas</string>
@@ -161,6 +163,32 @@
         <item quantity="many">%1$d de %2$d diapositivas</item>
         <item quantity="other">%1$d de %2$d diapositivas</item>
     </plurals>
+    <string name="tool_delete_pages">Eliminar páginas</string>
+    <string name="tool_delete_pages_detail">Quita las páginas que no necesitas</string>
+    <string name="tool_reorganize">Reorganizar PDF</string>
+    <string name="tool_reorganize_detail">Mueve, gira, quita y añade páginas</string>
+    <string name="tool_flatten">Acoplar PDF</string>
+    <string name="tool_flatten_detail">Integra formularios y comentarios en la página</string>
+    <string name="pdf_delete_pages_action">Eliminar páginas</string>
+    <string name="delete_pages_field">Páginas para eliminar</string>
+    <string name="delete_pages_hint" tools:ignore="TypographyDashes">Por ejemplo: 2,5-7. O toca las páginas de abajo.</string>
+    <string name="delete_pages_count">Para eliminar: %1$d de %2$d</string>
+    <string name="page_marked_delete">Marcada para eliminar</string>
+    <string name="page_kept">Se conserva</string>
+    <string name="pdf_reorganize_action">Guardar PDF</string>
+    <string name="reorganize_hint">Toca una página para elegirla; las páginas que añadas irán después de ella. Mantén presionada una página y arrástrala para moverla.</string>
+    <string name="reorganize_add">Añadir páginas</string>
+    <string name="reorganize_add_pdf">Páginas de un PDF</string>
+    <string name="reorganize_add_blank">Página en blanco</string>
+    <string name="reorganize_blank">En blanco</string>
+    <string name="reorganize_page_from">Página %1$d, de %2$s</string>
+    <string name="reorganize_page_blank">Página %1$d, en blanco</string>
+    <string name="undo">Deshacer</string>
+    <string name="pdf_flatten_action">Acoplar PDF</string>
+    <string name="flatten_note">Los campos de formulario, los comentarios y los dibujos pasan a formar parte de la página, así que ya no se pueden cambiar ni rellenar. Los enlaces siguen funcionando.</string>
+    <string name="flatten_nothing">Este PDF no tiene campos de formulario ni comentarios que acoplar.</string>
+    <string name="flatten_xfa_only">El formulario de este PDF es un formulario XFA dinámico, que Usugami no puede acoplar.</string>
+    <string name="flatten_xfa_dropped">Este PDF tenía un formulario XFA dinámico, que se quitó. Sus demás campos de formulario y comentarios se acoplaron.</string>
 
     <string name="ocr_title">Hacer buscable el texto (OCR)</string>
     <string name="ocr_detail">Reconoce las palabras de estas imágenes y añade texto buscable al PDF.</string>

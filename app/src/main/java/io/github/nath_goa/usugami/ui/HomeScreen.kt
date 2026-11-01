@@ -22,9 +22,12 @@ import androidx.compose.material.icons.automirrored.rounded.RotateRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Compress
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.FormatListNumbered
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
@@ -54,8 +57,14 @@ import io.github.nath_goa.usugami.R
 /** The tools under "Create PDF" on Home, after Images to PDF, in order. */
 private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT)
 
-/** The tools under "Edit PDF" on Home, in order. */
-private val EditTools = listOf(PdfTool.SPLIT, PdfTool.MERGE, PdfTool.COMPRESS, PdfTool.ROTATE, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.SIGN)
+/** The tools under "Organize" on Home, in order: those that change which pages there are and how they lie. */
+private val OrganizeTools = listOf(PdfTool.MERGE, PdfTool.SPLIT, PdfTool.REORGANIZE, PdfTool.DELETE_PAGES, PdfTool.ROTATE)
+
+/** The tools under "Edit and sign" on Home, in order: those that add to the pages. */
+private val EditTools = listOf(PdfTool.SIGN, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK)
+
+/** The tools under "Optimize and protect" on Home, in order. */
+private val OptimizeTools = listOf(PdfTool.COMPRESS, PdfTool.FLATTEN)
 
 /** A tool's name: on its card on Home and at the top of its screen. */
 @get:StringRes
@@ -70,6 +79,9 @@ internal val PdfTool.title: Int
         PdfTool.SIGN -> R.string.tool_sign
         PdfTool.WORD -> R.string.tool_word
         PdfTool.POWERPOINT -> R.string.tool_powerpoint
+        PdfTool.DELETE_PAGES -> R.string.tool_delete_pages
+        PdfTool.REORGANIZE -> R.string.tool_reorganize
+        PdfTool.FLATTEN -> R.string.tool_flatten
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -85,6 +97,9 @@ private val PdfTool.detail: Int
         PdfTool.SIGN -> R.string.tool_sign_detail
         PdfTool.WORD -> R.string.tool_word_detail
         PdfTool.POWERPOINT -> R.string.tool_powerpoint_detail
+        PdfTool.DELETE_PAGES -> R.string.tool_delete_pages_detail
+        PdfTool.REORGANIZE -> R.string.tool_reorganize_detail
+        PdfTool.FLATTEN -> R.string.tool_flatten_detail
     }
 
 private val PdfTool.icon: ImageVector
@@ -98,6 +113,9 @@ private val PdfTool.icon: ImageVector
         PdfTool.SIGN -> Icons.Rounded.Draw
         PdfTool.WORD -> Icons.Rounded.Description
         PdfTool.POWERPOINT -> Icons.Rounded.Slideshow
+        PdfTool.DELETE_PAGES -> Icons.Rounded.Delete
+        PdfTool.REORGANIZE -> Icons.Rounded.GridView
+        PdfTool.FLATTEN -> Icons.Rounded.Layers
     }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -126,8 +144,14 @@ fun HomeScreen(snackbar: SnackbarHostState, onImages: () -> Unit, onTool: (PdfTo
                 ToolCard(Icons.Rounded.PictureAsPdf, R.string.tool_images, R.string.tool_images_detail, onImages)
                 for (tool in CreateTools) ToolCard(tool.icon, tool.title, tool.detail) { onTool(tool) }
             }
+            ToolSection(R.string.home_section_organize) {
+                for (tool in OrganizeTools) ToolCard(tool.icon, tool.title, tool.detail) { onTool(tool) }
+            }
             ToolSection(R.string.home_section_edit) {
                 for (tool in EditTools) ToolCard(tool.icon, tool.title, tool.detail) { onTool(tool) }
+            }
+            ToolSection(R.string.home_section_optimize) {
+                for (tool in OptimizeTools) ToolCard(tool.icon, tool.title, tool.detail) { onTool(tool) }
             }
         }
     }
@@ -140,9 +164,9 @@ private fun ToolSection(@StringRes heading: Int, cards: @Composable ColumnScope.
         stringResource(heading),
         style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 20.dp, bottom = 8.dp).semantics { heading() },
+        modifier = Modifier.padding(top = 18.dp, bottom = 8.dp).semantics { heading() },
     )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = cards)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp), content = cards)
 }
 
 @Composable
@@ -163,8 +187,9 @@ private fun ToolCard(icon: ImageVector, @StringRes title: Int, @StringRes detail
         },
         interactionSource = interactionSource,
     ) {
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+        // Compact, so more of the tools fit on a screen.
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
             Spacer(Modifier.width(16.dp))
             Column {
                 Text(stringResource(title), style = MaterialTheme.typography.titleMedium)

@@ -19,6 +19,7 @@ import io.github.nath_goa.usugami.core.PageSelectionException
 import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
@@ -56,9 +57,10 @@ import kotlinx.coroutines.withContext
 
 /**
  * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD
- * and POWERPOINT, which turn one Word or PowerPoint file into a PDF.
+ * and POWERPOINT, which turn one Word or PowerPoint file into a PDF. REORGANIZE works on one PDF and
+ * can take pages from others.
  */
-enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT }
+enum class PdfTool { SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, DELETE_PAGES, REORGANIZE, FLATTEN }
 
 /** The kind of file a tool converts to PDF; null for the tools that work on PDFs. */
 val PdfTool.officeKind: OfficeKind?
@@ -96,6 +98,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** How far converting [document] has got, while it is being converted. */
     private val _convertProgress = MutableStateFlow<OfficeProgress?>(null)
     val convertProgress = _convertProgress.asStateFlow()
+
+    /**
+     * Page lists before the latest changes, newest last, for Undo. Kept in memory only: lists of a
+     * long PDF's pages are too big for the saved state, and losing Undo when Android closes
+     * Usugami in the background loses no work.
+     */
+    private val undoStack = ArrayDeque<List<PdfPageRef>>()
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo = _canUndo.asStateFlow()
 
     /** The password is being tried on the first locked PDF. */
     private val _unlocking = MutableStateFlow(false)
@@ -291,10 +302,72 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         viewModelScope.launch(fileOps) { engine.delete(pending) }
     }
 
+    /**
+     * Adds [input] and its pages: at the end, or after the page [prepareInsert] named (Reorganize
+     * PDF's "Add pages"). Adding to PDFs already there can be undone.
+     */
     private fun append(input: PdfInput) {
         if (inputs.value.any { it.id == input.id }) return
+        val list = pages.value
+        if (inputs.value.isNotEmpty()) pushUndo(list)
         setInputs(inputs.value + input)
-        setPages(pages.value + (0 until input.pageCount).map { PdfPageRef(input.id, it) })
+        val added = (0 until input.pageCount).map { PdfPageRef(input.id, it) }
+        val anchor = handle.get<String>(KEY_INSERT_AFTER)?.let { key -> list.indexOfFirst { it.key == key } }?.takeIf { it >= 0 }
+        handle[KEY_INSERT_AFTER] = null
+        setPages(if (anchor == null) list + added else list.subList(0, anchor + 1) + added + list.subList(anchor + 1, list.size))
+    }
+
+    /**
+     * The next PDF added puts its pages after [after], or at the end when it is null. Kept in the
+     * saved state, since Android may stop Usugami while the file picker is open.
+     */
+    fun prepareInsert(after: PdfPageRef?) {
+        handle[KEY_INSERT_AFTER] = after?.key
+    }
+
+    /**
+     * Adds a blank page after [after] (or at the end), the size of the page it follows as that page
+     * shows: a blank page among sideways pages lies sideways too.
+     */
+    fun addBlankPage(after: PdfPageRef?) {
+        val list = pages.value
+        val index = after?.let { list.indexOfFirst { ref -> ref.key == it.key } }?.takeIf { it >= 0 } ?: list.lastIndex
+        val neighbour = list.getOrNull(index) ?: return
+        val source = inputs.value.firstOrNull { it.id == neighbour.inputId }
+        if (!neighbour.isBlank && source == null) return
+        viewModelScope.launch {
+            val (width, height) = if (neighbour.isBlank) neighbour.width to neighbour.height
+            else withContext(fileOps) { engine.shownPageSize(source!!, neighbour.page) }
+            val sideways = neighbour.rotation % 180 != 0
+            // The list may have changed while the size was read.
+            val current = pages.value
+            val at = current.indexOfFirst { it.key == neighbour.key }.takeIf { it >= 0 } ?: current.lastIndex
+            val number = (current.filter { it.isBlank }.maxOfOrNull { it.page } ?: -1) + 1
+            val blank = if (sideways) PdfPageRef.blank(number, height, width) else PdfPageRef.blank(number, width, height)
+            pushUndo(current)
+            setPages(current.subList(0, at + 1) + blank + current.subList(at + 1, current.size))
+        }
+    }
+
+    /** Saves the page list so the change about to be made can be undone. */
+    private fun pushUndo(list: List<PdfPageRef>) {
+        undoStack.addLast(list)
+        while (undoStack.size > MAX_UNDO) undoStack.removeFirst()
+        _canUndo.value = true
+    }
+
+    /** Takes back the latest change to the pages. */
+    fun undo() {
+        val previous = undoStack.removeLastOrNull() ?: return
+        _canUndo.value = undoStack.isNotEmpty()
+        // A PDF whose copy has gone since can't come back.
+        val ids = inputs.value.mapTo(HashSet()) { it.id }
+        setPages(previous.filter { it.isBlank || it.inputId in ids })
+    }
+
+    private fun clearUndo() {
+        undoStack.clear()
+        _canUndo.value = false
     }
 
     /** Drops PDFs whose copies the system has cleared from the cache, and says so. */
@@ -327,6 +400,17 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setInputs(if (reverse) sorted.reversed() else sorted)
     }
 
+    /** A page is about to be dragged: the whole drag is one change for Undo. */
+    fun beginPageDrag() = pushUndo(pages.value)
+
+    /** The drag is over; one that moved nothing leaves nothing to undo. */
+    fun endPageDrag() {
+        if (undoStack.lastOrNull() == pages.value) {
+            undoStack.removeLast()
+            _canUndo.value = undoStack.isNotEmpty()
+        }
+    }
+
     fun movePage(from: PdfPageRef, to: PdfPageRef) {
         val list = pages.value.toMutableList()
         val a = list.indexOf(from)
@@ -341,22 +425,41 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val a = list.indexOf(ref)
         val b = a + offset
         if (a !in list.indices || b !in list.indices) return
+        pushUndo(pages.value)
         list.add(b, list.removeAt(a))
         setPages(list)
     }
 
     fun rotatePage(ref: PdfPageRef, degrees: Int) {
+        pushUndo(pages.value)
         setPages(pages.value.map { if (it == ref) it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) else it })
     }
 
     /** Turns every page by [degrees] more, as Rotate's "all pages" buttons do. */
     fun rotateAll(degrees: Int) {
+        pushUndo(pages.value)
         setPages(pages.value.map { it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) })
     }
 
-    fun removePage(ref: PdfPageRef) = setPages(pages.value - ref)
+    fun removePage(ref: PdfPageRef) {
+        if (ref !in pages.value) return
+        pushUndo(pages.value)
+        setPages(pages.value - ref)
+    }
 
-    fun resetPages() = setPages(inputs.value.flatMap { input -> (0 until input.pageCount).map { PdfPageRef(input.id, it) } })
+    fun resetPages() {
+        pushUndo(pages.value)
+        setPages(inputs.value.flatMap { input -> (0 until input.pageCount).map { PdfPageRef(input.id, it) } })
+    }
+
+    /** The first PDF's pages as they are: what Reorganize PDF starts from, and goes back to on Reset. */
+    fun originalPages(): List<PdfPageRef> = inputs.value.firstOrNull()?.let { main -> (0 until main.pageCount).map { PdfPageRef(main.id, it) } }.orEmpty()
+
+    /** Reorganize PDF's Reset: the first PDF's pages, as they were. Pages added from other PDFs go. */
+    fun resetToOriginal() {
+        pushUndo(pages.value)
+        setPages(originalPages())
+    }
 
     fun runSplit(mode: SplitMode, text: String, combine: Boolean, fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
@@ -437,6 +540,39 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         process(listOf(input)) { check -> listOf(engine.addWatermark(input, text, color, opacity, fileName, check)) }
     }
 
+    /** Saves the PDF without the pages in [text], typed like "2,5-7"; it must leave at least one page. */
+    fun runDeletePages(text: String, fileName: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        val doomed = try {
+            PdfPageSelection.toDelete(text, input.pageCount)
+        } catch (e: PageSelectionException) {
+            message(pageSelectionMessage(e))
+            return
+        }
+        process(listOf(input)) { check -> listOf(engine.deletePages(input, doomed, fileName, check)) }
+    }
+
+    /** Saves the first PDF with the pages as [pages] lists them, from it, from PDFs added and blank. */
+    fun runReorganize(fileName: String) {
+        val main = inputs.value.firstOrNull() ?: return
+        val list = pages.value
+        if (list.isEmpty()) return
+        val extras = inputs.value.drop(1).filter { extra -> list.any { it.inputId == extra.id } }
+        process(listOf(main) + extras) { check -> listOf(engine.reorganize(main, extras, list, fileName, check)) }
+    }
+
+    fun runFlatten(fileName: String) {
+        val input = inputs.value.singleOrNull() ?: return
+        var droppedXfa = false
+        process(listOf(input), afterResult = {
+            if (droppedXfa) message(strings.getString(R.string.flatten_xfa_dropped))
+        }) { check ->
+            val result = engine.flatten(input, fileName, check)
+            droppedXfa = result.droppedDynamicXfa
+            listOf(result.file)
+        }
+    }
+
     fun setSignature(signature: Signature) {
         if (!signature.isEmpty) handle[KEY_SIGNATURE] = signature
     }
@@ -454,6 +590,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         PageSelectionException.Problem.FORMAT -> strings.getString(R.string.pdf_pages_format)
         PageSelectionException.Problem.OUT_OF_RANGE -> strings.getString(R.string.pdf_pages_range, e.pageCount)
         PageSelectionException.Problem.CHUNK_SIZE -> strings.getString(R.string.pdf_pages_chunk, e.pageCount)
+        PageSelectionException.Problem.ALL_PAGES -> strings.getString(R.string.pdf_need_page)
     }
 
     /**
@@ -497,6 +634,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 message(strings.getString(R.string.pdf_certificate_unsupported))
             } catch (_: WatermarkFontMissing) {
                 message(strings.getString(R.string.watermark_no_font))
+            } catch (e: NothingToFlatten) {
+                message(strings.getString(if (e.dynamicXfa) R.string.flatten_xfa_only else R.string.flatten_nothing))
             } catch (e: Exception) {
                 message(
                     if (e.isOutOfSpace()) strings.getString(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_space))
@@ -540,6 +679,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setPages(emptyList())
         setLocked(emptyList())
         handle[KEY_DOCUMENT] = null
+        handle[KEY_INSERT_AFTER] = null
+        clearUndo()
         // Every copy goes, including one still being imported or waiting for its password. File work
         // runs one task at a time, so this waits for a cancelled import or run to stop first.
         viewModelScope.launch(fileOps) {
@@ -557,6 +698,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setPages(emptyList())
         setLocked(emptyList())
         handle[KEY_DOCUMENT] = null
+        handle[KEY_INSERT_AFTER] = null
+        clearUndo()
         _wrongPassword.value = false
         old.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
         oldDocument?.let { viewModelScope.launch(fileOps) { office.delete(it) } }
@@ -641,6 +784,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.PAGE_NUMBERS -> "${base}_numbered"
             PdfTool.WATERMARK -> "${base}_watermarked"
             PdfTool.SIGN -> "${base}_signed"
+            PdfTool.DELETE_PAGES -> "${base}_pages_deleted"
+            PdfTool.REORGANIZE -> "${base}_reorganized"
+            PdfTool.FLATTEN -> "${base}_flattened"
         }
     }
 
@@ -674,5 +820,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_LOCKED = "pdf_locked"
         const val KEY_SIGNATURE = "signature"
         const val KEY_DOCUMENT = "document"
+        const val KEY_INSERT_AFTER = "insert_after"
+
+        /** Changes Undo can take back, one after another. */
+        const val MAX_UNDO = 50
     }
 }

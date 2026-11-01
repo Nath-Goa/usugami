@@ -1,8 +1,8 @@
 # Usugami
 
-**Turn photos, Word documents and PowerPoint slides into PDFs, and split, merge, compress, rotate,
-number, watermark and sign PDFs, right on your Android phone. No ads, no tracking, no account, no
-uploads.**
+**Turn photos, Word documents and PowerPoint slides into PDFs, and split, merge, reorganize, rotate,
+number, watermark, sign, compress and flatten PDFs, right on your Android phone. No ads, no
+tracking, no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
 It was called PDFer before version 1.2.0.
@@ -150,12 +150,35 @@ old "PDFer".
 - Add PDFs and put them in order, or sort them by name.
 - Switch to page mode to reorder, rotate and remove individual pages before merging.
 
+**Reorganize PDF**
+
+- See a PDF's pages in a grid. Tap a page to choose it, then move it earlier or later, turn it or
+  remove it with the buttons above the grid; or long-press a page and drag it.
+- **Add pages** after the chosen page (or at the end): the pages of another PDF, which you can then
+  arrange like the rest, or a blank page the size of the page before it.
+- **Undo** takes back one change at a time.
+- The bookmarks, links and form fields of the pages you keep stay as they were.
+
+**Delete pages**
+
+- Tap the pages to delete, or type them like `2,5-7`; Usugami shows how many will go. A PDF keeps
+  at least one page.
+- Deleted pages are really gone: their text, pictures, form fields and bookmarks aren't left
+  hidden in the file. (This is also true of the pages you remove in Reorganize PDF and Merge PDF.)
+
 **Compress PDF**
 
 - **Less**, **Recommended** or **Extreme**.
 - Text stays selectable and drawings stay sharp; only images are reduced.
 - Never makes a PDF bigger: if compressing can't save space, you keep the original. (Except
   for password-protected PDFs, which are always saved again without the password.)
+
+**Flatten PDF**
+
+- Makes filled-in form fields, comments, highlights, drawings and stamps part of the page, so
+  nothing can be changed or filled in any more, and every PDF viewer shows them the same way.
+- Links keep working.
+- If a PDF has nothing to flatten, Usugami tells you instead of saving a copy.
 
 **Rotate PDF**
 
@@ -190,7 +213,8 @@ old "PDFer".
 
 **Everywhere**
 
-- Home groups the tools under **Create PDF** and **Edit PDF**.
+- Home groups the tools under **Create PDF**, **Organize**, **Edit and sign** and **Optimize and
+  protect**.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
@@ -400,6 +424,18 @@ original, but not always identical:
   and Excel spreadsheets.
 - The text in the PDF is real text you can search and copy. In Hindi and other scripts with joined
   letters, copied text can come out jumbled, even though it looks right on the page.
+
+</details>
+
+<details>
+<summary><b>What does Flatten PDF do with XFA forms and signed PDFs?</b></summary>
+
+- **XFA forms**: some forms, often from government offices, are made with Adobe's XFA format,
+  which only some PDF apps can show. Usugami can't read the XFA part, so it removes it and
+  flattens the ordinary form fields the PDF also has, and tells you so. If the form is XFA only,
+  Usugami says it can't flatten it and makes no file.
+- **Digitally signed PDFs**: changing a signed PDF in any way, flattening included, breaks its
+  digital signature. Keep the original if the signature matters.
 
 </details>
 

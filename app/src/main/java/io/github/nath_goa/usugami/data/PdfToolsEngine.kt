@@ -26,6 +26,7 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
@@ -45,8 +46,30 @@ data class PdfInput(val id: Long, val path: String, val name: String, val pageCo
     val file: File get() = File(path)
 }
 
+/**
+ * A page in a list of pages to save: page [page] (zero-based) of the PDF [inputId], turned [rotation]
+ * degrees more than it is. Reorganize PDF also has blank pages: [inputId] is then [BLANK], [page] a
+ * number that tells them apart, and [width] and [height] their size in points.
+ */
 @Parcelize
-data class PdfPageRef(val inputId: Long, val page: Int, val rotation: Int = 0) : Parcelable
+data class PdfPageRef(
+    val inputId: Long,
+    val page: Int,
+    val rotation: Int = 0,
+    val width: Float = 0f,
+    val height: Float = 0f,
+) : Parcelable {
+    val isBlank: Boolean get() = inputId == BLANK
+
+    /** Tells pages apart in lists, whatever their rotation. */
+    val key: String get() = "$inputId:$page"
+
+    companion object {
+        const val BLANK = -1L
+
+        fun blank(number: Int, width: Float, height: Float) = PdfPageRef(BLANK, number, 0, width, height)
+    }
+}
 
 enum class PdfCompression(val dpi: Int, val quality: Float) {
     LESS(200, 0.85f), RECOMMENDED(150, 0.68f), EXTREME(100, 0.48f)
@@ -60,8 +83,12 @@ class PdfWrongPassword : IOException("Wrong password")
 /** The PDF is encrypted for a certificate (digital ID) rather than with a password; Usugami can't open those. */
 class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encrypted PDFs aren't supported", cause)
 
+/** Flatten PDF's result: [droppedDynamicXfa] says a dynamic XFA form was removed (see [PdfToolsEngine.flatten]). */
+class FlattenResult(val file: PdfFile, val droppedDynamicXfa: Boolean)
+
 /**
- * Split, merge, compress, rotate, page numbers, watermarks and signatures. Input copies, results and PDFBox's scratch files all live in the cache,
+ * Split, merge, compress, rotate, delete pages, reorganize, flatten, page numbers, watermarks and
+ * signatures. Input copies, results and PDFBox's scratch files all live in the cache,
  * so the system can reclaim them (and "Clear cache" removes them); callers must cope with a file
  * that has gone.
  */
@@ -199,6 +226,8 @@ class PdfToolsEngine(private val context: Context) {
                         page.rotation = Math.floorMod(page.rotation + ref.rotation, 360)
                         dest.addPage(page)
                     }
+                    // Bookmarks, links and form fields of the pages left out mustn't carry them into the file.
+                    PageCleanup.dropRemovedPages(dest, originals, check)
                 }
                 dest.save(target)
                 return PdfFile(target, dest.numberOfPages, 0)
@@ -236,6 +265,111 @@ class PdfToolsEngine(private val context: Context) {
                 page.rotation = Math.floorMod(page.rotation + degrees, 360)
             }
         }
+
+    /**
+     * Saves [input] without [pages] (zero-based), which must leave at least one page. Their
+     * bookmarks, form fields and links to them go too, so nothing of them stays in the file.
+     */
+    fun deletePages(input: PdfInput, pages: Collection<Int>, fileName: String, check: () -> Unit = {}): PdfFile =
+        edit(input, fileName, "Pages_deleted", check) { doc ->
+            val doomed = pages.toSortedSet()
+            require(doomed.isNotEmpty() && doomed.size < doc.numberOfPages && doomed.all { it in 0 until doc.numberOfPages })
+            val removed = doomed.map(doc::getPage)
+            for (page in removed) {
+                check()
+                doc.removePage(page)
+            }
+            PageCleanup.dropRemovedPages(doc, removed, check)
+        }
+
+    /**
+     * Saves [main] with the pages in [pages]' order: its own pages, pages of [extras] (other PDFs
+     * the user added) and blank pages, each turned as it says. Pages left out are dropped as
+     * [deletePages] drops them. [main]'s bookmarks, form, tags and document details are kept; an
+     * extra PDF's come along with its pages, as in Merge.
+     */
+    fun reorganize(main: PdfInput, extras: List<PdfInput>, pages: List<PdfPageRef>, fileName: String, check: () -> Unit = {}): PdfFile =
+        edit(main, fileName, "Reorganized", check) { doc ->
+            require(pages.isNotEmpty() && pages.map { it.key }.toSet().size == pages.size)
+            val sources = HashMap<Long, List<PDPage>>()
+            sources[main.id] = doc.pages.toList()
+            val merger = PDFMergerUtility()
+            for (extra in extras) {
+                if (extra.id in sources || pages.none { it.inputId == extra.id }) continue
+                check()
+                val start = doc.numberOfPages
+                load(extra.file, extra.password).use { merger.appendDocument(doc, it) }
+                sources[extra.id] = (start until doc.numberOfPages).map(doc::getPage)
+            }
+            val before = doc.pages.toList()
+            val order = pages.map { ref ->
+                check()
+                val page = if (ref.isBlank) {
+                    require(ref.width > 0f && ref.height > 0f)
+                    PDPage(PDRectangle(ref.width, ref.height)).apply { resources = PDResources() }
+                } else {
+                    val source = sources.getValue(ref.inputId)
+                    require(ref.page in source.indices)
+                    source[ref.page]
+                }
+                page.rotation = Math.floorMod(page.rotation + ref.rotation, 360)
+                page
+            }
+            setPages(doc, order)
+            PageCleanup.dropRemovedPages(doc, before, check)
+        }
+
+    /**
+     * Makes [pages] the document's pages, in order, all straight under the page tree's root. Each
+     * first gets the size, crop, turn and resources it inherited where it was, which it would
+     * lose there.
+     */
+    private fun setPages(doc: PDDocument, pages: List<PDPage>) {
+        for (page in pages) {
+            val media = page.mediaBox
+            val crop = page.cropBox
+            val rotation = page.rotation
+            page.mediaBox = media
+            page.cropBox = crop
+            page.rotation = rotation
+            if (!page.cosObject.containsKey(COSName.RESOURCES)) page.resources = page.resources ?: PDResources()
+        }
+        val root = doc.pages.cosObject
+        val kids = COSArray()
+        for (page in pages) {
+            page.cosObject.setItem(COSName.PARENT, root)
+            kids.add(page.cosObject)
+        }
+        root.setItem(COSName.KIDS, kids)
+        root.setInt(COSName.COUNT, pages.size)
+    }
+
+    /**
+     * Bakes [input]'s form fields and annotations (comments, highlights, drawings, stamps) into its
+     * pages, so nothing can be changed or filled in; links keep working. A dynamic XFA form is
+     * dropped, and only its ordinary fields are flattened. Throws [NothingToFlatten] when there is
+     * nothing to flatten, rather than saving the same PDF again.
+     */
+    fun flatten(input: PdfInput, fileName: String, check: () -> Unit = {}): FlattenResult {
+        var dynamicXfa = false
+        val file = edit(input, fileName, "Flattened", check) { doc -> dynamicXfa = Flattening.flatten(doc, check) }
+        return FlattenResult(file, dynamicXfa)
+    }
+
+    /**
+     * Page [index] (zero-based) of [input] as shown: its crop box, turned by its rotation. Width
+     * then height, in points; A4 if it can't be read.
+     */
+    fun shownPageSize(input: PdfInput, index: Int): Pair<Float, Float> = try {
+        load(input.file, input.password).use { doc ->
+            val frame = doc.getPage(index).frame()
+            frame.shownWidth to frame.shownHeight
+        }
+    } catch (_: Exception) {
+        PDRectangle.A4.width to PDRectangle.A4.height
+    } catch (_: OutOfMemoryError) {
+        PDRectangle.A4.width to PDRectangle.A4.height
+    }
 
     /**
      * Writes on each of [pages] (zero-based) its own page number, as text in Helvetica, at
