@@ -21,7 +21,14 @@ from old binary and password-protected ones, list numbers and symbol-font bullet
 widths, where a paragraph breaks between pages, and how group shapes place their contents. For EPUB
 books they cover HTML's named characters, links between the book's files, telling DRM from font
 obfuscation, the character set and DOCTYPE of XHTML files, white space, CSS selectors, cascading,
-lengths and font sizes, and table column widths.
+lengths and font sizes, and table column widths. They also cover shrinking an embedded TrueType font
+to the glyphs a PDF draws: glyph numbers kept, the parts of composite glyphs kept, the letters
+FreeType's auto-hinter measures kept for each script drawn (Latin, also for digits alone, Greek,
+Cyrillic, superscripts and subscripts, and all three for a glyph without a character of its own),
+positioning tables left out while GSUB and GDEF stay, shorter offsets, checksums right, and fonts
+left whole when they draw another script, have CJK ideographs, draw the rupee sign beside
+Devanagari letters, have no readable Unicode character map, or are PostScript, variable, bitmap
+or damaged (random damage never crashes it).
 
 ## 2. Device tests (Android)
 
@@ -65,6 +72,11 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   chapter, progress by chapter, a book of over 400 pages written in parts and joined with its
   bookmarks, a book without container.xml, books with DRM refused (scrambled fonts alone accepted),
   other files refused, and cancelling leaving nothing behind
+- fonts: those Android's PDF writer embeds whole are shrunk to the glyphs drawn (serif styles,
+  monospace, a font with hinting instructions of its own, Greek, Cyrillic, superscripts, digits
+  alone, accents on capitals), the Hebrew font is left whole, and the pages then render pixel for
+  pixel the same at three sizes, read the same, and take a fraction of the space; the two parts of
+  a long book share one copy of each font
 - the screens, through the accessibility tree a screen reader uses: Home's section headings,
   turning pages with buttons, the page-number positions and watermark colors as named radio
   buttons, a chosen position surviving the activity being recreated, the messages for pages to

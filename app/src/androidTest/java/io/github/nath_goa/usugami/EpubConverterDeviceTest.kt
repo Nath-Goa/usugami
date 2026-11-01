@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.net.Uri
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -324,6 +325,14 @@ class EpubConverterDeviceTest {
         }
     }
 
+    @Test fun onlyTheGlyphsDrawnAreEmbedded() {
+        // Android's PDF writer embeds the phone's serif font whole, about 140 KB for each of the
+        // three styles used here; the book draws a few dozen glyphs of each.
+        val pdf = convert(epub2(), "orchard-small")
+        assertTrue("${pdf.length()} bytes", pdf.length() < 120_000)
+        assertTrue(pageTexts(pdf).joinToString(" ").contains("Chapter Three: Pears"))
+    }
+
     @Test fun theCoverComesFirstAndPicturesArePlaced() {
         val pdf = convert(epub3(), "garden")
         val texts = pageTexts(pdf)
@@ -437,6 +446,17 @@ class EpubConverterDeviceTest {
             assertEquals("Part 402", bookmarks[401].title)
             assertEquals(401, (bookmarks[401].destination as PDPageDestination).retrievePageNumber())
             assertTrue(PDFTextStripper().apply { startPage = 402; endPage = 402 }.getText(doc).contains("Text of part 402"))
+            // Both parts embedded the same fonts: each font's two copies became one smaller file.
+            fun fontFiles(index: Int) = doc.getPage(index).resources.let { resources ->
+                resources.fontNames.mapNotNull { name ->
+                    val font = resources.getFont(name) as? PDType0Font ?: return@mapNotNull null
+                    font.descendantFont.fontDescriptor?.fontFile2?.cosObject?.let { font.name.substringAfter('+') to it }
+                }.toMap()
+            }
+            val first = fontFiles(0)
+            val last = fontFiles(401)
+            assertTrue("$first and $last", first.keys.any { it in last })
+            for ((name, file) in first) last[name]?.let { assertTrue(name, it === file) }
         }
     }
 

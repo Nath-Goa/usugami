@@ -211,12 +211,12 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
             }
             check()
             progress(OfficeProgress(pages, pages, compressing = true))
-            // A book's bookmarks, title and language go in as the parts are joined, even a single part.
+            // As the parts are joined (even a single part), the fonts shrink to the glyphs drawn, and a
+            // book's bookmarks, title and language go in.
             val bookInfo = info
-            val joined = if (bookInfo != null) {
-                engine.join(parts, File(workDir, "joined.pdf"), check, bookInfo::applyTo)
-            } else {
-                parts.singleOrNull() ?: engine.join(parts, File(workDir, "joined.pdf"), check)
+            val joined = engine.join(parts, File(workDir, "joined.pdf"), check) { doc ->
+                EmbeddedFonts.shrink(doc, check)
+                bookInfo?.applyTo(doc)
             }
             val compressed = engine.compress(PdfInput(input.id, joined.path, input.name, pages), PdfCompression.RECOMMENDED, fileName, check)
             return PdfFile(compressed.file, pages, 0)

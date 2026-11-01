@@ -22,6 +22,9 @@ All notable changes to Usugami are listed here. The format is based on
   the PDF's bookmarks, and the book's title, author and language go into the PDF. Fixed-layout
   books get one page per page of the book. Books with DRM, and files that aren't e-books, are
   refused with a message.
+- PDFs made from Word, PowerPoint and EPUB files keep only the letters they use of the phone's
+  fonts, so they are much smaller (a short sample book went from 490 KB to 121 KB) and look exactly
+  the same. Fonts for scripts other than Latin, Greek and Cyrillic still go in whole.
 
 - **Rotate PDF**: turn single pages, or all of them, left or right. Only the way each page is shown
   changes; nothing is re-encoded.

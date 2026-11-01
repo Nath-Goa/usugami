@@ -127,7 +127,8 @@ old "PDFer".
   highlighted text, bulleted and numbered lists, tables (split across pages, with their header row
   repeated), pictures, page breaks, landscape pages, and headers and footers with page numbers.
 - The text stays real text, so you can search and select it in the PDF.
-- Pictures are compressed as in Compress PDF (Recommended), so the PDF stays small.
+- Pictures are compressed as in Compress PDF (Recommended), and only the letters the document uses
+  of your phone's fonts go into the PDF, so it stays small.
 
 **PowerPoint to PDF**
 
@@ -135,6 +136,8 @@ old "PDFer".
   Hidden slides are left out.
 - Keeps backgrounds, text and bullets in the presentation's own styles, shapes, pictures and tables.
   Text too long for its box is shrunk to fit, as PowerPoint does.
+- Pictures are compressed, and only the letters the slides use of your phone's fonts go into the
+  PDF, so it stays small.
 - Some things are simplified: see *What converts from Word and PowerPoint?* under
   [Questions and troubleshooting](#questions-and-troubleshooting).
 
@@ -148,6 +151,8 @@ old "PDFer".
   page breaks.
 - The table of contents becomes the PDF's **bookmarks**, and the book's title and author go into
   the PDF.
+- Pictures are compressed, and only the letters the book uses of your phone's fonts go into the
+  PDF, so it stays small.
 - Books with DRM (copy protection) can't be converted: see *What converts from an EPUB e-book?*
   under [Questions and troubleshooting](#questions-and-troubleshooting).
 
@@ -435,6 +440,8 @@ Usugami reads the book itself and lays its pages out again, as an e-reader does:
 - **Not converted:** books protected with DRM (copy protection), as many bought from online stores
   are. Usugami can't remove DRM; books without it, such as free public-domain books, convert fine.
   Kindle files (.mobi, .azw) aren't EPUB books.
+- The text in the PDF is real text you can search and copy. In Hindi and other scripts with joined
+  letters, copied text can come out jumbled, even though it looks right on the page.
 
 </details>
 
@@ -542,7 +549,7 @@ app/                  Android app (Kotlin, Jetpack Compose, Material 3)
 core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, page layout,
                       JPEG/PNG handling, metadata removal, compression sizing, page ranges,
                       the Word and PowerPoint helpers (units, colors, list numbers) and the
-                      EPUB helpers (links, HTML characters, simple CSS)
+                      EPUB helpers (links, HTML characters, simple CSS) and font subsetting
 tools/                validate_pdfs.py (checks output with independent PDF tools),
                       make_ocr_font.py (builds the OCR font), make_office_fixtures.py (the
                       made-up Word and PowerPoint test files), google_notices.py
