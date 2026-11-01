@@ -220,7 +220,7 @@
     <string name="delete_pages_hint" tools:ignore="TypographyDashes">Por ejemplo: 2,5-7. O toca las páginas de abajo.</string>
     <string name="delete_pages_count">Para eliminar: %1$d de %2$d</string>
     <string name="page_marked_delete">Marcada para eliminar</string>
-    <string name="page_kept">Se conserva</string>
+    <string name="page_kept">Conservada</string>
     <string name="pdf_reorganize_action">Guardar PDF</string>
     <string name="reorganize_hint">Toca una página para elegirla; las páginas que añadas irán después de ella. Mantén presionada una página y arrástrala para moverla.</string>
     <string name="reorganize_add">Añadir páginas</string>

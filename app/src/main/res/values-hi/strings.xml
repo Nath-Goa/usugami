@@ -146,7 +146,7 @@
     <string name="redact_find">टेक्स्ट खोजें</string>
     <string name="redact_find_hint">हर पेज पर मिले हर नतीजे पर एक बॉक्स लग जाएगा, जिसे आप जांच सकते हैं।</string>
     <string name="redact_find_action">खोजें</string>
-    <string name="redact_find_none">कुछ नहीं मिला। स्कैन और तस्वीरों का टेक्स्ट खोजा नहीं जा सकता, उसके ऊपर खुद बॉक्स बनाएं।</string>
+    <string name="redact_find_none">कुछ नहीं मिला। स्कैन और तस्वीरों का टेक्स्ट खोजा नहीं जा सकता। उसके ऊपर खुद बॉक्स बनाएं।</string>
     <string name="redact_find_too_many" tools:ignore="PluralsCandidate">बहुत ज़्यादा नतीजे: Usugami ज़्यादा से ज़्यादा %1$d बॉक्स रखता है। कोई लंबा वाक्यांश खोजकर देखें।</string>
     <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami ज़्यादा से ज़्यादा %1$d बॉक्स रखता है।</string>
     <string name="redact_find_failed">इस PDF में खोजा नहीं जा सका।</string>
@@ -193,9 +193,9 @@
     <string name="document_powerpoint">PowerPoint प्रेज़ेंटेशन</string>
     <string name="office_note_word">टेक्स्ट, हेडिंग, लिस्ट, टेबल और इमेज PDF में आ जाती हैं। डॉक्यूमेंट के फ़ॉन्ट की जगह आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं, इसलिए कुछ लाइनें अलग जगह पर टूट सकती हैं।</string>
     <string name="office_note_powerpoint">हर स्लाइड एक पेज बनती है; छिपी हुई स्लाइड छोड़ दी जाती हैं। प्रेज़ेंटेशन के फ़ॉन्ट की जगह आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं, और चार्ट स्लेटी बॉक्स के रूप में दिखते हैं।</string>
-    <string name="office_legacy_word">यह पुरानी Word फ़ाइल (.doc) है। इसे Word या किसी दूसरे ऐप में .docx के रूप में सेव करें, फिर से कोशिश करें।</string>
-    <string name="office_legacy_powerpoint">यह पुरानी PowerPoint फ़ाइल (.ppt) है। इसे PowerPoint या किसी दूसरे ऐप में .pptx के रूप में सेव करें, फिर से कोशिश करें।</string>
-    <string name="office_encrypted">यह फ़ाइल पासवर्ड से सुरक्षित है। Word या PowerPoint में पासवर्ड हटाएं, फ़ाइल सेव करें, फिर से कोशिश करें।</string>
+    <string name="office_legacy_word">यह पुरानी Word फ़ाइल (.doc) है। इसे Word या किसी दूसरे ऐप में .docx के रूप में सेव करके फिर से कोशिश करें।</string>
+    <string name="office_legacy_powerpoint">यह पुरानी PowerPoint फ़ाइल (.ppt) है। इसे PowerPoint या किसी दूसरे ऐप में .pptx के रूप में सेव करके फिर से कोशिश करें।</string>
+    <string name="office_encrypted">यह फ़ाइल पासवर्ड से सुरक्षित है। Word या PowerPoint में पासवर्ड हटाएं और फ़ाइल सेव करके फिर से कोशिश करें।</string>
     <string name="office_not_word">यह Word डॉक्यूमेंट (.docx) नहीं है, या फ़ाइल खराब है।</string>
     <string name="office_not_powerpoint">यह PowerPoint प्रेज़ेंटेशन (.pptx) नहीं है, या फ़ाइल खराब है।</string>
     <string name="office_no_slides">इस प्रेज़ेंटेशन में बदलने के लिए कोई स्लाइड नहीं है। छिपी हुई स्लाइड छोड़ दी जाती हैं।</string>
