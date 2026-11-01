@@ -254,14 +254,9 @@ internal fun ReorganizeOptions(
         }
         Text(stringResource(R.string.reorganize_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-        // The bar carries the gap above it, so the gap opens and closes with the bar.
-        val barRef = freezeWhen(selectedRef == null, selectedRef)
-        val barIndex = freezeWhen(selectedRef == null, selectedIndex)
-        AnimatedVisibility(visible = selectedRef != null, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page actions") {
-            if (barRef != null) {
-                PageActions(barRef, barIndex, pages.size, vm, onSelect, Modifier.padding(top = 12.dp))
-            }
-        }
+        // Always there, the same height with or without a page chosen: the grid below never moves
+        // under the finger that taps a page.
+        PageActions(selectedRef, selectedIndex, pages.size, vm, onSelect, Modifier.padding(top = 12.dp))
 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(TileMinWidth),
@@ -327,38 +322,52 @@ internal fun ReorganizeOptions(
     }
 }
 
-/** What can be done to the chosen page, with buttons that say which page they act on. */
+/**
+ * What can be done to the chosen page [ref], with buttons that say which page they act on. With no
+ * page chosen, it says how to choose one.
+ */
 @Composable
-private fun PageActions(ref: PdfPageRef, index: Int, count: Int, vm: PdfToolsViewModel, onSelect: (String?) -> Unit, modifier: Modifier) {
+private fun PageActions(ref: PdfPageRef?, index: Int, count: Int, vm: PdfToolsViewModel, onSelect: (String?) -> Unit, modifier: Modifier) {
     val number = index + 1
+    val color by animateColorAsState(
+        if (ref != null) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        Motion.short(),
+        label = "page bar",
+    )
     Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        color = color,
+        contentColor = if (ref != null) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
         shape = RoundedCornerShape(16.dp),
         modifier = modifier.fillMaxWidth(),
     ) {
-        Row(Modifier.padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.pdf_page_number, number), style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            IconButton(onClick = { vm.movePageBy(ref, -1) }, enabled = index > 0) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.move_page_earlier, number))
-            }
-            IconButton(onClick = { vm.movePageBy(ref, 1) }, enabled = index < count - 1) {
-                Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = stringResource(R.string.move_page_later, number))
-            }
-            IconButton(onClick = { vm.rotatePage(ref, -90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.rotate_page_left, number))
-            }
-            IconButton(onClick = { vm.rotatePage(ref, 90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, number))
-            }
-            // A PDF keeps at least one page.
-            IconButton(onClick = {
-                vm.removePage(ref)
-                // The page that takes its place is chosen next, so several can go in a row.
-                val after = vm.pages.value
-                onSelect((after.getOrNull(index) ?: after.getOrNull(index - 1))?.key)
-            }, enabled = count > 1) {
-                Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.remove_page, number))
+        Row(Modifier.heightIn(min = 48.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (ref == null) stringResource(R.string.reorganize_choose_page) else stringResource(R.string.pdf_page_number, number),
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f),
+            )
+            if (ref != null) {
+                IconButton(onClick = { vm.movePageBy(ref, -1) }, enabled = index > 0) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.move_page_earlier, number))
+                }
+                IconButton(onClick = { vm.movePageBy(ref, 1) }, enabled = index < count - 1) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = stringResource(R.string.move_page_later, number))
+                }
+                IconButton(onClick = { vm.rotatePage(ref, -90) }) {
+                    Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.rotate_page_left, number))
+                }
+                IconButton(onClick = { vm.rotatePage(ref, 90) }) {
+                    Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, number))
+                }
+                // A PDF keeps at least one page.
+                IconButton(onClick = {
+                    vm.removePage(ref)
+                    // The page that takes its place is chosen next, so several can go in a row.
+                    val after = vm.pages.value
+                    onSelect((after.getOrNull(index) ?: after.getOrNull(index - 1))?.key)
+                }, enabled = count > 1) {
+                    Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.remove_page, number))
+                }
             }
         }
     }

@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -97,12 +99,12 @@ private val MIN_DRAWN = 6.dp
 
 @Composable
 internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
-    val view by vm.redactView.collectAsStateWithLifecycle()
+    val view by vm.previewView.collectAsStateWithLifecycle()
     val boxes by vm.redactBoxes.collectAsStateWithLifecycle()
     val page by vm.redactPage.collectAsStateWithLifecycle()
     val selected by vm.redactSelected.collectAsStateWithLifecycle()
     val finding by vm.finding.collectAsStateWithLifecycle()
-    LaunchedEffect(input.id) { vm.prepareRedaction(input) }
+    LaunchedEffect(input.id) { vm.preparePreview(input) }
     val pageIndex = page.coerceIn(0, input.pageCount - 1)
     var query by rememberSaveable(input.id) { mutableStateOf("") }
     var confirmClear by rememberSaveable { mutableStateOf(false) }
@@ -269,6 +271,8 @@ private fun BoxEditor(
             Canvas(
                 Modifier
                     .matchParentSize()
+                    // A box drawn from the page's edge draws, instead of going back.
+                    .systemGestureExclusion()
                     .semantics {
                         contentDescription = description
                         if (chosenLabel != null) stateDescription = chosenLabel
@@ -388,14 +392,21 @@ private fun BoxControls(box: RedactBox, onChange: (RedactBox) -> Unit, onDelete:
             StepButton(Icons.Rounded.South, R.string.redact_move_down, Redaction.moved(box, 0f, step), box, onChange)
             StepButton(Icons.Rounded.East, R.string.redact_move_right, Redaction.moved(box, step, 0f), box, onChange)
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.redact_width), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
-            StepButton(Icons.Rounded.Remove, R.string.redact_narrower, Redaction.resized(box, -step, 0f), box, onChange)
-            StepButton(Icons.Rounded.Add, R.string.redact_wider, Redaction.resized(box, step, 0f), box, onChange)
-            Spacer(Modifier.width(16.dp))
-            Text(stringResource(R.string.redact_height), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
-            StepButton(Icons.Rounded.Remove, R.string.redact_shorter, Redaction.resized(box, 0f, -step), box, onChange)
-            StepButton(Icons.Rounded.Add, R.string.redact_taller, Redaction.resized(box, 0f, step), box, onChange)
+        // Width and height each stay together, one under the other on a narrow screen.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.redact_width), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
+                StepButton(Icons.Rounded.Remove, R.string.redact_narrower, Redaction.resized(box, -step, 0f), box, onChange)
+                StepButton(Icons.Rounded.Add, R.string.redact_wider, Redaction.resized(box, step, 0f), box, onChange)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.redact_height), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
+                StepButton(Icons.Rounded.Remove, R.string.redact_shorter, Redaction.resized(box, 0f, -step), box, onChange)
+                StepButton(Icons.Rounded.Add, R.string.redact_taller, Redaction.resized(box, 0f, step), box, onChange)
+            }
         }
         TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
             Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))

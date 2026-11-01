@@ -30,7 +30,6 @@
     <string name="tool_redact_detail">Black out text and pictures for good</string>
     <string name="pick_pdf">Choose PDF</string>
     <string name="add_pdfs">Add PDFs</string>
-    <string name="replace_pdf">Choose another PDF</string>
     <!-- %1$s is a file name. -->
     <string name="move_file_earlier">Move %1$s earlier</string>
     <string name="move_file_later">Move %1$s later</string>
@@ -82,6 +81,7 @@
     <string name="pdf_need_two">Add at least two PDFs to merge.</string>
     <string name="pdf_need_page">Keep at least one page.</string>
     <string name="pdf_discard_title">Discard this PDF?</string>
+    <string name="tool_discard_title">Discard your changes?</string>
     <string name="pdf_discard_shared_body">The images you shared are ready to convert, but this PDF isn\'t saved yet. Save or share it first if you want to keep it.</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">Rotate PDF</string>
@@ -199,7 +199,6 @@
     <string name="tool_powerpoint_detail">Slides (.pptx), one page each</string>
     <string name="pick_word">Choose Word file</string>
     <string name="pick_powerpoint">Choose PowerPoint file</string>
-    <string name="replace_document">Choose another file</string>
     <string name="document_word">Word document</string>
     <string name="document_powerpoint">PowerPoint presentation</string>
     <string name="office_note_word">Text, headings, lists, tables and pictures convert. Your phone\'s fonts stand in for the document\'s, so some lines may break differently.</string>
@@ -230,7 +229,8 @@
     <string name="page_marked_delete">Marked to delete</string>
     <string name="page_kept">Kept</string>
     <string name="pdf_reorganize_action">Save PDF</string>
-    <string name="reorganize_hint">Tap a page to choose it; pages you add go after it. Long-press a page and drag to move it.</string>
+    <string name="reorganize_hint">Pages you add go after the chosen page. Long-press a page and drag to move it.</string>
+    <string name="reorganize_choose_page">Tap a page to choose it</string>
     <string name="reorganize_add">Add pages</string>
     <string name="reorganize_add_pdf">Pages from a PDF</string>
     <string name="reorganize_add_blank">Blank page</string>

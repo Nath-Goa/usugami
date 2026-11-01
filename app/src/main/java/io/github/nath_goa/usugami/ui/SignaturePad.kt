@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
@@ -148,6 +149,8 @@ private fun SignaturePad(signature: Signature, onStroke: (FloatArray) -> Unit, m
     Canvas(
         modifier
             .clip(shape)
+            // A stroke starting at the pad's edge draws, instead of going back.
+            .systemGestureExclusion()
             .background(Color.White)
             .border(1.dp, MaterialTheme.colorScheme.outline, shape)
             .semantics { contentDescription = description }

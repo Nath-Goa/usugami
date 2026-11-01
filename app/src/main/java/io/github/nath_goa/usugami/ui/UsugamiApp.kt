@@ -104,17 +104,23 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     var confirmLeavePdf by rememberSaveable { mutableStateOf(false) }
     // The user chose to stay with that PDF: more shared images don't ask again until they leave the tool.
     var stayOnPdf by rememberSaveable { mutableStateOf(false) }
+    // What was done to a tool's PDF is asked about before it is thrown away: "leave" when leaving the
+    // tool, "remove" when removing its PDF.
+    var discardWork by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(route) {
         if (!isPdfToolRoute(route)) {
             confirmLeavePdf = false
             stayOnPdf = false
+            discardWork = null
         }
     }
     LaunchedEffect(items.size) {
         // Images shared from another app can arrive on any screen, a PDF tool's included: show them.
-        // Leaving a tool discards its PDF, so ask first while one is being made or isn't saved yet.
+        // Leaving a tool discards its PDF, so ask first while one is being made, isn't saved yet, or
+        // has work on it that would be lost.
         if (items.isEmpty() || route == "images" || stayOnPdf) return@LaunchedEffect
-        val unsavedPdf = pdfVm.processing.value || (pdfVm.result.value != null && !pdfVm.saved.value)
+        val unsavedPdf = pdfVm.processing.value ||
+            (if (pdfVm.result.value != null) !pdfVm.saved.value else pdfVm.hasUnsavedWork())
         if (isPdfToolRoute(route) && unsavedPdf) confirmLeavePdf = true else route = "images"
     }
 
@@ -331,13 +337,15 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                 }
                 else -> {
                     val tool = PdfTool.entries.first { it.name.equals(current, ignoreCase = true) }
-                    BackHandler(enabled = active) { route = "home" }
+                    val leaveTool: () -> Unit = { if (pdfVm.hasUnsavedWork()) discardWork = "leave" else route = "home" }
+                    BackHandler(enabled = active, onBack = leaveTool)
                     toolStates.SaveableStateProvider(current) {
                         PdfToolScreen(
                             tool = tool,
                             vm = pdfVm,
                             snackbar = screenSnackbar,
-                            onBack = { route = "home" },
+                            onBack = leaveTool,
+                            onRemove = { if (pdfVm.hasUnsavedWork()) discardWork = "remove" else pdfVm.startOver() },
                             pickSingle = {
                                 val kind = tool.officeKind
                                 if (kind != null) documentPicker.launch(kind.pickerTypes) else pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
@@ -398,6 +406,20 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                 }) { Text(stringResource(R.string.discard)) }
             },
             dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.keep)) } },
+        )
+    }
+
+    discardWork?.let { action ->
+        AlertDialog(
+            onDismissRequest = { discardWork = null },
+            title = { Text(stringResource(R.string.tool_discard_title)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    discardWork = null
+                    if (action == "leave") route = "home" else pdfVm.startOver()
+                }) { Text(stringResource(R.string.discard)) }
+            },
+            dismissButton = { TextButton(onClick = { discardWork = null }) { Text(stringResource(R.string.keep)) } },
         )
     }
 

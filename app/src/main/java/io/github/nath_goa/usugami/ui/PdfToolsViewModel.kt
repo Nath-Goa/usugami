@@ -122,9 +122,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     val redactPage: StateFlow<Int> = handle.getStateFlow(KEY_REDACT_PAGE, 0)
     val redactSelected: StateFlow<Int> = handle.getStateFlow(KEY_REDACT_SELECTED, -1)
 
-    /** The PDF Redact PDF draws its preview from (see [PdfToolsEngine.redactionView]); null until it is ready. */
-    private val _redactView = MutableStateFlow<PdfInput?>(null)
-    val redactView = _redactView.asStateFlow()
+    /** The PDF the tool draws its preview from (see [PdfToolsEngine.previewView]); null until it is ready. */
+    private val _previewView = MutableStateFlow<PdfInput?>(null)
+    val previewView = _previewView.asStateFlow()
 
     /** Find text is looking through the PDF. */
     private val _finding = MutableStateFlow(false)
@@ -426,6 +426,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val ids = inputs.value.mapTo(HashSet()) { it.id }
         setPages(previous.filter { it.isBlank || it.inputId in ids })
     }
+
+    /**
+     * Whether leaving the tool would throw away work done on its PDF: Edit PDF's additions, Redact
+     * PDF's boxes, or pages turned or moved.
+     */
+    fun hasUnsavedWork(): Boolean =
+        history.items.value.isNotEmpty() || _redactBoxes.value.isNotEmpty() || (_canUndo.value && pages.value != originalPages())
 
     private fun clearUndo() {
         undoStack.clear()
@@ -772,29 +779,34 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         process(fileName, listOf(input)) { check -> listOf(engine.sign(input, signature, page, placement, fileName, check)) }
     }
 
-    /** Gets [input] ready for Redact PDF's preview: [redactView], once it is. */
-    fun prepareRedaction(input: PdfInput) {
-        if (_redactView.value?.id == input.id || viewJob?.isActive == true) return
+    /**
+     * Gets [input] ready for the tool's preview: [previewView], once it is. Redact PDF needs it (it
+     * searches and draws its pictures from it): when it can't be made, the PDF is put away. The other
+     * tools then preview [input] itself.
+     */
+    fun preparePreview(input: PdfInput, required: Boolean = true) {
+        if (_previewView.value?.id == input.id || viewJob?.isActive == true) return
         viewJob = viewModelScope.launch {
             val job = coroutineContext[Job]!!
             try {
-                val view = withContext(fileOps) { if (input.file.isFile) engine.redactionView(input) { job.ensureActive() } else null }
-                if (inputs.value.singleOrNull()?.id == input.id) _redactView.value = view
+                val view = withContext(fileOps) { if (input.file.isFile) engine.previewView(input) { job.ensureActive() } else null }
+                if (inputs.value.singleOrNull()?.id == input.id) _previewView.value = view
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                failedView(input)
+                failedView(input, required)
             } catch (_: LinkageError) {
-                failedView(input)
+                failedView(input, required)
             } catch (_: OutOfMemoryError) {
-                failedView(input)
+                failedView(input, required)
             }
         }
     }
 
-    /** No preview can be drawn of [input]: say so, and put it away. */
-    private fun failedView(input: PdfInput) {
+    /** No preview can be drawn of [input]: say so, and put it away, if the tool [required] one. */
+    private fun failedView(input: PdfInput, required: Boolean) {
         if (inputs.value.singleOrNull()?.id != input.id) return
+        if (!required) return run { _previewView.value = input }
         message(strings.getString(R.string.pdf_import_failed))
         removeInput(input.id)
     }
@@ -844,12 +856,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun findText(query: String) {
         val input = inputs.value.singleOrNull() ?: return
         if (query.isBlank() || _finding.value || _processing.value) return
+        val view = _previewView.value?.takeIf { it.id == input.id }
         _finding.value = true
         findJob = viewModelScope.launch {
             val job = coroutineContext[Job]!!
             try {
                 val matches = withContext(fileOps) {
-                    if (!input.file.isFile) null else engine.findText(input, query) { job.ensureActive() }
+                    if (!input.file.isFile) null else engine.findText(input, query, view) { job.ensureActive() }
                 }
                 if (matches == null) {
                     forgetInputs(listOf(input))
@@ -890,7 +903,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val input = inputs.value.singleOrNull() ?: return
         val boxes = _redactBoxes.value.filter { it.page in 0 until input.pageCount }
         if (boxes.isEmpty() || _finding.value) return
-        process(fileName, listOf(input)) { check -> listOf(engine.redact(input, boxes, fileName, check)) }
+        val view = _previewView.value?.takeIf { it.id == input.id }
+        process(fileName, listOf(input)) { check -> listOf(engine.redact(input, boxes, fileName, view, check)) }
     }
 
     private fun setRedactBoxes(boxes: List<RedactBox>) {
@@ -905,7 +919,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         viewJob = null
         findJob = null
         _finding.value = false
-        _redactView.value = null
+        _previewView.value = null
         setRedactBoxes(emptyList())
         handle[KEY_REDACT_PAGE] = 0
         handle[KEY_REDACT_SELECTED] = -1

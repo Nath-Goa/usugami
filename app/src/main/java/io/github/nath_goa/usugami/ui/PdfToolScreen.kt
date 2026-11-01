@@ -12,7 +12,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -64,7 +66,9 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -75,6 +79,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -104,6 +111,7 @@ import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.office.OfficeKind
+import kotlinx.coroutines.delay
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
@@ -114,6 +122,7 @@ fun PdfToolScreen(
     vm: PdfToolsViewModel,
     snackbar: SnackbarHostState,
     onBack: () -> Unit,
+    onRemove: () -> Unit,
     pickSingle: () -> Unit,
     pickMultiple: () -> Unit,
     pickAdd: () -> Unit,
@@ -132,6 +141,7 @@ fun PdfToolScreen(
     val editItems by vm.editItems.collectAsStateWithLifecycle()
         val redactBoxes by vm.redactBoxes.collectAsStateWithLifecycle()
     val finding by vm.finding.collectAsStateWithLifecycle()
+    val previewView by vm.previewView.collectAsStateWithLifecycle()
     // Word, PowerPoint and EPUB to PDF take one document instead of PDFs.
     val officeKind = tool.officeKind
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
@@ -156,7 +166,12 @@ fun PdfToolScreen(
     val originalPages = remember(inputs.firstOrNull()) { vm.originalPages() }
     val reorganized = tool == PdfTool.REORGANIZE && inputs.isNotEmpty() && pages.isNotEmpty() && pages != originalPages
     var bookPage by rememberSaveable(tool) { mutableStateOf(PageSize.A5) }
-    val inputKey = if (officeKind != null) document?.id else inputs.firstOrNull()?.id
+    // Merge's name doesn't depend on which PDF comes first: sorting them keeps what was typed.
+    val inputKey: Any? = when {
+        officeKind != null -> document?.id
+        tool == PdfTool.MERGE -> inputs.isNotEmpty()
+        else -> inputs.firstOrNull()?.id
+    }
     var fileName by rememberSaveable(tool, inputKey) { mutableStateOf(vm.defaultName(tool)) }
     val ready = when (tool) {
         PdfTool.SPLIT, PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.FLATTEN -> inputs.size == 1
@@ -186,146 +201,169 @@ fun PdfToolScreen(
         PdfTool.EDIT -> R.string.pdf_edit_action
         PdfTool.REDACT -> R.string.pdf_redact_action
     }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(title)) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
-            )
-        },
-        bottomBar = {
-            Button(
-                onClick = {
-                    when (tool) {
-                        PdfTool.SPLIT -> vm.runSplit(splitMode, pageText, combine, fileName)
-                        PdfTool.MERGE -> vm.runMerge(pageMode, fileName)
-                        PdfTool.COMPRESS -> vm.runCompress(level, fileName)
-                        PdfTool.ROTATE -> vm.runRotate(fileName)
-                        PdfTool.PAGE_NUMBERS -> vm.runPageNumbers(numberPosition, numberSize, skipText, fileName)
-                        PdfTool.WATERMARK -> vm.runWatermark(watermarkText, watermarkColor, watermarkOpacity, fileName)
-                        PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
-                        PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvert(fileName)
-                        PdfTool.DELETE_PAGES -> vm.runDeletePages(deleteText, fileName)
-                        PdfTool.REORGANIZE -> vm.runReorganize(fileName)
-                        PdfTool.FLATTEN -> vm.runFlatten(fileName)
-                        PdfTool.EDIT -> vm.runEdit(fileName)
-                        PdfTool.EPUB -> vm.runConvert(fileName, bookPage)
-                        PdfTool.REDACT -> vm.runRedact(fileName)
-                    }
-                },
-                enabled = ready && !importing && !processing,
-                // Edge to edge: keep the button clear of the navigation bar.
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
-            ) { Text(stringResource(action)) }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        // The keyboard covers the bottom bar; the form ends above the keyboard instead, so the
-        // file name field can be scrolled into view while typing.
-        Column(
-            Modifier
-                .padding(padding)
-                .consumeWindowInsets(padding)
-                .imePadding()
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp),
-        ) {
-            // The bar sits outside the spaced column below and carries its own gap, so the gap opens and
-            // closes with the bar instead of snapping once the bar has gone.
-            AnimatedVisibility(visible = importing, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "importing") {
-                LinearProgressIndicator(Modifier.padding(bottom = 16.dp).fillMaxWidth())
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                if (if (officeKind != null) document == null else inputs.isEmpty()) {
-                    // Picking is off while PDFs are being added: a second pick then would be ignored.
-                    OutlinedCard(onClick = if (tool == PdfTool.MERGE) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
-                        Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
-                            Spacer(Modifier.height(12.dp))
-                            Text(
-                                stringResource(
-                                    when (tool) {
-                                        PdfTool.MERGE -> R.string.add_pdfs
-                                        PdfTool.WORD -> R.string.pick_word
-                                        PdfTool.POWERPOINT -> R.string.pick_powerpoint
-                                        PdfTool.EPUB -> R.string.pick_epub
-                                        else -> R.string.pick_pdf
-                                    },
-                                ),
-                            )
+    // The pages are drawn from a copy without the password and with annotations drawn in, when the
+    // PDF has either: Android's renderer can't open the one and leaves the others out.
+    val single = inputs.singleOrNull()
+    LaunchedEffect(tool, single?.id) {
+        if (single != null && tool in PREVIEWED) vm.preparePreview(single, required = false)
+    }
+    val shown = single?.let { input -> previewView?.takeIf { it.id == input.id } ?: input }
+    // The bar takes a tint of its own once the page scrolls under it.
+    val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
+    Box {
+        Scaffold(
+            modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
+            topBar = {
+                TopAppBar(
+                    title = { Text(stringResource(title)) },
+                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
+                    scrollBehavior = barScroll,
+                )
+            },
+            bottomBar = {
+                Button(
+                    onClick = {
+                        when (tool) {
+                            PdfTool.SPLIT -> vm.runSplit(splitMode, pageText, combine, fileName)
+                            PdfTool.MERGE -> vm.runMerge(pageMode, fileName)
+                            PdfTool.COMPRESS -> vm.runCompress(level, fileName)
+                            PdfTool.ROTATE -> vm.runRotate(fileName)
+                            PdfTool.PAGE_NUMBERS -> vm.runPageNumbers(numberPosition, numberSize, skipText, fileName)
+                            PdfTool.WATERMARK -> vm.runWatermark(watermarkText, watermarkColor, watermarkOpacity, fileName)
+                            PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
+                            PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvert(fileName)
+                            PdfTool.DELETE_PAGES -> vm.runDeletePages(deleteText, fileName)
+                            PdfTool.REORGANIZE -> vm.runReorganize(fileName)
+                            PdfTool.FLATTEN -> vm.runFlatten(fileName)
+                            PdfTool.EDIT -> vm.runEdit(fileName)
+                            PdfTool.EPUB -> vm.runConvert(fileName, bookPage)
+                            PdfTool.REDACT -> vm.runRedact(fileName)
                         }
-                    }
-                } else if (officeKind != null) {
-                    document?.let { DocumentInputCard(it, onRemove = vm::startOver) }
-                    OutlinedButton(onClick = pickSingle, enabled = !importing) { Text(stringResource(R.string.replace_document)) }
-                    OfficeNote(officeKind)
-                    if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
-                    FileNameField(fileName, onChange = { fileName = it })
-                } else {
-                    if (tool == PdfTool.MERGE) {
-                        MergeInputs(inputs, vm, pageMode, onPageMode = { pageMode = it })
-                        // The page list carries the gap above it, so the gap opens and closes with the list.
-                        Column {
-                            OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
-                            AnimatedVisibility(visible = pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page list") {
-                                Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    MergePages(inputs, pages, vm)
-                                }
+                    },
+                    enabled = ready && !importing && !processing,
+                    // Edge to edge: keep the button clear of the navigation bar.
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.navigationBars)
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                ) { Text(stringResource(action)) }
+            },
+            snackbarHost = { SnackbarHost(snackbar) },
+        ) { padding ->
+            // The keyboard covers the bottom bar; the form ends above the keyboard instead, so the
+            // file name field can be scrolled into view while typing.
+            Column(
+                Modifier
+                    .padding(padding)
+                    .consumeWindowInsets(padding)
+                    .imePadding()
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+            ) {
+                // The bar sits outside the spaced column below and carries its own gap, so the gap opens and
+                // closes with the bar instead of snapping once the bar has gone.
+                AnimatedVisibility(visible = importing, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "importing") {
+                    LinearProgressIndicator(Modifier.padding(bottom = 16.dp).fillMaxWidth())
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    if (if (officeKind != null) document == null else inputs.isEmpty()) {
+                        // Picking is off while PDFs are being added: a second pick then would be ignored.
+                        OutlinedCard(onClick = if (tool == PdfTool.MERGE) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
+                            Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    stringResource(
+                                        when (tool) {
+                                            PdfTool.MERGE -> R.string.add_pdfs
+                                            PdfTool.WORD -> R.string.pick_word
+                                            PdfTool.POWERPOINT -> R.string.pick_powerpoint
+                                            PdfTool.EPUB -> R.string.pick_epub
+                                            else -> R.string.pick_pdf
+                                        },
+                                    ),
+                                )
                             }
                         }
+                    } else if (officeKind != null) {
+                        document?.let { DocumentInputCard(it, onRemove = vm::startOver) }
+                        OfficeNote(officeKind)
+                        if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
+                        FileNameField(fileName, onChange = { fileName = it })
                     } else {
-                        PdfInputCard(inputs[0], onRemove = vm::startOver)
-                        OutlinedButton(onClick = pickSingle, enabled = !importing) { Text(stringResource(R.string.replace_pdf)) }
+                        if (tool == PdfTool.MERGE) {
+                            MergeInputs(inputs, vm, pageMode, onPageMode = { pageMode = it })
+                            // The page list carries the gap above it, so the gap opens and closes with the list.
+                            Column {
+                                OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
+                                AnimatedVisibility(visible = pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page list") {
+                                    Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        MergePages(inputs, pages, vm)
+                                    }
+                                }
+                            }
+                        } else {
+                            PdfInputCard(inputs[0], onRemove = onRemove)
+                        }
+                        when (tool) {
+                            PdfTool.SPLIT -> SplitOptions(inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
+                            PdfTool.MERGE -> Unit
+                            PdfTool.COMPRESS -> CompressOptions(level, onLevel = { level = it })
+                            PdfTool.ROTATE -> RotateOptions(shown ?: inputs[0], pages, vm)
+                            PdfTool.PAGE_NUMBERS -> PageNumberOptions(
+                                numberPosition, onPosition = { numberPosition = it },
+                                numberSize, onSize = { numberSize = it },
+                                skipText, onSkip = { skipText = it },
+                            )
+                            PdfTool.WATERMARK -> WatermarkOptions(
+                                shown ?: inputs[0],
+                                watermarkText, onText = { watermarkText = it },
+                                watermarkColor, onColor = { watermarkColor = it },
+                                watermarkOpacity, onOpacity = { watermarkOpacity = it },
+                            )
+                            PdfTool.SIGN -> SignOptions(
+                                shown ?: inputs[0],
+                                signature, onDraw = { drawingSignature = true },
+                                signPage, onPage = { signPage = it },
+                                signPlacement, onPlacement = { signPlacement = it },
+                            )
+                            PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> Unit
+                            PdfTool.DELETE_PAGES -> DeletePagesOptions(shown ?: inputs[0], deleteText, onText = { deleteText = it })
+                            PdfTool.REORGANIZE -> ReorganizeOptions(
+                                inputs, pages, vm,
+                                changed = reorganized,
+                                importing = importing,
+                                selected = chosenPage,
+                                onSelect = { chosenPage = it },
+                                onAddPdf = { after ->
+                                    vm.prepareInsert(after)
+                                    pickAdd()
+                                },
+                            )
+                            PdfTool.FLATTEN -> FlattenOptions()
+                            PdfTool.EDIT -> EditPdfOptions(shown ?: inputs[0], vm, importing, onPickPicture = { page ->
+                                vm.prepareEditPicture(page)
+                                pickPicture()
+                            })
+                            PdfTool.REDACT -> RedactOptions(inputs[0], vm)
+                        }
+                        FileNameField(fileName, onChange = { fileName = it })
                     }
-                    when (tool) {
-                        PdfTool.SPLIT -> SplitOptions(inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
-                        PdfTool.MERGE -> Unit
-                        PdfTool.COMPRESS -> CompressOptions(level, onLevel = { level = it })
-                        PdfTool.ROTATE -> RotateOptions(inputs[0], pages, vm)
-                        PdfTool.PAGE_NUMBERS -> PageNumberOptions(
-                            numberPosition, onPosition = { numberPosition = it },
-                            numberSize, onSize = { numberSize = it },
-                            skipText, onSkip = { skipText = it },
-                        )
-                        PdfTool.WATERMARK -> WatermarkOptions(
-                            inputs[0],
-                            watermarkText, onText = { watermarkText = it },
-                            watermarkColor, onColor = { watermarkColor = it },
-                            watermarkOpacity, onOpacity = { watermarkOpacity = it },
-                        )
-                        PdfTool.SIGN -> SignOptions(
-                            inputs[0],
-                            signature, onDraw = { drawingSignature = true },
-                            signPage, onPage = { signPage = it },
-                            signPlacement, onPlacement = { signPlacement = it },
-                        )
-                        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> Unit
-                        PdfTool.DELETE_PAGES -> DeletePagesOptions(inputs[0], deleteText, onText = { deleteText = it })
-                        PdfTool.REORGANIZE -> ReorganizeOptions(
-                            inputs, pages, vm,
-                            changed = reorganized,
-                            importing = importing,
-                            selected = chosenPage,
-                            onSelect = { chosenPage = it },
-                            onAddPdf = { after ->
-                                vm.prepareInsert(after)
-                                pickAdd()
-                            },
-                        )
-                        PdfTool.FLATTEN -> FlattenOptions()
-                        PdfTool.EDIT -> EditPdfOptions(inputs[0], vm, importing, onPickPicture = { page ->
-                            vm.prepareEditPicture(page)
-                            pickPicture()
-                        })
-                        PdfTool.REDACT -> RedactOptions(inputs[0], vm)
-                    }
-                    FileNameField(fileName, onChange = { fileName = it })
                 }
             }
+        }
+        // While the PDF is being made, nothing on the screen can be touched, as behind the dialog.
+        if (processing) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                        }
+                    },
+            )
         }
     }
 
@@ -350,18 +388,34 @@ fun PdfToolScreen(
             onDismiss = { vm.dismissPassword(pending) },
         )
     }
-    if (processing && officeKind != null) {
-        OfficeProgressDialog(convertProgress, officeKind, onCancel = vm::cancel)
-    } else if (processing) {
-        AlertDialog(
-            onDismissRequest = {},
-            title = { Text(stringResource(R.string.pdf_working)) },
-            text = { LinearProgressIndicator(Modifier.fillMaxWidth()) },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
-        )
+    if (processing) {
+        // Most PDFs are done before a dialog could be read: it only shows for one that takes a
+        // while, like the ZIP dialog. Until then Back does nothing, as it would behind the dialog.
+        var showWorking by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(WORKING_DIALOG_DELAY_MS)
+            showWorking = true
+        }
+        BackHandler {}
+        if (showWorking && officeKind != null) {
+            OfficeProgressDialog(convertProgress, officeKind, onCancel = vm::cancel)
+        } else if (showWorking) {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text(stringResource(R.string.pdf_working)) },
+                text = { LinearProgressIndicator(Modifier.fillMaxWidth()) },
+                confirmButton = {},
+                dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
+            )
+        }
     }
 }
+
+/** How long a tool works before its progress dialog shows. */
+private const val WORKING_DIALOG_DELAY_MS = 400L
+
+/** The tools that draw the PDF's pages for the user to work on. Redact PDF prepares its own. */
+private val PREVIEWED = setOf(PdfTool.ROTATE, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.DELETE_PAGES, PdfTool.EDIT)
 
 @Composable
 private fun FileNameField(fileName: String, onChange: (String) -> Unit) {
@@ -556,7 +610,7 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
         modes.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { (item, label) ->
-                    FilterChip(selected = mode == item, onClick = { onMode(item); onText("") }, label = { Text(stringResource(label)) })
+                    FilterChip(selected = mode == item, onClick = { if (mode != item) { onMode(item); onText("") } }, label = { Text(stringResource(label)) })
                 }
             }
         }

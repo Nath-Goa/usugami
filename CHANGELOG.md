@@ -91,6 +91,10 @@ All notable changes to Usugami are listed here. The format is based on
   nowhere, so none of their text, pictures or form values stays in the file.
 - **Back to editing** from a PDF tool's result now returns to your choices as you left them (such as
   the pages typed, the watermark text or where a signature goes) instead of starting them afresh.
+- Leaving a PDF tool, or removing its PDF, now asks first when that would throw away your changes
+  (Edit PDF's additions, Redact PDF's boxes, or pages turned or moved). The "Choose another PDF"
+  button is gone: the X on the PDF does the same.
+- A tool's progress dialog only shows when it takes a while, instead of flashing by.
 
 ## [1.3.0] - 2026-10-31
 

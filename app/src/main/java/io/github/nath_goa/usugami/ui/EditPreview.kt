@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -145,6 +146,8 @@ internal fun EditPreview(
                     .size(width, height)
                     .shadow(2.dp, RectangleShape)
                     .background(Color.White)
+                    // While drawing, a stroke from the page's edge draws, instead of going back.
+                    .then(if (mode != EditMode.SELECT) Modifier.systemGestureExclusion() else Modifier)
                     .semantics { contentDescription = description }
                     .pointerInput(mode, pageWidth, pageHeight) {
                         val toPage = pageWidth / size.width

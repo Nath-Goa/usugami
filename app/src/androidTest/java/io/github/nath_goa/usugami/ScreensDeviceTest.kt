@@ -234,7 +234,8 @@ class ScreensDeviceTest {
         // The tools further down Home are scrolled to, as a screen reader would.
         click(findBelow("the tool on the home screen") { it.text?.contains(app.getString(title)) == true })
         // Home stays in the tree while it slides away, and its cards name the tools as their buttons do.
-        waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.home_section_edit)) } }
+        // Its settings button is always on screen, unlike a section scrolled out of view.
+        waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.settings)) } }
         return onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
     }
 
@@ -465,6 +466,24 @@ class ScreensDeviceTest {
         click(actionButton(R.string.pdf_rotate_action))
         val rotated = resultFile(pdfVm)
         assertEquals(listOf(270, 0, 270), PDDocument.load(rotated).use { doc -> doc.pages.map { it.rotation } })
+    }
+
+    /** Back from a tool with changes asks first: Keep stays with them, Discard leaves. */
+    @Test fun leavingAToolWithChangesAsksFirst() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_rotate, activity)
+        click(find("page 2's right button") { it.says(app.getString(R.string.rotate_page_right, 2)) })
+        waitUntil("page 2 to turn") { onMain { pdfVm.pages.value.map { it.rotation } } == listOf(0, 90, 0) }
+
+        backKey()
+        find("the question") { it.says(app.getString(R.string.tool_discard_title)) }
+        click(find("Keep") { it.says(app.getString(R.string.keep)) })
+        waitUntil("the question to go") { nodes().none { it.says(app.getString(R.string.tool_discard_title)) } }
+        assertEquals(listOf(0, 90, 0), onMain { pdfVm.pages.value.map { it.rotation } })
+
+        backKey()
+        click(find("Discard") { it.says(app.getString(R.string.discard)) })
+        find("Home") { it.says(app.getString(R.string.settings)) }
     }
 
     @Test fun pageNumbersGoWhereChosenAndSkipPages() {

@@ -66,6 +66,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -74,6 +76,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import androidx.compose.ui.unit.min
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.SignatureLayout
@@ -319,9 +322,11 @@ private fun PlacementPreview(
     val path = remember(signature) { signature.path().asComposePath() }
     val ink = Color(signature.ink.argb)
     val frame = MaterialTheme.colorScheme.primary
+    // A tall page is at most 440 dp high, and less in landscape, so the whole page fits on the screen.
+    val windowHeight = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
+    val tallest = min(440.dp, max(240.dp, windowHeight - 180.dp))
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        // A tall page is at most 440 dp high.
-        val width = min(maxWidth, 440.dp * pageAspect)
+        val width = min(maxWidth, tallest * pageAspect)
         Canvas(
             Modifier
                 .size(width, width / pageAspect)

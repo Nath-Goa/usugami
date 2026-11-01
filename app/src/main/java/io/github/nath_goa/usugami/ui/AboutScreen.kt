@@ -46,6 +46,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -54,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.colorResource
@@ -87,9 +89,13 @@ fun AboutScreen(
     onDocument: (LegalDocument) -> Unit,
     onSourceCode: () -> Unit,
 ) {
+    // The bar takes a tint of its own once the page scrolls under it.
+    val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
             TopAppBar(
+                scrollBehavior = barScroll,
                 title = { Text(stringResource(R.string.about_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -224,9 +230,13 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
     // Out here, not in the Crossfade, so the reading position survives rotation: the Crossfade keys
     // its content by the Ready instance, and a recreated screen reads the document into a new one.
     val listState = rememberLazyListState()
+    // The bar takes a tint of its own once the page scrolls under it.
+    val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
             TopAppBar(
+                scrollBehavior = barScroll,
                 title = { Text(stringResource(document.title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {

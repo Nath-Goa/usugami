@@ -501,16 +501,17 @@ class PdfToolsEngine(private val context: Context) {
         }
     }
 
-    /** Where Redact PDF keeps [input]'s view (see [redactionView]), beside the copy. */
+    /** Where [input]'s view (see [previewView]) is kept, beside the copy. */
     private fun viewFile(input: PdfInput) = File(inputDir, "${input.id}-view.pdf")
 
     /**
-     * The PDF Redact PDF shows, searches and draws its pictures from: [input] itself, or, when it
-     * has a password or annotations, a copy without the password in which each visible annotation is
-     * drawn into its page, as viewers show it (Android's renderer leaves annotations out). Made once
-     * and kept beside the copy until the PDF is put away.
+     * The PDF the tools' previews draw, and Redact PDF searches and draws its pictures from: [input]
+     * itself, or, when it has a password or annotations, a copy without the password in which each
+     * visible annotation is drawn into its page, as viewers show it (Android's renderer can't open a
+     * PDF with a password, and leaves annotations out). Made once and kept beside the copy until the
+     * PDF is put away.
      */
-    fun redactionView(input: PdfInput, check: () -> Unit = {}): PdfInput {
+    fun previewView(input: PdfInput, check: () -> Unit = {}): PdfInput {
         val file = viewFile(input)
         if (file.isFile) return input.copy(path = file.path, password = "")
         load(input.file, input.password).use { doc ->
@@ -530,19 +531,23 @@ class PdfToolsEngine(private val context: Context) {
         return input.copy(path = file.path, password = "")
     }
 
-    /** Every place [query] is found in [input]'s text, as boxes over each line of it (see [Redactor.find]). */
-    fun findText(input: PdfInput, query: String, check: () -> Unit = {}): List<List<RedactBox>> {
-        val view = redactionView(input, check)
+    /**
+     * Every place [query] is found in [input]'s text, as boxes over each line of it (see [Redactor.find]).
+     * [view] is its [previewView], if already made.
+     */
+    fun findText(input: PdfInput, query: String, view: PdfInput? = null, check: () -> Unit = {}): List<List<RedactBox>> {
+        val view = view ?: previewView(input, check)
         return load(view.file, view.password).use { doc -> Redactor.find(doc, query, check) }
     }
 
     /**
      * Redacts [input]: each page with [boxes] becomes a picture of itself with the boxes solid
-     * black, and what else could leak the hidden content is removed (see [Redactor]).
+     * black, and what else could leak the hidden content is removed (see [Redactor]). [view] is its
+     * [previewView], if already made.
      */
-    fun redact(input: PdfInput, boxes: List<RedactBox>, fileName: String, check: () -> Unit = {}): PdfFile {
+    fun redact(input: PdfInput, boxes: List<RedactBox>, fileName: String, view: PdfInput? = null, check: () -> Unit = {}): PdfFile {
         require(boxes.isNotEmpty())
-        val view = redactionView(input, check)
+        val view = view ?: previewView(input, check)
         return edit(input, fileName, "Redacted", check) { doc -> Redactor.redact(doc, view.file, boxes, check) }
     }
 

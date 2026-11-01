@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -398,7 +399,8 @@ internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> U
                 Icon(
                     Icons.Rounded.Check,
                     contentDescription = null,
-                    tint = Color.White,
+                    // Dark on light colours (yellow, white), so it shows on every one.
+                    tint = if (Color(argb(color)).luminance() > 0.5f) Color.Black else Color.White,
                     modifier = Modifier.graphicsLayer {
                         alpha = check
                         scaleX = 0.6f + 0.4f * check

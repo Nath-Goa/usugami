@@ -566,7 +566,7 @@ class RedactionDeviceTest {
         }
         val unlocked = engine.unlock(pending, "test123")
         // The preview can draw it: the view has no password.
-        val view = engine.redactionView(unlocked)
+        val view = engine.previewView(unlocked)
         assertEquals("", view.password)
         assertEquals(unlocked.pageCount, ParcelFileDescriptor.open(view.file, ParcelFileDescriptor.MODE_READ_ONLY).use { PdfRenderer(it).use { renderer -> renderer.pageCount } })
         val box = RedactBox(0, 0f, 0f, 1f, 0.5f)
@@ -613,7 +613,7 @@ class RedactionDeviceTest {
         val source = import(secrets("cancel-redact.pdf"))
         // The preview's copy is made first, as on the screen; cancelling stops the redaction itself:
         // while it looks at the pages, while it draws one, and while it stores the picture.
-        engine.redactionView(source)
+        engine.previewView(source)
         val boxes = listOf(RedactBox(0, 0.1f, 0.1f, 0.5f, 0.2f), RedactBox(1, 0.1f, 0.1f, 0.5f, 0.2f))
         for (stopAt in listOf(2, 5, 60)) {
             var calls = 0
@@ -646,13 +646,13 @@ class RedactionDeviceTest {
             assertEquals(3, restored.redactPage.value)
             assertEquals(1, restored.redactSelected.value)
             // The preview's copy is made again, and redacting works from what came back.
-            instrumentation.runOnMainSync { restored.prepareRedaction(input) }
+            instrumentation.runOnMainSync { restored.preparePreview(input) }
             val deadline = System.currentTimeMillis() + 10_000
-            while (restored.redactView.value == null) {
+            while (restored.previewView.value == null) {
                 assertTrue("The preview's copy is ready in time", System.currentTimeMillis() < deadline)
                 Thread.sleep(50)
             }
-            assertEquals(input.pageCount, restored.redactView.value!!.pageCount)
+            assertEquals(input.pageCount, restored.previewView.value!!.pageCount)
         } finally {
             instrumentation.runOnMainSync { restored.reset() }
         }
@@ -660,7 +660,7 @@ class RedactionDeviceTest {
 
     @Test fun viewCopiesGoWithTheirPdf() {
         val source = import(secrets("view.pdf"))
-        val view = engine.redactionView(source)
+        val view = engine.previewView(source)
         // The comments make a copy with them drawn in; deleting the PDF deletes it too.
         assertTrue(view.path != source.path && view.file.isFile)
         assertEquals(source.pageCount, view.pageCount)
@@ -675,6 +675,6 @@ class RedactionDeviceTest {
             doc.save(plain)
         }
         val input = import(plain)
-        assertEquals(input.path, engine.redactionView(input).path)
+        assertEquals(input.path, engine.previewView(input).path)
     }
 }

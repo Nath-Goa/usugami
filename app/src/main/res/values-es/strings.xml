@@ -28,7 +28,6 @@
     <string name="tool_redact_detail">Tapa texto e imágenes para siempre</string>
     <string name="pick_pdf">Elegir PDF</string>
     <string name="add_pdfs">Añadir PDF</string>
-    <string name="replace_pdf">Elegir otro PDF</string>
     <!-- %1$s is a file name. -->
     <string name="move_file_earlier">Mover %1$s una posición antes</string>
     <string name="move_file_later">Mover %1$s una posición después</string>
@@ -79,6 +78,7 @@
     <string name="pdf_need_two">Añade al menos dos PDF para unirlos.</string>
     <string name="pdf_need_page">Conserva al menos una página.</string>
     <string name="pdf_discard_title">¿Descartar este PDF?</string>
+    <string name="tool_discard_title">¿Descartar tus cambios?</string>
     <string name="pdf_discard_shared_body">Las imágenes que compartiste están listas para convertir, pero este PDF aún no se ha guardado. Guárdalo o compártelo primero si quieres conservarlo.</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">Girar PDF</string>
@@ -192,7 +192,6 @@
     <string name="tool_powerpoint_detail">Diapositivas (.pptx), una página cada una</string>
     <string name="pick_word">Elegir archivo de Word</string>
     <string name="pick_powerpoint">Elegir archivo de PowerPoint</string>
-    <string name="replace_document">Elegir otro archivo</string>
     <string name="document_word">Documento de Word</string>
     <string name="document_powerpoint">Presentación de PowerPoint</string>
     <string name="office_note_word">Se convierten el texto, los títulos, las listas, las tablas y las imágenes. Las fuentes de tu teléfono sustituyen a las del documento, así que algunas líneas pueden cortarse en otro sitio.</string>
@@ -222,7 +221,8 @@
     <string name="page_marked_delete">Marcada para eliminar</string>
     <string name="page_kept">Conservada</string>
     <string name="pdf_reorganize_action">Guardar PDF</string>
-    <string name="reorganize_hint">Toca una página para elegirla; las páginas que añadas irán después de ella. Mantén presionada una página y arrástrala para moverla.</string>
+    <string name="reorganize_hint">Las páginas que añadas irán después de la página elegida. Mantén presionada una página y arrástrala para moverla.</string>
+    <string name="reorganize_choose_page">Toca una página para elegirla</string>
     <string name="reorganize_add">Añadir páginas</string>
     <string name="reorganize_add_pdf">Páginas de un PDF</string>
     <string name="reorganize_add_blank">Página en blanco</string>

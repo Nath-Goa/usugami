@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import android.util.LruCache
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -50,10 +51,25 @@ fun renderShownPage(input: PdfInput, pageIndex: Int, longSide: Int): RenderedPag
 /** Like [renderShownPage], the image only. */
 fun renderPdfPage(input: PdfInput, pageIndex: Int, longSide: Int): ImageBitmap? = renderShownPage(input, pageIndex, longSide)?.image
 
+/**
+ * Thumbnails are drawn one at a time: Android's renderer draws one page at a time anyway, and a
+ * thumbnail scrolled away before its turn is then never drawn.
+ */
+private val thumbnailRendering = Dispatchers.IO.limitedParallelism(1)
+
+/** The thumbnails drawn lately, by PDF and page, so scrolling back or moving a page shows them at once. */
+private val thumbnails = object : LruCache<String, ImageBitmap>(8 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
+}
+
 @Composable
 fun PdfThumbnail(input: PdfInput, pageIndex: Int, modifier: Modifier = Modifier) {
-    val preview by produceState<ImageBitmap?>(null, input.path, pageIndex) {
-        value = withContext(Dispatchers.IO) { renderPdfPage(input, pageIndex, 150) }
+    // Each copy of a PDF has a path of its own, never reused for another.
+    val key = "${input.path}#$pageIndex"
+    val preview by produceState(thumbnails.get(key), key) {
+        value = thumbnails.get(key) ?: withContext(thumbnailRendering) {
+            thumbnails.get(key) ?: renderPdfPage(input, pageIndex, 150)?.also { thumbnails.put(key, it) }
+        }
     }
     // The page fades in over the placeholder once it has been rendered, instead of popping in.
     Crossfade(

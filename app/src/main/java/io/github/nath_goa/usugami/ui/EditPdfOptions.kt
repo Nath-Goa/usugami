@@ -395,145 +395,147 @@ private fun EditProperties(
     onEditText: () -> Unit,
     onStyle: (EditStyle) -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().animateContentSize(Motion.medium()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (selected != null) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // A screen reader says it is chosen as soon as it is.
-                val said = stringResource(R.string.edit_selected, describe(selected))
-                Text(
-                    describe(selected),
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).semantics {
-                        contentDescription = said
-                        liveRegion = LiveRegionMode.Polite
-                    },
-                )
-                if (selected is TextItem) {
-                    TextButton(onClick = onEditText) {
-                        Icon(Icons.Rounded.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.edit_text_change))
+    // The controls fade and fold away with the item, instead of vanishing and leaving a gap that closes.
+    val item = freezeWhen(selected == null, selected)
+    val drawing = selected == null && mode != EditMode.SELECT
+    val penMode = freezeWhen(!drawing, mode)
+    Column(Modifier.fillMaxWidth()) {
+        AnimatedVisibility(visible = selected != null, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "item controls") {
+            if (item != null) Column(Modifier.fillMaxWidth().animateContentSize(Motion.medium()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // A screen reader says it is chosen as soon as it is.
+                    val said = stringResource(R.string.edit_selected, describe(item))
+                    Text(
+                        describe(item),
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).semantics {
+                            contentDescription = said
+                            liveRegion = LiveRegionMode.Polite
+                        },
+                    )
+                    // Icons only, so the item's name keeps its room in any language.
+                    if (item is TextItem) {
+                        IconButton(onClick = onEditText) { Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_text_change)) }
                     }
+                    IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.edit_delete)) }
                 }
-                TextButton(onClick = onDelete) {
-                    Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.edit_delete))
-                }
-            }
-            val step = NUDGE * min(pageWidth, pageHeight)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                for ((icon, label, dx, dy) in listOf(
-                    Nudge(Icons.Rounded.West, R.string.edit_move_left, -step, 0f),
-                    Nudge(Icons.Rounded.North, R.string.edit_move_up, 0f, -step),
-                    Nudge(Icons.Rounded.South, R.string.edit_move_down, 0f, step),
-                    Nudge(Icons.Rounded.East, R.string.edit_move_right, step, 0f),
-                )) {
-                    val target = EditLayout.moved(selected, dx, dy, pageWidth, pageHeight)
-                    // Off once the item is against that edge of the page.
-                    IconButton(onClick = { onChange(target) }, enabled = target != selected) {
-                        Icon(icon, contentDescription = stringResource(label))
-                    }
-                }
-            }
-            val range = EditLayout.sizeRange(selected, pageWidth, pageHeight)
-            LabeledSlider(
-                label = stringResource(R.string.sign_size),
-                value = EditLayout.size(selected),
-                range = range,
-                onValue = { onStep(EditLayout.resized(selected, it, pageWidth, pageHeight)) },
-                onBegin = onBegin,
-                onEnd = {
-                    onEnd()
-                    if (selected is TextItem) onStyle(style.copy(textSize = selected.size))
-                },
-            )
-            val lineWidth = when (selected) {
-                is InkItem -> selected.width
-                is ShapeItem -> if (selected.isBox && selected.filled) null else selected.width
-                else -> null
-            }
-            if (lineWidth != null) {
-                val highlighter = (selected as? InkItem)?.highlighter == true
-                LabeledSlider(
-                    label = stringResource(R.string.edit_thickness),
-                    value = lineWidth,
-                    range = if (highlighter) EditLayout.HIGHLIGHTER_WIDTHS else EditLayout.PEN_WIDTHS,
-                    onValue = { width ->
-                        val changed = when (selected) {
-                            is InkItem -> selected.copy(width = width)
-                            is ShapeItem -> selected.copy(width = width)
-                            else -> selected
+                val step = NUDGE * min(pageWidth, pageHeight)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    for ((icon, label, dx, dy) in listOf(
+                        Nudge(Icons.Rounded.West, R.string.edit_move_left, -step, 0f),
+                        Nudge(Icons.Rounded.North, R.string.edit_move_up, 0f, -step),
+                        Nudge(Icons.Rounded.South, R.string.edit_move_down, 0f, step),
+                        Nudge(Icons.Rounded.East, R.string.edit_move_right, step, 0f),
+                    )) {
+                        val target = EditLayout.moved(item, dx, dy, pageWidth, pageHeight)
+                        // Off once the item is against that edge of the page.
+                        IconButton(onClick = { onChange(target) }, enabled = target != item) {
+                            Icon(icon, contentDescription = stringResource(label))
                         }
-                        onStep(EditLayout.onPage(changed, pageWidth, pageHeight))
-                    },
+                    }
+                }
+                val range = EditLayout.sizeRange(item, pageWidth, pageHeight)
+                LabeledSlider(
+                    label = stringResource(R.string.sign_size),
+                    value = EditLayout.size(item),
+                    range = range,
+                    onValue = { onStep(EditLayout.resized(item, it, pageWidth, pageHeight)) },
                     onBegin = onBegin,
                     onEnd = {
                         onEnd()
-                        onStyle(
-                            when {
-                                selected is ShapeItem -> style.copy(shapeWidth = lineWidth)
-                                highlighter -> style.copy(highlighterWidth = lineWidth)
-                                else -> style.copy(penWidth = lineWidth)
-                            },
-                        )
+                        if (item is TextItem) onStyle(style.copy(textSize = item.size))
                     },
                 )
-            }
-            if (selected is ShapeItem && selected.isBox) {
-                val fill = stringResource(R.string.edit_fill)
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .toggleable(value = selected.filled, role = Role.Switch, onValueChange = { onChange(selected.copy(filled = it)) })
-                        .semantics { contentDescription = fill }
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(fill, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).clearAndSetSemantics {})
-                    Switch(checked = selected.filled, onCheckedChange = null)
+                val lineWidth = when (item) {
+                    is InkItem -> item.width
+                    is ShapeItem -> if (item.isBox && item.filled) null else item.width
+                    else -> null
                 }
-            }
-            val color = when (selected) {
-                is TextItem -> selected.color
-                is InkItem -> selected.color
-                is ShapeItem -> selected.color
-                is PictureItem -> null
-            }
-            if (color != null) {
-                EditColors(color) { argb ->
-                    when (selected) {
-                        is TextItem -> {
-                            onChange(selected.copy(color = argb))
-                            onStyle(style.copy(textColor = argb))
+                if (lineWidth != null) {
+                    val highlighter = (item as? InkItem)?.highlighter == true
+                    LabeledSlider(
+                        label = stringResource(R.string.edit_thickness),
+                        value = lineWidth,
+                        range = if (highlighter) EditLayout.HIGHLIGHTER_WIDTHS else EditLayout.PEN_WIDTHS,
+                        onValue = { width ->
+                            val changed = when (item) {
+                                is InkItem -> item.copy(width = width)
+                                is ShapeItem -> item.copy(width = width)
+                                else -> item
+                            }
+                            onStep(EditLayout.onPage(changed, pageWidth, pageHeight))
+                        },
+                        onBegin = onBegin,
+                        onEnd = {
+                            onEnd()
+                            onStyle(
+                                when {
+                                    item is ShapeItem -> style.copy(shapeWidth = lineWidth)
+                                    highlighter -> style.copy(highlighterWidth = lineWidth)
+                                    else -> style.copy(penWidth = lineWidth)
+                                },
+                            )
+                        },
+                    )
+                }
+                if (item is ShapeItem && item.isBox) {
+                    val fill = stringResource(R.string.edit_fill)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .toggleable(value = item.filled, role = Role.Switch, onValueChange = { onChange(item.copy(filled = it)) })
+                            .semantics { contentDescription = fill }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(fill, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).clearAndSetSemantics {})
+                        Switch(checked = item.filled, onCheckedChange = null)
+                    }
+                }
+                val color = when (item) {
+                    is TextItem -> item.color
+                    is InkItem -> item.color
+                    is ShapeItem -> item.color
+                    is PictureItem -> null
+                }
+                if (color != null) {
+                    EditColors(color) { argb ->
+                        when (item) {
+                            is TextItem -> {
+                                onChange(item.copy(color = argb))
+                                onStyle(style.copy(textColor = argb))
+                            }
+                            is InkItem -> {
+                                onChange(item.copy(color = argb))
+                                onStyle(if (item.highlighter) style.copy(highlighterColor = argb) else style.copy(penColor = argb))
+                            }
+                            is ShapeItem -> {
+                                onChange(item.copy(color = argb))
+                                onStyle(style.copy(shapeColor = argb))
+                            }
+                            is PictureItem -> Unit
                         }
-                        is InkItem -> {
-                            onChange(selected.copy(color = argb))
-                            onStyle(if (selected.highlighter) style.copy(highlighterColor = argb) else style.copy(penColor = argb))
-                        }
-                        is ShapeItem -> {
-                            onChange(selected.copy(color = argb))
-                            onStyle(style.copy(shapeColor = argb))
-                        }
-                        is PictureItem -> Unit
                     }
                 }
             }
-        } else if (mode != EditMode.SELECT) {
-            // The next stroke's line width and colour.
-            val highlighter = mode == EditMode.HIGHLIGHTER
-            LabeledSlider(
-                label = stringResource(R.string.edit_thickness),
-                value = if (highlighter) style.highlighterWidth else style.penWidth,
-                range = if (highlighter) EditLayout.HIGHLIGHTER_WIDTHS else EditLayout.PEN_WIDTHS,
-                onValue = { width -> onStyle(if (highlighter) style.copy(highlighterWidth = width) else style.copy(penWidth = width)) },
-                onBegin = {},
-                onEnd = {},
-            )
-            EditColors(if (highlighter) style.highlighterColor else style.penColor) { argb ->
-                onStyle(if (highlighter) style.copy(highlighterColor = argb) else style.copy(penColor = argb))
+        }
+        AnimatedVisibility(visible = drawing, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "pen controls") {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // The next stroke's line width and colour.
+                val highlighter = penMode == EditMode.HIGHLIGHTER
+                LabeledSlider(
+                    label = stringResource(R.string.edit_thickness),
+                    value = if (highlighter) style.highlighterWidth else style.penWidth,
+                    range = if (highlighter) EditLayout.HIGHLIGHTER_WIDTHS else EditLayout.PEN_WIDTHS,
+                    onValue = { width -> onStyle(if (highlighter) style.copy(highlighterWidth = width) else style.copy(penWidth = width)) },
+                    onBegin = {},
+                    onEnd = {},
+                )
+                EditColors(if (highlighter) style.highlighterColor else style.penColor) { argb ->
+                    onStyle(if (highlighter) style.copy(highlighterColor = argb) else style.copy(penColor = argb))
+                }
             }
         }
     }

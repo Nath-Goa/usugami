@@ -54,6 +54,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -62,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
@@ -208,9 +210,13 @@ fun HomeScreen(
     onTool: (PdfTool) -> Unit,
     onSettings: () -> Unit,
 ) {
+    // The bar takes a tint of its own once the page scrolls under it.
+    val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
             TopAppBar(
+                scrollBehavior = barScroll,
                 title = { Text(stringResource(R.string.home_title)) },
                 actions = {
                     IconButton(onClick = onSettings) {
