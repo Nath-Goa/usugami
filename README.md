@@ -18,7 +18,7 @@ It was called PDFer before version 1.2.0.
 <a href="https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk"><img src="docs/badges/get-it-on-github.png" alt="Get Usugami on GitHub" height="80"></a>
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D"><img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
 
-On your phone, tap **Get it on GitHub** to download **Usugami.apk** (about 2.5 MB), then follow the
+On your phone, tap **Get it on GitHub** to download **Usugami.apk** (about 3 MB), then follow the
 [install steps](#install). Usugami comes in two editions, compared below; if you're not sure, take
 this one.
 
@@ -27,7 +27,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 
 | | **Usugami** (recommended) | **Usugami Offline** |
 |---|---|---|
-| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 2.5 MB | **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**, about 22 MB |
+| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-offline.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-offline.apk)**, about 22 MB |
 | Images, Word, PowerPoint and EPUB to PDF, and every PDF tool | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Built into the app. Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never |
@@ -50,7 +50,7 @@ installing the other APK over the one you have. Your files and settings are kept
 ## Screenshots
 
 <p>
-  <img src="docs/screenshots/home.png" width="200" alt="Usugami home screen with its four tools">
+  <img src="docs/screenshots/home.png" width="200" alt="Usugami home screen with search and its tools in sections">
   <img src="docs/screenshots/editor.png" width="200" alt="Arranging images before making a PDF">
   <img src="docs/screenshots/convert.png" width="200" alt="Options for creating the PDF">
   <img src="docs/screenshots/tools.png" width="200" alt="One of the PDF tools">
@@ -573,7 +573,7 @@ automatically.
 <details>
 <summary><b>How much storage does Usugami use?</b></summary>
 
-The app takes about 2.5 MB (standard) or 22 MB (offline) to download. While you work, Usugami keeps
+The app takes about 3 MB (standard) or 22 MB (offline) to download. While you work, Usugami keeps
 temporary copies of your files in its cache and deletes them automatically; you can also clear it
 in Settings → Apps → Usugami → Storage. In the standard edition, the text-recognition models are
 stored and managed by Google Play services, not by Usugami.
