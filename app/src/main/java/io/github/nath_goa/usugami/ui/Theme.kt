@@ -36,6 +36,7 @@ private val LightColors = lightColorScheme(
     surfaceContainerHighest = Color(0xFFF1DEDC),
 )
 
+// Neutral grays (not red-tinted, which looks brown in the dark), with the red kept as the accent.
 private val DarkColors = darkColorScheme(
     primary = Color(0xFFFFB4AB),
     onPrimary = Color(0xFF690005),
@@ -43,25 +44,27 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = Color(0xFFFFDAD6),
     secondary = Color(0xFFE7BDB7),
     onSecondary = Color(0xFF442925),
-    secondaryContainer = Color(0xFF5D3F3B),
-    onSecondaryContainer = Color(0xFFFFDAD5),
+    secondaryContainer = Color(0xFF464646),
+    onSecondaryContainer = Color(0xFFF2F2F2),
     tertiary = Color(0xFFDFC38C),
     onTertiary = Color(0xFF3E2E04),
     tertiaryContainer = Color(0xFF574419),
     onTertiaryContainer = Color(0xFFFCDFA6),
-    background = Color(0xFF1A1110),
-    onBackground = Color(0xFFF1DEDC),
-    surface = Color(0xFF1A1110),
-    onSurface = Color(0xFFF1DEDC),
-    surfaceVariant = Color(0xFF534341),
-    onSurfaceVariant = Color(0xFFD8C2BF),
-    outline = Color(0xFFA08C8A),
-    outlineVariant = Color(0xFF534341),
-    surfaceContainerLowest = Color(0xFF140C0B),
-    surfaceContainerLow = Color(0xFF231918),
-    surfaceContainer = Color(0xFF271D1C),
-    surfaceContainerHigh = Color(0xFF322826),
-    surfaceContainerHighest = Color(0xFF3D3231),
+    background = Color(0xFF171717),
+    onBackground = Color(0xFFEDEDED),
+    surface = Color(0xFF171717),
+    onSurface = Color(0xFFEDEDED),
+    surfaceVariant = Color(0xFF444444),
+    onSurfaceVariant = Color(0xFFC9C9C9),
+    // Raised surfaces get lighter gray instead of being tinted with the red primary.
+    surfaceTint = Color(0xFFEDEDED),
+    outline = Color(0xFF919191),
+    outlineVariant = Color(0xFF444444),
+    surfaceContainerLowest = Color(0xFF101010),
+    surfaceContainerLow = Color(0xFF1F1F1F),
+    surfaceContainer = Color(0xFF232323),
+    surfaceContainerHigh = Color(0xFF2D2D2D),
+    surfaceContainerHighest = Color(0xFF383838),
 )
 
 /** Usugami's colors, light or dark as [appearance] says (see [io.github.nath_goa.usugami.data.Appearances.forTheme]). */

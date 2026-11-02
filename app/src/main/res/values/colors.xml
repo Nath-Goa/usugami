@@ -3,5 +3,5 @@
     <!-- The app icon's background (also behind the icon on the About and language screens). -->
     <color name="brand">#E8DEF8</color>
     <color name="window_light">#FFF8F7</color>
-    <color name="window_dark">#1A1110</color>
+    <color name="window_dark">#171717</color>
 </resources>
