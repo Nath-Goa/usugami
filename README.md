@@ -13,6 +13,9 @@ It was called PDFer before version 1.2.0.
 [![CI](https://github.com/Nath-Goa/usugami/actions/workflows/ci.yml/badge.svg)](https://github.com/Nath-Goa/usugami/actions/workflows/ci.yml)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 
+⭐ **Like Usugami?** Please [star the repository](https://github.com/Nath-Goa/usugami). It's free
+and helps other people find the app.
+
 ## Download
 
 <a href="https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk"><img src="docs/badges/get-it-on-github.png" alt="Get Usugami on GitHub" height="80"></a>
