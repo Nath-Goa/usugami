@@ -7,9 +7,10 @@
 | **[Usugami.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami.apk)** (recommended) | ${STANDARD_MB} MB | You're not sure. Works on most phones. | Runs through Google Play services. The first time you use it, Play services downloads the text-recognition model (one for English, French and Spanish, one for Hindi), which needs internet then. |
 | [Usugami-offline.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-offline.apk) | ${OFFLINE_MB} MB | Your phone has no Google Play services, or you want no network use at all. ARM phones (virtually all phones). | Built into the app. Works without internet, ever. |
 
-Everything else (images to PDF, split, merge, compress) works offline in both, and Usugami itself has
-no internet permission. Both files are signed with the same key: install one over the other to
-switch editions.
+Every other tool works offline in both, and Usugami itself has no internet permission. Text
+recognition uses Google's ML Kit, which runs on your phone but is closed source; the rest of
+Usugami is GPL-3.0-or-later. Both files are signed with the same key: install one over the other
+to switch editions.
 
 Needs Android 8.0 or newer. New to installing APKs? Follow the
 [step-by-step guide](https://github.com/${GITHUB_REPOSITORY}#install).
