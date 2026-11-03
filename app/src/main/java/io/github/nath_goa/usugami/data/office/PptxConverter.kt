@@ -10,6 +10,7 @@ import io.github.nath_goa.usugami.core.ListNumbering
 import io.github.nath_goa.usugami.core.OfficeColors
 import io.github.nath_goa.usugami.core.OfficeRect
 import io.github.nath_goa.usugami.core.OfficeUnits
+import io.github.nath_goa.usugami.core.SlideTableStyles
 import io.github.nath_goa.usugami.core.SymbolFonts
 import io.github.nath_goa.usugami.core.TableColumns
 import java.util.concurrent.CancellationException
@@ -25,16 +26,18 @@ import kotlin.math.sin
  * What converts: slide backgrounds (colours, gradients, pictures) and the shapes and pictures of
  * the slide master and layout behind each slide; shapes with their position, size, rotation,
  * fill and outline (rectangles, rounded rectangles, ovals, triangles, arrows and other common
- * shapes, lines, and freeform shapes); pictures, cropped as on the slide; groups; text boxes and
- * placeholders, which take their position and text style from the slide layout and master
- * (titles, bulleted and numbered body text at every level), with alignment, spacing, bold, italic,
- * underline, size and colour; text shrunk to fit its box when PowerPoint would shrink it; slide
- * numbers; tables, styled as in PowerPoint; SmartArt, from the drawing PowerPoint saves with it.
+ * shapes, lines and connectors with their arrowheads, and freeform shapes); pictures, cropped as on
+ * the slide; groups, flipped or not; text boxes and placeholders, which take their position,
+ * outline and text style from the slide layout and master (titles, bulleted and numbered body text
+ * at every level), with alignment, spacing, bold, italic, underline, size and colour, right to left
+ * too; text shrunk to fit its box when PowerPoint would shrink it; slide numbers; links; tables,
+ * styled as in PowerPoint, with merged cells; SmartArt, from the drawing PowerPoint saves with it;
+ * ink, equations and embedded objects, from the pictures PowerPoint saves of them.
  *
  * What is simplified: fonts become the phone's, so text can take a little more or less room;
  * shadows, glow, reflections, 3-D and other effects are left out, as are animations, videos (their
- * poster picture shows), speaker notes and comments. Charts and other embedded objects become light
- * grey boxes with their title.
+ * poster picture shows), speaker notes and comments. Charts, and objects saved without a picture,
+ * become light grey boxes with their title.
  */
 internal class PptxConverter(
     private val pkg: OfficePackage,
@@ -45,15 +48,22 @@ internal class PptxConverter(
 ) {
     private var slideWidth = 720f
     private var slideHeight = 540f
-    private var defaultText: Map<Int, LevelLook> = emptyMap()
-    private val templates = HashMap<String, Template>()
-    private var tableStyles: Map<String, TableStyle>? = null
+    /** The presentation's default text style, read with each theme and colour map it's drawn with. */
+    private val defaultTexts = HashMap<Pair<OfficeTheme, Map<String, String>>, Map<Int, LevelLook>>()
+    /** Masters, layouts and slides read, by part and the colour map they were read with. */
+    private val templates = HashMap<Pair<String, Map<String, String>?>, Template>()
+    private val colorMapOverrides = HashMap<String, Map<String, String>?>()
+
+    /** The presentation's table styles, read with each theme and colour map they're drawn with. */
+    private val tableStyles = HashMap<Pair<OfficeTheme, Map<String, String>>, Map<String, TableStyle>>()
 
     /** Converts every slide that isn't hidden; returns the number of pages. Throws [OfficeNothingToConvert] when none is left. */
     fun convert(): Int {
         val main = pkg.mainPart() ?: "ppt/presentation.xml"
         val ids = ArrayList<String>()
+        var firstNumber = 1
         pkg.xml(main, check)?.use { x ->
+            x.intAttr("firstSlideNum")?.let { firstNumber = it }
             x.children {
                 when (x.name) {
                     "sldSz" -> {
@@ -61,18 +71,26 @@ internal class PptxConverter(
                         x.longAttr("cy")?.takeIf { it > 0 }?.let { slideHeight = OfficeUnits.emu(it).coerceIn(72f, 14_400f) }
                     }
                     "sldIdLst" -> x.children { if (x.name == "sldId") x.relId()?.let { ids += it } }
-                    "defaultTextStyle" -> defaultText = readLevels(x, Ctx(main))
                 }
             }
         }
-        val slides = ids.mapNotNull { pkg.target(main, it) }.filter { isShown(it) }
+        // A slide's number is its place among all the slides, hidden ones too, as PowerPoint numbers them.
+        val slides = ids.mapIndexedNotNull { i, id -> pkg.target(main, id)?.let { firstNumber + i to it } }.filter { isShown(it.second) }
         if (slides.isEmpty()) throw OfficeNothingToConvert()
-        slides.forEachIndexed { i, slide ->
+        slides.forEachIndexed { i, (number, slide) ->
             check()
             progress(i + 1, slides.size)
-            drawSlide(slide, i + 1)
+            drawSlide(slide, number)
         }
         return pdf.pageCount
+    }
+
+    /** The presentation's default text style, its colours (tx1...) those of [template]'s theme and colour map. */
+    private fun defaultText(template: Template): Map<Int, LevelLook> = defaultTexts.getOrPut(template.theme to template.colorMap) {
+        val main = pkg.mainPart() ?: "ppt/presentation.xml"
+        var levels: Map<Int, LevelLook> = emptyMap()
+        pkg.xml(main, check)?.use { x -> x.children { if (x.name == "defaultTextStyle") levels = readLevels(x, Ctx(main, template.theme, template.colorMap)) } }
+        levels
     }
 
     private fun isShown(slide: String): Boolean = pkg.xml(slide, check)?.use { it.flag("show") } ?: false
@@ -124,6 +142,8 @@ internal class PptxConverter(
         val childOffset: Pair<Float, Float> = 0f to 0f,
         val childExtent: Pair<Float, Float> = 0f to 0f,
         val table: SlideTable? = null,
+        /** A chart: drawn as a grey box with its title. Other graphic frames are objects this converter doesn't know. */
+        val chart: Boolean = false,
     )
 
     private class CustomPath(val w: Float, val h: Float, val commands: List<FloatArray>, val kinds: List<String>, val filled: Boolean, val stroked: Boolean)
@@ -151,11 +171,13 @@ internal class PptxConverter(
         val caps: Boolean? = null,
         val highlight: Int? = null,
         val spacing: Float? = null,
+        /** a:sym: the symbol font (Wingdings...) of the run's private-use characters, from Insert > Symbol. */
+        val symbol: String? = null,
     ) {
         fun over(base: RunLook?): RunLook = if (base == null) this else RunLook(
             size ?: base.size, bold ?: base.bold, italic ?: base.italic, underline ?: base.underline, strike ?: base.strike,
             color ?: base.color, font ?: base.font, baseline ?: base.baseline, caps ?: base.caps, highlight ?: base.highlight,
-            spacing ?: base.spacing,
+            spacing ?: base.spacing, symbol ?: base.symbol,
         )
     }
 
@@ -182,11 +204,13 @@ internal class PptxConverter(
         val bulletSize: Float? = null,
         val bulletFont: String? = null,
         val run: RunLook? = null,
+        /** A right-to-left paragraph (Arabic, Hebrew): its indents and bullet are on the right. */
+        val rtl: Boolean? = null,
     ) {
         fun over(base: LevelLook?): LevelLook = if (base == null) this else LevelLook(
             marL ?: base.marL, indent ?: base.indent, align ?: base.align, line ?: base.line, before ?: base.before,
             after ?: base.after, bullet ?: base.bullet, bulletColor ?: base.bulletColor, bulletSize ?: base.bulletSize,
-            bulletFont ?: base.bulletFont, run?.over(base.run) ?: base.run,
+            bulletFont ?: base.bulletFont, run?.over(base.run) ?: base.run, rtl ?: base.rtl,
         )
     }
 
@@ -197,7 +221,8 @@ internal class PptxConverter(
         class SlideNumber(val cached: String, override val look: RunLook?) : Piece()
     }
 
-    private class TextPara(val level: Int, val look: LevelLook?, val pieces: List<Piece>, val end: RunLook?)
+    /** A paragraph; [math] when it has an equation (a14:m), which this converter can't draw. */
+    private class TextPara(val level: Int, val look: LevelLook?, val pieces: List<Piece>, val end: RunLook?, val math: Boolean = false)
 
     private data class BodyLook(
         val insets: List<Float?> = listOf(null, null, null, null),
@@ -208,10 +233,13 @@ internal class PptxConverter(
         val fontScale: Float? = null,
         val lineReduction: Float? = null,
         val vertical: Int? = null,
+        /** spcFirstLastPara: the first paragraph's space before and the last one's space after count. */
+        val firstLastSpacing: Boolean? = null,
     ) {
         fun over(base: BodyLook?): BodyLook = if (base == null) this else BodyLook(
             List(4) { insets[it] ?: base.insets[it] }, anchor ?: base.anchor, wrap ?: base.wrap, autofit ?: base.autofit,
             fontScale ?: base.fontScale, lineReduction ?: base.lineReduction, vertical ?: base.vertical,
+            firstLastSpacing ?: base.firstLastSpacing,
         )
     }
 
@@ -221,9 +249,13 @@ internal class PptxConverter(
 
     // ---- Tables ----
 
-    /** A cell; [hMerge] cells are covered by the one before, [vMerge] cells by the one above. */
-    private class SlideCell(val body: TextBody?, val span: Int, val hMerge: Boolean, val vMerge: Boolean, val fill: Fill?, val borders: Array<Outline?>, val margins: List<Float?>, val anchor: Int?)
-    private class SlideTable(val grid: List<Float>, val rows: List<Pair<Float, List<SlideCell>>>, val styleId: String?, val flags: Set<String>)
+    /** A cell; [hMerge] cells are covered by the one before, [vMerge] cells by the one above, which spans [rowSpan] rows. */
+    private class SlideCell(
+        val body: TextBody?, val span: Int, val rowSpan: Int, val hMerge: Boolean, val vMerge: Boolean,
+        val fill: Fill?, val borders: Array<Outline?>, val margins: List<Float?>, val anchor: Int?,
+    )
+    /** A table; a right-to-left one ([rtl]) has its first column on the right. */
+    private class SlideTable(val grid: List<Float>, val rows: List<Pair<Float, List<SlideCell>>>, val styleId: String?, val flags: Set<String>, val rtl: Boolean)
 
     /** A part of a table style (wholeTbl, firstRow, band1H...): its fill, borders and text. */
     private class TableStylePart(val fill: Fill?, val borders: Map<String, Outline>, val bold: Boolean?, val color: Int?)
@@ -231,10 +263,15 @@ internal class PptxConverter(
 
     // ---- Reading ----
 
-    private fun template(path: String, master: Template?): Template = templates.getOrPut(path) {
+    /**
+     * The master, layout or slide in part [path] ([master] null for a master). Its colours are read
+     * with [colorMap] when given (a slide's or layout's override of its master's), else with its
+     * master's colour map.
+     */
+    private fun template(path: String, master: Template?, colorMap: Map<String, String>? = null): Template = templates.getOrPut(path to colorMap) {
         val theme = if (master == null) OfficeTheme.read(pkg, pkg.targetOfType(path, "/theme"), check) else master.theme
         // A master's colour map comes after its shapes in the file, but their colours depend on it.
-        val colorMap = if (master == null) readColorMap(path) else master.colorMap
+        val colorMap = colorMap ?: master?.colorMap ?: readColorMap(path).orEmpty()
         val ctx = Ctx(path, theme, colorMap)
         var shapes: List<Shape> = emptyList()
         var background: Fill? = null
@@ -260,14 +297,25 @@ internal class PptxConverter(
         Template(shapes, background, showMaster, theme, colorMap, styles.ifEmpty { master?.textStyles.orEmpty() })
     }
 
-    private fun readColorMap(path: String): Map<String, String> {
+    /** A master's colour map (p:clrMap), or a layout's or slide's override of its master's (p:clrMapOvr); null when there's none. */
+    private fun readColorMap(path: String): Map<String, String>? {
         val keys = listOf("bg1", "tx1", "bg2", "tx2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink")
-        var map: Map<String, String> = emptyMap()
+        var map: Map<String, String>? = null
         pkg.xml(path, check)?.use { x ->
-            x.children { if (x.name == "clrMap") map = keys.mapNotNull { key -> x.attr(key)?.let { key to it } }.toMap() }
+            fun read() = keys.mapNotNull { key -> x.attr(key)?.let { key to it } }.toMap()
+            x.children {
+                when (x.name) {
+                    "clrMap" -> map = read()
+                    "clrMapOvr" -> x.children { if (x.name == "overrideClrMapping") map = read() }
+                }
+            }
         }
         return map
     }
+
+    /** A layout's override of its master's colour map, read once. */
+    private fun layoutColorMap(path: String): Map<String, String>? =
+        if (path in colorMapOverrides) colorMapOverrides[path] else readColorMap(path).also { colorMapOverrides[path] = it }
 
     private fun readBackground(x: OfficeXml, ctx: Ctx): Fill? {
         var fill: Fill? = null
@@ -283,10 +331,35 @@ internal class PptxConverter(
     private fun readShapes(x: OfficeXml, ctx: Ctx): List<Shape> {
         val shapes = ArrayList<Shape>()
         x.children {
-            if (x.name == "AlternateContent") x.children { if (x.name == "Choice") x.children { readShape(x, ctx)?.let { shapes += it } } }
+            if (x.name == "AlternateContent") shapes += readAlternate(x, ctx)
             else readShape(x, ctx)?.let { shapes += it }
         }
         return shapes
+    }
+
+    /**
+     * mc:AlternateContent: the shapes of its first mc:Choice, or those of its mc:Fallback when the
+     * choice has something that can't be drawn here (ink, equations, 3-D models, Slide Zooms...),
+     * which the fallback has as a picture.
+     */
+    private fun readAlternate(x: OfficeXml, ctx: Ctx): List<Shape> {
+        var choice: List<Shape>? = null
+        var fallback: List<Shape> = emptyList()
+        x.children {
+            when (x.name) {
+                "Choice" -> if (choice == null) choice = readShapes(x, ctx)
+                "Fallback" -> fallback = readShapes(x, ctx)
+            }
+        }
+        val chosen = choice.orEmpty()
+        return if (fallback.isNotEmpty() && (chosen.isEmpty() || !chosen.all(::drawable))) fallback else chosen
+    }
+
+    /** Whether [shape] can be drawn as it shows in PowerPoint (a chart as its grey box). */
+    private fun drawable(shape: Shape): Boolean = when (shape.kind) {
+        Kind.GRAPHIC -> shape.chart
+        Kind.GROUP -> shape.children.all(::drawable)
+        else -> shape.body?.paragraphs?.none { it.math } ?: true
     }
 
     private fun readShape(x: OfficeXml, ctx: Ctx): Shape? = when (x.name) {
@@ -358,8 +431,7 @@ internal class PptxConverter(
         return Shape(
             kind = if (isPicture) Kind.PICTURE else Kind.SHAPE,
             name = name, caption = caption, hidden = hidden, ph = ph, xfrm = xfrm,
-            geometry = geometry ?: if (custom == null && !isPicture) "rect" else null,
-            custom = custom, adjust = adjust,
+            geometry = geometry, custom = custom, adjust = adjust,
             fill = if (isPicture) picture else fill,
             line = line, styleFill = styleFill, styleLine = styleLine, styleFont = styleFont,
             body = body, textRect = textRect,
@@ -395,7 +467,8 @@ internal class PptxConverter(
         return (x.attr("name") ?: return null) to value
     }
 
-    private fun readCustom(x: OfficeXml): List<CustomPath>? {
+    /** a:custGeom's paths; none when they can't be drawn here. */
+    private fun readCustom(x: OfficeXml): List<CustomPath> {
         val paths = ArrayList<CustomPath>()
         var usable = true
         x.children {
@@ -429,8 +502,9 @@ internal class PptxConverter(
                 paths += CustomPath(w, h, commands, kinds, filled, stroked)
             }
         }
-        // Points given by formulas need PowerPoint's shape-guide engine: such shapes are left out.
-        return paths.takeIf { usable && it.isNotEmpty() }
+        // Points given by formulas need PowerPoint's shape-guide engine: such shapes are left out
+        // (their text still shows).
+        return if (usable) paths else emptyList()
     }
 
     private fun readGroup(x: OfficeXml, ctx: Ctx): Shape {
@@ -453,7 +527,7 @@ internal class PptxConverter(
                         child = it.second
                     }
                 }
-                "AlternateContent" -> x.children { if (x.name == "Choice") x.children { readShape(x, ctx)?.let { children += it } } }
+                "AlternateContent" -> children += readAlternate(x, ctx)
                 else -> readShape(x, ctx)?.let { children += it }
             }
         }
@@ -473,6 +547,8 @@ internal class PptxConverter(
         var xfrm: Xfrm? = null
         var table: SlideTable? = null
         var drawing: List<Shape>? = null
+        var chart = false
+        var preview: Fill? = null
         x.children {
             when (x.name) {
                 "nvGraphicFramePr" -> x.children {
@@ -492,8 +568,16 @@ internal class PptxConverter(
                         x.children {
                             when {
                                 x.name == "tbl" -> table = readTable(x, ctx)
-                                x.name == "chart" -> caption = caption ?: chartTitle(pkg.target(ctx.part, x.relId()))
+                                x.name == "chart" -> {
+                                    chart = true
+                                    caption = caption ?: chartTitle(pkg.target(ctx.part, x.relId()))
+                                }
                                 x.name == "relIds" && "diagram" in uri -> drawing = smartArt(ctx, x.relId("dm"))
+                                // An embedded object (an Excel sheet, an old equation...): the picture of it saved with it.
+                                x.name == "oleObj" -> preview = preview ?: olePreview(x, ctx)
+                                x.name == "AlternateContent" -> x.children {
+                                    x.children { if (x.name == "oleObj") preview = preview ?: olePreview(x, ctx) }
+                                }
                             }
                         }
                     }
@@ -504,7 +588,15 @@ internal class PptxConverter(
         if (drawing != null && rect != null) {
             return Shape(Kind.GROUP, name = name, hidden = hidden, xfrm = xfrm, children = drawing!!, childOffset = 0f to 0f, childExtent = rect.width to rect.height)
         }
-        return Shape(if (table != null) Kind.TABLE else Kind.GRAPHIC, name = name, caption = caption, hidden = hidden, ph = ph, xfrm = xfrm, table = table)
+        if (preview != null) return Shape(Kind.PICTURE, name = name, caption = caption, hidden = hidden, ph = ph, xfrm = xfrm, fill = preview)
+        return Shape(if (table != null) Kind.TABLE else Kind.GRAPHIC, name = name, caption = caption, hidden = hidden, ph = ph, xfrm = xfrm, table = table, chart = chart)
+    }
+
+    /** The picture p:oleObj keeps of an embedded object, or null. */
+    private fun olePreview(x: OfficeXml, ctx: Ctx): Fill? {
+        var preview: Fill? = null
+        x.children { if (x.name == "pic") readSp(x, ctx).fill?.let { if (it is Fill.Image) preview = it } }
+        return preview
     }
 
     /** The title of the chart in part [path], to show in its grey box. */
@@ -540,9 +632,11 @@ internal class PptxConverter(
         val rows = ArrayList<Pair<Float, List<SlideCell>>>()
         var styleId: String? = null
         val flags = HashSet<String>()
+        var rtl = false
         x.children {
             when (x.name) {
                 "tblPr" -> {
+                    rtl = x.flag("rtl", missing = false)
                     for (flag in listOf("firstRow", "lastRow", "firstCol", "lastCol", "bandRow", "bandCol")) if (x.flag(flag, missing = false)) flags += flag
                     x.children { if (x.name == "tableStyleId") styleId = x.text().trim() }
                 }
@@ -553,6 +647,7 @@ internal class PptxConverter(
                     x.children {
                         if (x.name != "tc") return@children
                         val span = (x.intAttr("gridSpan") ?: 1).coerceAtLeast(1)
+                        val rowSpan = (x.intAttr("rowSpan") ?: 1).coerceAtLeast(1)
                         val hMerge = x.flag("hMerge", missing = false)
                         val vMerge = x.flag("vMerge", missing = false)
                         var body: TextBody? = null
@@ -578,13 +673,13 @@ internal class PptxConverter(
                                 }
                             }
                         }
-                        cells += SlideCell(body, span, hMerge, vMerge, fill, borders, margins.toList(), anchor)
+                        cells += SlideCell(body, span, rowSpan, hMerge, vMerge, fill, borders, margins.toList(), anchor)
                     }
                     rows += height to cells
                 }
             }
         }
-        return SlideTable(grid, rows, styleId, flags)
+        return SlideTable(grid, rows, styleId, flags, rtl)
     }
 
     private fun anchorOf(value: String?) = when (value) { "ctr" -> 1; "b" -> 2; "t" -> 0; else -> null }
@@ -625,7 +720,10 @@ internal class PptxConverter(
             "horz" -> 0
             else -> null
         }
-        return BodyLook(insets, anchorOf(x.attr("anchor")), x.attr("wrap")?.let { it != "none" }, autofit, fontScale, reduction, vertical)
+        return BodyLook(
+            insets, anchorOf(x.attr("anchor")), x.attr("wrap")?.let { it != "none" }, autofit, fontScale, reduction, vertical,
+            x.attr("spcFirstLastPara")?.let { x.flag("spcFirstLastPara") },
+        )
     }
 
     private fun readLevels(x: OfficeXml, ctx: Ctx): Map<Int, LevelLook> {
@@ -654,6 +752,7 @@ internal class PptxConverter(
                 "l" -> Align.START
                 else -> null
             },
+            rtl = x.attr("rtl")?.let { x.flag("rtl") },
         )
         fun gap(): Gap? {
             var gap: Gap? = null
@@ -705,6 +804,15 @@ internal class PptxConverter(
                 "gradFill" -> ctx.fill(x)?.mainColor?.let { look = look.copy(color = it) }
                 "highlight" -> x.children { ctx.color(x)?.let { look = look.copy(highlight = it) } }
                 "latin" -> x.attr("typeface")?.takeIf { it.isNotEmpty() }?.let { look = look.copy(font = it) }
+                "sym" -> x.attr("typeface")?.takeIf { it.isNotEmpty() }?.let { look = look.copy(symbol = it) }
+                "hlinkClick" -> {
+                    // A link shows in the theme's link colour, underlined, whatever the text's own
+                    // colour, unless it's set to keep it (ahyp:hlinkClr val="tx", PowerPoint 2019).
+                    var ownColor = false
+                    fun find() { x.children { if (x.name == "hlinkClr") ownColor = x.attr("val") == "tx" else find() } }
+                    find()
+                    if (!ownColor) look = look.copy(color = ctx.scheme("hlink") ?: look.color, underline = look.underline ?: true)
+                }
             }
         }
         return look
@@ -714,9 +822,11 @@ internal class PptxConverter(
         var level = 0
         var look: LevelLook? = null
         var end: RunLook? = null
+        var math = false
         val pieces = ArrayList<Piece>()
         x.children {
             when (x.name) {
+                "m" -> math = true
                 "pPr" -> {
                     level = (x.intAttr("lvl") ?: 0).coerceIn(0, 8)
                     look = readLevelLook(x, ctx)
@@ -752,12 +862,13 @@ internal class PptxConverter(
                 "endParaRPr" -> end = readRunLook(x, ctx)
             }
         }
-        return TextPara(level, look, pieces, end)
+        return TextPara(level, look, pieces, end, math)
     }
 
     private fun tableStyle(id: String?, ctx: Ctx): TableStyle? {
         id ?: return null
-        val all = tableStyles ?: run {
+        // Their colours are the theme's (accent1...), so slides of another master get their own.
+        val all = tableStyles.getOrPut(ctx.theme to ctx.colorMap) {
             val found = HashMap<String, TableStyle>()
             val main = pkg.mainPart() ?: "ppt/presentation.xml"
             pkg.targetOfType(main, "/tableStyles")?.let { path ->
@@ -771,7 +882,7 @@ internal class PptxConverter(
                     }
                 }
             }
-            found.also { tableStyles = it }
+            found
         }
         return all[id]
     }
@@ -810,12 +921,16 @@ internal class PptxConverter(
     private fun drawSlide(path: String, number: Int) {
         val layoutPath = pkg.targetOfType(path, "/slideLayout")
         val masterPath = layoutPath?.let { pkg.targetOfType(it, "/slideMaster") }
-        val master = masterPath?.let { template(it, null) }
-        val layout = layoutPath?.let { template(it, master ?: NO_MASTER) }
-        val slide = template(path, master ?: layout ?: NO_MASTER)
+        val plainMaster = masterPath?.let { template(it, null) }
+        // A slide's or its layout's own colour map (a dark title layout's, say) is the one for all
+        // of the slide, the master's shapes and text styles too.
+        val colorMap = (readColorMap(path) ?: layoutPath?.let(::layoutColorMap))?.takeIf { it != plainMaster?.colorMap }
+        val master = if (colorMap == null) plainMaster else masterPath?.let { template(it, null, colorMap) }
+        val layout = layoutPath?.let { template(it, master ?: NO_MASTER, colorMap) }
+        val slide = template(path, master ?: layout ?: NO_MASTER, colorMap)
         currentTheme = slide.theme
         // A slide's own template entry is read once and not needed again.
-        templates.remove(path)
+        templates.remove(path to colorMap)
         val canvas = pdf.startPage(slideWidth, slideHeight)
         val page = RectF(0f, 0f, slideWidth.units, slideHeight.units)
         val background = slide.background ?: layout?.background ?: master?.background ?: Fill.Solid(Color.WHITE)
@@ -883,12 +998,17 @@ internal class PptxConverter(
      */
     private fun drawShape(canvas: Canvas, shape: Shape, scene: Scene, owner: Template, group: GroupFrame?) {
         if (shape.hidden) return
+        // An empty placeholder (only a slide's are drawn) doesn't show in PowerPoint's slide show
+        // or its PDFs, whatever fill and outline it has: not even a space was typed in it.
+        if (shape.ph != null && shape.kind == Kind.SHAPE && shape.body?.paragraphs?.all { it.pieces.isEmpty() } != false && shape.fill !is Fill.Image) return
         val parents = shape.ph?.let { inherited(it, scene, owner) }.orEmpty()
-        val xfrm = shape.xfrm ?: parents.firstNotNullOfOrNull { it.xfrm } ?: return
+        val own = shape.xfrm ?: parents.firstNotNullOfOrNull { it.xfrm } ?: return
+        // In a flipped group the shape is mirrored: where it is, which way it faces and turns.
+        val xfrm = group?.mirror(own.rotation, own.flipH, own.flipV)?.let { (rotation, flipH, flipV) -> Xfrm(own.rect, rotation, flipH, flipV) } ?: own
         val rect = group?.place(xfrm.rect) ?: xfrm.rect
         when (shape.kind) {
             Kind.GROUP -> {
-                val inner = GroupFrame(rect, shape.childOffset, shape.childExtent)
+                val inner = GroupFrame(rect, shape.childOffset, shape.childExtent, xfrm.flipH, xfrm.flipV)
                 rotate(canvas, xfrm, rect)
                 for (child in shape.children) guarded(canvas) { drawShape(canvas, child, scene, owner, inner) }
                 return
@@ -905,7 +1025,10 @@ internal class PptxConverter(
         }
         rotate(canvas, xfrm, rect)
         val r = rect.toUnits()
-        val geometry = shape.geometry ?: parents.firstNotNullOfOrNull { it.geometry }
+        // The outline, with its adjustments, is the shape's own, or else the placeholder's it takes after.
+        val source = if (shape.geometry != null || shape.custom != null) shape else parents.firstOrNull { it.geometry != null || it.custom != null }
+        val geometry = source?.geometry ?: if (source == null && shape.kind != Kind.PICTURE) "rect" else null
+        val adjust = source?.adjust ?: shape.adjust
         val fill = shape.fill ?: parents.firstNotNullOfOrNull { it.fill } ?: shape.styleFill?.let { Fill.Solid(it) }
         val line = (shape.line ?: parents.firstNotNullOfOrNull { it.line }).let { own ->
             when {
@@ -919,16 +1042,21 @@ internal class PptxConverter(
                 canvas.withSave {
                     if (xfrm.flipH) scale(-1f, 1f, r.centerX(), r.centerY())
                     if (xfrm.flipV) scale(1f, -1f, r.centerX(), r.centerY())
-                    clipPath(presetPath(geometry, r, shape.adjust))
+                    clipPath(presetPath(geometry, r, adjust))
                     ImagePicture(images, image.path, rect.width, rect.height, image.crop).draw(this, r)
                 }
             }
-            canvas.stroke(line, presetPath(geometry, r, shape.adjust))
+            canvas.stroke(line, presetPath(geometry, r, adjust))
         } else {
-            val paths = shape.custom?.let { customPaths(it, r, xfrm) } ?: listOf(Triple(flipped(presetPath(geometry, r, shape.adjust), xfrm, r), true, true))
-            for ((path, filled, stroked) in paths) {
+            val custom = source?.custom
+            val paths = custom?.let { customPaths(it, r, xfrm) } ?: listOf(Triple(flipped(presetPath(geometry, r, adjust), xfrm, r), true, true))
+            for ((i, drawn) in paths.withIndex()) {
+                val (path, filled, stroked) = drawn
                 if (filled && !isLineShape(geometry)) canvas.fill(fill, path, r) { image -> ImagePicture(images, image.path, rect.width, rect.height, image.crop) }
-                if (stroked) canvas.stroke(line, path)
+                if (!stroked) continue
+                // A line that isn't closed can have arrowheads.
+                if (if (custom != null) custom[i].kinds.lastOrNull() != "close" else isLineShape(geometry)) canvas.strokeLine(line, path)
+                else canvas.stroke(line, path)
             }
         }
         val body = shape.body
@@ -951,8 +1079,9 @@ internal class PptxConverter(
     }
 
     private fun customPaths(paths: List<CustomPath>, r: RectF, xfrm: Xfrm): List<Triple<Path, Boolean, Boolean>> = paths.map { p ->
-        val sx = if (p.w > 0f) r.width() / p.w else 1f
-        val sy = if (p.h > 0f) r.height() / p.h else 1f
+        // Without a size of its own, a path is in the shape's EMUs.
+        val sx = if (p.w > 0f) r.width() / p.w else U / OfficeUnits.EMU_PER_POINT
+        val sy = if (p.h > 0f) r.height() / p.h else U / OfficeUnits.EMU_PER_POINT
         val path = Path()
         var cx = 0f
         var cy = 0f
@@ -996,7 +1125,7 @@ internal class PptxConverter(
             "body" -> master.textStyles["body"]?.let { chain += it }
             else -> {
                 master.textStyles["other"]?.let { chain += it }
-                chain += defaultText
+                chain += defaultText(master)
             }
         }
         return chain
@@ -1019,25 +1148,32 @@ internal class PptxConverter(
             val darkFill = fill?.mainColor?.let(OfficeColors::isDark) == true
             var scale = look.fontScale ?: 1f
             val reduction = look.lineReduction ?: 0f
+            // Unless the text body asks for them, PowerPoint leaves out the first paragraph's space
+            // before and the last one's space after.
+            val edges = look.firstLastSpacing == true
+            fun height(blocks: List<Spaced>): Int {
+                val all = blocks.sumOf { it.before + it.block.height + it.after }
+                return if (edges) all else all - (blocks.firstOrNull()?.before ?: 0) - (blocks.lastOrNull()?.after ?: 0)
+            }
             var blocks = layoutText(body, chain, width, scale, reduction, slide, styleFont, darkFill)
             // Text that overflows a box PowerPoint shrinks text in is shrunk until it fits.
             if (look.autofit == 1) {
-                var height = blocks.sumOf { it.before + it.block.height + it.after }
-                while (height > area.height() && scale > 0.3f) {
+                while (height(blocks) > area.height() && scale > 0.3f) {
                     scale *= 0.9f
                     blocks = layoutText(body, chain, width, scale, minOf(0.2f, reduction + 0.05f), slide, styleFont, darkFill)
-                    height = blocks.sumOf { it.before + it.block.height + it.after }
                 }
             }
-            val total = blocks.sumOf { it.before + it.block.height + it.after }
             val anchor = look.anchor ?: 0
-            var y = area.top + (area.height() - total) * anchor / 2f
+            var y = area.top + (area.height() - height(blocks)) * anchor / 2f
             for ((i, item) in blocks.withIndex()) {
-                if (i > 0) y += item.before
+                if (i > 0 || edges) y += item.before
                 val block = item.block as ParagraphBlock
-                val x = if (wrap) area.left else when (block.spec.align) {
-                    Align.CENTER -> area.centerX() - width / 2f
-                    Align.END -> area.right - width
+                // Text that isn't wrapped is laid out wider than the box, and placed by its side.
+                val align = block.spec.align
+                val x = when {
+                    wrap -> area.left
+                    align == Align.CENTER -> area.centerX() - width / 2f
+                    (align == Align.END) != block.spec.rtl -> area.right - width
                     else -> area.left
                 }
                 block.draw(canvas, x, y)
@@ -1053,14 +1189,17 @@ internal class PptxConverter(
             val level = p.level
             var look = p.look ?: LevelLook()
             for (levels in chain) look = look.over(levels[level])
+            val rtl = look.rtl == true
             val baseRun = look.run ?: RunLook()
             val rich = RichText()
             var firstStyle: TextStyle? = null
             for (piece in p.pieces) {
-                val style = textStyle((piece.look ?: RunLook()).over(baseRun), scale, styleFont, darkFill)
+                val run = (piece.look ?: RunLook()).over(baseRun)
+                val style = textStyle(run, scale, styleFont, darkFill)
                 if (firstStyle == null) firstStyle = style
                 when (piece) {
-                    is Piece.Text -> rich.append(piece.text, style)
+                    // Characters of Symbol and Wingdings, which phones don't have, as the ones they show.
+                    is Piece.Text -> rich.append(SymbolFonts.text(themeFont(run.font), piece.text, run.symbol), style)
                     is Piece.Break -> rich.append("\n", style)
                     is Piece.SlideNumber -> rich.append(slide.toString(), style)
                 }
@@ -1107,13 +1246,24 @@ internal class PptxConverter(
                     text = rich.text,
                     base = mark,
                     width = width,
-                    align = look.align ?: Align.START,
+                    // DrawingML's l and r are the left and right sides, whichever way the paragraph reads.
+                    align = when (val align = look.align) {
+                        null -> Align.START
+                        Align.START -> if (rtl) Align.END else Align.START
+                        Align.END -> if (rtl) Align.START else Align.END
+                        else -> align
+                    },
                     firstIndent = textStart.toInt(),
                     indent = marL.toInt(),
                     spacing = line,
                     // PowerPoint's single spacing is 1.2 times the font size, whatever the font.
                     lineScale = OfficeFonts.lineScale(first, 1.2f),
                     label = label,
+                    // A paragraph reads the way it says, not the way its first letter does; a
+                    // right-to-left one has its indents and bullet on the right.
+                    rtl = rtl,
+                    mirrored = rtl,
+                    directionFromText = false,
                     avoidSingleLines = false,
                 ),
             )
@@ -1144,10 +1294,18 @@ internal class PptxConverter(
         val template = scene.master ?: owner
         val ctx = Ctx("", template.theme, template.colorMap)
         val style = tableStyle(table.styleId, ctx) ?: table.styleId?.let { defaultTableStyle(ctx) }
-        val columns = table.rows.maxOfOrNull { (_, cells) -> cells.sumOf { it.span } } ?: return
+        // A column covered by a merged cell (hMerge) is counted once, with the cell spanning it.
+        val spans = table.rows.maxOfOrNull { (_, cells) -> cells.filterNot { it.hMerge }.sumOf { it.span } } ?: return
+        val columns = max(spans, table.grid.size)
         val widths = TableColumns.widths(table.grid, columns, slideWidth * 4).map { it.units }
         val starts = widths.runningFold(0f) { acc, w -> acc + w }
-        val chain = listOfNotNull(scene.master?.textStyles?.get("other"), defaultText)
+        val chain = listOfNotNull(scene.master?.textStyles?.get("other"), defaultText(template))
+        val lastRow = table.rows.lastIndex
+        // Cells merged down over the rows below (rowSpan): their text goes across those rows, once
+        // their heights are known, and the rows they cover take their fill, with no line between.
+        class Tall(val row: Int, val lastRow: Int, val box: CellBox)
+        val tall = ArrayList<Tall>()
+        val coveredBy = HashMap<Int, Tall>()
         val rows = table.rows.mapIndexed { r, (height, cells) ->
             var col = 0
             val boxes = cells.mapNotNull { cell ->
@@ -1156,14 +1314,14 @@ internal class PptxConverter(
                 val start = col.coerceAtMost(columns - 1)
                 val end = (col + cell.span).coerceAtMost(columns)
                 col += cell.span
-                val parts = styleParts(table, r, start, end, columns)
-                val partStyles = parts.mapNotNull { style?.parts?.get(it) }
-                val fill = cell.fill ?: partStyles.lastOrNull { it.fill != null }?.fill
-                val bold = partStyles.lastOrNull { it.bold != null }?.bold
-                val color = partStyles.lastOrNull { it.color != null }?.color
-                fun border(i: Int, side: String, inside: String, outer: Boolean): Border? {
-                    val outline = cell.borders[i] ?: partStyles.lastOrNull { side in it.borders || (!outer && inside in it.borders) }
-                        ?.let { it.borders[side] ?: it.borders[inside] }
+                val partStyles = SlideTableStyles.parts(table.flags, r, table.rows.size, start, end, columns)
+                    .mapNotNull { name -> style?.parts?.get(name)?.let { name to it } }
+                val fill = cell.fill ?: partStyles.lastOrNull { it.second.fill != null }?.second?.fill
+                val bold = partStyles.lastOrNull { it.second.bold != null }?.second?.bold
+                val color = partStyles.lastOrNull { it.second.color != null }?.second?.color
+                // The strongest part with a border for the edge draws it, or leaves it out.
+                fun border(i: Int, side: String, outer: Boolean): Border? {
+                    val outline = cell.borders[i] ?: partStyles.asReversed().firstNotNullOfOrNull { (name, part) -> part.borders[SlideTableStyles.border(name, side, outer)] }
                     return outline?.color?.let { Border(outline.width, it) }
                 }
                 val margins = listOf(7.2f, 3.6f, 7.2f, 3.6f).mapIndexed { i, d -> (cell.margins[i] ?: d).units.toInt() }
@@ -1173,34 +1331,46 @@ internal class PptxConverter(
                     val levels = listOf(body.levels, (0..8).associateWith { override }) + chain
                     StackBlock(layoutText(body, levels, max(1, (width - margins[0] - margins[2]).toInt()), 1f, 0f, scene.number, null, fill?.mainColor?.let(OfficeColors::isDark) == true))
                 }
-                CellBox(
-                    x = starts[start], width = width, content = content,
-                    fill = (fill as? Fill.Solid)?.color ?: fill?.mainColor,
-                    top = if (cell.vMerge) Border.NONE else border(1, "top", "insideH", r == 0),
-                    left = border(0, "left", "insideV", start == 0),
-                    bottom = border(3, "bottom", "insideH", r == table.rows.lastIndex),
-                    right = border(2, "right", "insideV", end >= columns),
+                val over = if (cell.vMerge) coveredBy[start]?.takeIf { r <= it.lastRow } else null
+                val spansDown = !cell.vMerge && cell.rowSpan > 1 && r < lastRow
+                // A right-to-left table's columns go from the right, each cell's left side (its start) on its right.
+                val startSide = border(0, "left", start == 0)
+                val endSide = border(2, "right", end >= columns)
+                val box = CellBox(
+                    x = if (table.rtl) starts[columns] - starts[end] else starts[start], width = width, content = content,
+                    fill = if (over != null) over.box.fill else (fill as? Fill.Solid)?.color ?: fill?.mainColor,
+                    top = if (cell.vMerge) Border.NONE else border(1, "top", r == 0),
+                    left = if (table.rtl) endSide else startSide,
+                    bottom = if (spansDown || (over != null && r < over.lastRow)) Border.NONE else border(3, "bottom", r == lastRow),
+                    right = if (table.rtl) startSide else endSide,
                     verticalAlign = cell.anchor ?: 0,
                     padLeft = margins[0], padTop = margins[1], padRight = margins[2], padBottom = margins[3],
                 )
+                if (spansDown) {
+                    Tall(r, min(lastRow, r + cell.rowSpan - 1), box).also { tall += it; coveredBy[start] = it }
+                    box.copy(content = null)
+                } else {
+                    box
+                }
             }
-            RowBlock(boxes, height.units.toInt(), exact = false)
+            height.units.toInt() to boxes
         }
-        TableBlock(rows, 0, 0f).draw(canvas, rect.x.units, rect.y.units)
-    }
-
-    /** The table style parts that apply to a cell, weakest first. */
-    private fun styleParts(table: SlideTable, row: Int, start: Int, end: Int, columns: Int): List<String> {
-        val parts = arrayListOf("wholeTbl")
-        val f = table.flags
-        val bodyRow = if ("firstRow" in f) row - 1 else row
-        if ("bandRow" in f && bodyRow >= 0) parts += if (bodyRow % 2 == 0) "band1H" else "band2H"
-        if ("bandCol" in f) parts += if (start % 2 == 0) "band1V" else "band2V"
-        if ("lastCol" in f && end >= columns) parts += "lastCol"
-        if ("firstCol" in f && start == 0) parts += "firstCol"
-        if ("lastRow" in f && row == table.rows.lastIndex) parts += "lastRow"
-        if ("firstRow" in f && row == 0) parts += "firstRow"
-        return parts
+        val blocks = rows.map { (height, boxes) -> RowBlock(boxes, height, exact = false) }.toMutableList()
+        // A merged cell whose text needs more room than its rows have makes the last of them taller.
+        for (t in tall) {
+            val need = (t.box.content?.height ?: 0) + t.box.padTop + t.box.padBottom
+            val have = (t.row..t.lastRow).sumOf { blocks[it].height }
+            if (need > have) blocks[t.lastRow] = RowBlock(rows[t.lastRow].second, blocks[t.lastRow].height + need - have, exact = false)
+        }
+        val x = rect.x.units
+        val y = rect.y.units
+        TableBlock(blocks, 0, 0f).draw(canvas, x, y)
+        val tops = blocks.runningFold(0) { acc, row -> acc + row.height }
+        for (t in tall) {
+            val content = t.box.content ?: continue
+            val free = tops[t.lastRow + 1] - tops[t.row] - t.box.padTop - t.box.padBottom - content.height
+            content.draw(canvas, x + t.box.x + t.box.padLeft, y + tops[t.row] + t.box.padTop + if (free > 0) free * t.box.verticalAlign / 2f else 0f)
+        }
     }
 
     /** PowerPoint's default table look (Medium Style 2, Accent 1), for styles the file doesn't include. */

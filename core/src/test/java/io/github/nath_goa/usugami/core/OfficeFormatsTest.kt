@@ -114,6 +114,11 @@ class OfficeFormatsTest {
         assertEquals("a", SymbolFonts.character("Arial", "a"))
         // List bullets are read as before.
         assertEquals("\u2022", SymbolFonts.bullet("Symbol", "\uF06D"))
+        // Runs of text: a whole run in a symbol font, or the private-use characters of any run.
+        assertEquals("\u2713 \u2713", SymbolFonts.text("Wingdings", "\u00FC \u00FC"))
+        assertEquals("\u03B1+\u03B2", SymbolFonts.text("Symbol", "a+b"))
+        assertEquals("Done \u2713", SymbolFonts.text("Calibri", "Done \uF0FC", symbol = "Wingdings"))
+        assertEquals("abc", SymbolFonts.text("Calibri", "abc", symbol = "Wingdings"))
     }
 
     @Test fun parsesAndModifiesColors() {
@@ -165,5 +170,33 @@ class OfficeFormatsTest {
         // Children placed with an offset of their own.
         val offset = GroupFrame(OfficeRect(0f, 0f, 100f, 100f), 1000f to 1000f, 100f to 100f)
         assertEquals(OfficeRect(10f, 20f, 30f, 40f), offset.place(OfficeRect(1010f, 1020f, 30f, 40f)))
+        // A flipped group mirrors its children inside its rectangle, and their own flips and turns.
+        val flipped = GroupFrame(OfficeRect(0f, 0f, 100f, 100f), 0f to 0f, 100f to 100f, flipH = true)
+        assertEquals(OfficeRect(60f, 20f, 30f, 40f), flipped.place(OfficeRect(10f, 20f, 30f, 40f)))
+        assertEquals(Triple(-30f, true, false), flipped.mirror(30f, flipH = false, flipV = false))
+        val upsideDown = GroupFrame(OfficeRect(0f, 0f, 100f, 100f), 0f to 0f, 100f to 100f, flipV = true)
+        assertEquals(OfficeRect(10f, 40f, 30f, 40f), upsideDown.place(OfficeRect(10f, 20f, 30f, 40f)))
+        // Flipped both ways is half a turn: the child's turn stays.
+        val both = GroupFrame(OfficeRect(0f, 0f, 100f, 100f), 0f to 0f, 100f to 100f, flipH = true, flipV = true)
+        assertEquals(Triple(30f, false, true), both.mirror(30f, flipH = true, flipV = false))
+    }
+
+    @Test fun tableStylePartsAndBorders() {
+        val flags = setOf("firstRow", "bandRow", "firstCol", "bandCol", "lastCol")
+        // The header row and column aren't banded: banding starts after them.
+        assertEquals(listOf("wholeTbl", "firstCol", "firstRow"), SlideTableStyles.parts(flags, 0, 4, 0, 1, 3))
+        assertEquals(listOf("wholeTbl", "band1H", "band1V"), SlideTableStyles.parts(flags, 1, 4, 1, 2, 3))
+        assertEquals(listOf("wholeTbl", "band2H", "band2V", "lastCol"), SlideTableStyles.parts(flags, 2, 4, 2, 3, 3))
+        // The whole table's top and bottom are its outline; between rows its insideH draws.
+        assertEquals("top", SlideTableStyles.border("wholeTbl", "top", outer = true))
+        assertEquals("insideH", SlideTableStyles.border("wholeTbl", "top", outer = false))
+        assertEquals("insideV", SlideTableStyles.border("wholeTbl", "right", outer = false))
+        // A row's top and bottom are its own, its left and right only at the table's edges.
+        assertEquals("bottom", SlideTableStyles.border("firstRow", "bottom", outer = false))
+        assertEquals("insideV", SlideTableStyles.border("band1H", "left", outer = false))
+        assertEquals("left", SlideTableStyles.border("band1H", "left", outer = true))
+        // A column's sides are its own.
+        assertEquals("right", SlideTableStyles.border("firstCol", "right", outer = false))
+        assertEquals("insideH", SlideTableStyles.border("lastCol", "top", outer = false))
     }
 }

@@ -261,6 +261,34 @@ object SymbolFonts {
         } ?: "\uFFFD"
     }
 
+    /**
+     * A run of text in [font] as it should show, as [character] maps it: every character when
+     * [font] is Symbol, Wingdings or Webdings, and in any font the private-use characters F000–F0FF
+     * that stand for a symbol font's: [symbol]'s (PowerPoint's a:sym) when given. Spaces and line
+     * breaks stay.
+     */
+    fun text(font: String?, text: String, symbol: String? = null): String {
+        val name = font.orEmpty().trim().lowercase()
+        val symbolFont = name == "symbol" || name.startsWith("wingdings") || name.startsWith("webdings")
+        if (!symbolFont && text.none { it.code in 0xF000..0xF0FF }) return text
+        val out = StringBuilder(text.length)
+        var i = 0
+        while (i < text.length) {
+            val code = text.codePointAt(i)
+            val char = String(Character.toChars(code))
+            out.append(
+                when {
+                    code <= 0x20 -> char
+                    code in 0xF000..0xF0FF -> character(symbol ?: font, char)
+                    symbolFont -> character(font, char)
+                    else -> char
+                },
+            )
+            i += char.length
+        }
+        return out.toString()
+    }
+
     /** Wingdings beyond the bullets: check boxes, and a few others found in forms. */
     private val WINGDINGS_SYMBOLS = mapOf(
         0xA8 to "\u25FB", // empty check box
@@ -499,17 +527,78 @@ data class OfficeRect(val x: Float, val y: Float, val width: Float, val height: 
 
 /**
  * How a group shape places its children: their coordinates ([childOffset], [childExtent]) are
- * stretched onto the group's own rectangle ([frame]).
+ * stretched onto the group's own rectangle ([frame]), and mirrored in it when the group is flipped
+ * ([flipH], [flipV]).
  */
-class GroupFrame(private val frame: OfficeRect, private val childOffset: Pair<Float, Float>, private val childExtent: Pair<Float, Float>) {
+class GroupFrame(
+    private val frame: OfficeRect,
+    private val childOffset: Pair<Float, Float>,
+    private val childExtent: Pair<Float, Float>,
+    val flipH: Boolean = false,
+    val flipV: Boolean = false,
+) {
     private val scaleX = if (abs(childExtent.first) > 0f) frame.width / childExtent.first else 1f
     private val scaleY = if (abs(childExtent.second) > 0f) frame.height / childExtent.second else 1f
 
     /** Where a child at [rect], in the group's child coordinates, lands. */
-    fun place(rect: OfficeRect): OfficeRect = OfficeRect(
-        frame.x + (rect.x - childOffset.first) * scaleX,
-        frame.y + (rect.y - childOffset.second) * scaleY,
-        rect.width * scaleX,
-        rect.height * scaleY,
-    )
+    fun place(rect: OfficeRect): OfficeRect {
+        val x = frame.x + (rect.x - childOffset.first) * scaleX
+        val y = frame.y + (rect.y - childOffset.second) * scaleY
+        val width = rect.width * scaleX
+        val height = rect.height * scaleY
+        return OfficeRect(
+            if (flipH) 2 * frame.centerX - x - width else x,
+            if (flipV) 2 * frame.centerY - y - height else y,
+            width,
+            height,
+        )
+    }
+
+    /**
+     * A child's own turn ([rotation], degrees clockwise) and flips as they show once the group's
+     * flips mirror it: each flip of the group adds one to the child's, and a single mirroring turns
+     * it the other way.
+     */
+    fun mirror(rotation: Float, flipH: Boolean, flipV: Boolean): Triple<Float, Boolean, Boolean> =
+        Triple(if (this.flipH != this.flipV) -rotation else rotation, flipH != this.flipH, flipV != this.flipV)
+}
+
+/**
+ * PowerPoint table styles (Light Style 1, Medium Style 2...): which of a style's parts apply to a
+ * cell, and which of a part's borders draws each of the cell's edges.
+ */
+object SlideTableStyles {
+    /**
+     * The parts that apply to the cell in [row] of [rows] covering columns [start] until [end] of
+     * [columns], weakest first, for a table with [flags] (firstRow, bandRow...). Banded rows and
+     * columns start after a header row or column.
+     */
+    fun parts(flags: Set<String>, row: Int, rows: Int, start: Int, end: Int, columns: Int): List<String> {
+        val parts = arrayListOf("wholeTbl")
+        val bodyRow = if ("firstRow" in flags) row - 1 else row
+        val bodyColumn = if ("firstCol" in flags) start - 1 else start
+        if ("bandRow" in flags && bodyRow >= 0) parts += if (bodyRow % 2 == 0) "band1H" else "band2H"
+        if ("bandCol" in flags && bodyColumn >= 0) parts += if (bodyColumn % 2 == 0) "band1V" else "band2V"
+        if ("lastCol" in flags && end >= columns) parts += "lastCol"
+        if ("firstCol" in flags && start == 0) parts += "firstCol"
+        if ("lastRow" in flags && row == rows - 1) parts += "lastRow"
+        if ("firstRow" in flags && row == 0) parts += "firstRow"
+        return parts
+    }
+
+    /**
+     * The border of part [part] that draws a cell's [side] edge ("left", "top", "right" or
+     * "bottom"): the side itself where the edge is on the outline of what the part covers (the
+     * whole table, a row or a column), its insideH or insideV within it. [outer]: the edge is on the
+     * table's outline.
+     */
+    fun border(part: String, side: String, outer: Boolean): String {
+        val horizontal = side == "top" || side == "bottom"
+        val onOutline = when (part) {
+            "firstRow", "lastRow", "band1H", "band2H" -> horizontal || outer
+            "firstCol", "lastCol", "band1V", "band2V" -> !horizontal || outer
+            else -> outer
+        }
+        return if (onOutline) side else if (horizontal) "insideH" else "insideV"
+    }
 }

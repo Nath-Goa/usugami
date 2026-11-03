@@ -302,6 +302,58 @@ class OfficeConverterDeviceTest {
         )
     }
 
+    /**
+     * A 720 × 540 point presentation of [slides] (each slide's XML), with [attributes] on
+     * p:presentation, the relationships of slide n+1 at [slideRels][n], the presentation's other
+     * relationships [more] (type to target), and [parts] besides.
+     */
+    private fun deck(
+        name: String, slides: List<String>, attributes: String = "", slideRels: Map<Int, String> = emptyMap(),
+        more: List<Pair<String, String>> = emptyList(), parts: Map<String, Any> = emptyMap(),
+    ): File {
+        val slideType = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml"
+        val all = linkedMapOf<String, Any>(
+            "[Content_Types].xml" to contentTypes(
+                "/ppt/presentation.xml" to "application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml",
+                *slides.indices.map { "/ppt/slides/slide${it + 1}.xml" to slideType }.toTypedArray(),
+            ),
+            "_rels/.rels" to relationships("officeDocument" to "ppt/presentation.xml"),
+            "ppt/presentation.xml" to """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentation xmlns:p="$P" xmlns:r="$OFFICE_RELS" xmlns:a="$A" $attributes>
+                <p:sldIdLst>${slides.indices.joinToString("") { """<p:sldId id="${256 + it}" r:id="rId${it + 1}"/>""" }}</p:sldIdLst>
+                <p:sldSz cx="${720 * EMU}" cy="${540 * EMU}"/></p:presentation>""",
+            "ppt/_rels/presentation.xml.rels" to relationships(*(slides.indices.map { "slide" to "slides/slide${it + 1}.xml" } + more).toTypedArray()),
+        )
+        slides.forEachIndexed { i, xml -> all["ppt/slides/slide${i + 1}.xml"] = xml }
+        slideRels.forEach { (i, rels) -> all["ppt/slides/_rels/slide${i + 1}.xml.rels"] = rels }
+        all.putAll(parts)
+        return zip(name, all)
+    }
+
+    private fun xfrm(x: Int, y: Int, w: Int, h: Int, attributes: String = "") =
+        """<a:xfrm $attributes><a:off x="${x * EMU}" y="${y * EMU}"/><a:ext cx="${w * EMU}" cy="${h * EMU}"/></a:xfrm>"""
+
+    private fun solid(hex: String) = """<a:solidFill><a:srgbClr val="$hex"/></a:solidFill>"""
+
+    /** A p:sp with [spPr] and, when given, a text body of [paragraphs] with [bodyPr] and the placeholder [ph]. */
+    private fun sp(id: Int, spPr: String, paragraphs: String? = null, bodyPr: String = "<a:bodyPr/>", ph: String = "") =
+        """<p:sp><p:nvSpPr><p:cNvPr id="$id" name="Shape $id"/><p:cNvSpPr/><p:nvPr>$ph</p:nvPr></p:nvSpPr><p:spPr>$spPr</p:spPr>""" +
+            (paragraphs?.let { "<p:txBody>$bodyPr<a:lstStyle/>$it</p:txBody>" } ?: "") + "</p:sp>"
+
+    private fun pic(id: Int, rel: String, spPr: String, crop: String = "") = """<p:pic><p:nvPicPr><p:cNvPr id="$id" name="Picture $id"/><p:cNvPicPr/><p:nvPr/></p:nvPicPr>
+        <p:blipFill><a:blip r:embed="$rel"/>$crop<a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>$spPr</p:spPr></p:pic>"""
+
+    /** A small PNG all in [color]. */
+    private fun solidPng(color: Int): ByteArray {
+        val bitmap = Bitmap.createBitmap(20, 20, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        return ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }.toByteArray().also { bitmap.recycle() }
+    }
+
+    /** Whether the pixel at ([x], [y]) points of [page], drawn [scale] pixels a point, is about [color]. */
+    private fun isColor(page: Bitmap, scale: Float, x: Float, y: Float, color: Int): Boolean {
+        val c = page.getPixel((x * scale).toInt(), (y * scale).toInt())
+        return abs(Color.red(c) - Color.red(color)) < 60 && abs(Color.green(c) - Color.green(color)) < 60 && abs(Color.blue(c) - Color.blue(color)) < 60
+    }
+
     // ---- Word ----
 
     @Test fun wordKeepsPageSizesTextListsTablesAndPictures() {
@@ -660,6 +712,195 @@ class OfficeConverterDeviceTest {
         }
         // The title placeholder takes its larger text from the master: bigger than the bullets.
         assertTrue(size(word(pdf, 2, "What")) > size(word(pdf, 2, "Vegetables")) + 4f)
+    }
+
+    @Test fun powerPointSlideNumbersCountHiddenSlides() {
+        val numbered = { hidden: Boolean ->
+            slide(textBox(2, 36, 36, 400, 72, """<a:p>${run("Slide ", 24)}<a:fld id="{B6F15528-21DE-4FAA-801E-634DDDAF4B2B}" type="slidenum"><a:rPr lang="en-US" sz="2400"/><a:t>‹#›</a:t></a:fld></a:p>"""), hidden)
+        }
+        val slides = listOf(numbered(false), numbered(true), numbered(false), numbered(false))
+        fun numbers(pdf: File) = pageTexts(pdf).map { Regex("""Slide (\d+)""").find(it)?.groupValues?.get(1) }
+        // A hidden slide keeps its number, as in PowerPoint.
+        assertEquals(listOf("1", "3", "4"), numbers(convert(deck("numbers.pptx", slides), OfficeKind.POWERPOINT, "slide-numbers")))
+        assertEquals(listOf("0", "2", "3"), numbers(convert(deck("numbers-0.pptx", slides, """firstSlideNum="0""""), OfficeKind.POWERPOINT, "slide-numbers-0")))
+    }
+
+    @Test fun powerPointConnectorsFlippedGroupsAndSavedPictures() {
+        val rect = """<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>"""
+        val elbow = """<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="2" name="Elbow"/><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr><p:spPr>${xfrm(40, 40, 200, 100)}
+            <a:prstGeom prst="bentConnector3"><a:avLst/></a:prstGeom><a:ln w="${4 * EMU}">${solid("000000")}<a:tailEnd type="triangle"/></a:ln></p:spPr></p:cxnSp>"""
+        val circle = sp(3, xfrm(300, 40, 100, 100) + """<a:prstGeom prst="flowChartConnector"><a:avLst/></a:prstGeom>""" + solid("FF0000"))
+        // Flipped left to right: its blue square, in the left half of the group's own coordinates, on the right.
+        val group = """<p:grpSp><p:nvGrpSpPr><p:cNvPr id="4" name="Group"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm flipH="1">
+            <a:off x="${40 * EMU}" y="${200 * EMU}"/><a:ext cx="${200 * EMU}" cy="${100 * EMU}"/><a:chOff x="0" y="0"/><a:chExt cx="${200 * EMU}" cy="${100 * EMU}"/></a:xfrm></p:grpSpPr>
+            ${sp(5, xfrm(0, 0, 100, 100) + rect + solid("0000FF"))}</p:grpSp>"""
+        // Freeforms: one with a point given by a formula, which is left out; one in the shape's EMUs, 72 points square.
+        val formula = sp(6, xfrm(300, 200, 100, 100) + """<a:custGeom><a:pathLst><a:path w="100" h="100"><a:moveTo><a:pt x="gd1" y="0"/></a:moveTo>
+            <a:lnTo><a:pt x="100" y="100"/></a:lnTo><a:lnTo><a:pt x="0" y="100"/></a:lnTo><a:close/></a:path></a:pathLst></a:custGeom>""" + solid("FF0000"))
+        val emus = sp(7, xfrm(450, 200, 200, 200) + """<a:custGeom><a:pathLst><a:path><a:moveTo><a:pt x="0" y="0"/></a:moveTo><a:lnTo><a:pt x="914400" y="0"/></a:lnTo>
+            <a:lnTo><a:pt x="914400" y="914400"/></a:lnTo><a:lnTo><a:pt x="0" y="914400"/></a:lnTo><a:close/></a:path></a:pathLst></a:custGeom>""" + solid("00B050"))
+        val mc = """xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006""""
+        // Ink, and an equation, which PowerPoint also saves as pictures.
+        val ink = """<mc:AlternateContent $mc><mc:Choice Requires="p14"><p:contentPart r:id="rId4"/></mc:Choice>
+            <mc:Fallback>${pic(10, "rId1", xfrm(40, 40, 100, 100) + rect)}</mc:Fallback></mc:AlternateContent>"""
+        val equation = """<mc:AlternateContent $mc xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main"><mc:Choice Requires="a14">
+            ${sp(11, xfrm(200, 40, 100, 100) + rect, """<a:p><a14:m><m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:oMath><m:r><m:t>x</m:t></m:r></m:oMath></m:oMathPara></a14:m></a:p>""")}
+            </mc:Choice><mc:Fallback>${sp(11, xfrm(200, 40, 100, 100) + rect + """<a:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></a:blipFill>""")}</mc:Fallback></mc:AlternateContent>"""
+        val text = """<mc:AlternateContent $mc><mc:Choice Requires="p14">${textBox(12, 40, 200, 300, 50, "<a:p>${run("Choice text", 18)}</a:p>")}</mc:Choice>
+            <mc:Fallback>${textBox(12, 40, 200, 300, 50, "<a:p>${run("Fallback text", 18)}</a:p>")}</mc:Fallback></mc:AlternateContent>"""
+        // An embedded spreadsheet, shown by the picture saved with it.
+        val ole = """<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="13" name="Object"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>
+            <p:xfrm><a:off x="${400 * EMU}" y="${40 * EMU}"/><a:ext cx="${100 * EMU}" cy="${100 * EMU}"/></p:xfrm><a:graphic>
+            <a:graphicData uri="http://schemas.openxmlformats.org/presentationml/2006/ole"><mc:AlternateContent $mc><mc:Choice Requires="v">
+            <p:oleObj name="Worksheet" r:id="rId5" progId="Excel.Sheet.12"><p:embed/></p:oleObj></mc:Choice><mc:Fallback>
+            <p:oleObj name="Worksheet" r:id="rId5" progId="Excel.Sheet.12"><p:embed/>${pic(14, "rId3", xfrm(400, 40, 100, 100) + rect)}</p:oleObj>
+            </mc:Fallback></mc:AlternateContent></a:graphicData></a:graphic></p:graphicFrame>"""
+        val rels = relationships(
+            "image" to "../media/red.png", "image" to "../media/green.png", "image" to "../media/blue.png",
+            "customXml" to "../ink/ink1.xml", "oleObject" to "../embeddings/oleObject1.bin",
+        )
+        val media = mapOf("ppt/media/red.png" to solidPng(Color.RED), "ppt/media/green.png" to solidPng(Color.GREEN), "ppt/media/blue.png" to solidPng(Color.BLUE))
+        // Cropped by minus half its width on each side (Crop > Fit): the middle half of its frame.
+        val fitted = pic(15, "rId1", xfrm(40, 300, 200, 100) + rect, """<a:srcRect l="-50000" r="-50000"/>""")
+        val slides = listOf(slide(elbow + circle + group + formula + emus), slide(ink + equation + text + ole + fitted))
+        val pdf = convert(deck("shapes.pptx", slides, slideRels = mapOf(1 to rels), parts = media), OfficeKind.POWERPOINT, "slide-shapes")
+        val scale = 2f
+        val shapes = render(pdf, 0, scale)
+        assertTrue("The elbow's middle", isColor(shapes, scale, 140f, 90f, Color.BLACK))
+        assertTrue("No box around the elbow", isColor(shapes, scale, 240f, 70f, Color.WHITE))
+        assertTrue("Its arrowhead", isColor(shapes, scale, 230f, 136f, Color.BLACK))
+        assertTrue("A flowchart connector is a filled circle", isColor(shapes, scale, 350f, 90f, Color.RED))
+        assertTrue("The flipped group's square, on the right", isColor(shapes, scale, 190f, 250f, Color.BLUE))
+        assertTrue(isColor(shapes, scale, 90f, 250f, Color.WHITE))
+        assertTrue("A freeform that can't be drawn isn't a box", isColor(shapes, scale, 350f, 250f, Color.WHITE))
+        assertTrue("A freeform in EMUs", isColor(shapes, scale, 486f, 236f, 0xFF00B050.toInt()))
+        assertTrue(isColor(shapes, scale, 600f, 350f, Color.WHITE))
+        val saved = render(pdf, 1, scale)
+        assertTrue("Ink", isColor(saved, scale, 90f, 90f, Color.RED))
+        assertTrue("An equation", isColor(saved, scale, 250f, 90f, Color.GREEN))
+        assertTrue("An embedded object", isColor(saved, scale, 450f, 90f, Color.BLUE))
+        assertTrue("A picture fitted in its frame", isColor(saved, scale, 140f, 350f, Color.RED))
+        assertTrue(isColor(saved, scale, 60f, 350f, Color.WHITE))
+        val texts = pageTexts(pdf)
+        assertTrue(texts[1], texts[1].contains("Choice text") && !texts[1].contains("Fallback text"))
+    }
+
+    @Test fun powerPointPlaceholdersAndColourMapsComeFromTheLayout() {
+        val tree = """<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>"""
+        val rect = """<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>"""
+        val mapping = """bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink""""
+        val master = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sldMaster xmlns:p="$P" xmlns:a="$A" xmlns:r="$OFFICE_RELS"><p:cSld><p:spTree>$tree
+            ${sp(2, xfrm(40, 40, 640, 80) + rect, "<a:p/>", ph = """<p:ph type="title"/>""")}</p:spTree></p:cSld><p:clrMap bg1="lt1" tx1="dk1" $mapping/>
+            <p:txStyles><p:titleStyle><a:lvl1pPr><a:defRPr sz="4000"><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:defRPr></a:lvl1pPr></p:titleStyle></p:txStyles></p:sldMaster>"""
+        // A grey picture placeholder, and an oval for the body.
+        val layout = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sldLayout xmlns:p="$P" xmlns:a="$A" xmlns:r="$OFFICE_RELS"><p:cSld><p:spTree>$tree
+            ${sp(2, xfrm(500, 300, 100, 100) + rect + solid("808080"), "<a:p/>", ph = """<p:ph type="pic" idx="13"/>""")}
+            ${sp(3, xfrm(40, 300, 300, 200) + """<a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom>""" + solid("00B050"), "<a:p/>", ph = """<p:ph idx="1"/>""")}
+            </p:spTree></p:cSld></p:sldLayout>"""
+        // The colours swapped, as a dark background style does: a black background, a white title.
+        val dark = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:p="$P" xmlns:a="$A" xmlns:r="$OFFICE_RELS"><p:cSld>
+            <p:bg><p:bgRef idx="1001"><a:schemeClr val="bg1"/></p:bgRef></p:bg><p:spTree>$tree
+            ${sp(2, "", """<a:p><a:r><a:rPr lang="en-US"/><a:t>Dark title</a:t></a:r></a:p>""", ph = """<p:ph type="title"/>""")}</p:spTree></p:cSld>
+            <p:clrMapOvr><a:overrideClrMapping bg1="dk1" tx1="lt1" $mapping/></p:clrMapOvr></p:sld>"""
+        // The picture placeholder left empty, and text typed in the body.
+        val plain = slide(sp(2, "", ph = """<p:ph type="pic" idx="13"/>""") + sp(3, "", """<a:p><a:r><a:rPr lang="en-US"/><a:t>Hi</a:t></a:r></a:p>""", ph = """<p:ph idx="1"/>"""))
+        val toLayout = relationships("slideLayout" to "../slideLayouts/slideLayout1.xml")
+        val parts = mapOf(
+            "ppt/slideLayouts/slideLayout1.xml" to layout,
+            "ppt/slideLayouts/_rels/slideLayout1.xml.rels" to relationships("slideMaster" to "../slideMasters/slideMaster1.xml"),
+            "ppt/slideMasters/slideMaster1.xml" to master,
+        )
+        val pdf = convert(deck("layouts.pptx", listOf(dark, plain), slideRels = mapOf(0 to toLayout, 1 to toLayout), parts = parts), OfficeKind.POWERPOINT, "slide-layouts")
+        val scale = 2f
+        val first = render(pdf, 0, scale)
+        assertTrue("A black background", isColor(first, scale, 700f, 520f, Color.BLACK))
+        val title = word(pdf, 1, "Dark")
+        var white = 0
+        for (x in (title.xDirAdj * scale).toInt() until ((title.xDirAdj + 80f) * scale).toInt()) {
+            for (y in ((title.yDirAdj - 25f) * scale).toInt() until (title.yDirAdj * scale).toInt()) if (isColor(first, 1f, x.toFloat(), y.toFloat(), Color.WHITE)) white++
+        }
+        assertTrue("A white title", white > 50)
+        val second = render(pdf, 1, scale)
+        assertTrue("An empty placeholder isn't drawn", isColor(second, scale, 550f, 350f, Color.WHITE))
+        assertTrue("The layout's oval, not a box", isColor(second, scale, 46f, 306f, Color.WHITE))
+        assertTrue(isColor(second, scale, 190f, 420f, 0xFF00B050.toInt()))
+    }
+
+    @Test fun powerPointTextDirectionSymbolsAndAnchoring() {
+        fun box(id: Int, x: Int, y: Int, bodyPr: String, paragraph: String) = sp(id, xfrm(x, y, 300, 300) + """<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>""", paragraph, bodyPr)
+        val hebrew = { text: String -> """<a:r><a:rPr lang="he-IL" sz="2000"/><a:t>$text</a:t></a:r>""" }
+        // Aligned right in a right-to-left paragraph; Hebrew aligned left in a left-to-right one.
+        val directions = slide(
+            box(2, 40, 40, "<a:bodyPr/>", """<a:p><a:pPr algn="r" rtl="1"/>${hebrew("שלום עולם")}</a:p>""") +
+                box(3, 380, 40, "<a:bodyPr/>", """<a:p><a:pPr algn="l"/>${hebrew("עולם שלום")}</a:p>"""),
+        )
+        // Wingdings' check mark from Insert > Symbol (a:sym), and typed in Wingdings; and a link, in the theme's link colour.
+        val symbols = slide(
+            box(2, 40, 40, "<a:bodyPr/>", """<a:p><a:r><a:rPr lang="en-US" sz="2000"><a:sym typeface="Wingdings"/></a:rPr><a:t>&#xF0FC;</a:t></a:r>""" +
+                """<a:r><a:rPr lang="en-US" sz="2000"><a:latin typeface="Wingdings"/></a:rPr><a:t>ü</a:t></a:r></a:p>""" +
+                """<a:p><a:r><a:rPr lang="en-US" sz="4000"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:hlinkClick r:id="rId9"/></a:rPr><a:t>Link</a:t></a:r></a:p>"""),
+        )
+        // At the bottom of their boxes, with and without space before: a first paragraph's doesn't count.
+        val bottom = """<a:bodyPr anchor="b" tIns="0" bIns="0"/>"""
+        val anchored = slide(
+            box(2, 40, 100, bottom, """<a:p><a:pPr><a:spcBef><a:spcPts val="2000"/></a:spcBef></a:pPr>${run("Alpha", 20)}</a:p>""") +
+                box(3, 380, 100, bottom, "<a:p>${run("Beta", 20)}</a:p>"),
+        )
+        val pdf = convert(deck("text.pptx", listOf(directions, symbols, anchored)), OfficeKind.POWERPOINT, "slide-text")
+        val (rtl, ltr) = glyphs(pdf, 1).filter { g -> g.unicode.any { it in 'א'..'ת' } }.partition { it.xDirAdj < 360f }
+        // 7.2 points in from the right of the first box, and from the left of the second.
+        near(340f - 7.2f, rtl.maxOf { it.xDirAdj + it.widthDirAdj }, 3f)
+        near(380f + 7.2f, ltr.minOf { it.xDirAdj }, 3f)
+        val texts = pageTexts(pdf)
+        assertEquals(texts[1], 2, texts[1].count { it == '✓' })
+        val scale = 2f
+        val links = render(pdf, 1, scale)
+        val link = word(pdf, 2, "Link")
+        var blue = 0
+        for (x in 0 until 60) for (y in 0 until 25) if (isColor(links, scale, link.xDirAdj + x, link.yDirAdj - y, 0xFF0563C1.toInt())) blue++
+        assertTrue("The link in the theme's link colour", blue > 20)
+        near(word(pdf, 3, "Beta").yDirAdj, word(pdf, 3, "Alpha").yDirAdj)
+    }
+
+    @Test fun powerPointTableStylesAndMergedCells() {
+        val id = "{5C22544A-0000-0000-0000-000000000001}"
+        fun ln(hex: String) = """<a:ln w="${3 * EMU}">${solid(hex)}</a:ln>"""
+        // Red at the table's top and bottom, green between rows; the last column blue.
+        val styles = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:tblStyleLst xmlns:a="$A" def="$id"><a:tblStyle styleId="$id" styleName="Test">
+            <a:wholeTbl><a:tcStyle><a:tcBdr><a:top>${ln("FF0000")}</a:top><a:bottom>${ln("FF0000")}</a:bottom><a:insideH>${ln("00B050")}</a:insideH></a:tcBdr>
+            <a:fill><a:noFill/></a:fill></a:tcStyle></a:wholeTbl><a:lastCol><a:tcStyle><a:tcBdr/><a:fill>${solid("0000FF")}</a:fill></a:tcStyle></a:lastCol>
+            </a:tblStyle></a:tblStyleLst>"""
+        fun cell(text: String?, attributes: String = "", tcPr: String = "<a:tcPr/>") =
+            """<a:tc $attributes><a:txBody><a:bodyPr/><a:lstStyle/><a:p>${text?.let { run(it, 18) }.orEmpty()}</a:p></a:txBody>$tcPr</a:tc>"""
+        // A header merged across two columns, and a cell merged down two rows.
+        val rows = listOf(
+            cell("Head", """gridSpan="2"""") + cell(null, """hMerge="1"""") + cell("Last"),
+            cell("Merged", """rowSpan="2"""", """<a:tcPr anchor="ctr"/>""") + cell("b1") + cell("c1"),
+            cell(null, """vMerge="1"""") + cell("b2") + cell("c2"),
+            cell("a3") + cell("b3") + cell("c3"),
+        ).joinToString("") { """<a:tr h="${40 * EMU}">$it</a:tr>""" }
+        val table = """<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="2" name="Table"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>
+            <p:xfrm><a:off x="${40 * EMU}" y="${40 * EMU}"/><a:ext cx="${300 * EMU}" cy="${160 * EMU}"/></p:xfrm><a:graphic>
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr lastCol="1"><a:tableStyleId>$id</a:tableStyleId></a:tblPr>
+            <a:tblGrid>${"""<a:gridCol w="${100 * EMU}"/>""".repeat(3)}</a:tblGrid>$rows</a:tbl></a:graphicData></a:graphic></p:graphicFrame>"""
+        // The same table right to left, its first column on the right.
+        val rtl = table.replace("""<a:tblPr lastCol="1">""", """<a:tblPr lastCol="1" rtl="1">""")
+        val file = deck("table.pptx", listOf(slide(table), slide(rtl)), more = listOf("tableStyles" to "tableStyles.xml"), parts = mapOf("ppt/tableStyles.xml" to styles))
+        val pdf = convert(file, OfficeKind.POWERPOINT, "slide-table")
+        val scale = 2f
+        val page = render(pdf, 0, scale)
+        val green = 0xFF00B050.toInt()
+        assertTrue("The table's top", isColor(page, scale, 190f, 40f, Color.RED))
+        assertTrue("Between rows, the inside line", isColor(page, scale, 190f, 80f, green))
+        assertTrue(isColor(page, scale, 190f, 120f, green))
+        assertTrue("No line across the merged cell", isColor(page, scale, 130f, 120f, Color.WHITE))
+        assertTrue("The table's bottom", isColor(page, scale, 190f, 200f, Color.RED))
+        assertTrue("The last column, the merged header counted once", isColor(page, scale, 290f, 100f, Color.BLUE))
+        // The merged cell's text in the middle of its two rows.
+        assertTrue(word(pdf, 1, "Merged").yDirAdj > 115f)
+        val mirrored = render(pdf, 1, scale)
+        assertTrue("The last column on the left", isColor(mirrored, scale, 90f, 100f, Color.BLUE))
+        assertTrue(word(pdf, 2, "Merged").xDirAdj > 240f)
     }
 
     @Test fun presentationWithOnlyHiddenSlidesIsRefused() {

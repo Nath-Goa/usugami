@@ -185,6 +185,16 @@ internal class ImagePicture(
                 (w - c[2] * w).roundToInt().coerceIn(1, w), (h - c[3] * h).roundToInt().coerceIn(1, h),
             ).takeIf { it.width() > 0 && it.height() > 0 }
         }
-        BitmapPicture(bitmap, source).draw(canvas, rect)
+        // A side cropped by a negative share (Crop > Fit) leaves that much of the frame empty, rather
+        // than the picture being stretched over it.
+        val target = crop?.takeIf { c -> c.any { it < 0f } && shownX == 1f - c[0] - c[2] && shownY == 1f - c[1] - c[3] }?.let { c ->
+            RectF(
+                rect.left + rect.width() * (max(c[0], 0f) - c[0]) / shownX,
+                rect.top + rect.height() * (max(c[1], 0f) - c[1]) / shownY,
+                rect.left + rect.width() * (1f - max(c[2], 0f) - c[0]) / shownX,
+                rect.top + rect.height() * (1f - max(c[3], 0f) - c[1]) / shownY,
+            )
+        } ?: rect
+        BitmapPicture(bitmap, source).draw(canvas, target)
     }
 }

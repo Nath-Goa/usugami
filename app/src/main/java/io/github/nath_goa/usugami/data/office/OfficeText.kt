@@ -247,6 +247,11 @@ internal class ParagraphSpec(
     val label: Label? = null,
     val rtl: Boolean = false,
     /**
+     * Whether a paragraph that isn't [rtl] reads the way its first letter does, as Word's and books'
+     * do; PowerPoint's read left to right.
+     */
+    val directionFromText: Boolean = true,
+    /**
      * A right-to-left Word paragraph: its indents and label are measured from the right, so
      * [firstIndent] and [indent] are on the right and [rightIndent] on the left.
      */
@@ -330,7 +335,13 @@ internal class ParagraphBlock private constructor(
                     else -> Layout.Alignment.ALIGN_NORMAL
                 },
             )
-            .setTextDirection(if (spec.rtl) TextDirectionHeuristics.RTL else TextDirectionHeuristics.FIRSTSTRONG_LTR)
+            .setTextDirection(
+                when {
+                    spec.rtl -> TextDirectionHeuristics.RTL
+                    spec.directionFromText -> TextDirectionHeuristics.FIRSTSTRONG_LTR
+                    else -> TextDirectionHeuristics.LTR
+                },
+            )
             .setIncludePad(false)
             .setLineSpacing(0f, 1f)
             // Word fills each line before starting the next, and doesn't hyphenate. (Layout's
