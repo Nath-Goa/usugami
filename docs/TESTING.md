@@ -48,12 +48,21 @@ smaller for huge pages), which pixels a box blacks out, and Find text: capitals,
 ligatures, spaces and line breaks, and one box per line of a match, also for text running down
 the page. For the ZIP file of several PDFs they cover the files going in as they are (stored, not
 compressed again), in order and byte for byte, names made unique ignoring case and kept free of
-folders, names in other scripts, progress, and stopping part way.
+folders, names in other scripts, progress, and stopping part way. For Usugami OCR's text
+recognition they check the post-processing against PaddleOCR's own (fixtures in
+`core/src/test/resources/ocr`, made with OpenCV and pyclipper by `tools/make_ocr_test_fixtures.py`):
+the boxes found in a real probability map of the detection model, their scores, smallest
+enclosing rectangles, decoding the recognition model's output for real lines (repeats, blanks and
+the space), and also pieces of one line joined (also tilted, but not across columns or with much
+smaller print), which boxes are read as lines running down the page, the reading order (columns,
+pieces of a line, tilted and upside-down pages), the strips a large page is detected in, and where
+over-long lines are cut.
 
 ## 2. Device tests (Android)
 
 `app/src/androidTest` runs on a connected phone or emulator, once per edition, together with the
-edition's own tests (`app/src/androidTestStandard` for Usugami):
+edition's own tests (`app/src/androidTestStandard` for Usugami, `app/src/androidTestOcr` for
+Usugami OCR):
 
 ```sh
 ./gradlew :app:connectedStandardDebugAndroidTest
@@ -177,6 +186,11 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
 - text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,
   French, Spanish and Hindi (French and Spanish accents kept), lines on a tilted page, and that a
   failed or cancelled recognition leaves the PDFs untouched
+- Usugami OCR's built-in text recognition (`app/src/androidTestOcr`): its native library loads (the
+  test emulator has 16 KB memory pages), the English and Hindi test pages are read word for word into
+  the text layer (the time per page is logged), a page upside down is read the right way up with
+  its text layer turned to match, and the native bridge answers bad input (wrong sizes, a recycled
+  bitmap, a closed network, a missing model) with exceptions instead of crashing
 - the editions: text recognition (an engine, the text layer's font, the OCR switch in the
   Convert sheet, and Home's words for Images to PDF in all four languages) in Usugami and Usugami
   OCR and nowhere in Usugami Lite, and the Google notices only in Usugami
@@ -237,7 +251,8 @@ On a phone or emulator, with the release APKs:
   phone itself set to the other one: every screen, dialogs, the status and navigation bars, and the
   first-launch language screen follow; System default follows the phone again.
 - Usugami: the first OCR in each language downloads that model through Google Play services.
-- Usugami OCR: OCR works with the internet turned off.
+- Usugami OCR: OCR works with the internet turned off, on a real ARM phone, with a few photographed
+  pages in each language (one upside down); note the time per page.
 - Usugami Lite: no OCR switch when creating a PDF, and About shows "Usugami Lite".
 - The About screen shows the license, privacy policy and notices.
 
@@ -247,5 +262,7 @@ the app's own signature-level `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, or if 
 back an upload backend for ML Kit's usage metrics or the EmojiCompat startup initializer. They
 check with `.github/scripts/check-no-google-code.sh` that Usugami Lite and Usugami OCR contain no
 Google ML Kit, Play services, Firebase or DataTransport classes (listed with apkanalyzer and R8's
-mapping) or manifest entries, and with `.github/scripts/check-mlkit-registrars.sh` that R8 kept
-what ML Kit needs in Usugami.
+mapping) or manifest entries, with `.github/scripts/check-mlkit-registrars.sh` that R8 kept
+what ML Kit needs in Usugami, and with `.github/scripts/check-16kb-alignment.sh` that every native
+library is stored 16 KB aligned in the APK (`zipalign -c -P 16`) and that the 64-bit ones have
+16 KB-aligned segments (`llvm-readelf`), as phones with 16 KB memory pages need.

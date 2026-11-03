@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Usugami"
-include(":app", ":core")
+include(":app", ":core", ":ocr-native")

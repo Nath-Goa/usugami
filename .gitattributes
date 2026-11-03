@@ -16,3 +16,5 @@
 *.jks binary
 *.keystore binary
 *.p12 binary
+# ncnn model weights (app/src/ocr/assets/ocr/)
+*.bin binary

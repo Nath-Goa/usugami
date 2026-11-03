@@ -142,6 +142,8 @@ dependencies {
     // Google Play services downloads.
     "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.1")
+    // Usugami OCR's built-in engine: ncnn and its JNI bridge, built from source (see :ocr-native).
+    "ocrImplementation"(project(":ocr-native"))
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("junit:junit:4.13.2")
 }

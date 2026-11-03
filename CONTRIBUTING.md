@@ -28,6 +28,13 @@ itself never connects. Usugami Lite and Usugami OCR must stay free of Google lib
 You need JDK 17 or newer (Android Studio's bundled JBR works; CI uses Temurin 21) and the Android
 SDK, with its path in `local.properties` (`sdk.dir=...`; Android Studio creates this file).
 
+Usugami OCR's text-recognition engine is built from source: Tencent's ncnn is a git submodule
+(`git clone --recurse-submodules`, or `git submodule update --init third_party/ncnn` in an existing
+clone; its own submodules aren't needed), compiled with the Android NDK 28.2.13676358 and CMake
+3.22.1 (install both with Android Studio's SDK Manager or `sdkmanager "ndk;28.2.13676358"
+"cmake;3.22.1"`). Gradle wants the NDK even for the other two editions, and downloads it by itself
+if it's missing; they don't need the submodule or CMake.
+
 ```sh
 ./gradlew :core:test                          # PDF engine unit tests (JVM)
 ./gradlew :app:assembleStandardDebug          # Usugami, debug build
@@ -44,7 +51,12 @@ The three editions are product flavors in the `edition` dimension:
 - `standard` (Usugami): text recognition with Google ML Kit through Google Play services. Code in
   `app/src/standard`; the only edition with Google libraries.
 - `lite` (Usugami Lite): no text recognition. Code in `app/src/lite`.
-- `ocr` (Usugami OCR): open-source text recognition built in. Code in `app/src/ocr`.
+- `ocr` (Usugami OCR): open-source text recognition built in: PaddleOCR's PP-OCRv5 models
+  (`app/src/ocr/assets/ocr`, made by `tools/make_ocr_models.py`) run by ncnn. The pipeline is in
+  `app/src/ocr`, its pure logic (text boxes, reading order, decoding) in `core`, and ncnn with the
+  JNI bridge in the `ocr-native` module, which only this edition depends on. If you change which
+  layers ncnn is built with (`ocr-native/src/main/cpp/CMakeLists.txt`), run the edition's device
+  tests: a missing layer only shows when a model loads.
 
 Shared code lives in `app/src/main` and should work in all three. Each edition provides
 `ocrEngine(context)` (null in Usugami Lite); `BuildConfig.EDITION` and `BuildConfig.HAS_OCR` tell
@@ -60,13 +72,16 @@ need one to contribute. [docs/TESTING.md](docs/TESTING.md) explains the tests.
   Compose and Material 3 for UI, and user-facing text in `app/src/main/res/values/strings.xml`.
 - Write plain, short UI text and comments.
 - If you add or update a dependency, update [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). For
-  Google libraries, regenerate `third_party/` with `tools/google_notices.py`.
+  Google libraries, regenerate `third_party/google-notices.txt` with `tools/google_notices.py`. For
+  Usugami OCR's models, run `tools/make_ocr_models.py`, which checks them against
+  `tools/ocr-models.sha256`.
 - CI must pass. It also fails if any APK requests a permission (besides the app's own
   signature-level receiver permission), or if a library adds back ML Kit's metrics upload backend
   or the EmojiCompat initializer. If a dependency update trips this, remove the entry in
   `app/src/main/AndroidManifest.xml` with `tools:node="remove"`, or explain in the pull request
   why Usugami needs it. CI also fails if Usugami Lite or Usugami OCR contains any Google ML Kit,
-  Play services, Firebase or DataTransport code.
+  Play services, Firebase or DataTransport code, or if a native library isn't aligned for phones
+  with 16 KB memory pages.
 
 ## License of contributions
 

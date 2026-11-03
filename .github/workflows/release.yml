@@ -34,6 +34,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          submodules: true # third_party/ncnn, Usugami OCR's text-recognition engine (not its own submodules)
 
       - name: Tag must match versionName
         id: version
@@ -57,6 +58,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+
+      # Usugami OCR's engine is compiled with the NDK and CMake versions pinned in
+      # ocr-native/build.gradle.kts; the runner image has other versions.
+      - name: Install the NDK and CMake
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;28.2.13676358" "cmake;3.22.1" > /dev/null'
 
       - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
@@ -121,6 +127,9 @@ jobs:
 
       - name: Text recognition survives R8 (Usugami)
         run: bash .github/scripts/check-mlkit-registrars.sh standardRelease
+
+      - name: Native libraries work with 16 KB memory pages
+        run: bash .github/scripts/check-16kb-alignment.sh dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk
 
       - name: No Google code in Usugami Lite and Usugami OCR
         run: >-

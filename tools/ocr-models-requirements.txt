@@ -1,0 +1,6 @@
+# Python packages for tools/make_ocr_models.py (development only; nothing here ships in the app).
+# Install without dependencies: pnnx lists PyTorch, which the ONNX conversion does not need.
+#   python -m venv .venv-ocr
+#   .venv-ocr/bin/pip install --no-deps -r tools/ocr-models-requirements.txt   (Windows: .venv-ocr\Scripts\pip)
+pnnx==20261020
+PyYAML==6.0.3

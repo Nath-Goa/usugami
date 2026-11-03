@@ -30,9 +30,9 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 
 | | **Usugami** (recommended) | **Usugami Lite** | **Usugami OCR** |
 |---|---|---|---|
-| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.6 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, larger: the recognition models are inside |
+| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.6 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 15 MB: the recognition engine and models are inside |
 | Images, Word, PowerPoint and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
-| Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app. Works with no internet, forever. |
+| Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app ([PaddleOCR](#how-usugami-ocr-reads-text) models). Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never | Never |
 | Needs Google Play services | Only for text recognition | No | No |
 | Google code inside | Google's ML Kit and Play services libraries, for text recognition | None | None |
@@ -476,6 +476,29 @@ recognition.
 </details>
 
 <details>
+<summary><b>How Usugami OCR reads text</b></summary>
+
+<a id="how-usugami-ocr-reads-text"></a>
+Usugami OCR has its own text recognition, open source and inside the app: the
+[PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv5 mobile models, run on your phone's
+processor by Tencent's [ncnn](https://github.com/Tencent/ncnn). One model finds the lines of text
+on each page; then English, French and Spanish are read by PaddleOCR's Latin-script model, and
+Hindi by its Devanagari model, which also reads English words. Nothing is downloaded and nothing
+leaves your phone, so it works in flight mode too. The engine and models are what make
+Usugami-ocr.apk about 12 MB bigger than Usugami.apk.
+
+- It reads printed text best: worksheets, letters, book pages, notices, including photos taken at an
+  angle. Columns are read one after the other.
+- A page photographed upside down or sideways is read the right way up.
+- Handwriting, very small or blurred print, tables and maths are read less reliably. A sharp,
+  well-lit photo taken straight on helps the most.
+- Each page takes a few seconds, longer on older phones. You can cancel at any time.
+- Its results differ from Google's text recognition in the main edition: sometimes better, sometimes
+  worse.
+
+</details>
+
+<details>
 <summary><b>What converts from Word and PowerPoint?</b></summary>
 
 Usugami reads the file itself, on your phone, and lays it out again. The PDF is close to the
@@ -589,7 +612,8 @@ automatically.
 <details>
 <summary><b>How much storage does Usugami use?</b></summary>
 
-The app takes about 3 MB to download (Usugami OCR more, since its recognition models are inside).
+The app takes about 3 MB to download (Usugami OCR about 15 MB, since its recognition engine and
+models are inside).
 While you work, Usugami keeps temporary copies of your files in its cache and deletes them
 automatically; you can also clear it in Settings → Apps → Usugami → Storage. In the main edition,
 the text-recognition models are stored and managed by Google Play services, not by Usugami.
@@ -621,6 +645,18 @@ including commercial work. See [License](#license).
 
 You need JDK 17 or newer (Android Studio's bundled JBR works; CI uses Temurin 21) and the Android
 SDK, with its location in `local.properties` (`sdk.dir=...`; Android Studio creates it).
+
+Usugami OCR also needs its text-recognition engine's source, Tencent's ncnn, which is a git
+submodule, and the Android NDK 28.2.13676358 with CMake 3.22.1 to build it (Android Studio's SDK
+Manager installs both, or `sdkmanager "ndk;28.2.13676358" "cmake;3.22.1"`). Gradle wants the NDK
+even when you only build Usugami or Usugami Lite, and downloads it by itself if it's missing; those
+two editions don't need the submodule or CMake.
+
+```sh
+git clone --recurse-submodules https://github.com/Nath-Goa/usugami.git
+# or, in a clone you already have:
+git submodule update --init third_party/ncnn
+```
 
 ```sh
 ./gradlew :core:test                    # PDF engine unit tests (JVM)
@@ -675,24 +711,32 @@ app/                  Android app (Kotlin, Jetpack Compose, Material 3)
                       text layer, saving and sharing
   src/standard/       Usugami: text recognition with Google ML Kit through Google Play services
   src/lite/           Usugami Lite: no text recognition
-  src/ocr/            Usugami OCR: built-in, open-source text recognition
-  src/androidTest/    device tests (src/androidTestStandard: Google ML Kit's text recognition)
+  src/ocr/            Usugami OCR: built-in, open-source text recognition (PaddleOCR's models
+                      in assets/ocr, and the pipeline that runs them)
+  src/androidTest/    device tests (src/androidTestStandard: Google ML Kit's text recognition;
+                      src/androidTestOcr: Usugami OCR's)
 core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, page layout,
                       JPEG/PNG handling, metadata removal, compression sizing, page ranges,
                       where stamps, signatures and Edit PDF's additions go on a page, the
                       Word and PowerPoint helpers (units, colors, list numbers), the EPUB
-                      helpers (links, HTML characters, simple CSS) and font subsetting
+                      helpers (links, HTML characters, simple CSS), font subsetting, and
+                      Usugami OCR's post-processing (text boxes, reading order, decoding)
+ocr-native/           Usugami OCR's native library: ncnn built from source with a small JNI
+                      bridge (only the ocr edition contains it)
 tools/                validate_pdfs.py (checks output with independent PDF tools),
-                      make_ocr_font.py (builds the OCR font), make_office_fixtures.py (the
-                      made-up Word and PowerPoint test files), google_notices.py
-third_party/          license notices that Google ships in its libraries
+                      make_ocr_font.py (builds the OCR font), make_ocr_models.py (converts
+                      Usugami OCR's models), make_ocr_test_fixtures.py, make_office_fixtures.py
+                      (the made-up Word and PowerPoint test files), google_notices.py
+third_party/          ncnn (git submodule) and the license notices that Google ships in its
+                      libraries
 docs/                 testing guide, badges, screenshots
 .github/              CI and release workflows
 ```
 
 The PDF tools use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);
 text recognition in Usugami uses [Google ML Kit](https://developers.google.com/ml-kit/vision/text-recognition/v2),
-and Usugami OCR has an open-source engine built in.
+and in Usugami OCR [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)'s models run by
+[ncnn](https://github.com/Tencent/ncnn).
 Word and PowerPoint files and EPUB books are read with Android's own XML parser and drawn with its
 built-in PDF writer, so they need no extra library.
 
@@ -723,6 +767,8 @@ Components by others are listed, with their licenses, in
 - [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android) by Tom Roush and contributors, a
   port of [Apache PDFBox](https://pdfbox.apache.org/), for reading and writing PDFs.
 - [Google ML Kit](https://developers.google.com/ml-kit) for on-device text recognition.
+- [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) by PaddlePaddle for the PP-OCRv5 models and
+  [ncnn](https://github.com/Tencent/ncnn) by Tencent for running them, in Usugami OCR.
 - [Noto Sans and Noto Sans Devanagari](https://fonts.google.com/noto), from which Usugami's
   invisible OCR font is made.
 - [Reorderable](https://github.com/Calvin-LL/Reorderable) by Calvin Liang, for drag-to-reorder.

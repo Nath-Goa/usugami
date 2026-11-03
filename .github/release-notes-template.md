@@ -6,7 +6,7 @@
 |---|---|---|---|
 | **[Usugami.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami.apk)** (recommended) | ${STANDARD_MB} MB | You're not sure. Works on most phones. | Runs through Google Play services. The first time you use it, Play services downloads the text-recognition model (one for English, French and Spanish, one for Hindi), which needs internet then. |
 | [Usugami-lite.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-lite.apk) | ${LITE_MB} MB | You don't need text recognition, and want the smallest app with no Google code at all. | None. |
-| [Usugami-ocr.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-ocr.apk) | ${OCR_MB} MB | Your phone has no Google Play services, or you want text recognition with no network use at all. ARM phones (virtually all phones). | Open source and built into the app. Works without internet, ever. |
+| [Usugami-ocr.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-ocr.apk) | ${OCR_MB} MB | Your phone has no Google Play services, or you want text recognition with no network use at all. ARM phones (virtually all phones). | Open source and built into the app (PaddleOCR's models, run by ncnn). Works without internet, ever. |
 
 Every other tool works offline in all three, and Usugami itself has no internet permission. In
 Usugami.apk, text recognition uses Google's ML Kit, which runs on your phone but is closed source;

@@ -80,8 +80,11 @@ recognized text are never sent to Google or anyone else. How it works depends on
 
 ### Usugami OCR
 
-- Text recognition is open source and built into the app, models included. It works with no
-  internet connection and doesn't need Google Play services.
+- Text recognition is open source and built into the app, models included: PaddleOCR's PP-OCRv5
+  models, run on your phone's processor by Tencent's ncnn. It works with no internet connection and
+  doesn't need Google Play services.
+- The page images are read in the app's memory and only the recognized text is kept, as the PDF's
+  invisible text layer. Nothing is sent anywhere or stored anywhere else.
 - Usugami OCR contains no Google libraries and makes no network connections at all.
 
 ### Usugami Lite
@@ -108,7 +111,7 @@ Usugami does not collect personal information from anyone, including children.
 - PDFs you saved to Downloads or another folder are your files. They stay until you delete them,
   even if you uninstall Usugami.
 - In Usugami (the main edition), the text-recognition models are kept and managed by Google Play
-  services.
+  services. In Usugami OCR they are part of the app and go when you uninstall it.
 
 ## Changes to this policy
 

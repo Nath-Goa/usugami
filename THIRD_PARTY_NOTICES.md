@@ -14,23 +14,25 @@ contain each part:
 - "Usugami only": only in Usugami, the main edition, whose text recognition uses Google ML Kit
   and Google Play services. Usugami Lite and Usugami OCR contain no Google libraries.
 - "Usugami and Usugami OCR": the two editions with text recognition.
+- "Usugami OCR only": the open-source text recognition built into Usugami OCR.
 
-Each full license text appears once, in section 6 or next to the component that needs it.
+Each full license text appears once, in section 7 or next to the component that needs it.
 
 Contents
 
 1. Libraries (open source)
 2. Apache PDFBox for Android, with its notices
 3. Fonts
-4. Google ML Kit and Google Play services (not open source), Usugami only
-5. Open-source code inside Google's libraries, Usugami only
-6. License texts
+4. Text recognition engine and models (open source), Usugami OCR only
+5. Google ML Kit and Google Play services (not open source), Usugami only
+6. Open-source code inside Google's libraries, Usugami only
+7. License texts
 
 
 ## 1. Libraries (open source)
 
 All libraries in this section are licensed under the Apache License, Version 2.0 (full text in
-section 6). They are in all editions, except those listed as "Usugami only".
+section 7). They are in all editions, except those listed as "Usugami only".
 
 ### AndroidX and Jetpack Compose
 
@@ -160,7 +162,7 @@ the app has no internet permission.
 
 - com.tom-roush: pdfbox-android 2.0.27.0, in all editions. PdfBox-Android by Tom Roush and
   contributors, a port of Apache PDFBox to Android: https://github.com/TomRoush/PdfBox-Android
-- License: Apache License, Version 2.0 (full text in section 6), plus the terms below for the
+- License: Apache License, Version 2.0 (full text in section 7), plus the terms below for the
   components it includes.
 
 Usugami ships these PDFBox data files: the 14 Adobe Font Metrics (AFM) files for the standard PDF
@@ -388,7 +390,103 @@ Liberation is a trademark of Red Hat, Inc. registered in U.S. Patent and Tradema
 certain other jurisdictions.
 
 
-## 4. Google ML Kit and Google Play services (not open source), Usugami only
+## 4. Text recognition engine and models (open source), Usugami OCR only
+
+Usugami OCR reads text with PaddleOCR's models, run on the phone by ncnn. Both are built into the
+app (lib/*/libusugami_ocr.so and assets/ocr/); Usugami and Usugami Lite don't contain them.
+
+### ncnn 20261020
+
+Tencent's neural network inference framework, https://github.com/Tencent/ncnn (release 20261020,
+commit 7e36d25cb153092ba87a60530455c7376fedf452, the git submodule third_party/ncnn). Built from
+source, with only the parts these models need, into libusugami_ocr.so together with Usugami's own
+JNI bridge. Unmodified.
+
+```text
+Tencent is pleased to support the open source community by making ncnn available.
+Copyright (C) 2017 Tencent.  All rights reserved.
+```
+
+License: BSD 3-Clause License:
+
+```text
+Redistribution and use in source and binary forms, with or without modification, are permitted
+provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and
+the following disclaimer.
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions
+and the following disclaimer in the documentation and/or other materials provided with the
+distribution.
+Neither the name of [copyright holder] nor the names of its contributors may be used to endorse or
+promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
+IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+ncnn includes these files under the zlib License, possibly modified by Tencent ("Tencent
+Modifications", Copyright (C) 2017 Tencent): neon_mathfun.h, Copyright (C) 2011 Julien Pommier
+(compiled into the ARM libraries); sse_mathfun.h, Copyright (C) 2007 Julien Pommier, and
+avx_mathfun.h, Copyright (C) 2012 Giovanni Garberoglio, Interdisciplinary Laboratory for
+Computational Science (LISC), Fondazione Bruno Kessler and University of Trento (compiled only into
+the x86_64 library of test builds for emulators).
+
+```text
+This software is provided 'as-is', without any express or implied warranty. In no event will the
+authors be held liable for any damages arising from the use of this software.
+
+Permission is granted to anyone to use this software for any purpose, including commercial
+applications, and to alter it and redistribute it freely, subject to the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim that you wrote the
+   original software. If you use this software in a product, an acknowledgment in the product
+   documentation would be appreciated but is not required.
+2. Altered source versions must be plainly marked as such, and must not be misrepresented as being
+   the original software.
+3. This notice may not be removed or altered from any source distribution.
+```
+
+ncnn's source also contains files under the BSD 2-Clause License (SqueezeNet 1.1, caffe.proto) and
+another BSD 3-Clause file (android.toolchain.cmake); Usugami OCR doesn't use them.
+
+### LLVM C++ library and OpenMP runtime
+
+libusugami_ocr.so also contains parts of LLVM's C++ standard library (libc++) and OpenMP runtime
+(libomp) from the Android NDK 28.2.13676358, linked in statically. They are licensed under the
+Apache License, Version 2.0 with LLVM Exceptions (https://llvm.org/LICENSE.txt); the exceptions let
+such compiled-in parts be distributed without the license's notice requirements. Copyright the
+LLVM Project contributors.
+
+### PaddleOCR PP-OCRv5 models
+
+By the PaddlePaddle Authors, https://github.com/PaddlePaddle/PaddleOCR. License: Apache License,
+Version 2.0 (full text in section 7).
+
+- PP-OCRv5_mobile_det: finds the lines of text
+- latin_PP-OCRv5_mobile_rec: reads English, French and Spanish
+- devanagari_PP-OCRv5_mobile_rec: reads Hindi, and English words in Hindi text
+
+Taken from PaddlePaddle's official ONNX exports on Hugging Face
+(https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_det_onnx and the latin_ and devanagari_
+PP-OCRv5_mobile_rec_onnx repositories, at the revisions listed in tools/make_ocr_models.py). Usugami
+changed them: tools/make_ocr_models.py converts each one with pnnx (from the ncnn project; used only
+for this and not part of the app) to ncnn's format with 16-bit weights (assets/ocr/*.ncnn.param and
+*.ncnn.bin), and writes each recognition model's character list, taken from its inference.yml, to
+assets/ocr/*.dict.txt.
+
+Usugami's own code that runs the models (the pipeline in app/src/ocr and core, and the JNI bridge
+in ocr-native) was written for Usugami and is licensed under the GPL like the rest of the app. It
+follows the steps of PaddleOCR's Python code (DBPostProcess, CTCLabelDecode) but copies none of it.
+
+
+## 5. Google ML Kit and Google Play services (not open source), Usugami only
 
 Usugami, the main edition, uses Google ML Kit for text recognition (OCR). These libraries are made
 by Google LLC and are not open source. They are used under Google's terms, and Usugami's license
@@ -414,12 +512,12 @@ language's model the first time it is used, under Google's own terms.
 Google's API terms: https://developers.google.com/terms
 
 
-## 5. Open-source code inside Google's libraries, Usugami only
+## 6. Open-source code inside Google's libraries, Usugami only
 
 Google's libraries contain open-source code from many projects, and Google ships the license
 notices for it inside each library. Usugami reproduces all of them in one file, unchanged except
 that duplicate texts appear once (including the many copies of the Apache License 2.0, whose
-full text is in section 6):
+full text is in section 7):
 
 - third_party/google-notices.txt:
   https://github.com/Nath-Goa/usugami/blob/main/third_party/google-notices.txt
@@ -450,7 +548,7 @@ JsInterop Annotations; JSpecify; JSR 250; JSR 305; JSR 330; Kotlin; Kotlin corou
 kotlinx_atomicfu; SafeParcelable library; TensorFlow Lite Support.
 
 
-## 6. License texts
+## 7. License texts
 
 ### Apache License 2.0
 
