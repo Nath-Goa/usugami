@@ -23,6 +23,7 @@ import com.tom_roush.pdfbox.util.Matrix
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.ImagePlacement
 import io.github.nath_goa.usugami.core.ImageTransform
+import io.github.nath_goa.usugami.core.OcrScale
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
@@ -30,7 +31,6 @@ import java.io.IOException
 import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 data class OcrOutput(val files: List<PdfFile>, val lineCount: Int)
@@ -116,13 +116,14 @@ class PdfOcr(private val context: Context) {
     /**
      * [item] as its page shows it (turned by [transform]: EXIF orientation, then the user's turn), on
      * white, [READ_SIDE] pixels on its long side: larger photos are shrunk, smaller images enlarged at
-     * most [MAX_ENLARGE] times, as far as pages used to be rendered for reading. If memory runs short,
-     * it is read smaller.
+     * most [MAX_ENLARGE] times, as far as pages used to be rendered for reading. A long screenshot
+     * keeps the pixels of a 4:3 photo instead, so its text stays readable ([OcrScale]). If memory
+     * runs short, it is read smaller.
      */
     private fun shownImage(item: ImageItem, transform: ImageTransform): Bitmap {
         val shownWidth = if (transform.swapsAxes) item.height else item.width
         val shownHeight = if (transform.swapsAxes) item.width else item.height
-        var scale = min(READ_SIDE.toDouble() / max(shownWidth, shownHeight), MAX_ENLARGE)
+        var scale = OcrScale.of(shownWidth, shownHeight, READ_SIDE, MAX_ENLARGE)
         while (true) {
             val width = max(1, (shownWidth * scale).roundToInt())
             val height = max(1, (shownHeight * scale).roundToInt())
@@ -166,7 +167,7 @@ class PdfOcr(private val context: Context) {
                 for (i in 0 until renderer.pageCount) {
                     currentCoroutineContext().ensureActive()
                     renderer.openPage(i).use { page ->
-                        val scale = minOf(2.5f, 2600f / maxOf(page.width, page.height))
+                        val scale = OcrScale.of(page.width, page.height, RENDER_SIDE, MAX_ENLARGE).toFloat()
                         val width = maxOf(1, (page.width * scale).toInt())
                         val height = maxOf(1, (page.height * scale).toInt())
                         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -280,10 +281,13 @@ class PdfOcr(private val context: Context) {
         const val OCR_FONT = "fonts/UsugamiOcr-Regular.ttf"
 
         /**
-         * The long side, in pixels, images are read at: 27 MB for a 4:3 photo, so it stays safe on
-         * a phone with 2 GB of memory.
+         * The long side, in pixels, images are read at: 27 MB for a 4:3 photo (and no more for a
+         * longer picture), so it stays safe on a phone with 2 GB of memory.
          */
         const val READ_SIDE = 3000
+
+        /** The long side, in pixels, pages are rendered at when they aren't read from their images. */
+        const val RENDER_SIDE = 2600
 
         /** Pages used to be rendered at up to 2.5 times their size in points for reading. */
         const val MAX_ENLARGE = 2.5

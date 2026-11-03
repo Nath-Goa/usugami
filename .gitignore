@@ -27,6 +27,7 @@ keystore.properties
 
 # Python tooling
 .venv/
+.venv-ocr/
 __pycache__/
 
 .DS_Store

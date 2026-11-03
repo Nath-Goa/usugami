@@ -49,7 +49,13 @@ object TextDetection {
     const val THRESHOLD = 0.3f
     const val BOX_THRESHOLD = 0.6f
     const val UNCLIP_RATIO = 1.5f
-    const val MAX_CANDIDATES = 1000
+
+    /**
+     * At most this many boxes per page (from the top); the rest of a page denser than any real one is
+     * left out. PaddleOCR stops after its first 1000 regions, tiny ones included, but it detects at
+     * a lower resolution: at full size a page of small print can have more than 1000 words.
+     */
+    const val MAX_BOXES = 5000
     private const val MIN_SIZE = 3f
 
     /** [THRESHOLD] on the map's 0..255 scale: a pixel is text when its level is at least this. */
@@ -67,8 +73,8 @@ object TextDetection {
         val stack = IntArrayList()
         val region = IntArrayList()
         val result = ArrayList<Pair<OcrQuad, Float>>()
-        var candidates = 0
         for (start in probabilities.indices) {
+            if (result.size >= MAX_BOXES) break
             if (visited[start] || level(probabilities, start) < THRESHOLD_LEVEL) continue
             // Flood fill one 8-connected region.
             region.clear()
@@ -94,7 +100,6 @@ object TextDetection {
                     }
                 }
             }
-            if (++candidates > MAX_CANDIDATES) break
             val rect = MinAreaRect.of(rowExtremes(region, width)) ?: continue
             if (min(rect.width, rect.height) < MIN_SIZE) continue
             val score = meanInside(probabilities, width, height, rect.corners)
@@ -352,12 +357,42 @@ object DetectionStrips {
     }
 }
 
+/** The size pictures are read at. */
+object OcrScale {
+    /** The most pixels on a side: the native bridge's limit (usugami_ocr.cpp). */
+    const val MAX_SIDE = 8192
+
+    /**
+     * The scale for reading a [width] × [height] picture: to [longSide] pixels on its long side,
+     * enlarged at most [maxEnlarge] times. A larger picture is only shrunk as far as it needs to have
+     * no more pixels than a 4:3 one of that size: shrunk to its long side, a long screenshot's text
+     * would be a few pixels high. Never more than [MAX_SIDE] pixels on a side.
+     */
+    fun of(width: Int, height: Int, longSide: Int, maxEnlarge: Double): Double {
+        require(width > 0 && height > 0 && longSide > 0 && maxEnlarge >= 1) { "Bad size" }
+        val long = max(width, height).toDouble()
+        val bySide = longSide / long
+        val scale = if (bySide >= 1) {
+            min(bySide, maxEnlarge)
+        } else {
+            min(1.0, max(bySide, sqrt(longSide * (longSide * 0.75) / (width.toDouble() * height))))
+        }
+        return min(scale, MAX_SIDE / long)
+    }
+}
+
 /** What the detected boxes are: which are pieces of one line, and which lines run down the page. */
 object TextLines {
     private const val MAX_ANGLE_DEGREES = 10.0
     private const val MIN_OVERLAP = 0.6f
     private const val MIN_HEIGHT_RATIO = 0.6f
-    private const val MAX_GAP = 1.0f
+
+    /**
+     * Pieces of one line are at most this many line heights apart: more than a word space (about a
+     * quarter), less than the gap between two columns, which in two-column papers and newspapers is
+     * only about one line height. ReadingOrder takes such a gap down a whole column as a column gap.
+     */
+    private const val MAX_GAP = 0.5f
 
     /** PaddleOCR reads a box at least this much taller than wide as a line running down the page. */
     private const val TALL = 1.5f
@@ -374,10 +409,24 @@ object TextLines {
      * without the space between them, and a short word on its own (Hindi's है) can even look like a
      * line running down the page. Two boxes are pieces of one line when they run the same way
      * (within [MAX_ANGLE_DEGREES]), are about as high, mostly overlap across the text, and are at
-     * most one line height apart along it. Boxes are taken with their corners as PaddleOCR orders
-     * them (by position on the page), and the joined boxes come out the same way.
+     * most [MAX_GAP] line heights apart along it. They are compared along the page's lines (which
+     * run down a page turned a quarter round, as in [vertical]), unless both surely run the other
+     * way: short words that stand tall on lines one under the other (है, a lone "I") aren't pieces
+     * of a line running down the page. Boxes are taken with their corners as PaddleOCR orders them
+     * (by position on the page), and the joined boxes come out the same way.
      */
     fun merge(boxes: List<OcrQuad>): List<Line> {
+        val pageRunsDown = runsDown(boxes)
+        // Boxes that surely run the other way from the page's lines.
+        val against = BooleanArray(boxes.size) { i ->
+            val box = boxes[i]
+            if (pageRunsDown) box.width >= SURELY_TALL * box.height else box.height >= SURELY_TALL * box.width
+        }
+        val bounds = boxes.map { box ->
+            val xs = box.corners.map { it.x }
+            val ys = box.corners.map { it.y }
+            floatArrayOf(xs.min(), ys.min(), xs.max(), ys.max(), hypot(xs.max() - xs.min(), ys.max() - ys.min()))
+        }
         val parent = IntArray(boxes.size) { it }
         fun root(i: Int): Int {
             var r = i
@@ -385,11 +434,14 @@ object TextLines {
             return r
         }
         for (a in boxes.indices) for (b in a + 1 until boxes.size) {
-            if (sameLine(boxes[a], boxes[b])) parent[root(b)] = root(a)
+            if (!near(bounds[a], bounds[b])) continue
+            val down = pageRunsDown != (against[a] && against[b])
+            if (sameLine(boxes[a], boxes[b], down)) parent[root(b)] = root(a)
         }
         return boxes.indices.groupBy(::root).values.map { group ->
             if (group.size == 1) return@map Line(boxes[group[0]], group)
-            val frame = axis(boxes[group.maxBy { maxOf(boxes[it].width, boxes[it].height) }])
+            val down = pageRunsDown != group.all { against[it] }
+            val frame = frame(boxes[group.maxBy { maxOf(boxes[it].width, boxes[it].height) }], down)
             val corners = group.flatMap { boxes[it].corners }
             val us = corners.map { frame.u(it) }
             val vs = corners.map { frame.v(it) }
@@ -407,6 +459,15 @@ object TextLines {
      * (one or two letters) is only taken as one when most of the page's other text runs down it too.
      */
     fun vertical(boxes: List<OcrQuad>): BooleanArray {
+        val pageRunsDown = runsDown(boxes)
+        return BooleanArray(boxes.size) { i ->
+            val box = boxes[i]
+            box.height >= SURELY_TALL * box.width || (pageRunsDown && box.height >= TALL * box.width)
+        }
+    }
+
+    /** Whether most of the text on the page runs down it (by length): a page turned a quarter round. */
+    private fun runsDown(boxes: List<OcrQuad>): Boolean {
         var across = 0.0
         var down = 0.0
         for (box in boxes) {
@@ -415,17 +476,22 @@ object TextLines {
                 box.height < TALL * box.width -> across += box.width
             }
         }
-        val pageRunsDown = down > across
-        return BooleanArray(boxes.size) { i ->
-            val box = boxes[i]
-            box.height >= SURELY_TALL * box.width || (pageRunsDown && box.height >= TALL * box.width)
-        }
+        return down > across
     }
 
-    /** A box's frame: u along its text, v across it (a tall box's text runs down its long side). */
-    private fun axis(quad: OcrQuad): Frame {
+    /**
+     * Whether two boxes' upright bounds (left, top, right, bottom, diagonal) are close enough for them
+     * to be pieces of one line: no further apart than [MAX_GAP] times the larger box's size.
+     */
+    private fun near(a: FloatArray, b: FloatArray): Boolean {
+        val reach = MAX_GAP * max(a[4], b[4])
+        return a[0] - reach <= b[2] && b[0] - reach <= a[2] && a[1] - reach <= b[3] && b[1] - reach <= a[3]
+    }
+
+    /** A box's frame: u along its text, v across it; [down] for text running down the page. */
+    private fun frame(quad: OcrQuad, down: Boolean): Frame {
         val (topLeft, topRight, _, bottomLeft) = quad.corners
-        return if (quad.height >= TALL * quad.width) Frame(topLeft, bottomLeft) else Frame(topLeft, topRight)
+        return if (down) Frame(topLeft, bottomLeft) else Frame(topLeft, topRight)
     }
 
     private class Frame(val origin: OcrPoint, towards: OcrPoint) {
@@ -438,12 +504,10 @@ object TextLines {
         fun point(u: Float, v: Float) = OcrPoint(origin.x + u * ux - v * uy, origin.y + u * uy + v * ux)
     }
 
-    private fun sameLine(a: OcrQuad, b: OcrQuad): Boolean {
-        // Two tall boxes are compared as pieces of a line running down the page; otherwise along the
-        // page, so that a short word standing taller than wide still joins its line.
-        val bothTall = a.height >= TALL * a.width && b.height >= TALL * b.width
-        val frame = if (bothTall) axis(a) else Frame(a.corners[0], a.corners[1])
-        val other = if (bothTall) axis(b) else Frame(b.corners[0], b.corners[1])
+    /** Whether [a] and [b] are pieces of one line, compared as text running down the page if [down]. */
+    private fun sameLine(a: OcrQuad, b: OcrQuad, down: Boolean): Boolean {
+        val frame = frame(a, down)
+        val other = frame(b, down)
         if (abs(frame.ux * other.ux + frame.uy * other.uy) < kotlin.math.cos(Math.toRadians(MAX_ANGLE_DEGREES))) return false
         val au = a.corners.map { frame.u(it) }
         val av = a.corners.map { frame.v(it) }
@@ -481,26 +545,22 @@ internal class IntArrayList {
 
 /** Reading order of the lines on a page. */
 object ReadingOrder {
+    /** Columns of at least this many lines on each side of a gap narrower than a line height. */
+    private const val MIN_COLUMN_LINES = 3
+
     /**
      * The order in which to read [lines]: columns one after the other, each from top to bottom, and
      * pieces of the same line from left to right. The page is first turned so that the lines are
      * level (by their mean angle, so a tilted photo works too), then cut recursively at the widest
-     * gap (a recursive XY cut): a column gap must be at least one line high to count, so separate
-     * boxes on one line stay together.
+     * gap (a recursive XY cut). A column gap must be at least one line high to count, so separate
+     * boxes on one line stay together, or half a line between columns of [MIN_COLUMN_LINES] lines or
+     * more: two-column papers and newspapers leave only about a line height between their columns.
      */
     fun of(lines: List<OcrQuad>): List<Int> {
         if (lines.size < 2) return lines.indices.toList()
-        // The mean direction of the text, weighted by length.
-        var sumX = 0.0
-        var sumY = 0.0
-        for (line in lines) {
-            val (topLeft, topRight) = line.corners
-            sumX += topRight.x - topLeft.x
-            sumY += topRight.y - topLeft.y
-        }
-        val length = sqrt(sumX * sumX + sumY * sumY)
-        val cos = if (length > 0) sumX / length else 1.0
-        val sin = if (length > 0) sumY / length else 0.0
+        // The mean direction of the text, then again of only the lines within 45° of it, so that a
+        // line at right angles to the rest (an arXiv paper's ID down its margin) doesn't tilt the page.
+        val (cos, sin) = direction(lines, null)?.let { direction(lines, it) ?: it } ?: doubleArrayOf(1.0, 0.0)
         val items = lines.mapIndexed { index, line ->
             // Turned by minus the text's angle, so the lines are level.
             val xs = line.corners.map { it.x * cos + it.y * sin }
@@ -521,6 +581,26 @@ object ReadingOrder {
         val order = ArrayList<Int>(lines.size)
         cut(items, lineHeight, order)
         return order
+    }
+
+    /**
+     * The mean direction (cos, sin) of [lines] from their top-left to their top-right corners,
+     * weighted by length; with [around], of only the lines within 45° of that direction. Null if
+     * there are none, or they cancel out.
+     */
+    private fun direction(lines: List<OcrQuad>, around: DoubleArray?): DoubleArray? {
+        var sumX = 0.0
+        var sumY = 0.0
+        for (line in lines) {
+            val (topLeft, topRight) = line.corners
+            val dx = (topRight.x - topLeft.x).toDouble()
+            val dy = (topRight.y - topLeft.y).toDouble()
+            if (around != null && dx * around[0] + dy * around[1] <= sqrt(0.5) * hypot(dx, dy)) continue
+            sumX += dx
+            sumY += dy
+        }
+        val length = hypot(sumX, sumY)
+        return if (length > 0) doubleArrayOf(sumX / length, sumY / length) else null
     }
 
     private class Item(val index: Int, val left: Double, val right: Double, val top: Double, val bottom: Double) {
@@ -556,7 +636,11 @@ object ReadingOrder {
                 continue
             }
             val rows = widestGap(items, { it.coreTop }, { it.coreBottom })
-            val columns = widestGap(items, { it.left }, { it.right })?.takeIf { it.size >= lineHeight }
+            val columns = widestGap(items, { it.left }, { it.right })?.takeIf { gap ->
+                gap.size >= lineHeight || gap.size >= lineHeight / 2 &&
+                    items.count { it.right <= gap.after } >= MIN_COLUMN_LINES &&
+                    items.count { it.left > gap.after } >= MIN_COLUMN_LINES
+            }
             // A row gap measured between the middle halves of lines is half a line wider than the space.
             val rowSpace = rows?.let { it.size - lineHeight / 2 } ?: Double.NEGATIVE_INFINITY
             val (first, second) = when {

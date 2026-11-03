@@ -13,6 +13,9 @@ Usugami.apk, text recognition uses Google's ML Kit, which runs on your phone but
 Usugami Lite and Usugami OCR contain no Google code. The rest of Usugami is GPL-3.0-or-later. All
 three files are signed with the same key: install one over another to switch editions.
 
+Had Usugami Offline? It is now Usugami OCR: install Usugami-ocr.apk over it, and your files and
+settings are kept. In Obtainium, change its APK filter to `^Usugami-ocr\.apk$`.
+
 Needs Android 8.0 or newer. New to installing APKs? Follow the
 [step-by-step guide](https://github.com/${GITHUB_REPOSITORY}#install).
 

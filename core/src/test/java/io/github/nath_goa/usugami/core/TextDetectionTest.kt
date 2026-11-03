@@ -149,7 +149,7 @@ class TextDetectionTest {
     }
 
     @Test fun aLongColumnIsOrderedWithoutDeepRecursion() {
-        // As many lines as detection can find (1000), each a little wider than the last.
+        // A thousand lines, each a little wider than the last.
         val lines = (0 until 1000).map { box(10f, it * 30f, 300f + it * 0.1f, it * 30f + 20f) }
         val shuffled = lines.shuffled(java.util.Random(1))
         assertEquals(lines, ReadingOrder.of(shuffled).map { shuffled[it] })
@@ -173,7 +173,7 @@ class TextDetectionTest {
         fun turned(quad: OcrQuad, radians: Double) = quad.map {
             OcrPoint((it.x * cos(radians) - it.y * sin(radians)).toFloat(), (it.x * sin(radians) + it.y * cos(radians)).toFloat())
         }
-        val tilted = TextLines.merge(listOf(turned(box(0f, 0f, 50f, 20f), angle), turned(box(60f, 0f, 200f, 20f), angle))).single().quad
+        val tilted = TextLines.merge(listOf(turned(box(0f, 0f, 50f, 20f), angle), turned(box(58f, 0f, 200f, 20f), angle))).single().quad
         assertEquals(200f, tilted.width, 0.01f)
         assertEquals(8.0, Math.toDegrees(kotlin.math.atan2((tilted.corners[1].y - tilted.corners[0].y).toDouble(), (tilted.corners[1].x - tilted.corners[0].x).toDouble())), 0.01)
         // A line running down the page is not joined with one running across.
@@ -186,7 +186,7 @@ class TextDetectionTest {
         // A page turned a quarter round: its lines run down it, side by side.
         val turnedPage = (0 until 4).map { box(it * 30f, 0f, it * 30f + 20f, 300f) }
         // Pieces of one such line join; the lines next to each other don't.
-        val pieces = TextLines.merge(turnedPage + box(0f, 310f, 20f, 360f))
+        val pieces = TextLines.merge(turnedPage + box(0f, 308f, 20f, 360f))
         assertEquals(4, pieces.size)
         assertEquals(360f, pieces.first { it.parts.size == 2 }.quad.height, 1e-3f)
         val short = box(200f, 0f, 220f, 36f) // a word of one or two letters, 1.8 times as tall as wide
@@ -231,6 +231,88 @@ class TextDetectionTest {
             DetectionStrips.copy(values, strip, map, 64)
         }
         for (y in 0 until 96) for (x in 0 until 64) assertEquals(y.toByte(), map[y * 64 + x])
+    }
+
+    @Test fun shortWordsOnLinesOneUnderTheOtherStayApart() {
+        // Two Hindi lines ending in है, a box taller than wide, at the same place on both lines.
+        val hindi = listOf(
+            box(100f, 100f, 300f, 160f), box(320f, 95f, 360f, 165f),
+            box(100f, 190f, 300f, 250f), box(322f, 185f, 362f, 255f),
+        )
+        assertEquals(listOf(listOf(0, 1), listOf(2, 3)), TextLines.merge(hindi).map { it.parts }.sortedBy { it[0] })
+        // Lines starting with a lone "I".
+        val lonelyI = listOf(box(100f, 100f, 120f, 140f), box(130f, 100f, 500f, 140f), box(100f, 160f, 120f, 200f), box(130f, 160f, 500f, 200f))
+        assertEquals(listOf(listOf(0, 1), listOf(2, 3)), TextLines.merge(lonelyI).map { it.parts }.sortedBy { it[0] })
+        // A table column of lone 1s, each three times as tall as wide, under a line of text.
+        val ones = listOf(box(200f, 0f, 800f, 40f)) + (1..4).map { box(100f, it * 60f, 112f, it * 60f + 40f) }
+        assertEquals(5, TextLines.merge(ones).size)
+        // The same Hindi lines on a page turned a quarter round, where the lines run down the page.
+        val turned = hindi.map { quad -> quad.map { OcrPoint(it.y, it.x) } }.map { OcrQuad(TextDetection.orderCorners(it.corners)) }
+        val lines = TextLines.merge(turned)
+        assertEquals(listOf(listOf(0, 1), listOf(2, 3)), lines.map { it.parts }.sortedBy { it[0] })
+        assertEquals(listOf(true, true), TextLines.vertical(lines.map { it.quad }).toList())
+    }
+
+    @Test fun columnsWithANarrowGapAreReadOneAfterTheOther() {
+        // Two columns of 10 lines 30 high, only 24 apart (a two-column paper), and a word space.
+        val left = (0 until 10).map { box(0f, it * 40f, 400f, it * 40f + 30f) }
+        val right = (0 until 10).map { box(424f, it * 40f, 824f, it * 40f + 30f) }
+        val word = box(830f, 0f, 900f, 30f) // 6 after the first right line
+        val lines = TextLines.merge(left + right + word)
+        assertEquals(20, lines.size)
+        assertEquals(listOf(10, 20), lines.first { it.parts.size == 2 }.parts)
+        val quads = lines.map { it.quad }
+        val order = ReadingOrder.of(quads).map { quads[it] }
+        assertEquals(left, order.take(10))
+        assertEquals(right.drop(1), order.drop(11))
+        // Two lines with such a gap in the same place are read line by line, not as two columns.
+        val form = listOf(box(0f, 0f, 100f, 30f), box(124f, 0f, 300f, 30f), box(0f, 40f, 100f, 70f), box(124f, 40f, 300f, 70f))
+        assertEquals(listOf(0, 1, 2, 3), ReadingOrder.of(form))
+    }
+
+    @Test fun aLineDownTheMarginDoesNotTiltThePage() {
+        // An A4 page read at 2121 x 3000: two columns of 40 lines with an 80-pixel gap, and an arXiv
+        // paper's ID read up (or down) its left margin, 1600 long.
+        val left = (0 until 40).map { box(100f, 400f + it * 60f, 970f, 436f + it * 60f) }
+        val right = (0 until 40).map { box(1050f, 400f + it * 60f, 1920f, 436f + it * 60f) }
+        val stamp = box(30f, 700f, 66f, 2300f)
+        for (quarterTurns in listOf(1, 3)) {
+            val lines = left + right + stamp.turned(quarterTurns)
+            val order = ReadingOrder.of(lines).map { lines[it] }.filter { it !in listOf(stamp.turned(quarterTurns)) }
+            assertEquals(left + right, order)
+        }
+    }
+
+    @Test fun pagesWithManyBoxesAreReadToTheBottom() {
+        // 6400 dots too small for a box, then 2240 words below them (more than PaddleOCR's 1000).
+        val width = 640
+        val height = 400
+        val map = ByteArray(width * height)
+        for (y in 0 until 40 step 2) for (x in 0 until width step 2) map[y * width + x] = 255.toByte()
+        for (row in 0 until 35) for (column in 0 until 64) {
+            for (y in 0 until 6) for (x in 0 until 6) map[(50 + row * 10 + y) * width + column * 10 + x] = 255.toByte()
+        }
+        assertEquals(35 * 64, TextDetection.boxes(map, width, height).size)
+    }
+
+    @Test fun picturesAreReadBigEnough() {
+        // A 4:3 photo and a screenshot as before: 3000 pixels on the long side.
+        assertEquals(0.75, OcrScale.of(4000, 3000, 3000, 2.5), 1e-9)
+        assertEquals(1.25, OcrScale.of(1080, 2400, 3000, 2.5), 1e-9)
+        assertEquals(2.5, OcrScale.of(400, 300, 3000, 2.5), 1e-9)
+        assertEquals(1.0, OcrScale.of(3000, 3000, 3000, 2.5), 1e-9)
+        // A long screenshot isn't shrunk while it has fewer pixels than a 4:3 photo...
+        assertEquals(1.0, OcrScale.of(1080, 3500, 3000, 2.5), 1e-9)
+        // ...and then only to that many pixels, at most 8192 on a side.
+        assertEquals(3000.0 * 2250, 1080 * 9000 * OcrScale.of(1080, 9000, 3000, 2.5).let { it * it }, 1.0)
+        assertEquals(8192.0 / 12000, OcrScale.of(1080, 12000, 3000, 2.5), 1e-9)
+        // Detected at 2240 on the long side (never enlarged), or as many pixels as a 4:3 page then.
+        assertEquals(2240.0 / 3000, OcrScale.of(2250, 3000, 2240, 1.0), 1e-9)
+        assertEquals(1.0, OcrScale.of(1000, 1400, 2240, 1.0), 1e-9)
+        val scale = OcrScale.of(737, 8192, 2240, 1.0)
+        assertEquals(2240.0 * 1680, 737 * 8192 * scale * scale, 1.0)
+        // An A4 page in points is rendered at 2.5 times its size, as before.
+        assertEquals(2.5, OcrScale.of(595, 842, 2600, 2.5), 1e-9)
     }
 
     @Test fun quadTurnsKeepTheTextCorners() {

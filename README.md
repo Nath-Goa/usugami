@@ -30,7 +30,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 
 | | **Usugami** (recommended) | **Usugami Lite** | **Usugami OCR** |
 |---|---|---|---|
-| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.6 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 15 MB: the recognition engine and models are inside |
+| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.6 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 14 MB: the recognition engine and models are inside |
 | Images, Word, PowerPoint and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app ([PaddleOCR](#how-usugami-ocr-reads-text) models). Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never | Never |
@@ -103,6 +103,13 @@ settings are kept. To get updates automatically, use [Obtainium](#automatic-upda
 
 **Switching editions:** install another edition's APK over the one you have. No need to uninstall
 first.
+
+**Had Usugami Offline?** Since version 1.5.0 it is Usugami OCR, with open-source text recognition
+built in instead of Google's, and there is no Usugami-offline.apk any more. Install
+**[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**
+over it: your files and settings are kept. If Obtainium updates it, change the app's APK filter
+there to `^Usugami-ocr\.apk$`, or remove it from Obtainium and
+[add Usugami OCR](#automatic-updates-with-obtainium) again; until then Obtainium finds no update.
 
 **Had PDFer 1.0 or 1.1?** That was Usugami's old name. Those were private test builds with a
 different package name, so Usugami installs as a separate app. Install Usugami, then uninstall the
@@ -486,7 +493,7 @@ processor by Tencent's [ncnn](https://github.com/Tencent/ncnn). One model finds 
 on each page; then English, French and Spanish are read by PaddleOCR's Latin-script model, and
 Hindi by its Devanagari model, which also reads English words. Nothing is downloaded and nothing
 leaves your phone, so it works in flight mode too. The engine and models are what make
-Usugami-ocr.apk about 12 MB bigger than Usugami.apk.
+Usugami-ocr.apk about 11 MB bigger than Usugami.apk.
 
 - It reads printed text best: worksheets, letters, book pages, notices, including photos taken at an
   angle. Columns are read one after the other.
@@ -613,7 +620,7 @@ automatically.
 <details>
 <summary><b>How much storage does Usugami use?</b></summary>
 
-The app takes about 3 MB to download (Usugami OCR about 15 MB, since its recognition engine and
+The app takes about 3 MB to download (Usugami OCR about 14 MB, since its recognition engine and
 models are inside).
 While you work, Usugami keeps temporary copies of your files in its cache and deletes them
 automatically; you can also clear it in Settings → Apps → Usugami → Storage. In the main edition,

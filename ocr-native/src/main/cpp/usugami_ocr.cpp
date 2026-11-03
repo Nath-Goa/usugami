@@ -16,8 +16,8 @@
 
 namespace {
 
-// Far above anything Usugami passes (a page is at most 2600 pixels on its long side), but small
-// enough that sizes can't overflow.
+// Usugami passes pictures of at most 8192 pixels on a side (a long screenshot), and much fewer
+// pixels than kMaxPixels; small enough that sizes can't overflow.
 constexpr int kMaxSide = 8192;
 constexpr int64_t kMaxPixels = 32LL * 1024 * 1024;
 constexpr int64_t kMaxOutput = 64LL * 1024 * 1024;
@@ -174,6 +174,12 @@ JNIEXPORT jlong JNICALL Java_io_github_nath_1goa_usugami_ocr_NcnnNative_load(
         net->opt.use_local_pool_allocator = false;
     }
     net->opt.use_vulkan_compute = false;
+    // 32-bit floats throughout, as on x86_64, where the confidence thresholds, accuracy and memory
+    // were measured. ncnn would otherwise keep values in 16 bits on most ARM phones, which can change
+    // the recognition model's confidences (its attention and LayerNorm layers) untested.
+    net->opt.use_fp16_packed = false;
+    net->opt.use_fp16_storage = false;
+    net->opt.use_fp16_arithmetic = false;
     net->opt.num_threads = std::max(1, std::min(4, ncnn::get_big_cpu_count()));
     const char* param = env->GetStringUTFChars(paramPath, nullptr);
     const char* model = param != nullptr ? env->GetStringUTFChars(modelPath, nullptr) : nullptr;

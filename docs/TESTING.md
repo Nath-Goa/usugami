@@ -53,10 +53,14 @@ recognition they check the post-processing against PaddleOCR's own (fixtures in
 `core/src/test/resources/ocr`, made with OpenCV and pyclipper by `tools/make_ocr_test_fixtures.py`):
 the boxes found in a real probability map of the detection model, their scores, smallest
 enclosing rectangles, decoding the recognition model's output for real lines (repeats, blanks and
-the space), and also pieces of one line joined (also tilted, but not across columns or with much
-smaller print), which boxes are read as lines running down the page, the reading order (columns,
-pieces of a line, tilted and upside-down pages, lines fanned out by a photo taken at a slant), the
-strips a large page is detected in, and where over-long lines are cut. For text recognition in
+the space), and also pieces of one line joined (also tilted, but not across columns, even close
+ones, or with much smaller print, and not short words standing tall on lines one under the other,
+also on a page turned a quarter round), which boxes are read as lines running down the page, the
+reading order (columns, also with only a line height between them, pieces of a line, tilted and
+upside-down pages, a line down the margin, lines fanned out by a photo taken at a slant), pages
+with thousands of words read to the bottom, the size pictures are read and detected at (a long
+screenshot isn't shrunk to its long side), the strips a large page is detected in, and where
+over-long lines are cut. For text recognition in
 both editions that have it, they check where a point of a picked image lands on its page (A4 with
 a margin, Fit, landscape, turned a quarter, and every EXIF orientation and turn): exactly where the
 page's own drawing matrix puts it.

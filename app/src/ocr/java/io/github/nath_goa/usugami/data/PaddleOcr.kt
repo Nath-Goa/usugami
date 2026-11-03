@@ -10,6 +10,7 @@ import android.graphics.Point
 import io.github.nath_goa.usugami.core.DetectionStrips
 import io.github.nath_goa.usugami.core.OcrPoint
 import io.github.nath_goa.usugami.core.OcrQuad
+import io.github.nath_goa.usugami.core.OcrScale
 import io.github.nath_goa.usugami.core.OcrText
 import io.github.nath_goa.usugami.core.ReadingOrder
 import io.github.nath_goa.usugami.core.TextDetection
@@ -153,7 +154,7 @@ internal class PaddleOcrRecognizer(private val assets: AssetManager, private val
 
     /** The boxes of the lines on [page], in its pixels, as PaddleOCR orders their corners. */
     private suspend fun detect(page: Bitmap, detector: NcnnNet): List<OcrQuad> {
-        val scale = min(1f, DETECTION_SIDE.toFloat() / max(page.width, page.height))
+        val scale = OcrScale.of(page.width, page.height, DETECTION_SIDE, maxEnlarge = 1.0)
         val width = max(1, (page.width * scale).roundToInt())
         val height = max(1, (page.height * scale).roundToInt())
         val scaled = if (width == page.width && height == page.height) page else Bitmap.createScaledBitmap(page, width, height, true)
@@ -249,17 +250,18 @@ internal class PaddleOcrRecognizer(private val assets: AssetManager, private val
 
     private companion object {
         /**
-         * The longest side the detection model sees. Pages come at up to 3000 pixels (PdfOcr: the
-         * picked images, or pages rendered at up to 2600); a rendered A4 page (2105) is detected at
-         * full size, which on photographed pages found clearly more small print than 1600 or 960
-         * (measured with PaddleOCR's own pipeline).
+         * The longest side the detection model sees, or for a longer picture than 4:3 as many pixels
+         * as a 4:3 one has then (OcrScale). Pages come at up to 3000 pixels (PdfOcr: the picked
+         * images, or pages rendered at up to 2600), long screenshots up to 8192; a rendered A4 page
+         * (2105) is detected at full size, which on photographed pages found clearly more small print
+         * than 1600 or 960 (measured with PaddleOCR's own pipeline).
          */
         const val DETECTION_SIDE = 2240
 
         /**
          * Larger pages are detected in strips of at most this many pixels, overlapping by
          * [DETECTION_STRIP_OVERLAP] (DetectionStrips): the model needs about 160 MB per million pixels
-         * (measured on x86_64; ARM's fp16 needs less). An A4 page is 3 strips.
+         * (measured on x86_64; ARM phones run the same 32-bit floats). An A4 page is 3 strips.
          */
         const val DETECTION_STRIP_PIXELS = 1_250_000
         const val DETECTION_STRIP_OVERLAP = 128

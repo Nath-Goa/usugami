@@ -3,7 +3,10 @@
 # as Usugami Lite and Usugami OCR promise. Fails if an APK has
 #   - a class in one of the packages in forbidden_packages below, listed from its dex files with
 #     apkanalyzer. Release builds are obfuscated, so pass R8's mapping.txt to see the classes'
-#     original names ("-" for a build that isn't obfuscated), or
+#     original names ("-" for a build that isn't obfuscated),
+#   - a name in one of those packages anywhere in R8's mapping.txt: R8 can inline a library's code
+#     into Usugami's classes, or merge or remove its classes, so it ships without a class of its own
+#     in the dex; the mapping still names where the code came from, or
 #   - a manifest entry (a component or meta-data) named after one of them.
 #
 #   .github/scripts/check-no-google-code.sh app.apk mapping.txt [more.apk mapping.txt ...]
@@ -35,6 +38,9 @@ fi
 apkanalyzer="${APKANALYZER:-$(find_tool 'cmdline-tools/*/bin/apkanalyzer')}"
 aapt2="${AAPT2:-$(find_tool 'build-tools/*/aapt2')}"
 
+# The packages as a regular expression, with dots or slashes (type descriptors in the mapping).
+forbidden_pattern="$(printf '%s\n' "${forbidden_packages[@]}" | sed 's/\./[.\/]/g' | paste -sd '|' -)"
+
 matches_forbidden() { # reads names on stdin, prints those in a forbidden package
   awk -v list="${forbidden_packages[*]}" '
     BEGIN { n = split(list, p, " ") }
@@ -62,18 +68,23 @@ while [ "$#" -gt 0 ]; do
     continue
   fi
   google="$(matches_forbidden <<< "$classes")"
+  google_mapping=""
+  if [ "$mapping" != "-" ]; then
+    google_mapping="$(grep -oE "($forbidden_pattern)[A-Za-z0-9_\$./]*" "$mapping" | sort -u || true)"
+  fi
 
   manifest="$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")"
   names="$(sed -n 's/.*android:name([^)]*)="\([^"]*\)".*/\1/p' <<< "$manifest")"
   [ -n "$names" ] || { echo "::error file=$apk::$apk: no android:name found in the manifest dump"; status=1; continue; }
   google_manifest="$(matches_forbidden <<< "$names" | paste -sd ' ' -)"
 
-  if [ -n "$google" ] || [ -n "$google_manifest" ]; then
-    echo "::error file=$apk::$apk contains Google code: $(grep -c . <<< "$google" || true) classes, manifest entries: ${google_manifest:-none}"
+  if [ -n "$google" ] || [ -n "$google_mapping" ] || [ -n "$google_manifest" ]; then
+    echo "::error file=$apk::$apk contains Google code: $(grep -c . <<< "$google" || true) classes, $(grep -c . <<< "$google_mapping" || true) names in the mapping, manifest entries: ${google_manifest:-none}"
     sed -n '1,20s/^/  /p' <<< "$google"
+    sed -n '1,20s/^/  mapping: /p' <<< "$google_mapping"
     status=1
   else
-    echo "$apk: no Google code among $count classes and the manifest"
+    echo "$apk: no Google code among $count classes, the mapping and the manifest"
   fi
 done
 exit "$status"

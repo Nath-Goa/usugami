@@ -359,7 +359,7 @@ authorization of the copyright holder.
 ## 3. Fonts
 
 All fonts here are licensed under the SIL Open Font License, Version 1.1 (full text in section
-6).
+7).
 
 ### Usugami OCR font (fonts/UsugamiOcr-Regular.ttf), Usugami and Usugami OCR
 
@@ -456,13 +456,40 @@ applications, and to alter it and redistribute it freely, subject to the followi
 ncnn's source also contains files under the BSD 2-Clause License (SqueezeNet 1.1, caffe.proto) and
 another BSD 3-Clause file (android.toolchain.cmake); Usugami OCR doesn't use them.
 
-### LLVM C++ library and OpenMP runtime
+### LLVM runtime libraries: C++ library, OpenMP runtime
 
-libusugami_ocr.so also contains parts of LLVM's C++ standard library (libc++) and OpenMP runtime
-(libomp) from the Android NDK 28.2.13676358, linked in statically. They are licensed under the
-Apache License, Version 2.0 with LLVM Exceptions (https://llvm.org/LICENSE.txt); the exceptions let
-such compiled-in parts be distributed without the license's notice requirements. Copyright the
-LLVM Project contributors.
+libusugami_ocr.so also contains parts of LLVM's runtime libraries from the Android NDK
+28.2.13676358, linked in statically: the C++ standard library (libc++ and libc++abi) with its
+unwinder (libunwind), the compiler's built-in functions (compiler-rt), and the OpenMP runtime
+(libomp), which spreads the work over the phone's processor cores. They are licensed under the
+Apache License, Version 2.0 with LLVM Exceptions (https://llvm.org/LICENSE.txt), Copyright the LLVM
+Project contributors. Parts of them are also under LLVM's earlier license, which lets users choose
+between the University of Illinois/NCSA Open Source License and the MIT License. Usugami uses them
+under the MIT License, which asks for these notices:
+
+```text
+libc++, libc++abi and libunwind: Copyright (c) 2009-2014 by the contributors listed in CREDITS.TXT
+compiler-rt: Copyright (c) 2009-2015 by the contributors listed in CREDITS.TXT
+OpenMP runtime: Copyright (c) 1997-2019 Intel Corporation
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
 
 ### PaddleOCR PP-OCRv5 models
 

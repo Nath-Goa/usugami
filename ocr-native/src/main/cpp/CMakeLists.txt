@@ -41,6 +41,10 @@ ncnn_option(NCNN_BUILD_BENCHMARK OFF)
 ncnn_option(NCNN_BUILD_TESTS OFF)
 ncnn_option(NCNN_PYTHON OFF)
 ncnn_option(NCNN_OPENMP ON)
+# The networks run in 32-bit floats (usugami_ocr.cpp), so the kernels for 16-bit floats on ARM
+# (ARMv8.2 half-precision arithmetic, and the 16-bit storage kernels for VFPv4) would never run.
+ncnn_option(NCNN_ARM82 OFF)
+ncnn_option(NCNN_VFPV4 OFF)
 # Models are read from the APK's assets (Android's AAssetManager), with readable layer names.
 ncnn_option(NCNN_PLATFORM_API ON)
 ncnn_option(NCNN_STRING ON)

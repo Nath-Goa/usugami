@@ -10,9 +10,10 @@ Each ONNX file is downloaded at a pinned revision and checked against its SHA-25
 with pnnx (from Tencent's ncnn project) to ncnn's .param/.bin format with fp16 weights. Each
 recognition model's character list comes from PostProcess.character_dict in its inference.yml and
 is written one character per line (the model's class 0 is the CTC blank, then these characters,
-then a space). Finally every output file is checked against tools/ocr-models.sha256, so the files
-in the repository are exactly what this script makes. Use --update to rewrite that list after
-changing a model or pnnx.
+then a space). The files are made in the work folder and checked against tools/ocr-models.sha256,
+so the files in the repository are exactly what this script makes; only then are they copied into
+app/src/ocr/assets/ocr (if they differ, the assets are left as they are). Use --update to copy them
+and rewrite that list after changing a model or pnnx.
 
 pnnx is used only to run its bundled converter, which needs neither PyTorch nor the network:
 
@@ -145,31 +146,37 @@ def main():
     pnnx = pnnx_executable()
     work = args.work or Path(tempfile.mkdtemp(prefix="usugami-ocr-models-"))
     work.mkdir(parents=True, exist_ok=True)
-    ASSETS.mkdir(parents=True, exist_ok=True)
+    # Made here first: the assets are only replaced by files that passed the check (or with --update).
+    staged = work / "assets"
+    staged.mkdir(exist_ok=True)
     made = []
     for name, (repo, revision, onnx_sha, yml_sha, shapes, has_dictionary) in MODELS.items():
         onnx = work / f"{name}.onnx"
         download(repo, revision, "inference.onnx", onnx, onnx_sha)
         param, model = convert(pnnx, onnx, shapes, work, name)
-        shutil.copyfile(param, ASSETS / f"{name}.ncnn.param")
-        shutil.copyfile(model, ASSETS / f"{name}.ncnn.bin")
+        shutil.copyfile(param, staged / f"{name}.ncnn.param")
+        shutil.copyfile(model, staged / f"{name}.ncnn.bin")
         made += [f"{name}.ncnn.param", f"{name}.ncnn.bin"]
         if has_dictionary:
             yml = work / f"{name}.yml"
             download(repo, revision, "inference.yml", yml, yml_sha)
-            write_dictionary(yml, ASSETS / f"{name}.dict.txt")
+            write_dictionary(yml, staged / f"{name}.dict.txt")
             made.append(f"{name}.dict.txt")
 
-    lines = [f"{sha256(ASSETS / file)}  {file}" for file in sorted(made)]
+    lines = [f"{sha256(staged / file)}  {file}" for file in sorted(made)]
+    if not args.update:
+        expected = CHECKSUMS.read_text(encoding="utf-8").splitlines()
+        if lines != expected:
+            for line in sorted(set(lines) ^ set(expected)):
+                print(("made     " if line in lines else "expected ") + line)
+            sys.exit(f"The models differ from tools/ocr-models.sha256; {ASSETS} is unchanged (the new files are in {staged})")
+    ASSETS.mkdir(parents=True, exist_ok=True)
+    for file in made:
+        shutil.copyfile(staged / file, ASSETS / file)
     if args.update:
         CHECKSUMS.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
-        print(f"Wrote {CHECKSUMS}")
+        print(f"Copied the models to {ASSETS} and wrote {CHECKSUMS}")
         return
-    expected = CHECKSUMS.read_text(encoding="utf-8").splitlines()
-    if lines != expected:
-        for line in sorted(set(lines) ^ set(expected)):
-            print(("made     " if line in lines else "expected ") + line)
-        sys.exit("The models differ from tools/ocr-models.sha256")
     print(f"All {len(made)} files match tools/ocr-models.sha256")
 
 
