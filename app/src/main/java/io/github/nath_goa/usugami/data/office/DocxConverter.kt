@@ -1,8 +1,15 @@
 package io.github.nath_goa.usugami.data.office
 
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.RectF
+import androidx.core.graphics.withRotation
+import androidx.core.graphics.withScale
+import io.github.nath_goa.usugami.core.GroupFrame
+import io.github.nath_goa.usugami.core.ListNumbering
 import io.github.nath_goa.usugami.core.OfficeColors
+import io.github.nath_goa.usugami.core.OfficeRect
 import io.github.nath_goa.usugami.core.OfficeUnits
 import io.github.nath_goa.usugami.core.SymbolFonts
 import io.github.nath_goa.usugami.core.TableColumns
@@ -10,6 +17,7 @@ import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Word documents (.docx) to PDF, read and laid out on the phone.
@@ -20,9 +28,10 @@ import kotlin.math.min
  * in capitals, or any size; Word's styles (document defaults, paragraph and character styles,
  * headings, Title, table styles' borders and spacing) and theme fonts; bulleted and numbered
  * lists, at every level; tables, with their column widths, merged cells, borders and shading,
- * header rows repeated on each page, and rows split across pages; pictures, in the text or floating;
- * page breaks and section breaks; headers and footers, with page numbers; the text of text boxes,
- * equations and fields; links, as text.
+ * header rows repeated on each page, and rows split across pages; pictures, in the text or floating,
+ * turned or flipped, and in groups and drawing canvases; picture watermarks; page breaks and section
+ * breaks; headers and footers, with page numbers in their format; the text of text boxes, equations
+ * and fields; links, as text.
  *
  * What is simplified: fonts become the phone's (sans-serif, serif or monospace), so lines can break
  * in other places than in Word. Text doesn't wrap around floating pictures: they go on lines of
@@ -50,20 +59,32 @@ internal class DocxConverter(
         main = pkg.mainPart() ?: "word/document.xml"
         theme = OfficeTheme.read(pkg, pkg.targetOfType(main, "/theme"), check)
         styles = DocxStyles.read(pkg, pkg.targetOfType(main, "/styles"), theme, check)
-        numbering = DocxNumbering.read(pkg, pkg.targetOfType(main, "/numbering"), theme, check)
+        numbering = DocxNumbering.read(pkg, pkg.targetOfType(main, "/numbering"), theme, styles, check)
         sections = readSections()
         val flow = Flow()
         val reader = Reader(main)
+        var shown = false
         pkg.xml(main, check)?.use { x ->
             x.children {
                 if (x.name == "body") reader.blocks(x, null) { item ->
                     check()
+                    if (!shown) shown = shows(item)
                     flow.add(item)
                 }
             }
         }
+        // A body kept as a web page or RTF file inside the document (w:altChunk), as some apps export
+        // to Word, isn't read: the file is refused with a message rather than becoming a blank PDF.
+        if (!shown && reader.altChunks > 0) throw OfficeEmbeddedContent()
         flow.finish()
         return pdf.pageCount
+    }
+
+    /** Whether [item] puts anything on the page: text, a picture or a table. */
+    private fun shows(item: DocItem): Boolean = when (item) {
+        is DocPara -> item.floats.isNotEmpty() || item.inlines.any { it !is TextInline || it.text.isNotBlank() }
+        is DocTable -> true
+        else -> false
     }
 
     // ---- What the document is made of, as read ----
@@ -97,14 +118,54 @@ internal class DocxConverter(
 
     private sealed interface Inline
     private class TextInline(val text: String, val style: TextStyle) : Inline
-    private class PageNumberInline(val style: TextStyle) : Inline
+
+    /** The page's number, in [format] when its field asks for one (such as "PAGE \* roman"), else in its section's. */
+    private class PageNumberInline(val style: TextStyle, val format: ListNumbering.Format?) : Inline
     private class PictureInline(val picture: Picture, val width: Float, val height: Float, val style: TextStyle) : Inline
 
     /** Where a floating picture goes: relative to [from] ("page", "margin", "paragraph"...), by [offset] points or [align]. */
     private class Position(val from: String, val offset: Float, val align: String?)
 
-    /** A floating picture. [overText] when Word puts it in front of or behind the text, rather than wrapping text around it. */
-    private class Floating(val picture: Picture, val width: Float, val height: Float, val h: Position, val v: Position, val overText: Boolean)
+    /**
+     * A floating picture. [overText] when Word puts it in front of or behind the text, rather than
+     * wrapping text around it; [behind] when behind it.
+     */
+    private class Floating(
+        val picture: Picture,
+        val width: Float,
+        val height: Float,
+        val h: Position,
+        val v: Position,
+        val overText: Boolean,
+        val behind: Boolean = false,
+    )
+
+    /** How a picture is turned: by [degrees] clockwise, after being mirrored across ([flipH]) or upside down ([flipV]). */
+    private class Turn(val degrees: Float, val flipH: Boolean, val flipV: Boolean) {
+        val isNone: Boolean get() = degrees % 360f == 0f && !flipH && !flipV
+
+        /** Turned a quarter or three quarters: its box lies on its side. */
+        val sideways: Boolean
+            get() {
+                val quarters = (degrees / 90f).roundToInt()
+                return abs(degrees - quarters * 90f) < 1f && quarters.mod(2) == 1
+            }
+
+        companion object {
+            val NONE = Turn(0f, flipH = false, flipV = false)
+        }
+    }
+
+    /**
+     * A picture found in a drawing: [path] with [crop], turned [turn], and where it goes in the
+     * drawing's box, in points from its top left corner (null for all of it, as a lone picture).
+     */
+    private class Found(val path: String, val crop: FloatArray?, val box: OfficeRect?, val turn: Turn)
+
+    /** A page's number, and how its section writes page numbers. */
+    private class PageNumber(val value: Int, val format: ListNumbering.Format) {
+        fun text(own: ListNumbering.Format?) = ListNumbering.format(value, own ?: format)
+    }
 
     private class Section(
         val width: Float,
@@ -120,6 +181,7 @@ internal class DocxConverter(
         val footers: Map<String, String>,
         val titlePage: Boolean,
         val pageStart: Int?,
+        val pageFormat: ListNumbering.Format,
     )
 
     // ---- Sections: read ahead, since a section's page size is written at its end ----
@@ -149,6 +211,7 @@ internal class DocxConverter(
         val footers = HashMap(previous?.footers.orEmpty())
         var titlePage = false
         var pageStart: Int? = null
+        var pageFormat = ListNumbering.Format.DECIMAL
         x.children {
             when (x.name) {
                 "pgSz" -> {
@@ -165,7 +228,11 @@ internal class DocxConverter(
                 "headerReference" -> pkg.target(main, x.relId())?.let { headers[x.attr("type") ?: "default"] = it }
                 "footerReference" -> pkg.target(main, x.relId())?.let { footers[x.attr("type") ?: "default"] = it }
                 "titlePg" -> titlePage = x.flag()
-                "pgNumType" -> pageStart = x.intAttr("start")
+                "pgNumType" -> {
+                    pageStart = x.intAttr("start")
+                    pageFormat = ListNumbering.wordFormat(x.attr("fmt")).takeUnless { it == ListNumbering.Format.BULLET || it == ListNumbering.Format.NONE }
+                        ?: ListNumbering.Format.DECIMAL
+                }
             }
         }
         width = width.coerceIn(72f, 14_400f)
@@ -173,7 +240,7 @@ internal class DocxConverter(
         // Keep at least an inch for the text, whatever the margins say.
         if (margin[2] + margin[3] > width - 72f) margin[2] = 36f.also { margin[3] = 36f }
         if (margin[0] + margin[1] > height - 72f) margin[0] = 36f.also { margin[1] = 36f }
-        return Section(width, height, margin[0], margin[1], margin[2], margin[3], margin[4], margin[5], type, headers, footers, titlePage, pageStart)
+        return Section(width, height, margin[0], margin[1], margin[2], margin[3], margin[4], margin[5], type, headers, footers, titlePage, pageStart, pageFormat)
     }
 
     // ---- Reading ----
@@ -182,6 +249,10 @@ internal class DocxConverter(
     private inner class Reader(private val part: String) {
         /** Fields being read, outermost first: their instruction, and whether their result has started. */
         private val fields = ArrayList<Field>()
+
+        /** How many times content kept in another format (w:altChunk) was met: it isn't read. */
+        var altChunks = 0
+            private set
 
         private inner class Field {
             val instruction = StringBuilder()
@@ -198,6 +269,7 @@ internal class DocxConverter(
                 "sdt" -> x.children { if (x.name == "sdtContent") blocks(x, tableStyle, emit) }
                 "customXml", "ins", "moveTo" -> blocks(x, tableStyle, emit)
                 "AlternateContent" -> x.children { if (x.name == "Choice") blocks(x, tableStyle, emit) }
+                "altChunk" -> altChunks++
             }
         }
 
@@ -231,11 +303,14 @@ internal class DocxConverter(
                 val label = numId?.let { numbering.next(it, level) }
                 val labelStyle = (listLevel?.run ?: RunProps()).over(markRun).copy(underline = false, background = null).toStyle(theme)
                 val mark = markRun.toStyle(theme)
+                var emitted = false
                 built.segments.forEachIndexed { i, inlines ->
                     if (i > 0) emit(PageBreak)
                     // The text before a page break; the paragraph mark always goes after it.
                     if (i == 0 && inlines.isEmpty() && built.segments.size > 1 && built.floats.isEmpty()) return@forEachIndexed
-                    val first = i == 0
+                    // A paragraph starting with a page break keeps its number and space before on the next page.
+                    val first = !emitted
+                    emitted = true
                     emit(
                         DocPara(
                             if (first) props else props.copy(before = 0f, pageBreakBefore = false),
@@ -261,7 +336,7 @@ internal class DocxConverter(
                 "sdt" -> x.children { if (x.name == "sdtContent") x.children { content(x, out) } }
                 "AlternateContent" -> x.children { if (x.name == "Choice") x.children { content(x, out) } }
                 "fldSimple" -> if (isPageField(x.attr("instr"))) {
-                    out.add(PageNumberInline(out.base.toStyle(theme)))
+                    out.add(PageNumberInline(out.base.toStyle(theme), ListNumbering.fieldFormat(x.attr("instr").orEmpty())))
                 } else {
                     x.children { content(x, out) }
                 }
@@ -303,9 +378,11 @@ internal class DocxConverter(
                     "cr" -> text("\n")
                     "noBreakHyphen" -> text("\u2011")
                     "softHyphen" -> text("\u00AD")
-                    "sym" -> x.attr("char")?.toIntOrNull(16)?.let { code ->
-                        text(SymbolFonts.bullet(x.attr("font"), String(Character.toChars(code))))
+                    "sym" -> x.attr("char")?.toIntOrNull(16)?.takeIf(Character::isValidCodePoint)?.let { code ->
+                        text(SymbolFonts.character(x.attr("font"), String(Character.toChars(code))))
                     }
+                    // Text with a phonetic guide (furigana): the text itself, without its guide.
+                    "ruby" -> x.children { if (x.name == "rubyBase") x.children { content(x, out) } }
                     "drawing" -> if (shown()) drawing(x, out, style())
                     "pict", "object" -> if (shown()) vml(x, out, style())
                     "fldChar" -> when (x.attr("fldCharType")) {
@@ -313,12 +390,13 @@ internal class DocxConverter(
                         "separate" -> fields.lastOrNull()?.let { field ->
                             field.inResult = true
                             if (isPageField(field.instruction.toString()) && fields.count { !it.inResult || it.isPage } == 0) {
-                                out.add(PageNumberInline(style()))
+                                out.add(PageNumberInline(style(), ListNumbering.fieldFormat(field.instruction.toString())))
                                 field.isPage = true
                             }
                         }
                         "end" -> fields.removeLastOrNull()?.let { field ->
-                            if (!field.inResult && isPageField(field.instruction.toString())) out.add(PageNumberInline(style()))
+                            val instruction = field.instruction.toString()
+                            if (!field.inResult && isPageField(instruction)) out.add(PageNumberInline(style(), ListNumbering.fieldFormat(instruction)))
                         }
                     }
                     "instrText" -> fields.lastOrNull()?.instruction?.append(x.text())
@@ -331,45 +409,87 @@ internal class DocxConverter(
         private fun isPageField(instruction: String?) =
             instruction?.trim()?.split(' ', '\\')?.firstOrNull()?.equals("PAGE", ignoreCase = true) == true
 
-        /** A DrawingML picture or shape (w:drawing), in the text or floating. */
+        /**
+         * A DrawingML picture or shape (w:drawing), in the text or floating: a picture, the pictures
+         * of a group or drawing canvas where the group puts them, and text boxes' text. One hidden
+         * in Word (with the Selection Pane) is left out, as Word neither shows nor prints it.
+         */
         private fun drawing(x: OfficeXml, out: ParaBuilder, style: TextStyle) {
             x.children {
                 val inline = x.name == "inline"
                 if (!inline && x.name != "anchor") return@children
+                val behind = x.flag("behindDoc", missing = false)
                 var width = 0f
                 var height = 0f
                 var caption: String? = null
-                var path: String? = null
-                var crop: FloatArray? = null
+                var hidden = false
                 var standIn = false
                 var wrapNone = false
                 var h = Position("column", 0f, null)
                 var v = Position("paragraph", 0f, null)
-                fun scan() {
-                    x.children {
-                        when (x.name) {
-                            "blip" -> if (path == null) path = pkg.target(part, x.relId("embed"))
-                            "srcRect" -> crop = floatArrayOf(
-                                (x.intAttr("l") ?: 0) / 100_000f, (x.intAttr("t") ?: 0) / 100_000f,
-                                (x.intAttr("r") ?: 0) / 100_000f, (x.intAttr("b") ?: 0) / 100_000f,
-                            )
-                            "txbxContent" -> blocks(x, null) { out.boxes += it }
-                            "graphicData" -> {
-                                val uri = x.attr("uri").orEmpty()
-                                if ("chart" in uri || "diagram" in uri) standIn = true
-                                scan()
+                val found = ArrayList<Found>()
+
+                /**
+                 * A picture (pic:pic) or shape (wps:wsp): its picture, or picture fill, and its text box's
+                 * text. In a group, [place] takes its box to the drawing's.
+                 */
+                fun shape(place: ((OfficeRect) -> OfficeRect)?) {
+                    var shapeHidden = false
+                    var path: String? = null
+                    var crop: FloatArray? = null
+                    var frame: Pair<OfficeRect, Turn>? = null
+                    fun scan() {
+                        x.children {
+                            if (shapeHidden) return@children
+                            when (x.name) {
+                                "cNvPr" -> shapeHidden = x.flag("hidden", missing = false)
+                                "blip" -> if (path == null) path = pkg.target(part, x.relId("embed"))
+                                "srcRect" -> if (crop == null) crop = floatArrayOf(
+                                    (x.intAttr("l") ?: 0) / 100_000f, (x.intAttr("t") ?: 0) / 100_000f,
+                                    (x.intAttr("r") ?: 0) / 100_000f, (x.intAttr("b") ?: 0) / 100_000f,
+                                )
+                                "xfrm" -> if (frame == null) frame = shapeFrame(x)
+                                "txbxContent" -> blocks(x, null) { out.boxes += it }
+                                else -> scan()
                             }
-                            else -> scan()
+                        }
+                    }
+                    scan()
+                    val picture = path ?: return
+                    if (shapeHidden) return
+                    val box = place?.let { frame?.first?.let(it) ?: return }
+                    found += Found(picture, crop, box, frame?.second ?: Turn.NONE)
+                }
+
+                /** What's inside the current element, in a group placed by [place] (null outside groups). */
+                fun contents(place: ((OfficeRect) -> OfficeRect)?) {
+                    var inner = place
+                    var groupHidden = false
+                    x.children {
+                        if (groupHidden) return@children
+                        when (x.name) {
+                            // A group hidden as a whole.
+                            "cNvPr" -> groupHidden = x.flag("hidden", missing = false)
+                            "grpSpPr" -> x.children { if (x.name == "xfrm") inner = groupFrame(x, place ?: { it }) }
+                            "pic", "wsp" -> shape(inner)
+                            // A group (wgp, grpSp) or drawing canvas (wpc): their shapes are placed in their box.
+                            "wgp", "grpSp", "wpc" -> contents(inner ?: { it })
+                            "txbxContent" -> blocks(x, null) { out.boxes += it }
+                            else -> contents(inner)
                         }
                     }
                 }
+
                 x.children {
                     when (x.name) {
                         "extent" -> {
                             width = OfficeUnits.emu(x.longAttr("cx") ?: 0L)
                             height = OfficeUnits.emu(x.longAttr("cy") ?: 0L)
                         }
-                        "docPr" -> caption = x.attr("descr")?.takeIf { it.isNotBlank() } ?: x.attr("title")?.takeIf { it.isNotBlank() }
+                        "docPr" -> {
+                            caption = x.attr("descr")?.takeIf { it.isNotBlank() } ?: x.attr("title")?.takeIf { it.isNotBlank() }
+                            hidden = x.flag("hidden", missing = false)
+                        }
                         "wrapNone" -> wrapNone = true
                         "positionH", "positionV" -> {
                             val horizontal = x.name == "positionH"
@@ -384,37 +504,137 @@ internal class DocxConverter(
                             }
                             if (horizontal) h = Position(from, offset, align) else v = Position(from, offset, align)
                         }
-                        "graphic" -> scan()
+                        // The graphic comes after docPr, so a hidden drawing's text boxes aren't read either.
+                        "graphic" -> if (!hidden) x.children {
+                            if (x.name == "graphicData") {
+                                val uri = x.attr("uri").orEmpty()
+                                if ("chart" in uri || "diagram" in uri) standIn = true
+                                contents(null)
+                            }
+                        }
                     }
                 }
-                val picture: Picture? = path?.let { ImagePicture(images, it, width, height, crop) } ?: if (standIn) StandInPicture(caption) else null
-                if (picture == null || width <= 0f || height <= 0f) return@children
-                if (inline) out.add(PictureInline(picture, width, height, style))
-                else out.floats += Floating(picture, width, height, h, v, wrapNone)
+                if (hidden || width <= 0f || height <= 0f) return@children
+                val lone = found.firstOrNull { it.box == null }
+                // A picture turned a quarter takes the room of its turned box, as in Word.
+                val sideways = lone?.turn?.sideways == true
+                val picture: Picture = when {
+                    lone != null -> turned(ImagePicture(images, lone.path, width, height, lone.crop), lone.turn, sideways)
+                    found.isNotEmpty() -> GroupPicture(
+                        width, height,
+                        found.mapNotNull { f -> f.box?.let { turned(ImagePicture(images, f.path, it.width, it.height, f.crop), f.turn, false) to it } },
+                    )
+                    standIn -> StandInPicture(caption)
+                    else -> return@children
+                }
+                val (w, ht) = if (sideways) height to width else width to height
+                if (inline) out.add(PictureInline(picture, w, ht, style))
+                else out.floats += Floating(picture, w, ht, h, v, wrapNone, behind)
             }
         }
 
-        /** An older VML picture or text box (w:pict, w:object). */
+        /** A shape's a:xfrm: its box in points, and how it's turned. */
+        private fun shapeFrame(x: OfficeXml): Pair<OfficeRect, Turn> {
+            val turn = Turn((x.longAttr("rot") ?: 0L) / 60_000f, x.flag("flipH", missing = false), x.flag("flipV", missing = false))
+            var box = OfficeRect(0f, 0f, 0f, 0f)
+            x.children {
+                when (x.name) {
+                    "off" -> box = box.copy(x = OfficeUnits.emu(x.longAttr("x") ?: 0L), y = OfficeUnits.emu(x.longAttr("y") ?: 0L))
+                    "ext" -> box = box.copy(width = OfficeUnits.emu(x.longAttr("cx") ?: 0L), height = OfficeUnits.emu(x.longAttr("cy") ?: 0L))
+                }
+            }
+            return box to turn
+        }
+
+        /** A group's a:xfrm, as a step from its children's coordinates to [outer]'s, in points. */
+        private fun groupFrame(x: OfficeXml, outer: (OfficeRect) -> OfficeRect): (OfficeRect) -> OfficeRect {
+            var box = OfficeRect(0f, 0f, 0f, 0f)
+            var childOffset = 0f to 0f
+            var childExtent = 0f to 0f
+            x.children {
+                fun length(name: String) = OfficeUnits.emu(x.longAttr(name) ?: 0L)
+                when (x.name) {
+                    "off" -> box = box.copy(x = length("x"), y = length("y"))
+                    "ext" -> box = box.copy(width = length("cx"), height = length("cy"))
+                    "chOff" -> childOffset = length("x") to length("y")
+                    "chExt" -> childExtent = length("cx") to length("cy")
+                }
+            }
+            val frame = GroupFrame(box, childOffset, childExtent)
+            return { outer(frame.place(it)) }
+        }
+
+        /**
+         * An older VML picture or text box (w:pict, w:object). A picture positioned absolutely floats,
+         * as Word's picture watermarks do, lightened when Word washes it out; a hidden shape is left out.
+         */
         private fun vml(x: OfficeXml, out: ParaBuilder, style: TextStyle) {
             var width = 0f
             var height = 0f
             var path: String? = null
-            fun scan() {
+            var css: Map<String, String> = emptyMap()
+            var veil = 0f
+            var wrap: String? = null
+            fun scan(owner: Map<String, String>) {
                 x.children {
+                    var own = owner
                     if (x.ns == Ns.VML && x.name != "imagedata") {
-                        val css = OfficeUnits.cssStyle(x.attr("style"))
-                        css["width"]?.let(OfficeUnits::cssLength)?.let { if (width == 0f) width = it }
-                        css["height"]?.let(OfficeUnits::cssLength)?.let { if (height == 0f) height = it }
+                        val shapeCss = OfficeUnits.cssStyle(x.attr("style"))
+                        shapeCss["width"]?.let(OfficeUnits::cssLength)?.let { if (width == 0f) width = it }
+                        shapeCss["height"]?.let(OfficeUnits::cssLength)?.let { if (height == 0f) height = it }
+                        if (shapeCss.isNotEmpty()) own = shapeCss
                     }
+                    if (own["visibility"] == "hidden") return@children
                     when (x.name) {
-                        "imagedata" -> if (path == null) path = pkg.target(part, x.relId() ?: x.attr("relid"))
+                        "imagedata" -> if (path == null) {
+                            path = pkg.target(part, x.relId() ?: x.attr("relid"))
+                            css = owner
+                            veil = washout(x)
+                        }
+                        "wrap" -> if (wrap == null) wrap = x.attr("type") ?: "none"
                         "txbxContent" -> blocks(x, null) { out.boxes += it }
-                        else -> scan()
+                        else -> scan(own)
                     }
                 }
             }
-            scan()
-            path?.let { if (width > 0f && height > 0f) out.add(PictureInline(ImagePicture(images, it, width, height, null), width, height, style)) }
+            scan(emptyMap())
+            val p = path ?: return
+            if (width <= 0f || height <= 0f) return
+            val picture = ImagePicture(images, p, width, height, null).let { if (veil > 0f) VeiledPicture(it, veil) else it }
+            if (css["position"] == "absolute") {
+                // In front of or behind the text unless text wraps around it; behind when below the text's layer.
+                val behind = (css["z-index"]?.toIntOrNull() ?: 0) < 0
+                out.floats += Floating(picture, width, height, vmlPosition(css, true), vmlPosition(css, false), wrap == null || wrap == "none", behind)
+            } else {
+                out.add(PictureInline(picture, width, height, style))
+            }
+        }
+
+        /** Where a VML shape positioned absolutely goes, from its [css]: across when [horizontal], else down. */
+        private fun vmlPosition(css: Map<String, String>, horizontal: Boolean): Position {
+            val axis = if (horizontal) "horizontal" else "vertical"
+            val from = when (css["mso-position-$axis-relative"]) {
+                "page" -> "page"
+                "margin" -> "margin"
+                "left-margin-area", "inner-margin-area" -> if (horizontal) "leftMargin" else "topMargin"
+                "right-margin-area", "outer-margin-area" -> if (horizontal) "rightMargin" else "bottomMargin"
+                "top-margin-area" -> "topMargin"
+                "bottom-margin-area" -> "bottomMargin"
+                else -> if (horizontal) "column" else "paragraph"
+            }
+            val offset = (css[if (horizontal) "margin-left" else "margin-top"] ?: css[if (horizontal) "left" else "top"])?.let(OfficeUnits::cssLength) ?: 0f
+            return Position(from, offset, css["mso-position-$axis"]?.takeIf { it != "absolute" })
+        }
+
+        /**
+         * How much lighter a VML picture is drawn, 0 to 0.9: Word's "Washout" (as for watermarks) lowers
+         * the contrast ("gain") and raises the brightness ("blacklevel"), much as a white veil would.
+         */
+        private fun washout(x: OfficeXml): Float {
+            fun fraction(name: String) = x.attr(name)?.trim()?.let { if (it.endsWith("f")) it.dropLast(1).toFloatOrNull()?.div(65_536f) else it.toFloatOrNull() }
+            val gain = fraction("gain") ?: return 0f
+            val black = fraction("blacklevel") ?: return 0f
+            return if (gain < 1f && black > 0f) (1f - gain).coerceIn(0f, 0.9f) else 0f
         }
 
         private fun table(x: OfficeXml): DocTable {
@@ -523,6 +743,7 @@ internal class DocxConverter(
         private val left get() = section.left.units
         private val textWidth get() = (section.width - section.left - section.right).units
         private val textHeight get() = (section.height - section.top - section.bottom).units
+        private val pageNumber get() = PageNumber(shownNumber, section.pageFormat)
 
         /** A block waiting to go on the page, with its spacing and what it keeps with. */
         private inner class Placed(
@@ -539,11 +760,11 @@ internal class DocxConverter(
             when (item) {
                 is DocPara -> {
                     if (item.props.pageBreakBefore == true && !empty && canvas != null) newPage(natural = false)
-                    for (f in item.floats.filterNot { it.overText }) place(Placed(floatBlock(f)))
+                    for (f in item.floats.filterNot { it.overText }) place(Placed(floatBlock(f, textWidth, textHeight, left)))
                     val p = item.props
                     place(
                         Placed(
-                            paragraphBlock(item, textWidth.toInt(), shownNumber, textHeight),
+                            paragraphBlock(item, textWidth.toInt(), pageNumber, textHeight, null),
                             (spaceBefore(p)).units.toInt(),
                             (spaceAfter(p)).units.toInt(),
                             p.style ?: styles.defaultParagraphStyle,
@@ -553,7 +774,7 @@ internal class DocxConverter(
                         ),
                     )
                 }
-                is DocTable -> place(Placed(tableBlock(item, textWidth, shownNumber, textHeight)))
+                is DocTable -> place(Placed(tableBlock(item, textWidth, pageNumber, textHeight, null)))
                 PageBreak -> {
                     flushPending()
                     ensurePage()
@@ -627,8 +848,10 @@ internal class DocxConverter(
 
         private fun draw(block: Block, item: Placed, gap: Int, first: Boolean) {
             val c = canvas ?: return
+            // Pictures behind the text go under the paragraph they're anchored to, the others over it.
+            if (first) for (overlay in item.overlays) if (overlay.behind) drawOverlay(c, overlay, y + gap)
             block.draw(c, left, y + gap)
-            if (first) for (overlay in item.overlays) drawOverlay(c, overlay, y + gap)
+            if (first) for (overlay in item.overlays) if (!overlay.behind) drawOverlay(c, overlay, y + gap)
         }
 
         /** A picture in front of or behind the text, where Word puts it on the page. */
@@ -702,9 +925,22 @@ internal class DocxConverter(
             flushPending()
             val next = sections.getOrNull(++sectionIndex) ?: return
             val samePage = next.type == "continuous" && next.width == section.width && next.height == section.height
-            section = next
             if (!samePage) {
                 finishPage()
+                // A section starting on an odd (or even) page: when its first page's number wouldn't be, a
+                // blank page of the section before goes first, as in Word.
+                val parity = when (next.type) {
+                    "oddPage" -> 1
+                    "evenPage" -> 0
+                    else -> null
+                }
+                if (parity != null && pdf.pageCount > 0 && (next.pageStart ?: (shownNumber + 1)).mod(2) != parity) {
+                    startPage()
+                    finishPage()
+                }
+            }
+            section = next
+            if (!samePage) {
                 pageInSection = 0
                 keepSpaceBefore = true
             }
@@ -714,40 +950,40 @@ internal class DocxConverter(
             val first = section.titlePage && pageInSection == 1
             val header = if (first) section.headers["first"] else section.headers["default"]
             val footer = if (first) section.footers["first"] else section.footers["default"]
-            header?.let { headerBlock(it) }?.let { block ->
-                val at = section.headerDistance.units
-                block.draw(c, left, at)
-                top = max(top, at + block.height)
+            val headerOverlays = ArrayList<Floating>()
+            val footerOverlays = ArrayList<Floating>()
+            val head = header?.let { headerBlock(it, headerOverlays) }
+            val foot = footer?.let { headerBlock(it, footerOverlays) }
+            val headerAt = section.headerDistance.units
+            val footerAt = (section.height - section.footerDistance).units - (foot?.height ?: 0)
+            // Their pictures in front of or behind the text, such as a letterhead or a watermark, take no
+            // room and go under everything, as in Word.
+            for (f in headerOverlays) drawOverlay(c, f, headerAt)
+            for (f in footerOverlays) drawOverlay(c, f, footerAt)
+            head?.let { block ->
+                block.draw(c, left, headerAt)
+                top = max(top, headerAt + block.height)
             }
-            footer?.let { headerBlock(it) }?.let { block ->
-                val at = (section.height - section.footerDistance).units - block.height
-                block.draw(c, left, at)
-                bottom = min(bottom, at)
+            foot?.let { block ->
+                block.draw(c, left, footerAt)
+                bottom = min(bottom, footerAt)
+            }
+            // However tall they are, the text keeps at least an inch of the page.
+            if (bottom - top < 72f.units) {
+                top = section.top.units
+                bottom = (section.height - section.bottom).units
             }
         }
 
-        /** A header or footer, laid out for this page (its page number). */
-        private fun headerBlock(part: String): Block? {
+        /** A header or footer, laid out for this page (its page number); its pictures over the text go to [overlays]. */
+        private fun headerBlock(part: String, overlays: MutableList<Floating>): Block? {
             val items = headers.getOrPut(part) {
                 val found = ArrayList<DocItem>()
                 pkg.xml(part, check)?.use { x -> Reader(part).blocks(x, null) { found += it } }
                 found
             }
             if (items.isEmpty()) return null
-            return stack(items, textWidth.toInt(), shownNumber, textHeight)
-        }
-
-        private fun floatBlock(f: Floating): Block {
-            val scale = min(1f, min(textWidth / f.width.units, textHeight / f.height.units))
-            val w = (f.width.units * scale).toInt()
-            val h = (f.height.units * scale).toInt()
-            val x = when (f.h.align) {
-                "center" -> (textWidth - w) / 2
-                "right", "outside" -> textWidth - w
-                "left", "inside" -> 0f
-                else -> if (f.h.from == "page") f.h.offset.units - left else f.h.offset.units
-            }.coerceIn(min(0f, textWidth - w), max(0f, textWidth - w))
-            return FloatBlock(f.picture, w, h, x)
+            return stack(items, textWidth.toInt(), pageNumber, textHeight, null, overlays)
         }
 
         fun finish() {
@@ -757,25 +993,89 @@ internal class DocxConverter(
         }
     }
 
+    /**
+     * [picture] turned [turn] about its middle. It's drawn in its own box, centred where it goes: the
+     * box it's given, or that box on its side when [sideways] (given the turned box).
+     */
+    private class TurnedPicture(private val picture: Picture, private val turn: Turn, private val sideways: Boolean) : Picture {
+        override fun draw(canvas: Canvas, rect: RectF) {
+            val cx = rect.centerX()
+            val cy = rect.centerY()
+            val w = if (sideways) rect.height() else rect.width()
+            val h = if (sideways) rect.width() else rect.height()
+            canvas.withRotation(turn.degrees, cx, cy) {
+                withScale(if (turn.flipH) -1f else 1f, if (turn.flipV) -1f else 1f, cx, cy) {
+                    picture.draw(this, RectF(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2))
+                }
+            }
+        }
+    }
+
+    /** Pictures where a group or drawing canvas [width] × [height] points big puts them, stretched with it. */
+    private class GroupPicture(private val width: Float, private val height: Float, private val parts: List<Pair<Picture, OfficeRect>>) : Picture {
+        override fun draw(canvas: Canvas, rect: RectF) {
+            val sx = rect.width() / width
+            val sy = rect.height() / height
+            for ((picture, box) in parts) {
+                picture.draw(canvas, RectF(rect.left + box.x * sx, rect.top + box.y * sy, rect.left + (box.x + box.width) * sx, rect.top + (box.y + box.height) * sy))
+            }
+        }
+    }
+
+    /** [picture] under a white veil [opacity] opaque: lighter, as Word washes out a watermark. */
+    private class VeiledPicture(private val picture: Picture, private val opacity: Float) : Picture {
+        override fun draw(canvas: Canvas, rect: RectF) {
+            picture.draw(canvas, rect)
+            canvas.drawRect(rect, Paint().apply { color = Color.WHITE; alpha = (opacity * 255).roundToInt() })
+        }
+    }
+
     /** A picture on a line of its own. */
     private class FloatBlock(private val picture: Picture, private val width: Int, override val height: Int, private val x: Float) : Block {
         override fun draw(canvas: Canvas, x: Float, y: Float) = picture.draw(canvas, RectF(x + this.x, y, x + this.x + width, y + height))
         override fun split(space: Int, force: Boolean): Pair<Block, Block?>? = if (force) this to null else null
     }
 
-    /** [items] one under another in [width] units, as in a table cell or a header. */
-    private fun stack(items: List<DocItem>, width: Int, page: Int, maxHeight: Float): Block {
+    /**
+     * [items] one under another in [width] units, as in a table cell or a header, on [behind] (the
+     * shading under them, if any). Floating pictures go on lines of their own, but those in front of
+     * or behind the text go to [overlays] when it's given.
+     */
+    private fun stack(items: List<DocItem>, width: Int, page: PageNumber, maxHeight: Float, behind: Int?, overlays: MutableList<Floating>? = null): Block {
         val placed = ArrayList<Spaced>()
         for (item in items) when (item) {
             is DocPara -> {
-                for (f in item.floats) placed += Spaced(FloatBlock(f.picture, min(width, f.width.units.toInt()), f.height.units.toInt(), 0f), 0, 0)
-                placed += Spaced(paragraphBlock(item, width, page, maxHeight), spaceBefore(item.props).units.toInt(), spaceAfter(item.props).units.toInt())
+                for (f in item.floats) {
+                    if (f.overText && overlays != null) overlays += f
+                    else placed += Spaced(floatBlock(f, width.toFloat(), maxHeight, 0f), 0, 0)
+                }
+                placed += Spaced(paragraphBlock(item, width, page, maxHeight, behind), spaceBefore(item.props).units.toInt(), spaceAfter(item.props).units.toInt())
             }
-            is DocTable -> placed += Spaced(tableBlock(item, width.toFloat(), page, maxHeight), 0, 0)
+            is DocTable -> placed += Spaced(tableBlock(item, width.toFloat(), page, maxHeight, behind), 0, 0)
             else -> Unit
         }
         return StackBlock(placed)
     }
+
+    /**
+     * A floating picture on a line of its own, [width] units wide at most and [maxHeight] high, shrunk
+     * to fit keeping its shape. [pageLeft] is the left margin, for pictures placed from the page's edge.
+     */
+    private fun floatBlock(f: Floating, width: Float, maxHeight: Float, pageLeft: Float): Block {
+        val scale = min(1f, min(width / f.width.units, maxHeight / f.height.units))
+        val w = max(1, (f.width.units * scale).toInt())
+        val h = max(1, (f.height.units * scale).toInt())
+        val x = when (f.h.align) {
+            "center" -> (width - w) / 2
+            "right", "outside" -> width - w
+            "left", "inside" -> 0f
+            else -> if (f.h.from == "page") f.h.offset.units - pageLeft else f.h.offset.units
+        }.coerceIn(min(0f, width - w), max(0f, width - w))
+        return FloatBlock(f.picture, w, h, x)
+    }
+
+    /** [picture] turned [turn]; [sideways] when the box it's drawn in is its turned box, not its own. */
+    private fun turned(picture: Picture, turn: Turn, sideways: Boolean): Picture = if (turn.isNone) picture else TurnedPicture(picture, turn, sideways)
 
     /** Space before a paragraph, in points, with room for its top border. */
     private fun spaceBefore(p: ParaProps) = (p.before ?: 0f) + (p.borderTop?.let { (b, gap) -> if (b.width > 0f) b.width + gap else 0f } ?: 0f)
@@ -785,11 +1085,13 @@ internal class DocxConverter(
 
     private fun rule(border: Pair<Border, Float>?): Rule? = border?.takeIf { it.first.width > 0f }?.let { (b, gap) -> Rule(b.width.units, b.color, gap.units) }
 
-    private fun paragraphBlock(p: DocPara, width: Int, page: Int, maxHeight: Float): ParagraphBlock {
-        val rich = RichText()
+    /** [p] laid out [width] units wide on page [page], on [behind] (the shading under it, if any). */
+    private fun paragraphBlock(p: DocPara, width: Int, page: PageNumber, maxHeight: Float, behind: Int?): ParagraphBlock {
+        val shade = p.props.shading ?: behind
+        val rich = RichText(shade)
         for (inline in p.inlines) when (inline) {
             is TextInline -> rich.append(inline.text, inline.style)
-            is PageNumberInline -> rich.append(page.toString(), inline.style)
+            is PageNumberInline -> rich.append(page.text(inline.format), inline.style)
             is PictureInline -> {
                 // Pictures bigger than the space for text are shrunk to fit, keeping their shape.
                 val w = inline.width.units
@@ -813,7 +1115,7 @@ internal class DocxConverter(
                 // A tab: to the hanging indent if the label ends before it, else to the next tab stop.
                 else -> if (end < left - 1f) left else (tabs.firstOrNull { it > end + 1f } ?: (ceil((end + 1f) / defaultTab) * defaultTab))
             }
-            Label(text, p.labelStyle, firstStart.toInt())
+            Label(text, p.labelStyle.copy(color = p.labelStyle.colorOn(shade)), firstStart.toInt())
         }
         return ParagraphBlock(
             ParagraphSpec(
@@ -828,6 +1130,8 @@ internal class DocxConverter(
                 lineScale = OfficeFonts.lineScale(p.mark),
                 label = label,
                 rtl = props.rtl == true,
+                // In a right-to-left paragraph, Word's left indent and hanging indent are on the right.
+                mirrored = props.rtl == true,
                 background = props.shading,
                 tabs = tabs.map { it.toInt() },
                 defaultTab = defaultTab.toInt(),
@@ -838,7 +1142,8 @@ internal class DocxConverter(
         )
     }
 
-    private fun tableBlock(t: DocTable, available: Float, page: Int, maxHeight: Float): Block {
+    /** [t] laid out in [available] units, on [behind] (the shading under it, if any). */
+    private fun tableBlock(t: DocTable, available: Float, page: PageNumber, maxHeight: Float, behind: Int?): Block {
         if (t.rows.isEmpty()) return StackBlock(emptyList())
         val styleId = t.props.style ?: styles.defaultTableStyle
         val props = t.props.over(styles.table(styleId))
@@ -850,10 +1155,12 @@ internal class DocxConverter(
         // A little wider than the text is fine: Word lets tables reach into the margin.
         val widths = TableColumns.widths(t.grid, columns, availablePt * 1.04f, preferred).map { it.units }
         val tableWidth = widths.sum()
+        // A right-to-left table has its first column on the right, and its indent from the right.
+        val rtl = props.rtl == true
         val x = when (props.align) {
             Align.CENTER -> (available - tableWidth) / 2
-            Align.END -> available - tableWidth
-            else -> (props.indent ?: 0f).units
+            Align.END -> if (rtl) 0f else available - tableWidth
+            else -> if (rtl) available - tableWidth - (props.indent ?: 0f).units else (props.indent ?: 0f).units
         }
         val starts = widths.runningFold(0f) { acc, w -> acc + w }
         // Which grid columns each row's cells start at, to find cells merged with the one below.
@@ -881,18 +1188,20 @@ internal class DocxConverter(
                 val cellWidth = starts[end] - starts[col]
                 val continued = cell.vMerge == "continue"
                 CellBox(
-                    x = x + starts[col],
+                    x = if (rtl) x + tableWidth - starts[end] else x + starts[col],
                     width = cellWidth,
-                    content = if (continued || cell.content.isEmpty()) null else stack(cell.content, max(1, (cellWidth - m[0] - m[2]).toInt()), page, maxHeight),
+                    content = if (continued || cell.content.isEmpty()) null
+                    else stack(cell.content, max(1, (cellWidth - m[0] - m[2]).toInt()), page, maxHeight, cell.fill ?: behind),
                     fill = cell.fill,
                     top = if (continued) Border.NONE else own.top,
-                    left = own.left,
+                    // A right-to-left table's left borders and margins are on the cells' right (their start).
+                    left = if (rtl) own.right else own.left,
                     bottom = if (mergedBelow(r, cellColumns[r][i])) Border.NONE else own.bottom,
-                    right = own.right,
+                    right = if (rtl) own.left else own.right,
                     verticalAlign = cell.verticalAlign,
-                    padLeft = m[0],
+                    padLeft = if (rtl) m[2] else m[0],
                     padTop = m[1],
-                    padRight = m[2],
+                    padRight = if (rtl) m[0] else m[2],
                     padBottom = m[3],
                 )
             }
@@ -904,6 +1213,6 @@ internal class DocxConverter(
 
     private companion object {
         /** US Letter with one-inch margins: Word's own default. */
-        val DEFAULT_SECTION = Section(612f, 792f, 72f, 72f, 72f, 72f, 36f, 36f, "nextPage", emptyMap(), emptyMap(), false, null)
+        val DEFAULT_SECTION = Section(612f, 792f, 72f, 72f, 72f, 72f, 36f, 36f, "nextPage", emptyMap(), emptyMap(), false, null, ListNumbering.Format.DECIMAL)
     }
 }

@@ -122,9 +122,14 @@ internal class OfficeXml private constructor(private val parser: XmlPullParser, 
         else -> true
     }
 
-    /** Calls [block] at each child element of the current one, then leaves the reader at its end. */
+    /**
+     * Calls [block] at each child element of the current one, then leaves the reader at its end.
+     * Elements nested deeper than [MAX_DEPTH], which only a crafted file has, are skipped, so reading
+     * them one level inside another can't run out of stack.
+     */
     fun children(block: () -> Unit) {
         val parent = parser.depth
+        if (parent >= MAX_DEPTH) return skip()
         while (true) {
             when (next()) {
                 XmlPullParser.END_DOCUMENT -> return
@@ -174,6 +179,9 @@ internal class OfficeXml private constructor(private val parser: XmlPullParser, 
     override fun close() = input.close()
 
     companion object {
+        /** Far deeper than Office nests anything: tables in text boxes in tables run to a few dozen levels. */
+        const val MAX_DEPTH = 256
+
         fun open(input: InputStream, check: () -> Unit): OfficeXml {
             val parser = Xml.newPullParser()
             parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, true)

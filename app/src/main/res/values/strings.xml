@@ -209,6 +209,7 @@
     <string name="office_not_word">This isn\'t a Word document (.docx), or it\'s damaged.</string>
     <string name="office_not_powerpoint">This isn\'t a PowerPoint presentation (.pptx), or it\'s damaged.</string>
     <string name="office_no_slides">This presentation has no slides to convert. Hidden slides are left out.</string>
+    <string name="office_embedded_content">This document keeps its text as a web page or RTF file inside it, which Usugami can\'t convert. Open it in Word, save it, then try again.</string>
     <string name="office_convert_failed">Couldn\'t convert this file. Check the file and free storage.</string>
     <plurals name="progress_slides">
         <item quantity="one">%1$d of %2$d slide</item>

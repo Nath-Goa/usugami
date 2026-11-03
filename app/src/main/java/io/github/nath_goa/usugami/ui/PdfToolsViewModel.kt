@@ -45,6 +45,7 @@ import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
 import io.github.nath_goa.usugami.data.office.EpubProtected
 import io.github.nath_goa.usugami.data.office.OfficeConverter
+import io.github.nath_goa.usugami.data.office.OfficeEmbeddedContent
 import io.github.nath_goa.usugami.data.office.OfficeEncrypted
 import io.github.nath_goa.usugami.data.office.OfficeFileProblem
 import io.github.nath_goa.usugami.data.office.OfficeInput
@@ -301,6 +302,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             is OfficeEncrypted -> R.string.office_encrypted
             is EpubProtected -> R.string.epub_protected
             is OfficeNothingToConvert -> if (kind == OfficeKind.EPUB) R.string.epub_empty else R.string.office_no_slides
+            is OfficeEmbeddedContent -> R.string.office_embedded_content
             is OfficeNotRecognized -> when (kind) {
                 OfficeKind.WORD -> R.string.office_not_word
                 OfficeKind.POWERPOINT -> R.string.office_not_powerpoint

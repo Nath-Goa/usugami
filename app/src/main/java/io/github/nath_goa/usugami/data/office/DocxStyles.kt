@@ -44,6 +44,7 @@ internal data class RunProps(
         caps = caps == true,
         smallCaps = smallCaps == true,
         spacing = spacing ?: 0f,
+        autoColor = color == null,
     )
 
     companion object {
@@ -258,11 +259,14 @@ internal data class TableProps(
     /** Preferred width: in points, or as a share of the page's text width when [widthShare]. */
     val width: Float? = null,
     val widthShare: Boolean = false,
+    /** A right-to-left table (w:bidiVisual): its first column on the right. */
+    val rtl: Boolean? = null,
 ) {
     fun over(base: TableProps?): TableProps = if (base == null) this else TableProps(
         style ?: base.style, borders?.over(base.borders) ?: base.borders,
         margins?.let { m -> List(4) { m[it] ?: base.margins?.get(it) } } ?: base.margins,
         indent ?: base.indent, align ?: base.align, width ?: base.width, if (width != null) widthShare else base.widthShare,
+        rtl ?: base.rtl,
     )
 
     companion object {
@@ -275,6 +279,7 @@ internal data class TableProps(
                     "tblCellMar" -> t.copy(margins = readMargins(x))
                     "tblInd" -> t.copy(indent = x.intAttr("w")?.let { it / 20f })
                     "jc" -> t.copy(align = when (x.attr("val")) { "center" -> Align.CENTER; "right", "end" -> Align.END; else -> Align.START })
+                    "bidiVisual" -> t.copy(rtl = x.flag())
                     "tblW" -> when (x.attr("type")) {
                         "pct" -> x.attr("w")?.let { w -> (w.removeSuffix("%").toFloatOrNull()?.let { if (w.endsWith("%")) it / 100f else it / 5000f }) }
                             ?.let { t.copy(width = it, widthShare = true) } ?: t
@@ -449,18 +454,29 @@ internal class DocxNumbering private constructor(
     companion object {
         val NONE = DocxNumbering(emptyMap(), emptyMap(), emptyMap())
 
-        fun read(pkg: OfficePackage, path: String?, theme: OfficeTheme, check: () -> Unit): DocxNumbering {
+        /** Reads numbering.xml; [styles] has the numbering styles that lists can be defined through. */
+        fun read(pkg: OfficePackage, path: String?, theme: OfficeTheme, styles: DocxStyles?, check: () -> Unit): DocxNumbering {
             val x = path?.let { pkg.xml(it, check) } ?: return NONE
             val abstracts = HashMap<Int, Map<Int, ListLevel>>()
             val nums = HashMap<Int, Pair<Int, Map<Int, Int>>>()
             val overrides = HashMap<Int, Map<Int, ListLevel>>()
+            // Lists defined through a numbering style: the definition that is the style's, by style, and
+            // the definitions that only point to a style, with their style.
+            val styleDefinitions = HashMap<String, Int>()
+            val linked = HashMap<Int, String>()
             x.use {
                 x.children {
                     when (x.name) {
                         "abstractNum" -> {
                             val id = x.intAttr("abstractNumId") ?: return@children
                             val levels = HashMap<Int, ListLevel>()
-                            x.children { if (x.name == "lvl") readLevel(x, theme)?.let { levels[it.first] = it.second } }
+                            x.children {
+                                when (x.name) {
+                                    "lvl" -> readLevel(x, theme)?.let { levels[it.first] = it.second }
+                                    "styleLink" -> x.attr("val")?.let { styleDefinitions[it] = id }
+                                    "numStyleLink" -> x.attr("val")?.let { linked[id] = it }
+                                }
+                            }
                             abstracts[id] = levels
                         }
                         "num" -> {
@@ -487,6 +503,12 @@ internal class DocxNumbering private constructor(
                         }
                     }
                 }
+            }
+            // A list pointing to a numbering style takes its levels, and its count, from the style's definition.
+            for ((numId, num) in nums.entries.toList()) {
+                val style = linked[num.first] ?: continue
+                val definition = styleDefinitions[style] ?: styles?.para(style)?.numId?.let { nums[it]?.first }
+                if (definition != null && definition != num.first) nums[numId] = definition to num.second
             }
             return DocxNumbering(abstracts, nums, overrides)
         }

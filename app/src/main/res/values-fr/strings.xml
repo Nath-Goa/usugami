@@ -202,6 +202,7 @@
     <string name="office_not_word">Ce fichier n\'est pas un document Word (.docx), ou il est endommagé.</string>
     <string name="office_not_powerpoint">Ce fichier n\'est pas une présentation PowerPoint (.pptx), ou il est endommagé.</string>
     <string name="office_no_slides">Cette présentation n\'a aucune diapositive à convertir. Les diapositives masquées sont ignorées.</string>
+    <string name="office_embedded_content">Ce document contient son texte sous forme de page web ou de fichier RTF intégré, qu\'Usugami ne peut pas convertir. Ouvrez-le dans Word, enregistrez-le, puis réessayez.</string>
     <string name="office_convert_failed">Impossible de convertir ce fichier. Vérifiez le fichier et l\'espace de stockage disponible.</string>
     <plurals name="progress_slides">
         <item quantity="one">%1$d sur %2$d diapositive</item>

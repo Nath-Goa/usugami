@@ -202,6 +202,7 @@
     <string name="office_not_word">Este archivo no es un documento de Word (.docx), o está dañado.</string>
     <string name="office_not_powerpoint">Este archivo no es una presentación de PowerPoint (.pptx), o está dañado.</string>
     <string name="office_no_slides">Esta presentación no tiene diapositivas para convertir. Las diapositivas ocultas se omiten.</string>
+    <string name="office_embedded_content">Este documento guarda su texto como una página web o un archivo RTF incrustado, que Usugami no puede convertir. Ábrelo en Word, guárdalo y vuelve a intentarlo.</string>
     <string name="office_convert_failed">No se pudo convertir este archivo. Revisa el archivo y el almacenamiento libre.</string>
     <plurals name="progress_slides">
         <item quantity="one">%1$d de %2$d diapositiva</item>

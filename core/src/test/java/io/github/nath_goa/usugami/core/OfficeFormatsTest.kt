@@ -66,6 +66,17 @@ class OfficeFormatsTest {
         assertEquals(Triple(ListNumbering.Format.DECIMAL, "", ""), ListNumbering.powerPointScheme("arabicPlain"))
     }
 
+    @Test fun readsPageFieldFormats() {
+        assertEquals(ListNumbering.Format.LOWER_ROMAN, ListNumbering.fieldFormat(" PAGE  \\* roman  \\* MERGEFORMAT "))
+        assertEquals(ListNumbering.Format.UPPER_ROMAN, ListNumbering.fieldFormat("PAGE \\* ROMAN"))
+        assertEquals(ListNumbering.Format.LOWER_LETTER, ListNumbering.fieldFormat("PAGE \\*alphabetic"))
+        assertEquals(ListNumbering.Format.UPPER_LETTER, ListNumbering.fieldFormat("PAGE \\* ALPHABETIC"))
+        assertEquals(ListNumbering.Format.DECIMAL, ListNumbering.fieldFormat("PAGE \\* Arabic \\* MERGEFORMAT"))
+        // No number format asked for: the section's own.
+        assertNull(ListNumbering.fieldFormat("PAGE \\* MERGEFORMAT"))
+        assertNull(ListNumbering.fieldFormat("PAGE"))
+    }
+
     @Test fun symbolFontBulletsBecomeUnicode() {
         assertEquals("\u2022", SymbolFonts.bullet("Symbol", "\uF0B7"))
         assertEquals("\u25AA", SymbolFonts.bullet("Wingdings", "\uF0A7"))
@@ -75,6 +86,34 @@ class OfficeFormatsTest {
         assertEquals("\u2022", SymbolFonts.bullet("Wingdings", "#"))
         assertEquals("o", SymbolFonts.bullet("Courier New", "o"))
         assertEquals("\u2013", SymbolFonts.bullet("Arial", "\u2013"))
+    }
+
+    @Test fun insertedSymbolsBecomeTheirOwnCharacters() {
+        // Insert > Symbol in the Symbol font: Greek letters and maths, not bullets.
+        assertEquals("\u03BC", SymbolFonts.character("Symbol", "\uF06D"))
+        assertEquals("\u00B0", SymbolFonts.character("Symbol", "\uF0B0"))
+        assertEquals("\u00B1", SymbolFonts.character("Symbol", "\uF0B1"))
+        assertEquals("\u03B1", SymbolFonts.character("Symbol", "\uF061"))
+        assertEquals("\u2264", SymbolFonts.character("Symbol", "\uF0A3"))
+        assertEquals("\u03A9", SymbolFonts.character("Symbol", "\uF057"))
+        assertEquals("\u2022", SymbolFonts.character("Symbol", "\uF0B7"))
+        assertEquals("7", SymbolFonts.character("Symbol", "\uF037"))
+        assertEquals("\u03C0", SymbolFonts.character("symbol", "p"))
+        // Check boxes in forms, ticked or not, in Wingdings and Wingdings 2.
+        assertEquals("\u2611", SymbolFonts.character("Wingdings", "\uF0FE"))
+        assertEquals("\u25FB", SymbolFonts.character("Wingdings", "\uF0A8"))
+        assertEquals("\u2612", SymbolFonts.character("Wingdings", "\uF0FD"))
+        assertEquals("\u25AA", SymbolFonts.character("Wingdings", "\uF0A7"))
+        assertEquals("\u2611", SymbolFonts.character("Wingdings 2", "\uF052"))
+        assertEquals("\u25A1", SymbolFonts.character("Wingdings 2", "\uF0A3"))
+        assertEquals("\u2713", SymbolFonts.character("Wingdings 2", "\uF050"))
+        // A symbol that isn't known shows as such, not as a bullet; ordinary characters stay.
+        assertEquals("\uFFFD", SymbolFonts.character("Wingdings", "\uF023"))
+        assertEquals("\uFFFD", SymbolFonts.character("Webdings", "\uF061"))
+        assertEquals("\u2713", SymbolFonts.character("Segoe UI Symbol", "\u2713"))
+        assertEquals("a", SymbolFonts.character("Arial", "a"))
+        // List bullets are read as before.
+        assertEquals("\u2022", SymbolFonts.bullet("Symbol", "\uF06D"))
     }
 
     @Test fun parsesAndModifiesColors() {

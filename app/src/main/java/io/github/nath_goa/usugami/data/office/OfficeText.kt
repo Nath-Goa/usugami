@@ -25,6 +25,7 @@ import android.text.style.TabStopSpan
 import android.text.style.UnderlineSpan
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
+import io.github.nath_goa.usugami.core.OfficeColors
 import io.github.nath_goa.usugami.core.PageBreaking
 import kotlin.math.max
 import kotlin.math.min
@@ -131,6 +132,8 @@ internal data class TextStyle(
     val smallCaps: Boolean = false,
     /** Extra space between letters, in points. */
     val spacing: Float = 0f,
+    /** Word's automatic colour: [color] (black), but white on dark shading. */
+    val autoColor: Boolean = false,
 ) {
     /** The font size actually drawn: smaller for superscript and small capitals. */
     val drawnSize: Float get() = size * (if (baseline != 0) 0.65f else if (smallCaps) 0.8f else 1f)
@@ -145,6 +148,12 @@ internal data class TextStyle(
         }
     }
 
+    /** The colour to draw in when [behind] (if not null) shades the text, under its own [background]. */
+    fun colorOn(behind: Int?): Int {
+        val under = background ?: behind
+        return if (autoColor && under != null && OfficeColors.isDark(under)) Color.WHITE else color
+    }
+
     fun paint(): TextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).also {
         applyTo(it)
         it.color = color
@@ -153,8 +162,8 @@ internal data class TextStyle(
     }
 }
 
-/** Text with each run's look attached, ready for [ParagraphBlock]. */
-internal class RichText {
+/** Text with each run's look attached, ready for [ParagraphBlock]; [behind] is the shading under it, if any. */
+internal class RichText(private val behind: Int? = null) {
     val text = SpannableStringBuilder()
     val isEmpty: Boolean get() = text.isEmpty()
 
@@ -180,7 +189,7 @@ internal class RichText {
     private fun style(start: Int, end: Int, style: TextStyle) {
         fun span(what: Any) = text.setSpan(what, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         span(RunSpan(style))
-        span(ForegroundColorSpan(style.color))
+        span(ForegroundColorSpan(style.colorOn(behind)))
         style.background?.let { span(BackgroundColorSpan(it)) }
         if (style.underline) span(UnderlineSpan())
         if (style.strike) span(StrikethroughSpan())
@@ -218,7 +227,7 @@ internal sealed class LineSpacing {
 /** A line along a paragraph's top or bottom: [width] and [gap] (from the text) in units. */
 internal class Rule(val width: Float, val color: Int, val gap: Float)
 
-/** A list number or bullet, drawn before a paragraph's first line, [x] units from its left edge. */
+/** A list number or bullet, drawn before a paragraph's first line, [x] units from its left edge (its right one when mirrored). */
 internal class Label(val text: String, val style: TextStyle, val x: Int)
 
 /** Everything about a paragraph its layout needs. Lengths in layout units. */
@@ -237,6 +246,11 @@ internal class ParagraphSpec(
     val lineScale: Float = 1f,
     val label: Label? = null,
     val rtl: Boolean = false,
+    /**
+     * A right-to-left Word paragraph: its indents and label are measured from the right, so
+     * [firstIndent] and [indent] are on the right and [rightIndent] on the left.
+     */
+    val mirrored: Boolean = false,
     val background: Int? = null,
     /** Tab stops, in units from the paragraph's left edge; between and beyond them, every [defaultTab]. */
     val tabs: List<Int> = emptyList(),
@@ -307,6 +321,7 @@ internal class ParagraphBlock private constructor(
             }
         }
         val width = max(1, spec.width - left - spec.rightIndent)
+        val indents = intArrayOf(max(0, first - left), max(0, spec.indent - left))
         val builder = StaticLayout.Builder.obtain(content, 0, content.length, paint, width)
             .setAlignment(
                 when (spec.align) {
@@ -322,25 +337,34 @@ internal class ParagraphBlock private constructor(
             // constants are LineBreaker's, which lint asks for but which only came in Android 10.)
             .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
             .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
-            .setIndents(intArrayOf(max(0, first - left), max(0, spec.indent - left)), null)
+            .setIndents(if (spec.mirrored) null else indents, if (spec.mirrored) indents else null)
         if (spec.align == Align.JUSTIFY) builder.setJustificationMode(Layout.JUSTIFICATION_MODE_INTER_WORD)
         // Lines of Hindi and other scripts from the phone's other fonts get room for them.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) builder.setUseLineSpacingFromFallbacks(true)
         return builder.build()
     }
 
+    /** Where the text goes across, from the paragraph's left edge: after [start] units on its start side, and [end] on the other. */
+    private fun across(start: Int, end: Int) = if (spec.mirrored) end to spec.width - start else start to spec.width - end
+
     override fun draw(canvas: Canvas, x: Float, y: Float) {
+        val (textLeft, textRight) = across(left, spec.rightIndent)
         spec.background?.let {
             val fill = Paint().apply { color = it }
-            canvas.drawRect(x + left, y, x + spec.width - spec.rightIndent, y + height, fill)
+            canvas.drawRect(x + textLeft, y, x + textRight, y + height, fill)
         }
         label?.let {
             val paint = it.style.paint()
-            canvas.drawText(it.text, x + it.x, y + firstBaseline, paint)
+            if (spec.mirrored) {
+                // Ending x units in from the right, and read right to left (a right-to-left mark first), as Word shows it.
+                canvas.drawText("\u200F" + it.text, x + spec.width - it.x - paint.measureText(it.text), y + firstBaseline, paint)
+            } else {
+                canvas.drawText(it.text, x + it.x, y + firstBaseline, paint)
+            }
         }
         if (isFirst) spec.ruleAbove?.let { rule(canvas, it, x, y - it.gap - it.width / 2) }
         if (isLast) spec.ruleBelow?.let { rule(canvas, it, x, y + height + it.gap + it.width / 2) }
-        canvas.withTranslation(x + left, y) { layout.draw(this) }
+        canvas.withTranslation(x + textLeft, y) { layout.draw(this) }
     }
 
     private fun rule(canvas: Canvas, rule: Rule, x: Float, y: Float) {
@@ -348,7 +372,8 @@ internal class ParagraphBlock private constructor(
             color = rule.color
             strokeWidth = rule.width
         }
-        canvas.drawLine(x + min(spec.firstIndent, spec.indent), y, x + spec.width - spec.rightIndent, y, paint)
+        val (from, to) = across(min(spec.firstIndent, spec.indent), spec.rightIndent)
+        canvas.drawLine(x + from, y, x + to, y, paint)
     }
 
     override fun split(space: Int, force: Boolean): Pair<Block, Block?>? {

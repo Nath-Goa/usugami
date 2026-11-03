@@ -30,6 +30,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.CancellationException
 import java.util.zip.CRC32
 import java.util.zip.ZipEntry
@@ -430,6 +431,19 @@ class EpubConverterDeviceTest {
         }
         val body = checkNotNull(sizes["Body text"]) { "The body is there: ${sizes.keys}" }
         assertTrue("Body text in its own size: $sizes", body < 0.9f * sizes.getValue("Beta"))
+    }
+
+    @Test fun deeplyNestedBooksFailWithoutCrashing() {
+        // Only a crafted book nests tables this deep. Converting it may fail, as for a damaged book, but
+        // mustn't run out of stack and crash the app.
+        val depth = 20_000
+        val nested = "<table><tr><td>".repeat(depth) + "Deep" + "</td></tr></table>".repeat(depth)
+        val file = orchardWith("nested.epub", mapOf("OEBPS/text/chapter3.xhtml" to xhtml(nested)))
+        try {
+            convert(file, "nested")
+        } catch (_: IOException) {
+            assertFalse(File(context.cacheDir, "output/tools/nested.pdf").exists())
+        }
     }
 
     @Test fun progressCountsChapters() {

@@ -67,6 +67,9 @@ class OfficeNotRecognized : OfficeFileProblem("Not a Word or PowerPoint file")
 /** A presentation with no slides, or only hidden ones; a book with nothing in its reading order. */
 class OfficeNothingToConvert : OfficeFileProblem("No slides to convert")
 
+/** A Word document whose text is all kept in another format inside it (a web page or an RTF file), which isn't read. */
+class OfficeEmbeddedContent : OfficeFileProblem("Text kept in another format")
+
 /** How far a conversion has got: page, slide or chapter [done] of [total] (unknown for Word), then [compressing]. */
 data class OfficeProgress(val done: Int, val total: Int?, val compressing: Boolean = false)
 
@@ -116,6 +119,8 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
             return OfficeInput(id, file.path, displayName(uri) ?: "${kind.fallbackName}.${kind.extension}", kind)
         } catch (t: Throwable) {
             file.delete()
+            // Only a crafted file nests deeper than the stack goes: it is refused like a damaged one.
+            if (t is StackOverflowError) throw OfficeNotRecognized()
             throw t
         }
     }
@@ -222,6 +227,8 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
             return PdfFile(compressed.file, pages, 0)
         } catch (t: Throwable) {
             engine.clearOutput()
+            // Only a crafted file nests deeper than the stack goes: it fails like a damaged one.
+            if (t is StackOverflowError) throw IOException("Too deeply nested", t)
             throw t
         } finally {
             clearWork()

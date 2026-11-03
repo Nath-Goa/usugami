@@ -4,13 +4,17 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.office.OfficeConverter
+import io.github.nath_goa.usugami.data.office.OfficeEmbeddedContent
 import io.github.nath_goa.usugami.data.office.OfficeEncrypted
 import io.github.nath_goa.usugami.data.office.OfficeInput
 import io.github.nath_goa.usugami.data.office.OfficeKind
@@ -98,6 +102,19 @@ class OfficeConverterDeviceTest {
         return all[starts.indexOfFirst { it >= at }]
     }
 
+    /** Page [index] of [file], [scale] pixels per point, on white. */
+    private fun render(file: File, index: Int, scale: Float): Bitmap =
+        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
+                renderer.openPage(index).use { page ->
+                    Bitmap.createBitmap((page.width * scale).toInt(), (page.height * scale).toInt(), Bitmap.Config.ARGB_8888).also {
+                        it.eraseColor(Color.WHITE)
+                        page.render(it, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    }
+                }
+            }
+        }
+
     private fun near(expected: Float, actual: Float, tolerance: Float = 1.5f) =
         assertTrue("expected $expected, got $actual", abs(expected - actual) <= tolerance)
 
@@ -138,12 +155,30 @@ class OfficeConverterDeviceTest {
 
     private fun listItem(text: String, numId: Int, level: Int) = para(text, """<w:numPr><w:ilvl w:val="$level"/><w:numId w:val="$numId"/></w:numPr>""")
 
+    /** The numbering of [wordDocument]: numId 1 is numbered (1., then a.), numId 2 bulleted. */
+    private val listNumbering = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="$W">
+        <w:abstractNum w:abstractNumId="0">
+          <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>
+          <w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>
+        </w:abstractNum>
+        <w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>
+        <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
+        </w:numbering>"""
+
     /**
      * An A5 document with a Times New Roman body and a bold 18-point heading, a numbered and a
      * bulleted list, a picture, a 70-row table with a header row, a page break, and a landscape A5
-     * section at the end.
+     * section at the end. Other documents give their own [body] (US Letter with one-inch margins when
+     * it has no section properties), [numbering], and [parts] linked from the document by [rels], whose
+     * ids go on from rId4 (rId2 is the picture, 300 × 200 pixels).
      */
-    private fun wordDocument(body: String = defaultBody(), name: String = "notes.docx"): File {
+    private fun wordDocument(
+        body: String = defaultBody(),
+        name: String = "notes.docx",
+        numbering: String = listNumbering,
+        rels: List<Pair<String, String>> = emptyList(),
+        parts: Map<String, Any> = emptyMap(),
+    ): File {
         val styles = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="$W">
             <w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="22"/></w:rPr></w:rPrDefault>
             <w:pPrDefault><w:pPr><w:spacing w:after="120"/></w:pPr></w:pPrDefault></w:docDefaults>
@@ -151,29 +186,39 @@ class OfficeConverterDeviceTest {
             <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/>
               <w:pPr><w:keepNext/><w:spacing w:before="240"/></w:pPr><w:rPr><w:b/><w:sz w:val="36"/><w:color w:val="1F3864"/></w:rPr></w:style>
             </w:styles>"""
-        val numbering = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="$W">
-            <w:abstractNum w:abstractNumId="0">
-              <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>
-              <w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="%2."/><w:pPr><w:ind w:left="1440" w:hanging="360"/></w:pPr></w:lvl>
-            </w:abstractNum>
-            <w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>
-            <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
-            </w:numbering>"""
-        val document = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-            <w:document xmlns:w="$W" xmlns:r="$OFFICE_RELS" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
-              xmlns:a="$A" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><w:body>$body</w:body></w:document>"""
+        val document = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document $WORD_NAMESPACES><w:body>$body</w:body></w:document>"""
         return zip(
             name,
-            linkedMapOf(
+            linkedMapOf<String, Any>(
                 "[Content_Types].xml" to contentTypes("/word/document.xml" to "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"),
                 "_rels/.rels" to relationships("officeDocument" to "word/document.xml"),
                 "word/document.xml" to document,
-                "word/_rels/document.xml.rels" to relationships("styles" to "styles.xml", "image" to "media/picture.png", "numbering" to "numbering.xml"),
+                "word/_rels/document.xml.rels" to relationships("styles" to "styles.xml", "image" to "media/picture.png", "numbering" to "numbering.xml", *rels.toTypedArray()),
                 "word/styles.xml" to styles,
                 "word/numbering.xml" to numbering,
                 "word/media/picture.png" to png(300, 200),
-            ),
+            ).apply { putAll(parts) },
         )
+    }
+
+    /**
+     * A picture [w] × [h] points big (pic:pic), from relationship [rel], at ([x], [y]) in a group;
+     * [xfrm] and [fill] add to its frame and picture, and [hidden] hides it as Word's Selection Pane does.
+     */
+    private fun picture(w: Int, h: Int, rel: String = "rId2", x: Int = 0, y: Int = 0, xfrm: String = "", fill: String = "", hidden: Boolean = false) =
+        """<pic:pic><pic:nvPicPr><pic:cNvPr id="9" name="p"${if (hidden) " hidden=\"1\"" else ""}/><pic:cNvPicPr/></pic:nvPicPr>
+        <pic:blipFill><a:blip r:embed="$rel"/>$fill<a:stretch><a:fillRect/></a:stretch></pic:blipFill>
+        <pic:spPr><a:xfrm$xfrm><a:off x="${x * EMU}" y="${y * EMU}"/><a:ext cx="${w * EMU}" cy="${h * EMU}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic>"""
+
+    /** A run with a drawing [w] × [h] points big in the text, holding [graphic] (of the kind [uri] names). */
+    private fun inlineDrawing(w: Int, h: Int, graphic: String, docPr: String = "", uri: String = PICTURE_URI) =
+        """<w:r><w:drawing><wp:inline><wp:extent cx="${w * EMU}" cy="${h * EMU}"/><wp:docPr id="1" name="Drawing"$docPr/>
+        <a:graphic><a:graphicData uri="$uri">$graphic</a:graphicData></a:graphic></wp:inline></w:drawing></w:r>"""
+
+    /** The box [image] covers on a page [pageHeight] points high, however it's turned: in points from the top left corner. */
+    private fun bounds(image: PlacedImage, pageHeight: Float = 792f): RectF {
+        val corners = listOf(image.corner(0f, 0f), image.corner(1f, 0f), image.corner(0f, 1f), image.corner(1f, 1f))
+        return RectF(corners.minOf { it.x }, pageHeight - corners.maxOf { it.y }, corners.maxOf { it.x }, pageHeight - corners.minOf { it.y })
     }
 
     private fun defaultBody(): String = buildString {
@@ -328,6 +373,241 @@ class OfficeConverterDeviceTest {
         assertTrue("Header on every page", texts.all { it.contains("Annual report") })
         assertTrue(texts.any { it.contains("Strawberries") && it.contains("Mostly eaten on the spot") })
         assertTrue(texts[4].contains("Watering rota"))
+    }
+
+    @Test fun wordHeaderPicturesBehindTheTextTakeNoRoom() {
+        // A letterhead filling the page behind the text, and a picture watermark as Word writes it
+        // (VML, centred on the margins and washed out), both in the header.
+        val letterhead = """<w:r><w:drawing><wp:anchor behindDoc="1" simplePos="0" relativeHeight="1" locked="0" layoutInCell="1" allowOverlap="1">
+            <wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionH>
+            <wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="${612 * EMU}" cy="${792 * EMU}"/>
+            <wp:wrapNone/><wp:docPr id="1" name="Letterhead"/><a:graphic><a:graphicData uri="$PICTURE_URI">${picture(612, 792, "rId1")}</a:graphicData></a:graphic>
+            </wp:anchor></w:drawing></w:r>"""
+        val watermark = """<w:r><w:pict><v:shapetype id="_x0000_t75" coordsize="21600,21600" o:spt="75" path="m@4@5l@4@11@9@11@9@5xe"/>
+            <v:shape id="WordPictureWatermark" o:spid="_x0000_s2049" type="#_x0000_t75"
+              style="position:absolute;margin-left:0;margin-top:0;width:451.2pt;height:338.4pt;z-index:-251657216;mso-position-horizontal:center;mso-position-horizontal-relative:margin;mso-position-vertical:center;mso-position-vertical-relative:margin">
+            <v:imagedata r:id="rId1" o:title="mark" gain="19661f" blacklevel="22938f"/></v:shape></w:pict></w:r>"""
+        val header = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr $WORD_NAMESPACES>
+            <w:p>$letterhead$watermark<w:r><w:t>Letterhead text</w:t></w:r></w:p></w:hdr>"""
+        val body = (1..40).joinToString("") { para("Line $it") } +
+            """<w:sectPr><w:headerReference w:type="default" r:id="rId4"/><w:pgSz w:w="12240" w:h="15840"/>
+            <w:pgMar w:top="1440" w:bottom="1440" w:left="1440" w:right="1440" w:header="720" w:footer="720"/></w:sectPr>"""
+        val pdf = convert(
+            wordDocument(
+                body, "letterhead.docx", rels = listOf("header" to "header1.xml"),
+                parts = mapOf("word/header1.xml" to header, "word/_rels/header1.xml.rels" to relationships("image" to "media/picture.png")),
+            ),
+            OfficeKind.WORD, "word-letterhead",
+        )
+        val texts = pageTexts(pdf)
+        // Forty short lines fill two pages, not one page each.
+        assertEquals(2, texts.size)
+        assertTrue(texts[0].contains("Letterhead text") && texts[0].contains("Line 1 "))
+        assertTrue(texts[1].contains("Line 40"))
+        // The body starts below the header, inside the margins.
+        val first = word(pdf, 1, "Line 1")
+        assertTrue("Line 1 at ${first.yDirAdj}", first.yDirAdj > 72f && first.yDirAdj < 140f)
+        PDDocument.load(pdf).use { doc ->
+            val images = imagesOn(doc.getPage(0)).map { bounds(it) }
+            assertEquals(2, images.size)
+            // The letterhead over the whole page, the watermark its own size in the middle of the margins.
+            val page = images.single { it.width() > 600f }
+            near(0f, page.left); near(0f, page.top); near(612f, page.right); near(792f, page.bottom)
+            val mark = images.single { it.width() < 600f }
+            near(451.2f, mark.width()); near(338.4f, mark.height())
+            near(306f, mark.centerX()); near(396f, mark.centerY())
+        }
+    }
+
+    @Test fun wordPicturesTurnFlipAndKeepTheirShapeInCells() {
+        // Turned a quarter: 150 × 100 points as saved, 100 × 150 on the page. Mirrored: drawn right to left.
+        val turned = inlineDrawing(150, 100, picture(150, 100, xfrm = """ rot="5400000""""))
+        val flipped = inlineDrawing(150, 100, picture(150, 100, xfrm = """ flipH="1""""))
+        // A floating picture 300 × 200 points in a cell 100 points wide: shrunk, not squashed.
+        val floating = """<w:r><w:drawing><wp:anchor behindDoc="0" simplePos="0" relativeHeight="1" locked="0" layoutInCell="1" allowOverlap="1">
+            <wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:posOffset>0</wp:posOffset></wp:positionH>
+            <wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="${300 * EMU}" cy="${200 * EMU}"/>
+            <wp:wrapSquare wrapText="bothSides"/><wp:docPr id="3" name="Float"/><a:graphic><a:graphicData uri="$PICTURE_URI">${picture(300, 200)}</a:graphicData></a:graphic>
+            </wp:anchor></w:drawing></w:r>"""
+        val body = """<w:p>$turned</w:p><w:p>$flipped</w:p>
+            <w:tbl><w:tblPr><w:tblW w:w="2000" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="2000"/></w:tblGrid>
+            <w:tr><w:tc><w:p>$floating<w:r><w:t>In a cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>"""
+        val pdf = convert(wordDocument(body, "turned.docx"), OfficeKind.WORD, "word-turned")
+        PDDocument.load(pdf).use { doc ->
+            val images = imagesOn(doc.getPage(0))
+            assertEquals(3, images.size)
+            val (turnedImage, flippedImage, cellImage) = images.sortedBy { bounds(it).top }
+            near(100f, bounds(turnedImage).width()); near(150f, bounds(turnedImage).height())
+            near(150f, bounds(flippedImage).width()); near(100f, bounds(flippedImage).height())
+            assertTrue("Drawn mirrored", flippedImage.corner(1f, 0f).x < flippedImage.corner(0f, 0f).x)
+            val cell = bounds(cellImage)
+            assertTrue("${cell.width()} wide", cell.width() <= 100f)
+            near(1.5f, cell.width() / cell.height(), 0.05f)
+        }
+    }
+
+    @Test fun wordGroupsDrawEachPictureInItsPlace() {
+        // A group 300 × 100 points of two pictures side by side, the second cropped, and a third one hidden.
+        val group = """<wpg:wgp><wpg:cNvGrpSpPr/><wpg:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${300 * EMU}" cy="${100 * EMU}"/>
+            <a:chOff x="0" y="0"/><a:chExt cx="${300 * EMU}" cy="${100 * EMU}"/></a:xfrm></wpg:grpSpPr>
+            ${picture(150, 100)}${picture(150, 100, x = 150, fill = """<a:srcRect l="25000" r="25000"/>""")}${picture(100, 100, x = 100, hidden = true)}</wpg:wgp>"""
+        val pdf = convert(wordDocument("""<w:p>${inlineDrawing(300, 100, group, uri = GROUP_URI)}</w:p>""", "group.docx"), OfficeKind.WORD, "word-group")
+        PDDocument.load(pdf).use { doc ->
+            val images = imagesOn(doc.getPage(0)).map { bounds(it) }.sortedBy { it.left }
+            assertEquals(2, images.size)
+            for (image in images) {
+                near(150f, image.width()); near(100f, image.height())
+            }
+            near(72f, images[0].left)
+            near(222f, images[1].left)
+        }
+    }
+
+    @Test fun wordLeavesOutWhatTheAuthorHid() {
+        val hiddenPicture = inlineDrawing(150, 100, picture(150, 100), docPr = """ hidden="1"""")
+        val shownPicture = inlineDrawing(150, 100, picture(150, 100))
+        val hiddenBox = """<w:r><w:drawing><wp:anchor behindDoc="0" simplePos="0" relativeHeight="1" locked="0" layoutInCell="1" allowOverlap="1">
+            <wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="column"><wp:posOffset>0</wp:posOffset></wp:positionH>
+            <wp:positionV relativeFrom="paragraph"><wp:posOffset>0</wp:posOffset></wp:positionV><wp:extent cx="${200 * EMU}" cy="${50 * EMU}"/>
+            <wp:wrapNone/><wp:docPr id="4" name="Note" hidden="1"/><a:graphic><a:graphicData uri="$SHAPE_URI"><wps:wsp><wps:cNvSpPr txBox="1"/>
+            <wps:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${200 * EMU}" cy="${50 * EMU}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></wps:spPr>
+            <wps:txbx><w:txbxContent>${para("Secret note")}</w:txbxContent></wps:txbx><wps:bodyPr/></wps:wsp></a:graphicData></a:graphic>
+            </wp:anchor></w:drawing></w:r>"""
+        val body = """<w:p>$hiddenPicture</w:p><w:p>$shownPicture</w:p><w:p>$hiddenBox<w:r><w:t>Visible text</w:t></w:r></w:p>"""
+        val pdf = convert(wordDocument(body, "hidden.docx"), OfficeKind.WORD, "word-hidden")
+        val text = pageTexts(pdf).joinToString(" ")
+        assertTrue(text.contains("Visible text"))
+        assertFalse(text.contains("Secret note"))
+        PDDocument.load(pdf).use { doc -> assertEquals("Only the picture not hidden", 1, imagesOn(doc.getPage(0)).size) }
+    }
+
+    @Test fun wordPageNumbersFollowTheirFormatAndOddPageSections() {
+        fun footer(field: String) = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:ftr $WORD_NAMESPACES><w:p>
+            <w:r><w:t xml:space="preserve">Page </w:t></w:r>$field</w:p></w:ftr>"""
+        val complexField = """<w:r><w:fldChar w:fldCharType="begin"/></w:r><w:r><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>
+            <w:r><w:fldChar w:fldCharType="separate"/></w:r><w:r><w:t>1</w:t></w:r><w:r><w:fldChar w:fldCharType="end"/></w:r>"""
+        val romanField = """<w:fldSimple w:instr=" PAGE \* ROMAN \* MERGEFORMAT "><w:r><w:t>1</w:t></w:r></w:fldSimple>"""
+        // Front matter numbered i, ii; chapter one starts again at 1; chapter two starts on an odd page,
+        // so a blank page 2 goes before it, and its footer writes its number in capitals.
+        val body = para("Preface") + """<w:p><w:r><w:br w:type="page"/></w:r><w:r><w:t>Preface continued</w:t></w:r></w:p>""" +
+            """<w:p><w:pPr><w:sectPr><w:footerReference w:type="default" r:id="rId4"/><w:pgNumType w:fmt="lowerRoman" w:start="1"/></w:sectPr></w:pPr></w:p>""" +
+            para("Chapter one") + """<w:p><w:pPr><w:sectPr><w:pgNumType w:start="1"/></w:sectPr></w:pPr></w:p>""" +
+            para("Chapter two") + """<w:sectPr><w:footerReference w:type="default" r:id="rId5"/><w:type w:val="oddPage"/></w:sectPr>"""
+        val pdf = convert(
+            wordDocument(
+                body, "numbers.docx", rels = listOf("footer" to "footer1.xml", "footer" to "footer2.xml"),
+                parts = mapOf("word/footer1.xml" to footer(complexField), "word/footer2.xml" to footer(romanField)),
+            ),
+            OfficeKind.WORD, "word-page-numbers",
+        )
+        val texts = pageTexts(pdf)
+        assertEquals(listOf("i", "ii", "1", "2", "III"), texts.map { Regex("""Page (\S+)""").find(it)?.groupValues?.get(1) })
+        assertTrue(texts[2].contains("Chapter one"))
+        assertFalse("The blank page", texts[3].contains("Chapter"))
+        assertTrue(texts[4].contains("Chapter two"))
+    }
+
+    @Test fun wordBodyKeptInAnotherFormatIsRefused() {
+        // As some apps export to Word: the whole body is a web page inside the file.
+        val docx = wordDocument(
+            """<w:altChunk r:id="rId4"/><w:sectPr/>""", "chunk.docx", rels = listOf("aFChunk" to "afchunk.htm"),
+            parts = mapOf("word/afchunk.htm" to "<html><body><p>Hello chunk</p></body></html>"),
+        )
+        try {
+            converter.convert(import(docx, OfficeKind.WORD), "chunk", {}, {})
+            fail("Converted a document whose text Usugami can't read")
+        } catch (_: OfficeEmbeddedContent) {
+        }
+        assertFalse(File(context.cacheDir, "output/tools/chunk.pdf").exists())
+    }
+
+    @Test fun wordKeepsPhoneticGuidesSymbolsAndPageBreaksInLists() {
+        val ruby = """<w:p><w:r><w:t xml:space="preserve">Before </w:t></w:r><w:r><w:ruby><w:rubyPr/><w:rt><w:r><w:t>reading</w:t></w:r></w:rt>
+            <w:rubyBase><w:r><w:t>BaseWord</w:t></w:r></w:rubyBase></w:ruby></w:r><w:r><w:t xml:space="preserve"> After</w:t></w:r></w:p>"""
+        // Inserted with Insert > Symbol in the Symbol font: a Greek mu and a plus-minus sign.
+        val symbols = """<w:p><w:r><w:t xml:space="preserve">Width 5 </w:t></w:r><w:r><w:sym w:font="Symbol" w:char="F06D"/></w:r><w:r><w:t xml:space="preserve">m </w:t></w:r>
+            <w:r><w:sym w:font="Symbol" w:char="F0B1"/></w:r><w:r><w:t xml:space="preserve"> 2</w:t></w:r></w:p>"""
+        // A numbered heading starting with a page break, as LibreOffice writes one.
+        val methods = """<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:br w:type="page"/></w:r><w:r><w:t>Methods</w:t></w:r></w:p>"""
+        val body = ruby + symbols + listItem("Introduction", 1, 0) + methods + listItem("Results", 1, 0)
+        val texts = pageTexts(convert(wordDocument(body, "phonetic.docx"), OfficeKind.WORD, "word-ruby"))
+        assertEquals(2, texts.size)
+        assertTrue(texts[0], texts[0].contains("Before BaseWord After"))
+        assertFalse(texts[0].contains("reading"))
+        assertTrue(texts[0], texts[0].contains("Width 5 μm ± 2"))
+        assertTrue(texts[0], Regex("""1\.\s*Introduction""").containsMatchIn(texts[0]))
+        assertTrue(texts[1], Regex("""2\.\s*Methods""").containsMatchIn(texts[1]))
+        assertTrue(texts[1], Regex("""3\.\s*Results""").containsMatchIn(texts[1]))
+    }
+
+    @Test fun wordListsThroughAListStyleKeepTheirNumbers() {
+        // Word 365's "Current List": the list points to a style, whose own definition has the levels.
+        val numbering = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="$W">
+            <w:abstractNum w:abstractNumId="0"><w:styleLink w:val="CurrentList1"/>
+              <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl></w:abstractNum>
+            <w:abstractNum w:abstractNumId="1"><w:numStyleLink w:val="CurrentList1"/></w:abstractNum>
+            <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
+            </w:numbering>"""
+        val pdf = convert(
+            wordDocument(listItem("First clause", 2, 0) + listItem("Second clause", 2, 0), "liststyle.docx", numbering = numbering),
+            OfficeKind.WORD, "word-list-style",
+        )
+        val text = pageTexts(pdf)[0]
+        assertTrue(text, Regex("""1\.\s*First clause""").containsMatchIn(text))
+        assertTrue(text, Regex("""2\.\s*Second clause""").containsMatchIn(text))
+        // The text at the level's indent: half an inch in from the margin.
+        near(72f + 36f, word(pdf, 1, "First").xDirAdj)
+    }
+
+    @Test fun wordAutomaticTextIsWhiteOnDarkShading() {
+        val navy = """<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="1F3864"/></w:tcPr>"""
+        val body = """<w:tbl><w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="3000"/></w:tblGrid><w:tr>
+            <w:tc>$navy${para("Header")}</w:tc><w:tc>$navy${para("Control", run = """<w:color w:val="000000"/>""")}</w:tc></w:tr></w:tbl>"""
+        val pdf = convert(wordDocument(body, "shaded.docx"), OfficeKind.WORD, "word-shaded")
+        val scale = 3f
+        val page = render(pdf, 0, scale)
+        fun lightPixels(word: String): Int {
+            val glyph = word(pdf, 1, word)
+            var count = 0
+            // Across the word and up from its baseline, within the shaded cell.
+            val left = (glyph.xDirAdj * scale).toInt()
+            val right = ((glyph.xDirAdj + 30f) * scale).toInt()
+            val top = ((glyph.yDirAdj - 6f) * scale).toInt()
+            val bottom = ((glyph.yDirAdj - 1f) * scale).toInt()
+            for (x in left until right) for (y in top until bottom) {
+                val c = page.getPixel(x, y)
+                if (Color.red(c) > 200 && Color.green(c) > 200 && Color.blue(c) > 200) count++
+            }
+            return count
+        }
+        assertTrue("Automatic text drawn white", lightPixels("Header") > 20)
+        assertEquals("Black text stays black", 0, lightPixels("Control"))
+    }
+
+    @Test fun wordRightToLeftListsAndTablesAreMirrored() {
+        val list = """<w:p><w:pPr><w:bidi/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr><w:ind w:left="720" w:hanging="360"/></w:pPr>
+            <w:r><w:rPr><w:rtl/></w:rPr><w:t>שלום עולם</w:t></w:r></w:p>"""
+        val table = """<w:tbl><w:tblPr><w:bidiVisual/></w:tblPr><w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="3000"/></w:tblGrid>
+            <w:tr><w:tc>${para("Alpha")}</w:tc><w:tc>${para("Beta")}</w:tc></w:tr></w:tbl>"""
+        val pdf = convert(wordDocument(list + table, "rtl.docx"), OfficeKind.WORD, "word-rtl")
+        val glyphs = glyphs(pdf, 1)
+        // The number at the right margin, less the hanging indent: 18 points in from it.
+        val number = glyphs.first { it.unicode == "1" }
+        near(612f - 72f - 18f, number.xDirAdj + number.widthDirAdj)
+        // The text from the indent on the right, half an inch in.
+        val hebrew = glyphs.filter { g -> g.unicode.any { it in 'א'..'ת' } }
+        assertTrue(hebrew.isNotEmpty())
+        near(612f - 72f - 36f, hebrew.maxOf { it.xDirAdj + it.widthDirAdj })
+        // The table's first column on the right.
+        assertTrue(word(pdf, 1, "Alpha").xDirAdj > word(pdf, 1, "Beta").xDirAdj + 100f)
+    }
+
+    @Test fun deeplyNestedXmlDoesNotOverflowTheStack() {
+        // Only a crafted file nests this deep: what's too deep is left out, and the rest converts.
+        val depth = 100_000
+        val body = "<w:customXml>".repeat(depth) + para("Deep") + "</w:customXml>".repeat(depth) + para("Shallow")
+        val pdf = convert(wordDocument(body, "nested.docx"), OfficeKind.WORD, "word-nested")
+        assertTrue(pageTexts(pdf).joinToString(" ").contains("Shallow"))
     }
 
     // ---- PowerPoint ----
@@ -503,6 +783,13 @@ class OfficeConverterDeviceTest {
         const val PKG_RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
         const val OFFICE_RELS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
         const val EMU = 12_700
+        const val PICTURE_URI = "http://schemas.openxmlformats.org/drawingml/2006/picture"
+        const val GROUP_URI = "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+        const val SHAPE_URI = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+        const val WORD_NAMESPACES = """xmlns:w="$W" xmlns:r="$OFFICE_RELS" xmlns:a="$A"
+            xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:pic="$PICTURE_URI"
+            xmlns:wps="$SHAPE_URI" xmlns:wpg="$GROUP_URI" xmlns:v="urn:schemas-microsoft-com:vml"
+            xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w10="urn:schemas-microsoft-com:office:word""""
         val COMPOUND_HEADER = byteArrayOf(0xD0.toByte(), 0xCF.toByte(), 0x11, 0xE0.toByte(), 0xA1.toByte(), 0xB1.toByte(), 0x1A, 0xE1.toByte())
     }
 }
