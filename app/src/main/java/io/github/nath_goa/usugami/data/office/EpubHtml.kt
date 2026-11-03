@@ -134,6 +134,7 @@ internal class XhtmlReader(
     private val tables = ArrayList<TableState>()
     /** Where items go inside table cells and captions; the [sink] otherwise. */
     private val sinks = ArrayList<MutableList<BookEntry>>()
+    private var sinkFailure: Exception? = null
 
     /** Reads the document from [input]. A part that can't be parsed ends it: what came before is kept. */
     fun read(input: InputStream) {
@@ -151,6 +152,8 @@ internal class XhtmlReader(
             }
         } catch (e: Exception) {
             rethrowCancel(e)
+            // The pages couldn't be written (a full disk, say): that's no fault of the document's.
+            if (e === sinkFailure) throw e
             // Malformed beyond what the parser forgives.
         }
         skip = 0
@@ -195,8 +198,11 @@ internal class XhtmlReader(
         val inline = p.attr("style")
         val css = if (sheets.isEmpty() && inline.isNullOrBlank()) emptyMap() else CssSheet.cascade(node, sheets, inline)
         val display = css["display"]?.lowercase()
-        if (tag in SKIPPED || display == "none" || p.attr("hidden") != null) return run { skip = 1 }
-        if (id != null) (if (para != null) paraIds else pendingIds) += id
+        // An empty element (a hidden picture, say) has no inside to skip: it is just left out.
+        if (tag in SKIPPED || display == "none" || p.attr("hidden") != null) return run { if (tag !in VOID) skip = 1 }
+        // Older books mark places with <a name="...">, which links lead to as they do to an id.
+        val anchors = listOfNotNull(id, p.attr("name")?.trim()?.takeIf { tag == "a" && it.isNotEmpty() && it != id })
+        if (anchors.isNotEmpty()) (if (para != null) paraIds else pendingIds) += anchors
         if (tag == "svg") return run { svgDepth = 1 }
         val block = when (display) {
             "block", "list-item", "table", "flex", "grid" -> true
@@ -213,6 +219,8 @@ internal class XhtmlReader(
                 startPara()
                 para!!.append("\n", inheritedFrom.text())
                 afterSpace = true
+                // Text split into lines with line breaks (a whole book in one paragraph, say) goes on as a new paragraph at one.
+                if (para!!.text.length > SPLIT_AT) flushPara(continued = true)
                 return
             }
             "hr" -> {
@@ -315,26 +323,34 @@ internal class XhtmlReader(
         val inherited = current
         if (inherited.pre) {
             val text = raw.replace("\r\n", "\n").replace('\r', '\n')
-            if (text.isEmpty()) return
-            startPara()
-            para!!.append(text, inherited.text())
-            afterSpace = text.endsWith('\n')
             // Like a long paragraph, long preformatted text goes on as a new one, at a line's end.
-            if (para!!.text.length > SPLIT_AT && afterSpace) flushPara(continued = true)
+            append(text, '\n', inherited)
             return
         }
         appendText(raw, inherited)
     }
 
     private fun appendText(raw: String, inherited: Inherited) {
-        val text = HtmlText.collapse(raw, afterSpace || para == null)
-        if (text.isEmpty()) return
-        startPara()
-        val rich = para!!
-        rich.append(text, inherited.text())
-        afterSpace = text.endsWith(' ')
-        // A paragraph as long as a few pages goes on as a new one: laying out a huge one is slow.
-        if (rich.text.length > SPLIT_AT && afterSpace) flushPara(continued = true)
+        // A paragraph as long as a few pages goes on as a new one, after a space: laying out a huge one is slow.
+        append(HtmlText.collapse(raw, afterSpace || para == null), ' ', inherited)
+    }
+
+    /**
+     * Adds [text] to the paragraph. Once that is longer than [SPLIT_AT], it goes on as a new
+     * paragraph after the next [breakAfter], even in the middle of [text] (a whole chapter can be one).
+     */
+    private fun append(text: String, breakAfter: Char, inherited: Inherited) {
+        var from = 0
+        while (from < text.length) {
+            startPara()
+            val rich = para!!
+            val at = text.indexOf(breakAfter, from + max(0, SPLIT_AT - rich.text.length))
+            val to = if (at < 0) text.length else at + 1
+            rich.append(text.substring(from, to), inherited.text())
+            afterSpace = text[to - 1] == breakAfter
+            if (rich.text.length > SPLIT_AT && afterSpace) flushPara(continued = true)
+            from = to
+        }
     }
 
     private fun startPara() {
@@ -374,15 +390,25 @@ internal class XhtmlReader(
         val ids = if (pendingIds.isEmpty()) emptyList() else pendingIds.toList().also { pendingIds.clear() }
         val entry = BookEntry(item, space, ids)
         space = 0f
-        sinks.lastOrNull()?.add(entry) ?: sink(entry)
+        sinks.lastOrNull()?.add(entry) ?: deliver(entry)
     }
 
     private fun pageBreak() {
         flushPara()
         // Not inside a table: a cell can't be split that way.
         if (sinks.isNotEmpty()) return
-        sink(BookEntry(BookBreak, 0f, emptyList()))
+        deliver(BookEntry(BookBreak, 0f, emptyList()))
         space = 0f
+    }
+
+    /** Hands [entry] to the [sink], whose failures [read] lets through rather than taking them for the document's. */
+    private fun deliver(entry: BookEntry) {
+        try {
+            sink(entry)
+        } catch (e: Exception) {
+            sinkFailure = e
+            throw e
+        }
     }
 
     private fun blockStyle(style: Inherited, indent: Boolean = true) =
@@ -394,9 +420,9 @@ internal class XhtmlReader(
         val nested = lists.isNotEmpty() && (tag == "ul" || tag == "ol")
         val ua = if (nested) 0f else UA_MARGINS[tag] ?: 0f
         val (top, bottom) = margins(css, em, ua * em, if (tag == "li") 0f else ua * em)
-        if (CssValues.pageBreak(css["page-break-before"] ?: css["break-before"])) pageBreak()
+        if (CssValues.pageBreak(css["break-before"])) pageBreak()
         space = max(space, top)
-        val breakAfter = CssValues.pageBreak(css["page-break-after"] ?: css["break-after"])
+        val breakAfter = CssValues.pageBreak(css["break-after"])
         frames += Frame(node, inherited, block = true) {
             flushPara()
             onEnd?.invoke()
@@ -408,10 +434,7 @@ internal class XhtmlReader(
     private fun margins(css: Map<String, String>, em: Float, top: Float, bottom: Float): Pair<Float, Float> {
         var t = top
         var b = bottom
-        CssValues.verticalMargins(css["margin"])?.let { (mt, mb) ->
-            CssValues.length(mt, em, base)?.let { t = it }
-            CssValues.length(mb, em, base)?.let { b = it }
-        }
+        // The margin shorthand comes as its sides (SimpleCss), so the cascade decides each.
         CssValues.length(css["margin-top"], em, base)?.let { t = it }
         CssValues.length(css["margin-bottom"], em, base)?.let { b = it }
         // Negative margins and huge ones (some books push a title down with a third of a page) are tamed.
@@ -420,16 +443,19 @@ internal class XhtmlReader(
 
     private fun startTable(node: CssNode, inherited: Inherited, css: Map<String, String>) {
         flushPara()
-        if (CssValues.pageBreak(css["page-break-before"] ?: css["break-before"])) pageBreak()
+        if (CssValues.pageBreak(css["break-before"])) pageBreak()
         val em = inherited.size
         val (top, bottom) = margins(css, em, 0.8f * em, 0.8f * em)
         space = max(space, top)
+        // Kept for the table (or its caption): its cells start without space of their own.
+        val before = space
         val state = TableState()
         tables += state
         frames += Frame(node, inherited, block = true) {
             flushPara()
             state.row?.let { if (it.isNotEmpty()) state.rows += it }
             tables.removeAt(tables.lastIndex)
+            space = max(space, before)
             for (entry in state.caption) {
                 pendingIds.addAll(0, entry.ids)
                 space = max(space, entry.before)
@@ -503,10 +529,10 @@ internal class XhtmlReader(
         space = max(space, 0.5f * inherited.size)
     }
 
-    private fun listStyle(css: Map<String, String>): String? =
-        css["list-style-type"] ?: css["list-style"]?.split(' ')?.firstOrNull { HtmlText.listFormat(it, true) != ListNumbering.Format.DECIMAL || it == "decimal" }
+    // The list-style shorthand comes as its list-style-type (SimpleCss).
+    private fun listStyle(css: Map<String, String>): String? = css["list-style-type"]
 
-    private fun Map<String, String>.isListNone() = this["list-style-type"]?.trim() == "none" || this["list-style"]?.split(' ')?.contains("none") == true
+    private fun Map<String, String>.isListNone() = this["list-style-type"]?.trim() == "none"
 
     private fun inherit(tag: String, parent: Inherited, css: Map<String, String>, p: XmlPullParser, block: Boolean): Inherited {
         var size = parent.size * (UA_SIZES[tag] ?: 1f)
@@ -558,9 +584,8 @@ internal class XhtmlReader(
             val indent = (UA_INDENTS[tag] ?: 0f) * size
             left += indent
             if (tag == "blockquote") right += indent
-            val sides = CssValues.horizontalMargins(css["margin"])
-            (css["margin-left"] ?: sides?.first)?.let { CssValues.length(it, size, base, textWidth) }?.let { if (it > 0f) left += it }
-            (css["margin-right"] ?: sides?.second)?.let { CssValues.length(it, size, base, textWidth) }?.let { if (it > 0f) right += it }
+            CssValues.length(css["margin-left"], size, base, textWidth)?.let { if (it > 0f) left += it }
+            CssValues.length(css["margin-right"], size, base, textWidth)?.let { if (it > 0f) right += it }
             // Always room for the text: no more than half the width in indents.
             val most = textWidth * 0.5f
             if (left + right > most) {
@@ -598,6 +623,8 @@ internal class XhtmlReader(
         val SKIPPED = setOf(
             "script", "noscript", "template", "iframe", "object", "video", "audio", "canvas", "button", "select", "textarea",
             "map", "rt", "rp", "datalist", "dialog", "colgroup", "title",
+            // A formula's TeX or other source beside the MathML shown, and MathML in epub:switch, whose fallback is shown.
+            "annotation", "annotation-xml", "case",
         )
         val BLOCKS = setOf(
             "html", "body", "div", "p", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "ul", "ol", "li", "dl", "dt", "dd", "pre",

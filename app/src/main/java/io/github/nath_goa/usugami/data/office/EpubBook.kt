@@ -16,7 +16,6 @@ import java.io.InputStreamReader
 import java.io.Reader
 import java.io.StringReader
 import java.util.zip.ZipEntry
-import java.util.zip.ZipFile
 
 /** An e-book protected with DRM: its text is encrypted, and only the store's app can read it. */
 class EpubProtected : OfficeFileProblem("DRM-protected e-book")
@@ -26,7 +25,7 @@ class EpubProtected : OfficeFileProblem("DRM-protected e-book")
  * inside the zip can't reach the file system.
  */
 internal class EpubArchive(file: File) : Closeable {
-    private val zip = ZipFile(file)
+    private val zip = openZip(file)
     private val entries: Map<String, ZipEntry>
     // EPUB paths are case-sensitive, but books made on Windows sometimes link with the wrong case.
     private val folded: Map<String, ZipEntry>

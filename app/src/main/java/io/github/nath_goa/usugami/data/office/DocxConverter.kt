@@ -1130,6 +1130,8 @@ internal class DocxConverter(
                 lineScale = OfficeFonts.lineScale(p.mark),
                 label = label,
                 rtl = props.rtl == true,
+                // A paragraph starting with Hebrew or Arabic is still left to right unless it's set otherwise.
+                directionFromText = false,
                 // In a right-to-left paragraph, Word's left indent and hanging indent are on the right.
                 mirrored = props.rtl == true,
                 background = props.shading,

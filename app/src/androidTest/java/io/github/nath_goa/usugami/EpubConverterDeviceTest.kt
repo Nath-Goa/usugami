@@ -14,13 +14,18 @@ import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.office.BookEntry
+import io.github.nath_goa.usugami.data.office.BookPara
 import io.github.nath_goa.usugami.data.office.EpubProtected
 import io.github.nath_goa.usugami.data.office.OfficeConverter
+import io.github.nath_goa.usugami.data.office.OfficeImages
 import io.github.nath_goa.usugami.data.office.OfficeInput
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.data.office.OfficeNotRecognized
 import io.github.nath_goa.usugami.data.office.OfficeNothingToConvert
 import io.github.nath_goa.usugami.data.office.OfficeProgress
+import io.github.nath_goa.usugami.data.office.PagedPdf
+import io.github.nath_goa.usugami.data.office.XhtmlReader
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -242,6 +247,33 @@ class EpubConverterDeviceTest {
         return epub(name, files)
     }
 
+    /**
+     * An EPUB 3 book of one chapter, [body] with [css], and [files] beside it; its navigation document
+     * lists [toc] (titles and links). Every name in the zip starts with [root].
+     */
+    private fun oneChapter(
+        name: String,
+        body: String,
+        css: String = "",
+        files: Map<String, Any> = emptyMap(),
+        toc: List<Pair<String, String>> = listOf("Chapter" to "ch.xhtml"),
+        root: String = "",
+    ): File = epub(
+        name,
+        linkedMapOf<String, Any>(
+            "META-INF/container.xml" to container("book.opf"),
+            "book.opf" to """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id">
+                <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>One chapter</dc:title><dc:identifier id="id">x</dc:identifier></metadata>
+                <manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+                <item id="ch" href="ch.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="ch"/></spine></package>""",
+            "nav.xhtml" to xhtml(
+                """<nav epub:type="toc"><ol>${toc.joinToString("") { (title, href) -> """<li><a href="$href">$title</a></li>""" }}</ol></nav>""",
+                doctype = "<!DOCTYPE html>",
+            ),
+            "ch.xhtml" to xhtml(body, head = if (css.isEmpty()) "" else "<style>$css</style>", doctype = "<!DOCTYPE html>"),
+        ).apply { putAll(files) }.mapKeys { (path, _) -> root + path },
+    )
+
     // ---- What converts ----
 
     @Test fun pagesAreA5UnlessA4IsChosen() {
@@ -298,6 +330,118 @@ class EpubConverterDeviceTest {
             val texts = PDFTextStripper().apply { startPage = 1; endPage = 1 }.getText(doc)
             assertTrue(texts.contains("Chapter One: Apples"))
             assertTrue("The heading starts right of the margin", heading.x > 44f + 20f && heading.x < width / 2)
+        }
+    }
+
+    @Test fun hiddenPicturesMathSourcesTablesAndWidePicturesInText() {
+        val pdf = convert(
+            oneChapter(
+                "reader.epub",
+                """<div><img class="secret" src="p.png"/><h1>Chapter heading</h1><p>Plain words</p></div>
+                <h2><br hidden=""/>Second title</h2><p>Body after</p>
+                <p>Area <math><semantics><msup><mi>x</mi><mn>2</mn></msup><annotation encoding="application/x-tex">x^2</annotation></semantics></math> done</p>
+                <epub:switch><epub:case required-namespace="http://www.w3.org/1998/Math/MathML"><math><mi>casetext</mi></math></epub:case>
+                <epub:default><p>fallback</p></epub:default></epub:switch>
+                <p>Above</p><p>Next</p><p>Over</p><table><tr><td>Cell</td></tr></table>
+                <p>Hence <img src="wide.png"/> holds.</p>""",
+                css = ".secret { display: none }",
+                files = mapOf("p.png" to png(40, 40), "wide.png" to png(1000, 32)),
+            ),
+            "epub-reader",
+        )
+        val text = pageTexts(pdf).joinToString(" ")
+        // A hidden picture is left out alone, not with the rest of its parent...
+        for (kept in listOf("Chapter heading", "Plain words", "Second title", "Body after", "Area", "done", "fallback")) {
+            assertTrue("\"$kept\" is kept", kept in text)
+        }
+        // ...and what follows doesn't take on its parent's look.
+        near(word(pdf, 1, "Plain").yScale, word(pdf, 1, "Body").yScale, 0.1f)
+        // A formula's TeX source, and MathML with a fallback, aren't printed.
+        assertFalse("x^2" in text)
+        assertFalse("casetext" in text)
+        // A table keeps the space above it, more than between two paragraphs.
+        val betweenParagraphs = word(pdf, 1, "Next").yDirAdj - word(pdf, 1, "Above").yDirAdj
+        val aboveTable = word(pdf, 1, "Cell").yDirAdj - word(pdf, 1, "Over").yDirAdj
+        assertTrue("$aboveTable against $betweenParagraphs", aboveTable > betweenParagraphs + 4f)
+        // A picture in a line of text, wider than the text, is shrunk to its width (A5, 44-point margins).
+        PDDocument.load(pdf).use { doc ->
+            val wide = (0 until doc.numberOfPages).flatMap { imagesOn(doc.getPage(it)) }.single()
+            near(420f - 44f, wide.corner(1f, 0f).x)
+        }
+    }
+
+    @Test fun fixedLayoutPagesStayWholeAndALinkedCoverPageIsntRepeated() {
+        val landscape = """<meta name="viewport" content="width=800, height=600"/>"""
+        val file = epub(
+            "dense.epub",
+            mapOf(
+                "META-INF/container.xml" to container("book.opf"),
+                "book.opf" to """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id">
+                    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Dense</dc:title><dc:identifier id="id">x</dc:identifier>
+                    <meta property="rendition:layout">pre-paginated</meta></metadata>
+                    <manifest><item id="c" href="c.png" media-type="image/png" properties="cover-image"/><item id="i2" href="p2.png" media-type="image/png"/>
+                    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/><item id="d1" href="p1.xhtml" media-type="application/xhtml+xml"/>
+                    <item id="d2" href="p2.xhtml" media-type="application/xhtml+xml"/></manifest>
+                    <spine><itemref idref="cover" linear="no"/><itemref idref="d1"/><itemref idref="d2"/></spine></package>""",
+                "c.png" to png(600, 800),
+                "p2.png" to png(800, 600, Color.rgb(200, 90, 40)),
+                "cover.xhtml" to xhtml("""<div><img src="c.png" alt="Cover"/></div>""", doctype = "<!DOCTYPE html>"),
+                // Each line its own paragraph, as tools that make fixed-layout books write them.
+                "p1.xhtml" to xhtml((1..60).joinToString("") { "<p>line $it</p>" }, head = landscape, doctype = "<!DOCTYPE html>"),
+                "p2.xhtml" to xhtml("""<div><img src="p2.png" alt="Page 2"/></div>""", head = landscape, doctype = "<!DOCTYPE html>"),
+            ),
+        )
+        val pdf = convert(file, "epub-dense")
+        PDDocument.load(pdf).use { doc ->
+            // The cover, the page of lines shrunk onto one landscape page, the picture: the cover page
+            // the book reads only when linked to isn't added again at the end.
+            assertEquals(3, doc.numberOfPages)
+            assertTrue(doc.getPage(1).mediaBox.let { it.width > it.height })
+        }
+        val lines = pageTexts(pdf)[1]
+        assertTrue(lines, "line 1 line 2" in lines && "line 60" in lines)
+    }
+
+    @Test fun bookmarksIntoTablesAndToOldStyleAnchorsFindTheirPage() {
+        val body = paragraphs(40, "Filler") + """<p><a id="before"/></p><table id="table"><tr><td id="cell">Totals</td></tr></table>""" +
+            paragraphs(40, "More") + """<p><a name="old"/>Old anchor here</p>"""
+        val toc = listOf("Start" to "ch.xhtml", "Before" to "ch.xhtml#before", "Table" to "ch.xhtml#table", "Cell" to "ch.xhtml#cell", "Old" to "ch.xhtml#old")
+        val pdf = convert(oneChapter("anchors.epub", body, toc = toc), "epub-anchors")
+        val texts = pageTexts(pdf)
+        PDDocument.load(pdf).use { doc ->
+            val items = doc.documentCatalog.documentOutline.children().toList()
+            fun page(title: String) = (items.first { it.title == title }.destination as PDPageDestination).retrievePageNumber()
+            val totals = pageWith(texts, "Totals")
+            assertTrue(totals > 0)
+            assertEquals(totals, page("Before"))
+            assertEquals(totals, page("Table"))
+            assertEquals(totals, page("Cell"))
+            assertEquals(pageWith(texts, "Old anchor here"), page("Old"))
+            assertTrue(page("Old") > totals)
+        }
+    }
+
+    @Test fun zipNamesStartingWithASlashStillOpen() {
+        // Some tools write "/META-INF/container.xml"; Android 14 and newer refuse such names unless told otherwise.
+        val file = oneChapter("rooted.epub", "<p>Rooted words</p>", root = "/")
+        assertTrue("Rooted words" in pageTexts(convert(file, "epub-rooted")).joinToString(" "))
+    }
+
+    @Test fun hugeParagraphsAreReadInPartsAndFailuresToWritePagesComeThrough() {
+        fun reader(sink: (BookEntry) -> Unit) =
+            XhtmlReader("ch.xhtml", 11f, 332f, { null }, { null }, OfficeImages({ null }, PagedPdf(work), {}), {}, sink)
+        // Lines split with line breaks, and a long preformatted text, as books made from plain text are.
+        val read = ArrayList<BookEntry>()
+        val body = "<p>" + "word word word<br/>\n".repeat(3000) + "</p><pre>" + "code line\n".repeat(6000) + "</pre>"
+        reader { read += it }.read(xhtml(body).byteInputStream())
+        val lengths = read.map { (it.item as BookPara).text.length }
+        assertTrue("$lengths", lengths.size >= 8 && lengths.all { it < 12_100 })
+        // A page that can't be written (a full disk, say) stops the book, rather than passing for a damaged chapter.
+        try {
+            reader { throw IOException("No space left") }.read(xhtml("<p>a</p><p>b</p>").byteInputStream())
+            fail("The failure went unnoticed")
+        } catch (e: IOException) {
+            assertEquals("No space left", e.message)
         }
     }
 

@@ -343,7 +343,12 @@ object SimpleCss {
         return CssSheet(rules)
     }
 
-    /** The declarations of a rule or style attribute, by lowercase name, with !important dropped. */
+    /**
+     * The declarations of a rule or style attribute, by lowercase name, with !important dropped. The
+     * shorthands read (margin, list-style) come as the properties they set, and page-break-before
+     * and -after as break-before and -after, so that a later or more specific rule setting either
+     * form wins, as in CSS.
+     */
     fun declarations(block: String): Map<String, String> {
         val out = LinkedHashMap<String, String>()
         for (part in block.split(';')) {
@@ -351,10 +356,29 @@ object SimpleCss {
             if (colon <= 0) continue
             val name = part.substring(0, colon).trim().lowercase()
             val value = part.substring(colon + 1).replace(Regex("""!\s*important""", RegexOption.IGNORE_CASE), "").trim()
-            if (name.isNotEmpty() && value.isNotEmpty()) out[name] = value
+            if (name.isEmpty() || value.isEmpty()) continue
+            when (name) {
+                "margin" -> {
+                    val (top, bottom) = CssValues.verticalMargins(value) ?: continue
+                    val (left, right) = CssValues.horizontalMargins(value) ?: continue
+                    out["margin-top"] = top
+                    out["margin-right"] = right
+                    out["margin-bottom"] = bottom
+                    out["margin-left"] = left
+                }
+                // Its type, if it gives one; the rest (position, picture) isn't read.
+                "list-style" -> value.lowercase().split(Regex("""\s+""")).firstOrNull { it in LIST_TYPES }?.let { out["list-style-type"] = it }
+                "page-break-before", "page-break-after" -> out[name.removePrefix("page-")] = value
+                else -> out[name] = value
+            }
         }
         return out
     }
+
+    private val LIST_TYPES = setOf(
+        "none", "disc", "circle", "square", "decimal", "decimal-leading-zero", "lower-alpha", "lower-latin", "upper-alpha",
+        "upper-latin", "lower-roman", "upper-roman", "lower-greek", "armenian", "georgian",
+    )
 
     /** A selector such as "div.poem > p", or null for one Usugami doesn't understand. */
     fun selector(text: String): CssSelector? {

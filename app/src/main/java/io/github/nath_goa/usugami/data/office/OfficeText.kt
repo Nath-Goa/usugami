@@ -47,13 +47,13 @@ internal val Float.units: Float get() = this * U
  */
 internal object OfficeFonts {
     private val cache = HashMap<String, Typeface>()
-    private val MONO = listOf("courier", "consolas", "lucida console", "monaco", "menlo", "mono", "source code", "inconsolata", "cascadia", "fira code")
+    private val MONO = listOf("courier", "consolas", "lucida console", "monaco", "menlo", "monospace", "source code", "inconsolata", "cascadia", "fira code")
     private val SERIF = listOf(
         "times", "cambria", "georgia", "garamond", "palatino", "book antiqua", "bookman", "century", "baskerville",
         "constantia", "bodoni", "didot", "minion", "merriweather", "lora", "serif", "perpetua", "goudy", "caslon",
         "charter", "rockwell", "sylfaen", "high tower", "californian", "cochin", "hoefler",
     )
-    private val SCRIPT = listOf("script", "handwriting", "brush", "kunstler", "vivaldi", "chancery")
+    private val SCRIPT = listOf("script", "handwriting", "brush", "kunstler", "vivaldi", "chancery", "corsiva")
 
     fun typeface(name: String?, bold: Boolean, italic: Boolean): Typeface {
         val family = family(name, bold)
@@ -104,9 +104,12 @@ internal object OfficeFonts {
     /** The phone's font family closest to the Office font [name]. */
     fun family(name: String?, bold: Boolean = false): String {
         val n = name.orEmpty().lowercase()
+        // "Mono" only as a word of its own ("Roboto Mono"), not in "Monotype Corsiva".
+        val words = n.split(' ', '-', '_')
         return when {
-            MONO.any { it in n } -> "monospace"
-            "sans" !in n && SERIF.any { it in n } -> "serif"
+            MONO.any { it in n } || "mono" in words -> "monospace"
+            // Century Gothic and Franklin Gothic are sans fonts, whatever "century" says.
+            "sans" !in n && "gothic" !in n && SERIF.any { it in n } -> "serif"
             SCRIPT.any { it in n } -> "cursive"
             "comic" in n -> "casual"
             !bold && ("light" in n || "thin" in n) -> "sans-serif-light"
@@ -141,10 +144,13 @@ internal data class TextStyle(
     fun applyTo(paint: TextPaint) {
         paint.typeface = OfficeFonts.typeface(font, bold, italic)
         paint.textSize = max(1f, drawnSize.units)
-        if (spacing != 0f && size > 0f) paint.letterSpacing = spacing / size
-        when (baseline) {
-            1 -> paint.baselineShift -= (size * 0.33f).units.roundToInt()
-            -1 -> paint.baselineShift += (size * 0.14f).units.roundToInt()
+        // Set outright, not added to: a run is drawn with the paragraph's paint (its mark's look, which
+        // may be superscript or spaced out) and then its own, which must replace it.
+        paint.letterSpacing = if (spacing != 0f && size > 0f) spacing / size else 0f
+        paint.baselineShift = when (baseline) {
+            1 -> -(size * 0.33f).units.roundToInt()
+            -1 -> (size * 0.14f).units.roundToInt()
+            else -> 0
         }
     }
 
@@ -247,8 +253,8 @@ internal class ParagraphSpec(
     val label: Label? = null,
     val rtl: Boolean = false,
     /**
-     * Whether a paragraph that isn't [rtl] reads the way its first letter does, as Word's and books'
-     * do; PowerPoint's read left to right.
+     * Whether a paragraph that isn't [rtl] reads the way its first letter does, as books' do; Word's
+     * and PowerPoint's read left to right (only their own setting makes them right to left).
      */
     val directionFromText: Boolean = true,
     /**
@@ -296,7 +302,9 @@ internal class ParagraphBlock private constructor(
 
     private val left = min(first, spec.indent)
     val layout: StaticLayout = build()
-    private val lines = if (continues) layout.lineCount - 1 else layout.lineCount
+    // Left out: the filler line of a justified part, and the empty line Android adds after a part's
+    // last line when a page break comes right after a line break (the paragraph goes on after it).
+    private val lines = if (continues || (!isLast && text.endsWith('\n'))) layout.lineCount - 1 else layout.lineCount
     override val height: Int = if (lines > 0) layout.getLineBottom(lines - 1) else 0
 
     /** The baseline of the first line, from the top. */
@@ -489,8 +497,26 @@ internal class StandInPicture(private val caption: String?) : Picture {
     }
 }
 
+/** [text] with each picture in it wider than [most] units shrunk to that width, keeping its shape. */
+internal fun fitPictures(text: CharSequence, most: Int): CharSequence {
+    if (text !is Spanned || most < 1) return text
+    val wide = text.getSpans(0, text.length, PictureSpan::class.java).filter { it.width > most }
+    if (wide.isEmpty()) return text
+    val fitted = SpannableStringBuilder(text)
+    for (span in wide) {
+        val start = fitted.getSpanStart(span)
+        val end = fitted.getSpanEnd(span)
+        fitted.removeSpan(span)
+        fitted.setSpan(span.narrowed(most), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+    return fitted
+}
+
 /** A picture inside a line of text, sitting on the baseline like a large letter. */
-internal class PictureSpan(private val picture: Picture, private val width: Int, private val height: Int) : ReplacementSpan() {
+internal class PictureSpan(private val picture: Picture, val width: Int, private val height: Int) : ReplacementSpan() {
+    /** This picture [most] units wide, keeping its shape. */
+    fun narrowed(most: Int) = PictureSpan(picture, most, max(1, (height.toLong() * most / width).toInt()))
+
     override fun getSize(paint: Paint, text: CharSequence?, start: Int, end: Int, fm: Paint.FontMetricsInt?): Int {
         if (fm != null) {
             paint.getFontMetricsInt(fm)

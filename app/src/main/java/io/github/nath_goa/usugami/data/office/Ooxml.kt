@@ -1,20 +1,46 @@
 package io.github.nath_goa.usugami.data.office
 
+import android.os.Build
 import android.util.Xml
+import dalvik.system.ZipPathValidator
 import org.xmlpull.v1.XmlPullParser
 import java.io.Closeable
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
 import java.util.zip.ZipEntry
+import java.util.zip.ZipException
 import java.util.zip.ZipFile
+
+/**
+ * [file] opened as a zip. Since Android 14, apps targeting it can't open a zip with an entry whose
+ * name starts with "/" (or has a ".." in it): some tools write names like "/word/document.xml", and
+ * other readers open those files. Usugami's zips are only read, never extracted, so names starting
+ * with "/" are let through; ".." still isn't, for any code that does extract.
+ */
+internal fun openZip(file: File): ZipFile {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) rootedNamesAllowed
+    return ZipFile(file)
+}
+
+private val rootedNamesAllowed: Unit by lazy {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        ZipPathValidator.setCallback(
+            object : ZipPathValidator.Callback {
+                override fun onZipEntryAccess(path: String) {
+                    if (path.split('/').any { it == ".." }) throw ZipException("Invalid zip entry path: $path")
+                }
+            },
+        )
+    }
+}
 
 /**
  * An Office Open XML file (.docx, .pptx): a zip of XML parts, linked by relationships. Only read,
  * never extracted, so odd names inside the zip can't reach the file system.
  */
 internal class OfficePackage(file: File) : Closeable {
-    private val zip = ZipFile(file)
+    private val zip = openZip(file)
     // Part names are case-insensitive in OOXML, but zip entry names aren't.
     private val entries: Map<String, ZipEntry> = zip.entries().asSequence().associateBy { it.name.trimStart('/').lowercase() }
     private val relationships = HashMap<String, Map<String, Relationship>>()

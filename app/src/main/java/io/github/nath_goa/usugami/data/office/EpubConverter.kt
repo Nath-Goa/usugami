@@ -121,7 +121,11 @@ internal class EpubConverter(
         if (document.mediaType.startsWith("image/")) {
             // A picture straight in the reading order, as some comics have.
             val pixels = imageSize(document.path) ?: return
-            if (document.path == cover) coverDrawn = true
+            if (document.path == cover) {
+                // The cover again, read only when linked to: it is drawn already.
+                if (!document.linear && coverDrawn) return run { coverDocument = document.path }
+                coverDrawn = true
+            }
             startDocument(document.path)
             fullPage(document.path, pixels[0].toFloat(), pixels[1].toFloat(), emptyList())
             return
@@ -130,8 +134,12 @@ internal class EpubConverter(
         val buffer = ArrayList<BookEntry>()
         var streaming = !buffered
         fun showsCover() = buffer.any { (it.item as? BookImage)?.path == cover }
+        // The first document shows the cover, or it goes on a page of its own before it.
+        fun coverFirst() {
+            if (first && cover != null && !coverDrawn) if (showsCover()) coverDrawn = true else drawCover(cover)
+        }
         fun stream() {
-            if (first && cover != null && !coverDrawn && !showsCover()) drawCover(cover)
+            coverFirst()
             streaming = true
             startDocument(document.path)
             buffer.forEach(::add)
@@ -143,8 +151,9 @@ internal class EpubConverter(
                 add(entry)
             } else {
                 buffer += entry
-                // A long document is no cover or picture page: on with it, without holding it all.
-                if (buffer.size > BUFFER) stream()
+                // A long document is no cover or picture page: on with it, without holding it all. A
+                // fixed-layout page is held whole, to be shrunk onto its page, unless it is a book's worth.
+                if (buffer.size > if (book.fixedLayout) FIXED_BUFFER else BUFFER) stream()
             }
         }
         archive.open(document.path)?.use(reader::read)
@@ -153,8 +162,10 @@ internal class EpubConverter(
         val content = buffer.filter { it.item !is BookBreak }
         val picturesOnly = content.isNotEmpty() && content.all { it.item is BookImage }
         when {
+            // A cover page read only when linked to: the cover is drawn already.
+            !document.linear && picturesOnly && content.all { (it.item as BookImage).path == cover } && coverDrawn -> coverDocument = document.path
             book.fixedLayout -> {
-                if (first && cover != null && !coverDrawn && !showsCover()) drawCover(cover)
+                coverFirst()
                 startDocument(document.path)
                 fixedPage(content, reader.viewport)
             }
@@ -164,8 +175,6 @@ internal class EpubConverter(
                 startDocument(document.path)
                 for (entry in content) (entry.item as BookImage).let { fullPage(it.path, it.width, it.height, entry.ids) }
             }
-            // A cover page read only when linked to: the cover is drawn already.
-            !document.linear && picturesOnly && content.all { (it.item as BookImage).path == cover } && coverDrawn -> coverDocument = document.path
             else -> stream()
         }
         if (first && showsCover()) coverDocument = document.path
@@ -238,7 +247,7 @@ internal class EpubConverter(
             return
         }
         val block = block(entry.item, textWidth.toInt()) ?: return
-        val ids = entry.ids.map { "$documentPath#$it" }
+        val ids = entry.allIds().map { "$documentPath#$it" }
         place(Placed(block, entry.before.units.toInt(), (entry.item as? BookPara)?.heading?.let { it > 0 } == true, ids))
     }
 
@@ -306,6 +315,12 @@ internal class EpubConverter(
         block.draw(c, left, y + gap)
     }
 
+    /** The ids of the elements starting with this entry and, for a table, those in its cells: they lead to its top. */
+    private fun BookEntry.allIds(): List<String> {
+        val table = item as? BookTable ?: return ids
+        return ids + table.rows.flatMap { row -> row.flatMap { cell -> cell.items.flatMap { it.allIds() } } }
+    }
+
     /** Remembers where the elements [ids] start (at [at] units down the page), and the document, for bookmarks. */
     private fun mark(ids: List<String>, at: Float) {
         val page = pdf.pageCount
@@ -343,8 +358,9 @@ internal class EpubConverter(
 
     private fun finishPage() {
         if (canvas == null) return
-        pdf.finishPage()
+        // Forgotten first: a finished page's canvas is released, even when writing a part fails.
         canvas = null
+        pdf.finishPage()
     }
 
     private fun finish() {
@@ -398,7 +414,7 @@ internal class EpubConverter(
                 scale = min(textWidth / width, textHeight / max(1, stack.height))
             }
             startPage()
-            mark(content.flatMap { e -> e.ids.map { "$documentPath#$it" } }, top)
+            mark(content.flatMap { e -> e.allIds().map { "$documentPath#$it" } }, top)
             canvas!!.withSave {
                 translate(left, top)
                 scale(scale, scale)
@@ -433,15 +449,18 @@ internal class EpubConverter(
             val x = left - paint.measureText(text) - style.size.units * 0.45f
             Label(text, style, max(0f, x).toInt())
         }
+        val firstIndent = max(0f, left + s.textIndent.units).toInt()
+        val rightIndent = s.right.units.toInt()
         return ParagraphBlock(
             ParagraphSpec(
-                text = item.text,
+                // A picture in a line of text is never wider than the line, as e-book readers show it.
+                text = fitPictures(item.text, width - max(firstIndent, left.toInt()) - rightIndent),
                 base = item.base,
                 width = width,
                 align = item.style.align,
-                firstIndent = max(0f, left + s.textIndent.units).toInt(),
+                firstIndent = firstIndent,
                 indent = left.toInt(),
-                rightIndent = s.right.units.toInt(),
+                rightIndent = rightIndent,
                 label = label,
                 rtl = s.rtl,
             ),
@@ -530,6 +549,7 @@ internal class EpubConverter(
 
     private companion object {
         const val BUFFER = 48
+        const val FIXED_BUFFER = 1000
         const val MAX_CSS = 512 * 1024
         val BORDER = Color.rgb(0x9E, 0x9E, 0x9E)
         val HEADER = Color.rgb(0xF0, 0xF0, 0xF0)

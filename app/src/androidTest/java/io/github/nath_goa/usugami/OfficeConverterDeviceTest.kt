@@ -16,12 +16,18 @@ import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.office.OfficeConverter
 import io.github.nath_goa.usugami.data.office.OfficeEmbeddedContent
 import io.github.nath_goa.usugami.data.office.OfficeEncrypted
+import io.github.nath_goa.usugami.data.office.OfficeFonts
 import io.github.nath_goa.usugami.data.office.OfficeInput
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.data.office.OfficeLegacyFormat
 import io.github.nath_goa.usugami.data.office.OfficeNotRecognized
 import io.github.nath_goa.usugami.data.office.OfficeNothingToConvert
 import io.github.nath_goa.usugami.data.office.OfficeProgress
+import io.github.nath_goa.usugami.data.office.PagedPdf
+import io.github.nath_goa.usugami.data.office.ParagraphBlock
+import io.github.nath_goa.usugami.data.office.ParagraphSpec
+import io.github.nath_goa.usugami.data.office.RichText
+import io.github.nath_goa.usugami.data.office.TextStyle
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -652,6 +658,57 @@ class OfficeConverterDeviceTest {
         near(612f - 72f - 36f, hebrew.maxOf { it.xDirAdj + it.widthDirAdj })
         // The table's first column on the right.
         assertTrue(word(pdf, 1, "Alpha").xDirAdj > word(pdf, 1, "Beta").xDirAdj + 100f)
+    }
+
+    @Test fun wordParagraphsReadLeftToRightUnlessSetOtherwise() {
+        // No w:bidi: Hebrew first, but left to right and at the left margin, as in Word.
+        val pdf = convert(wordDocument(para("שלום world"), "ltr-hebrew.docx"), OfficeKind.WORD, "word-ltr-hebrew")
+        val hebrew = glyphs(pdf, 1).filter { g -> g.unicode.any { it in 'א'..'ת' } }
+        near(72f, hebrew.minOf { it.xDirAdj })
+    }
+
+    // ---- The text engine Word, PowerPoint and EPUB share ----
+
+    @Test fun aSuperscriptParagraphMarkLeavesItsTextWhereItIs() {
+        // Word keeps the look of a paragraph's mark (superscript, spaced out after "m²" and Enter, say).
+        fun drawn(mark: TextStyle): Bitmap {
+            val text = RichText().apply {
+                append("H", TextStyle())
+                append("2", TextStyle(baseline = -1))
+                append("O", TextStyle())
+            }.text
+            val block = ParagraphBlock(ParagraphSpec(text, mark, 2000))
+            return Bitmap.createBitmap(600, 300, Bitmap.Config.ARGB_8888).also { Canvas(it).apply { drawColor(Color.WHITE); block.draw(this, 10f, 60f) } }
+        }
+        assertTrue(drawn(TextStyle()).sameAs(drawn(TextStyle(baseline = 1, spacing = 3f))))
+    }
+
+    @Test fun aParagraphSplitAfterALineBreakFitsItsSpace() {
+        val text = RichText().apply { append("one\ntwo\nthree\nfour", TextStyle()) }.text
+        val block = ParagraphBlock(ParagraphSpec(text, TextStyle(), 2000, avoidSingleLines = false))
+        val space = block.layout.getLineBottom(1)
+        val (head, tail) = block.split(space, false)!!
+        assertTrue("${head.height} in $space", head.height <= space)
+        assertNotNull(tail)
+    }
+
+    @Test fun officeFontsBecomeThePhonesFontOfTheSameKind() {
+        assertEquals("sans-serif", OfficeFonts.family("Century Gothic"))
+        assertEquals("cursive", OfficeFonts.family("Monotype Corsiva"))
+        assertEquals("serif", OfficeFonts.family("Century Schoolbook"))
+        assertEquals("monospace", OfficeFonts.family("Courier New"))
+        assertEquals("monospace", OfficeFonts.family("Roboto Mono"))
+        assertEquals("monospace", OfficeFonts.family("Noto Sans Mono"))
+    }
+
+    @Test fun closingWithAPageOpenFreesThePages() {
+        // As when a conversion is cancelled while a page is being drawn.
+        val bitmap = Bitmap.createBitmap(10, 10, Bitmap.Config.ARGB_8888)
+        val pdf = PagedPdf(work)
+        pdf.keep(bitmap)
+        pdf.startPage(100f, 100f)
+        pdf.close()
+        assertTrue(bitmap.isRecycled)
     }
 
     @Test fun deeplyNestedXmlDoesNotOverflowTheStack() {

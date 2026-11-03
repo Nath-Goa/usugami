@@ -144,13 +144,41 @@ class EpubFormatsTest {
         assertEquals("1.5em", result["text-indent"])
         assertEquals("italic", result["font-style"])
         assertEquals("bold", result["font-weight"])
-        assertEquals("0", result["margin"])
+        assertEquals("0", result["margin-top"])
+        assertEquals("0", result["margin-left"])
         val plain = CssSheet.cascade(node("p"), listOf(sheet), null)
         assertEquals("justify", plain["text-align"])
         // A later sheet wins over an earlier one at the same specificity.
         val later = SimpleCss.parse("p { text-align: left }")
         assertEquals("left", CssSheet.cascade(node("p"), listOf(sheet, later), null)["text-align"])
         assertTrue(SimpleCss.parse("garbage { without end").isEmpty)
+    }
+
+    @Test fun shorthandsAndTheirPartsCascadeTogether() {
+        val sheet = SimpleCss.parse(
+            """
+            h2 { margin-top: 3em; page-break-before: always }
+            .title h2 { margin: 0 1em 2em; break-before: auto }
+            ul { list-style-type: square }
+            ul.plain { list-style: none inside }
+            p { margin-left: 2em }
+            """.trimIndent(),
+        )
+        val title = node("h2", parent = node("div", "title"))
+        val result = CssSheet.cascade(title, listOf(sheet), null)
+        // The more specific shorthand wins over the plainer rule's part, side by side.
+        assertEquals("0", result["margin-top"])
+        assertEquals("1em", result["margin-left"])
+        assertEquals("1em", result["margin-right"])
+        assertEquals("2em", result["margin-bottom"])
+        assertEquals("auto", result["break-before"])
+        assertEquals("always", CssSheet.cascade(node("h2"), listOf(sheet), null)["break-before"])
+        assertEquals("none", CssSheet.cascade(node("ul", "plain"), listOf(sheet), null)["list-style-type"])
+        // A style attribute's shorthand wins over a sheet's part.
+        assertEquals("0", CssSheet.cascade(node("p"), listOf(sheet), "margin: 0")["margin-left"])
+        // A later part wins over an earlier shorthand in the same rule.
+        assertEquals("5px", SimpleCss.declarations("margin: 1em; margin-top: 5px")["margin-top"])
+        assertEquals("1em", SimpleCss.declarations("margin: 1em; margin-top: 5px")["margin-bottom"])
     }
 
     @Test fun measuresCssLengths() {

@@ -76,10 +76,10 @@ internal class PagedPdf(private val dir: File) : Closeable {
         } finally {
             doc.close()
             document = null
+            pagesInPart = 0
             freeBitmaps()
         }
         parts += file
-        pagesInPart = 0
     }
 
     private fun freeBitmaps() {
@@ -91,10 +91,18 @@ internal class PagedPdf(private val dir: File) : Closeable {
 
     override fun close() {
         // After an error: whatever was drawn goes, the part files are the caller's to delete.
+        val doc = document
+        val open = page
         page = null
-        document?.close()
         document = null
-        freeBitmaps()
+        try {
+            // Android's PDF document won't close with a page open (an error or a cancel while drawing):
+            // it would be left to the finalizer, with all its pages.
+            if (doc != null && open != null) runCatching { doc.finishPage(open) }
+            doc?.close()
+        } finally {
+            freeBitmaps()
+        }
     }
 
     private companion object {
