@@ -54,6 +54,8 @@ internal object OfficeFonts {
         "charter", "rockwell", "sylfaen", "high tower", "californian", "cochin", "hoefler",
     )
     private val SCRIPT = listOf("script", "handwriting", "brush", "kunstler", "vivaldi", "chancery", "corsiva")
+    // "Mono" in a name, written apart or not ("Roboto Mono", "DejaVuSansMono"), but not Monotype's ("Monotype Corsiva").
+    private val MONO_NAME = Regex("mono(?!type)")
 
     fun typeface(name: String?, bold: Boolean, italic: Boolean): Typeface {
         val family = family(name, bold)
@@ -104,10 +106,10 @@ internal object OfficeFonts {
     /** The phone's font family closest to the Office font [name]. */
     fun family(name: String?, bold: Boolean = false): String {
         val n = name.orEmpty().lowercase()
-        // "Mono" only as a word of its own ("Roboto Mono"), not in "Monotype Corsiva".
-        val words = n.split(' ', '-', '_')
+        // Names as PostScript writes them run their words together ("SourceCodePro-Regular").
+        val joined = n.replace(" ", "")
         return when {
-            MONO.any { it in n } || "mono" in words -> "monospace"
+            MONO.any { it.replace(" ", "") in joined } || MONO_NAME.containsMatchIn(n) -> "monospace"
             // Century Gothic and Franklin Gothic are sans fonts, whatever "century" says.
             "sans" !in n && "gothic" !in n && SERIF.any { it in n } -> "serif"
             SCRIPT.any { it in n } -> "cursive"

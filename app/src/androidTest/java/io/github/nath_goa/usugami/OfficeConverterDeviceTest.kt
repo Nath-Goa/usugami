@@ -477,6 +477,25 @@ class OfficeConverterDeviceTest {
         }
     }
 
+    @Test fun wordOldDrawingCanvasesStayInTheText() {
+        // A Word 2003 drawing canvas in the text, 300 × 150 points, holding a screenshot placed in the
+        // canvas's own coordinates, which say nothing of where the canvas goes on the page.
+        val canvas = """<w:r><w:pict><v:group id="Canvas" editas="canvas" coordorigin="1800,1440" coordsize="6000,3000"
+              style="width:300pt;height:150pt;mso-position-horizontal-relative:char;mso-position-vertical-relative:line">
+            <v:shape id="Screenshot" type="#_x0000_t75" style="position:absolute;left:3600;top:3000;width:2000;height:1500">
+            <v:imagedata r:id="rId2" o:title="screenshot"/></v:shape></v:group></w:pict></w:r>"""
+        val body = para("Before the canvas") + "<w:p>$canvas</w:p>" + para("After the canvas")
+        val pdf = convert(wordDocument(body, "canvas.docx"), OfficeKind.WORD, "word-canvas")
+        PDDocument.load(pdf).use { doc ->
+            val image = bounds(imagesOn(doc.getPage(0)).single())
+            near(300f, image.width()); near(150f, image.height())
+            near(72f, image.left)
+            // In the text, taking its room: the next paragraph goes below it.
+            val after = word(pdf, 1, "After")
+            assertTrue("${after.yDirAdj} below ${image.bottom}", after.yDirAdj > image.bottom)
+        }
+    }
+
     @Test fun wordPicturesTurnFlipAndKeepTheirShapeInCells() {
         // Turned a quarter: 150 × 100 points as saved, 100 × 150 on the page. Mirrored: drawn right to left.
         val turned = inlineDrawing(150, 100, picture(150, 100, xfrm = """ rot="5400000""""))
@@ -699,6 +718,8 @@ class OfficeConverterDeviceTest {
         assertEquals("monospace", OfficeFonts.family("Courier New"))
         assertEquals("monospace", OfficeFonts.family("Roboto Mono"))
         assertEquals("monospace", OfficeFonts.family("Noto Sans Mono"))
+        // Names written as PostScript writes them.
+        for (name in listOf("DejaVuSansMono", "RobotoMono-Regular", "SFMono-Regular", "SourceCodePro-Regular")) assertEquals(name, "monospace", OfficeFonts.family(name))
     }
 
     @Test fun closingWithAPageOpenFreesThePages() {
@@ -819,7 +840,14 @@ class OfficeConverterDeviceTest {
         val media = mapOf("ppt/media/red.png" to solidPng(Color.RED), "ppt/media/green.png" to solidPng(Color.GREEN), "ppt/media/blue.png" to solidPng(Color.BLUE))
         // Cropped by minus half its width on each side (Crop > Fit): the middle half of its frame.
         val fitted = pic(15, "rId1", xfrm(40, 300, 200, 100) + rect, """<a:srcRect l="-50000" r="-50000"/>""")
-        val slides = listOf(slide(elbow + circle + group + formula + emus), slide(ink + equation + text + ole + fitted))
+        // A group drawn half the size of its own coordinates, holding a freeform in its shape's EMUs, 200 points square.
+        val half = """<p:grpSp><p:nvGrpSpPr><p:cNvPr id="8" name="Half"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm>
+            <a:off x="${40 * EMU}" y="${420 * EMU}"/><a:ext cx="${100 * EMU}" cy="${100 * EMU}"/><a:chOff x="0" y="0"/><a:chExt cx="${200 * EMU}" cy="${200 * EMU}"/></a:xfrm></p:grpSpPr>
+            ${sp(9, xfrm(0, 0, 200, 200) + """<a:custGeom><a:pathLst><a:path><a:moveTo><a:pt x="0" y="0"/></a:moveTo><a:lnTo><a:pt x="${200 * EMU}" y="0"/></a:lnTo>
+            <a:lnTo><a:pt x="${200 * EMU}" y="${200 * EMU}"/></a:lnTo><a:lnTo><a:pt x="0" y="${200 * EMU}"/></a:lnTo><a:close/></a:path></a:pathLst></a:custGeom>""" + solid("7030A0"))}</p:grpSp>"""
+        // Flipped upside down: its text too.
+        val upsideDown = sp(16, xfrm(450, 250, 200, 50, """flipV="1"""") + rect, "<a:p>${run("Upside down", 18)}</a:p>")
+        val slides = listOf(slide(elbow + circle + group + formula + emus + half), slide(ink + equation + text + ole + fitted + upsideDown))
         val pdf = convert(deck("shapes.pptx", slides, slideRels = mapOf(1 to rels), parts = media), OfficeKind.POWERPOINT, "slide-shapes")
         val scale = 2f
         val shapes = render(pdf, 0, scale)
@@ -832,6 +860,8 @@ class OfficeConverterDeviceTest {
         assertTrue("A freeform that can't be drawn isn't a box", isColor(shapes, scale, 350f, 250f, Color.WHITE))
         assertTrue("A freeform in EMUs", isColor(shapes, scale, 486f, 236f, 0xFF00B050.toInt()))
         assertTrue(isColor(shapes, scale, 600f, 350f, Color.WHITE))
+        assertTrue("A freeform in EMUs in a group half its size", isColor(shapes, scale, 90f, 470f, 0xFF7030A0.toInt()))
+        assertTrue(isColor(shapes, scale, 180f, 470f, Color.WHITE))
         val saved = render(pdf, 1, scale)
         assertTrue("Ink", isColor(saved, scale, 90f, 90f, Color.RED))
         assertTrue("An equation", isColor(saved, scale, 250f, 90f, Color.GREEN))
@@ -840,6 +870,7 @@ class OfficeConverterDeviceTest {
         assertTrue(isColor(saved, scale, 60f, 350f, Color.WHITE))
         val texts = pageTexts(pdf)
         assertTrue(texts[1], texts[1].contains("Choice text") && !texts[1].contains("Fallback text"))
+        assertEquals(180f, word(pdf, 2, "Upside").dir)
     }
 
     @Test fun powerPointPlaceholdersAndColourMapsComeFromTheLayout() {

@@ -109,7 +109,10 @@ object ListNumbering {
         else -> Format.DECIMAL
     }
 
-    /** [value] written in [format]. Letters go a…z, then aa…zz, as in Word; roman numerals stop at 3999. */
+    /**
+     * [value] written in [format]. Letters go a…z, then aa…zz and on to 30 z's (780), as in Word;
+     * roman numerals stop at 3999. Beyond those, as for 0 and less, the number is written in digits.
+     */
     fun format(value: Int, format: Format): String = when (format) {
         Format.DECIMAL -> value.toString()
         Format.DECIMAL_ZERO -> if (value in 0..9) "0$value" else value.toString()
@@ -177,7 +180,8 @@ object ListNumbering {
     }
 
     private fun letters(value: Int): String {
-        if (value <= 0) return value.toString()
+        // A page or list can start at any number: a huge one would make a label millions of letters long.
+        if (value !in 1..780) return value.toString()
         val letter = 'a' + (value - 1) % 26
         return letter.toString().repeat((value - 1) / 26 + 1)
     }

@@ -381,25 +381,28 @@ class EpubConverterDeviceTest {
                     <meta property="rendition:layout">pre-paginated</meta></metadata>
                     <manifest><item id="c" href="c.png" media-type="image/png" properties="cover-image"/><item id="i2" href="p2.png" media-type="image/png"/>
                     <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/><item id="d1" href="p1.xhtml" media-type="application/xhtml+xml"/>
-                    <item id="d2" href="p2.xhtml" media-type="application/xhtml+xml"/></manifest>
-                    <spine><itemref idref="cover" linear="no"/><itemref idref="d1"/><itemref idref="d2"/></spine></package>""",
+                    <item id="d2" href="p2.xhtml" media-type="application/xhtml+xml"/><item id="d3" href="after.xhtml" media-type="application/xhtml+xml"/></manifest>
+                    <spine><itemref idref="cover" linear="no"/><itemref idref="d1"/><itemref idref="d2"/>
+                    <itemref idref="d3" properties="rendition:layout-reflowable"/></spine></package>""",
                 "c.png" to png(600, 800),
                 "p2.png" to png(800, 600, Color.rgb(200, 90, 40)),
                 "cover.xhtml" to xhtml("""<div><img src="c.png" alt="Cover"/></div>""", doctype = "<!DOCTYPE html>"),
                 // Each line its own paragraph, as tools that make fixed-layout books write them.
                 "p1.xhtml" to xhtml((1..60).joinToString("") { "<p>line $it</p>" }, head = landscape, doctype = "<!DOCTYPE html>"),
                 "p2.xhtml" to xhtml("""<div><img src="p2.png" alt="Page 2"/></div>""", head = landscape, doctype = "<!DOCTYPE html>"),
+                // An afterword the book lets flow onto pages as ordinary text does.
+                "after.xhtml" to xhtml(paragraphs(30, "Afterword"), doctype = "<!DOCTYPE html>"),
             ),
         )
         val pdf = convert(file, "epub-dense")
-        PDDocument.load(pdf).use { doc ->
-            // The cover, the page of lines shrunk onto one landscape page, the picture: the cover page
-            // the book reads only when linked to isn't added again at the end.
-            assertEquals(3, doc.numberOfPages)
-            assertTrue(doc.getPage(1).mediaBox.let { it.width > it.height })
-        }
-        val lines = pageTexts(pdf)[1]
-        assertTrue(lines, "line 1 line 2" in lines && "line 60" in lines)
+        PDDocument.load(pdf).use { doc -> assertTrue(doc.getPage(1).mediaBox.let { it.width > it.height }) }
+        // The cover, the page of lines shrunk onto one landscape page, the picture, then the afterword
+        // over several pages: the cover page the book reads only when linked to isn't added again at the end.
+        val texts = pageTexts(pdf)
+        assertTrue(texts[1], "line 1 line 2" in texts[1] && "line 60" in texts[1])
+        assertEquals(3, pageWith(texts, "Afterword paragraph 1 goes"))
+        assertEquals(texts.size - 1, pageWith(texts, "Afterword paragraph 30 goes"))
+        assertTrue(texts.size > 4)
     }
 
     @Test fun bookmarksIntoTablesAndToOldStyleAnchorsFindTheirPage() {

@@ -130,7 +130,7 @@ internal class EpubConverter(
             fullPage(document.path, pixels[0].toFloat(), pixels[1].toFloat(), emptyList())
             return
         }
-        val buffered = first || !document.linear || book.fixedLayout
+        val buffered = first || !document.linear || document.fixed
         val buffer = ArrayList<BookEntry>()
         var streaming = !buffered
         fun showsCover() = buffer.any { (it.item as? BookImage)?.path == cover }
@@ -153,7 +153,7 @@ internal class EpubConverter(
                 buffer += entry
                 // A long document is no cover or picture page: on with it, without holding it all. A
                 // fixed-layout page is held whole, to be shrunk onto its page, unless it is a book's worth.
-                if (buffer.size > if (book.fixedLayout) FIXED_BUFFER else BUFFER) stream()
+                if (buffer.size > if (document.fixed) FIXED_BUFFER else BUFFER) stream()
             }
         }
         archive.open(document.path)?.use(reader::read)
@@ -164,7 +164,7 @@ internal class EpubConverter(
         when {
             // A cover page read only when linked to: the cover is drawn already.
             !document.linear && picturesOnly && content.all { (it.item as BookImage).path == cover } && coverDrawn -> coverDocument = document.path
-            book.fixedLayout -> {
+            document.fixed -> {
                 coverFirst()
                 startDocument(document.path)
                 fixedPage(content, reader.viewport)

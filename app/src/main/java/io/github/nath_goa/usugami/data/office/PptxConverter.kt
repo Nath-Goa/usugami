@@ -1049,7 +1049,10 @@ internal class PptxConverter(
             canvas.stroke(line, presetPath(geometry, r, adjust))
         } else {
             val custom = source?.custom
-            val paths = custom?.let { customPaths(it, r, xfrm) } ?: listOf(Triple(flipped(presetPath(geometry, r, adjust), xfrm, r), true, true))
+            // How much a group shrinks or stretches the shape: a path without a size of its own is in the shape's EMUs.
+            val unit = group?.place(OfficeRect(0f, 0f, 1f, 1f))
+            val paths = custom?.let { customPaths(it, r, xfrm, unit?.width ?: 1f, unit?.height ?: 1f) }
+                ?: listOf(Triple(flipped(presetPath(geometry, r, adjust), xfrm, r), true, true))
             for ((i, drawn) in paths.withIndex()) {
                 val (path, filled, stroked) = drawn
                 if (filled && !isLineShape(geometry)) canvas.fill(fill, path, r) { image -> ImagePicture(images, image.path, rect.width, rect.height, image.crop) }
@@ -1062,6 +1065,9 @@ internal class PptxConverter(
         val body = shape.body
         if (body != null && body.hasText) {
             val textRect = shape.textRect?.let { group?.place(it) ?: it }?.toUnits() ?: r
+            // Flipped upside down, a shape's text is too: a vertical flip is a half turn and a mirroring,
+            // and text follows the turn but is never mirrored. (SmartArt places its text by a frame of its own.)
+            if (xfrm.flipV && shape.textRect == null) canvas.rotate(180f, textRect.centerX(), textRect.centerY())
             drawText(canvas, body, textRect, textChain(shape, parents, scene, owner), parents.mapNotNull { it.body?.look }, shape.styleFont, scene.number, fill)
         }
     }
@@ -1078,10 +1084,11 @@ internal class PptxConverter(
         return path
     }
 
-    private fun customPaths(paths: List<CustomPath>, r: RectF, xfrm: Xfrm): List<Triple<Path, Boolean, Boolean>> = paths.map { p ->
-        // Without a size of its own, a path is in the shape's EMUs.
-        val sx = if (p.w > 0f) r.width() / p.w else U / OfficeUnits.EMU_PER_POINT
-        val sy = if (p.h > 0f) r.height() / p.h else U / OfficeUnits.EMU_PER_POINT
+    /** The freeform [paths] of a shape drawn in [r], which its group scales by [groupX] and [groupY]. */
+    private fun customPaths(paths: List<CustomPath>, r: RectF, xfrm: Xfrm, groupX: Float, groupY: Float): List<Triple<Path, Boolean, Boolean>> = paths.map { p ->
+        // Without a size of its own, a path is in the shape's EMUs, before its group scales it.
+        val sx = if (p.w > 0f) r.width() / p.w else U / OfficeUnits.EMU_PER_POINT * groupX
+        val sy = if (p.h > 0f) r.height() / p.h else U / OfficeUnits.EMU_PER_POINT * groupY
         val path = Path()
         var cx = 0f
         var cy = 0f

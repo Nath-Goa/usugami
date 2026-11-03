@@ -51,8 +51,11 @@ internal class EpubArchive(file: File) : Closeable {
 /** An entry of the book's table of contents, pointing at a file in the book and maybe a place in it. */
 internal class TocEntry(val title: String, val path: String?, val fragment: String?, val children: List<TocEntry>)
 
-/** A document in the book's reading order. [linear] is false for ones read only when linked to, such as notes. */
-internal class SpineItem(val path: String, val mediaType: String, val linear: Boolean)
+/**
+ * A document in the book's reading order. [linear] is false for ones read only when linked to, such as
+ * notes; [fixed] is true for one drawn as a single page at a fixed size, as in comics and picture books.
+ */
+internal class SpineItem(val path: String, val mediaType: String, val linear: Boolean, val fixed: Boolean)
 
 /** What the book's package file (OPF) says: its title, reading order, cover and table of contents. */
 internal class EpubBook(
@@ -61,8 +64,6 @@ internal class EpubBook(
     val language: String?,
     val spine: List<SpineItem>,
     val coverImage: String?,
-    /** Each document is one page drawn at a fixed size, as in comics and picture books. */
-    val fixedLayout: Boolean,
     private val navPath: String?,
     private val ncxPath: String?,
 ) {
@@ -301,21 +302,26 @@ internal class EpubBook(
                 stream.close()
             }
             if (!sawPackage) throw OfficeNotRecognized()
-            val spine = spineRefs.mapNotNull { (id, linear, _) ->
+            val spine = spineRefs.mapNotNull { (id, linear, properties) ->
                 val item = manifest[id] ?: return@mapNotNull null
                 if (!archive.has(item.path)) return@mapNotNull null
                 val readable = item.mediaType in DOCUMENT_TYPES || item.mediaType.startsWith("image/") && item.mediaType != "image/svg+xml" ||
                     item.mediaType.isEmpty() && Regex("""\.x?html?$""", RegexOption.IGNORE_CASE).containsMatchIn(item.path)
-                if (readable) SpineItem(item.path, item.mediaType, linear) else null
+                // Fixed layout is mostly set for the whole book, but each document can have its own: a
+                // picture book's long afterword can flow onto pages as ordinary text does.
+                val itemFixed = when {
+                    "rendition:layout-pre-paginated" in properties -> true
+                    "rendition:layout-reflowable" in properties -> false
+                    else -> fixed
+                }
+                if (readable) SpineItem(item.path, item.mediaType, linear, itemFixed) else null
             }
             if (spine.isEmpty()) throw OfficeNothingToConvert()
-            // Fixed layout can also be set for single documents; most books set it for the whole book.
-            if (!fixed && spineRefs.isNotEmpty() && spineRefs.all { "rendition:layout-pre-paginated" in it.third }) fixed = true
             val cover = (manifest.values.firstOrNull { "cover-image" in it.properties } ?: coverId?.let { manifest[it] })
                 ?.takeIf { it.mediaType.startsWith("image/") || it.mediaType.isEmpty() }?.path?.takeIf(archive::has)
             val nav = manifest.values.firstOrNull { "nav" in it.properties }?.path?.takeIf(archive::has)
             val ncx = (tocId?.let { manifest[it] } ?: manifest.values.firstOrNull { it.mediaType == "application/x-dtbncx+xml" })?.path?.takeIf(archive::has)
-            return EpubBook(title, creator, language, spine, cover, fixed, nav, ncx)
+            return EpubBook(title, creator, language, spine, cover, nav, ncx)
         }
 
         private val DOCUMENT_TYPES = setOf("application/xhtml+xml", "text/html", "application/xml", "text/xml")

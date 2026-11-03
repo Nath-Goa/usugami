@@ -43,6 +43,8 @@ class OfficeFormatsTest {
         val f = ListNumbering.Format.entries
         assertEquals(listOf("4", "04", "d", "D", "iv", "IV", "", ""), f.map { ListNumbering.format(4, it) })
         assertEquals("aa", ListNumbering.format(27, ListNumbering.Format.LOWER_LETTER))
+        assertEquals("Z".repeat(30), ListNumbering.format(780, ListNumbering.Format.UPPER_LETTER))
+        assertEquals("2000000000", ListNumbering.format(2_000_000_000, ListNumbering.Format.LOWER_LETTER))
         assertEquals("MCMXCIV", ListNumbering.format(1994, ListNumbering.Format.UPPER_ROMAN))
         assertEquals("4000", ListNumbering.format(4000, ListNumbering.Format.UPPER_ROMAN))
         assertEquals(ListNumbering.Format.LOWER_LETTER, ListNumbering.wordFormat("lowerLetter"))

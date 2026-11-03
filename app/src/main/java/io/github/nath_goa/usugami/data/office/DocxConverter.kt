@@ -567,38 +567,40 @@ internal class DocxConverter(
         /**
          * An older VML picture or text box (w:pict, w:object). A picture positioned absolutely floats,
          * as Word's picture watermarks do, lightened when Word washes it out; a hidden shape is left out.
+         * Its size and place are those of the outermost shape holding it: a shape in a group (a Word 2003
+         * drawing canvas) is placed in the group's own coordinates, so it goes where the group goes.
          */
         private fun vml(x: OfficeXml, out: ParaBuilder, style: TextStyle) {
-            var width = 0f
-            var height = 0f
             var path: String? = null
             var css: Map<String, String> = emptyMap()
             var veil = 0f
             var wrap: String? = null
-            fun scan(owner: Map<String, String>) {
+            fun scan(owner: Map<String, String>, outermost: Map<String, String>?) {
                 x.children {
                     var own = owner
+                    var frame = outermost
                     if (x.ns == Ns.VML && x.name != "imagedata") {
                         val shapeCss = OfficeUnits.cssStyle(x.attr("style"))
-                        shapeCss["width"]?.let(OfficeUnits::cssLength)?.let { if (width == 0f) width = it }
-                        shapeCss["height"]?.let(OfficeUnits::cssLength)?.let { if (height == 0f) height = it }
                         if (shapeCss.isNotEmpty()) own = shapeCss
+                        if (frame == null && ("width" in shapeCss || "height" in shapeCss)) frame = shapeCss
                     }
                     if (own["visibility"] == "hidden") return@children
                     when (x.name) {
                         "imagedata" -> if (path == null) {
                             path = pkg.target(part, x.relId() ?: x.attr("relid"))
-                            css = owner
+                            css = frame.orEmpty()
                             veil = washout(x)
                         }
                         "wrap" -> if (wrap == null) wrap = x.attr("type") ?: "none"
                         "txbxContent" -> blocks(x, null) { out.boxes += it }
-                        else -> scan(own)
+                        else -> scan(own, frame)
                     }
                 }
             }
-            scan(emptyMap())
+            scan(emptyMap(), null)
             val p = path ?: return
+            val width = css["width"]?.let(OfficeUnits::cssLength) ?: 0f
+            val height = css["height"]?.let(OfficeUnits::cssLength) ?: 0f
             if (width <= 0f || height <= 0f) return
             val picture = ImagePicture(images, p, width, height, null).let { if (veil > 0f) VeiledPicture(it, veil) else it }
             if (css["position"] == "absolute") {
