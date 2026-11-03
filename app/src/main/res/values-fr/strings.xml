@@ -315,7 +315,7 @@
     <string name="ocr_problem_download">Impossible de télécharger la reconnaissance de texte. Vérifiez votre connexion Internet et réessayez.</string>
     <string name="ocr_problem_storage">L\'espace de stockage disponible est insuffisant pour télécharger la reconnaissance de texte. Libérez de l\'espace et réessayez.</string>
     <string name="ocr_problem_failed">La reconnaissance de texte n\'a pas pu démarrer en raison d\'une erreur inattendue. Si le problème persiste, veuillez le signaler sur github.com/Nath-Goa/usugami.</string>
-    <string name="ocr_problem_help">Dans cette édition d\'Usugami, la reconnaissance de texte est fournie par les services Google Play, qui la téléchargent la première fois que vous utilisez chaque langue. Une connexion Internet est alors nécessaire. L\'édition hors connexion d\'Usugami l\'intègre directement.</string>
+    <string name="ocr_problem_help">Dans cette édition d\'Usugami, la reconnaissance de texte est fournie par les services Google Play, qui la téléchargent la première fois que vous utilisez chaque langue. Une connexion Internet est alors nécessaire. L\'édition Usugami OCR l\'intègre directement.</string>
     <string name="ocr_problem_retry">Pour créer le PDF maintenant, désactivez l\'OCR et réessayez.</string>
 
     <!-- Language and settings. The language names themselves are written in each language, in code. -->
@@ -334,10 +334,11 @@
     <string name="about">À propos d\'Usugami</string>
     <string name="about_title">À propos</string>
     <string name="about_version">Version %1$s</string>
-    <string name="about_edition_standard">Édition standard : reconnaissance de texte via les services Google Play</string>
-    <string name="about_edition_offline">Édition hors connexion : reconnaissance de texte intégrée</string>
+    <string name="about_edition_standard">Reconnaissance de texte via les services Google Play</string>
+    <string name="about_edition_lite">Sans reconnaissance de texte ni code Google</string>
+    <string name="about_edition_ocr">Reconnaissance de texte open source intégrée, fonctionne hors connexion</string>
     <string name="about_privacy">Pas de publicité, pas de suivi, pas de compte. Usugami n\'a pas l\'autorisation d\'accéder à Internet et vos fichiers ne quittent jamais votre téléphone.</string>
-    <string name="about_privacy_standard">La reconnaissance de texte est fournie par les services Google Play, qui téléchargent le modèle de chaque langue lors de sa première utilisation. Les services Google Play peuvent aussi envoyer à Google des statistiques sur l\'utilisation de la reconnaissance de texte, mais jamais vos images ni le texte reconnu. Usugami Offline n\'utilise pas les services Google Play pour la reconnaissance de texte.</string>
+    <string name="about_privacy_standard">La reconnaissance de texte est fournie par les services Google Play, qui téléchargent le modèle de chaque langue lors de sa première utilisation. Les services Google Play peuvent aussi envoyer à Google des statistiques sur l\'utilisation de la reconnaissance de texte, mais jamais vos images ni le texte reconnu. Usugami Lite et Usugami OCR n\'utilisent pas les services Google Play.</string>
     <string name="about_privacy_policy">Règles de confidentialité</string>
     <string name="about_licenses">Licences open source</string>
     <string name="about_licenses_detail">Les bibliothèques et les polices utilisées pour créer Usugami</string>

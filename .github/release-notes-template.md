@@ -5,12 +5,13 @@
 | File | Size | Pick it if… | Text recognition (OCR) |
 |---|---|---|---|
 | **[Usugami.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami.apk)** (recommended) | ${STANDARD_MB} MB | You're not sure. Works on most phones. | Runs through Google Play services. The first time you use it, Play services downloads the text-recognition model (one for English, French and Spanish, one for Hindi), which needs internet then. |
-| [Usugami-offline.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-offline.apk) | ${OFFLINE_MB} MB | Your phone has no Google Play services, or you want no network use at all. ARM phones (virtually all phones). | Built into the app. Works without internet, ever. |
+| [Usugami-lite.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-lite.apk) | ${LITE_MB} MB | You don't need text recognition, and want the smallest app with no Google code at all. | None. |
+| [Usugami-ocr.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-ocr.apk) | ${OCR_MB} MB | Your phone has no Google Play services, or you want text recognition with no network use at all. ARM phones (virtually all phones). | Open source and built into the app. Works without internet, ever. |
 
-Every other tool works offline in both, and Usugami itself has no internet permission. Text
-recognition uses Google's ML Kit, which runs on your phone but is closed source; the rest of
-Usugami is GPL-3.0-or-later. Both files are signed with the same key: install one over the other
-to switch editions.
+Every other tool works offline in all three, and Usugami itself has no internet permission. In
+Usugami.apk, text recognition uses Google's ML Kit, which runs on your phone but is closed source;
+Usugami Lite and Usugami OCR contain no Google code. The rest of Usugami is GPL-3.0-or-later. All
+three files are signed with the same key: install one over another to switch editions.
 
 Needs Android 8.0 or newer. New to installing APKs? Follow the
 [step-by-step guide](https://github.com/${GITHUB_REPOSITORY}#install).

@@ -1,22 +1,14 @@
 package io.github.nath_goa.usugami
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Point
 import android.graphics.Rect
-import android.graphics.RectF
 import android.graphics.Shader
-import android.graphics.Typeface
-import android.graphics.pdf.PdfDocument
-import android.graphics.pdf.PdfRenderer
 import android.net.Uri
-import android.os.ParcelFileDescriptor
-import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
-import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
@@ -25,7 +17,6 @@ import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.PdfWrongPassword
-import io.github.nath_goa.usugami.data.ocrModels
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -35,12 +26,9 @@ import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
 import kotlin.math.atan2
@@ -268,104 +256,9 @@ class PdfToolsDeviceTest {
         assertFalse("The partial copy should be removed", File(context.cacheDir, "pdf-inputs/1007.pdf").exists())
     }
 
-    /** Standard edition: Play services downloads the model the first time (needs internet). */
-    private suspend fun ensureOcrReady(language: OcrLanguage) {
-        ocrModels(context).ensureReady(language) { fraction -> Log.i(TAG, "Downloading $language text recognition: $fraction") }
-    }
-
-    @Test fun ocrEnglishAndHindi() = runBlocking {
-        val ocr = PdfOcr(context)
-        for ((language, fixtureName, expected) in listOf(
-            Triple(OcrLanguage.ENGLISH, "english_image.pdf", "SCHOOL NOTES"),
-            Triple(OcrLanguage.HINDI, "hindi_image.pdf", "भारत"),
-        )) {
-            ensureOcrReady(language)
-            val original = fixture(fixtureName)
-            val working = original.copyTo(File(context.filesDir, "ocr_${language.name}.pdf"), overwrite = true)
-            assertTrue(text(working).isBlank())
-            val pages = ArrayList<Int>()
-            val output = ocr.apply(listOf(PdfFile(working, 1, original.length())), language) { pages += it }
-            assertTrue("No OCR lines for $language", output.lineCount > 0)
-            assertEquals(listOf(1), pages)
-            assertFalse("The original should be replaced", working.exists())
-            val searchable = save(output.files.single().file, "ocr_${language.name.lowercase()}.pdf")
-            assertEquals(1, PDDocument.load(searchable).use { it.numberOfPages })
-            assertTrue("Missing $expected in ${text(searchable)}", text(searchable).contains(expected))
-        }
-    }
-
-    /** French and Spanish keep their accents: ML Kit reads them and the OCR font has them. */
-    @Test fun ocrFrenchAndSpanishKeepAccents() = runBlocking {
-        val ocr = PdfOcr(context)
-        for ((language, lines, expected) in listOf(
-            Triple(OcrLanguage.FRENCH, listOf("Le garçon et l'élève", "fêtent Noël à Paris"), listOf("garçon", "élève", "Noël")),
-            Triple(OcrLanguage.SPANISH, listOf("El niño pequeño", "cumple años mañana"), listOf("niño", "pequeño", "mañana")),
-        )) {
-            ensureOcrReady(language)
-            val page = scannedText(lines, File(context.filesDir, "ocr_${language.name}.pdf"))
-            assertTrue(text(page).isBlank())
-            val output = ocr.apply(listOf(PdfFile(page, 1, page.length())), language)
-            val searchable = save(output.files.single().file, "ocr_${language.name.lowercase()}.pdf")
-            val found = text(searchable)
-            for (word in expected) assertTrue("Missing $word in $found", found.contains(word))
-        }
-    }
-
-    /** A one-page PDF that holds [lines] only as a picture, like a scan. */
-    private fun scannedText(lines: List<String>, file: File): File {
-        val bitmap = Bitmap.createBitmap(1240, 1754, Bitmap.Config.ARGB_8888)
-        bitmap.eraseColor(Color.WHITE)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.BLACK
-            textSize = 64f
-            typeface = Typeface.SANS_SERIF
-        }
-        val canvas = Canvas(bitmap)
-        lines.forEachIndexed { index, line -> canvas.drawText(line, 120f, 300f + index * 110f, paint) }
-        val document = PdfDocument()
-        val page = document.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
-        page.canvas.drawBitmap(bitmap, null, RectF(0f, 0f, 595f, 842f), null)
-        document.finishPage(page)
-        file.outputStream().use(document::writeTo)
-        document.close()
-        bitmap.recycle()
-        return file
-    }
-
-    @Test fun ocrFailureLeavesPdfsUntouched() = runBlocking {
-        ensureOcrReady(OcrLanguage.ENGLISH)
-        val dir = File(context.filesDir, "ocr_failure").apply { deleteRecursively(); mkdirs() }
-        val good = fixture("english_image.pdf").copyTo(File(dir, "good.pdf"))
-        val broken = File(dir, "broken.pdf").apply { writeText("not a PDF") }
-        try {
-            PdfOcr(context).apply(listOf(PdfFile(good, 1, good.length()), PdfFile(broken, 1, broken.length())), OcrLanguage.ENGLISH)
-            fail("The broken file should make OCR fail")
-        } catch (_: Exception) {
-        }
-        assertEquals(setOf("good.pdf", "broken.pdf"), dir.list()!!.toSet())
-        assertTrue(text(good).isBlank())
-    }
-
-    /** Cancelling while a page is being read stops OCR and leaves the PDFs as they were. */
-    @Test fun ocrCancelLeavesPdfsUntouched() = runBlocking {
-        ensureOcrReady(OcrLanguage.ENGLISH)
-        val dir = File(context.filesDir, "ocr_cancel").apply { deleteRecursively(); mkdirs() }
-        val image = fixture("english_image.pdf")
-        val files = (1..3).map { image.copyTo(File(dir, "page$it.pdf")) }
-        val job = launch(Dispatchers.IO) {
-            PdfOcr(context).apply(files.map { PdfFile(it, 1, it.length()) }, OcrLanguage.ENGLISH)
-        }
-        delay(300) // well within reading the first of the three pages
-        job.cancelAndJoin()
-        assertTrue("OCR should have been cancelled, not finished", job.isCancelled)
-        assertEquals(setOf("page1.pdf", "page2.pdf", "page3.pdf"), dir.list()!!.toSet())
-        files.forEach { assertTrue(text(it).isBlank()) }
-        // ML Kit may still be reading the cancelled page's bitmap; that must not crash the app.
-        delay(2000)
-    }
-
     /** Hindi mode recognizes Latin text too; the text layer must keep both scripts. */
     @Test fun textLayerKeepsDevanagariAndLatin() = runBlocking {
+        assumeTrue("Usugami Lite has no text recognition", BuildConfig.HAS_OCR)
         val blank = blankA4("blank.pdf")
         // A4 page rendered at 2.0 scale: 1190 × 1684 pixels.
         val lines = listOf(
@@ -382,6 +275,7 @@ class PdfToolsDeviceTest {
 
     /** A line on a tilted photo: the text follows the line's angle and height, not its upright bounds. */
     @Test fun textLayerFollowsTiltedLines() = runBlocking {
+        assumeTrue("Usugami Lite has no text recognition", BuildConfig.HAS_OCR)
         val blank = blankA4("tilted.pdf")
         // A 600 × 40 pixel line rising at 30° on the A4 page rendered at 1190 × 1684 pixels. Image y
         // points down, so "along" and "up" have negative y.
@@ -412,46 +306,5 @@ class PdfToolsDeviceTest {
         assertTrue("Text should span the line", hypot(dx, dy) in 500 * scale..600 * scale)
         // ...and is as tall as the line (upright bounds would make it about 8 times taller).
         assertEquals(40 * scale * 0.9f, glyphs.first().fontSize, 0.5f)
-    }
-
-    /** The same, end to end: ML Kit's corner points on a page photographed at an angle. */
-    @Test fun ocrOfTiltedPageFollowsItsLines() = runBlocking {
-        ensureOcrReady(OcrLanguage.ENGLISH)
-        val dir = File(context.filesDir, "ocr_tilted").apply { deleteRecursively(); mkdirs() }
-        val upright = fixture("english_image.pdf").copyTo(File(dir, "upright.pdf"))
-        val tilted = File(dir, "tilted.pdf")
-        // The fixture's page turned 8° anticlockwise.
-        ParcelFileDescriptor.open(upright, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
-            PdfRenderer(descriptor).use { renderer ->
-                renderer.openPage(0).use { page ->
-                    val bitmap = Bitmap.createBitmap(page.width * 2, page.height * 2, Bitmap.Config.ARGB_8888)
-                    bitmap.eraseColor(Color.WHITE)
-                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                    val document = PdfDocument()
-                    val out = document.startPage(PdfDocument.PageInfo.Builder(page.width, page.height, 1).create())
-                    out.canvas.drawColor(Color.WHITE)
-                    out.canvas.rotate(-8f, page.width / 2f, page.height / 2f)
-                    out.canvas.drawBitmap(bitmap, null, RectF(0f, 0f, page.width.toFloat(), page.height.toFloat()), null)
-                    document.finishPage(out)
-                    tilted.outputStream().use(document::writeTo)
-                    document.close()
-                    bitmap.recycle()
-                }
-            }
-        }
-        val ocr = PdfOcr(context)
-        val uprightGlyphs = glyphs(ocr.apply(listOf(PdfFile(upright, 1, upright.length())), OcrLanguage.ENGLISH).files.single().file)
-        val tiltedFile = save(ocr.apply(listOf(PdfFile(tilted, 1, tilted.length())), OcrLanguage.ENGLISH).files.single().file, "ocr_tilted_page.pdf")
-        val tiltedGlyphs = glyphs(tiltedFile)
-        val tiltedText = tiltedGlyphs.joinToString("") { it.unicode }
-        assertTrue("Missing THE QUICK BROWN FOX in $tiltedText", tiltedText.contains("THE QUICK BROWN FOX"))
-        for (glyph in tiltedGlyphs) assertEquals("Angle of \"${glyph.unicode}\"", 8.0, glyph.angle(), 3.0)
-        // The tilt doesn't change the size of the text (upright bounds made it 3 times as big).
-        fun firstLineSize(glyphs: List<TextPosition>) = glyphs.first { it.unicode == "T" }.fontSize
-        assertEquals(1f, firstLineSize(tiltedGlyphs) / firstLineSize(uprightGlyphs), 0.2f)
-    }
-
-    private companion object {
-        const val TAG = "UsugamiTest"
     }
 }

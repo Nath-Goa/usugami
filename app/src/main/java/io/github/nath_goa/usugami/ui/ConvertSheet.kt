@@ -53,12 +53,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import io.github.nath_goa.usugami.BuildConfig
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.Margin
 import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.data.Edition
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrProblem
 
@@ -89,7 +91,7 @@ fun ConvertSheet(
     val appOcrLanguage = AppLanguage.shownIn(LocalContext.current).ocr
     var ocrLanguage by rememberSaveable { mutableStateOf(initialChoices.ocrLanguage ?: appOcrLanguage) }
     val oneFile = merge || imageCount == 1
-    val create = { onCreate(merge, name, compression, if (ocrEnabled) ocrLanguage else null) }
+    val create = { onCreate(merge, name, compression, if (BuildConfig.HAS_OCR && ocrEnabled) ocrLanguage else null) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         // Scrolls when the sheet doesn't fit (landscape, small screens, keyboard open), so the
@@ -181,39 +183,42 @@ fun ConvertSheet(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-            Row(
-                Modifier.fillMaxWidth().toggleable(value = ocrEnabled, role = Role.Switch, onValueChange = { ocrEnabled = it })
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.ocr_title), style = MaterialTheme.typography.bodyLarge)
-                    Text(stringResource(R.string.ocr_detail), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Usugami Lite has no text recognition.
+            if (BuildConfig.HAS_OCR) {
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    Modifier.fillMaxWidth().toggleable(value = ocrEnabled, role = Role.Switch, onValueChange = { ocrEnabled = it })
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ocr_title), style = MaterialTheme.typography.bodyLarge)
+                        Text(stringResource(R.string.ocr_detail), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Switch(checked = ocrEnabled, onCheckedChange = null)
                 }
-                Spacer(Modifier.width(16.dp))
-                Switch(checked = ocrEnabled, onCheckedChange = null)
-            }
-            AnimatedVisibility(
-                visible = ocrEnabled,
-                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
-                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
-                label = "ocrLanguage",
-            ) {
-                Column {
-                    Text(stringResource(R.string.ocr_language), style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        OcrLanguage.entries.forEachIndexed { index, language ->
-                            SegmentedButton(
-                                selected = ocrLanguage == language,
-                                onClick = { ocrLanguage = language },
-                                shape = SegmentedButtonDefaults.itemShape(index, OcrLanguage.entries.size),
-                                icon = {},
-                                contentPadding = SegmentPadding,
-                                label = { SegmentLabel(stringResource(language.label)) },
-                            )
+                AnimatedVisibility(
+                    visible = ocrEnabled,
+                    enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                    exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                    label = "ocrLanguage",
+                ) {
+                    Column {
+                        Text(stringResource(R.string.ocr_language), style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(8.dp))
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            OcrLanguage.entries.forEachIndexed { index, language ->
+                                SegmentedButton(
+                                    selected = ocrLanguage == language,
+                                    onClick = { ocrLanguage = language },
+                                    shape = SegmentedButtonDefaults.itemShape(index, OcrLanguage.entries.size),
+                                    icon = {},
+                                    contentPadding = SegmentPadding,
+                                    label = { SegmentLabel(stringResource(language.label)) },
+                                )
+                            }
                         }
                     }
                 }
@@ -359,8 +364,9 @@ fun OcrProblemDialog(problem: OcrProblem, onDismiss: () -> Unit) {
                         },
                     ),
                 )
-                // How this edition gets text recognition: no help with an unexpected error.
-                if (problem != OcrProblem.FAILED_TO_START) Text(stringResource(R.string.ocr_problem_help))
+                // How the standard edition gets text recognition (from Google Play services, where the
+                // other problems come from): no help with an unexpected error.
+                if (problem != OcrProblem.FAILED_TO_START && Edition.current == Edition.STANDARD) Text(stringResource(R.string.ocr_problem_help))
                 Text(stringResource(R.string.ocr_problem_retry))
             }
         },

@@ -10,8 +10,8 @@ import java.io.IOException
 /** The privacy policy, notices and license that the build copies from the repository into assets/legal/. */
 enum class LegalDocument(@param:StringRes val title: Int, private val files: List<String>) {
     PRIVACY(R.string.about_privacy_policy, listOf("PRIVACY.md")),
-    // The Google notices come from the libraries themselves; the offline file is only in the offline edition.
-    NOTICES(R.string.about_licenses, listOf("THIRD_PARTY_NOTICES.md", "google-notices.txt", "google-notices-offline.txt")),
+    // The Google notices come from the libraries themselves, which only the standard edition has.
+    NOTICES(R.string.about_licenses, listOf("THIRD_PARTY_NOTICES.md", "google-notices.txt")),
 
     // Usugami's copyright notice and its additional permission (GPL section 7) come before the GPL itself.
     LICENSE(R.string.about_license, listOf("LICENSE-EXCEPTION.md", "LICENSE")),

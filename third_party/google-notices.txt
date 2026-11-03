@@ -1,7 +1,8 @@
 Open-source notices in Google libraries used by Usugami
-=====================================================
+=======================================================
 
-These libraries are part of both editions of Usugami (Usugami and Usugami Offline).
+These libraries are only part of Usugami, the main edition. Usugami Lite and Usugami OCR
+contain no Google libraries.
 
 Google LLC ships these notices inside its libraries (third_party_licenses.txt in each
 library). They are reproduced here unchanged, except that identical texts appear once, a

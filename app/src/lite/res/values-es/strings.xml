@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tool_images_detail">JPG y PNG en un solo PDF, o un PDF por imagen</string>
+    <string name="search_keywords_images">foto, imagen, JPEG, escanear, escáner, cámara, galería</string>
+</resources>

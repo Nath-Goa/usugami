@@ -6,9 +6,9 @@ Usugami is an Android app that turns images into PDFs and splits, merges and com
 works on your phone. It has no ads, no analytics, no tracking, no accounts and no in-app
 purchases, and it does not collect, share or sell any data about you.
 
-This policy covers both editions of Usugami: "Usugami" (the standard edition) and "Usugami Offline".
-The only difference that matters for privacy is how text recognition (OCR) works, explained
-below.
+This policy covers all three editions of Usugami: "Usugami" (the main edition), "Usugami Lite"
+and "Usugami OCR". The only difference that matters for privacy is text recognition (OCR),
+explained below.
 
 ## Who is responsible
 
@@ -51,14 +51,13 @@ Nothing is stored anywhere else. Usugami has no servers.
 ## Text recognition (OCR)
 
 Text recognition is optional. It only runs when you turn on "Make text searchable (OCR)" while
-converting images. In both editions it uses Google ML Kit, a library made by Google, and the
-recognition itself happens on your phone. Your images and the recognized text are never sent to
-Google or anyone else.
+converting images, and the recognition itself happens on your phone. Your images and the
+recognized text are never sent to Google or anyone else. How it works depends on the edition.
 
-### Usugami (standard edition)
+### Usugami (the main edition)
 
-- Text recognition runs through Google Play services, a separate app from Google that is
-  installed on most Android phones.
+- Text recognition uses Google ML Kit, a library made by Google, and runs through Google Play
+  services, a separate app from Google that is installed on most Android phones.
 - The first time you use a text language, Google Play services downloads Google's
   text-recognition model for it (one model covers English, French and Spanish; Hindi has its own). This needs an internet connection at that time. Google
   Play services then keeps the model for later use; if it removes a model, it downloads it again
@@ -79,13 +78,18 @@ Google or anyone else.
 - Everything else in Usugami (images, Word, PowerPoint and EPUB to PDF, and all the PDF tools) works
   without Google Play services and without internet.
 
-### Usugami Offline
+### Usugami OCR
 
-- The text-recognition models are built into the app. Text recognition works with no internet
-  connection and doesn't need Google Play services.
-- Usugami Offline makes no network connections at all.
+- Text recognition is open source and built into the app, models included. It works with no
+  internet connection and doesn't need Google Play services.
+- Usugami OCR contains no Google libraries and makes no network connections at all.
 
-If you want no network use of any kind, install Usugami Offline.
+### Usugami Lite
+
+- Usugami Lite has no text recognition. It contains no Google libraries and makes no network
+  connections at all.
+
+If you want no network use of any kind, install Usugami OCR or Usugami Lite.
 
 ## Data collection and sharing
 
@@ -103,7 +107,7 @@ Usugami does not collect personal information from anyone, including children.
   tap "Clear storage", or uninstall Usugami.
 - PDFs you saved to Downloads or another folder are your files. They stay until you delete them,
   even if you uninstall Usugami.
-- In the standard edition, the text-recognition models are kept and managed by Google Play
+- In Usugami (the main edition), the text-recognition models are kept and managed by Google Play
   services.
 
 ## Changes to this policy

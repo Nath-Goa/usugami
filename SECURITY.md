@@ -2,8 +2,8 @@
 
 ## Supported versions
 
-Only the latest release of Usugami gets security fixes. Both editions (Usugami and Usugami Offline) are
-covered. Please update before reporting: https://github.com/Nath-Goa/usugami/releases/latest
+Only the latest release of Usugami gets security fixes. All three editions (Usugami, Usugami Lite
+and Usugami OCR) are covered. Please update before reporting: https://github.com/Nath-Goa/usugami/releases/latest
 
 ## Reporting a vulnerability
 
@@ -21,7 +21,7 @@ be.
 
 In scope:
 
-- The Usugami app (both editions) and its source code in this repository: for example, a crafted
+- The Usugami app (all three editions) and its source code in this repository: for example, a crafted
   image or PDF that makes Usugami crash in a way another app can exploit, read files it shouldn't,
   or leak data from one file into another.
 - Anything that lets another app on the phone read Usugami's private files or the files you work on.

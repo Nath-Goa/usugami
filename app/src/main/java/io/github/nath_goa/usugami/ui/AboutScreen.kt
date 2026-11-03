@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.BuildConfig
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.TextBlock
+import io.github.nath_goa.usugami.data.Edition
 import io.github.nath_goa.usugami.data.LegalDocument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -137,7 +138,7 @@ private fun AboutHeader() {
     ) {
         AppIcon()
         Spacer(Modifier.height(16.dp))
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(Edition.current.title), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(4.dp))
         Text(
             stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
@@ -145,7 +146,7 @@ private fun AboutHeader() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Text(
-            stringResource(if (BuildConfig.OCR_BUNDLED) R.string.about_edition_offline else R.string.about_edition_standard),
+            stringResource(Edition.current.description),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -172,7 +173,7 @@ private fun PrivacyNote(modifier: Modifier = Modifier) {
             Spacer(Modifier.width(16.dp))
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(stringResource(R.string.about_privacy), style = MaterialTheme.typography.bodyMedium)
-                if (!BuildConfig.OCR_BUNDLED) {
+                if (Edition.current == Edition.STANDARD) {
                     Text(
                         stringResource(R.string.about_privacy_standard),
                         style = MaterialTheme.typography.bodyMedium,

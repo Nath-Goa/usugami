@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Only the standard edition has ML Kit; in the others this would add a service that doesn't exist. -->
+    <application>
+        <!--
+            ML Kit includes Google's usage-metrics uploader. The app has no internet permission, so
+            it could never send anything, but it would still queue events in a local database (up to
+            10 MB). Removing its only backend makes it drop events immediately instead.
+        -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            tools:node="merge">
+            <meta-data
+                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+                tools:node="remove" />
+        </service>
+    </application>
+</manifest>

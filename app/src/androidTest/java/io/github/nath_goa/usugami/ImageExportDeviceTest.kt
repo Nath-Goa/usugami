@@ -88,6 +88,7 @@ class ImageExportDeviceTest {
     }
 
     @Test fun pdfDetailsAreGenericAfterTextRecognitionToo() {
+        assumeTrue("Usugami Lite has no text recognition", BuildConfig.HAS_OCR)
         val ocr = PdfOcr(context) // also sets up PDFBox
         val file = File(dir, "photo.jpg")
         file.outputStream().use { noise(200, 150).compress(Bitmap.CompressFormat.JPEG, 80, it) }

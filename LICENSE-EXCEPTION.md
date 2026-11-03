@@ -29,9 +29,10 @@ licensors of this Program grant you additional permission to convey the resultin
 
 ## Why this permission exists
 
-Usugami's text recognition (OCR) uses Google ML Kit, which is not open source. Every Usugami APK
-contains ML Kit and Google Play services client code, and the GPL alone would not let other people
-share such an APK, or a modified version of it. This permission makes that possible. It covers
+Text recognition (OCR) in Usugami's main edition uses Google ML Kit, which is not open source. That
+edition's APK (Usugami.apk) contains ML Kit and Google Play services client code, and the GPL alone
+would not let other people share such an APK, or a modified version of it. This permission makes
+that possible. Usugami Lite and Usugami OCR contain no Google libraries and don't need it. It covers
 only those Google libraries; every other part of Usugami stays under the GPL. As section 7 of the
 GPL allows, anyone who passes Usugami on may remove this permission from their copy (for example, a
 fork that drops ML Kit).

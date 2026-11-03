@@ -26,6 +26,7 @@ import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.ImageUnreadableException
+import io.github.nath_goa.usugami.data.OcrEngine
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.data.OcrUnavailableException
@@ -36,7 +37,7 @@ import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.ResultZip
 import io.github.nath_goa.usugami.data.SettingsStore
 import io.github.nath_goa.usugami.data.Thumbnails
-import io.github.nath_goa.usugami.data.ocrModels
+import io.github.nath_goa.usugami.data.ocrEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -72,8 +73,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     private val store = ImageStore(app)
     private val exporter = PdfExporter(app)
-    private val ocr = PdfOcr(app)
-    private val ocrModels = ocrModels(app)
+    /** Text recognition: null in Usugami Lite, which has none. */
+    private val ocrEngine = ocrEngine(app)
+    private val ocr by lazy { PdfOcr(app) }
     private val saver = PdfSaver(app)
     private val settingsStore = SettingsStore(app)
     val thumbnails = Thumbnails()
@@ -330,6 +332,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     fun convert(merge: Boolean, fileName: String, compression: Compression, ocrLanguage: OcrLanguage? = null) {
+        val engine = ocrEngine
+        // Usugami Lite has no text recognition, so it never adds a text layer.
+        val language = ocrLanguage?.takeIf { engine != null }
         val snapshot = items.value
         if (snapshot.isEmpty() || _progress.value != null || _pendingImports.value > 0) return
         if (snapshot.size > 1) {
@@ -338,7 +343,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
         _compression.value = compression
         settingsStore.compression = compression
-        lastChoices = ConvertChoices(fileName, ocrLanguage)
+        lastChoices = ConvertChoices(fileName, language)
         val layout = _layout.value
         _progress.value = Progress(0, snapshot.size)
         conversion = viewModelScope.launch {
@@ -349,9 +354,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     return@launch
                 }
                 val files = withContext(Dispatchers.IO) {
-                    if (ocrLanguage != null) {
+                    if (engine != null && language != null) {
                         // Before any PDF work, so a missing recognizer is reported straight away.
-                        ocrModels.ensureReady(ocrLanguage) { fraction ->
+                        engine.ensureReady(language) { fraction ->
                             _progress.value = if (fraction == null) Progress(0, 0, Progress.Stage.DOWNLOAD_OCR)
                             else Progress((fraction * 100).toInt(), 100, Progress.Stage.DOWNLOAD_OCR)
                         }
@@ -360,7 +365,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     val files = exporter.export(snapshot, layout, compression, merge || snapshot.size == 1, fileName, strings.getString(R.string.app_name)) { done ->
                         _progress.value = Progress(done, snapshot.size)
                     }
-                    if (ocrLanguage == null) files else addTextLayer(files, ocrLanguage)
+                    if (engine == null || language == null) files else addTextLayer(files, engine, language)
                 }
                 _saved.value = false
                 resultName = fileName
@@ -397,11 +402,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
      * Returns [files] with a searchable text layer. If recognition fails, the PDFs are kept as they
      * are, without the text layer, and a message says so.
      */
-    private suspend fun addTextLayer(files: List<PdfFile>, language: OcrLanguage): List<PdfFile> {
+    private suspend fun addTextLayer(files: List<PdfFile>, engine: OcrEngine, language: OcrLanguage): List<PdfFile> {
         val pages = files.sumOf { it.pageCount }
         _progress.value = Progress(0, pages, Progress.Stage.READ_TEXT)
         return try {
-            val output = ocr.apply(files, language) { done ->
+            val output = ocr.apply(files, engine, language) { done ->
                 // Once every page is read, only writing the text layer is left, which takes a while
                 // for a long PDF.
                 _progress.value = if (done < pages) Progress(done, pages, Progress.Stage.READ_TEXT)

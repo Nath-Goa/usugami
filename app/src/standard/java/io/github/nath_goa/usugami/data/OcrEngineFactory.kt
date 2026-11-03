@@ -1,6 +1,8 @@
 package io.github.nath_goa.usugami.data
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Point
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.common.api.ApiException
@@ -12,7 +14,14 @@ import com.google.android.gms.common.moduleinstall.ModuleInstallRequest
 import com.google.android.gms.common.moduleinstall.ModuleInstallStatusCodes
 import com.google.android.gms.common.moduleinstall.ModuleInstallStatusUpdate
 import com.google.android.gms.common.moduleinstall.ModuleInstallStatusUpdate.InstallState
+import com.google.android.gms.tasks.Task
+import com.google.mlkit.common.MlKitException
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
+import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
+import com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
@@ -20,18 +29,21 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 /**
- * Standard edition: text recognition runs in Google Play services, which downloads each language's
- * model the first time it is used and keeps it for every app. Usugami itself needs no permission for it.
+ * Standard edition: text recognition with Google ML Kit, which runs in Google Play services. Play
+ * services downloads each language's model the first time it is used and keeps it for every app.
+ * Usugami itself needs no permission for it.
  */
-fun ocrModels(context: Context): OcrModels = PlayServicesOcrModels(context.applicationContext)
+fun ocrEngine(context: Context): OcrEngine? = PlayServicesOcrEngine(context.applicationContext)
 
-private class PlayServicesOcrModels(private val context: Context) : OcrModels {
+private class PlayServicesOcrEngine(private val context: Context) : OcrEngine {
     private val installer = ModuleInstall.getClient(context)
+
+    override fun open(language: OcrLanguage): OcrRecognizer = MlKitRecognizer(newRecognizer(language))
 
     override suspend fun ensureReady(language: OcrLanguage, onDownload: (Float?) -> Unit) {
         checkPlayServices()
         try {
-            PdfOcr.newRecognizer(language).use { recognizer ->
+            newRecognizer(language).use { recognizer ->
                 val availability = installer.areModulesAvailable(recognizer).await()
                 when {
                     availability.areModulesAvailable() -> Unit
@@ -117,3 +129,36 @@ private class PlayServicesOcrModels(private val context: Context) : OcrModels {
 
 /** How long a download may go without any progress before it counts as failed (usually: no internet). */
 private val STALL_TIMEOUT = 60.seconds
+
+/** ML Kit's recognizer for [language]; the download in [PlayServicesOcrEngine.ensureReady] is for the same one. */
+private fun newRecognizer(language: OcrLanguage): TextRecognizer = when (language) {
+    OcrLanguage.ENGLISH, OcrLanguage.FRENCH, OcrLanguage.SPANISH -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    OcrLanguage.HINDI -> TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
+}
+
+private class MlKitRecognizer(private val recognizer: TextRecognizer) : OcrRecognizer {
+    override suspend fun recognize(page: Bitmap): List<OcrLine> {
+        var recognition: Task<Text>? = null
+        try {
+            recognition = recognizer.process(InputImage.fromBitmap(page, 0))
+            val text = try {
+                recognition.await()
+            } catch (e: MlKitException) {
+                // Play services no longer has the model (removed since ensureReady checked).
+                if (e.errorCode == MlKitException.UNAVAILABLE) throw OcrUnavailableException(OcrProblem.DOWNLOAD_FAILED, e)
+                throw e
+            }
+            return text.textBlocks.flatMap { it.lines }.mapNotNull { line ->
+                val box = line.boundingBox ?: return@mapNotNull null
+                val corners = line.cornerPoints?.takeIf { it.size == 4 }?.toList()
+                    ?: listOf(Point(box.left, box.top), Point(box.right, box.top), Point(box.right, box.bottom), Point(box.left, box.bottom))
+                OcrLine(line.text, corners)
+            }
+        } finally {
+            // After a cancel, ML Kit may still be reading the bitmap; it is freed with it then.
+            if (recognition == null || recognition.isComplete) page.recycle()
+        }
+    }
+
+    override fun close() = recognizer.close()
+}

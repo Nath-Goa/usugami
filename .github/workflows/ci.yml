@@ -38,18 +38,25 @@ jobs:
         run: >-
           ./gradlew --stacktrace
           :core:test
-          :app:lintStandardDebug :app:lintOfflineDebug
-          :app:assembleStandardDebug :app:assembleOfflineDebug
-          :app:assembleStandardRelease :app:assembleOfflineRelease
+          :app:lintStandardDebug :app:lintLiteDebug :app:lintOcrDebug
+          :app:assembleStandardDebug :app:assembleLiteDebug :app:assembleOcrDebug
+          :app:assembleStandardRelease :app:assembleLiteRelease :app:assembleOcrRelease
 
       - name: No permissions or blocked manifest entries
         run: >-
           bash .github/scripts/check-apk-permissions.sh
           app/build/outputs/apk/standard/release/*.apk
-          app/build/outputs/apk/offline/release/*.apk
+          app/build/outputs/apk/lite/release/*.apk
+          app/build/outputs/apk/ocr/release/*.apk
 
-      - name: Text recognition survives R8
-        run: bash .github/scripts/check-mlkit-registrars.sh standardRelease offlineRelease
+      - name: Text recognition survives R8 (Usugami)
+        run: bash .github/scripts/check-mlkit-registrars.sh standardRelease
+
+      - name: No Google code in Usugami Lite and Usugami OCR
+        run: >-
+          bash .github/scripts/check-no-google-code.sh
+          app/build/outputs/apk/lite/release/*.apk app/build/outputs/mapping/liteRelease/mapping.txt
+          app/build/outputs/apk/ocr/release/*.apk app/build/outputs/mapping/ocrRelease/mapping.txt
 
       - name: Upload reports
         if: failure()

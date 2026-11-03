@@ -1,8 +1,8 @@
 # How Usugami is tested
 
 Usugami has three layers of automated checks, plus a manual pass on a phone or emulator before each
-release. CI runs the first layer, lint and both release builds on every push and pull request
-(`.github/workflows/ci.yml`).
+release. CI runs the first layer, lint and the release builds of all three editions on every push
+and pull request (`.github/workflows/ci.yml`).
 
 ## 1. Unit tests for the PDF engine (JVM)
 
@@ -52,11 +52,13 @@ folders, names in other scripts, progress, and stopping part way.
 
 ## 2. Device tests (Android)
 
-`app/src/androidTest` runs on a connected phone or emulator, once per edition:
+`app/src/androidTest` runs on a connected phone or emulator, once per edition, together with the
+edition's own tests (`app/src/androidTestStandard` for Usugami):
 
 ```sh
 ./gradlew :app:connectedStandardDebugAndroidTest
-./gradlew :app:connectedOfflineDebugAndroidTest
+./gradlew :app:connectedLiteDebugAndroidTest
+./gradlew :app:connectedOcrDebugAndroidTest
 ```
 
 They use small synthetic PDFs, a made-up Word report and a made-up slide deck in
@@ -170,14 +172,18 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   again and the first-launch language screen (each checked by the configuration, the colors the
   window draws and the status bar icons), both the way Android applies it from Android 12 and the
   way Usugami applies it itself on older versions
-- text recognition in English, French, Spanish and Hindi (French and Spanish accents kept),
-  including a text layer with both Devanagari and Latin
-  text, text that follows tilted lines, and that a failed or cancelled recognition leaves the
-  PDFs untouched
+- the OCR text layer, in the editions with text recognition: Devanagari and Latin text together,
+  and text that follows tilted lines
+- text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,
+  French, Spanish and Hindi (French and Spanish accents kept), lines on a tilted page, and that a
+  failed or cancelled recognition leaves the PDFs untouched
+- the editions: text recognition (an engine, the text layer's font, the OCR switch in the
+  Convert sheet, and Home's words for Images to PDF in all four languages) in Usugami and Usugami
+  OCR and nowhere in Usugami Lite, and the Google notices only in Usugami
 
-The standard edition gets its text-recognition model from Google Play services, so its OCR tests
-need a device or emulator with Google Play services and, the first time each language is tested, an internet connection.
-The offline edition's tests work without either.
+Usugami gets its text-recognition model from Google Play services, so its OCR tests need a device
+or emulator with Google Play services and, the first time each language is tested, an internet
+connection.
 
 ## 3. End-to-end check with independent PDF tools
 
@@ -230,11 +236,16 @@ On a phone or emulator, with the release APKs:
 - Settings → Appearance: Light and Dark on Android 12 or newer and on an older version, with the
   phone itself set to the other one: every screen, dialogs, the status and navigation bars, and the
   first-launch language screen follow; System default follows the phone again.
-- Standard edition: the first OCR in each language downloads that model through Google Play services.
-- Offline edition: OCR works with the internet turned off.
+- Usugami: the first OCR in each language downloads that model through Google Play services.
+- Usugami OCR: OCR works with the internet turned off.
+- Usugami Lite: no OCR switch when creating a PDF, and About shows "Usugami Lite".
 - The About screen shows the license, privacy policy and notices.
 
-CI and the release workflow also check both APKs' manifests with
+CI and the release workflow also check the three APKs' manifests with
 `.github/scripts/check-apk-permissions.sh`. It fails if an APK requests any permission besides
 the app's own signature-level `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, or if a library brings
-back an upload backend for ML Kit's usage metrics or the EmojiCompat startup initializer.
+back an upload backend for ML Kit's usage metrics or the EmojiCompat startup initializer. They
+check with `.github/scripts/check-no-google-code.sh` that Usugami Lite and Usugami OCR contain no
+Google ML Kit, Play services, Firebase or DataTransport classes (listed with apkanalyzer and R8's
+mapping) or manifest entries, and with `.github/scripts/check-mlkit-registrars.sh` that R8 kept
+what ML Kit needs in Usugami.

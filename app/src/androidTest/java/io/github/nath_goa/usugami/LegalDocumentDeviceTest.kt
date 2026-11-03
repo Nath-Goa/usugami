@@ -2,6 +2,7 @@ package io.github.nath_goa.usugami
 
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.core.TextBlock
+import io.github.nath_goa.usugami.data.Edition
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.loadLegalText
 import org.junit.Assert.assertEquals
@@ -28,19 +29,16 @@ class LegalDocumentDeviceTest {
         assertTrue("The GPL text is there, after LICENSE-EXCEPTION.md", gpl > 0)
     }
 
+    /** Only the standard edition has Google's libraries, so only it has their notices. */
     @Test fun googleNoticesMatchTheEdition() {
-        val standard = loadLegalText(assets, listOf("google-notices.txt"))
-        assertNotNull("google-notices.txt is missing", standard)
-        val offline = loadLegalText(assets, listOf("google-notices-offline.txt"))
-        if (BuildConfig.OCR_BUNDLED) {
-            assertNotNull("The offline edition needs the bundled-OCR notices", offline)
-        } else {
-            assertNull("The standard edition doesn't contain the bundled-OCR libraries", offline)
-        }
-        // Each file starts with its own title, so it doesn't read as part of the text before it.
-        for (blocks in listOfNotNull(standard, offline)) {
-            val first = blocks.first()
+        val google = loadLegalText(assets, listOf("google-notices.txt"))
+        if (Edition.current == Edition.STANDARD) {
+            assertNotNull("The standard edition needs the notices of Google's libraries", google)
+            // It starts with its own title, so it doesn't read as part of the text before it.
+            val first = google!!.first()
             assertTrue("Starts with ${first.text}", first is TextBlock.Heading && first.level == 1 && first.text.startsWith("Open-source notices"))
+        } else {
+            assertNull("${Edition.current} contains no Google libraries", google)
         }
     }
 

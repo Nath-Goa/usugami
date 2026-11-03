@@ -6,10 +6,14 @@ LICENSE-EXCEPTION.md.
 
 Usugami is built with the software, fonts and data files listed here, made by other people. This
 file gives their versions, licenses and copyright notices, and the license texts they require.
-It applies to Usugami 1.2.0 and covers both editions:
+It is updated whenever they change, so the copy that comes with a release (also inside the app,
+under About) applies to that release. It covers Usugami's three editions and says which of them
+contain each part:
 
-- "Both editions": Usugami (the standard edition) and Usugami Offline.
-- "Usugami Offline only": only in Usugami Offline, which has text recognition built in.
+- "All editions": Usugami, Usugami Lite and Usugami OCR.
+- "Usugami only": only in Usugami, the main edition, whose text recognition uses Google ML Kit
+  and Google Play services. Usugami Lite and Usugami OCR contain no Google libraries.
+- "Usugami and Usugami OCR": the two editions with text recognition.
 
 Each full license text appears once, in section 6 or next to the component that needs it.
 
@@ -18,15 +22,15 @@ Contents
 1. Libraries (open source)
 2. Apache PDFBox for Android, with its notices
 3. Fonts
-4. Google ML Kit and Google Play services (not open source)
-5. Open-source code inside Google's libraries
+4. Google ML Kit and Google Play services (not open source), Usugami only
+5. Open-source code inside Google's libraries, Usugami only
 6. License texts
 
 
 ## 1. Libraries (open source)
 
-All libraries in this section are in both editions and are licensed under the Apache License,
-Version 2.0 (full text in section 6).
+All libraries in this section are licensed under the Apache License, Version 2.0 (full text in
+section 6). They are in all editions, except those listed as "Usugami only".
 
 ### AndroidX and Jetpack Compose
 
@@ -34,7 +38,6 @@ Copyright The Android Open Source Project.
 
 - androidx.activity: activity, activity-compose, activity-ktx 1.13.0
 - androidx.annotation: annotation, annotation-jvm 1.9.1; annotation-experimental 1.4.1
-- androidx.appcompat: appcompat, appcompat-resources 1.6.1
 - androidx.arch.core: core-common, core-runtime 2.2.0
 - androidx.autofill: autofill 1.0.0
 - androidx.collection: collection, collection-jvm, collection-ktx 1.5.0
@@ -54,14 +57,11 @@ Copyright The Android Open Source Project.
   ui-util-android 1.10.6
 - androidx.concurrent: concurrent-futures 1.1.0
 - androidx.core: core, core-ktx 1.18.0; core-viewtree 1.0.0
-- androidx.cursoradapter: cursoradapter 1.0.0
-- androidx.customview: customview, customview-poolingcontainer 1.0.0
+- androidx.customview: customview-poolingcontainer 1.0.0
 - androidx.documentfile: documentfile 1.0.0
-- androidx.drawerlayout: drawerlayout 1.0.0
 - androidx.dynamicanimation: dynamicanimation 1.0.0
-- androidx.emoji2: emoji2, emoji2-views-helper 1.4.0
+- androidx.emoji2: emoji2 1.4.0
 - androidx.exifinterface: exifinterface 1.4.2
-- androidx.fragment: fragment 1.3.6
 - androidx.graphics: graphics-path 1.0.1
 - androidx.interpolator: interpolator 1.0.0
 - androidx.legacy: legacy-support-core-utils 1.0.0
@@ -78,20 +78,28 @@ Copyright The Android Open Source Project.
   navigationevent-compose-android 1.0.0
 - androidx.print: print 1.0.0
 - androidx.profileinstaller: profileinstaller 1.4.0
-- androidx.resourceinspection: resourceinspection-annotation 1.0.1
 - androidx.savedstate: savedstate, savedstate-android, savedstate-compose,
   savedstate-compose-android, savedstate-ktx 1.4.0
 - androidx.startup: startup-runtime 1.1.1
 - androidx.tracing: tracing 1.2.0
 - androidx.transition: transition 1.6.0
-- androidx.vectordrawable: vectordrawable, vectordrawable-animated 1.1.0
 - androidx.versionedparcelable: versionedparcelable 1.1.1
-- androidx.viewpager: viewpager 1.0.0
 - androidx.window: window, window-core, window-core-android 1.5.0
 
-Some of these (for example appcompat, fragment and the legacy libraries) are included only
-because Google ML Kit depends on them. Usugami itself doesn't use them, and the build's code
-shrinker removes the parts that are never used.
+Usugami only, because Google ML Kit depends on them:
+
+- androidx.appcompat: appcompat, appcompat-resources 1.6.1
+- androidx.cursoradapter: cursoradapter 1.0.0
+- androidx.customview: customview 1.0.0
+- androidx.drawerlayout: drawerlayout 1.0.0
+- androidx.emoji2: emoji2-views-helper 1.4.0
+- androidx.fragment: fragment 1.3.6
+- androidx.resourceinspection: resourceinspection-annotation 1.0.1
+- androidx.vectordrawable: vectordrawable, vectordrawable-animated 1.1.0
+- androidx.viewpager: viewpager 1.0.0
+
+Usugami itself doesn't use them, and the build's code shrinker removes the parts that are never
+used.
 
 ### Compose Multiplatform metadata
 
@@ -129,7 +137,7 @@ above and add no code of their own.
 - sh.calvin.reorderable: reorderable, reorderable-android 3.1.0 (drag-to-reorder lists).
   Copyright 2023 Calvin Liang. https://github.com/Calvin-LL/Reorderable
 
-### Google DataTransport and Firebase components
+### Google DataTransport and Firebase components, Usugami only
 
 Copyright Google LLC. Google ML Kit uses these internally.
 
@@ -143,14 +151,14 @@ the app has no internet permission.
 
 ### Small libraries
 
-- javax.inject 1 (javax.inject). Copyright (C) 2009 The JSR-330 Expert Group.
+- javax.inject 1 (javax.inject), Usugami only. Copyright (C) 2009 The JSR-330 Expert Group.
 - ListenableFuture 1.0 (com.google.guava: listenablefuture). Copyright (C) 2007 The Guava Authors.
 - JSpecify 1.0.0 (org.jspecify: jspecify). Copyright 2022 The JSpecify Authors.
 
 
 ## 2. Apache PDFBox for Android, with its notices
 
-- com.tom-roush: pdfbox-android 2.0.27.0, in both editions. PdfBox-Android by Tom Roush and
+- com.tom-roush: pdfbox-android 2.0.27.0, in all editions. PdfBox-Android by Tom Roush and
   contributors, a port of Apache PDFBox to Android: https://github.com/TomRoush/PdfBox-Android
 - License: Apache License, Version 2.0 (full text in section 6), plus the terms below for the
   components it includes.
@@ -351,7 +359,7 @@ authorization of the copyright holder.
 All fonts here are licensed under the SIL Open Font License, Version 1.1 (full text in section
 6).
 
-### Usugami OCR (fonts/UsugamiOcr-Regular.ttf), both editions
+### Usugami OCR font (fonts/UsugamiOcr-Regular.ttf), Usugami and Usugami OCR
 
 An invisible font used only for the searchable text layer that text recognition adds to a PDF.
 It has no visible letters (every glyph is empty) and keeps the character map and letter widths
@@ -361,11 +369,11 @@ of these fonts:
 - Noto Sans Devanagari 2.002. Copyright 2015-2022 Google Inc. All Rights Reserved.
 
 Noto is a trademark of Google LLC. The license file distributed with the Noto fonts reads
-"Copyright 2018 The Noto Project Authors (github.com/googlei18n/noto-fonts)". Usugami OCR is a
-modified version made with tools/make_ocr_font.py from Usugami's source code. It is renamed so it
-uses no Reserved Font Name, and it is distributed under the same license.
+"Copyright 2018 The Noto Project Authors (github.com/googlei18n/noto-fonts)". The Usugami OCR
+font is a modified version made with tools/make_ocr_font.py from Usugami's source code. It is
+renamed so it uses no Reserved Font Name, and it is distributed under the same license.
 
-### Liberation Sans 2.1.5, both editions
+### Liberation Sans 2.1.5, all editions
 
 Included in PdfBox-Android (used by PDFBox as a fallback font). Unmodified.
 
@@ -380,54 +388,45 @@ Liberation is a trademark of Red Hat, Inc. registered in U.S. Patent and Tradema
 certain other jurisdictions.
 
 
-## 4. Google ML Kit and Google Play services (not open source)
+## 4. Google ML Kit and Google Play services (not open source), Usugami only
 
-Usugami uses Google ML Kit for text recognition (OCR). These libraries are made by Google LLC and are
-not open source. They are used under Google's terms, and Usugami's license gives an additional
-permission for them (LICENSE-EXCEPTION.md). Google does not endorse Usugami.
+Usugami, the main edition, uses Google ML Kit for text recognition (OCR). These libraries are made
+by Google LLC and are not open source. They are used under Google's terms, and Usugami's license
+gives an additional permission for them (LICENSE-EXCEPTION.md). Google does not endorse Usugami.
+Usugami Lite and Usugami OCR don't contain them.
 
-Both editions, under the ML Kit Terms of Service (https://developers.google.com/ml-kit/terms):
+Under the ML Kit Terms of Service (https://developers.google.com/ml-kit/terms):
 
 - com.google.android.gms: play-services-mlkit-text-recognition 19.0.1,
   play-services-mlkit-text-recognition-devanagari 16.0.1,
   play-services-mlkit-text-recognition-common 19.1.0
 - com.google.mlkit: common 18.11.0, vision-common 17.3.0, vision-interfaces 16.3.0
 
-Both editions, under the Android Software Development Kit License
-(https://developer.android.com/studio/terms):
+Under the Android Software Development Kit License (https://developer.android.com/studio/terms):
 
 - com.google.android.gms: play-services-base 18.5.0, play-services-basement 18.4.0,
   play-services-tasks 18.2.0
 - com.google.android.odml: image 1.0.0-beta1
 
-Usugami Offline only, under the ML Kit Terms of Service:
-
-- com.google.mlkit: text-recognition 16.0.1, text-recognition-devanagari 16.0.1,
-  text-recognition-bundled-common 17.0.0. These contain the text-recognition models and the
-  native recognition library (libmlkit_google_ocr_pipeline.so).
-
-In the standard edition, the text-recognition models are not part of Usugami. Google Play
-services downloads each language's model the first time it is used, under Google's own terms.
+The text-recognition models are not part of Usugami. Google Play services downloads each
+language's model the first time it is used, under Google's own terms.
 
 Google's API terms: https://developers.google.com/terms
 
 
-## 5. Open-source code inside Google's libraries
+## 5. Open-source code inside Google's libraries, Usugami only
 
 Google's libraries contain open-source code from many projects, and Google ships the license
-notices for it inside each library. Usugami reproduces all of them in two files, unchanged except
+notices for it inside each library. Usugami reproduces all of them in one file, unchanged except
 that duplicate texts appear once (including the many copies of the Apache License 2.0, whose
 full text is in section 6):
 
-- third_party/google-notices.txt, for the libraries in both editions:
+- third_party/google-notices.txt:
   https://github.com/Nath-Goa/usugami/blob/main/third_party/google-notices.txt
-- third_party/google-notices-offline.txt, for the libraries only in Usugami Offline:
-  https://github.com/Nath-Goa/usugami/blob/main/third_party/google-notices-offline.txt
 
-Both files are also inside the app: About → Open-source licenses shows them after this
-document (the offline file only in Usugami Offline, the edition that contains those libraries).
+The file is also inside Usugami: About → Open-source licenses shows it after this document.
 
-Components listed by Google in the libraries used by both editions:
+Components listed by Google in these libraries:
 
 Android SDK; Android SDK Platforms; AndroidX activity library;
 AndroidX annotation experimental library; AndroidX annotation jvm library;
@@ -449,28 +448,6 @@ Animal Sniffer; apksig; Checker Framework Annotations; Dagger; Error Prone; Fire
 gsfclient; Guava JDK5; Guava JDK7; J2ObjC; Jakarta Inject; java_annotations;
 JsInterop Annotations; JSpecify; JSR 250; JSR 305; JSR 330; Kotlin; Kotlin coroutines;
 kotlinx_atomicfu; SafeParcelable library; TensorFlow Lite Support.
-
-Additional components listed by Google in the libraries used only by Usugami Offline (its built-in
-text-recognition engine):
-
-Abseil; address_sorting; angle; Bazel Platforms; Boost; BoringSSL; Brotli; bzip2; c-ares; cblas;
-Chrome Certificate Verifier; cnpy; cppitertools; cpu_features; cpuinfo; Crunchy Crypt; cutlass;
-Darts-clone; dav1d; dawn; Dimsum; double-conversion; ducc; ecclesia; Edge TPU (0); Edge TPU (1);
-Edge TPU firmware callback; Eigen 3; expat; f2reduce; fast_hash; FlatBuffers; FP16;
-from_libaom (0); from_libaom (1); FXdiv; gcc_14_1_0; gemmlowp; giflib; glslang;
-Google Toolbox for Mac; gRPC; gRPC Protos; Halide; highway; HighwayHash; hwloc; ICU4C; imath;
-intel_dnnl; jpegxl; Khronos OpenGL headers; KleidiAI; LAPACK; legacy_libcxx_sort; Leptonica;
-libaom; libavif; libdeflate; libexecinfo; libjpeg-turbo; libpfm4; liburing; libwebp; Libxml2;
-libyuv; Little CMS; LLVM; mecab; MediaPipe; minizip; ml_dtypes; Mosys; mozilla_psl;
-Nano Protocol Buffers; nanoflann; NCurses; neon2sse; nsync; NVIDIA Management Library; Ooura FFT;
-open_platforms_util_subtle; OpenCensus; opencl_headers; opencl_icd_loader; OpenCV; openexr;
-openssh; PCG Random Number Generator; pdlp; perfetto; piex; PNG; pngnq; program_image_remapper;
-Proto Converter; Protocol Buffers; Protocol Buffers for Java; pthreadpool; RE2; Riegeli; ruy;
-sentencepiece; sequence_lock; sha3; sjpeg; Skia; sobol_data; spirv_headers; spirv_tools;
-splitfile; stablehlo; SwiftShader; tbb; TCMalloc; TensorFlow; TensorFlow Models;
-TensorFlow Serving; tf_runtime; tf_runtime_eigen; tf_runtime_llvm; tiff; Tink; tz database;
-Unsmear; UTF; utf8_range; vulkan_headers; vulkan_loader; vulkan_memory_allocator; vulkan_volk;
-X.Org; XCB library; xmp_toolkit; XNNPACK; xxhash; Zippy; zlib; Zstandard.
 
 
 ## 6. License texts

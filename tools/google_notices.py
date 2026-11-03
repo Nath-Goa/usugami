@@ -1,10 +1,8 @@
 """
 Collects the open-source license notices that Google ships inside its ML Kit, Google Play
 services, Firebase and DataTransport libraries (third_party_licenses.json/.txt in each AAR) and
-writes them to third_party/, deduplicated:
-
-  third_party/google-notices.txt          libraries in the standard edition (and the offline one)
-  third_party/google-notices-offline.txt  libraries that only the offline edition contains
+writes them, deduplicated, to third_party/google-notices.txt. Only the standard edition (Usugami)
+has Google libraries; Usugami Lite and Usugami OCR have none.
 
 Identical texts are written once, a notice that is fully contained in a longer variant of the same
 component is dropped, and every verbatim copy of the Apache License 2.0 is replaced by a pointer to
@@ -13,8 +11,7 @@ the copy in THIRD_PARTY_NOTICES.md. Nothing else is changed.
 Run it after changing Google dependencies (Gradle must have downloaded them first):
 
     ./gradlew -q :app:dependencies --configuration standardReleaseRuntimeClasspath > deps-standard.txt
-    ./gradlew -q :app:dependencies --configuration offlineReleaseRuntimeClasspath > deps-offline.txt
-    python -I tools/google_notices.py deps-standard.txt deps-offline.txt
+    python -I tools/google_notices.py deps-standard.txt
 
 The dependency files can be Gradle's tree output or plain group:artifact:version lines. Only the
 standard library is used.
@@ -161,7 +158,6 @@ def render(title, scope, libraries, components):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("standard_deps")
-    parser.add_argument("offline_deps")
     parser.add_argument("--cache", type=Path,
                         default=Path.home() / ".gradle/caches/modules-2/files-2.1")
     parser.add_argument("--apache", type=Path, default=None,
@@ -176,29 +172,15 @@ def main():
         apache_text = notices[notices.index("                                 Apache License"):]
     apache = apache_body_pattern(apache_text)
 
-    standard, offline = read_deps(args.standard_deps), read_deps(args.offline_deps)
-    std_found, std_libs = collect(args.cache, standard, apache)
-    off_found, off_libs = collect(args.cache, offline - standard, apache)
-    # Components the offline-only libraries share with the standard edition are already covered.
-    off_only = {}
-    for component, texts in off_found.items():
-        known = std_found.get(component, [])
-        rest = [t for t in texts if not any(line_set(t) <= line_set(k) for k in known)]
-        if rest:
-            off_only[component] = rest
+    found, libraries = collect(args.cache, read_deps(args.standard_deps), apache)
 
     args.out.mkdir(parents=True, exist_ok=True)
     (args.out / "google-notices.txt").write_text(render(
         "Open-source notices in Google libraries used by Usugami",
-        "These libraries are part of both editions of Usugami (Usugami and Usugami Offline).",
-        std_libs, std_found), encoding="utf-8", newline="\n")
-    (args.out / "google-notices-offline.txt").write_text(render(
-        "Open-source notices in Google libraries used only by Usugami Offline",
-        "These libraries are only part of Usugami Offline (the edition with built-in text\n"
-        "recognition). The notices in google-notices.txt apply to it as well.",
-        off_libs, off_only), encoding="utf-8", newline="\n")
-    print(f"{len(std_found)} components from {len(std_libs)} libraries; "
-          f"{len(off_only)} more only in the offline edition ({len(off_libs)} libraries)")
+        "These libraries are only part of Usugami, the main edition. Usugami Lite and Usugami OCR\n"
+        "contain no Google libraries.",
+        libraries, found), encoding="utf-8", newline="\n")
+    print(f"{len(found)} components from {len(libraries)} libraries")
 
 
 if __name__ == "__main__":

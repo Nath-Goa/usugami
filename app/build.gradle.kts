@@ -46,19 +46,34 @@ android {
         }
     }
 
-    // Two editions with the same app ID, so either one can be installed over the other.
-    // standard: text recognition comes from Google Play services (small APK).
-    // offline: the text recognition model is built into the APK (no Play services needed).
-    flavorDimensions += "ocr"
+    // Three editions with the same app ID and signing key, so any one can be installed over another.
+    // standard ("Usugami", Usugami.apk): text recognition with Google ML Kit through Google Play
+    //   services, which downloads the models. The only edition with Google code.
+    // lite ("Usugami Lite", Usugami-lite.apk): no text recognition and no Google libraries.
+    // ocr ("Usugami OCR", Usugami-ocr.apk): open-source text recognition built in; no Google libraries.
+    flavorDimensions += "edition"
     productFlavors {
         create("standard") {
-            dimension = "ocr"
+            dimension = "edition"
             isDefault = true
-            buildConfigField("boolean", "OCR_BUNDLED", "false")
+            buildConfigField("String", "EDITION", "\"standard\"")
+            buildConfigField("boolean", "HAS_OCR", "true")
+            proguardFile("proguard-standard.pro")
+            // ML Kit pulls in AppCompat, whose own keep rule for SearchView would keep ~200 KB of
+            // unused AppCompat code and resources. The app is pure Compose and never uses it.
+            optimization { keepRules { ignoreFrom("androidx.appcompat:appcompat") } }
         }
-        create("offline") {
-            dimension = "ocr"
-            buildConfigField("boolean", "OCR_BUNDLED", "true")
+        create("lite") {
+            dimension = "edition"
+            buildConfigField("String", "EDITION", "\"lite\"")
+            buildConfigField("boolean", "HAS_OCR", "false")
+        }
+        create("ocr") {
+            dimension = "edition"
+            buildConfigField("String", "EDITION", "\"ocr\"")
+            buildConfigField("boolean", "HAS_OCR", "true")
+            // Phones are ARM; x86_64 is only for emulators, and release builds leave it out (below).
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         }
     }
 
@@ -68,9 +83,6 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
-            // ML Kit pulls in AppCompat, whose own keep rule for SearchView would keep ~200 KB of
-            // unused AppCompat code and resources. The app is pure Compose and never uses it.
-            optimization { keepRules { ignoreFrom("androidx.appcompat:appcompat") } }
         }
     }
 
@@ -126,26 +138,30 @@ dependencies {
         // Leaving it out saves space and drops an outdated crypto library.
         exclude(group = "org.bouncycastle")
     }
-    // Same ML Kit API in both editions; only where the model lives differs.
+    // Only the standard edition has Google libraries: ML Kit's text recognition, whose models
+    // Google Play services downloads.
     "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.1")
-    "offlineImplementation"("com.google.mlkit:text-recognition:16.0.1")
-    "offlineImplementation"("com.google.mlkit:text-recognition-devanagari:16.0.1")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("junit:junit:4.13.2")
 }
 
 /**
- * Drops PDFBox data files that Usugami's code paths never read (about 1.2 MB).
- * Predefined CJK CMaps are only read when PDFBox parses existing CJK fonts (text extraction,
- * rendering, form appearances); Usugami only needs Identity-H for the OCR text layer.
- * BidiMirroring.txt (7 KB) stays: PDFTextStripper's static initializer crashes without it, and
- * the device tests use PDFTextStripper to check the OCR text layer.
+ * Drops asset files that a build never reads.
+ * - PDFBox data files that Usugami's code paths never read (about 1.2 MB). Predefined CJK CMaps
+ *   are only read when PDFBox parses existing CJK fonts (text extraction, rendering, form
+ *   appearances); Usugami only needs Identity-H for the OCR text layer. BidiMirroring.txt (7 KB)
+ *   stays: PDFTextStripper's static initializer crashes without it, and the device tests use
+ *   PDFTextStripper to check the OCR text layer.
+ * - With [withoutOcrFont] (Usugami Lite, which has no text recognition), the OCR text layer's font.
  */
-abstract class PrunePdfboxAssets : DefaultTask() {
+abstract class PruneAssets : DefaultTask() {
     @get:InputDirectory
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val input: DirectoryProperty
+
+    @get:Input
+    abstract val withoutOcrFont: Property<Boolean>
 
     @get:OutputDirectory
     abstract val output: DirectoryProperty
@@ -155,11 +171,14 @@ abstract class PrunePdfboxAssets : DefaultTask() {
 
     @TaskAction
     fun prune() {
+        val dropOcrFont = withoutOcrFont.get()
         fs.sync {
             from(input)
             into(output)
             exclude { it.path.startsWith("com/tom_roush/fontbox/resources/cmap/") && !it.name.startsWith("Identity-") }
             exclude("com/tom_roush/fontbox/resources/unicode/Scripts.txt")
+            // fonts/LICENSE is the OCR font's license (SIL OFL).
+            if (dropOcrFont) exclude("fonts/UsugamiOcr-Regular.ttf", "fonts/LICENSE")
         }
     }
 }
@@ -186,32 +205,30 @@ abstract class CopyLegalAssets : DefaultTask() {
 }
 
 val copyLegalAssets = tasks.register<CopyLegalAssets>("copyLegalAssets") {
-    sources.from(
-        rootProject.files(
-            "LICENSE", "LICENSE-EXCEPTION.md", "PRIVACY.md", "THIRD_PARTY_NOTICES.md",
-            "third_party/google-notices.txt",
-        ),
-    )
+    sources.from(rootProject.files("LICENSE", "LICENSE-EXCEPTION.md", "PRIVACY.md", "THIRD_PARTY_NOTICES.md"))
 }
-// Notices for the bundled text-recognition libraries, which only the offline edition contains.
-val copyOfflineLegalAssets = tasks.register<CopyLegalAssets>("copyOfflineLegalAssets") {
-    sources.from(rootProject.files("third_party/google-notices-offline.txt"))
+// The notices inside Google's libraries, which only the standard edition contains.
+val copyGoogleNotices = tasks.register<CopyLegalAssets>("copyGoogleNotices") {
+    sources.from(rootProject.files("third_party/google-notices.txt"))
 }
 
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(copyLegalAssets, CopyLegalAssets::output)
-        if (variant.productFlavors.contains("ocr" to "offline")) {
-            variant.sources.assets?.addGeneratedSourceDirectory(copyOfflineLegalAssets, CopyLegalAssets::output)
+        if (variant.productFlavors.contains("edition" to "standard")) {
+            variant.sources.assets?.addGeneratedSourceDirectory(copyGoogleNotices, CopyLegalAssets::output)
         }
-        val prune = tasks.register<PrunePdfboxAssets>("prune${variant.name.replaceFirstChar(Char::uppercase)}PdfboxAssets")
+        val prune = tasks.register<PruneAssets>("prune${variant.name.replaceFirstChar(Char::uppercase)}Assets") {
+            withoutOcrFont.set(variant.productFlavors.contains("edition" to "lite"))
+        }
         variant.artifacts.use(prune)
-            .wiredWithDirectories(PrunePdfboxAssets::input, PrunePdfboxAssets::output)
+            .wiredWithDirectories(PruneAssets::input, PruneAssets::output)
             .toTransform(SingleArtifact.ASSETS)
     }
-    // Real phones are ARM. The x86 copies of the OCR engine (~23 MB) only matter for emulators,
-    // so release builds of the offline edition leave them out. Debug builds keep them for testing.
-    onVariants(selector().withFlavor("ocr" to "offline").withBuildType("release")) { variant ->
+    // Real phones are ARM. The x86_64 copies of the OCR engine only matter for emulators, so release
+    // builds of the OCR edition leave them out (arm64-v8a and armeabi-v7a stay). Debug builds keep
+    // them for testing.
+    onVariants(selector().withFlavor("edition" to "ocr").withBuildType("release")) { variant ->
         variant.packaging.jniLibs.excludes.addAll("lib/x86/**", "lib/x86_64/**")
     }
 }

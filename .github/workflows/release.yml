@@ -1,8 +1,8 @@
 name: Release
 
-# Push a tag like v1.2.0 to build, sign and publish both APKs. The tag must equal "v" + versionName
-# in app/build.gradle.kts. A tag with a hyphen (v1.3.0-rc.1) becomes a draft prerelease, which
-# never changes the "latest" download links.
+# Push a tag like v1.2.0 to build, sign and publish the three APKs (Usugami, Usugami Lite and
+# Usugami OCR). The tag must equal "v" + versionName in app/build.gradle.kts. A tag with a hyphen
+# (v1.3.0-rc.1) becomes a draft prerelease, which never changes the "latest" download links.
 #
 # Two jobs, so no Gradle plugin, dependency or test ever runs with write access: "build" gets the
 # signing key but can only read the repository; "publish" can write releases and attestations but
@@ -75,7 +75,9 @@ jobs:
           USUGAMI_KEYSTORE_PASSWORD: ${{ secrets.USUGAMI_KEYSTORE_PASSWORD }}
           USUGAMI_KEY_ALIAS: ${{ secrets.USUGAMI_KEY_ALIAS }}
           USUGAMI_KEY_PASSWORD: ${{ secrets.USUGAMI_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon --stacktrace :core:test :app:assembleStandardRelease :app:assembleOfflineRelease
+        run: >-
+          ./gradlew --no-daemon --stacktrace :core:test
+          :app:assembleStandardRelease :app:assembleLiteRelease :app:assembleOcrRelease
 
       - name: Remove signing key
         if: always()
@@ -87,9 +89,11 @@ jobs:
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/standard/release/app-standard-release.apk dist/Usugami.apk
-          cp app/build/outputs/apk/offline/release/app-offline-release.apk dist/Usugami-offline.apk
+          cp app/build/outputs/apk/lite/release/app-lite-release.apk dist/Usugami-lite.apk
+          cp app/build/outputs/apk/ocr/release/app-ocr-release.apk dist/Usugami-ocr.apk
           cd app/build/outputs/mapping
-          zip -9 -q "$GITHUB_WORKSPACE/dist/mapping-$VERSION_NAME.zip" standardRelease/mapping.txt offlineRelease/mapping.txt
+          zip -9 -q "$GITHUB_WORKSPACE/dist/mapping-$VERSION_NAME.zip" \
+            standardRelease/mapping.txt liteRelease/mapping.txt ocrRelease/mapping.txt
 
       - name: Check signer, package and version
         env:
@@ -99,7 +103,7 @@ jobs:
           tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
           expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': \n' | tr 'A-F' 'a-f')
           [ -n "$expected" ] || { echo "::error::Repository variable USUGAMI_CERT_SHA256 is not set"; exit 1; }
-          for apk in dist/Usugami.apk dist/Usugami-offline.apk; do
+          for apk in dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk; do
             "${tools}apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
             actual=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | sort -u)
             [ "$actual" = "$expected" ] || { echo "::error::$apk is signed by '$actual', expected $expected"; exit 1; }
@@ -113,15 +117,21 @@ jobs:
           done
 
       - name: No permissions or blocked manifest entries
-        run: bash .github/scripts/check-apk-permissions.sh dist/Usugami.apk dist/Usugami-offline.apk
+        run: bash .github/scripts/check-apk-permissions.sh dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk
 
-      - name: Text recognition survives R8
-        run: bash .github/scripts/check-mlkit-registrars.sh standardRelease offlineRelease
+      - name: Text recognition survives R8 (Usugami)
+        run: bash .github/scripts/check-mlkit-registrars.sh standardRelease
+
+      - name: No Google code in Usugami Lite and Usugami OCR
+        run: >-
+          bash .github/scripts/check-no-google-code.sh
+          dist/Usugami-lite.apk app/build/outputs/mapping/liteRelease/mapping.txt
+          dist/Usugami-ocr.apk app/build/outputs/mapping/ocrRelease/mapping.txt
 
       - name: Checksums
         run: |
           cd dist
-          sha256sum Usugami.apk Usugami-offline.apk > SHA256SUMS.txt
+          sha256sum Usugami.apk Usugami-lite.apk Usugami-ocr.apk > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Write release notes
@@ -131,15 +141,16 @@ jobs:
           set -euo pipefail
           SHA256SUMS="$(cat dist/SHA256SUMS.txt)"
           STANDARD_MB=$(stat -c %s dist/Usugami.apk | awk '{printf "%.1f", $1 / 1000000}')
-          OFFLINE_MB=$(stat -c %s dist/Usugami-offline.apk | awk '{printf "%.0f", $1 / 1000000}')
-          export SHA256SUMS STANDARD_MB OFFLINE_MB
+          LITE_MB=$(stat -c %s dist/Usugami-lite.apk | awk '{printf "%.1f", $1 / 1000000}')
+          OCR_MB=$(stat -c %s dist/Usugami-ocr.apk | awk '{printf "%.1f", $1 / 1000000}')
+          export SHA256SUMS STANDARD_MB LITE_MB OCR_MB
           {
             awk -v v="$VERSION_NAME" '
               index($0, "## [" v "]") == 1 { on = 1; next }
               on && /^## / { exit }
               on { print }' CHANGELOG.md
             echo
-            envsubst '${TAG} ${GITHUB_REPOSITORY} ${CERT_SHA256} ${SHA256SUMS} ${STANDARD_MB} ${OFFLINE_MB}' \
+            envsubst '${TAG} ${GITHUB_REPOSITORY} ${CERT_SHA256} ${SHA256SUMS} ${STANDARD_MB} ${LITE_MB} ${OCR_MB}' \
               < .github/release-notes-template.md
           } > dist/release-notes.md
           cat dist/release-notes.md
@@ -181,7 +192,7 @@ jobs:
           expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': \n' | tr 'A-F' 'a-f')
           [ -n "$expected" ] || { echo "::error::Repository variable USUGAMI_CERT_SHA256 is not set"; exit 1; }
           [ -n "$VERSION_NAME" ] || { echo "::error::The build job did not pass on the versionName"; exit 1; }
-          for apk in dist/Usugami.apk dist/Usugami-offline.apk; do
+          for apk in dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk; do
             "${tools}apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
             actual=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | sort -u)
             [ "$actual" = "$expected" ] || { echo "::error::$apk is signed by '$actual', expected $expected"; exit 1; }
@@ -200,7 +211,8 @@ jobs:
         with:
           subject-path: |
             dist/Usugami.apk
-            dist/Usugami-offline.apk
+            dist/Usugami-lite.apk
+            dist/Usugami-ocr.apk
 
       # Uploads every file before publishing, so it also works with immutable releases.
       - name: Publish release
@@ -210,7 +222,8 @@ jobs:
           body_path: dist/release-notes.md
           files: |
             dist/Usugami.apk
-            dist/Usugami-offline.apk
+            dist/Usugami-lite.apk
+            dist/Usugami-ocr.apk
             dist/SHA256SUMS.txt
             dist/mapping-${{ env.VERSION_NAME }}.zip
           fail_on_unmatched_files: true

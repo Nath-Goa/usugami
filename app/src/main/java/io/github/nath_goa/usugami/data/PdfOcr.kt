@@ -9,14 +9,6 @@ import android.graphics.Rect
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.annotation.VisibleForTesting
-import com.google.android.gms.tasks.Task
-import com.google.mlkit.common.MlKitException
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.Text
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.TextRecognizer
-import com.google.mlkit.vision.text.devanagari.DevanagariTextRecognizerOptions
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -32,16 +24,12 @@ import java.io.IOException
 import kotlin.math.atan2
 import kotlin.math.hypot
 
-/**
- * The languages text recognition offers. English, French and Spanish share ML Kit's Latin-script
- * model (one download in the standard edition); Hindi uses the Devanagari model, which also keeps
- * English words.
- */
-enum class OcrLanguage { ENGLISH, FRENCH, SPANISH, HINDI }
-
 data class OcrOutput(val files: List<PdfFile>, val lineCount: Int)
 
-/** Adds an invisible text layer to PDFs made from images. */
+/**
+ * Adds an invisible text layer to PDFs made from images, with the text an [OcrEngine] reads. The
+ * text layer is the same whichever engine read it.
+ */
 class PdfOcr(private val context: Context) {
     /**
      * One recognized line, in pixels of the [pixelWidth] × [pixelHeight] page image. [corners] are the
@@ -62,15 +50,16 @@ class PdfOcr(private val context: Context) {
 
     /**
      * Returns [files] with a text layer added (as `<name>_searchable.pdf`; files without any text
-     * are returned as they are). [onPage] receives the number of pages read so far, across all files.
-     * If anything fails, every file is left as it was and the exception is rethrown.
+     * are returned as they are), read by [engine] in [language]. [onPage] receives the number of pages
+     * read so far, across all files. If anything fails, every file is left as it was and the
+     * exception is rethrown.
      */
-    suspend fun apply(files: List<PdfFile>, language: OcrLanguage, onPage: (Int) -> Unit = {}): OcrOutput {
+    suspend fun apply(files: List<PdfFile>, engine: OcrEngine, language: OcrLanguage, onPage: (Int) -> Unit = {}): OcrOutput {
         val made = ArrayList<PdfFile>()
         try {
             var count = 0
             var pagesDone = 0
-            val results = newRecognizer(language).use { recognizer ->
+            val results = engine.open(language).use { recognizer ->
                 files.map { source ->
                     currentCoroutineContext().ensureActive()
                     val lines = recognize(source.file, recognizer) { onPage(++pagesDone) }
@@ -87,7 +76,7 @@ class PdfOcr(private val context: Context) {
         }
     }
 
-    private suspend fun recognize(file: File, recognizer: TextRecognizer, onPageDone: () -> Unit): List<Line> {
+    private suspend fun recognize(file: File, recognizer: OcrRecognizer, onPageDone: () -> Unit): List<Line> {
         val lines = ArrayList<Line>()
         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
             PdfRenderer(descriptor).use { renderer ->
@@ -98,26 +87,16 @@ class PdfOcr(private val context: Context) {
                         val width = maxOf(1, (page.width * scale).toInt())
                         val height = maxOf(1, (page.height * scale).toInt())
                         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                        var recognition: Task<Text>? = null
                         try {
                             bitmap.eraseColor(Color.WHITE)
                             page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                            recognition = recognizer.process(InputImage.fromBitmap(bitmap, 0))
-                            val text = try {
-                                recognition.await()
-                            } catch (e: MlKitException) {
-                                // Standard edition: Play services no longer has the model (removed
-                                // since ensureReady checked).
-                                if (e.errorCode == MlKitException.UNAVAILABLE) throw OcrUnavailableException(OcrProblem.DOWNLOAD_FAILED, e)
-                                throw e
-                            }
-                            for (block in text.textBlocks) for (line in block.lines) {
-                                val box = line.boundingBox ?: continue
-                                if (line.text.isNotBlank()) lines += Line(i, line.text, box, width, height, line.cornerPoints?.toList())
-                            }
-                        } finally {
-                            // After a cancel, ML Kit may still be reading the bitmap; it is freed with it then.
-                            if (recognition == null || recognition.isComplete) bitmap.recycle()
+                        } catch (e: Throwable) {
+                            bitmap.recycle()
+                            throw e
+                        }
+                        // The recognizer recycles the bitmap once it is done with it.
+                        for (line in recognizer.recognize(bitmap)) {
+                            if (line.text.isNotBlank()) lines += Line(i, line.text, line.corners.bounds(), width, height, line.corners)
                         }
                     }
                     onPageDone()
@@ -206,13 +185,10 @@ class PdfOcr(private val context: Context) {
 
     private fun Rect.corners() = listOf(Point(left, top), Point(right, top), Point(right, bottom), Point(left, bottom))
 
-    companion object {
-        private const val OCR_FONT = "fonts/UsugamiOcr-Regular.ttf"
+    private fun List<Point>.bounds() = Rect(minOf { it.x }, minOf { it.y }, maxOf { it.x }, maxOf { it.y })
 
-        /** Both editions use the same ML Kit API; only where the model comes from differs. */
-        fun newRecognizer(language: OcrLanguage): TextRecognizer = when (language) {
-            OcrLanguage.ENGLISH, OcrLanguage.FRENCH, OcrLanguage.SPANISH -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            OcrLanguage.HINDI -> TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
-        }
+    private companion object {
+        /** Not in Usugami Lite, which has no text recognition (see PruneAssets in app/build.gradle.kts). */
+        const val OCR_FONT = "fonts/UsugamiOcr-Regular.ttf"
     }
 }

@@ -5,7 +5,7 @@
 # no-argument constructor. If R8 removes that constructor, text recognition fails at runtime
 # in release builds only. app/proguard-rules.pro keeps them; this check makes sure it still does.
 #
-# Usage: check-mlkit-registrars.sh <variant>...   e.g. standardRelease offlineRelease
+# Usage: check-mlkit-registrars.sh <variant>...   e.g. standardRelease
 set -euo pipefail
 
 status=0
