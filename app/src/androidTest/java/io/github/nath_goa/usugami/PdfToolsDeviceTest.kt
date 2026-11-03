@@ -1,6 +1,7 @@
 package io.github.nath_goa.usugami
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
