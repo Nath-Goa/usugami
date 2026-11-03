@@ -35,6 +35,7 @@
     <string name="move_file_later">Move %1$s later</string>
     <string name="remove_file">Remove %1$s</string>
     <string name="pdf_import_failed">Couldn\'t open that PDF. It may be damaged or unsupported.</string>
+    <string name="open_no_space">There isn\'t enough free storage to open that file. Free up some space and try again.</string>
     <string name="pdf_certificate_unsupported">This PDF is locked with a certificate (digital ID). Usugami can only open PDFs locked with a password.</string>
     <string name="pdf_wrong_password">That password didn\'t open the PDF.</string>
     <string name="pdf_password_title">PDF password</string>
@@ -58,6 +59,8 @@
     <string name="pdf_sort_az">Sort A to Z</string>
     <string name="pdf_sort_za">Sort Z to A</string>
     <string name="pdf_reset_pages">Reset pages</string>
+    <!-- A page in Merge PDF's page list: its place in the merged PDF, the PDF it is from, and its page number there. -->
+    <string name="merge_page_line">%1$d. %2$s, page %3$d</string>
     <string name="pdf_selected">Selected pages</string>
     <!-- The examples use the hyphen people type, not an en dash. -->
     <string name="pdf_selected_hint" tools:ignore="TypographyDashes">For example: 1,3,5-8. Tap page previews to select them.</string>
@@ -85,7 +88,7 @@
     <string name="pdf_need_page">Keep at least one page.</string>
     <string name="pdf_discard_title">Discard this PDF?</string>
     <string name="tool_discard_title">Discard your changes?</string>
-    <string name="pdf_discard_shared_body">The images you shared are ready to convert, but this PDF isn\'t saved yet. Save or share it first if you want to keep it.</string>
+    <string name="pdf_discard_shared_body">The images you shared are ready to convert, but this PDF isn\'t saved yet. Save it first if you want to keep it.</string>
     <string name="pdf_discard_shared_changes">The images you shared are ready to convert. Opening them discards your changes to this PDF.</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">Rotate PDF</string>
@@ -483,7 +486,7 @@
     <string name="back_to_editing">Back to editing</string>
     <string name="start_over">Start over</string>
     <string name="start_over_title">Start over?</string>
-    <string name="not_saved_note">Not saved yet. Save it or share it before you start over.</string>
+    <string name="not_saved_note">Not saved yet. Starting over deletes it, so save it first if you want to keep it.</string>
 
     <!-- Dialogs -->
     <string name="discard_title">Discard these images?</string>
@@ -501,6 +504,10 @@
     <plurals name="msg_failed_import">
         <item quantity="one">Couldn\'t read %d image.</item>
         <item quantity="other">Couldn\'t read %d images.</item>
+    </plurals>
+    <plurals name="msg_import_no_space">
+        <item quantity="one">Couldn\'t add %d image: there isn\'t enough free storage.</item>
+        <item quantity="other">Couldn\'t add %d images: there isn\'t enough free storage.</item>
     </plurals>
     <string name="msg_saved_downloads">Saved to Downloads as %1$s</string>
     <plurals name="msg_saved_downloads_many">
@@ -522,6 +529,7 @@
     <string name="msg_no_pdf_app">No app on this phone can open PDFs.</string>
     <string name="msg_no_share_app">No app on this phone can share PDFs.</string>
     <string name="msg_no_file_picker">This phone has no file picker to save with.</string>
+    <string name="msg_no_picker">This phone has no app to pick files with.</string>
     <plurals name="msg_files_cleared">
         <item quantity="one">%d file was removed because its temporary copy was cleared. Please add it again.</item>
         <item quantity="other">%d files were removed because their temporary copies were cleared. Please add them again.</item>

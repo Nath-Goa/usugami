@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.exifinterface.media.ExifInterface
 import io.github.nath_goa.usugami.core.Jpeg
+import io.github.nath_goa.usugami.core.isOutOfSpace
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -24,6 +25,8 @@ class ImageStore(context: Context) {
         data class Added(val item: ImageItem) : ImportResult
         data object Unsupported : ImportResult
         data object Failed : ImportResult
+        /** The storage is full: the image may be fine. */
+        data object NoSpace : ImportResult
     }
 
     /** Copies [uri] into app storage. Blocking: call from a background thread. */
@@ -48,7 +51,7 @@ class ImageStore(context: Context) {
                 format
             } ?: return ImportResult.Failed
 
-            val file = File(dir, "$id.${format.extension}")
+            val file = fileFor(id, format)
             if (!tmp.renameTo(file)) throw IOException("rename failed")
             stored = file
 
@@ -72,7 +75,7 @@ class ImageStore(context: Context) {
         } catch (e: Exception) {
             // SecurityException (access revoked), IOException (provider or storage failure), ...
             stored?.delete()
-            return ImportResult.Failed
+            return if (e.isOutOfSpace()) ImportResult.NoSpace else ImportResult.Failed
         } catch (e: OutOfMemoryError) {
             // A damaged or crafted file can make a decoder ask for a huge buffer.
             stored?.delete()
@@ -81,6 +84,9 @@ class ImageStore(context: Context) {
             tmp.delete()
         }
     }
+
+    /** Where the copy of image [id] is kept. */
+    fun fileFor(id: Long, format: ImageFormat): File = File(dir, "$id.${format.extension}")
 
     fun delete(item: ImageItem) {
         File(item.path).delete()

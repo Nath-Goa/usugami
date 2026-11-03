@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Parcel
 import android.os.SystemClock
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -81,15 +82,68 @@ class WorkingFilesDeviceTest {
     @Test fun restoredImagesWhoseCopiesWereClearedAreDropped() {
         val kept = file("images/1.jpg")
         val gone = File(app.cacheDir, "images/2.jpg").apply { delete() }
-        fun item(id: Long, file: File) = ImageItem(id, file.path, file.name, ImageFormat.JPEG, 10, 10, 1)
+        fun item(id: Long, file: File) = ImageItem(id, file.path, file.name, ImageFormat.JPEG, 10, 10, 6, rotation = 90)
         // "items" is MainViewModel's saved-state key.
-        val handle = SavedStateHandle(mapOf("items" to arrayListOf(item(1, kept), item(2, gone))))
+        val handle = SavedStateHandle(mapOf("items" to MainViewModel.packItems(listOf(item(1, kept), item(2, gone)))))
 
         val vm = onMain { MainViewModel(app, handle) }
 
         waitUntil("the missing image to be dropped") { vm.items.value.map { it.id } == listOf(1L) }
+        assertEquals("Restored as it was", item(1, kept), onMain { vm.items.value.single() })
         assertEquals(oneFileCleared, runBlocking { withTimeout(10_000) { vm.messages.first() } })
         assertTrue("A copy that is still there is kept", kept.isFile)
+    }
+
+    @Test fun aLongListOfImagesFitsTheSavedState() {
+        val items = (1..3000L).map { ImageItem(it, "", "IMG_20261103_%06d.jpg".format(it), ImageFormat.JPEG, 4000, 3000, 6, 90) }
+        val parcel = Parcel.obtain()
+        val size = try {
+            parcel.writeBundle(MainViewModel.packItems(items))
+            parcel.dataSize()
+        } finally {
+            parcel.recycle()
+        }
+        // As a list of ImageItems they took about a megabyte, more than the saved state can hold:
+        // Usugami crashed as it went to the background.
+        assertTrue("$size bytes", size < 200_000)
+    }
+
+    @Test fun imagesPickedWhileOthersImportGoAfterThem() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        val first = (1..4).map { photo("a$it.jpg") }
+        val second = (1..2).map { photo("b$it.jpg") }
+        onMain {
+            vm.addImages(first)
+            // Shared, or picked with Add images, while the first ones are still being copied.
+            vm.addImages(second)
+        }
+        waitUntil("both to be imported") { vm.items.value.size == 6 && vm.pendingImports.value == 0 }
+        assertEquals(listOf("a1.jpg", "a2.jpg", "a3.jpg", "a4.jpg", "b1.jpg", "b2.jpg"), onMain { vm.items.value.map { it.name } })
+        onMain { vm.clearAll() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    @Test fun aResultShowingWhenAndroidStoppedUsugamiShowsAgain() {
+        val pdf = file("output/images/Kept.pdf")
+        // MainViewModel's saved-state keys for the result that was showing (see KeptResult).
+        fun restore() = onMain {
+            MainViewModel(
+                app,
+                SavedStateHandle(mapOf("result_count" to 1, "result_paths" to arrayOf(pdf.path), "result_pages" to intArrayOf(1), "result_originals" to longArrayOf(0))),
+            )
+        }
+        val vm = restore()
+        runBlocking { vm.awaitFileWork() }
+        assertEquals(listOf(pdf.path), onMain { vm.result.value?.map { it.file.path } })
+        assertTrue("Its PDF is kept", pdf.isFile)
+
+        // The system cleared the cache meanwhile: the result goes, and a message says so.
+        pdf.delete()
+        val gone = restore()
+        waitUntil("the result to go") { gone.result.value == null }
+        val cleared = AppLanguages.localized(app).resources.getQuantityString(R.plurals.msg_result_cleared, 1)
+        assertEquals(cleared, runBlocking { withTimeout(10_000) { gone.messages.first() } })
+        runBlocking { gone.awaitFileWork() }
     }
 
     @Test fun restoredPdfsWhoseCopiesWereClearedAreDroppedAndResetFreesTheRest() {
@@ -144,7 +198,7 @@ class WorkingFilesDeviceTest {
     @Test fun copiesSurviveTheActivityBeingDestroyedWithoutFinishing() {
         val image = file("images/11.jpg")
         val pdf = file("pdf-inputs/12.pdf")
-        fun images() = SavedStateHandle(mapOf("items" to arrayListOf(ImageItem(11, image.path, "a.jpg", ImageFormat.JPEG, 10, 10, 1))))
+        fun images() = SavedStateHandle(mapOf("items" to MainViewModel.packItems(listOf(ImageItem(11, image.path, "a.jpg", ImageFormat.JPEG, 10, 10, 1)))))
         fun pdfs() = SavedStateHandle(mapOf("pdf_inputs" to arrayListOf(PdfInput(12, pdf.path, "a.pdf", 1))))
 
         // "Don't keep activities", or the system reclaiming the activity: the view models are cleared,

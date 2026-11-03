@@ -96,7 +96,7 @@ fun AboutScreen(
         topBar = {
             TopAppBar(
                 scrollBehavior = barScroll,
-                title = { Text(stringResource(R.string.about_title)) },
+                title = { BarTitle(stringResource(R.string.about_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -237,7 +237,7 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
         topBar = {
             TopAppBar(
                 scrollBehavior = barScroll,
-                title = { Text(stringResource(document.title)) },
+                title = { BarTitle(stringResource(document.title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))

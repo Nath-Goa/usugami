@@ -71,6 +71,12 @@ fun ConvertSheet(
     initialMerge: Boolean,
     initialCompression: Compression,
     initialChoices: ConvertChoices,
+    /**
+     * Images are still being added (shared while the sheet was open), or the last PDFs are still
+     * being saved: Create waits for them, rather than closing the sheet and doing nothing.
+     */
+    importing: Boolean,
+    saving: Boolean,
     onDismiss: () -> Unit,
     onCreate: (merge: Boolean, fileName: String, compression: Compression, ocr: OcrLanguage?) -> Unit,
 ) {
@@ -139,7 +145,7 @@ fun ConvertSheet(
                         suffix = { Text(".pdf") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { create() }),
+                        keyboardActions = KeyboardActions(onDone = { if (!importing && !saving) create() }),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -214,7 +220,20 @@ fun ConvertSheet(
             }
 
             Spacer(Modifier.height(24.dp))
-            Button(onClick = create, modifier = Modifier.fillMaxWidth()) {
+            AnimatedVisibility(
+                visible = importing,
+                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                label = "adding images",
+            ) {
+                Text(
+                    stringResource(R.string.adding_images),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            Button(onClick = create, enabled = !importing && !saving, modifier = Modifier.fillMaxWidth()) {
                 AnimatedContent(
                     targetState = oneFile,
                     transitionSpec = { textSwap() },

@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -72,8 +73,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.data.PdfFile
 import kotlinx.coroutines.delay
@@ -122,9 +125,10 @@ fun ResultScreen(
         topBar = {
             TopAppBar(
                 scrollBehavior = barScroll,
-                title = { Text(stringResource(R.string.result_title)) },
+                title = { BarTitle(stringResource(R.string.result_title)) },
                 navigationIcon = {
-                    IconButton(onClick = actions.back) {
+                    // Not while saving: leaving and converting again would replace the PDFs being saved.
+                    IconButton(onClick = actions.back, enabled = !busy) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back_to_editing))
                     }
                 },
@@ -177,10 +181,10 @@ fun ResultScreen(
             Column(Modifier.widthIn(max = 480.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (single) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        WideButton(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open), Modifier.weight(1f), primary = true) {
+                        WideButton(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open), Modifier.weight(1f), primary = true, halfWidth = true) {
                             actions.open(files[0])
                         }
-                        WideButton(Icons.Rounded.Share, stringResource(R.string.share), Modifier.weight(1f), tonal = true, onClick = actions.share)
+                        WideButton(Icons.Rounded.Share, stringResource(R.string.share), Modifier.weight(1f), tonal = true, halfWidth = true, onClick = actions.share)
                     }
                 } else {
                     WideButton(Icons.Rounded.Share, stringResource(R.string.share_all), Modifier.fillMaxWidth(), primary = true, enabled = zipProgress == null, onClick = actions.share)
@@ -215,7 +219,8 @@ fun ResultScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            TextButton(onClick = { if (saved) actions.startOver() else confirmStartOver = true }) {
+            // Not while saving: starting over deletes the PDFs being saved.
+            TextButton(onClick = { if (saved) actions.startOver() else confirmStartOver = true }, enabled = !busy) {
                 Icon(Icons.Rounded.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(stringResource(R.string.start_over))
@@ -316,8 +321,8 @@ private fun FileRow(file: PdfFile, showOpen: Boolean, onOpen: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (file.originalBytes > sizeBytes) {
-                    val percent = ((file.originalBytes - sizeBytes) * 100 / file.originalBytes).toInt()
+                val percent = Compressor.savedPercent(file.originalBytes, sizeBytes)
+                if (percent != null) {
                     Text(
                         stringResource(R.string.compressed_from, Formatter.formatShortFileSize(context, file.originalBytes), percent),
                         style = MaterialTheme.typography.bodySmall,
@@ -345,12 +350,25 @@ private fun WideButton(
     primary: Boolean = false,
     tonal: Boolean = false,
     enabled: Boolean = true,
+    halfWidth: Boolean = false,
     onClick: () -> Unit,
 ) {
     val content: @Composable () -> Unit = {
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
-        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // With a large font size or a long translation: beside another button, the label (one word)
+        // shrinks to fit; across the screen, it takes a second line. Either way it isn't cut off.
+        if (halfWidth) {
+            val size = MaterialTheme.typography.labelLarge.fontSize
+            Text(
+                text,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = size, stepSize = 0.5.sp),
+            )
+        } else {
+            Text(text, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        }
     }
     when {
         primary -> Button(onClick = onClick, enabled = enabled, modifier = modifier) { content() }

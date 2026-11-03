@@ -21,6 +21,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowRightAlt
 import androidx.compose.material.icons.automirrored.rounded.Redo
@@ -82,6 +83,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.EditLayout
@@ -356,7 +358,17 @@ private fun EditToolButton(icon: ImageVector, label: String, active: Boolean?, e
             Icon(icon, contentDescription = null, tint = content)
         }
         Spacer(Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = content, textAlign = TextAlign.Center, maxLines = 2)
+        // One word in a fifth of the screen: with a large font size it shrinks, rather than breaking mid-word.
+        val size = MaterialTheme.typography.labelMedium.fontSize
+        Text(
+            label,
+            style = MaterialTheme.typography.labelMedium,
+            color = content,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = size, stepSize = 0.5.sp),
+        )
     }
 }
 
@@ -557,7 +569,16 @@ private fun LabeledSlider(
 ) {
     var moving by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.width(96.dp).clearAndSetSemantics {})
+        // A fixed width keeps the sliders lined up; a long name (a large font size) shrinks to fit it
+        // rather than breaking mid-word.
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyLarge,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = MaterialTheme.typography.bodyLarge.fontSize, stepSize = 0.5.sp),
+            modifier = Modifier.width(96.dp).clearAndSetSemantics {},
+        )
         Slider(
             value = value.coerceIn(range),
             onValueChange = {

@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Parcelable
 import android.provider.OpenableColumns
+import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.PageNumberPosition
@@ -111,7 +112,8 @@ class PdfToolsEngine(private val context: Context) {
     // The folder is created each time: the system may have cleared the cache since the last run.
     private fun memory() = MemoryUsageSetting.setupMixed(24L * 1024 * 1024).setTempDir(scratchDir.apply { mkdirs() })
 
-    fun clearOutput() { outputDir.deleteRecursively() }
+    /** Deletes the PDFs made before, but [keep]: a result showing again after Android restarted Usugami. */
+    fun clearOutput(keep: Collection<File> = emptyList()) { outputDir.deleteAllBut(keep) }
 
     /** Where a ZIP file of the results is made, beside them, so it goes when they do. */
     val zipDir get() = File(outputDir, "zip")
@@ -655,7 +657,8 @@ class PdfToolsEngine(private val context: Context) {
                 doc.isAllSecurityToBeRemoved = true
                 doc.save(candidate)
             }
-            if (input.password.isNotEmpty() || candidate.length() < input.file.length()) candidate.copyTo(target, overwrite = true)
+            // A saving under 1% isn't worth a re-encoded copy: the original is kept, as it says.
+            if (input.password.isNotEmpty() || Compressor.savedPercent(input.file.length(), candidate.length()) != null) candidate.copyTo(target, overwrite = true)
             else input.file.copyTo(target, overwrite = true)
             return PdfFile(target, input.pageCount, input.file.length())
         } catch (t: Throwable) {

@@ -1185,6 +1185,19 @@ class ScreensDeviceTest {
         assertFalse(nodes().any { it.says(app.getString(R.string.pdf_discard_title)) })
         find("the result screen, still showing") { it.says(app.getString(R.string.result_heading_one)) }
         assertTrue(onMain { pdfVm.result.value != null })
+
+        // Recreated, as on rotation, it stays: the images restored with it weren't just shared.
+        onMain { activity.recreate() }
+        recreatedFrom(activity)
+        Thread.sleep(1000)
+        find("the result screen, after recreation") { it.says(app.getString(R.string.result_heading_one)) }
+        assertFalse(nodes().any { it.says(app.getString(R.string.pdf_discard_title)) })
+
+        // Leaving the tool shows the shared images, rather than leaving them unseen at Home.
+        backKey()
+        find("the tool") { it.says(app.getString(R.string.tool_compress)) }
+        backKey()
+        find("the shared images in the editor") { it.says(app.getString(R.string.convert)) }
         onMain { vm.clearAll() }
     }
 

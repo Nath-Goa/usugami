@@ -5,10 +5,12 @@ import android.content.Intent
 import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.annotation.VisibleForTesting
+import androidx.core.os.bundleOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -18,7 +20,9 @@ import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.NaturalOrder
 import io.github.nath_goa.usugami.core.ZipProgress
+import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.ImageUnreadableException
@@ -44,6 +48,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.time.LocalDateTime
@@ -75,11 +81,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** Serialises file work (cleanup, imports, deletes) so they never race each other. */
     private val fileOps = Dispatchers.IO.limitedParallelism(1)
 
-    // Must be read before getStateFlow, which stores the initial value.
     private val restored = handle.contains(KEY_ITEMS)
 
-    /** The picked images in page order. Survives rotation and the system killing the app. */
-    val items: StateFlow<List<ImageItem>> = handle.getStateFlow(KEY_ITEMS, ArrayList<ImageItem>())
+    private val _items = MutableStateFlow(restoredItems())
+    /** The picked images in page order. Survives rotation and the system killing the app (see [packItems]). */
+    val items: StateFlow<List<ImageItem>> = _items.asStateFlow()
 
     private val _layout = MutableStateFlow(settingsStore.layout)
     val layout: StateFlow<LayoutSettings> = _layout.asStateFlow()
@@ -101,11 +107,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private val _cancelling = MutableStateFlow(false)
     val cancelling: StateFlow<Boolean> = _cancelling.asStateFlow()
 
+    /** The result, whether it was saved and its name are kept in the saved state too. */
+    private val keptResult = KeptResult(handle)
+
     /** Non-null once PDFs have been created: the result screen is showing. */
-    private val _result = MutableStateFlow<List<PdfFile>?>(null)
+    private val _result = MutableStateFlow(keptResult.restore())
     val result: StateFlow<List<PdfFile>?> = _result.asStateFlow()
 
-    private val _saved = MutableStateFlow(false)
+    private val _saved = MutableStateFlow(handle[KEY_SAVED] ?: false)
     val saved: StateFlow<Boolean> = _saved.asStateFlow()
 
     private val _busySaving = MutableStateFlow(false)
@@ -119,7 +128,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     val messages: Flow<String> = _messages.receiveAsFlow()
 
     /** The name the last PDFs were made with, which a ZIP file of them is named after. */
-    private var resultName = ""
+    private var resultName: String
+        get() = handle[KEY_RESULT_NAME] ?: ""
+        set(value) { handle[KEY_RESULT_NAME] = value }
     private val zipper = ResultZipper(app, exporter.zipDir, viewModelScope, { strings }, { _messages.trySend(it) }, ::resultCleared)
     /** How far the ZIP file of the result's PDFs has got, while it is being made. */
     val zipProgress: StateFlow<ZipProgress?> = zipper.progress
@@ -132,6 +143,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** Bumped by [clearAll], so imports still running drop their images instead of bringing the list back. */
     private var importGeneration = 0
 
+    /** Held by the batch of images being imported; the next batch waits for it (see [addImages]). */
+    private val importLock = Mutex()
+
     /**
      * The choices of the last attempt that made no PDF (text recognition wasn't available, it failed
      * or it was cancelled), so the Convert sheet opens with them again instead of the defaults.
@@ -139,17 +153,25 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var lastChoices: ConvertChoices? = null
 
     init {
+        handle.setSavedStateProvider(KEY_ITEMS) { packItems(_items.value) }
         val keep = if (restored) items.value else emptyList()
+        // The result that was showing when Android stopped Usugami in the background, if any.
+        val shown = _result.value
+        val shownCount = keptResult.count
         viewModelScope.launch {
-            val missing = withContext(fileOps) {
+            val (missing, resultGone) = withContext(fileOps) {
                 // Leftovers from an earlier session (or half-copied files) are removed.
                 store.deleteAllExcept(keep)
-                exporter.clearOutput()
+                val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
+                exporter.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
-                keep.filterNot(store::exists)
+                keep.filterNot(store::exists) to (stillThere == null)
             }
             if (missing.isNotEmpty()) forgetMissing(missing)
+            if (shownCount > 0 && resultGone && _result.value === shown) resultCleared(shownCount)
         }
+        viewModelScope.launch { _result.collect(keptResult::keep) }
+        viewModelScope.launch { _saved.collect { handle[KEY_SAVED] = it } }
     }
 
     // ---- Picking images ----
@@ -168,27 +190,36 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         viewModelScope.launch {
             var unsupported = 0
             var failed = refused
+            var noSpace = 0
             try {
-                for (uri in uris) {
-                    val id = nextId++
-                    val r = withContext(fileOps) { store.import(uri, id) }
-                    if (generation != importGeneration) {
-                        // Discarded while it was being copied.
-                        if (r is ImageStore.ImportResult.Added) viewModelScope.launch(fileOps) { store.delete(r.item) }
-                        return@launch
+                // One batch at a time, in the order they came: images picked or shared while others
+                // are still being copied go after them, not in between.
+                importLock.withLock {
+                    for (uri in uris) {
+                        // Discarded while waiting its turn.
+                        if (generation != importGeneration) return@launch
+                        val id = nextId++
+                        val r = withContext(fileOps) { store.import(uri, id) }
+                        if (generation != importGeneration) {
+                            // Discarded while it was being copied.
+                            if (r is ImageStore.ImportResult.Added) viewModelScope.launch(fileOps) { store.delete(r.item) }
+                            return@launch
+                        }
+                        when (r) {
+                            is ImageStore.ImportResult.Added -> setItems(items.value + r.item)
+                            ImageStore.ImportResult.Unsupported -> unsupported++
+                            ImageStore.ImportResult.Failed -> failed++
+                            ImageStore.ImportResult.NoSpace -> noSpace++
+                        }
+                        _pendingImports.update { it - 1 }
                     }
-                    when (r) {
-                        is ImageStore.ImportResult.Added -> setItems(items.value + r.item)
-                        ImageStore.ImportResult.Unsupported -> unsupported++
-                        ImageStore.ImportResult.Failed -> failed++
-                    }
-                    _pendingImports.update { it - 1 }
                 }
             } finally {
                 // Nothing to report about images the user has discarded.
                 if (generation == importGeneration) {
                     if (unsupported > 0) pluralMessage(R.plurals.msg_skipped_unsupported, unsupported)
                     if (failed > 0) pluralMessage(R.plurals.msg_failed_import, failed)
+                    if (noSpace > 0) pluralMessage(R.plurals.msg_import_no_space, noSpace)
                 }
             }
         }
@@ -252,8 +283,31 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     private fun setItems(list: List<ImageItem>) {
-        handle[KEY_ITEMS] = ArrayList(list)
+        _items.value = list
         if (list.isEmpty()) lastChoices = null
+    }
+
+    /** The images [packItems] kept in the saved state, if Android restarted Usugami. */
+    private fun restoredItems(): List<ImageItem> {
+        val saved = handle.get<Bundle>(KEY_ITEMS) ?: return emptyList()
+        val ids = saved.getLongArray("ids") ?: return emptyList()
+        val sizes = saved.getIntArray("sizes") ?: return emptyList()
+        val details = saved.getIntArray("details") ?: return emptyList()
+        if (ids.isEmpty() || sizes.size != 2 * ids.size || details.size != ids.size) return emptyList()
+        val names = saved.getByteArray("names")?.decodeToString()?.split('/').orEmpty()
+        return ids.indices.map { i ->
+            val format = ImageFormat.entries[details[i] shr 16]
+            ImageItem(
+                id = ids[i],
+                path = store.fileFor(ids[i], format).path,
+                name = names.getOrNull(i) ?: "Image",
+                format = format,
+                width = sizes[2 * i],
+                height = sizes[2 * i + 1],
+                exifOrientation = details[i] shr 8 and 0xFF,
+                rotation = (details[i] and 0xFF) * 90,
+            )
+        }
     }
 
     /** Drops images whose copies the system has cleared from the cache, and says so. */
@@ -388,12 +442,16 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     // ---- Result ----
 
     fun backToEditing() {
+        // Not while the PDFs are being saved: converting again would replace them mid-save.
+        if (_busySaving.value) return
         // A ZIP file of the result is no longer wanted once the result screen has gone.
         zipper.cancel()
         _result.value = null
     }
 
     fun startOver() {
+        // Not while the PDFs are being saved: their files would be deleted mid-save.
+        if (_busySaving.value) return
         zipper.cancel()
         _result.value = null
         clearAll()
@@ -494,6 +552,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private fun save(block: suspend () -> String) {
         if (_busySaving.value) return
         _busySaving.value = true
+        val saving = _result.value
         viewModelScope.launch {
             try {
                 val text = withContext(Dispatchers.IO) { block() }
@@ -503,8 +562,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 throw e
             } catch (e: Exception) {
                 val files = _result.value
-                if (files != null && files.any { !it.file.isFile }) resultCleared(files.size)
-                else message(R.string.msg_save_failed)
+                when {
+                    // Images shared meanwhile put the result away, or it was cleared and said so.
+                    files == null || files !== saving -> {}
+                    files.any { !it.file.isFile } -> resultCleared(files.size)
+                    else -> message(R.string.msg_save_failed)
+                }
             } finally {
                 _busySaving.value = false
             }
@@ -536,13 +599,23 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         Thread { all.forEach(store::delete) }.start()
     }
 
-    private companion object {
-        const val KEY_ITEMS = "items"
-    }
-}
+    companion object {
+        private const val KEY_ITEMS = "items"
+        private const val KEY_SAVED = "saved"
+        private const val KEY_RESULT_NAME = "result_name"
 
-/** Whether this failure (or one of its causes) is the storage running full. */
-internal fun Throwable.isOutOfSpace(): Boolean {
-    val text = generateSequence(this) { it.cause }.joinToString(" ") { it.message.orEmpty() }
-    return "ENOSPC" in text || "No space left" in text
+        /**
+         * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,
+         * and a few thousand images were more than the saved state can hold, which crashed Usugami as
+         * it went to the background. The copies' paths follow from their ids (see [ImageStore.fileFor]),
+         * and names never contain "/" (they are what follows the last one).
+         */
+        @VisibleForTesting
+        internal fun packItems(list: List<ImageItem>): Bundle = bundleOf(
+            "ids" to LongArray(list.size) { list[it].id },
+            "names" to list.joinToString("/") { it.name }.encodeToByteArray(),
+            "sizes" to IntArray(2 * list.size) { if (it % 2 == 0) list[it / 2].width else list[it / 2].height },
+            "details" to IntArray(list.size) { list[it].run { format.ordinal shl 16 or (exifOrientation shl 8) or rotation / 90 } },
+        )
+    }
 }

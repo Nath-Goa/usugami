@@ -16,6 +16,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -88,6 +89,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
@@ -96,6 +98,8 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -141,7 +145,7 @@ fun EditorScreen(
                 scrollBehavior = barScroll,
                 title = {
                     Column {
-                        Text(stringResource(R.string.editor_title))
+                        BarTitle(stringResource(R.string.editor_title))
                         // Keeps the last count while the line animates away after the last image goes.
                         val shownCount = freezeWhen(items.isEmpty(), items.size)
                         AnimatedVisibility(
@@ -154,6 +158,8 @@ fun EditorScreen(
                                 pluralStringResource(R.plurals.image_count, shownCount, shownCount),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
                     }
@@ -304,6 +310,8 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
                 val elevation by animateDpAsState(if (isDragging) 10.dp else 1.dp, label = "drag elevation")
                 val moveEarlier = stringResource(R.string.move_page_earlier, index + 1)
                 val moveLater = stringResource(R.string.move_page_later, index + 1)
+                // The page is only drawn turned: a screen reader hears it, also right after Rotate.
+                val turned = turnedLabel(item.rotation)?.let { stringResource(it) }
                 ElevatedCard(
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation),
                     modifier = Modifier
@@ -318,6 +326,7 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
                                 if (index > 0) add(CustomAccessibilityAction(moveEarlier) { actions.moveBy(item.id, -1); true })
                                 if (index < items.lastIndex) add(CustomAccessibilityAction(moveLater) { actions.moveBy(item.id, 1); true })
                             }
+                            if (turned != null) stateDescription = turned
                         },
                 ) {
                     PageCardContent(index + 1, item, layout, thumbnails, actions)
@@ -457,43 +466,56 @@ private fun BottomActions(
     onAddFiles: () -> Unit,
     onConvert: () -> Unit,
 ) {
+    val labelStyle = MaterialTheme.typography.labelLarge
+    val shrunk = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = labelStyle.fontSize, stepSize = 0.5.sp)
+    val convertLabel = stringResource(R.string.convert)
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
     Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
-        Row(
+        BoxWithConstraints(
             Modifier
                 .fillMaxWidth()
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            var menu by remember { mutableStateOf(false) }
-            Box {
-                OutlinedButton(onClick = { menu = true }, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-                    Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.add_images), maxLines = 1)
+            // Convert keeps room for its label at its smallest size, so with a large font size the
+            // Add button shrinks (and ends in "…") rather than Convert, the main action, being cut.
+            val convertRoom = with(density) {
+                measurer.measure(convertLabel, labelStyle.copy(fontSize = 11.sp), maxLines = 1).size.width.toDp()
+            } + ButtonChrome
+            val addRoom = (maxWidth - ButtonGap - convertRoom).coerceAtLeast(ButtonChrome)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                var menu by remember { mutableStateOf(false) }
+                Box(Modifier.widthIn(max = addRoom)) {
+                    OutlinedButton(onClick = { menu = true }, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.add_images), maxLines = 1, overflow = TextOverflow.Ellipsis, autoSize = shrunk)
+                    }
+                    AddMenu(menu, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
                 }
-                AddMenu(menu, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
-            }
-            Spacer(Modifier.width(12.dp))
-            Button(
-                onClick = onConvert,
-                enabled = convertEnabled,
-                modifier = Modifier.weight(1f),
-                contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
-            ) {
-                Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                // Shrinks a little on narrow phones, large text or a long translation, rather than being cut off.
-                Text(
-                    stringResource(R.string.convert),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = MaterialTheme.typography.labelLarge.fontSize, stepSize = 0.5.sp),
-                )
+                Spacer(Modifier.width(ButtonGap))
+                Button(
+                    onClick = onConvert,
+                    enabled = convertEnabled,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+                ) {
+                    Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    // Shrinks a little on narrow phones, large text or a long translation, rather than being cut off.
+                    Text(convertLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, autoSize = shrunk)
+                }
             }
         }
     }
 }
+
+/** Between the bottom bar's two buttons. */
+private val ButtonGap = 12.dp
+
+/** A bottom bar button's width besides its label: its padding (16 and 24 dp), icon and the gap after it. */
+private val ButtonChrome = 16.dp + 24.dp + 18.dp + 6.dp
 
 @Composable
 private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: () -> Unit) {

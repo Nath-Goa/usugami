@@ -16,6 +16,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -93,6 +94,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -218,7 +220,7 @@ fun PdfToolScreen(
             modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(title)) },
+                    title = { BarTitle(stringResource(title)) },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
                     scrollBehavior = barScroll,
                 )
@@ -575,6 +577,8 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                     val angle by animatePdfPageRotationAsState(ref.rotation)
                     val moveEarlier = stringResource(R.string.move_page_earlier, index + 1)
                     val moveLater = stringResource(R.string.move_page_later, index + 1)
+                    // The page is only drawn turned: a screen reader hears it, also right after Rotate.
+                    val turned = turnedLabel(ref.rotation)?.let { stringResource(it) }
                     OutlinedCard(
                         Modifier
                             .fillMaxWidth()
@@ -586,12 +590,13 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                                     if (index > 0) add(CustomAccessibilityAction(moveEarlier) { vm.movePageBy(ref, -1); true })
                                     if (index < pages.lastIndex) add(CustomAccessibilityAction(moveLater) { vm.movePageBy(ref, 1); true })
                                 }
+                                if (turned != null) stateDescription = turned
                             },
                     ) {
                         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             PdfThumbnail(drawn(input), ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle })
                             Spacer(Modifier.width(8.dp))
-                            Text("${index + 1}. ${input.name} · ${ref.page + 1}", modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(stringResource(R.string.merge_page_line, index + 1, input.name, ref.page + 1), modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                             IconButton(onClick = { vm.rotatePage(ref, 90) }) {
                                 Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, index + 1))
                             }
@@ -622,11 +627,10 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
     // The sections under the chips carry the gap above them, so each gap opens and closes with its
     // section instead of snapping once the section has gone.
     Column {
-        modes.chunked(2).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { (item, label) ->
-                    FilterChip(selected = mode == item, onClick = { if (mode != item) { onMode(item); onText("") } }, label = { Text(stringResource(label)) })
-                }
+        // As many to a line as fit, so a long label (a translation, a large font size) moves to the next line.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            modes.forEach { (item, label) ->
+                FilterChip(selected = mode == item, onClick = { if (mode != item) { onMode(item); onText("") } }, label = { Text(stringResource(label)) })
             }
         }
         val showRange = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM || mode == SplitMode.FIXED

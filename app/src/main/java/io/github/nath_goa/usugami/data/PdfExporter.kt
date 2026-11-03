@@ -38,8 +38,9 @@ class ImageUnreadableException(val imageName: String) : Exception("Unreadable im
 class PdfExporter(context: Context) {
     private val outputDir = File(context.cacheDir, "output/images")
 
-    fun clearOutput() {
-        outputDir.deleteRecursively()
+    /** Deletes the PDFs made before, but [keep]: a result showing again after Android restarted Usugami. */
+    fun clearOutput(keep: Collection<File> = emptyList()) {
+        outputDir.deleteAllBut(keep)
     }
 
     /** Where a ZIP file of the PDFs is made, beside them, so it goes when they do. */

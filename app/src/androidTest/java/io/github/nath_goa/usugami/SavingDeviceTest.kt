@@ -55,6 +55,30 @@ class SavingDeviceTest {
         assertEquals("The document isn't emptied before the PDF is opened", "old document", target.readText())
     }
 
+    /** Start over and Back wait while the PDF is being saved: they would delete or replace it mid-save. */
+    @Test fun theResultStaysWhileItIsBeingSaved() {
+        val pdf = File(app.cacheDir, "output/images/Saving.pdf").apply { parentFile!!.mkdirs(); writeText("%PDF-1.4 saving") }
+        val target = File(dir, "saving-target.pdf").apply { writeText("") }
+        // MainViewModel's saved-state keys for a result showing (see KeptResult).
+        val state = mapOf("result_count" to 1, "result_paths" to arrayOf(pdf.path), "result_pages" to intArrayOf(1), "result_originals" to longArrayOf(0))
+        val vm = onMain { MainViewModel(app, SavedStateHandle(state)) }
+        runBlocking { vm.awaitFileWork() }
+
+        onMain {
+            vm.saveTo(Uri.fromFile(target))
+            vm.startOver()
+            vm.backToEditing()
+        }
+        assertTrue("The result is still showing", onMain { vm.result.value != null })
+        assertEquals(AppLanguages.localized(app).resources.getString(R.string.msg_saved), firstMessage(vm.messages))
+        assertEquals("%PDF-1.4 saving", target.readText())
+
+        // Once saved, Start over goes ahead.
+        onMain { vm.startOver() }
+        assertTrue(onMain { vm.result.value == null })
+        runBlocking { vm.awaitFileWork() }
+    }
+
     /** The system restarted Usugami while "Save as" was open: the PDF has gone, so say so. */
     @Test fun saveAsAfterTheResultHasGoneSaysSo() {
         val target = Uri.fromFile(File(dir, "picked.pdf").apply { writeText("") })

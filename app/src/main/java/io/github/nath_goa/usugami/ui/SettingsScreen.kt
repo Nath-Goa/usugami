@@ -88,7 +88,7 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 scrollBehavior = barScroll,
-                title = { Text(stringResource(R.string.settings)) },
+                title = { BarTitle(stringResource(R.string.settings)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))

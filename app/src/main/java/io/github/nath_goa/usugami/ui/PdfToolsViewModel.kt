@@ -12,6 +12,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.EditLayout
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.InkItem
@@ -26,6 +27,7 @@ import io.github.nath_goa.usugami.core.PictureItem
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.SignaturePlacement
+import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.PagePictures
@@ -175,7 +177,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** The last password tried on the first locked PDF didn't open it. */
     private val _wrongPassword = MutableStateFlow(false)
     val wrongPassword = _wrongPassword.asStateFlow()
-    private val _result = MutableStateFlow<List<PdfFile>?>(null)
+    /** The result, whether it was saved, and its name and note are kept in the saved state too. */
+    private val keptResult = KeptResult(handle)
+    private val _result = MutableStateFlow(keptResult.restore())
     val result = _result.asStateFlow()
     private val _processing = MutableStateFlow(false)
     val processing = _processing.asStateFlow()
@@ -183,16 +187,18 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     val importing = _importing.asStateFlow()
     private val _saving = MutableStateFlow(false)
     val saving = _saving.asStateFlow()
-    private val _saved = MutableStateFlow(false)
+    private val _saved = MutableStateFlow(handle[KEY_SAVED] ?: false)
     val saved = _saved.asStateFlow()
     /** True when the result was made from a PDF opened with a password: the new PDF has none. */
-    private val _passwordRemoved = MutableStateFlow(false)
+    private val _passwordRemoved = MutableStateFlow(handle[KEY_PASSWORD_REMOVED] ?: false)
     val passwordRemoved = _passwordRemoved.asStateFlow()
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages = _messages.receiveAsFlow()
 
     /** What the last run was named (the file name typed), which a ZIP file of its PDFs is named after. */
-    private var resultName = ""
+    private var resultName: String
+        get() = handle[KEY_RESULT_NAME] ?: ""
+        set(value) { handle[KEY_RESULT_NAME] = value }
     private val zipper = ResultZipper(app, engine.zipDir, viewModelScope, { strings }, ::message, ::resultCleared)
     /** How far the ZIP file of the result's PDFs has got, while it is being made. */
     val zipProgress = zipper.progress
@@ -211,13 +217,19 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val keep = if (restored) inputs.value + locked.value else emptyList()
         val keepDocument = document.value
         val keepPictures = history.items.value.filterIsInstance<PictureItem>().map { it.path }
+        // The result that was showing when Android stopped Usugami in the background, if any.
+        val shown = _result.value
+        val shownCount = keptResult.count
         viewModelScope.launch {
+            var resultGone = false
             val (missing, documentMissing) = withContext(fileOps) {
                 // Leftovers from an earlier session, including PDFBox scratch files from a killed run.
                 engine.deleteAllExcept(keep)
                 office.deleteAllExcept(keepDocument)
                 pictures.deleteAllExcept(keepPictures)
-                engine.clearOutput()
+                val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
+                resultGone = stillThere == null
+                engine.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
                 engine.clearScratch()
                 office.clearWork()
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
@@ -227,9 +239,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             if (missing.isNotEmpty()) forgetInputs(missing)
             if (documentMissing) forgetDocument()
             if (picturesMissing.isNotEmpty()) forgetPictures(picturesMissing)
+            if (shownCount > 0 && resultGone && _result.value === shown) resultCleared(shownCount)
             // The views were cleared with the leftovers.
             prepareViews(inputs.value)
         }
+        viewModelScope.launch { _result.collect(keptResult::keep) }
+        viewModelScope.launch { _saved.collect { handle[KEY_SAVED] = it } }
+        viewModelScope.launch { _passwordRemoved.collect { handle[KEY_PASSWORD_REMOVED] = it } }
     }
 
     fun addPdfs(uris: List<Uri>, replace: Boolean) {
@@ -257,8 +273,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                         throw e
                     } catch (_: PdfCertificateEncrypted) {
                         failed(R.string.pdf_certificate_unsupported)
-                    } catch (_: Exception) {
-                        failed(R.string.pdf_import_failed)
+                    } catch (e: Exception) {
+                        failed(if (e.isOutOfSpace()) R.string.open_no_space else R.string.pdf_import_failed)
                     } catch (_: LinkageError) {
                         // Never crash on a PDF that PDFBox can't handle.
                         failed(R.string.pdf_import_failed)
@@ -296,8 +312,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 throw e
             } catch (e: OfficeFileProblem) {
                 failed(officeMessage(e, kind))
-            } catch (_: Exception) {
-                failed(officeMessage(OfficeNotRecognized(), kind))
+            } catch (e: Exception) {
+                failed(if (e.isOutOfSpace()) strings.getString(R.string.open_no_space) else officeMessage(OfficeNotRecognized(), kind))
             } catch (_: OutOfMemoryError) {
                 failed(officeMessage(OfficeNotRecognized(), kind))
             } finally {
@@ -357,7 +373,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             } catch (_: PdfWrongPassword) {
                 if (stillAsked()) _wrongPassword.value = true
             } catch (e: Exception) {
-                if (stillAsked()) unlockFailed(pending, if (e is PdfCertificateEncrypted) R.string.pdf_certificate_unsupported else R.string.pdf_import_failed)
+                val reason = when {
+                    e is PdfCertificateEncrypted -> R.string.pdf_certificate_unsupported
+                    e.isOutOfSpace() -> R.string.open_no_space
+                    else -> R.string.pdf_import_failed
+                }
+                if (stillAsked()) unlockFailed(pending, reason)
             } catch (_: LinkageError) {
                 if (stillAsked()) unlockFailed(pending, R.string.pdf_import_failed)
             } catch (_: OutOfMemoryError) {
@@ -643,7 +664,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             // The engine keeps the original file when re-encoding would not make an unprotected PDF
             // smaller. Say so, otherwise the result looks like nothing happened.
             val file = files.single()
-            if (input.password.isEmpty() && file.sizeBytes >= file.originalBytes) {
+            if (input.password.isEmpty() && Compressor.savedPercent(file.originalBytes, file.sizeBytes) == null) {
                 message(strings.getString(R.string.pdf_no_reduction))
             }
         }) { check -> listOf(engine.compress(input, level, fileName, check)) }
@@ -799,7 +820,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         importJob = viewModelScope.launch {
             val job = coroutineContext[Job]!!
             fun abandoned() = generation != importGeneration
-            fun failed() { if (!abandoned()) message(strings.getString(R.string.edit_picture_failed)) }
+            fun failed(@StringRes reason: Int = R.string.edit_picture_failed) { if (!abandoned()) message(strings.getString(reason)) }
             try {
                 val id = history.newId()
                 val picked = withContext(fileOps) { pictures.import(uri, id) { job.ensureActive() } }
@@ -811,8 +832,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 addEditItem(EditLayout.clearOf(picture, history.items.value, width, height))
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
-                failed()
+            } catch (e: Exception) {
+                failed(if (e.isOutOfSpace()) R.string.open_no_space else R.string.edit_picture_failed)
             } catch (_: OutOfMemoryError) {
                 failed()
             } finally {
@@ -878,8 +899,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 if (inputs.value.singleOrNull()?.id == input.id) _previewView.value = view
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
-                failedView(input, required)
+            } catch (e: Exception) {
+                failedView(input, required, e.isOutOfSpace())
             } catch (_: LinkageError) {
                 failedView(input, required)
             } catch (_: OutOfMemoryError) {
@@ -888,11 +909,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
 
-    /** No preview can be drawn of [input]: say so, and put it away, if the tool [required] one. */
-    private fun failedView(input: PdfInput, required: Boolean) {
+    /**
+     * No preview can be drawn of [input]: say so, and put it away, if the tool [required] one.
+     * [noSpace]: the storage was too full to write the view, rather than the PDF being unreadable.
+     */
+    private fun failedView(input: PdfInput, required: Boolean, noSpace: Boolean = false) {
         if (inputs.value.singleOrNull()?.id != input.id) return
         if (!required) return run { _previewView.value = input }
-        message(strings.getString(R.string.pdf_import_failed))
+        message(strings.getString(if (noSpace) R.string.open_no_space else R.string.pdf_import_failed))
         removeInput(input.id)
     }
 
@@ -1092,12 +1116,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun cancel() { task?.cancel() }
 
     fun backToEditing() {
+        // Not while the PDFs are being saved: running the tool again would replace them mid-save.
+        if (_saving.value) return
         // A ZIP file of the result is no longer wanted once the result screen has gone.
         zipper.cancel()
         _result.value = null
     }
 
     fun startOver() {
+        // Not while the PDFs are being saved: their files would be deleted mid-save.
+        if (_saving.value) return
         // A PDF or picture still being added belongs to the PDF put away: the import is abandoned,
         // as reset() abandons it, rather than adding it once done.
         val importing = importJob?.isActive == true
@@ -1230,6 +1258,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun save(block: () -> String) {
         if (_saving.value) return
         _saving.value = true
+        val saving = _result.value
         viewModelScope.launch {
             try {
                 message(withContext(Dispatchers.IO) { block() })
@@ -1238,8 +1267,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 throw e
             } catch (_: Exception) {
                 val files = _result.value
-                if (files != null && files.any { !it.file.isFile }) resultCleared(files.size)
-                else message(strings.getString(R.string.msg_save_failed))
+                when {
+                    // The user discarded the result meanwhile (for shared images), or it was cleared and said so.
+                    files == null || files !== saving -> {}
+                    files.any { !it.file.isFile } -> resultCleared(files.size)
+                    else -> message(strings.getString(R.string.msg_save_failed))
+                }
             } finally {
                 _saving.value = false
             }
@@ -1366,6 +1399,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_DOCUMENT = "document"
         const val KEY_INSERT_AFTER = "insert_after"
         const val KEY_PICTURE_PAGE = "edit_picture_page"
+        const val KEY_SAVED = "saved"
+        const val KEY_PASSWORD_REMOVED = "password_removed"
+        const val KEY_RESULT_NAME = "result_name"
 
         /** Changes Undo can take back, one after another. */
         const val MAX_UNDO = 50

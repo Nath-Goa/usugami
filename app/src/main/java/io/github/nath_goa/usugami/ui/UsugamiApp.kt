@@ -17,6 +17,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -115,11 +116,17 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             discardWork = null
         }
     }
+    // How many images there were when the list last changed. Restored with the activity, so the list
+    // restored with it (after a rotation, a new language or theme, or Android restarting Usugami) isn't
+    // taken for images just shared, which would leave the screen showing for the editor.
+    var imagesSeen by rememberSaveable { mutableIntStateOf(vm.items.value.size) }
     LaunchedEffect(items.size) {
+        val arrived = items.size > imagesSeen
+        imagesSeen = items.size
         // Images shared from another app can arrive on any screen, a PDF tool's included: show them.
         // Leaving a tool discards its PDF, so ask first while one is being made, isn't saved yet, or
         // has work on it that would be lost.
-        if (items.isEmpty() || route == "images" || stayOnPdf) return@LaunchedEffect
+        if (!arrived || route == "images" || stayOnPdf) return@LaunchedEffect
         val tool = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }
         val unsavedPdf = pdfVm.processing.value ||
             (if (pdfVm.result.value != null) !pdfVm.saved.value else tool != null && pdfVm.hasUnsavedWork(tool))
@@ -162,6 +169,9 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             if (route == "images") vm.saveZipTo(uri) else pdfVm.saveZipTo(uri)
         }
     }
+
+    // Images shared while the user stayed with a tool's PDF wait for them in the editor.
+    fun afterTool(): String = if (vm.items.value.isNotEmpty() || vm.pendingImports.value > 0) "images" else "home"
 
     /** Starts another app's screen; [noApp] is shown when no app can handle it. */
     fun launch(@StringRes noApp: Int, block: () -> Unit) {
@@ -265,9 +275,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         snackbar = screenSnackbar,
                         actions = EditorActions(
                             addFromPhotos = {
-                                photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                launch(R.string.msg_no_picker) {
+                                    photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                }
                             },
-                            addFromFiles = { filePicker.launch(arrayOf("image/jpeg", "image/png")) },
+                            addFromFiles = { launch(R.string.msg_no_picker) { filePicker.launch(arrayOf("image/jpeg", "image/png")) } },
                             changeLayout = vm::setLayout,
                             rotate = vm::rotate,
                             remove = vm::remove,
@@ -339,7 +351,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                 }
                 else -> {
                     val tool = PdfTool.entries.first { it.name.equals(current, ignoreCase = true) }
-                    val leaveTool: () -> Unit = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "leave" else route = "home" }
+                    val leaveTool: () -> Unit = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "leave" else route = afterTool() }
                     BackHandler(enabled = active, onBack = leaveTool)
                     toolStates.SaveableStateProvider(current) {
                         PdfToolScreen(
@@ -350,12 +362,14 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             onRemove = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "remove" else pdfVm.startOver() },
                             pickSingle = {
                                 val kind = tool.officeKind
-                                if (kind != null) documentPicker.launch(kind.pickerTypes) else pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
+                                launch(R.string.msg_no_picker) {
+                                    if (kind != null) documentPicker.launch(kind.pickerTypes) else pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
+                                }
                             },
-                            pickMultiple = { pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
-                            pickAdd = { pdfAddPicker.launch(arrayOf(PdfSaver.PDF_MIME)) },
+                            pickMultiple = { launch(R.string.msg_no_picker) { pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME)) } },
+                            pickAdd = { launch(R.string.msg_no_picker) { pdfAddPicker.launch(arrayOf(PdfSaver.PDF_MIME)) } },
                             pickPicture = {
-                                launch(R.string.msg_no_file_picker) {
+                                launch(R.string.msg_no_picker) {
                                     picturePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                 }
                             },
@@ -377,6 +391,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         }
     }
 
+    // The sheet is closed for good once it can't show (the images went, say, while Usugami was away),
+    // so it doesn't pop up by itself when images are added later.
+    LaunchedEffect(route, result != null, items.isEmpty()) {
+        if (route != "images" || result != null || items.isEmpty()) showConvertSheet = false
+    }
     if (showConvertSheet && route == "images" && result == null && items.isNotEmpty()) {
         ConvertSheet(
             imageCount = items.size,
@@ -384,6 +403,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             initialMerge = merge,
             initialCompression = compression,
             initialChoices = remember { vm.initialChoices() },
+            importing = pendingImports > 0,
+            saving = busySaving,
             onDismiss = { showConvertSheet = false },
             onCreate = { mergeAll, name, level, ocr ->
                 showConvertSheet = false
@@ -418,7 +439,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             confirmButton = {
                 TextButton(onClick = {
                     discardWork = null
-                    if (action == "leave") route = "home" else pdfVm.startOver()
+                    if (action == "leave") route = afterTool() else pdfVm.startOver()
                 }) { Text(stringResource(R.string.discard)) }
             },
             dismissButton = { TextButton(onClick = { discardWork = null }) { Text(stringResource(R.string.keep)) } },

@@ -90,7 +90,7 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
             contentWindowInsets = WindowInsets.safeDrawing,
             topBar = {
                 TopAppBar(
-                    title = { Text(stringResource(R.string.sign_draw)) },
+                    title = { BarTitle(stringResource(R.string.sign_draw)) },
                     windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
                     navigationIcon = {
                         IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cancel)) }

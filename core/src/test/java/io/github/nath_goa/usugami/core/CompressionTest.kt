@@ -39,6 +39,26 @@ class CompressionTest {
     }
 
     @Test
+    fun fitPagesKeepLongScreenshotsReadable() {
+        val fit = LayoutSettings(PageSize.FIT)
+        // A 1080 px wide scrolling screenshot keeps its width, upright or sideways.
+        assertEquals(1.0, Compressor.scaleFor(1080, 10000, fit, Compression.RECOMMENDED), 0.0)
+        assertEquals(1.0, Compressor.scaleFor(10000, 1080, fit, Compression.RECOMMENDED), 0.0)
+        // A wider one shrinks to A4's width at 150 dpi (8.27 in), not to a sliver.
+        val scale = Compressor.scaleFor(3000, 12000, fit, Compression.RECOMMENDED)
+        assertEquals(1240 to 4961, Compressor.scaledSize(3000, 12000, scale))
+    }
+
+    @Test
+    fun savingsUnderOnePercentDontCount() {
+        assertEquals(null, Compressor.savedPercent(1000, 1000))
+        assertEquals(null, Compressor.savedPercent(1000, 995))
+        assertEquals(1, Compressor.savedPercent(1000, 990))
+        assertEquals(50, Compressor.savedPercent(1000, 500))
+        assertEquals(null, Compressor.savedPercent(0, 0))
+    }
+
+    @Test
     fun scaledSizeKeepsAtLeastOnePixel() {
         assertEquals(1 to 1, Compressor.scaledSize(1, 1, 0.01))
         assertEquals(1 to 50, Compressor.scaledSize(2, 100, 0.5))

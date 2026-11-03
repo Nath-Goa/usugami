@@ -217,7 +217,7 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 scrollBehavior = barScroll,
-                title = { Text(stringResource(R.string.home_title)) },
+                title = { BarTitle(stringResource(R.string.home_title)) },
                 actions = {
                     IconButton(onClick = onSettings) {
                         Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
