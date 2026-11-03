@@ -219,7 +219,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val keepPictures = history.items.value.filterIsInstance<PictureItem>().map { it.path }
         // The result that was showing when Android stopped Usugami in the background, if any.
         val shown = _result.value
-        val shownCount = keptResult.count
         viewModelScope.launch {
             var resultGone = false
             val (missing, documentMissing) = withContext(fileOps) {
@@ -239,7 +238,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             if (missing.isNotEmpty()) forgetInputs(missing)
             if (documentMissing) forgetDocument()
             if (picturesMissing.isNotEmpty()) forgetPictures(picturesMissing)
-            if (shownCount > 0 && resultGone && _result.value === shown) resultCleared(shownCount)
+            if (shown != null && resultGone && _result.value === shown) resultCleared(shown.size)
             // The views were cleared with the leftovers.
             prepareViews(inputs.value)
         }
@@ -1173,7 +1172,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         history.clear()
         clearRedaction()
         // Every copy goes, including one still being imported or waiting for its password. File work
-        // runs one task at a time, so this waits for a cancelled import or run to stop first.
+        // runs one task at a time, so this waits for a cancelled import or run to stop first, and for a
+        // save of the result to finish.
         viewModelScope.launch(fileOps) {
             engine.deleteAllExcept(emptyList())
             office.deleteAllExcept(null)
@@ -1260,18 +1260,31 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         _saving.value = true
         val saving = _result.value
         viewModelScope.launch {
+            // Whether the PDFs were still there when the save failed.
+            var pdfsThere = false
             try {
-                message(withContext(Dispatchers.IO) { block() })
+                // With the other file work, one at a time: when images shared mid-save put the result
+                // away, reset() frees its PDFs, and the next run replaces them, only once they are saved.
+                val text = withContext(fileOps) {
+                    try {
+                        block()
+                    } catch (e: Exception) {
+                        // Checked before that file work goes ahead.
+                        pdfsThere = saving?.all { it.file.isFile } == true
+                        throw e
+                    }
+                }
+                message(text)
                 _saved.value = true
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
                 val files = _result.value
                 when {
-                    // The user discarded the result meanwhile (for shared images), or it was cleared and said so.
-                    files == null || files !== saving -> {}
-                    files.any { !it.file.isFile } -> resultCleared(files.size)
-                    else -> message(strings.getString(R.string.msg_save_failed))
+                    // The save itself failed (the storage may be full), also when the result was put away meanwhile.
+                    pdfsThere -> message(strings.getString(R.string.msg_save_failed))
+                    files != null && files === saving -> resultCleared(files.size)
+                    // Otherwise the result was put away and its PDFs have gone: cleared, which was said then.
                 }
             } finally {
                 _saving.value = false

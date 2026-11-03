@@ -1,11 +1,14 @@
 package io.github.nath_goa.usugami
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfSaver
+import io.github.nath_goa.usugami.ui.KeptResult
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import kotlinx.coroutines.flow.Flow
@@ -13,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -32,6 +36,12 @@ class SavingDeviceTest {
     }
 
     private fun firstMessage(messages: Flow<String>) = runBlocking { withTimeout(10_000) { messages.first() } }
+
+    /** The saved state of a view model showing [pdf] as its result, as when Android restarted Usugami. */
+    private fun showing(pdf: File) = SavedStateHandle(mapOf(KeptResult.KEY to KeptResult.pack(listOf(PdfFile(pdf, 1, 0)))))
+
+    /** In Usugami's language, which may not be English. */
+    private fun string(res: Int) = AppLanguages.localized(app).resources.getString(res)
 
     @Test fun savingCopiesThePdf() {
         val pdf = File(dir, "made.pdf").apply { writeText("%PDF-1.4 new") }
@@ -59,9 +69,7 @@ class SavingDeviceTest {
     @Test fun theResultStaysWhileItIsBeingSaved() {
         val pdf = File(app.cacheDir, "output/images/Saving.pdf").apply { parentFile!!.mkdirs(); writeText("%PDF-1.4 saving") }
         val target = File(dir, "saving-target.pdf").apply { writeText("") }
-        // MainViewModel's saved-state keys for a result showing (see KeptResult).
-        val state = mapOf("result_count" to 1, "result_paths" to arrayOf(pdf.path), "result_pages" to intArrayOf(1), "result_originals" to longArrayOf(0))
-        val vm = onMain { MainViewModel(app, SavedStateHandle(state)) }
+        val vm = onMain { MainViewModel(app, showing(pdf)) }
         runBlocking { vm.awaitFileWork() }
 
         onMain {
@@ -70,13 +78,48 @@ class SavingDeviceTest {
             vm.backToEditing()
         }
         assertTrue("The result is still showing", onMain { vm.result.value != null })
-        assertEquals(AppLanguages.localized(app).resources.getString(R.string.msg_saved), firstMessage(vm.messages))
+        assertEquals(string(R.string.msg_saved), firstMessage(vm.messages))
         assertEquals("%PDF-1.4 saving", target.readText())
 
         // Once saved, Start over goes ahead.
         onMain { vm.startOver() }
         assertTrue(onMain { vm.result.value == null })
         runBlocking { vm.awaitFileWork() }
+    }
+
+    /** Images shared mid-save put the result away, but not its PDFs: a save that fails says so. */
+    @Test fun aSaveThatFailsAfterImagesWereSharedSaysSo() {
+        val pdf = File(app.cacheDir, "output/images/Failing.pdf").apply { parentFile!!.mkdirs(); writeText("%PDF-1.4 failing") }
+        val photo = File(dir, "shared.jpg")
+        photo.outputStream().use { Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 80, it) }
+        val vm = onMain { MainViewModel(app, showing(pdf)) }
+        runBlocking { vm.awaitFileWork() }
+
+        onMain {
+            // Into a folder that isn't there, as when the storage runs full.
+            vm.saveTo(Uri.fromFile(File(dir, "missing/target.pdf")))
+            vm.addImages(listOf(Uri.fromFile(photo)))
+        }
+        assertEquals(string(R.string.msg_save_failed), firstMessage(vm.messages))
+        onMain { vm.clearAll() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    /** Leaving a tool while its PDF is being saved (images were shared) frees the PDF only once it is saved. */
+    @Test fun aToolsPdfIsFreedOnlyOnceItIsSaved() {
+        val pdf = File(app.cacheDir, "output/tools/Saving.pdf").apply { parentFile!!.mkdirs(); writeText("%PDF-1.4 tool") }
+        val target = File(dir, "tool-target.pdf").apply { writeText("") }
+        val vm = onMain { PdfToolsViewModel(app, showing(pdf)) }
+        runBlocking { vm.awaitFileWork() }
+
+        onMain {
+            vm.saveTo(Uri.fromFile(target))
+            vm.reset()
+        }
+        assertEquals(string(R.string.msg_saved), firstMessage(vm.messages))
+        assertEquals("%PDF-1.4 tool", target.readText())
+        runBlocking { vm.awaitFileWork() }
+        assertFalse("Freed once saved", pdf.exists())
     }
 
     /** The system restarted Usugami while "Save as" was open: the PDF has gone, so say so. */

@@ -15,10 +15,12 @@ import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
+import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.office.OfficeInput
 import io.github.nath_goa.usugami.data.office.OfficeKind
+import io.github.nath_goa.usugami.ui.KeptResult
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import kotlinx.coroutines.flow.first
@@ -96,16 +98,19 @@ class WorkingFilesDeviceTest {
 
     @Test fun aLongListOfImagesFitsTheSavedState() {
         val items = (1..3000L).map { ImageItem(it, "", "IMG_20261103_%06d.jpg".format(it), ImageFormat.JPEG, 4000, 3000, 6, 90) }
+        // Made into one PDF each, which show as the result: that is kept too.
+        val pdfs = items.map { PdfFile(File(app.cacheDir, "output/images/${it.name.removeSuffix(".jpg")}.pdf"), 1, 2_500_000) }
         val parcel = Parcel.obtain()
         val size = try {
             parcel.writeBundle(MainViewModel.packItems(items))
+            parcel.writeBundle(KeptResult.pack(pdfs))
             parcel.dataSize()
         } finally {
             parcel.recycle()
         }
         // As a list of ImageItems they took about a megabyte, more than the saved state can hold:
         // Usugami crashed as it went to the background.
-        assertTrue("$size bytes", size < 200_000)
+        assertTrue("$size bytes", size < 300_000)
     }
 
     @Test fun imagesPickedWhileOthersImportGoAfterThem() {
@@ -124,24 +129,20 @@ class WorkingFilesDeviceTest {
     }
 
     @Test fun aResultShowingWhenAndroidStoppedUsugamiShowsAgain() {
-        val pdf = file("output/images/Kept.pdf")
-        // MainViewModel's saved-state keys for the result that was showing (see KeptResult).
-        fun restore() = onMain {
-            MainViewModel(
-                app,
-                SavedStateHandle(mapOf("result_count" to 1, "result_paths" to arrayOf(pdf.path), "result_pages" to intArrayOf(1), "result_originals" to longArrayOf(0))),
-            )
-        }
+        // One PDF per image of a long list, too.
+        val pdfs = (1..150).map { file("output/images/IMG_$it.pdf") }
+        // The saved state of the result that was showing.
+        fun restore() = onMain { MainViewModel(app, SavedStateHandle(mapOf(KeptResult.KEY to KeptResult.pack(pdfs.map { PdfFile(it, 1, 0) })))) }
         val vm = restore()
         runBlocking { vm.awaitFileWork() }
-        assertEquals(listOf(pdf.path), onMain { vm.result.value?.map { it.file.path } })
-        assertTrue("Its PDF is kept", pdf.isFile)
+        assertEquals(pdfs, onMain { vm.result.value?.map { it.file } })
+        assertTrue("Its PDFs are kept", pdfs.all { it.isFile })
 
         // The system cleared the cache meanwhile: the result goes, and a message says so.
-        pdf.delete()
+        pdfs.first().delete()
         val gone = restore()
         waitUntil("the result to go") { gone.result.value == null }
-        val cleared = AppLanguages.localized(app).resources.getQuantityString(R.plurals.msg_result_cleared, 1)
+        val cleared = AppLanguages.localized(app).resources.getQuantityString(R.plurals.msg_result_cleared, pdfs.size)
         assertEquals(cleared, runBlocking { withTimeout(10_000) { gone.messages.first() } })
         runBlocking { gone.awaitFileWork() }
     }

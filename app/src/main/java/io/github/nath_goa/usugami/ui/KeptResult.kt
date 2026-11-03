@@ -1,5 +1,8 @@
 package io.github.nath_goa.usugami.ui
 
+import android.os.Bundle
+import androidx.annotation.VisibleForTesting
+import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
 import io.github.nath_goa.usugami.data.PdfFile
 import java.io.File
@@ -11,40 +14,49 @@ import java.io.File
  */
 internal class KeptResult(private val handle: SavedStateHandle) {
 
-    /** The PDFs kept, or null when there was no result (or too many PDFs to keep, see [count]). */
+    /** The PDFs kept, or null when there was no result. */
     fun restore(): List<PdfFile>? {
-        val paths = handle.get<Array<String>>(KEY_PATHS) ?: return null
-        val pages = handle.get<IntArray>(KEY_PAGES) ?: return null
-        val originals = handle.get<LongArray>(KEY_ORIGINALS) ?: return null
-        if (paths.isEmpty() || pages.size != paths.size || originals.size != paths.size) return null
-        return paths.indices.map { PdfFile(File(paths[it]), pages[it], originals[it]) }
+        val kept = handle.get<Bundle>(KEY) ?: return null
+        val folder = kept.getString("folder") ?: return null
+        val files = kept.getByteArray("files")?.decodeToString()?.split(SEPARATOR) ?: return null
+        val pages = kept.getIntArray("pages") ?: return null
+        val originals = kept.getLongArray("originals") ?: return null
+        if (pages.isEmpty() || files.size != pages.size || originals.size != pages.size) return null
+        return files.indices.map { i ->
+            val file = if ('/' in files[i]) File(files[i]) else File(folder, files[i])
+            PdfFile(file, pages[i], originals[i])
+        }
     }
-
-    /** How many PDFs the kept result had, also when there were too many to keep; 0 for none. */
-    val count: Int get() = handle[KEY_COUNT] ?: 0
 
     /** Keeps [files], the result showing now (null for none). */
     fun keep(files: List<PdfFile>?) {
-        if (files == null) {
-            for (key in listOf(KEY_COUNT, KEY_PATHS, KEY_PAGES, KEY_ORIGINALS)) handle.remove<Any>(key)
-            return
-        }
-        handle[KEY_COUNT] = files.size
-        if (files.size > MAX_FILES) {
-            // One per image of a long list: too much for the saved state, so they will only be said to be gone.
-            for (key in listOf(KEY_PATHS, KEY_PAGES, KEY_ORIGINALS)) handle.remove<Any>(key)
-            return
-        }
-        handle[KEY_PATHS] = Array(files.size) { files[it].file.path }
-        handle[KEY_PAGES] = IntArray(files.size) { files[it].pageCount }
-        handle[KEY_ORIGINALS] = LongArray(files.size) { files[it].originalBytes }
+        if (files.isNullOrEmpty()) handle.remove<Bundle>(KEY) else handle[KEY] = pack(files)
     }
 
-    private companion object {
-        const val KEY_COUNT = "result_count"
-        const val KEY_PATHS = "result_paths"
-        const val KEY_PAGES = "result_pages"
-        const val KEY_ORIGINALS = "result_originals"
-        const val MAX_FILES = 100
+    companion object {
+        /** The saved-state key the result is kept under. */
+        @VisibleForTesting
+        internal const val KEY = "result"
+
+        /** Can't be in a path, so it separates them. */
+        private const val SEPARATOR = '\u0000'
+
+        /**
+         * [files] for the saved state, in a few bytes per PDF: a result can have one PDF per image of a
+         * long list. They are all in one folder, so only their names are kept, after it.
+         */
+        @VisibleForTesting
+        internal fun pack(files: List<PdfFile>): Bundle {
+            val folder = files.first().file.parent.orEmpty()
+            return bundleOf(
+                "folder" to folder,
+                "files" to files.joinToString(SEPARATOR.toString()) {
+                    // Any PDF elsewhere keeps its whole path.
+                    if (it.file.parent == folder) it.file.name else it.file.path
+                }.encodeToByteArray(),
+                "pages" to IntArray(files.size) { files[it].pageCount },
+                "originals" to LongArray(files.size) { files[it].originalBytes },
+            )
+        }
     }
 }

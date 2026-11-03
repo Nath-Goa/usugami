@@ -157,7 +157,6 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val keep = if (restored) items.value else emptyList()
         // The result that was showing when Android stopped Usugami in the background, if any.
         val shown = _result.value
-        val shownCount = keptResult.count
         viewModelScope.launch {
             val (missing, resultGone) = withContext(fileOps) {
                 // Leftovers from an earlier session (or half-copied files) are removed.
@@ -168,7 +167,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 keep.filterNot(store::exists) to (stillThere == null)
             }
             if (missing.isNotEmpty()) forgetMissing(missing)
-            if (shownCount > 0 && resultGone && _result.value === shown) resultCleared(shownCount)
+            if (shown != null && resultGone && _result.value === shown) resultCleared(shown.size)
         }
         viewModelScope.launch { _result.collect(keptResult::keep) }
         viewModelScope.launch { _saved.collect { handle[KEY_SAVED] = it } }
@@ -563,10 +562,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             } catch (e: Exception) {
                 val files = _result.value
                 when {
-                    // Images shared meanwhile put the result away, or it was cleared and said so.
-                    files == null || files !== saving -> {}
-                    files.any { !it.file.isFile } -> resultCleared(files.size)
-                    else -> message(R.string.msg_save_failed)
+                    // Its PDFs are still there, so the save itself failed (the storage may be full), also
+                    // when images shared meanwhile put the result away.
+                    saving != null && saving.all { it.file.isFile } -> message(R.string.msg_save_failed)
+                    files != null && files === saving -> resultCleared(files.size)
+                    // Otherwise the result was put away and its PDFs have gone: cleared, which was said then.
                 }
             } finally {
                 _busySaving.value = false
