@@ -40,10 +40,15 @@ internal class ResultZipper(
 ) {
     private val zip = ResultZip(context, dir)
     private var job: Job? = null
+    /** Whether the ZIP file being made goes into a document the user picked, rather than being shared. */
+    private var saving = false
 
     /** How far the ZIP file has got, while it is being made. */
     private val _progress = MutableStateFlow<ZipProgress?>(null)
     val progress: StateFlow<ZipProgress?> = _progress.asStateFlow()
+
+    /** Whether a ZIP file is being made: another can't start until it is done. */
+    val busy: Boolean get() = _progress.value != null
 
     /** Share screens for finished ZIP files, for the activity to start while it is showing. */
     private val _shares = Channel<Intent>(Channel.BUFFERED)
@@ -61,9 +66,12 @@ internal class ResultZipper(
         }
     }
 
-    /** Writes a ZIP file of [files] into [target], a document made by the "Save as" screen. */
-    fun saveTo(files: List<PdfFile>, target: Uri, onSaved: () -> Unit) {
-        run(files, work = { check -> zip.saveTo(files.map { it.file }, target, check) { _progress.value = it } }) {
+    /**
+     * Writes a ZIP file of [files] into [target], a document made by the "Save as" screen (unless
+     * [busy]). [finished] is called once that is over, whether it was saved or not.
+     */
+    fun saveTo(files: List<PdfFile>, target: Uri, onSaved: () -> Unit, finished: () -> Unit) {
+        run(files, saving = true, work = { check -> zip.saveTo(files.map { it.file }, target, check) { _progress.value = it } }, finished = finished) {
             onSaved()
             message(strings().getString(R.string.msg_saved))
         }
@@ -74,10 +82,23 @@ internal class ResultZipper(
         job?.cancel()
     }
 
-    /** Runs [work] in the background, then [done] with what it returns, or [cancelled] when cancelled. */
-    private fun <T> run(files: List<PdfFile>, work: (check: () -> Unit) -> T, cancelled: () -> Unit = {}, done: (T) -> Unit) {
-        if (_progress.value != null || files.size < 2) return
+    /** Stops making a ZIP file to share, which is no longer wanted. One being saved where the user chose goes on. */
+    fun stopSharing() {
+        if (!saving) job?.cancel()
+    }
+
+    /** Runs [work] in the background, then [done] with what it returns, or [cancelled] when cancelled; then [finished]. */
+    private fun <T> run(
+        files: List<PdfFile>,
+        saving: Boolean = false,
+        work: (check: () -> Unit) -> T,
+        cancelled: () -> Unit = {},
+        finished: () -> Unit = {},
+        done: (T) -> Unit,
+    ) {
+        if (_progress.value != null || files.size < 2) return finished()
         _progress.value = ZipProgress(0, files.size, 0, 0)
+        this.saving = saving
         job = scope.launch {
             val job = coroutineContext[Job]!!
             try {
@@ -90,7 +111,11 @@ internal class ResultZipper(
                 else message(strings().getString(R.string.zip_failed))
             } finally {
                 _progress.value = null
-                if (this@ResultZipper.job === job) this@ResultZipper.job = null
+                if (this@ResultZipper.job === job) {
+                    this@ResultZipper.job = null
+                    this@ResultZipper.saving = false
+                }
+                finished()
             }
         }
     }

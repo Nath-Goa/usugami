@@ -69,7 +69,10 @@ fun SettingsScreen(
     onAbout: () -> Unit,
 ) {
     val context = LocalContext.current
-    val current = AppLanguage.shownIn(context)
+    // The language chosen last, until the activity is recreated in it. From Android 13 that happens a
+    // moment later, and choosing again meanwhile is measured against this choice, not the old language.
+    var chosen by remember { mutableStateOf<AppLanguage?>(null) }
+    val current = chosen ?: AppLanguage.shownIn(context)
     // Choosing one recreates the activity only when that turns it light or dark, so the row is
     // updated here too.
     var appearance by remember { mutableStateOf(Appearances.current(context)) }
@@ -114,7 +117,10 @@ fun SettingsScreen(
                     for (language in AppLanguage.entries) {
                         RadioRow(nativeName(language), selected = language == current) {
                             choosing = false
-                            if (language != current) switchTo = language
+                            if (language != current) {
+                                chosen = language
+                                switchTo = language
+                            }
                         }
                     }
                 }

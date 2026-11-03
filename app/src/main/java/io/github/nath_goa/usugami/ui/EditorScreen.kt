@@ -408,27 +408,32 @@ private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit, modifie
                 Text(stringResource(R.string.add_more), style = MaterialTheme.typography.labelLarge)
             }
         }
-        AddMenu(menu, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
+        AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
     }
 }
 
 @Composable
-private fun AddMenu(expanded: Boolean, onDismiss: () -> Unit, onAddPhotos: () -> Unit, onAddFiles: () -> Unit) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+private fun AddMenu(expanded: () -> Boolean, onDismiss: () -> Unit, onAddPhotos: () -> Unit, onAddFiles: () -> Unit) {
+    // The items can still be tapped while the menu fades out: only the first tap counts.
+    DropdownMenu(expanded = expanded(), onDismissRequest = onDismiss) {
         DropdownMenuItem(
             text = { Text(stringResource(R.string.add_from_photos)) },
             leadingIcon = { Icon(Icons.Rounded.PhotoLibrary, contentDescription = null) },
             onClick = {
-                onDismiss()
-                onAddPhotos()
+                if (expanded()) {
+                    onDismiss()
+                    onAddPhotos()
+                }
             },
         )
         DropdownMenuItem(
             text = { Text(stringResource(R.string.add_from_files)) },
             leadingIcon = { Icon(Icons.Rounded.FolderOpen, contentDescription = null) },
             onClick = {
-                onDismiss()
-                onAddFiles()
+                if (expanded()) {
+                    onDismiss()
+                    onAddFiles()
+                }
             },
         )
     }
@@ -450,8 +455,12 @@ private fun SortMenu(onSort: (SortMode) -> Unit) {
                 DropdownMenuItem(
                     text = { Text(stringResource(label)) },
                     onClick = {
-                        expanded = false
-                        onSort(mode)
+                        // The items can still be tapped while the menu fades out: a second tap on
+                        // "Reverse order" would undo the first.
+                        if (expanded) {
+                            expanded = false
+                            onSort(mode)
+                        }
                     },
                 )
             }
@@ -492,7 +501,7 @@ private fun BottomActions(
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.add_images), maxLines = 1, overflow = TextOverflow.Ellipsis, autoSize = shrunk)
                     }
-                    AddMenu(menu, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
+                    AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
                 }
                 Spacer(Modifier.width(ButtonGap))
                 Button(

@@ -505,6 +505,7 @@
     </plurals>
     <string name="msg_save_failed">Impossible d\'enregistrer le PDF. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
     <string name="zip_failed">Impossible de créer le fichier ZIP. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
+    <string name="zip_busy">Un fichier ZIP est déjà en cours de création. Réessayez une fois qu\'il est prêt.</string>
     <string name="msg_convert_failed">Impossible de créer le PDF : %1$s</string>
     <string name="msg_image_unreadable">« %1$s » n\'a pas pu être lu</string>
     <string name="msg_out_of_memory">mémoire insuffisante pour une image aussi grande</string>

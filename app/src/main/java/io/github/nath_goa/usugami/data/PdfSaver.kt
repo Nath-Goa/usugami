@@ -21,9 +21,18 @@ import java.io.OutputStream
 class PdfSaver(private val context: Context) {
     private val resolver = context.contentResolver
 
-    /** Copies [file] into the public Downloads folder and returns the name it got there. */
+    /**
+     * Copies [files] into the public Downloads folder and returns the copies. A file [earlier] says
+     * was copied there already, and still is, isn't copied again: saving a result a second time (a
+     * second tap, say) doesn't add "Name (1).pdf".
+     */
     @RequiresApi(Build.VERSION_CODES.Q)
-    fun saveToDownloads(file: File): String {
+    fun saveToDownloads(files: List<File>, earlier: List<DownloadsCopy>? = null): List<DownloadsCopy> =
+        files.mapIndexed { i, file -> earlier?.getOrNull(i)?.let(::stillInDownloads) ?: saveToDownloads(file) }
+
+    /** Copies [file] into the public Downloads folder. */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun saveToDownloads(file: File): DownloadsCopy {
         requireExists(listOf(file))
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val values = ContentValues().apply {
@@ -41,10 +50,17 @@ class PdfSaver(private val context: Context) {
             throw e
         }
         // MediaStore adds " (1)" etc. when the name is taken; report the real one.
-        resolver.query(uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)?.use { c ->
-            if (c.moveToFirst()) return c.getString(0)
+        return stillInDownloads(DownloadsCopy(uri, file.name)) ?: DownloadsCopy(uri, file.name)
+    }
+
+    /** [copy] with the name it has now, or null once it has gone from Downloads (the user deleted it, say). */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun stillInDownloads(copy: DownloadsCopy): DownloadsCopy? = try {
+        resolver.query(copy.uri, arrayOf(MediaStore.Downloads.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) DownloadsCopy(copy.uri, c.getString(0) ?: copy.name) else null
         }
-        return file.name
+    } catch (_: Exception) {
+        null
     }
 
     /** Writes [file] into a document the user created with the system "Save as" screen. */
@@ -173,3 +189,6 @@ class PdfSaver(private val context: Context) {
         const val PDF_MIME = "application/pdf"
     }
 }
+
+/** A PDF saved into the Downloads folder: its entry there, and the name it got. */
+class DownloadsCopy(val uri: Uri, val name: String)

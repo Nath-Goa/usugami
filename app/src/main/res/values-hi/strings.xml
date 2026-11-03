@@ -488,6 +488,7 @@
     </plurals>
     <string name="msg_save_failed">PDF सेव नहीं की जा सकी। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
     <string name="zip_failed">ZIP फ़ाइल नहीं बनाई जा सकी। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
+    <string name="zip_busy">एक ZIP फ़ाइल पहले से बनाई जा रही है। उसके पूरा होने पर फिर से कोशिश करें।</string>
     <string name="msg_convert_failed">PDF नहीं बनाई जा सकी: %1$s</string>
     <string name="msg_image_unreadable">\"%1$s\" को पढ़ा नहीं जा सका</string>
     <string name="msg_out_of_memory">इतनी बड़ी इमेज के लिए काफ़ी मेमोरी नहीं है</string>

@@ -146,6 +146,10 @@ dependencies {
     "ocrImplementation"(project(":ocr-native"))
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("junit:junit:4.13.2")
+    // Compose's test rule, for the tests that tap faster than a screen can change (MultiClickDeviceTest).
+    // The same version as Compose's UI above, which it tests.
+    //noinspection GradleDependency
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.10.6")
 }
 
 /**

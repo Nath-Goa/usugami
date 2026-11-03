@@ -260,21 +260,26 @@ private fun ZipButton(enabled: Boolean, onShare: () -> Unit, onSave: () -> Unit)
     var menu by rememberSaveable { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth()) {
         WideButton(Icons.Rounded.FolderZip, stringResource(R.string.zip_button), Modifier.fillMaxWidth(), enabled = enabled) { menu = true }
+        // The items can still be tapped while the menu fades out: only the first tap counts.
         DropdownMenu(expanded = menu && enabled, onDismissRequest = { menu = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.zip_share)) },
                 leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
                 onClick = {
-                    menu = false
-                    onShare()
+                    if (menu) {
+                        menu = false
+                        onShare()
+                    }
                 },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.zip_save)) },
                 leadingIcon = { Icon(Icons.Rounded.SaveAs, contentDescription = null) },
                 onClick = {
-                    menu = false
-                    onSave()
+                    if (menu) {
+                        menu = false
+                        onSave()
+                    }
                 },
             )
         }

@@ -525,6 +525,7 @@
     </plurals>
     <string name="msg_save_failed">Couldn\'t save the PDF. Check that there is enough free storage.</string>
     <string name="zip_failed">Couldn\'t make the ZIP file. Check that there is enough free storage.</string>
+    <string name="zip_busy">A ZIP file is already being made. Try again once it is done.</string>
     <string name="msg_convert_failed">Couldn\'t create the PDF: %1$s</string>
     <string name="msg_image_unreadable">\"%1$s\" could not be read</string>
     <string name="msg_out_of_memory">not enough memory for an image this large</string>

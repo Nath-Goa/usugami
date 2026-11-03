@@ -22,6 +22,7 @@ import io.github.nath_goa.usugami.core.NaturalOrder
 import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.DownloadsCopy
 import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
@@ -119,8 +120,15 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private val _saved = MutableStateFlow(handle[KEY_SAVED] ?: false)
     val saved: StateFlow<Boolean> = _saved.asStateFlow()
 
+    /** PDFs or a ZIP file of them are being saved, or waiting their turn. */
     private val _busySaving = MutableStateFlow(false)
     val busySaving: StateFlow<Boolean> = _busySaving.asStateFlow()
+    /** How many saves are under way or waiting (see [startSave]). */
+    private var saves = 0
+    /** Saves of the PDFs go one at a time, in the order they were asked for. */
+    private val saveTurn = Mutex()
+    /** The result's copies in Downloads, once it has been saved there: saving it again copies only what has gone. */
+    private var inDownloads: Pair<List<PdfFile>, List<DownloadsCopy>>? = null
 
     /** Non-null while the "text recognition isn't available" dialog is showing. */
     private val _ocrProblem = MutableStateFlow<OcrProblem?>(null)
@@ -184,8 +192,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             return
         }
         _result.value = null
-        // Shared images open the editor: a ZIP file of the PDFs that showed is no longer wanted.
-        zipper.cancel()
+        // Shared images open the editor: a ZIP file to share the PDFs that showed is no longer wanted.
+        // One being saved where the user chose goes on, as a save of the PDFs does.
+        zipper.stopSharing()
         _pendingImports.update { it + uris.size }
         val generation = importGeneration
         viewModelScope.launch {
@@ -446,7 +455,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     // ---- Result ----
 
     fun backToEditing() {
-        // Not while the PDFs are being saved: converting again would replace them mid-save.
+        // Not while the PDFs (or a ZIP file of them) are being saved: converting again would replace
+        // them mid-save, and leaving would cancel a ZIP file, deleting the document the user picked.
         if (_busySaving.value) return
         // A ZIP file of the result is no longer wanted once the result screen has gone.
         zipper.cancel()
@@ -491,8 +501,13 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     fun saveToDownloads() {
         val files = _result.value ?: return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return
+        // A second tap that lands before the button is turned off does nothing.
+        if (_busySaving.value) return
         save {
-            val names = files.map { saver.saveToDownloads(it.file) }
+            // Saved there already (a second tap, say), it only says so again.
+            val copies = saver.saveToDownloads(files.map { it.file }, earlier = inDownloads?.takeIf { it.first === files }?.second)
+            inDownloads = files to copies
+            val names = copies.map { it.name }
             if (names.size == 1) strings.getString(R.string.msg_saved_downloads, names[0])
             else strings.getQuantityString(R.plurals.msg_saved_downloads_many, names.size, names.size)
         }
@@ -546,20 +561,41 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             resultCleared(2)
             return
         }
-        zipper.saveTo(files, uri) { _saved.value = true }
+        if (zipper.busy) return zipBusy(uri)
+        // Counted as saving, so that Back and Start over wait for it as they do for a save of the PDFs.
+        startSave()
+        zipper.saveTo(files, uri, onSaved = { _saved.value = true }, finished = ::endSave)
+    }
+
+    /** The ZIP file to go into [uri] can't be made while another is: the empty document isn't left behind. */
+    private fun zipBusy(uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
+        message(R.string.zip_busy)
     }
 
     fun cancelZip() = zipper.cancel()
 
     fun showMessage(@StringRes res: Int) = message(res)
 
-    private fun save(block: suspend () -> String) {
-        if (_busySaving.value) return
+    private fun startSave() {
+        saves++
         _busySaving.value = true
+    }
+
+    private fun endSave() {
+        if (--saves == 0) _busySaving.value = false
+    }
+
+    /**
+     * Runs [block], which saves the result, once the saves asked for before it are done. A document
+     * picked while another save is under way gets its PDF too, rather than being left empty.
+     */
+    private fun save(block: suspend () -> String) {
+        startSave()
         val saving = _result.value
         viewModelScope.launch {
             try {
-                val text = withContext(Dispatchers.IO) { block() }
+                val text = saveTurn.withLock { withContext(Dispatchers.IO) { block() } }
                 _saved.value = true
                 _messages.send(text)
             } catch (e: CancellationException) {
@@ -574,7 +610,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     // Otherwise the result was put away and its PDFs have gone: cleared, which was said then.
                 }
             } finally {
-                _busySaving.value = false
+                endSave()
             }
         }
     }

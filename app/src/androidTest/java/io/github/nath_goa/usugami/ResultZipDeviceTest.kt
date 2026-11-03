@@ -194,6 +194,23 @@ class ResultZipDeviceTest {
         assertNotNull(vm.result.value)
     }
 
+    /**
+     * A ZIP file to save while another is being made (one to share) can't be made: the user is told,
+     * rather than the document picked for it being left empty without a word, and the other goes on.
+     */
+    @Test fun savingWhileAnotherIsMadeSaysSo() {
+        val (vm, _) = splitEveryPage()
+        val (document, uri) = newDocument("late.zip")
+        onMain {
+            vm.shareZip()
+            vm.saveZipTo(uri)
+        }
+        assertEquals(app.getString(R.string.zip_busy), first(vm.messages))
+        assertNotNull("The ZIP file to share is still made", first(vm.zipShares))
+        assertEquals("Nothing was written into the document", 0, document.length())
+        assertFalse(vm.saved.value)
+    }
+
     @Test fun aResultClearedFromTheCacheSaysSo() {
         val (vm, files) = splitEveryPage()
         files.forEach { it.file.delete() }

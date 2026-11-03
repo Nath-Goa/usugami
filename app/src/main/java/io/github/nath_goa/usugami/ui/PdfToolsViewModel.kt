@@ -29,6 +29,7 @@ import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.DownloadsCopy
 import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.PagePictures
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
@@ -185,8 +186,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     val processing = _processing.asStateFlow()
     private val _importing = MutableStateFlow(false)
     val importing = _importing.asStateFlow()
+    /** The result's PDFs or a ZIP file of them are being saved, or waiting their turn. */
     private val _saving = MutableStateFlow(false)
     val saving = _saving.asStateFlow()
+    /** How many saves are under way or waiting (see [startSave]). */
+    private var saves = 0
+    /** The result's copies in Downloads, once it has been saved there: saving it again copies only what has gone. */
+    private var inDownloads: Pair<List<PdfFile>, List<DownloadsCopy>>? = null
     private val _saved = MutableStateFlow(handle[KEY_SAVED] ?: false)
     val saved = _saved.asStateFlow()
     /** True when the result was made from a PDF opened with a password: the new PDF has none. */
@@ -1115,7 +1121,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun cancel() { task?.cancel() }
 
     fun backToEditing() {
-        // Not while the PDFs are being saved: running the tool again would replace them mid-save.
+        // Not while the PDFs (or a ZIP file of them) are being saved: running the tool again would
+        // replace them mid-save, and leaving would cancel a ZIP file, deleting the document the user picked.
         if (_saving.value) return
         // A ZIP file of the result is no longer wanted once the result screen has gone.
         zipper.cancel()
@@ -1231,8 +1238,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun saveToDownloads() {
         val files = _result.value ?: return
         if (!canSaveToDownloads) return
+        // A second tap that lands before the button is turned off does nothing.
+        if (_saving.value) return
         save {
-            files.forEach { saver.saveToDownloads(it.file) }
+            // Saved there already (a second tap, say), it only says so again.
+            val copies = saver.saveToDownloads(files.map { it.file }, earlier = inDownloads?.takeIf { it.first === files }?.second)
+            inDownloads = files to copies
             strings.getString(R.string.pdf_saved_downloads)
         }
     }
@@ -1255,9 +1266,21 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         save { saver.saveToFolder(files.map { it.file }, tree); strings.getString(R.string.msg_saved) }
     }
 
-    private fun save(block: () -> String) {
-        if (_saving.value) return
+    private fun startSave() {
+        saves++
         _saving.value = true
+    }
+
+    private fun endSave() {
+        if (--saves == 0) _saving.value = false
+    }
+
+    /**
+     * Runs [block], which saves the result, once the saves asked for before it are done. A document
+     * picked while another save is under way gets its PDF too, rather than being left empty.
+     */
+    private fun save(block: () -> String) {
+        startSave()
         val saving = _result.value
         viewModelScope.launch {
             // Whether the PDFs were still there when the save failed.
@@ -1287,7 +1310,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     // Otherwise the result was put away and its PDFs have gone: cleared, which was said then.
                 }
             } finally {
-                _saving.value = false
+                endSave()
             }
         }
     }
@@ -1313,7 +1336,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             resultCleared(2)
             return
         }
-        zipper.saveTo(files, uri) { _saved.value = true }
+        if (zipper.busy) {
+            // Another ZIP file is being made: the empty document made for this one isn't left behind.
+            viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
+            message(strings.getString(R.string.zip_busy))
+            return
+        }
+        // Counted as saving, so that Back and Start over wait for it as they do for a save of the PDFs.
+        startSave()
+        zipper.saveTo(files, uri, onSaved = { _saved.value = true }, finished = ::endSave)
     }
 
     fun cancelZip() = zipper.cancel()
