@@ -126,8 +126,9 @@ old "PDFer".
 - **Private by default:** location (GPS), camera details and other hidden metadata, and the video
   part of "motion photos", are removed from the images.
 - Optional **searchable PDF** with text recognition (OCR) in **English**, **French**,
-  **Spanish** or **Hindi**. Hindi mode also keeps any English text. (In Usugami and Usugami OCR;
-  Usugami Lite has no text recognition.)
+  **Spanish** or **Hindi**. Hindi mode also keeps any English text. Text is read from your
+  original images, not the compressed copies, so small print is found even at Extreme. (In
+  Usugami and Usugami OCR; Usugami Lite has no text recognition.)
 
 **Word to PDF**
 

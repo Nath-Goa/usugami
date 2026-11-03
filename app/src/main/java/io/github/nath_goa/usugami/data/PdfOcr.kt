@@ -2,7 +2,11 @@ package io.github.nath_goa.usugami.data
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorSpace
+import android.graphics.Paint
 import android.graphics.Point
 import android.graphics.PointF
 import android.graphics.Rect
@@ -17,12 +21,17 @@ import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
 import com.tom_roush.pdfbox.pdmodel.graphics.state.RenderingMode
 import com.tom_roush.pdfbox.util.Matrix
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.ImagePlacement
+import io.github.nath_goa.usugami.core.ImageTransform
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.io.IOException
 import kotlin.math.atan2
 import kotlin.math.hypot
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 data class OcrOutput(val files: List<PdfFile>, val lineCount: Int)
 
@@ -32,7 +41,8 @@ data class OcrOutput(val files: List<PdfFile>, val lineCount: Int)
  */
 class PdfOcr(private val context: Context) {
     /**
-     * One recognized line, in pixels of the [pixelWidth] × [pixelHeight] page image. [corners] are the
+     * One recognized line, in pixels of the [pixelWidth] × [pixelHeight] image read: the page's own
+     * image, drawn on the page as [placement] says, or else the whole page rendered. [corners] are the
      * text's top-left, top-right, bottom-right and bottom-left corners, which also give its angle;
      * without them the upright [bounds] are used.
      */
@@ -44,15 +54,17 @@ class PdfOcr(private val context: Context) {
         val pixelWidth: Int,
         val pixelHeight: Int,
         val corners: List<Point>? = null,
+        val placement: ImagePlacement? = null,
     )
 
     init { PDFBoxResourceLoader.init(context.applicationContext) }
 
     /**
      * Returns [files] with a text layer added (as `<name>_searchable.pdf`; files without any text
-     * are returned as they are), read by [engine] in [language]. [onPage] receives the number of pages
-     * read so far, across all files. If anything fails, every file is left as it was and the
-     * exception is rethrown.
+     * are returned as they are), read by [engine] in [language]. A PDF just made from images is read
+     * from those images ([PdfFile.images]), others page by page as rendered. [onPage] receives the
+     * number of pages read so far, across all files. If anything fails, every file is left as it was
+     * and the exception is rethrown.
      */
     suspend fun apply(files: List<PdfFile>, engine: OcrEngine, language: OcrLanguage, onPage: (Int) -> Unit = {}): OcrOutput {
         val made = ArrayList<PdfFile>()
@@ -62,7 +74,12 @@ class PdfOcr(private val context: Context) {
             val results = engine.open(language).use { recognizer ->
                 files.map { source ->
                     currentCoroutineContext().ensureActive()
-                    val lines = recognize(source.file, recognizer) { onPage(++pagesDone) }
+                    // The pages as rendered also when the system has cleared a picked image from the cache.
+                    val lines = if (source.images.size == source.pageCount && source.images.all { File(it.item.path).isFile }) {
+                        recognize(source.images, recognizer) { onPage(++pagesDone) }
+                    } else {
+                        recognize(source.file, recognizer) { onPage(++pagesDone) }
+                    }
                     count += lines.size
                     if (lines.isEmpty()) source else embed(source, lines).also { made += it }
                 }
@@ -73,6 +90,72 @@ class PdfOcr(private val context: Context) {
         } catch (e: Throwable) {
             made.forEach { it.file.delete() }
             throw e
+        }
+    }
+
+    /**
+     * Reads the images a PDF was just made from as they were picked, not as compressed into it: small
+     * print reads far better (at Extreme, the PDF keeps 100 dpi). Each line goes where the page draws it.
+     */
+    private suspend fun recognize(images: List<PlacedImage>, recognizer: OcrRecognizer, onPageDone: () -> Unit): List<Line> {
+        val lines = ArrayList<Line>()
+        images.forEachIndexed { page, image ->
+            currentCoroutineContext().ensureActive()
+            val bitmap = shownImage(image.item, image.placement.transform)
+            val width = bitmap.width
+            val height = bitmap.height
+            // The recognizer recycles the bitmap once it is done with it.
+            for (line in recognizer.recognize(bitmap)) {
+                if (line.text.isNotBlank()) lines += Line(page, line.text, line.corners.bounds(), width, height, line.corners, image.placement)
+            }
+            onPageDone()
+        }
+        return lines
+    }
+
+    /**
+     * [item] as its page shows it (turned by [transform]: EXIF orientation, then the user's turn), on
+     * white, [READ_SIDE] pixels on its long side: larger photos are shrunk, smaller images enlarged at
+     * most [MAX_ENLARGE] times, as far as pages used to be rendered for reading. If memory runs short,
+     * it is read smaller.
+     */
+    private fun shownImage(item: ImageItem, transform: ImageTransform): Bitmap {
+        val shownWidth = if (transform.swapsAxes) item.height else item.width
+        val shownHeight = if (transform.swapsAxes) item.width else item.height
+        var scale = min(READ_SIDE.toDouble() / max(shownWidth, shownHeight), MAX_ENLARGE)
+        while (true) {
+            val width = max(1, (shownWidth * scale).roundToInt())
+            val height = max(1, (shownHeight * scale).roundToInt())
+            // Decoded at the largest power-of-two reduction that keeps the pixels needed.
+            var sample = 1
+            while (sample * 2 * scale <= 1) sample *= 2
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+                inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
+            }
+            var decoded: Bitmap? = null
+            try {
+                decoded = BitmapFactory.decodeFile(item.path, options) ?: throw ImageUnreadableException(item.name)
+                val shown = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                shown.eraseColor(Color.WHITE)
+                // The transform maps the stored image's 0..1 coordinates onto the shown image's.
+                val matrix = android.graphics.Matrix()
+                matrix.setValues(
+                    floatArrayOf(
+                        width * transform.a / decoded.width.toFloat(), width * transform.b / decoded.height.toFloat(), width * transform.c.toFloat(),
+                        height * transform.d / decoded.width.toFloat(), height * transform.e / decoded.height.toFloat(), height * transform.f.toFloat(),
+                        0f, 0f, 1f,
+                    ),
+                )
+                Canvas(shown).drawBitmap(decoded, matrix, Paint(Paint.FILTER_BITMAP_FLAG))
+                return shown
+            } catch (e: OutOfMemoryError) {
+                if (max(width, height) <= MIN_READ_SIDE) throw e
+                scale /= 2
+            } finally {
+                decoded?.recycle()
+            }
         }
     }
 
@@ -154,11 +237,16 @@ class PdfOcr(private val context: Context) {
                             }
                         }
                         if (printable.isBlank()) continue
-                        // From image pixels (y down) to PDF points (y up).
-                        fun toPage(p: Point) = PointF(
-                            box.lowerLeftX + p.x * box.width / line.pixelWidth,
-                            box.lowerLeftY + box.height - p.y * box.height / line.pixelHeight,
-                        )
+                        // From image pixels (y down) to PDF points (y up): where the page draws that
+                        // point of its image, or of the page as rendered.
+                        fun toPage(p: Point): PointF {
+                            val placement = line.placement ?: return PointF(
+                                box.lowerLeftX + p.x * box.width / line.pixelWidth,
+                                box.lowerLeftY + box.height - p.y * box.height / line.pixelHeight,
+                            )
+                            val (x, y) = placement.toPage(p.x.toDouble() / line.pixelWidth, p.y.toDouble() / line.pixelHeight)
+                            return PointF(x.toFloat(), y.toFloat())
+                        }
                         val corners = line.corners?.takeIf { it.size == 4 } ?: line.bounds.corners()
                         val (topLeft, topRight, _, bottomLeft) = corners.map(::toPage)
                         // The text starts at the bottom-left corner and runs along the top edge, so a
@@ -190,5 +278,17 @@ class PdfOcr(private val context: Context) {
     private companion object {
         /** Not in Usugami Lite, which has no text recognition (see PruneAssets in app/build.gradle.kts). */
         const val OCR_FONT = "fonts/UsugamiOcr-Regular.ttf"
+
+        /**
+         * The long side, in pixels, images are read at: 27 MB for a 4:3 photo, so it stays safe on
+         * a phone with 2 GB of memory.
+         */
+        const val READ_SIDE = 3000
+
+        /** Pages used to be rendered at up to 2.5 times their size in points for reading. */
+        const val MAX_ENLARGE = 2.5
+
+        /** Below this, a shortage of memory is reported rather than read even smaller. */
+        const val MIN_READ_SIDE = 750
     }
 }

@@ -27,6 +27,30 @@ sealed interface PageImage {
 }
 
 /**
+ * Where [ImagePdfBuilder.addPage] put an image: the page and the rectangle the image fills
+ * ([geometry]), drawn turned by [transform] (EXIF orientation, then the user's rotation).
+ */
+data class ImagePlacement(val geometry: PageGeometry, val transform: ImageTransform) {
+    /** The `cm` matrix the page draws the image with. */
+    fun matrix(): DoubleArray = transform.pdfMatrix(geometry.imageX, geometry.imageY, geometry.imageWidth, geometry.imageHeight)
+
+    /**
+     * Where the page shows the point ([s], [t]) of the image as it appears there (upright and turned
+     * as the user chose; [s] across and [t] down, each 0 to 1), in points from the page's bottom-left
+     * corner. The point goes back to the image as stored and through [matrix], so it lands exactly
+     * where the PDF draws it.
+     */
+    fun toPage(s: Double, t: Double): Pair<Double, Double> {
+        val stored = transform.inverse()
+        val u = stored.a * s + stored.b * t + stored.c
+        // An image XObject fills the unit square with its first row at the top.
+        val v = 1 - (stored.d * s + stored.e * t + stored.f)
+        val m = matrix()
+        return Pair(m[0] * u + m[2] * v + m[4], m[1] * u + m[3] * v + m[5])
+    }
+}
+
+/**
  * Writes a PDF with one image per page, streaming each page out as it is added so only one
  * image is in memory at a time. Call [addPage] for every image, then [finish].
  */
@@ -47,18 +71,19 @@ class ImagePdfBuilder(
 
     /**
      * Adds [image] as the next page. [exifOrientation] (1–8) is how the image is stored;
-     * [rotationDegrees] is the extra clockwise rotation the user picked.
+     * [rotationDegrees] is the extra clockwise rotation the user picked. Returns where the image went.
      */
-    fun addPage(image: PageImage, exifOrientation: Int, rotationDegrees: Int, checkCancelled: () -> Unit = {}) {
+    fun addPage(image: PageImage, exifOrientation: Int, rotationDegrees: Int, checkCancelled: () -> Unit = {}): ImagePlacement {
         val transform = ImageTransform.of(exifOrientation, rotationDegrees)
         val shownWidth = if (transform.swapsAxes) image.height else image.width
         val shownHeight = if (transform.swapsAxes) image.width else image.height
-        val page = PageLayout.compute(shownWidth, shownHeight, settings)
+        val placement = ImagePlacement(PageLayout.compute(shownWidth, shownHeight, settings), transform)
+        val page = placement.geometry
 
         val imageObject = writer.reserve()
         writeImage(imageObject, image, checkCancelled)
 
-        val m = transform.pdfMatrix(page.imageX, page.imageY, page.imageWidth, page.imageHeight)
+        val m = placement.matrix()
         val content = "q\n${m.joinToString(" ") { PdfSyntax.number(it) }} cm\n/Im0 Do\nQ\n"
         val contentObject = writer.reserve()
         writer.writeStream(contentObject, "", content.toByteArray(Charsets.ISO_8859_1))
@@ -72,6 +97,7 @@ class ImagePdfBuilder(
                 " /Contents $contentObject 0 R >>",
         )
         pageObjects.add(pageObject)
+        return placement
     }
 
     /** Writes the page tree, catalog, metadata and cross-reference table. */

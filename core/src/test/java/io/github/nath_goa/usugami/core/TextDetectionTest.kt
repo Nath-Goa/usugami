@@ -132,6 +132,22 @@ class TextDetectionTest {
         assertEquals(listOf(0, 1, 2, 3, 4), ReadingOrder.of(upsideDown))
     }
 
+    @Test fun readingOrderFollowsLinesFannedOutByASlantedPhoto() {
+        // A page photographed at a slant: its long lines turn from 3° at the top to -3° at the bottom,
+        // each starting a little further left, their boxes (grown by detection) nearly touching. The
+        // bounds of the outer lines, levelled by the mean angle, reach into the lines next to them.
+        val lines = (0 until 9).map { i ->
+            val angle = Math.toRadians(3.0 - 0.75 * i)
+            val x = 1100.0 - 4 * i
+            val y = 100.0 + 56 * i
+            box(-1000f, -25f, 1000f, 25f).map {
+                OcrPoint((x + it.x * cos(angle) - it.y * sin(angle)).toFloat(), (y + it.x * sin(angle) + it.y * cos(angle)).toFloat())
+            }
+        }
+        val shuffled = lines.shuffled(java.util.Random(2))
+        assertEquals(lines, ReadingOrder.of(shuffled).map { shuffled[it] })
+    }
+
     @Test fun aLongColumnIsOrderedWithoutDeepRecursion() {
         // As many lines as detection can find (1000), each a little wider than the last.
         val lines = (0 until 1000).map { box(10f, it * 30f, 300f + it * 0.1f, it * 30f + 20f) }

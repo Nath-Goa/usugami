@@ -50,7 +50,7 @@ interface OcrEngine {
 /** Reads the text on page images in one language. One page at a time. */
 interface OcrRecognizer : Closeable {
     /**
-     * The lines of text on [page], a page rendered on a white background. The recognizer takes
+     * The lines of text on [page], a page image on a white background. The recognizer takes
      * [page] over and recycles it once it is done with it, also when it fails or is cancelled (an
      * engine may still be reading it then). Cancellable.
      * @throws OcrUnavailableException when the model has gone since [OcrEngine.ensureReady].

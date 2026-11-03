@@ -249,9 +249,10 @@ internal class PaddleOcrRecognizer(private val assets: AssetManager, private val
 
     private companion object {
         /**
-         * The longest side the detection model sees. Pages come rendered at up to 2600 pixels (PdfOcr);
-         * an A4 page (2105) is detected at full size, which on photographed pages found clearly more
-         * small print than 1600 or 960 (measured with PaddleOCR's own pipeline).
+         * The longest side the detection model sees. Pages come at up to 3000 pixels (PdfOcr: the
+         * picked images, or pages rendered at up to 2600); a rendered A4 page (2105) is detected at
+         * full size, which on photographed pages found clearly more small print than 1600 or 960
+         * (measured with PaddleOCR's own pipeline).
          */
         const val DETECTION_SIDE = 2240
 

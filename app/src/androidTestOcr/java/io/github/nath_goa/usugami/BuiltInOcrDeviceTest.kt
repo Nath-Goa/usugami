@@ -114,6 +114,11 @@ class BuiltInOcrDeviceTest {
         }
     }
 
+    /** A photo made into a PDF at Extreme is read as picked, and its text goes over its lines. */
+    @Test fun readsAPhotoAsPicked() = runBlocking {
+        PhotoOcrCheck.run(context, engine, dir)
+    }
+
     /** The native bridge turns bad input into exceptions instead of crashing the app. */
     @Test fun nativeBridgeRejectsBadInput() {
         val net = NcnnNet.load(context.assets, "ocr/PP-OCRv5_mobile_det.ncnn.param", "ocr/PP-OCRv5_mobile_det.ncnn.bin", reuseMemory = true)

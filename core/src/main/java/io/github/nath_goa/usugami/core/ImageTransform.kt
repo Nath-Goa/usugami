@@ -22,6 +22,11 @@ data class ImageTransform(val a: Int, val b: Int, val c: Int, val d: Int, val e:
         f = next.d * c + next.e * f + next.f,
     )
 
+    /** The transform that undoes this one: from the image as shown back to the image as stored. */
+    fun inverse(): ImageTransform =
+        // The 2×2 part only swaps and flips axes, so its inverse is its transpose.
+        ImageTransform(a = a, b = d, c = -(a * c + d * f), d = b, e = e, f = -(b * c + e * f))
+
     /**
      * The PDF `cm` matrix [A B C D E F] that paints an image XObject (which always fills the
      * unit square, first row at the top) transformed by this, into the rectangle

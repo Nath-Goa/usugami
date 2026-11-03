@@ -505,7 +505,17 @@ object ReadingOrder {
             // Turned by minus the text's angle, so the lines are level.
             val xs = line.corners.map { it.x * cos + it.y * sin }
             val ys = line.corners.map { -it.x * sin + it.y * cos }
-            Item(index, xs.min(), xs.max(), ys.min(), ys.max())
+            val (topLeft, topRight) = line.corners
+            val along = (topRight.x - topLeft.x) * cos + (topRight.y - topLeft.y) * sin
+            val across = -(topRight.x - topLeft.x) * sin + (topRight.y - topLeft.y) * cos
+            if (abs(across) < abs(along)) {
+                // A line at an angle of its own (a page photographed at a slant fans its lines out) is
+                // only as high as it is thick: the bounds of a long one would reach into its neighbours.
+                val middle = ys.average()
+                Item(index, xs.min(), xs.max(), middle - line.height / 2.0, middle + line.height / 2.0)
+            } else {
+                Item(index, xs.min(), xs.max(), ys.min(), ys.max())
+            }
         }
         val lineHeight = items.map { it.bottom - it.top }.sorted()[items.size / 2].coerceAtLeast(1.0)
         val order = ArrayList<Int>(lines.size)

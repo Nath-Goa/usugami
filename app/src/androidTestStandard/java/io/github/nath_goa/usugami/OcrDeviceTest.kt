@@ -105,6 +105,16 @@ class OcrDeviceTest {
         }
     }
 
+    /** A photo made into a PDF at Extreme is read as picked, and its text goes over its lines. */
+    @Test fun ocrOfPhotoReadsTheOriginal() = runBlocking {
+        val dir = File(context.filesDir, "ocr_photo").apply { deleteRecursively(); mkdirs() }
+        try {
+            PhotoOcrCheck.run(context, engine, dir)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
     /** A one-page PDF that holds [lines] only as a picture, like a scan. */
     private fun scannedText(lines: List<String>, file: File): File {
         val bitmap = Bitmap.createBitmap(1240, 1754, Bitmap.Config.ARGB_8888)

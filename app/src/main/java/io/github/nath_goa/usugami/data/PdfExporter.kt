@@ -11,6 +11,7 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.ImagePdfBuilder
+import io.github.nath_goa.usugami.core.ImagePlacement
 import io.github.nath_goa.usugami.core.InvalidJpegException
 import io.github.nath_goa.usugami.core.Jpeg
 import io.github.nath_goa.usugami.core.LayoutSettings
@@ -22,11 +23,18 @@ import kotlinx.coroutines.job
 import java.io.ByteArrayOutputStream
 import java.io.File
 
-/** A finished PDF in the app's cache, ready to save or share. [originalBytes] is the size of its source images. */
-data class PdfFile(val file: File, val pageCount: Int, val originalBytes: Long) {
+/**
+ * A finished PDF in the app's cache, ready to save or share. [originalBytes] is the size of its source images.
+ * [images] are, for a PDF just made from images, the image on each page and where it is drawn: text
+ * recognition reads those rather than the compressed copies in the PDF. Empty for other PDFs.
+ */
+data class PdfFile(val file: File, val pageCount: Int, val originalBytes: Long, val images: List<PlacedImage> = emptyList()) {
     val name: String get() = file.name
     val sizeBytes: Long get() = file.length()
 }
+
+/** The picked image [item], drawn on its page as [placement] says. */
+data class PlacedImage(val item: ImageItem, val placement: ImagePlacement)
 
 class ImageUnreadableException(val imageName: String) : Exception("Unreadable image: $imageName")
 
@@ -70,16 +78,16 @@ class PdfExporter(context: Context) {
             return if (merge) {
                 val name = FileNames.sanitize(mergedName, DEFAULT_NAME)
                 val file = File(outputDir, "$name.pdf")
-                writePdf(file, name, items, options) { onProgress(it) }
-                listOf(PdfFile(file, items.size, items.sumOf { File(it.path).length() }))
+                val images = writePdf(file, name, items, options) { onProgress(it) }
+                listOf(PdfFile(file, items.size, items.sumOf { File(it.path).length() }, images))
             } else {
                 val taken = HashSet<String>()
                 items.mapIndexed { index, item ->
                     val name = FileNames.unique(FileNames.sanitize(FileNames.baseName(item.name), DEFAULT_NAME), taken)
                     taken += name
                     val file = File(outputDir, "$name.pdf")
-                    writePdf(file, name, listOf(item), options) { onProgress(index + 1) }
-                    PdfFile(file, 1, File(item.path).length())
+                    val images = writePdf(file, name, listOf(item), options) { onProgress(index + 1) }
+                    PdfFile(file, 1, File(item.path).length(), images)
                 }
             }
         } catch (t: Throwable) {
@@ -95,14 +103,16 @@ class PdfExporter(context: Context) {
         val checkCancelled: () -> Unit,
     )
 
-    private fun writePdf(file: File, title: String, items: List<ImageItem>, options: Options, onPageDone: (Int) -> Unit) {
+    /** Returns each page's image and where it went. */
+    private fun writePdf(file: File, title: String, items: List<ImageItem>, options: Options, onPageDone: (Int) -> Unit): List<PlacedImage> {
+        val placed = ArrayList<PlacedImage>()
         file.outputStream().use { out ->
             val builder = ImagePdfBuilder(out, options.layout, title, options.producer)
             items.forEachIndexed { index, item ->
                 options.checkCancelled()
                 val page = loadPage(item, options)
                 try {
-                    builder.addPage(page.image, item.exifOrientation, item.rotation, options.checkCancelled)
+                    placed += PlacedImage(item, builder.addPage(page.image, item.exifOrientation, item.rotation, options.checkCancelled))
                 } finally {
                     page.release()
                 }
@@ -111,6 +121,7 @@ class PdfExporter(context: Context) {
             builder.finish()
             out.fd.sync()
         }
+        return placed
     }
 
     private class LoadedPage(val image: PageImage, val release: () -> Unit = {})

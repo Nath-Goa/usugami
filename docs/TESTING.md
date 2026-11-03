@@ -55,8 +55,11 @@ the boxes found in a real probability map of the detection model, their scores, 
 enclosing rectangles, decoding the recognition model's output for real lines (repeats, blanks and
 the space), and also pieces of one line joined (also tilted, but not across columns or with much
 smaller print), which boxes are read as lines running down the page, the reading order (columns,
-pieces of a line, tilted and upside-down pages), the strips a large page is detected in, and where
-over-long lines are cut.
+pieces of a line, tilted and upside-down pages, lines fanned out by a photo taken at a slant), the
+strips a large page is detected in, and where over-long lines are cut. For text recognition in
+both editions that have it, they check where a point of a picked image lands on its page (A4 with
+a margin, Fit, landscape, turned a quarter, and every EXIF orientation and turn): exactly where the
+page's own drawing matrix puts it.
 
 ## 2. Device tests (Android)
 
@@ -186,6 +189,10 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
 - text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,
   French, Spanish and Hindi (French and Spanish accents kept), lines on a tilted page, and that a
   failed or cancelled recognition leaves the PDFs untouched
+- in both editions with text recognition, a photo of a printed page (stored sideways with an EXIF
+  orientation, then turned in the editor) made into a PDF at Extreme: its small print, too small to
+  read in the PDF's 100-dpi copy, is read from the photo as picked, and the text of a known word
+  lies over that word on the page
 - Usugami OCR's built-in text recognition (`app/src/androidTestOcr`): its native library loads (the
   test emulator has 16 KB memory pages), the English and Hindi test pages are read word for word into
   the text layer (the time per page is logged), a page upside down is read the right way up with
