@@ -154,7 +154,7 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
             if (shown != null) {
                 BoxControls(
                     shown,
-                    onChange = { if (chosen != null) vm.changeRedactBox(selected, it) },
+                    onStep = { step -> if (chosen != null) vm.stepRedactBox(selected, step) },
                     onDelete = { if (chosen != null) vm.deleteRedactBox(selected) },
                     modifier = Modifier.padding(top = 8.dp),
                 )
@@ -348,7 +348,7 @@ private fun BoxEditor(
             }
             if (failed) {
                 Text(
-                    stringResource(R.string.pdf_import_failed),
+                    stringResource(R.string.redact_page_failed),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Black,
                     textAlign = TextAlign.Center,
@@ -381,16 +381,20 @@ private fun DrawScope.drawBox(box: RedactBox, chosen: Boolean, frame: Color) {
     drawCircle(frame, radius = 5.dp.toPx(), center = corner)
 }
 
-/** Buttons that move, size and delete the chosen box, a step at a time: for those who can't drag. */
+/**
+ * Buttons that move, size and delete the chosen box, a step at a time: for those who can't drag.
+ * [onStep] applies a step to the box as it is at that moment, which may be further on than [box],
+ * the one last shown: quick presses each take a step.
+ */
 @Composable
-private fun BoxControls(box: RedactBox, onChange: (RedactBox) -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
+private fun BoxControls(box: RedactBox, onStep: ((RedactBox) -> RedactBox) -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     val step = Redaction.STEP
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Row(horizontalArrangement = Arrangement.Center) {
-            StepButton(Icons.Rounded.West, R.string.redact_move_left, Redaction.moved(box, -step, 0f), box, onChange)
-            StepButton(Icons.Rounded.North, R.string.redact_move_up, Redaction.moved(box, 0f, -step), box, onChange)
-            StepButton(Icons.Rounded.South, R.string.redact_move_down, Redaction.moved(box, 0f, step), box, onChange)
-            StepButton(Icons.Rounded.East, R.string.redact_move_right, Redaction.moved(box, step, 0f), box, onChange)
+            StepButton(Icons.Rounded.West, R.string.redact_move_left, { Redaction.moved(it, -step, 0f) }, box, onStep)
+            StepButton(Icons.Rounded.North, R.string.redact_move_up, { Redaction.moved(it, 0f, -step) }, box, onStep)
+            StepButton(Icons.Rounded.South, R.string.redact_move_down, { Redaction.moved(it, 0f, step) }, box, onStep)
+            StepButton(Icons.Rounded.East, R.string.redact_move_right, { Redaction.moved(it, step, 0f) }, box, onStep)
         }
         // Width and height each stay together, one under the other on a narrow screen.
         FlowRow(
@@ -399,13 +403,13 @@ private fun BoxControls(box: RedactBox, onChange: (RedactBox) -> Unit, onDelete:
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.redact_width), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
-                StepButton(Icons.Rounded.Remove, R.string.redact_narrower, Redaction.resized(box, -step, 0f), box, onChange)
-                StepButton(Icons.Rounded.Add, R.string.redact_wider, Redaction.resized(box, step, 0f), box, onChange)
+                StepButton(Icons.Rounded.Remove, R.string.redact_narrower, { Redaction.resized(it, -step, 0f) }, box, onStep)
+                StepButton(Icons.Rounded.Add, R.string.redact_wider, { Redaction.resized(it, step, 0f) }, box, onStep)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.redact_height), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
-                StepButton(Icons.Rounded.Remove, R.string.redact_shorter, Redaction.resized(box, 0f, -step), box, onChange)
-                StepButton(Icons.Rounded.Add, R.string.redact_taller, Redaction.resized(box, 0f, step), box, onChange)
+                StepButton(Icons.Rounded.Remove, R.string.redact_shorter, { Redaction.resized(it, 0f, -step) }, box, onStep)
+                StepButton(Icons.Rounded.Add, R.string.redact_taller, { Redaction.resized(it, 0f, step) }, box, onStep)
             }
         }
         TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
@@ -416,10 +420,16 @@ private fun BoxControls(box: RedactBox, onChange: (RedactBox) -> Unit, onDelete:
     }
 }
 
-/** Changes the box to [target]; off once the box can't go further that way. */
+/** Changes the box by [step]; off once the box can't go further that way. */
 @Composable
-private fun StepButton(icon: ImageVector, @StringRes label: Int, target: RedactBox, current: RedactBox, onChange: (RedactBox) -> Unit) {
-    IconButton(onClick = { onChange(target) }, enabled = !Redaction.same(target, current)) {
+private fun StepButton(
+    icon: ImageVector,
+    @StringRes label: Int,
+    step: (RedactBox) -> RedactBox,
+    current: RedactBox,
+    onStep: ((RedactBox) -> RedactBox) -> Unit,
+) {
+    IconButton(onClick = { onStep(step) }, enabled = !Redaction.same(step(current), current)) {
         Icon(icon, contentDescription = stringResource(label))
     }
 }

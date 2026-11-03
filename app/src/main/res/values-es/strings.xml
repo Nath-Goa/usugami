@@ -164,6 +164,7 @@
     <string name="redact_page_marked">Tiene recuadros</string>
     <string name="redact_mark">Marca lo que quieres ocultar</string>
     <string name="redact_mark_hint">Arrastra sobre la página para dibujar un recuadro. Toca un recuadro para cambiarlo.</string>
+    <string name="redact_page_failed">Esta página no se puede mostrar, así que no se puede censurar.</string>
     <plurals name="redact_preview_description">
         <item quantity="one">Página %1$d, %2$d recuadro</item>
         <item quantity="many">Página %1$d, %2$d recuadros</item>

@@ -25,6 +25,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDMetadata
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.common.filespecification.PDComplexFileSpecification
 import com.tom_roush.pdfbox.pdmodel.common.filespecification.PDEmbeddedFile
 import com.tom_roush.pdfbox.pdmodel.documentinterchange.logicalstructure.PDMarkInfo
@@ -35,14 +36,19 @@ import com.tom_roush.pdfbox.pdmodel.graphics.color.PDColor
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
+import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionJavaScript
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationFileAttachment
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationSquareCircle
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationText
+import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDSignatureField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
 import com.tom_roush.pdfbox.pdmodel.PDDestinationNameTreeNode
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -113,10 +119,13 @@ class RedactionDeviceTest {
      *    application data and a thumbnail
      * 2. A4, turned clockwise (/Rotate 90), so its text runs down the page as shown
      * 3. A4, upright, without the word: shares page 1's resources and draws its own image, and has a
-     *    form field of its own; it is never redacted
+     *    form field of its own; it is never redacted. The word is only in what Usugami removes from
+     *    every page: an attached file (with its pop-up and a reply to it) and the details of a
+     *    digital signature
      * 4. A4 with a crop box that leaves a 100-point border off on every side
-     * Also: the document information, XMP metadata, a bookmark, named destinations, an attached file,
-     * JavaScript (also run on opening) and tags with alternate text and ActualText.
+     * Also: the document information, XMP metadata, a bookmark, named destinations (in a tree whose
+     * leaves list their first and last names), an attached file, JavaScript (also run on opening),
+     * tags with alternate text and ActualText, and the certificates of signatures (/DSS).
      */
     private fun secrets(name: String): File = File(context.cacheDir, name).also { file ->
         PDDocument().use { doc ->
@@ -181,6 +190,44 @@ class RedactionDeviceTest {
                 acroForm.fields.add(field)
                 field.value = value
             }
+            // On page 3: a file attached as a comment, with its pop-up and a reply…
+            val attachment = PDAnnotationFileAttachment().apply {
+                rectangle = PDRectangle(500f, 600f, 20f, 20f)
+                contents = "payroll.txt"
+                this.file = PDComplexFileSpecification().apply {
+                    setFile("payroll.txt")
+                    embeddedFile = PDEmbeddedFile(doc, "SECRET payroll".byteInputStream())
+                }
+            }
+            val popup = PDAnnotationPopup().apply {
+                rectangle = PDRectangle(400f, 500f, 150f, 80f)
+                cosObject.setItem(COSName.PARENT, attachment)
+            }
+            attachment.popup = popup
+            val reply = PDAnnotationText().apply {
+                rectangle = PDRectangle(530f, 600f, 20f, 20f)
+                contents = "Is this the latest?"
+                inReplyTo = attachment
+            }
+            plain.annotations.addAll(listOf(attachment, popup, reply))
+            // …and an invisible digital signature, with its signer's certificates kept for the catalog.
+            val signature = PDSignatureField(acroForm)
+            signature.widgets[0].apply {
+                rectangle = PDRectangle(0f, 0f, 0f, 0f)
+                page = plain
+                plain.annotations.add(this)
+            }
+            signature.value = PDSignature().apply {
+                this.name = "SECRET signer"
+                reason = "SECRET reason"
+                location = "SECRET place"
+                contents = "SECRET cert".toByteArray()
+            }
+            acroForm.fields.add(signature)
+            acroForm.setSignaturesExist(true)
+            doc.documentCatalog.cosObject.setItem(COSName.getPDFName("DSS"), COSDictionary().apply {
+                setItem(COSName.getPDFName("Certs"), COSArray().apply { add(PDStream(doc, "SECRET cert".byteInputStream()).cosObject) })
+            })
             // Private application data and a thumbnail.
             val private = COSDictionary().apply { setItem(COSName.getPDFName("Usugami"), COSDictionary().apply { setString(COSName.getPDFName("Private"), "SECRET private") }) }
             first.cosObject.setItem(COSName.PIECE_INFO, private)
@@ -202,9 +249,14 @@ class RedactionDeviceTest {
 
             val names = PDDocumentNameDictionary(doc.documentCatalog)
             names.dests = PDDestinationNameTreeNode().apply {
-                setNames(mapOf<String, PDPageDestination>(
-                    "SECRETDEST" to PDPageFitDestination().apply { page = first },
-                    "keep" to PDPageFitDestination().apply { page = plain },
+                setKids(listOf(
+                    PDDestinationNameTreeNode().apply {
+                        setNames(mapOf<String, PDPageDestination>(
+                            "SECRETDEST" to PDPageFitDestination().apply { page = first },
+                            "keep" to PDPageFitDestination().apply { page = plain },
+                        ))
+                    },
+                    PDDestinationNameTreeNode().apply { setNames(mapOf<String, PDPageDestination>("zz" to PDPageFitDestination().apply { page = plain })) },
                 ))
             }
             names.embeddedFiles = PDEmbeddedFilesNameTreeNode().apply {
@@ -522,7 +574,7 @@ class RedactionDeviceTest {
                 val drawn = imagesOn(b).single().image
                 assertEquals(41, drawn.width)
                 val resources = b.resources
-                val sizes = resources.xObjectNames.mapNotNull { (resources.getXObject(it) as? com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject)?.width }
+                val sizes = resources.xObjectNames.mapNotNull { (resources.getXObject(it) as? PDImageXObject)?.width }
                 assertFalse("Page 1's image is gone", 37 in sizes)
                 // Its form field is still there, with its value.
                 assertEquals("public value", after.documentCatalog.acroForm.getField("keepme").valueAsString)
@@ -550,6 +602,129 @@ class RedactionDeviceTest {
             val dests = doc.documentCatalog.names.dests
             assertNull(dests.getValue("SECRETDEST"))
             assertNotNull(dests.getValue("keep"))
+        }
+    }
+
+    /**
+     * Pages cut from one scanned spread, as some tools split them: each draws the whole scan (red
+     * on the left, blue on the right) and its crop shows one half. Pages 1 and 2 share one content
+     * stream, which also writes SECRET on the left; pages 3 and 4 each have their own. Boxing all
+     * of pages 1 and 3 makes 2 and 4 pictures too, so neither the red half nor the word stays in
+     * the file. Page 5 draws a logo page 1 also drew, where it shows: it stays as it was.
+     */
+    @Test fun pagesKeepingWhatABoxHidesOutOfSightBecomePicturesToo() {
+        val file = File(context.cacheDir, "spread.pdf")
+        PDDocument().use { doc ->
+            val scan = LosslessFactory.createFromImage(doc, createBitmap(2, 1).apply {
+                setPixel(0, 0, Color.RED)
+                setPixel(1, 0, Color.BLUE)
+            })
+            val resources = PDResources().apply {
+                put(COSName.getPDFName("F1"), PDType1Font.HELVETICA)
+                put(COSName.getPDFName("Scan"), scan)
+                put(COSName.getPDFName("Logo"), image(doc, 4, 4, Color.GREEN))
+            }
+            fun page(left: Float, content: PDStream) = PDPage(PDRectangle(left, 0f, 200f, 200f)).also {
+                it.resources = resources
+                it.setContents(content)
+                doc.addPage(it)
+            }
+            fun stream(text: String) = PDStream(doc, text.byteInputStream())
+            val scanned = "q 400 0 0 200 0 0 cm /Scan Do Q"
+            val logo = "q 20 0 0 20 150 150 cm /Logo Do Q"
+            val shared = stream("$scanned $logo BT /F1 14 Tf 20 100 Td (SECRET) Tj ET")
+            page(0f, shared)
+            page(200f, shared)
+            page(0f, stream(scanned))
+            page(200f, stream(scanned))
+            page(0f, stream(logo))
+            doc.save(file)
+        }
+        val source = import(file)
+        val boxes = listOf(RedactBox(0, 0f, 0f, 1f, 1f), RedactBox(2, 0f, 0f, 1f, 1f))
+        val redacted = save(engine.redact(source, boxes, "spread_redacted").file, "spread_redacted.pdf")
+        PDDocument.load(redacted).use { doc ->
+            assertTrue("The word is gone", everything(doc).none { it.contains("SECRET") })
+            // No image left in the file, the pages' pictures included, has any of the red half.
+            val seen = Collections.newSetFromMap(IdentityHashMap<COSBase, Boolean>())
+            val pending = ArrayDeque<COSBase>().apply { add(doc.document.trailer) }
+            while (pending.isNotEmpty()) {
+                val item = pending.removeLast().let { if (it is COSObject) it.`object` else it } ?: continue
+                if (!seen.add(item)) continue
+                if (item is COSStream && item.getCOSName(COSName.SUBTYPE) == COSName.IMAGE) {
+                    assertFalse("An image keeps the red half", pixels(PDImageXObject(PDStream(item), null).image).any(::red))
+                }
+                if (item is COSDictionary) item.entrySet().forEach { pending += it.value } else if (item is COSArray) item.forEach { pending += it }
+            }
+            // Pages 2 and 4 are pictures of their blue half; page 5 keeps its own content.
+            for (index in listOf(1, 3)) assertEquals(1, imagesOn(doc.getPage(index)).size)
+            assertEquals("q 20 0 0 20 150 150 cm /Logo Do Q", doc.getPage(4).contents.use { String(it.readBytes()) })
+        }
+        for (index in listOf(1, 3)) {
+            val center = render(redacted, index).getPixel(100, 100)
+            assertTrue("Page ${index + 1} still shows blue: ${Integer.toHexString(center)}", Color.blue(center) > 200 && Color.red(center) < 60)
+        }
+    }
+
+    /** A name found only in a comment's text gets a box on that comment's page, so the comment goes. */
+    @Test fun findTextFindsWhatCommentsSay() {
+        val file = File(context.cacheDir, "commented.pdf")
+        PDDocument().use { doc ->
+            val first = PDPage(PDRectangle.A4).also(doc::addPage)
+            PDPageContentStream(doc, first).use { content -> write(content, "Meeting with John Smith", 72f, 700f) }
+            val second = PDPage(PDRectangle.A4).also(doc::addPage)
+            second.annotations.add(PDAnnotationText().apply {
+                rectangle = PDRectangle(500f, 700f, 20f, 20f)
+                contents = "Call John\nSmith about it"
+            })
+            doc.save(file)
+        }
+        val source = import(file)
+        val found = engine.findText(source, "john smith")
+        assertEquals(listOf(0, 1), found.map { it.single().page })
+        val redacted = save(engine.redact(source, found.flatten(), "commented_redacted").file, "commented_redacted.pdf")
+        PDDocument.load(redacted).use { doc -> assertTrue(everything(doc).none { it.contains("Smith") }) }
+    }
+
+    /**
+     * Form fields filled without a look of their own, whose values PDFBox can't draw (a letter its
+     * font lacks, a font the form doesn't have): Find text finds them, and a redacted page keeps
+     * them in its picture, as the preview shows them.
+     */
+    @Test fun fieldValuesPdfboxCannotDrawAreFoundAndKept() {
+        val file = File(context.cacheDir, "undrawn-fields.pdf")
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4).also(doc::addPage)
+            val form = PDAcroForm(doc)
+            doc.documentCatalog.acroForm = form
+            form.defaultResources = PDResources().apply { put(COSName.getPDFName("Helv"), PDType1Font.HELVETICA) }
+            form.defaultAppearance = "/Helv 12 Tf 0 g"
+            form.needAppearances = true
+            for ((name, y, look) in listOf(Triple("polish", 700f, null), Triple("broken", 600f, "/Nope 12 Tf 0 g"))) {
+                val field = PDTextField(form)
+                field.partialName = name
+                if (look != null) field.defaultAppearance = look
+                field.widgets[0].apply {
+                    rectangle = PDRectangle(72f, y, 300f, 24f)
+                    this.page = page
+                    page.annotations.add(this)
+                }
+                form.fields.add(field)
+            }
+            // As some apps fill forms: values set, no look made for them.
+            form.getField("polish").cosObject.setString(COSName.V, "Łukasz Żółć")
+            form.getField("broken").cosObject.setString(COSName.V, "Visible value")
+            doc.save(file)
+        }
+        val source = import(file)
+        assertEquals(listOf(0), engine.findText(source, "łukasz").map { it.single().page })
+        assertEquals(listOf(0), engine.findText(source, "visible value").map { it.single().page })
+        val redacted = save(engine.redact(source, listOf(RedactBox(0, 0.1f, 0.9f, 0.2f, 0.95f)), "undrawn_redacted").file, "undrawn_redacted.pdf")
+        val picture = render(redacted, 0)
+        for (y in listOf(700, 600)) {
+            // Dark letters inside the field, which is 24 points tall from y up.
+            val dark = (75 until 370).count { x -> (842 - y - 22 until 842 - y - 2).any { row -> Color.red(picture.getPixel(x, row)) < 100 } }
+            assertTrue("The value at $y is in the picture ($dark columns)", dark > 20)
         }
     }
 

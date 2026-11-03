@@ -6,12 +6,15 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
+import android.text.Html
 import androidx.core.graphics.createBitmap
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSObject
+import com.tom_roush.pdfbox.cos.COSStream
+import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -24,6 +27,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import com.tom_roush.pdfbox.util.Matrix
+import io.github.nath_goa.usugami.core.Areas
 import io.github.nath_goa.usugami.core.GlyphBox
 import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.PageText
@@ -63,13 +67,18 @@ internal object Redactor {
      */
     private const val LOSSLESS_ALLOWANCE = 1.5
 
+    /** How far, in points, something may reach past the edge of a page and still count as shown on it. */
+    private const val SLACK = 1f
+
     /**
      * Draws each visible annotation's appearance into its page, then removes the annotations, as a
      * PDF viewer shows them. Returns whether any was drawn.
      */
     fun drawAnnotationsIntoPages(doc: PDDocument, check: () -> Unit): Boolean {
-        // As Flatten does: fields whose values viewers draw themselves (NeedAppearances) are drawn first.
-        doc.documentCatalog.getAcroForm(null)?.let { form -> Flattening.redrawFields(form, form.fieldTree.toList(), check) }
+        // As Flatten does: fields whose values viewers draw themselves (NeedAppearances) are drawn
+        // first. Those PDFBox can't draw are drawn by Android instead, so they don't look empty.
+        val undrawn = doc.documentCatalog.getAcroForm(null)?.let { form -> Flattening.redrawFields(form, form.fieldTree.toList(), check) }.orEmpty()
+        val values = FieldValues.drawn(doc, undrawn, check)
         var any = false
         for (page in doc.pages) {
             check()
@@ -82,8 +91,12 @@ internal object Redactor {
                 PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
                     for (annotation in shown) {
                         // Placed and made see-through (its /CA) as Flatten draws it.
-                        val appearance = try { Flattening.appearanceOf(doc, annotation) } catch (_: IOException) { null } ?: continue
-                        Flattening.draw(content, annotation, appearance)
+                        val appearance = try { Flattening.appearanceOf(doc, annotation) } catch (_: IOException) { null }
+                        if (appearance != null) {
+                            Flattening.draw(content, annotation, appearance)
+                        } else {
+                            values[annotation.cosObject]?.let { FieldValues.draw(content, annotation, it) }
+                        }
                     }
                 }
             }
@@ -118,6 +131,50 @@ internal object Redactor {
         }
         // In page order, as they are on each page.
         return found.values.sortedBy { it.first().page }
+    }
+
+    /**
+     * A box over each comment on [doc]'s pages, but those in [skip], whose text has [query]: what
+     * it says, its author or its subject, which viewers list though the page doesn't show them.
+     * The box covers the comment as the page shows it (its icon, or what it marks), so that page
+     * becomes a picture and the comment goes. The pages in [skip] have the text on them, so they
+     * lose their comments anyway. Form fields aren't looked at: their values are on the page.
+     */
+    fun findInComments(doc: PDDocument, query: String, skip: Set<Int>, check: () -> Unit): List<List<RedactBox>> {
+        val wanted = PageText.normalize(query)
+        if (wanted.isEmpty()) return emptyList()
+        val found = ArrayList<List<RedactBox>>()
+        doc.pages.forEachIndexed { index, page ->
+            if (index in skip) return@forEachIndexed
+            check()
+            val annotations = page.cosObject.getCOSArray(COSName.ANNOTS) ?: return@forEachIndexed
+            val frame = page.shownFrame()
+            for (item in annotations) {
+                val annotation = item.resolve() as? COSDictionary ?: continue
+                val subtype = annotation.getCOSName(COSName.SUBTYPE)
+                if (subtype == COSName.WIDGET) continue
+                val said = listOf(COSName.CONTENTS, COSName.T, COSName.SUBJ).mapNotNull { annotation.getString(it) } + listOfNotNull(richText(annotation))
+                if (said.none { PageText.normalize(it).contains(wanted, ignoreCase = true) }) continue
+                // A pop-up's window may be anywhere: it is boxed where its comment is.
+                val placed = (annotation.getDictionaryObject(COSName.PARENT) as? COSDictionary)?.takeIf { subtype == COSName.getPDFName("Popup") } ?: annotation
+                val rect = placed.getCOSArray(COSName.RECT)?.toFloatArray()?.takeIf { it.size == 4 } ?: FloatArray(4)
+                val (x0, y0) = frame.toShown(rect[0], rect[1])
+                val (x1, y1) = frame.toShown(rect[2], rect[3])
+                // Off the page, it is boxed at the nearest edge, so the page is still redacted.
+                found += listOf(Redaction.clamp(Redaction.between(index, x0 / frame.shownWidth, 1 - y0 / frame.shownHeight, x1 / frame.shownWidth, 1 - y1 / frame.shownHeight)))
+            }
+        }
+        return found
+    }
+
+    /** A comment's rich text (/RC, XHTML), as plain text. */
+    private fun richText(annotation: COSDictionary): String? {
+        val xhtml = when (val rich = annotation.getDictionaryObject(COSName.RC)) {
+            is COSString -> rich.string
+            is COSStream -> try { rich.createInputStream().use { String(it.readBytes(), Charsets.UTF_8) } } catch (_: IOException) { null }
+            else -> null
+        } ?: return null
+        return Html.fromHtml(xhtml, Html.FROM_HTML_MODE_LEGACY).toString()
     }
 
     /** Collects each page's glyphs as text extraction reads them, and boxes the matches when the page ends. */
@@ -216,19 +273,21 @@ internal object Redactor {
 
     /**
      * Replaces each page with [boxes] by a picture of it, drawn from [view] (the copy the preview
-     * showed), with the boxes black, then removes what could leak the hidden content.
+     * showed), with the boxes black, then removes what could leak the hidden content. Pages that
+     * would keep some of it out of sight become pictures too (see [keepingHidden]).
      */
     fun redact(doc: PDDocument, view: File, boxes: List<RedactBox>, check: () -> Unit) {
         val byPage = boxes.groupBy { it.page }
         require(byPage.isNotEmpty() && byPage.keys.all { it in 0 until doc.numberOfPages })
-        val redacted = byPage.keys.sorted()
+        // Pages that would keep out of sight what the boxes hide become pictures too, without boxes.
+        val pictured = (byPage.keys + keepingHidden(doc, byPage, check)).toSortedSet()
         val redactedPages = identitySet<COSBase>()
         val removedAnnotations = identitySet<COSBase>()
         val drawnThere = identitySet<COSBase>()
-        for (index in redacted) {
+        for (index in pictured) {
             check()
             val page = doc.getPage(index)
-            redactedPages += page.cosObject
+            if (index in byPage) redactedPages += page.cosObject
             page.cosObject.getCOSArray(COSName.ANNOTS)?.forEach { (it.resolve() as? COSDictionary)?.let(removedAnnotations::add) }
             XObjectCleanup.drawnBy(page, drawnThere)
         }
@@ -236,19 +295,85 @@ internal object Redactor {
         ParcelFileDescriptor.open(view, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
             PdfRenderer(descriptor).use { renderer ->
                 if (renderer.pageCount != doc.numberOfPages) throw IOException("The copy has ${renderer.pageCount} pages, not ${doc.numberOfPages}")
-                for (index in redacted) {
+                for (index in pictured) {
                     check()
-                    replaceWithPicture(doc, doc.getPage(index), renderer, index, byPage.getValue(index), check)
+                    replaceWithPicture(doc, doc.getPage(index), renderer, index, byPage[index].orEmpty(), check)
                 }
             }
         }
 
-        // Images and forms that only the redacted pages drew must not stay behind, as they would
-        // where pages share one list of resources: they are emptied in place.
-        XObjectCleanup.emptyUnused(doc, drawnThere, (0 until doc.numberOfPages).filter { it !in byPage }.map(doc::getPage), check)
+        // Images and forms that only the pages now pictures drew must not stay behind, as they
+        // would where pages share one list of resources: they are emptied in place.
+        XObjectCleanup.emptyUnused(doc, drawnThere, (0 until doc.numberOfPages).filter { it !in pictured }.map(doc::getPage), check)
 
         check()
         removeLeaks(doc, redactedPages, removedAnnotations)
+    }
+
+    /**
+     * The pages without boxes that would keep, out of sight, something the boxes hide: they draw a
+     * content stream of a page with boxes, or an image or form a box covers part of, but don't
+     * show the part under the box, which would then stay in the file. A scanned spread split into
+     * two pages is like that when each page draws the whole scan and its crop box shows one half.
+     * Those pages become pictures too, of what they show. Pages that show that part, as with a logo
+     * or a header every page draws, stay as they are: it is there for all to see.
+     */
+    private fun keepingHidden(doc: PDDocument, byPage: Map<Int, List<RedactBox>>, check: () -> Unit): Set<Int> {
+        // What the boxes hide: in the page's own coordinates, for each content stream that drew it…
+        val inStreams = IdentityHashMap<COSBase, MutableList<FloatArray>>()
+        // …and in their own space, for the images and forms under them.
+        val inXObjects = IdentityHashMap<COSBase, MutableList<FloatArray>>()
+        for ((index, boxes) in byPage) {
+            check()
+            val page = doc.getPage(index)
+            val frame = page.shownFrame()
+            val areas = boxes.map { box ->
+                Flattening.pageArea(frame.matrix, box.left * frame.shownWidth, (1 - box.bottom) * frame.shownHeight, box.width * frame.shownWidth, box.height * frame.shownHeight)
+            }
+            for (stream in contentStreams(page)) inStreams.getOrPut(stream) { ArrayList() } += areas
+            for (placement in XObjectCleanup.placements(page).orEmpty()) {
+                val inverse = Areas.inverted(placement.matrix) ?: continue
+                val drawn = shownPart(Areas.mapped(placement.matrix, placement.extent), placement.clip) ?: continue
+                for (area in areas) {
+                    val covered = Areas.intersection(area, drawn) ?: continue
+                    val own = Areas.intersection(Areas.mapped(inverse, covered), placement.extent) ?: continue
+                    inXObjects.getOrPut(placement.xobject) { ArrayList() } += own
+                }
+            }
+        }
+        val more = HashSet<Int>()
+        val reaches = IdentityHashMap<COSBase, Boolean>()
+        for (index in 0 until doc.numberOfPages) {
+            if (index in byPage) continue
+            check()
+            val page = doc.getPage(index)
+            val crop = page.cropBox.let { floatArrayOf(it.lowerLeftX, it.lowerLeftY, it.upperRightX, it.upperRightY) }
+            fun shows(area: FloatArray, clip: FloatArray?) = shownPart(crop, clip)?.let { Areas.inside(area, it, SLACK) } == true
+            if (contentStreams(page).any { stream -> inStreams[stream]?.any { !shows(it, null) } == true }) {
+                more += index
+                continue
+            }
+            if (inXObjects.isEmpty() || !XObjectCleanup.mayDraw(page, inXObjects.keys, reaches)) continue
+            // A page whose content can't be read is left as it is.
+            val drawnHere = XObjectCleanup.placements(page)?.filter { it.xobject in inXObjects } ?: continue
+            val keeps = drawnHere.any { placement ->
+                inXObjects.getValue(placement.xobject).any { part ->
+                    drawnHere.none { it.xobject === placement.xobject && shows(Areas.mapped(it.matrix, part), it.clip) }
+                }
+            }
+            if (keeps) more += index
+        }
+        return more
+    }
+
+    /** What of [area] the forms it is drawn in let show, if they cut it to [clip]; null for nothing. */
+    private fun shownPart(area: FloatArray, clip: FloatArray?): FloatArray? = if (clip == null) area else Areas.intersection(area, clip)
+
+    /** The content streams [page] is drawn from. */
+    private fun contentStreams(page: PDPage): List<COSBase> = when (val contents = page.cosObject.getDictionaryObject(COSName.CONTENTS)) {
+        is COSStream -> listOf(contents)
+        is COSArray -> (0 until contents.size()).mapNotNull { contents.getObject(it) as? COSStream }
+        else -> emptyList()
     }
 
     /** Draws page [index] from [renderer] with [boxes] in black, and makes that picture the page's only content. */
@@ -356,10 +481,11 @@ internal object Redactor {
      * - bookmarks, whose titles can name what was hidden, and the tags (structure tree) for screen
      *   readers, which keep copies of the text, alternate text and ActualText;
      * - form fields whose only places were on redacted pages, with their values, and XFA form data;
+     * - what digital signatures, which no longer match, say of their signers;
      * - named destinations that lead to redacted pages, whose names can repeat their headings;
      * - attached files, JavaScript, applications' private data (PieceInfo, where some apps keep a
      *   whole editable copy), article threads, XMP metadata of pages, and page actions;
-     * - replies and pop-ups on other pages that point at annotations that were removed.
+     * - the pop-ups of annotations that were removed, and what else on other pages points at them.
      * The pages without boxes otherwise stay as they were, links and form fields included.
      */
     private fun removeLeaks(doc: PDDocument, redactedPages: Set<COSBase>, removedAnnotations: Set<COSBase>) {
@@ -407,32 +533,63 @@ internal object Redactor {
                 form.getCOSArray(COSName.getPDFName("CO"))?.let { order ->
                     for (i in order.size() - 1 downTo 0) if (order.getObject(i) !in remaining) order.remove(i)
                 }
+                // A digital signature no longer matches anyway: what it says of the signer (name,
+                // reason, place, certificate) goes, wherever its field is. The field stays, unsigned.
+                for (field in remaining) {
+                    if (field is COSDictionary && fieldType(field) == COSName.SIG) for (key in SIGNATURE_KEYS) field.removeItem(key)
+                }
+                form.removeItem(COSName.SIG_FLAGS)
             }
         }
 
-        for (page in doc.pages) {
+        // Attached files go from the pages that stay too; then nothing there may still lead to an
+        // annotation that went: a pop-up, the window of one, goes with it, and a reply or a field
+        // forgets it. Otherwise the annotation, and an attached file with it, would stay in the file.
+        val kept = doc.pages.filter { it.cosObject !in redactedPages }
+        val gone = identitySet<COSBase>().apply { addAll(removedAnnotations) }
+        for (page in kept) {
             val cos = page.cosObject
-            if (cos in redactedPages) continue
             for (key in REMOVED_PAGE_KEYS) cos.removeItem(key)
             val annotations = cos.getCOSArray(COSName.ANNOTS) ?: continue
             for (i in annotations.size() - 1 downTo 0) {
                 val annotation = annotations.getObject(i) as? COSDictionary ?: continue
                 if (annotation.getCOSName(COSName.SUBTYPE) == COSName.getPDFName("FileAttachment")) {
                     annotations.remove(i)
+                    gone += annotation
+                }
+            }
+        }
+        for (page in kept) {
+            val annotations = page.cosObject.getCOSArray(COSName.ANNOTS) ?: continue
+            for (i in annotations.size() - 1 downTo 0) {
+                val annotation = annotations.getObject(i) as? COSDictionary ?: continue
+                if (annotation.getCOSName(COSName.SUBTYPE) == COSName.getPDFName("Popup") && annotation.getDictionaryObject(COSName.PARENT) in gone) {
+                    annotations.remove(i)
                     continue
                 }
                 annotation.removeItem(COSName.getPDFName("AF"))
                 for (key in listOf(COSName.getPDFName("IRT"), COSName.PARENT, COSName.getPDFName("Popup"))) {
-                    if (annotation.getDictionaryObject(key) in removedAnnotations) annotation.removeItem(key)
+                    if (annotation.getDictionaryObject(key) in gone) annotation.removeItem(key)
                 }
             }
         }
     }
 
-    /** Removes from a name tree the entries [drop] says to, in every node. */
-    private fun pruneNameTree(node: COSDictionary, seen: MutableSet<COSBase>, drop: (COSBase?) -> Boolean) {
-        if (!seen.add(node)) return
-        node.getCOSArray(COSName.NAMES)?.let { pairs ->
+    /** A form field's type (/FT), which it may inherit from the fields above it. */
+    private fun fieldType(field: COSDictionary): COSName? =
+        generateSequence(field) { it.getDictionaryObject(COSName.PARENT) as? COSDictionary }.take(32).firstNotNullOfOrNull { it.getCOSName(COSName.FT) }
+
+    /**
+     * Removes from a name tree the entries [drop] says to, in every node, and the nodes left
+     * empty; the first and last names each node keeps in its /Limits are set again, so those of
+     * removed entries don't stay there. Returns whether [node] is left empty.
+     */
+    private fun pruneNameTree(node: COSDictionary, seen: MutableSet<COSBase>, drop: (COSBase?) -> Boolean, root: Boolean = true): Boolean {
+        if (!seen.add(node)) return false
+        var first: COSBase? = null
+        var last: COSBase? = null
+        val pairs = node.getCOSArray(COSName.NAMES)
+        if (pairs != null) {
             var i = pairs.size() - 2
             while (i >= 0) {
                 if (drop(pairs.get(i + 1))) {
@@ -441,8 +598,33 @@ internal object Redactor {
                 }
                 i -= 2
             }
+            if (pairs.size() >= 2) {
+                first = pairs.get(0)
+                last = pairs.get(pairs.size() - 2 - pairs.size() % 2)
+            }
         }
-        node.getCOSArray(COSName.KIDS)?.forEach { kid -> (kid.resolve() as? COSDictionary)?.let { pruneNameTree(it, seen, drop) } }
+        val kids = node.getCOSArray(COSName.KIDS)
+        if (kids != null) {
+            for (i in kids.size() - 1 downTo 0) {
+                val kid = kids.getObject(i) as? COSDictionary ?: continue
+                if (pruneNameTree(kid, seen, drop, root = false)) kids.remove(i)
+            }
+            val limits = (0 until kids.size()).mapNotNull { (kids.getObject(it) as? COSDictionary)?.getCOSArray(COSName.LIMITS)?.takeIf { l -> l.size() == 2 } }
+            if (first == null && limits.isNotEmpty()) {
+                first = limits.first().get(0)
+                last = limits.last().get(1)
+            }
+        }
+        // The root has no /Limits.
+        if (root || first == null || last == null) {
+            node.removeItem(COSName.LIMITS)
+        } else {
+            node.setItem(COSName.LIMITS, COSArray().apply {
+                add(first)
+                add(last)
+            })
+        }
+        return (pairs == null || pairs.size() == 0) && (kids == null || kids.size() == 0)
     }
 
     /** Removes widgets in [removed] from the form's field tree, and fields left with none. */
@@ -483,7 +665,12 @@ internal object Redactor {
         COSName.METADATA, COSName.OUTLINES, COSName.STRUCT_TREE_ROOT, COSName.MARK_INFO, COSName.AA,
         COSName.PIECE_INFO, COSName.THREADS, COSName.getPDFName("SpiderInfo"), COSName.getPDFName("AF"),
         COSName.getPDFName("Collection"), COSName.getPDFName("Perms"), COSName.getPDFName("Legal"),
+        // The signers' certificates and what vouches for them.
+        COSName.getPDFName("DSS"),
     )
+
+    /** A signature field's signature and what it locks. */
+    private val SIGNATURE_KEYS = listOf(COSName.V, COSName.getPDFName("Lock"), COSName.SV)
 
     private val REMOVED_PAGE_KEYS = listOf(
         COSName.METADATA, COSName.PIECE_INFO, COSName.AA, COSName.STRUCT_PARENTS, COSName.getPDFName("B"),

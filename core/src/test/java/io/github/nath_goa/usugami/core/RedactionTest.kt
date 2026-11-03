@@ -160,6 +160,22 @@ class RedactionTest {
         assertEquals(listOf(listOf(4, 6)), text.find("e x"))
     }
 
+    @Test fun typographicApostrophesAndDashesMatchTheKeyboardOnes() {
+        // As Word writes them: a curly apostrophe, a non-breaking hyphen and a minus sign.
+        val text = pageText("D’Souza", " ", "555‑1234", " ", "10−3", " ", "“quoted”")
+        assertEquals(listOf((0..6).toList()), text.find("d'souza"))
+        assertEquals(listOf((7..14).toList()), text.find("555-1234"))
+        assertEquals(listOf((15..18).toList()), text.find("10-3"))
+        assertEquals(listOf((19..26).toList()), text.find("\"quoted\""))
+        // Typed with the curly one too.
+        assertEquals(1, text.find("D’SOUZA").size)
+        // Letters often typed as two: each still boxes the glyph it came from.
+        val words = pageText("Straße", " ", "sœur")
+        assertEquals(listOf((0..5).toList()), words.find("strasse"))
+        assertEquals(listOf((0..5).toList()), words.find("STRAßE"))
+        assertEquals(listOf((6..9).toList()), words.find("soeur"))
+    }
+
     @Test fun devanagariIsMatchedAsWritten() {
         val text = PageText.Builder().apply { "नमस्ते दुनिया".forEachIndexed { i, c -> glyph(i, c.toString()) } }.build()
         assertEquals(1, text.find("दुनिया").size)

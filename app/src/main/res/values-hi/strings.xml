@@ -162,6 +162,7 @@
     <string name="redact_page_marked">इस पर बॉक्स हैं</string>
     <string name="redact_mark">जो छिपाना है, उस पर बॉक्स बनाएं</string>
     <string name="redact_mark_hint">बॉक्स बनाने के लिए पेज पर उंगली खींचें। किसी बॉक्स को बदलने के लिए उस पर टैप करें।</string>
+    <string name="redact_page_failed">यह पेज दिखाया नहीं जा सकता, इसलिए इसे रिडैक्ट नहीं किया जा सकता।</string>
     <plurals name="redact_preview_description">
         <item quantity="one">पेज %1$d, %2$d बॉक्स</item>
         <item quantity="other">पेज %1$d, %2$d बॉक्स</item>

@@ -3,6 +3,9 @@ package io.github.nath_goa.usugami.data
 import com.tom_roush.pdfbox.contentstream.PDFStreamEngine
 import com.tom_roush.pdfbox.contentstream.operator.DrawObject
 import com.tom_roush.pdfbox.contentstream.operator.Operator
+import com.tom_roush.pdfbox.contentstream.operator.state.Concatenate
+import com.tom_roush.pdfbox.contentstream.operator.state.Restore
+import com.tom_roush.pdfbox.contentstream.operator.state.Save
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
@@ -11,7 +14,12 @@ import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
+import com.tom_roush.pdfbox.pdmodel.graphics.form.PDTransparencyGroup
+import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
+import com.tom_roush.pdfbox.util.Matrix
+import io.github.nath_goa.usugami.core.Areas
 import java.io.IOException
 import java.util.Collections
 import java.util.IdentityHashMap
@@ -42,6 +50,81 @@ internal object XObjectCleanup {
     }
 
     /**
+     * An image or form [xobject] drawn by a page: [matrix] (a, b, c, d, e, f) takes the space it is
+     * drawn in, where it covers [extent] (left, bottom, right, top: the unit square for an image,
+     * the bounding box for a form), to the page's own coordinates. [clip] is the area, in those, to
+     * which the forms it is drawn inside cut it; null if none do.
+     */
+    class Placement(val xobject: COSBase, val matrix: FloatArray, val extent: FloatArray, val clip: FloatArray?)
+
+    /** Finds where a page's content draws each image and form, those inside forms included. */
+    private class PlacedXObjects : PDFStreamEngine() {
+        val found = ArrayList<Placement>()
+        private var clip: FloatArray? = null
+
+        init {
+            addOperator(Save())
+            addOperator(Restore())
+            addOperator(Concatenate())
+            addOperator(DrawObject())
+        }
+
+        override fun processOperator(operator: Operator, operands: List<COSBase>) {
+            if (operator.name == "Do") {
+                val name = operands.firstOrNull() as? COSName
+                val xobject = if (name != null) try { resources?.getXObject(name) } catch (_: IOException) { null } else null
+                val ctm = graphicsState.currentTransformationMatrix
+                when (xobject) {
+                    is PDImageXObject -> found += Placement(xobject.cosObject, ctm.values(), floatArrayOf(0f, 0f, 1f, 1f), clip)
+                    is PDFormXObject -> xobject.bBox?.let { box ->
+                        found += Placement(xobject.cosObject, xobject.matrix.multiply(ctm).values(), box.corners(), clip)
+                    }
+                }
+            }
+            super.processOperator(operator, operands)
+        }
+
+        // A form draws only inside its bounding box.
+        override fun showForm(form: PDFormXObject) = inside(form) { super.showForm(form) }
+
+        override fun showTransparencyGroup(form: PDTransparencyGroup) = inside(form) { super.showTransparencyGroup(form) }
+
+        private fun inside(form: PDFormXObject, draw: () -> Unit) {
+            val outer = clip
+            form.bBox?.let { box ->
+                val area = Areas.mapped(form.matrix.multiply(graphicsState.currentTransformationMatrix).values(), box.corners())
+                clip = outer?.let { Areas.intersection(it, area) ?: floatArrayOf(0f, 0f, 0f, 0f) } ?: area
+            }
+            try {
+                draw()
+            } finally {
+                clip = outer
+            }
+        }
+
+        private fun Matrix.values() = floatArrayOf(scaleX, shearY, shearX, scaleY, translateX, translateY)
+
+        private fun PDRectangle.corners() = floatArrayOf(lowerLeftX, lowerLeftY, upperRightX, upperRightY)
+    }
+
+    /** Where [page]'s content draws each image and form (see [Placement]); null if its content can't be read. */
+    fun placements(page: PDPage): List<Placement>? = try {
+        PlacedXObjects().apply { processPage(page) }.found
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     * Whether [page]'s resources list any of [xobjects], also inside forms and the like: if not, it
+     * can't draw them, and its content needn't be read. [known] keeps the answer for resources
+     * shared by several pages.
+     */
+    fun mayDraw(page: PDPage, xobjects: Set<COSBase>, known: MutableMap<COSBase, Boolean>): Boolean {
+        val resources = page.resources?.cosObject ?: return false
+        return known.getOrPut(resources) { identitySet<COSBase>().also { collect(resources, it) }.any { it in xobjects } }
+    }
+
+    /**
      * Adds to [into] the images and forms [page] draws. If its content can't be read, everything its
      * resources list counts, so nothing it might have drawn is missed.
      */
@@ -63,15 +146,11 @@ internal object XObjectCleanup {
     fun emptyUnused(doc: PDDocument, drawn: Set<COSBase>, users: Iterable<PDPage>, check: () -> Unit) {
         if (drawn.isEmpty()) return
         val used = identitySet<COSBase>()
-        // Whether a list of resources reaches any of [drawn]; most pages' don't, and needn't be read.
+        // Most pages' resources don't reach any of [drawn], and their content needn't be read.
         val reaches = IdentityHashMap<COSBase, Boolean>()
         for (page in users) {
             check()
-            val resources = page.resources?.cosObject
-            val mayDraw = resources != null && reaches.getOrPut(resources) {
-                identitySet<COSBase>().also { collect(resources, it) }.any { it in drawn }
-            }
-            usedBy(page, used, readContent = mayDraw)
+            usedBy(page, used, readContent = mayDraw(page, drawn, reaches))
         }
         collect(doc.documentCatalog.cosObject.getCOSDictionary(COSName.ACRO_FORM)?.getDictionaryObject(COSName.DR), used)
         for (xobject in drawn) if (xobject !in used && xobject is COSStream) empty(xobject)

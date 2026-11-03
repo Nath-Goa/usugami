@@ -894,11 +894,8 @@ class ScreensDeviceTest {
         waitUntil("the box to be added and chosen") { onMain { firstVm.redactBoxes.value.size == 4 && firstVm.redactSelected.value == 3 } }
         val added = onMain { firstVm.redactBoxes.value[3] }
         assertEquals(0, added.page)
-        repeat(3) {
-            click(findBelow("the move right button") { it.says(app.getString(R.string.redact_move_right)) })
-            // Each button moves on from where the box is once the screen has caught up.
-            Thread.sleep(250)
-        }
+        // Quick presses each move a step, even before the screen has caught up.
+        repeat(3) { click(findBelow("the move right button") { it.says(app.getString(R.string.redact_move_right)) }) }
         click(findBelow("the wider button") { it.says(app.getString(R.string.redact_wider)) })
         val step = Redaction.STEP
         waitUntil("the box to move and widen") {

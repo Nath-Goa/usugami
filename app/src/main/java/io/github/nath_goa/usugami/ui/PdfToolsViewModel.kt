@@ -921,6 +921,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setRedactBoxes(boxes.toMutableList().also { it[index] = Redaction.clamp(box) })
     }
 
+    /**
+     * Changes box [index] by [step] from where it is now, kept on the page: a second press of a
+     * move or size button goes on from the first, even before the screen shows it.
+     */
+    fun stepRedactBox(index: Int, step: (RedactBox) -> RedactBox) {
+        val box = _redactBoxes.value.getOrNull(index) ?: return
+        changeRedactBox(index, step(box))
+    }
+
     fun deleteRedactBox(index: Int) {
         val boxes = _redactBoxes.value
         if (index !in boxes.indices) return

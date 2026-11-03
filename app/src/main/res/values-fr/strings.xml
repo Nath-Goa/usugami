@@ -164,6 +164,7 @@
     <string name="redact_page_marked">Contient des cadres</string>
     <string name="redact_mark">Indiquez ce qu\'il faut masquer</string>
     <string name="redact_mark_hint">Faites glisser le doigt sur la page pour dessiner un cadre. Touchez un cadre pour le modifier.</string>
+    <string name="redact_page_failed">Impossible d\'afficher cette page : elle ne peut donc pas être caviardée.</string>
     <plurals name="redact_preview_description">
         <item quantity="one">Page %1$d, %2$d cadre</item>
         <item quantity="many">Page %1$d, %2$d cadres</item>

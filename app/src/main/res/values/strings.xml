@@ -168,6 +168,7 @@
     <string name="redact_page_marked">Has boxes</string>
     <string name="redact_mark">Mark what to hide</string>
     <string name="redact_mark_hint">Drag on the page to draw a box. Tap a box to change it.</string>
+    <string name="redact_page_failed">This page can\'t be shown, so it can\'t be redacted.</string>
     <!-- %1$d is a page number, %2$d the number of boxes on it. -->
     <plurals name="redact_preview_description">
         <item quantity="one">Page %1$d, %2$d box</item>

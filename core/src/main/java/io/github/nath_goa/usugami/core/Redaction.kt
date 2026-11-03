@@ -242,7 +242,9 @@ class PageText private constructor(val text: String, private val owners: IntArra
         /**
          * [text] as Find text compares it: compatibility forms split up (the ligature ﬁ becomes f
          * and i), Latin, Greek and Cyrillic accents dropped, invisible format characters dropped,
-         * and every kind of space a plain one.
+         * every kind of space a plain one, typographic apostrophes, quotes, hyphens and dashes the
+         * plain ones a phone's keyboard types (Word turns D'Souza into D’Souza), and ß, œ and æ the
+         * two letters they are often typed as (Strasse finds Straße, soeur finds sœur).
          */
         fun fold(text: String): String {
             val split = Normalizer.normalize(text, Normalizer.Form.NFKD)
@@ -252,11 +254,22 @@ class PageText private constructor(val text: String, private val owners: IntArra
                     c in '̀'..'ͯ' -> Unit
                     c.isWhitespace() -> out.append(' ')
                     Character.getType(c) == Character.FORMAT.toInt() || Character.isISOControl(c) -> Unit
+                    // One character for one, so each still knows its glyph.
+                    c in APOSTROPHES -> out.append('\'')
+                    c in '“'..'‟' -> out.append('"')
+                    c in '‐'..'―' || c == '−' -> out.append('-')
+                    // Two letters for one, both of its glyph.
+                    c == 'ß' || c == 'ẞ' -> out.append("ss")
+                    c == 'œ' || c == 'Œ' -> out.append("oe")
+                    c == 'æ' || c == 'Æ' -> out.append("ae")
                     else -> out.append(c)
                 }
             }
             return out.toString()
         }
+
+        /** ‘ ’ ‚ ‛, the modifier letter apostrophe, the prime and the grave accent. */
+        private const val APOSTROPHES = "‘’‚‛ʼ′`"
 
         /** [query] folded like page text, with its spaces trimmed and each run of them made one. */
         fun normalize(query: String): String = fold(query).trim().replace(Regex(" +"), " ")
