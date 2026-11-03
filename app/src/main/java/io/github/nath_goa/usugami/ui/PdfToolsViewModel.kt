@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -1153,6 +1154,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             office.clearWork()
         }
     }
+
+    /**
+     * For tests: returns once the file work started so far is done, such as the cleanup [reset]
+     * starts, or the one a new view model starts, which would otherwise delete files the next test
+     * has just made.
+     */
+    @VisibleForTesting
+    internal suspend fun awaitFileWork() = withContext(fileOps) {}
 
     private fun clearInputs() {
         val old = inputs.value + locked.value

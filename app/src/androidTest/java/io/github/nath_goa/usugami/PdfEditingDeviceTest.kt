@@ -6,12 +6,19 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.contentstream.PDContentStream
+import com.tom_roush.pdfbox.contentstream.operator.Operator
+import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSStream
+import com.tom_roush.pdfbox.cos.COSString
+import com.tom_roush.pdfbox.pdfparser.PDFStreamParser
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.core.PageFrame
@@ -251,16 +258,51 @@ class PdfEditingDeviceTest {
         assertTrue("Opaque blue expected", blue.any { (x, y) -> Color.red(bitmap.getPixel(x, y)) < 60 })
     }
 
+    /**
+     * The text [stream] draws, operator by operator: each font by its name, and the glyphs shown and
+     * where, but not the colour.
+     */
+    private fun textOperators(stream: PDContentStream): List<String> {
+        val parser = PDFStreamParser(stream).apply { parse() }
+        val operands = ArrayList<Any>()
+        val drawn = ArrayList<String>()
+        fun show(operand: Any): String = when (operand) {
+            is COSString -> operand.bytes.joinToString("") { "%02x".format(it) }
+            is COSArray -> operand.joinToString(" ", "[", "]") { show(it) }
+            // A Type 3 font, as Android draws some scripts with, has no name: its resource's name then.
+            is COSName -> (stream.resources.getFont(operand).name ?: operand.name).substringAfter('+')
+            else -> operand.toString()
+        }
+        for (token in parser.tokens) {
+            if (token !is Operator) {
+                operands += token
+                continue
+            }
+            if (token.name in TEXT_OPERATORS) drawn += operands.joinToString(" ", postfix = " ${token.name}") { show(it) }
+            operands.clear()
+        }
+        return drawn
+    }
+
     @Test fun hindiWatermarkIsShaped() {
         val source = import(mixedPages("hindi.pdf"))
         val words = "गोपनीय प्रति"
         val hindi = save(engine.addWatermark(source, words, WatermarkColor.GRAY, WatermarkOpacity.SEMI, "hindi").file, "watermark_hindi.pdf")
         val bitmap = render(hindi, 0, 1f)
         assertTrue(pixels(bitmap) { Color.red(it) in 100..230 && Color.red(it) == Color.green(it) }.size > 2000)
-        // The same text drawn by Android, which shapes it: the stamp keeps Android's glyphs.
+        // The same text drawn by Android, which shapes it (the vowel sign before its letter, the
+        // letters of प्र joined): the watermark draws exactly Android's glyphs, where Android put them.
         val stamp = File(context.cacheDir, "stamp.pdf").apply { writeBytes(WatermarkText.render(words, Color.BLACK)) }
         save(stamp, "watermark_hindi_stamp.pdf")
+        val shaped = PDDocument.load(stamp).use { doc -> textOperators(doc.getPage(0)) }
+        assertTrue("Android drew no text: $shaped", shaped.any { it.endsWith("Tj") || it.endsWith("TJ") })
+        PDDocument.load(hindi).use { doc ->
+            val resources = doc.getPage(0).resources
+            val watermark = resources.xObjectNames.map(resources::getXObject).filterIsInstance<PDFormXObject>().single()
+            assertEquals(shaped, textOperators(watermark))
+        }
         assertTrue(text(hindi).startsWith("CAPTIONA"))
+        stamp.delete()
     }
 
     @Test fun textWithoutAFontIsRefused() {
@@ -410,5 +452,10 @@ class PdfEditingDeviceTest {
         } catch (_: Stop) {
         }
         assertTrue(File(context.cacheDir, "output/tools").listFiles().isNullOrEmpty())
+    }
+
+    private companion object {
+        /** The operators that choose the font, place text and show glyphs. */
+        val TEXT_OPERATORS = setOf("BT", "ET", "Tf", "Td", "TD", "Tm", "T*", "Tc", "Tw", "Tz", "TL", "Ts", "Tr", "Tj", "TJ", "'", "\"")
     }
 }

@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
@@ -65,6 +66,9 @@ class WorkingFilesDeviceTest {
 
     private fun imageCopies(): Set<String> = File(app.cacheDir, "images").list().orEmpty().toSet()
 
+    /** The message saying one file was dropped, in Usugami's language (which may not be English). */
+    private val oneFileCleared get() = AppLanguages.localized(app).resources.getQuantityString(R.plurals.msg_files_cleared, 1, 1)
+
     /** Creates the view model in [store], the way the activity does, so clearing the store clears it. */
     private inline fun <reified T : ViewModel> inStore(store: ViewModelStore, crossinline create: () -> T): T =
         onMain {
@@ -84,8 +88,7 @@ class WorkingFilesDeviceTest {
         val vm = onMain { MainViewModel(app, handle) }
 
         waitUntil("the missing image to be dropped") { vm.items.value.map { it.id } == listOf(1L) }
-        val message = runBlocking { withTimeout(10_000) { vm.messages.first() } }
-        assertTrue(message, message.contains("cleared"))
+        assertEquals(oneFileCleared, runBlocking { withTimeout(10_000) { vm.messages.first() } })
         assertTrue("A copy that is still there is kept", kept.isFile)
     }
 
@@ -104,8 +107,7 @@ class WorkingFilesDeviceTest {
 
         waitUntil("the missing PDF to be dropped") { vm.inputs.value.map { it.id } == listOf(1L) }
         assertEquals(listOf(PdfPageRef(1, 0), PdfPageRef(1, 1)), vm.pages.value)
-        val message = runBlocking { withTimeout(10_000) { vm.messages.first() } }
-        assertTrue(message, message.contains("cleared"))
+        assertEquals(oneFileCleared, runBlocking { withTimeout(10_000) { vm.messages.first() } })
         assertTrue(kept.isFile)
         waitUntil("PDFBox scratch files from an earlier run to be removed") { !scratch.exists() }
 
@@ -136,8 +138,7 @@ class WorkingFilesDeviceTest {
         val gone = File(app.cacheDir, "office-inputs/22.docx").apply { delete() }
         val restored = restore(OfficeInput(22, gone.path, "gone.docx", OfficeKind.WORD))
         waitUntil("the missing document to be dropped") { restored.document.value == null }
-        val message = runBlocking { withTimeout(10_000) { restored.messages.first() } }
-        assertTrue(message, message.contains("cleared"))
+        assertEquals(oneFileCleared, runBlocking { withTimeout(10_000) { restored.messages.first() } })
     }
 
     @Test fun copiesSurviveTheActivityBeingDestroyedWithoutFinishing() {

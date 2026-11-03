@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
@@ -57,15 +58,20 @@ class SavingDeviceTest {
     /** The system restarted Usugami while "Save as" was open: the PDF has gone, so say so. */
     @Test fun saveAsAfterTheResultHasGoneSaysSo() {
         val target = Uri.fromFile(File(dir, "picked.pdf").apply { writeText("") })
+        // In Usugami's language, which may not be English.
+        val cleared = AppLanguages.localized(app).resources.getQuantityString(R.plurals.msg_result_cleared, 1)
 
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
         onMain { vm.saveTo(target) }
-        val message = firstMessage(vm.messages)
-        assertTrue(message, message.contains("create it again"))
+        assertEquals(cleared, firstMessage(vm.messages))
 
         val pdfVm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }
         onMain { pdfVm.saveTo(target) }
-        val pdfMessage = firstMessage(pdfVm.messages)
-        assertTrue(pdfMessage, pdfMessage.contains("create it again"))
+        assertEquals(cleared, firstMessage(pdfVm.messages))
+        // Their cleanup of an earlier session's files would delete what the next test makes.
+        runBlocking {
+            vm.awaitFileWork()
+            pdfVm.awaitFileWork()
+        }
     }
 }

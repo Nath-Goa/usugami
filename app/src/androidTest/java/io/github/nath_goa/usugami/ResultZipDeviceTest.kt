@@ -156,6 +156,8 @@ class ResultZipDeviceTest {
         assertTrue("Saving it counts as saving the PDFs", vm.saved.value)
         assertHolds(files, document.inputStream().use(::entries))
         onMain { vm.startOver() }
+        // Its cleanup would delete what the next test makes.
+        runBlocking { vm.awaitFileWork() }
     }
 
     @Test fun savingOverADocumentReplacesAllOfIt() {
@@ -212,5 +214,10 @@ class ResultZipDeviceTest {
         val pdfVm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }
         onMain { pdfVm.saveZipTo(uri) }
         assertEquals(app.resources.getQuantityString(R.plurals.msg_result_cleared, 2), first(pdfVm.messages))
+        // Their cleanup of an earlier session's files would delete what the next test makes.
+        runBlocking {
+            vm.awaitFileWork()
+            pdfVm.awaitFileWork()
+        }
     }
 }

@@ -3,7 +3,6 @@ package io.github.nath_goa.usugami
 import android.app.Activity
 import android.app.Application
 import android.app.Instrumentation
-import android.app.UiModeManager
 import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
@@ -93,9 +92,13 @@ class ScreensDeviceTest {
         }
     }
 
-    /** Starts Usugami. Unless [firstRun], it is as if the user had already picked a language. */
-    private fun launch(firstRun: Boolean = false): MainActivity {
-        if (firstRun) AppLanguages.reset(app) else AppLanguages.skipChoice(app)
+    /**
+     * Starts Usugami. Unless [firstRun], it is as if the user had already picked a language: [language],
+     * or none, so that the screens are in the phone's language, as [app]'s strings are.
+     */
+    private fun launch(firstRun: Boolean = false, language: AppLanguage? = null): MainActivity {
+        if (language != null) languageChanged = true
+        if (firstRun) AppLanguages.reset(app) else AppLanguages.skipChoice(app, language)
         val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         return (instrumentation.startActivitySync(intent) as MainActivity).also { activity = it }
     }
@@ -124,10 +127,13 @@ class ScreensDeviceTest {
         return found!!.also { activity = it }
     }
 
-    /** [res] in [language], as the translated screens show it. */
-    private fun stringIn(language: AppLanguage, res: Int): String =
+    /** Usugami's strings in [language], as the translated screens show them. */
+    private fun resourcesIn(language: AppLanguage): Resources =
         app.createConfigurationContext(Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag(language.tag)) })
-            .getString(res)
+            .resources
+
+    /** [res] in [language], as the translated screens show it. */
+    private fun stringIn(language: AppLanguage, res: Int): String = resourcesIn(language).getString(res)
 
     /** Every node in the window that has focus (a dialog's, while one is open). */
     private fun nodes(): List<AccessibilityNodeInfo> {
@@ -375,56 +381,58 @@ class ScreensDeviceTest {
      * it before leaving Usugami. A screen reader hears how many tools were found.
      */
     @Test fun homeSearchFindsToolsAndBackClearsItFirst() {
-        val first = launch()
+        // The words typed are English ones, so Usugami is in English, whatever the phone's language.
+        val english = resourcesIn(AppLanguage.ENGLISH)
+        val first = launch(language = AppLanguage.ENGLISH)
         val field = searchField()
         // A screen reader says what the field is for: its placeholder is part of it.
-        assertNotNull("The field says what it is for", ancestor(find("the placeholder") { it.says(app.getString(R.string.home_search_hint)) }) { it.isEditable })
+        assertNotNull("The field says what it is for", ancestor(find("the placeholder") { it.says(english.getString(R.string.home_search_hint)) }) { it.isEditable })
 
         // The line over the results is read out by a screen reader each time it changes.
-        val one = app.resources.getQuantityString(R.plurals.home_search_results, 1, 1)
+        val one = english.getQuantityString(R.plurals.home_search_results, 1, 1)
         type(field, "Join")
-        waitForTools(app.getString(R.string.tool_merge))
+        waitForTools(english.getString(R.string.tool_merge), resources = english)
         val count = find("the count") { it.says(one) }
         assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, count.liveRegion)
-        assertTrue("No section headings while searching", nodes().none { it.says(app.getString(R.string.home_section_organize)) })
+        assertTrue("No section headings while searching", nodes().none { it.says(english.getString(R.string.home_section_organize)) })
 
         // Every word must begin a word of the tool's texts, in any order, whatever the case and accents
         // (here typed where the keyword "reduce size" has none).
         type(searchField(), "SIZE réduce")
-        waitForTools(app.getString(R.string.tool_compress))
+        waitForTools(english.getString(R.string.tool_compress), resources = english)
         // Tools with the word in their name come first.
         type(searchField(), "page")
         waitUntil("tools named with \"page\" first") {
-            shownTools().take(2) == listOf(app.getString(R.string.tool_delete_pages), app.getString(R.string.tool_page_numbers))
+            shownTools(english).take(2) == listOf(english.getString(R.string.tool_delete_pages), english.getString(R.string.tool_page_numbers))
         }
 
         type(searchField(), "zebra")
-        val none = find("the empty state") { it.says(app.getString(R.string.home_search_none, "zebra")) }
+        val none = find("the empty state") { it.says(english.getString(R.string.home_search_none, "zebra")) }
         assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, none.liveRegion)
-        waitForTools()
+        waitForTools(resources = english)
 
-        click(find("the clear button") { it.says(app.getString(R.string.home_search_clear)) })
-        find("the sections again") { it.says(app.getString(R.string.home_section_create)) }
+        click(find("the clear button") { it.says(english.getString(R.string.home_search_clear)) })
+        find("the sections again") { it.says(english.getString(R.string.home_section_create)) }
         assertTrue("The field is empty", searchField().text.isNullOrEmpty())
 
         // The search survives the activity being recreated, as it is on rotation.
         type(searchField(), "combine")
-        waitForTools(app.getString(R.string.tool_merge))
+        waitForTools(english.getString(R.string.tool_merge), resources = english)
         onMain { first.recreate() }
         val activity = recreatedFrom(first)
         find("the search, kept") { it.isEditable && it.text?.toString() == "combine" }
-        waitForTools(app.getString(R.string.tool_merge))
+        waitForTools(english.getString(R.string.tool_merge), resources = english)
 
         // A tool opened from the results goes back to them.
-        click(find("Merge PDF") { it.text?.contains(app.getString(R.string.tool_merge)) == true })
+        click(find("Merge PDF") { it.text?.contains(english.getString(R.string.tool_merge)) == true })
         waitUntil("Home to slide away") { nodes().none { it.isEditable && it.text?.toString() == "combine" } }
         backKey()
         find("the search, still there") { it.isEditable && it.text?.toString() == "combine" }
-        waitForTools(app.getString(R.string.tool_merge))
+        waitForTools(english.getString(R.string.tool_merge), resources = english)
 
         // Back clears the search first, staying on Home...
         backKey()
-        find("the sections again") { it.says(app.getString(R.string.home_section_create)) }
+        find("the sections again") { it.says(english.getString(R.string.home_section_create)) }
         assertTrue("The field is empty", searchField().text.isNullOrEmpty())
         assertTrue("Usugami is still showing", resumedMain() === activity)
         // ...then leaves Usugami, as before.
@@ -434,8 +442,8 @@ class ScreensDeviceTest {
 
     /** In French, the search finds tools by French words, also without their accents. */
     @Test fun homeSearchFindsFrenchKeywords() {
-        languageChanged = true
-        val first = launch()
+        // From English, so that choosing French recreates the activity even on a phone in French.
+        val first = launch(language = AppLanguage.ENGLISH)
         onMain { AppLanguages.choose(first, AppLanguage.FRENCH) }
         val french = recreatedFrom(first).resources
         assertEquals("fr", french.configuration.locales[0].language)
@@ -1225,22 +1233,25 @@ class ScreensDeviceTest {
         launch(firstRun = true)
         for (language in AppLanguage.entries) find(language.nativeName) { it.says(language.nativeName) }
         click(find("English") { it.says(AppLanguage.ENGLISH.nativeName) })
-        find("Home") { it.text?.contains(app.getString(R.string.tool_images)) == true }
+        // In English now, whatever the phone's language.
+        val images = stringIn(AppLanguage.ENGLISH, R.string.tool_images)
+        find("Home") { it.text?.contains(images) == true }
         assertTrue(AppLanguages.isChosen(app))
         onMain { activity!!.finish() }
         launch(firstRun = false)
-        find("Home on the next launch") { it.text?.contains(app.getString(R.string.tool_images)) == true }
+        find("Home on the next launch") { it.text?.contains(images) == true }
         assertTrue("The language screen came back", nodes().none { it.says(AppLanguage.FRENCH.nativeName) })
     }
 
     /** Settings links to the source code and switches the language of every screen. */
     @Test fun settingsLinksToGitHubAndSwitchesLanguage() {
-        languageChanged = true
-        val first = launch()
-        click(find("Settings on Home") { it.says(app.getString(R.string.settings)) })
-        find("the GitHub link") { it.says(app.getString(R.string.about_source_detail)) }
-        find("About in Settings") { it.says(app.getString(R.string.about)) }
-        click(find("the language entry") { it.says(app.getString(R.string.settings_language)) })
+        // From English, so that choosing French recreates the activity even on a phone in French.
+        val first = launch(language = AppLanguage.ENGLISH)
+        fun english(res: Int) = stringIn(AppLanguage.ENGLISH, res)
+        click(find("Settings on Home") { it.says(english(R.string.settings)) })
+        find("the GitHub link") { it.says(english(R.string.about_source_detail)) }
+        find("About in Settings") { it.says(english(R.string.about)) }
+        click(find("the language entry") { it.says(english(R.string.settings_language)) })
         for (language in AppLanguage.entries) find("${language.nativeName} in the dialog") { it.says(language.nativeName) }
         click(find("Français") { it.says(AppLanguage.FRENCH.nativeName) })
 
@@ -1409,8 +1420,15 @@ class ScreensDeviceTest {
     private fun appearanceSwitchesAndStays() {
         appearanceChanged = true
         languageChanged = true
-        val phoneDark = app.getSystemService(UiModeManager::class.java).nightMode == UiModeManager.MODE_NIGHT_YES
-        assertEquals("The phone's setting is the default", Appearance.SYSTEM, Appearances.current(app))
+        // A run stopped part way leaves its choice behind. From Android 12 the system then applies
+        // the reset to Usugami's configuration shortly after.
+        if (Appearances.current(app) != Appearance.SYSTEM) {
+            Appearances.reset(app)
+            Thread.sleep(1_000)
+        }
+        // Whether the phone is dark now: UiModeManager.nightMode only says how it is set, and on a
+        // schedule (or with Battery Saver) it may be dark either way.
+        val phoneDark = (Resources.getSystem().configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         var activity = launch()
         click(find("Settings on Home") { it.says(app.getString(R.string.settings)) })
         find("the appearance row saying System") { it.says(app.getString(R.string.appearance_system)) }

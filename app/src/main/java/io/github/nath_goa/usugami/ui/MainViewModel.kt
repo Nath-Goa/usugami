@@ -8,6 +8,7 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
@@ -398,6 +399,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         clearAll()
         viewModelScope.launch(fileOps) { exporter.clearOutput() }
     }
+
+    /**
+     * For tests: returns once the file work started so far is done, such as the cleanup
+     * [startOver] starts, or the one a new view model starts, which would otherwise delete files
+     * the next test has just made.
+     */
+    @VisibleForTesting
+    internal suspend fun awaitFileWork() = withContext(fileOps) {}
 
     val canSaveToDownloads: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 

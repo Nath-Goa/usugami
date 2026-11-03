@@ -27,6 +27,7 @@ import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.ui.PdfTool
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,7 +48,11 @@ class PageToolsDeviceTest {
     private var vm: PdfToolsViewModel? = null
 
     @After fun tearDown() {
-        vm?.let { onMain { it.reset() } }
+        vm?.let { vm ->
+            onMain { vm.reset() }
+            // Its cleanup would delete the copies the next test makes.
+            runBlocking { vm.awaitFileWork() }
+        }
         File(app.cacheDir, "output/test-picked").deleteRecursively()
     }
 

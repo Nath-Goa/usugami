@@ -56,10 +56,19 @@ object AppLanguages {
         }
     }
 
-    /** For tests: as if the user had already picked a language, so Usugami opens on Home. */
+    /**
+     * For tests: as if the user had already picked a language, so Usugami opens on Home. In
+     * [language], or in the phone's when it is null.
+     */
     @VisibleForTesting
-    internal fun skipChoice(context: Context) {
-        prefs(context).edit(commit = true) { putBoolean(KEY_CHOSEN, true) }
+    internal fun skipChoice(context: Context, language: AppLanguage? = null) {
+        prefs(context).edit(commit = true) {
+            putBoolean(KEY_CHOSEN, true)
+            if (language != null) putString(KEY_TAG, language.tag)
+        }
+        if (language != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.forLanguageTags(language.tag)
+        }
     }
 
     /** For tests: forgets the choice, so Usugami asks again and shows the phone's language. */

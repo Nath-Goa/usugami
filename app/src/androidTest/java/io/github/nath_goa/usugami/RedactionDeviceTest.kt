@@ -59,6 +59,7 @@ import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -830,6 +831,8 @@ class RedactionDeviceTest {
             assertEquals(input.pageCount, restored.previewView.value!!.pageCount)
         } finally {
             instrumentation.runOnMainSync { restored.reset() }
+            // Its cleanup would delete the copies the next test makes.
+            runBlocking { restored.awaitFileWork() }
         }
     }
 

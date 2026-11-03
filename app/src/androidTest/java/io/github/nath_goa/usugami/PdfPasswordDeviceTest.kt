@@ -9,6 +9,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.renderPdfPage
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -50,7 +51,11 @@ class PdfPasswordDeviceTest {
     private fun copies(): Set<String> = File(app.cacheDir, "pdf-inputs").list().orEmpty().toSet()
 
     @After fun tearDown() {
-        vm?.let { onMain { it.reset() } }
+        vm?.let { vm ->
+            onMain { vm.reset() }
+            // Its cleanup would delete the copies the next test makes.
+            runBlocking { vm.awaitFileWork() }
+        }
         File(app.cacheDir, "output/test-picked").deleteRecursively()
     }
 
