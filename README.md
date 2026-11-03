@@ -553,10 +553,10 @@ text of the rest of that page (it is still there to read, as a picture).
   bookmarks, accessibility tags, attached files, JavaScript, application data some apps hide in
   PDFs, form fields that were only on redacted pages, and images that only redacted pages showed.
 - **Find text** finds text the PDF stores as text, and what comments say (a comment that has it
-  gets a box over it, so it goes with its page). It can't find words in scans or photos (draw
-  boxes over those yourself), and it may miss text in PDFs whose text doesn't copy out correctly,
-  such as some PDFs in Hindi and other scripts with joined letters. Always look through the pages
-  before you save.
+  gets a box over it, only a small one at the corner of a highlight or drawing, so it goes with its
+  page). It can't find words in scans or photos (draw boxes over those yourself), and it may miss
+  text in PDFs whose text doesn't copy out correctly, such as some PDFs in Hindi and other scripts
+  with joined letters. Always look through the pages before you save.
 - A digital (certificate) signature in the PDF no longer matches once anything is redacted, so
   what it says of the signer (name, reason, certificate) is removed too.
 

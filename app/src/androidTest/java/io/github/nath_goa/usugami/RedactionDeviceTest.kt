@@ -42,6 +42,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationFileAttac
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationSquareCircle
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationText
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationTextMarkup
 import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitDestination
@@ -678,11 +679,20 @@ class RedactionDeviceTest {
                 rectangle = PDRectangle(500f, 700f, 20f, 20f)
                 contents = "Call John\nSmith about it"
             })
+            // A highlight by John Smith: its page goes too, but what it marks isn't blacked out.
+            val third = PDPage(PDRectangle.A4).also(doc::addPage)
+            third.annotations.add(PDAnnotationTextMarkup(PDAnnotationTextMarkup.SUB_TYPE_HIGHLIGHT).apply {
+                rectangle = PDRectangle(72f, 400f, 400f, 200f)
+                titlePopup = "John Smith"
+            })
             doc.save(file)
         }
         val source = import(file)
         val found = engine.findText(source, "john smith")
-        assertEquals(listOf(0, 1), found.map { it.single().page })
+        assertEquals(listOf(0, 1, 2), found.map { it.single().page })
+        val mark = found.last().single()
+        assertEquals(Redaction.MIN_SIZE, mark.width, 1e-6f)
+        assertEquals(Redaction.MIN_SIZE, mark.height, 1e-6f)
         val redacted = save(engine.redact(source, found.flatten(), "commented_redacted").file, "commented_redacted.pdf")
         PDDocument.load(redacted).use { doc -> assertTrue(everything(doc).none { it.contains("Smith") }) }
     }

@@ -399,9 +399,11 @@ class PageEditsDeviceTest {
         val height = sizes(source)[0].second
         // Blue boxes over the filled-in name and over the red square comment, as the preview shows them.
         val blue = 0xFF1565C0.toInt()
+        // An outline drawn around the city field paints nothing over it: that field stays.
         val items = listOf(
             ShapeItem(1, 0, ShapeKind.RECTANGLE, 70f, height - 626f, 330f, height - 598f, 2f, blue, filled = true),
             ShapeItem(2, 0, ShapeKind.RECTANGLE, 340f, height - 510f, 510f, height - 390f, 2f, blue, filled = true),
+            ShapeItem(3, 0, ShapeKind.RECTANGLE, 60f, height - 590f, 335f, height - 556f, 2f, blue),
         )
         val edited = save(engine.editPages(source, items, "form_edited").file, "edited_form.pdf")
         PDDocument.load(edited).use { doc ->

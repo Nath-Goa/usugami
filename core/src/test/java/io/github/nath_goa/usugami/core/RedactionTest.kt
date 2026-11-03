@@ -174,6 +174,12 @@ class RedactionTest {
         assertEquals(listOf((0..5).toList()), words.find("strasse"))
         assertEquals(listOf((0..5).toList()), words.find("STRAßE"))
         assertEquals(listOf((6..9).toList()), words.find("soeur"))
+        // An acute accent written as the apostrophe, and letters with a stroke typed without it.
+        val names = pageText("O´Neill", " ", "Wałęsa", " ", "Søren", " ", "Łódź")
+        assertEquals(listOf((0..6).toList()), names.find("o'neill"))
+        assertEquals(listOf((7..12).toList()), names.find("Walesa"))
+        assertEquals(listOf((13..17).toList()), names.find("soren"))
+        assertEquals(listOf((18..21).toList()), names.find("LODZ"))
     }
 
     @Test fun devanagariIsMatchedAsWritten() {

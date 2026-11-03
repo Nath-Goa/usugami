@@ -50,6 +50,7 @@ import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.SplitMode
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -58,6 +59,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume
+import org.junit.Before
 import org.junit.Test
 import java.io.File
 import java.io.InputStream
@@ -106,10 +108,21 @@ class ScreensDeviceTest {
     /** Set by tests that change the app's language, which outlives the activity. */
     private var languageChanged = false
 
+    /**
+     * Forgets a language picked by a test, or left by a run stopped part way, so that the screens
+     * are in the phone's language, as [app]'s strings are. From Android 13 the system applies that
+     * to Usugami shortly after.
+     */
+    private fun forgetLanguage() {
+        if (AppLanguages.reset(app)) Thread.sleep(1_000)
+    }
+
+    @Before fun setUp() = forgetLanguage()
+
     @After fun tearDown() {
         activity?.let { onMain { it.finish() } }
         File(app.cacheDir, "output/test-picked").deleteRecursively()
-        if (languageChanged) AppLanguages.reset(app)
+        if (languageChanged) forgetLanguage()
         if (appearanceChanged) {
             Appearances.reset(app)
             Appearances.appliedByUsugami = Build.VERSION.SDK_INT < Build.VERSION_CODES.S
@@ -1363,6 +1376,8 @@ class ScreensDeviceTest {
         assertEquals(listOf("first.pdf", "second.pdf"), files.map { it.name })
         assertZipHolds(files, saveZipThroughTheMenu("Trip.zip"))
         onMain { vm.startOver() }
+        // Its cleanup would delete what the next test makes.
+        runBlocking { vm.awaitFileWork() }
     }
 
     @Test fun aSinglePdfHasNoZipButton() {
@@ -1420,12 +1435,11 @@ class ScreensDeviceTest {
     private fun appearanceSwitchesAndStays() {
         appearanceChanged = true
         languageChanged = true
-        // A run stopped part way leaves its choice behind. From Android 12 the system then applies
-        // the reset to Usugami's configuration shortly after.
-        if (Appearances.current(app) != Appearance.SYSTEM) {
-            Appearances.reset(app)
-            Thread.sleep(1_000)
-        }
+        // A run stopped part way leaves its choice behind, and the reset after a test that failed
+        // may not have reached Usugami yet: from Android 12 the system applies it to Usugami's
+        // configuration shortly after, even once the saved choice is gone.
+        Appearances.reset(app)
+        Thread.sleep(1_000)
         // Whether the phone is dark now: UiModeManager.nightMode only says how it is set, and on a
         // schedule (or with Battery Saver) it may be dark either way.
         val phoneDark = (Resources.getSystem().configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES

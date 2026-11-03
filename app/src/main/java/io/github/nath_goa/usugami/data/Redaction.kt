@@ -70,6 +70,10 @@ internal object Redactor {
     /** How far, in points, something may reach past the edge of a page and still count as shown on it. */
     private const val SLACK = 1f
 
+    /** The kinds of comment that mark what the page itself shows: text, or a place drawn around. */
+    private val MARKUP = listOf("Highlight", "Underline", "StrikeOut", "Squiggly", "Ink", "Square", "Circle", "Polygon", "PolyLine", "Line", "Caret")
+        .map(COSName::getPDFName).toSet()
+
     /**
      * Draws each visible annotation's appearance into its page, then removes the annotations, as a
      * PDF viewer shows them. Returns whether any was drawn.
@@ -90,13 +94,16 @@ internal object Redactor {
                 any = true
                 PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
                     for (annotation in shown) {
+                        // A field's value Android draws, as viewers would: the field has no look of
+                        // its own, or only one its form says is out of date.
+                        val value = values[annotation.cosObject]
+                        if (value != null) {
+                            FieldValues.draw(content, annotation, value)
+                            continue
+                        }
                         // Placed and made see-through (its /CA) as Flatten draws it.
                         val appearance = try { Flattening.appearanceOf(doc, annotation) } catch (_: IOException) { null }
-                        if (appearance != null) {
-                            Flattening.draw(content, annotation, appearance)
-                        } else {
-                            values[annotation.cosObject]?.let { FieldValues.draw(content, annotation, it) }
-                        }
+                        if (appearance != null) Flattening.draw(content, annotation, appearance)
                     }
                 }
             }
@@ -136,9 +143,12 @@ internal object Redactor {
     /**
      * A box over each comment on [doc]'s pages, but those in [skip], whose text has [query]: what
      * it says, its author or its subject, which viewers list though the page doesn't show them.
-     * The box covers the comment as the page shows it (its icon, or what it marks), so that page
-     * becomes a picture and the comment goes. The pages in [skip] have the text on them, so they
-     * lose their comments anyway. Form fields aren't looked at: their values are on the page.
+     * The box covers the comment as the page shows it (its icon, a stamp, a text box), so that page
+     * becomes a picture and the comment goes. A comment that marks the page's own content (a
+     * highlight, a drawing) gets the smallest box, at its corner: the page becomes a picture all
+     * the same, and what it marks, which needn't hold the text, isn't blacked out. The pages in
+     * [skip] have the text on them, so they lose their comments anyway. Form fields aren't looked
+     * at: their values are on the page.
      */
     fun findInComments(doc: PDDocument, query: String, skip: Set<Int>, check: () -> Unit): List<List<RedactBox>> {
         val wanted = PageText.normalize(query)
@@ -160,8 +170,10 @@ internal object Redactor {
                 val rect = placed.getCOSArray(COSName.RECT)?.toFloatArray()?.takeIf { it.size == 4 } ?: FloatArray(4)
                 val (x0, y0) = frame.toShown(rect[0], rect[1])
                 val (x1, y1) = frame.toShown(rect[2], rect[3])
+                val box = Redaction.between(index, x0 / frame.shownWidth, 1 - y0 / frame.shownHeight, x1 / frame.shownWidth, 1 - y1 / frame.shownHeight)
+                val marks = placed.getCOSName(COSName.SUBTYPE) in MARKUP
                 // Off the page, it is boxed at the nearest edge, so the page is still redacted.
-                found += listOf(Redaction.clamp(Redaction.between(index, x0 / frame.shownWidth, 1 - y0 / frame.shownHeight, x1 / frame.shownWidth, 1 - y1 / frame.shownHeight)))
+                found += listOf(Redaction.clamp(if (marks) box.copy(right = box.left, bottom = box.top) else box))
             }
         }
         return found
@@ -315,14 +327,15 @@ internal object Redactor {
      * content stream of a page with boxes, or an image or form a box covers part of, but don't
      * show the part under the box, which would then stay in the file. A scanned spread split into
      * two pages is like that when each page draws the whole scan and its crop box shows one half.
-     * Those pages become pictures too, of what they show. Pages that show that part, as with a logo
-     * or a header every page draws, stay as they are: it is there for all to see.
+     * Those pages become pictures too, of what they show. When a page without boxes shows that
+     * part, as with a logo or a header every page draws, it is there for all to see: it stays in
+     * the file through that page anyway, so no page becomes a picture because of it.
      */
     private fun keepingHidden(doc: PDDocument, byPage: Map<Int, List<RedactBox>>, check: () -> Unit): Set<Int> {
         // What the boxes hide: in the page's own coordinates, for each content stream that drew it…
-        val inStreams = IdentityHashMap<COSBase, MutableList<FloatArray>>()
+        val inStreams = IdentityHashMap<COSBase, MutableList<Hidden>>()
         // …and in their own space, for the images and forms under them.
-        val inXObjects = IdentityHashMap<COSBase, MutableList<FloatArray>>()
+        val inXObjects = IdentityHashMap<COSBase, MutableList<Hidden>>()
         for ((index, boxes) in byPage) {
             check()
             val page = doc.getPage(index)
@@ -330,18 +343,20 @@ internal object Redactor {
             val areas = boxes.map { box ->
                 Flattening.pageArea(frame.matrix, box.left * frame.shownWidth, (1 - box.bottom) * frame.shownHeight, box.width * frame.shownWidth, box.height * frame.shownHeight)
             }
-            for (stream in contentStreams(page)) inStreams.getOrPut(stream) { ArrayList() } += areas
+            for (stream in contentStreams(page)) inStreams.getOrPut(stream) { ArrayList() } += areas.map(::Hidden)
             for (placement in XObjectCleanup.placements(page).orEmpty()) {
                 val inverse = Areas.inverted(placement.matrix) ?: continue
                 val drawn = shownPart(Areas.mapped(placement.matrix, placement.extent), placement.clip) ?: continue
                 for (area in areas) {
                     val covered = Areas.intersection(area, drawn) ?: continue
                     val own = Areas.intersection(Areas.mapped(inverse, covered), placement.extent) ?: continue
-                    inXObjects.getOrPut(placement.xobject) { ArrayList() } += own
+                    inXObjects.getOrPut(placement.xobject) { ArrayList() } += Hidden(own)
                 }
             }
         }
-        val more = HashSet<Int>()
+        // For each page without boxes, what it keeps out of sight; and what some page shows.
+        val keptBy = HashMap<Int, List<Hidden>>()
+        val shown = identitySet<Hidden>()
         val reaches = IdentityHashMap<COSBase, Boolean>()
         for (index in 0 until doc.numberOfPages) {
             if (index in byPage) continue
@@ -349,22 +364,29 @@ internal object Redactor {
             val page = doc.getPage(index)
             val crop = page.cropBox.let { floatArrayOf(it.lowerLeftX, it.lowerLeftY, it.upperRightX, it.upperRightY) }
             fun shows(area: FloatArray, clip: FloatArray?) = shownPart(crop, clip)?.let { Areas.inside(area, it, SLACK) } == true
-            if (contentStreams(page).any { stream -> inStreams[stream]?.any { !shows(it, null) } == true }) {
-                more += index
-                continue
+            val kept = ArrayList<Hidden>()
+            for (stream in contentStreams(page)) {
+                for (part in inStreams[stream].orEmpty()) if (shows(part.area, null)) shown += part else kept += part
             }
-            if (inXObjects.isEmpty() || !XObjectCleanup.mayDraw(page, inXObjects.keys, reaches)) continue
             // A page whose content can't be read is left as it is.
-            val drawnHere = XObjectCleanup.placements(page)?.filter { it.xobject in inXObjects } ?: continue
-            val keeps = drawnHere.any { placement ->
-                inXObjects.getValue(placement.xobject).any { part ->
-                    drawnHere.none { it.xobject === placement.xobject && shows(Areas.mapped(it.matrix, part), it.clip) }
+            val drawnHere = if (inXObjects.isNotEmpty() && XObjectCleanup.mayDraw(page, inXObjects.keys, reaches)) {
+                XObjectCleanup.placements(page)?.filter { it.xobject in inXObjects }.orEmpty()
+            } else {
+                emptyList()
+            }
+            for (xobject in drawnHere.mapTo(identitySet()) { it.xobject }) {
+                for (part in inXObjects.getValue(xobject)) {
+                    val showing = drawnHere.any { it.xobject === xobject && shows(Areas.mapped(it.matrix, part.area), it.clip) }
+                    if (showing) shown += part else kept += part
                 }
             }
-            if (keeps) more += index
+            if (kept.isNotEmpty()) keptBy[index] = kept
         }
-        return more
+        return keptBy.filterValues { parts -> parts.any { it !in shown } }.keys
     }
+
+    /** Part of a content stream, image or form a box hides, as [area]; each is one object, told apart by identity. */
+    private class Hidden(val area: FloatArray)
 
     /** What of [area] the forms it is drawn in let show, if they cut it to [clip]; null for nothing. */
     private fun shownPart(area: FloatArray, clip: FloatArray?): FloatArray? = if (clip == null) area else Areas.intersection(area, clip)

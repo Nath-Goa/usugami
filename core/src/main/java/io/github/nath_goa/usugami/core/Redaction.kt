@@ -243,19 +243,24 @@ class PageText private constructor(val text: String, private val owners: IntArra
          * [text] as Find text compares it: compatibility forms split up (the ligature ﬁ becomes f
          * and i), Latin, Greek and Cyrillic accents dropped, invisible format characters dropped,
          * every kind of space a plain one, typographic apostrophes, quotes, hyphens and dashes the
-         * plain ones a phone's keyboard types (Word turns D'Souza into D’Souza), and ß, œ and æ the
-         * two letters they are often typed as (Strasse finds Straße, soeur finds sœur).
+         * plain ones a phone's keyboard types (Word turns D'Souza into D’Souza, and O´Neill is often
+         * written with an acute accent), letters with a stroke the plain letter (Walesa finds
+         * Wałęsa, Soren finds Søren), and ß, œ and æ the two letters they are often typed as
+         * (Strasse finds Straße, soeur finds sœur).
          */
         fun fold(text: String): String {
-            val split = Normalizer.normalize(text, Normalizer.Form.NFKD)
+            // An acute accent on its own would split into a space and the accent that goes on a letter.
+            val split = Normalizer.normalize(text.replace('´', '\''), Normalizer.Form.NFKD)
             val out = StringBuilder(split.length)
             for (c in split) {
+                val stroked = STROKED.indexOf(c)
                 when {
                     c in '̀'..'ͯ' -> Unit
                     c.isWhitespace() -> out.append(' ')
                     Character.getType(c) == Character.FORMAT.toInt() || Character.isISOControl(c) -> Unit
                     // One character for one, so each still knows its glyph.
                     c in APOSTROPHES -> out.append('\'')
+                    stroked >= 0 -> out.append(UNSTROKED[stroked])
                     c in '“'..'‟' -> out.append('"')
                     c in '‐'..'―' || c == '−' -> out.append('-')
                     // Two letters for one, both of its glyph.
@@ -268,8 +273,12 @@ class PageText private constructor(val text: String, private val owners: IntArra
             return out.toString()
         }
 
-        /** ‘ ’ ‚ ‛, the modifier letter apostrophe, the prime and the grave accent. */
-        private const val APOSTROPHES = "‘’‚‛ʼ′`"
+        /** ‘ ’ ‚ ‛, the modifier letters apostrophe, prime and turned comma, the prime and the grave accent. */
+        private const val APOSTROPHES = "‘’‚‛ʼʹʻ′`"
+
+        /** Letters with a stroke, which don't split into a letter and an accent, and their plain letters. */
+        private const val STROKED = "łŁøØđĐħĦŧŦ"
+        private const val UNSTROKED = "lLoOdDhHtT"
 
         /** [query] folded like page text, with its spaces trimmed and each run of them made one. */
         fun normalize(query: String): String = fold(query).trim().replace(Regex(" +"), " ")

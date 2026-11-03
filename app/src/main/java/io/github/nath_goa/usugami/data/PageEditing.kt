@@ -20,9 +20,9 @@ import io.github.nath_goa.usugami.core.topLeftMatrix
  * Draws Edit PDF's items into the pages as ordinary page content, in the order they were added,
  * exactly where the preview showed them on each page as it is shown (turned or cropped too).
  * Strokes and shapes become vector paths with round ends and corners, text becomes real text (see
- * [PageText]) and pictures become images. Form fields and comments under an item become part of
- * the page first, so the item covers them as the preview showed (see [Flattening.bakeUnder]).
- * Pages without items aren't touched.
+ * [PageText]) and pictures become images. Form fields and comments under an item's ink (not those
+ * inside an outline or beside a stroke) become part of the page first, so the item covers them as
+ * the preview showed (see [Flattening.bakeUnder]). Pages without items aren't touched.
  */
 internal object PageEditing {
     /**
@@ -49,8 +49,9 @@ internal object PageEditing {
             require(index in 0 until doc.numberOfPages)
             val page = doc.getPage(index)
             val toPage = page.frame().topLeftMatrix
-            // The items go over the form fields and comments under them, as the preview shows them.
-            Flattening.bakeUnder(doc, page, onPage.map { item -> item.bounds.let { Flattening.pageArea(toPage, it.x, it.y, it.width, it.height) } }, check)
+            // The items go over the form fields and comments under their ink, as the preview shows them.
+            val inked = onPage.flatMap { item -> EditLayout.paintedAreas(item).map { Flattening.pageArea(toPage, it.x, it.y, it.width, it.height) } }
+            Flattening.bakeUnder(doc, page, inked, check)
             // Added after the page's own drawing, which is wrapped in q/Q, so whatever state that
             // leaves behind can't move or recolour what is added.
             PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->

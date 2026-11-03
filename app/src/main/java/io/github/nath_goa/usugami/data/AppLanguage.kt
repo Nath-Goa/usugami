@@ -71,13 +71,19 @@ object AppLanguages {
         }
     }
 
-    /** For tests: forgets the choice, so Usugami asks again and shows the phone's language. */
+    /**
+     * For tests: forgets the choice, so Usugami asks again and shows the phone's language. Returns
+     * whether Android had a language for Usugami, which it takes away from Usugami's screens and
+     * resources shortly after.
+     */
     @VisibleForTesting
-    internal fun reset(context: Context) {
+    internal fun reset(context: Context): Boolean {
         prefs(context).edit(commit = true) { clear() }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.getSystemService(LocaleManager::class.java).applicationLocales = LocaleList.getEmptyLocaleList()
-        }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+        val locales = context.getSystemService(LocaleManager::class.java)
+        if (locales.applicationLocales.isEmpty) return false
+        locales.applicationLocales = LocaleList.getEmptyLocaleList()
+        return true
     }
 
     /**

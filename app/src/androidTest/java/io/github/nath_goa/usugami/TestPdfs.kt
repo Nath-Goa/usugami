@@ -5,6 +5,7 @@ import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSStream
+import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -108,6 +109,53 @@ fun chapters(file: File): File = file.also {
 }
 
 /**
+ * Two A4 pages saying "PAGE ONE" and "PAGE TWO", with a form whose fields nest by page, as forms
+ * made in Adobe's designer do: topmostSubform[0].Page1[0].near holds "NEAR VALUE" and is its own
+ * widget on page 1; topmostSubform[0].Page2[0].far holds "FAR VALUE" and has its widget, on page
+ * 2, as its kid.
+ */
+fun nestedFormPdf(file: File): File = file.also {
+    PDDocument().use { doc ->
+        val pages = (0..1).map { index -> PDPage(PDRectangle.A4).also { doc.addPage(it); writeText(doc, it, "PAGE ${PAGE_WORDS[index]}") } }
+        val form = newForm(doc)
+        fun field(name: String, parent: COSDictionary?) = COSDictionary().apply {
+            setString(COSName.T, name)
+            if (parent != null) {
+                setItem(COSName.PARENT, parent)
+                (parent.getDictionaryObject(COSName.KIDS) as COSArray).add(this)
+            }
+            setItem(COSName.KIDS, COSArray())
+        }
+        fun COSDictionary.widgetOn(page: PDPage) {
+            setItem(COSName.TYPE, COSName.ANNOT)
+            setItem(COSName.SUBTYPE, COSName.WIDGET)
+            setItem(COSName.RECT, PDRectangle(72f, 400f, 250f, 24f).cosArray)
+            setItem(COSName.P, page.cosObject)
+            setInt(COSName.F, 4)
+            page.cosObject.setItem(COSName.ANNOTS, COSArray().apply { add(this@widgetOn) })
+        }
+        val top = field("topmostSubform[0]", null)
+        form.cosObject.setItem(COSName.FIELDS, COSArray().apply { add(top) })
+        field("near", field("Page1[0]", top)).apply {
+            removeItem(COSName.KIDS)
+            setItem(COSName.FT, COSName.TX)
+            setString(COSName.V, "NEAR VALUE")
+            widgetOn(pages[0])
+        }
+        val far = field("far", field("Page2[0]", top)).apply {
+            setItem(COSName.FT, COSName.TX)
+            setString(COSName.V, "FAR VALUE")
+        }
+        COSDictionary().apply {
+            setItem(COSName.PARENT, far)
+            (far.getDictionaryObject(COSName.KIDS) as COSArray).add(this)
+            widgetOn(pages[1])
+        }
+        doc.save(file)
+    }
+}
+
+/**
  * One A4 page saying "FORM PAGE" with:
  * - a text field "name" filled with [name], drawn by PDFBox
  * - a text field "city" holding "Lisbon" but never drawn (no appearance), as some apps leave them
@@ -183,8 +231,8 @@ fun formPdf(file: File, name: String = "Jane Doe", xfa: Boolean = false): File =
 /**
  * One A4 page with a form in Helvetica, which has no rupee sign and no Devanagari, that asks viewers
  * to draw its fields (NeedAppearances), as some form-filling apps leave them:
- * - a text field "amount" holding "₹ 5,000", with a white background (/MK) and the look its app
- *   gave it, saying "OLD AMOUNT"
+ * - a text field "amount" holding "₹ 5,000", with a white background (/MK) and the look it had
+ *   before that value was set, saying "OLD AMOUNT", which such apps leave as it was
  * - a text field "name" holding "नाम", with no look at all
  */
 fun unencodableFormPdf(file: File): File = file.also {
@@ -312,8 +360,9 @@ fun sharedResources(file: File, inherited: Boolean = false): File = file.also {
 
 /**
  * Three A4 pages saying "PAGE ONE" to "PAGE THREE", tagged for screen readers: under a Document
- * element, a figure for each page with the alternate text "SECRET ALT 1" to "SECRET ALT 3", and a
- * paragraph running from page 1 onto page 2 whose ActualText is "SPANS PAGES".
+ * element, a figure for each page with the alternate text "SECRET ALT 1" to "SECRET ALT 3" and the
+ * ID "fig1" to "fig3", and a paragraph running from page 1 onto page 2 whose ActualText is "SPANS
+ * PAGES".
  */
 fun taggedPages(file: File): File = file.also {
     PDDocument().use { doc ->
@@ -368,6 +417,13 @@ fun taggedPages(file: File): File = file.also {
                 }
             })
         })
+        // The figures' IDs, "fig1" to "fig3", indexed in two leaves: fig1 and fig2, then fig3.
+        fun leaf(vararg indexes: Int) = COSDictionary().apply {
+            setItem(COSName.NAMES, COSArray().apply { for (i in indexes) { add(COSString("fig${i + 1}")); add(figures[i]) } })
+            setItem(COSName.LIMITS, COSArray().apply { add(COSString("fig${indexes.first() + 1}")); add(COSString("fig${indexes.last() + 1}")) })
+        }
+        figures.forEachIndexed { index, figure -> figure.setString(COSName.ID, "fig${index + 1}") }
+        root.setItem(COSName.ID_TREE, COSDictionary().apply { setItem(COSName.KIDS, COSArray().apply { add(leaf(0, 1)); add(leaf(2)) }) })
         doc.documentCatalog.cosObject.setItem(COSName.STRUCT_TREE_ROOT, root)
         doc.documentCatalog.cosObject.setItem(COSName.MARK_INFO, COSDictionary().apply { setBoolean(COSName.getPDFName("Marked"), true) })
         doc.save(file)

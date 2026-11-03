@@ -234,6 +234,14 @@ class PageToolsDeviceTest {
             }
             assertEquals("Only page 4's part has its field", index == 3, all.contains("SECRET VALUE"))
         }
+
+        // Fields that nest by page share their parents: each part still has only its page's values.
+        val nested = import(nestedFormPdf(made("split_nested.pdf")))
+        for ((index, half) in engine.split(nested, listOf(listOf(0), listOf(1)), "nested").withIndex()) {
+            val all = everythingIn(half.file)
+            assertEquals("Part ${index + 1} has page 1's value", index == 0, all.contains("NEAR VALUE"))
+            assertEquals("Part ${index + 1} has page 2's value", index == 1, all.contains("FAR VALUE"))
+        }
     }
 
     /**
@@ -295,6 +303,11 @@ class PageToolsDeviceTest {
                 val root = doc.documentCatalog.structureTreeRoot
                 val elements = root.kids.filterIsInstance<PDStructureElement>().single().kids.filterIsInstance<PDStructureElement>()
                 assertEquals("$what: the figures left and the paragraph", listOf("Figure", "Figure", "P"), elements.map { it.structureType })
+                // The index of IDs keeps the figures left, each with its element, and says so in its limits.
+                val leaves = root.idTree.kids
+                assertEquals("$what: the IDs left", listOf("fig1", "fig3"), leaves.flatMap { it.names.keys })
+                assertTrue(leaves.flatMap { it.names.values }.all { it.cosObject != null })
+                assertEquals("fig1", leaves.first().upperLimit)
             }
         }
     }
@@ -550,6 +563,8 @@ class PageToolsDeviceTest {
         assertEquals(changed, onMain { again.pages.value })
         assertEquals(90, onMain { again.pages.value[6].rotation })
         assertTrue(onMain { again.pages.value[1].let { it.isBlank && it.width > 0f && it.height > 0f } })
+        // The cleanup it started with would delete what the next test makes; tearDown waits for vm's only.
+        runBlocking { again.awaitFileWork() }
     }
 
     /** Page [index] of [file] as shown, one pixel per point, on white. */
@@ -607,21 +622,24 @@ class PageToolsDeviceTest {
         assertTrue("The ticked box", count(bitmap, 72, 520, 86, 534, ::blue) > 50)
     }
 
-    @Test fun fieldsPdfBoxCantDrawKeepTheirLookOrStayFields() {
+    /**
+     * Fields PDFBox can't draw stay fields for viewers to draw, rather than come out blank or with
+     * the look they had before their value was set, which their form says is out of date.
+     */
+    @Test fun fieldsPdfBoxCantDrawStayFields() {
         val source = import(unencodableFormPdf(made("unencodable_form.pdf")))
-        // The preview's view keeps the look the amount had.
-        assertTrue(text(engine.previewView(source).file).contains("OLD AMOUNT"))
+        // The preview shows the amount as viewers do, not the out-of-date look.
+        val view = text(engine.previewView(source).file)
+        assertTrue(view, view.contains("5,000") && !view.contains("OLD AMOUNT"))
         val result = engine.flatten(source, "unencodable_flattened")
-        assertEquals("The name, which has no look to keep, stays a field", 1, result.keptFields)
+        assertEquals("Both stay fields", 2, result.keptFields)
         val flat = save(result.file.file, "unencodable_flattened.pdf")
-        assertTrue("The amount kept its look instead of coming out blank", text(flat).contains("OLD AMOUNT"))
+        assertFalse("The out-of-date look isn't part of the page", text(flat).contains("OLD AMOUNT"))
         PDDocument.load(flat).use { doc ->
             val form = doc.documentCatalog.acroForm
-            val name = form.fields.single()
-            assertEquals("name", name.partialName)
-            assertEquals("नाम", name.valueAsString)
+            assertEquals(mapOf("amount" to "₹ 5,000", "name" to "नाम"), form.fields.associate { it.partialName to it.valueAsString })
             assertTrue(form.needAppearances)
-            assertEquals(name.widgets.single().cosObject, doc.getPage(0).annotations.single().cosObject)
+            assertEquals(2, doc.getPage(0).annotations.size)
         }
     }
 

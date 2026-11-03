@@ -114,6 +114,33 @@ class PageEditsTest {
         assertEquals(10f, EditLayout.arrowHead(0f, 0f, 20f, 0f, 10f).let { hypot(20f - it[0], it[1]) }, 0.001f)
     }
 
+    @Test fun paintedAreasFollowTheInk() {
+        fun covers(item: PageItem, x: Float, y: Float) =
+            EditLayout.paintedAreas(item).any { x >= it.x && x <= it.x + it.width && y >= it.y && y <= it.y + it.height }
+        // An outline paints its edges, not what it surrounds; a filled box paints all of it.
+        for (kind in listOf(ShapeKind.RECTANGLE, ShapeKind.ELLIPSE)) {
+            val outline = ShapeItem(1, 0, kind, 100f, 100f, 300f, 200f, 2f, 0)
+            assertFalse("$kind's middle", covers(outline, 200f, 150f))
+            assertTrue("$kind's edge", covers(outline, 100.5f, 150f))
+            assertTrue("$kind's top", covers(outline, 200f, 100.5f))
+            assertTrue("Filled $kind", covers(outline.copy(filled = true), 200f, 150f))
+        }
+        // A slanting line paints along itself, not the far corners of its bounds, line width included.
+        val line = ShapeItem(2, 0, ShapeKind.LINE, 0f, 0f, 400f, 300f, 4f, 0)
+        assertTrue(covers(line, 200f, 150f))
+        assertTrue("Its round end", covers(line, -1.5f, 0f))
+        assertFalse(covers(line, 380f, 20f))
+        assertFalse(covers(line, 20f, 280f))
+        // So does a pen stroke; a dot paints its spot.
+        val stroke = InkItem(3, 0, floatArrayOf(0f, 0f, 100f, 100f, 200f, 0f, 300f, 100f), 2f, 0, highlighter = false)
+        assertFalse(covers(stroke, 150f, 90f))
+        assertTrue(covers(stroke, 0f, 0f))
+        assertTrue(covers(stroke, 300f, 100f))
+        assertTrue(covers(InkItem(4, 0, floatArrayOf(50f, 50f), 6f, 0, highlighter = false), 52f, 48f))
+        // Text and pictures paint their whole box.
+        assertEquals(listOf(text.bounds), EditLayout.paintedAreas(text))
+    }
+
     private val text = TextItem(1, 0, 100f, 200f, "Hello", 10f, 0, unitWidth = 2.5f, unitHeight = 1.2f)
 
     private fun assertArea(expected: Area, actual: Area) {

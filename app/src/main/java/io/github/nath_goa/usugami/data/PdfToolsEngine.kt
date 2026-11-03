@@ -185,10 +185,13 @@ class PdfToolsEngine(private val context: Context) {
         val taken = HashSet<String>()
         try {
             load(input.file, input.password).use { source ->
+                // Read once for all the parts: finding a page in the page tree, and what each part
+                // must be cut off from.
                 val sourcePages = source.pages.toList()
+                val cutFrom = PageCleanup.Source(sourcePages)
                 return groups.mapIndexed { index, pages ->
                     check()
-                    require(pages.all { it in 0 until source.numberOfPages })
+                    require(pages.all { it in sourcePages.indices })
                     val suffix = if (groups.size == 1) "" else "_${index + 1}_${pages.first() + 1}-${pages.last() + 1}"
                     val name = FileNames.unique(FileNames.sanitize(base + suffix, "Split"), taken)
                     taken += name
@@ -196,7 +199,7 @@ class PdfToolsEngine(private val context: Context) {
                     PDDocument(memory()).use { dest ->
                         for (pageIndex in pages) {
                             check()
-                            val page = source.getPage(pageIndex)
+                            val page = sourcePages[pageIndex]
                             val imported = dest.importPage(page)
                             // Its resources, also when inherited, listing only the pictures and forms
                             // it draws: pages often share one list that holds every page's.
@@ -204,7 +207,7 @@ class PdfToolsEngine(private val context: Context) {
                         }
                         // The copies' links, comments and form fields still lead to the source's pages,
                         // which would bring the whole source into the part.
-                        PageCleanup.dropSourcePages(dest, sourcePages, check)
+                        PageCleanup.dropSourcePages(dest, cutFrom, check)
                         dest.save(target)
                     }
                     PdfFile(target, pages.size, 0)

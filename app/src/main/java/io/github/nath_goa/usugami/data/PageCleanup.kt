@@ -41,19 +41,67 @@ internal object PageCleanup {
         }
         XObjectCleanup.emptyUnused(doc, drawn, doc.pages, check)
         val goneTags = pruneTags(doc, gone, goneAnnotations)
-        cutReferences(doc.document.trailer, identitySet<COSDictionary>().apply { addAll(gone); addAll(goneAnnotations); addAll(goneTags) }, check)
+        val cut = identitySet<COSDictionary>().apply { addAll(gone); addAll(goneAnnotations); addAll(goneTags) }
+        cutReferences(doc.document.trailer, { it in cut }, check)
     }
 
     /**
-     * For pages copied into [doc] from [sourcePages], the pages of a document still open: cuts every
-     * link from them to those pages and their other annotations, such as a link's destination or a
-     * form field's other widgets, which would bring those pages, and so the whole source, into
-     * [doc]'s file. Nothing else is changed: the copies share their annotations with the source,
-     * which loses only links to its own pages, which no copy can use anyway.
+     * The pages of a document still open that pages are copied from, and every annotation on them:
+     * read once, however many documents [dropSourcePages] then cuts off from them.
      */
-    fun dropSourcePages(doc: PDDocument, sourcePages: Collection<PDPage>, check: () -> Unit = {}) {
-        val (gone, goneAnnotations) = goneObjects(doc, sourcePages) ?: return
-        cutReferences(doc.document.trailer, identitySet<COSDictionary>().apply { addAll(gone); addAll(goneAnnotations) }, check)
+    class Source(pages: Iterable<PDPage>) {
+        internal val pages = identitySet<COSDictionary>()
+        internal val annotations = identitySet<COSDictionary>()
+
+        init {
+            for (page in pages) {
+                this.pages += page.cosObject
+                annotationsOf(page.cosObject, annotations)
+            }
+        }
+    }
+
+    /**
+     * For pages copied into [doc] from [source]'s pages: cuts every link from them to those pages
+     * and their other annotations, such as a link's destination or a form field's other widgets,
+     * and to the form fields of other pages that hang under the same fields as theirs (in forms
+     * whose fields nest, as in topmostSubform[0].Page1[0]). Those would bring the source's other
+     * pages, or their form values, into [doc]'s file. Nothing else is changed: the copies share
+     * their annotations and fields with the source, which loses only links to its own pages and to
+     * other pages' fields, which no copy can use anyway.
+     */
+    fun dropSourcePages(doc: PDDocument, source: Source, check: () -> Unit = {}) {
+        val kept = identitySet<COSDictionary>().apply { doc.pages.forEach { annotationsOf(it.cosObject, this) } }
+        val otherFields = fieldsElsewhere(kept)
+        cutReferences(doc.document.trailer, { it in source.pages || (it in source.annotations && it !in kept) || it in otherFields }, check)
+    }
+
+    /**
+     * The form fields and widgets that hang under the same fields as the widgets in [kept] but hold
+     * none of them, with all they hold: in a form whose fields nest, the fields of other pages.
+     */
+    private fun fieldsElsewhere(kept: Set<COSDictionary>): Set<COSDictionary> {
+        // The fields the widgets kept belong to, up to the top.
+        val owners = identitySet<COSDictionary>()
+        for (annotation in kept) {
+            if (annotation.getCOSName(COSName.SUBTYPE) != COSName.WIDGET) continue
+            var field = annotation.getDictionaryObject(COSName.PARENT) as? COSDictionary
+            var depth = 0
+            while (field != null && depth++ <= MAX_DEPTH && owners.add(field)) field = field.getDictionaryObject(COSName.PARENT) as? COSDictionary
+        }
+        val others = identitySet<COSDictionary>()
+        val pending = ArrayDeque<Pair<COSDictionary, Int>>()
+        for (owner in owners) pending += owner to 0
+        while (pending.isNotEmpty()) {
+            val (field, depth) = pending.removeLast()
+            if (depth > MAX_DEPTH) continue
+            val kids = field.getDictionaryObject(COSName.KIDS) as? COSArray ?: continue
+            for (i in 0 until kids.size()) {
+                val kid = kids.getObject(i) as? COSDictionary ?: continue
+                if (kid !in owners && kid !in kept && others.add(kid)) pending += kid to depth + 1
+            }
+        }
+        return others
     }
 
     /**
@@ -216,15 +264,66 @@ internal object PageCleanup {
             }
         }
         prune(root, null, 0)
+        // The index of elements by their /ID, and the parent tree's entries for single elements (an
+        // annotation's tag), lose those that went, rather than keep their keys with nothing.
+        if (dropped.isNotEmpty()) {
+            for ((tree, entries) in listOf(COSName.ID_TREE to COSName.NAMES, COSName.PARENT_TREE to COSName.NUMS)) {
+                val node = root.getDictionaryObject(tree) as? COSDictionary ?: continue
+                if (pruneEntries(node, entries, dropped, identitySet(), 0)) root.removeItem(tree)
+            }
+        }
         return dropped
     }
 
     /**
-     * Walks everything that can be reached from [start] and empties each reference to [gone] pages
-     * and annotations: a dictionary entry is removed, an array entry becomes null. They aren't
-     * entered, so nothing reached only through them is written.
+     * Takes out of the name or number tree at [node] (its pairs listed in [entries]) those whose
+     * value is one of [dropped], and puts its limits right. Returns whether [node] is left empty.
      */
-    private fun cutReferences(start: COSBase, gone: Set<COSDictionary>, check: () -> Unit) {
+    private fun pruneEntries(node: COSDictionary, entries: COSName, dropped: Set<COSDictionary>, seen: MutableSet<COSDictionary>, depth: Int): Boolean {
+        if (depth > MAX_DEPTH || !seen.add(node)) return false
+        var empty = true
+        var first: COSBase? = null
+        var last: COSBase? = null
+        (node.getDictionaryObject(entries) as? COSArray)?.let { pairs ->
+            for (pair in pairs.size() / 2 - 1 downTo 0) {
+                if (pairs.getObject(2 * pair + 1) in dropped) {
+                    pairs.remove(2 * pair + 1)
+                    pairs.remove(2 * pair)
+                }
+            }
+            if (pairs.size() >= 2) {
+                empty = false
+                first = pairs.getObject(0)
+                last = pairs.getObject(pairs.size() / 2 * 2 - 2)
+            }
+        }
+        (node.getDictionaryObject(COSName.KIDS) as? COSArray)?.let { kids ->
+            for (i in kids.size() - 1 downTo 0) {
+                val kid = kids.getObject(i) as? COSDictionary ?: continue
+                if (pruneEntries(kid, entries, dropped, seen, depth + 1)) kids.remove(i)
+            }
+            if (kids.size() > 0) {
+                empty = false
+                fun limit(kid: COSBase?, end: Int) = ((kid as? COSDictionary)?.getDictionaryObject(COSName.LIMITS) as? COSArray)?.getObject(end)
+                first = first ?: limit(kids.getObject(0), 0)
+                last = limit(kids.getObject(kids.size() - 1), 1) ?: last
+            }
+        }
+        // Nodes but the root say which keys they hold.
+        if (node.getDictionaryObject(COSName.LIMITS) is COSArray) {
+            val low = first
+            val high = last
+            if (low != null && high != null) node.setItem(COSName.LIMITS, COSArray().apply { add(low); add(high) })
+        }
+        return empty
+    }
+
+    /**
+     * Walks everything that can be reached from [start] and empties each reference to what has
+     * [gone] (pages, annotations, form fields, tags): a dictionary entry is removed, an array entry
+     * becomes null. They aren't entered, so nothing reached only through them is written.
+     */
+    private fun cutReferences(start: COSBase, gone: (COSDictionary) -> Boolean, check: () -> Unit) {
         val seen = identitySet<COSBase>()
         val pending = ArrayDeque<COSBase>()
         pending.add(start)
@@ -236,14 +335,14 @@ internal object PageCleanup {
             when (current) {
                 is COSDictionary -> for (key in current.keySet().toList()) {
                     when (val value = current.getDictionaryObject(key)) {
-                        is COSDictionary -> if (value in gone) current.removeItem(key) else pending.add(value)
+                        is COSDictionary -> if (gone(value)) current.removeItem(key) else pending.add(value)
                         is COSArray -> pending.add(value)
                         else -> Unit
                     }
                 }
                 is COSArray -> for (i in 0 until current.size()) {
                     when (val value = current.getObject(i)) {
-                        is COSDictionary -> if (value in gone) current.set(i, COSNull.NULL) else pending.add(value)
+                        is COSDictionary -> if (gone(value)) current.set(i, COSNull.NULL) else pending.add(value)
                         is COSArray -> pending.add(value)
                         else -> Unit
                     }

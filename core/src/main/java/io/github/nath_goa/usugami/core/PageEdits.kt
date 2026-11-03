@@ -2,6 +2,7 @@ package io.github.nath_goa.usugami.core
 
 import java.io.Serializable
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.max
@@ -293,6 +294,95 @@ object EditLayout {
             x2 + barb * (ux * c + uy * s), y2 + barb * (-ux * s + uy * c),
         )
     }
+
+    /**
+     * Where [item] puts ink on the page as shown, as boxes that together cover it: its [PageItem.bounds]
+     * for text, a picture or a filled box; for a stroke, an outline, a line or an arrow, small boxes
+     * along its path, as wide as its line, so what lies inside an outline or beside a stroke isn't
+     * counted as under it. Each box is at most about [PAINT_STEP] or the line's width across in its
+     * shorter direction.
+     */
+    fun paintedAreas(item: PageItem): List<Area> {
+        val width = when (item) {
+            is InkItem -> item.width
+            is ShapeItem -> if (item.isBox && item.filled) return listOf(item.bounds) else item.width
+            is TextItem, is PictureItem -> return listOf(item.bounds)
+        }
+        val pad = width / 2
+        val step = max(width, PAINT_STEP)
+        val areas = ArrayList<Area>()
+        fun box(left: Float, top: Float, right: Float, bottom: Float) {
+            areas += Area(left - pad, top - pad, right - left + 2 * pad, bottom - top + 2 * pad)
+        }
+        fun line(x0: Float, y0: Float, x1: Float, y1: Float) {
+            // Pieces of a slanting line, each with a box that hugs it; one box for a level one.
+            val pieces = ceil(min(abs(x1 - x0), abs(y1 - y0)) / step).toInt().coerceIn(1, MAX_PIECES)
+            for (i in 0 until pieces) {
+                val ax = x0 + (x1 - x0) * i / pieces
+                val ay = y0 + (y1 - y0) * i / pieces
+                val bx = x0 + (x1 - x0) * (i + 1) / pieces
+                val by = y0 + (y1 - y0) * (i + 1) / pieces
+                box(min(ax, bx), min(ay, by), max(ax, bx), max(ay, by))
+            }
+        }
+        fun cubic(p: FloatArray, depth: Int) {
+            // A curve lies within its points and control points; halved until that is small.
+            val xs = floatArrayOf(p[0], p[2], p[4], p[6])
+            val ys = floatArrayOf(p[1], p[3], p[5], p[7])
+            val left = xs.min()
+            val top = ys.min()
+            val right = xs.max()
+            val bottom = ys.max()
+            if (depth >= MAX_HALVINGS || min(right - left, bottom - top) <= step) {
+                box(left, top, right, bottom)
+                return
+            }
+            fun mid(a: Int, b: Int, from: FloatArray) = floatArrayOf((from[a] + from[b]) / 2, (from[a + 1] + from[b + 1]) / 2)
+            val ab = mid(0, 2, p)
+            val bc = mid(2, 4, p)
+            val cd = mid(4, 6, p)
+            val abc = floatArrayOf((ab[0] + bc[0]) / 2, (ab[1] + bc[1]) / 2)
+            val bcd = floatArrayOf((bc[0] + cd[0]) / 2, (bc[1] + cd[1]) / 2)
+            val middle = floatArrayOf((abc[0] + bcd[0]) / 2, (abc[1] + bcd[1]) / 2)
+            cubic(floatArrayOf(p[0], p[1], ab[0], ab[1], abc[0], abc[1], middle[0], middle[1]), depth + 1)
+            cubic(floatArrayOf(middle[0], middle[1], bcd[0], bcd[1], cd[0], cd[1], p[6], p[7]), depth + 1)
+        }
+        var x = 0f
+        var y = 0f
+        var startX = 0f
+        var startY = 0f
+        for (op in outline(item)) {
+            val (toX, toY) = when (op) {
+                is PathOp.Move -> {
+                    startX = op.x
+                    startY = op.y
+                    op.x to op.y
+                }
+                is PathOp.Line -> {
+                    line(x, y, op.x, op.y)
+                    op.x to op.y
+                }
+                is PathOp.Cubic -> {
+                    cubic(floatArrayOf(x, y, op.x1, op.y1, op.x2, op.y2, op.x, op.y), 0)
+                    op.x to op.y
+                }
+                PathOp.Close -> {
+                    line(x, y, startX, startY)
+                    startX to startY
+                }
+            }
+            x = toX
+            y = toY
+        }
+        return areas
+    }
+
+    /** How far apart, at least, [paintedAreas] cuts a slanting line or a curve, in points. */
+    const val PAINT_STEP = 6f
+
+    /** At most this many pieces to a line, and halvings of a curve, in [paintedAreas]. */
+    private const val MAX_PIECES = 256
+    private const val MAX_HALVINGS = 6
 
     /** Half the angle between an arrow's barbs, in radians (30°). */
     private const val ARROW_ANGLE = 0.5235988f

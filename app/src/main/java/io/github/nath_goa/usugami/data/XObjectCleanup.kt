@@ -10,6 +10,7 @@ import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSNumber
 import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -23,6 +24,8 @@ import io.github.nath_goa.usugami.core.Areas
 import java.io.IOException
 import java.util.Collections
 import java.util.IdentityHashMap
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Images and forms (XObjects) that only pages which have gone drew. Pages often share one list of
@@ -53,7 +56,8 @@ internal object XObjectCleanup {
      * An image or form [xobject] drawn by a page: [matrix] (a, b, c, d, e, f) takes the space it is
      * drawn in, where it covers [extent] (left, bottom, right, top: the unit square for an image,
      * the bounding box for a form), to the page's own coordinates. [clip] is the area, in those, to
-     * which the forms it is drawn inside cut it; null if none do.
+     * which the forms it is drawn inside and the clipping paths set before it cut it (at most: the
+     * bounds of each path); null if nothing does.
      */
     class Placement(val xobject: COSBase, val matrix: FloatArray, val extent: FloatArray, val clip: FloatArray?)
 
@@ -61,6 +65,14 @@ internal object XObjectCleanup {
     private class PlacedXObjects : PDFStreamEngine() {
         val found = ArrayList<Placement>()
         private var clip: FloatArray? = null
+
+        /** [clip] as each q saved it, for its Q; those below [floor] belong to the content a form is drawn in. */
+        private val saved = ArrayList<FloatArray?>()
+        private var floor = 0
+
+        /** The bounds, in the page's coordinates, of the path being built, and whether it then clips (W, W*). */
+        private var path: FloatArray? = null
+        private var clips = false
 
         init {
             addOperator(Save())
@@ -70,19 +82,51 @@ internal object XObjectCleanup {
         }
 
         override fun processOperator(operator: Operator, operands: List<COSBase>) {
-            if (operator.name == "Do") {
-                val name = operands.firstOrNull() as? COSName
-                val xobject = if (name != null) try { resources?.getXObject(name) } catch (_: IOException) { null } else null
-                val ctm = graphicsState.currentTransformationMatrix
-                when (xobject) {
-                    is PDImageXObject -> found += Placement(xobject.cosObject, ctm.values(), floatArrayOf(0f, 0f, 1f, 1f), clip)
-                    is PDFormXObject -> xobject.bBox?.let { box ->
-                        found += Placement(xobject.cosObject, xobject.matrix.multiply(ctm).values(), box.corners(), clip)
+            when (operator.name) {
+                "Do" -> {
+                    val name = operands.firstOrNull() as? COSName
+                    val xobject = if (name != null) try { resources?.getXObject(name) } catch (_: IOException) { null } else null
+                    val ctm = graphicsState.currentTransformationMatrix
+                    when (xobject) {
+                        is PDImageXObject -> found += Placement(xobject.cosObject, ctm.values(), floatArrayOf(0f, 0f, 1f, 1f), clip)
+                        is PDFormXObject -> xobject.bBox?.let { box ->
+                            found += Placement(xobject.cosObject, xobject.matrix.multiply(ctm).values(), box.corners(), clip)
+                        }
                     }
+                }
+                "q" -> saved += clip
+                "Q" -> if (saved.size > floor) clip = saved.removeAt(saved.size - 1)
+                // A picture cropped in Word or PowerPoint is the whole image drawn inside "x y w h re W n".
+                "re" -> numbers(operands, 4)?.let { (x, y, w, h) -> extend(x, y); extend(x + w, y); extend(x, y + h); extend(x + w, y + h) }
+                "m", "l" -> numbers(operands, 2)?.let { extend(it[0], it[1]) }
+                // A curve stays within its points and control points.
+                "c", "v", "y" -> numbers(operands, if (operator.name == "c") 6 else 4)?.let { for (i in it.indices step 2) extend(it[i], it[i + 1]) }
+                "W", "W*" -> clips = true
+                "n", "S", "s", "f", "F", "f*", "B", "B*", "b", "b*" -> {
+                    if (clips) path?.let { area -> clip = cut(clip, area) }
+                    path = null
+                    clips = false
                 }
             }
             super.processOperator(operator, operands)
         }
+
+        private fun numbers(operands: List<COSBase>, count: Int): FloatArray? {
+            if (operands.size < count) return null
+            return FloatArray(count) { (operands[it] as? COSNumber)?.floatValue() ?: return null }
+        }
+
+        /** Adds the point ([x], [y]), in the space the content draws in, to [path]'s bounds. */
+        private fun extend(x: Float, y: Float) {
+            val m = graphicsState.currentTransformationMatrix
+            val px = m.scaleX * x + m.shearX * y + m.translateX
+            val py = m.shearY * x + m.scaleY * y + m.translateY
+            if (!px.isFinite() || !py.isFinite()) return
+            path = path?.let { floatArrayOf(min(it[0], px), min(it[1], py), max(it[2], px), max(it[3], py)) } ?: floatArrayOf(px, py, px, py)
+        }
+
+        /** [outer] cut to [area]: nothing at all if they don't overlap. */
+        private fun cut(outer: FloatArray?, area: FloatArray) = outer?.let { Areas.intersection(it, area) ?: floatArrayOf(0f, 0f, 0f, 0f) } ?: area
 
         // A form draws only inside its bounding box.
         override fun showForm(form: PDFormXObject) = inside(form) { super.showForm(form) }
@@ -91,14 +135,20 @@ internal object XObjectCleanup {
 
         private fun inside(form: PDFormXObject, draw: () -> Unit) {
             val outer = clip
+            val outerFloor = floor
             form.bBox?.let { box ->
-                val area = Areas.mapped(form.matrix.multiply(graphicsState.currentTransformationMatrix).values(), box.corners())
-                clip = outer?.let { Areas.intersection(it, area) ?: floatArrayOf(0f, 0f, 0f, 0f) } ?: area
+                clip = cut(outer, Areas.mapped(form.matrix.multiply(graphicsState.currentTransformationMatrix).values(), box.corners()))
             }
+            floor = saved.size
             try {
                 draw()
             } finally {
+                // What the form saved and didn't restore, and the clip it set, end with it.
+                while (saved.size > floor) saved.removeAt(saved.size - 1)
+                floor = outerFloor
                 clip = outer
+                path = null
+                clips = false
             }
         }
 
@@ -153,6 +203,11 @@ internal object XObjectCleanup {
             usedBy(page, used, readContent = mayDraw(page, drawn, reaches))
         }
         collect(doc.documentCatalog.cosObject.getCOSDictionary(COSName.ACRO_FORM)?.getDictionaryObject(COSName.DR), used)
+        // What an image drawn there needs to look as it does: its soft mask, its mask, its
+        // alternates. [drawn] can hold them too, when a page that went couldn't be read.
+        for (xobject in used.toList()) {
+            if (xobject is COSStream && xobject.getCOSName(COSName.SUBTYPE) == COSName.IMAGE) collect(xobject, used)
+        }
         for (xobject in drawn) if (xobject !in used && xobject is COSStream) empty(xobject)
     }
 

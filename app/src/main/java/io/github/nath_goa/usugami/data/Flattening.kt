@@ -66,8 +66,9 @@ internal object Flattening {
                 catalog.cosObject.removeItem(NEEDS_RENDERING)
             }
             if (fields.isNotEmpty()) {
-                // A field whose text can't be drawn and that has no look of its own would come out
-                // blank: it stays a field, value and all, for viewers to draw, rather than be lost.
+                // A field whose text can't be drawn and that has no look of its own, or only one the
+                // form says is out of date, would come out blank or wrong: it stays a field, value
+                // and all, for viewers to draw, rather than be lost.
                 val undrawn = redrawFields(form, fields, check)
                 val keep = identitySet()
                 for (field in undrawn) {
@@ -101,7 +102,10 @@ internal object Flattening {
      * otherwise only those with a widget that has no appearance. Fields that already look right
      * keep the appearance their app gave them. A field PDFBox can't draw (say, text in a script its
      * font doesn't have) keeps what it has instead of stopping the rest. Returns those of them that
-     * have a value but nothing to show it: drawn into the page, they would come out blank.
+     * have a value but nothing that shows it: a widget with no appearance, or, when the form asks
+     * viewers to draw its fields, any appearance at all, which the form itself says is out of date
+     * (apps that fill forms that way set the value and leave the look as it was, often blank).
+     * Drawn into the page, they would come out blank, or show an older value.
      */
     internal fun redrawFields(form: PDAcroForm, fields: List<PDField>, check: () -> Unit): List<PDTerminalField> {
         val all = form.needAppearances
@@ -123,7 +127,7 @@ internal object Flattening {
             }
             if (!failed) continue
             saved?.forEach { it.restore() }
-            if (hasValue(field) && field.widgets.any { shown(it) && !drawable(it) }) undrawn += field
+            if (hasValue(field) && field.widgets.any { shown(it) && (all || !drawable(it)) }) undrawn += field
         }
         return undrawn
     }
