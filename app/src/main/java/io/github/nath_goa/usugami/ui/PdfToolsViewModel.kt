@@ -578,10 +578,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
 
+    // The pages are found by their key, whatever their rotation: a button tapped again before the
+    // screen shows the page turned still finds it.
+
     fun movePage(from: PdfPageRef, to: PdfPageRef) {
         val list = pages.value.toMutableList()
-        val a = list.indexOf(from)
-        val b = list.indexOf(to)
+        val a = list.indexOfFirst { it.key == from.key }
+        val b = list.indexOfFirst { it.key == to.key }
         if (a < 0 || b < 0 || a == b) return
         list.add(b, list.removeAt(a))
         setPages(list)
@@ -589,7 +592,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun movePageBy(ref: PdfPageRef, offset: Int) {
         val list = pages.value.toMutableList()
-        val a = list.indexOf(ref)
+        val a = list.indexOfFirst { it.key == ref.key }
         val b = a + offset
         if (a !in list.indices || b !in list.indices) return
         pushUndo(pages.value)
@@ -598,8 +601,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     fun rotatePage(ref: PdfPageRef, degrees: Int) {
+        if (pages.value.none { it.key == ref.key }) return
         pushUndo(pages.value)
-        setPages(pages.value.map { if (it == ref) it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) else it })
+        setPages(pages.value.map { if (it.key == ref.key) it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) else it })
     }
 
     /** Turns every page by [degrees] more, as Rotate's "all pages" buttons do. */
@@ -609,9 +613,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     fun removePage(ref: PdfPageRef) {
-        if (ref !in pages.value) return
+        if (pages.value.none { it.key == ref.key }) return
         pushUndo(pages.value)
-        setPages(pages.value - ref)
+        setPages(pages.value.filterNot { it.key == ref.key })
     }
 
     fun resetPages() {
@@ -858,16 +862,20 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
 
-    /** Saves the PDF with Edit PDF's items drawn on its pages. */
+    /**
+     * Saves the PDF with Edit PDF's items drawn on its pages. It is busy from the tap, as every tool
+     * is, even while the pictures are looked for: nothing can be added meanwhile that the PDF would
+     * leave out, and leaving the tool stops it.
+     */
     fun runEdit(fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
         val items = history.items.value.filter { it.page in 0 until input.pageCount }
-        if (items.isEmpty() || _processing.value || _importing.value) return
+        if (items.isEmpty()) return
         val paths = items.filterIsInstance<PictureItem>().map { it.path }
-        viewModelScope.launch {
-            val missing = withContext(fileOps) { paths.filterNot { File(it).isFile } }
-            if (missing.isNotEmpty()) return@launch forgetPictures(missing)
-            process(fileName, listOf(input)) { check -> listOf(engine.editPages(input, items, fileName, check)) }
+        process(fileName, listOf(input)) { check ->
+            val missing = paths.filterNot { File(it).isFile }
+            if (missing.isNotEmpty()) throw PicturesCleared(missing)
+            listOf(engine.editPages(input, items, fileName, check))
         }
     }
 
@@ -945,23 +953,37 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         handle[KEY_REDACT_SELECTED] = boxes.size
     }
 
-    fun changeRedactBox(index: Int, box: RedactBox) {
+    /**
+     * Puts [box] in the place of box [index], which was [was] when the change began (a drag, say).
+     * If it isn't any more (another finger deleted it meanwhile, and the next box took its place),
+     * nothing changes: the box there now stays as it is.
+     */
+    fun changeRedactBox(index: Int, was: RedactBox, box: RedactBox) {
         val boxes = _redactBoxes.value
-        if (index !in boxes.indices) return
+        if (boxes.getOrNull(index) != was) return
         setRedactBoxes(boxes.toMutableList().also { it[index] = Redaction.clamp(box) })
     }
 
     /**
-     * Changes box [index] by [step] from where it is now, kept on the page: a second press of a
+     * The chosen box's index, or -1, as it is now: a button pressed again before the screen has
+     * caught up acts on the box chosen then, not on one chosen before the first press.
+     */
+    private val chosenRedactBox: Int get() = handle[KEY_REDACT_SELECTED] ?: -1
+
+    /**
+     * Changes the chosen box by [step] from where it is now, kept on the page: a second press of a
      * move or size button goes on from the first, even before the screen shows it.
      */
-    fun stepRedactBox(index: Int, step: (RedactBox) -> RedactBox) {
+    fun stepChosenRedactBox(step: (RedactBox) -> RedactBox) {
+        val index = chosenRedactBox
         val box = _redactBoxes.value.getOrNull(index) ?: return
-        changeRedactBox(index, step(box))
+        changeRedactBox(index, box, step(box))
     }
 
-    fun deleteRedactBox(index: Int) {
+    /** Deletes the chosen box. Pressed again before the screen has caught up, it finds none chosen. */
+    fun deleteChosenRedactBox() {
         val boxes = _redactBoxes.value
+        val index = chosenRedactBox
         if (index !in boxes.indices) return
         setRedactBoxes(boxes.filterIndexed { i, _ -> i != index })
         handle[KEY_REDACT_SELECTED] = -1
@@ -1103,6 +1125,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 message(strings.getString(R.string.watermark_no_font))
             } catch (e: NothingToFlatten) {
                 message(strings.getString(if (e.dynamicXfa) R.string.flatten_xfa_only else R.string.flatten_nothing))
+            } catch (e: PicturesCleared) {
+                forgetPictures(e.paths)
             } catch (e: Exception) {
                 message(
                     if (e.isOutOfSpace()) strings.getString(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_space))
@@ -1461,3 +1485,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_REDACT_SELECTED = "redact_selected"
     }
 }
+
+/** Pictures put on Edit PDF's pages whose copies the system has cleared from the cache. */
+private class PicturesCleared(val paths: List<String>) : Exception()

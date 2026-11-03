@@ -146,10 +146,13 @@ dependencies {
     "ocrImplementation"(project(":ocr-native"))
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("junit:junit:4.13.2")
-    // Compose's test rule, for the tests that tap faster than a screen can change (MultiClickDeviceTest).
-    // The same version as Compose's UI above, which it tests.
+    // Compose's test rule drives the screens a frame at a time, for the tests that tap faster than the
+    // screen updates (MultiClickDeviceTest and the editors' multi-click tests). The same version as
+    // the app's Compose, which the tests run against.
     //noinspection GradleDependency
     androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.10.6")
+    // The Espresso it brings can't inject input on recent Android versions.
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
 }
 
 /**

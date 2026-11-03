@@ -154,8 +154,8 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
             if (shown != null) {
                 BoxControls(
                     shown,
-                    onStep = { step -> if (chosen != null) vm.stepRedactBox(selected, step) },
-                    onDelete = { if (chosen != null) vm.deleteRedactBox(selected) },
+                    onStep = { step -> if (chosen != null) vm.stepChosenRedactBox(step) },
+                    onDelete = { if (chosen != null) vm.deleteChosenRedactBox() },
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
@@ -230,8 +230,11 @@ private fun FindText(query: String, onQuery: (String) -> Unit, finding: Boolean,
     )
 }
 
-/** A box being drawn ([index] -1), moved or resized, shown as it goes and saved when the finger lifts. */
-private class Draft(val index: Int, val box: RedactBox)
+/**
+ * A box being drawn ([index] -1), or box [index] being moved or resized from what it [was], shown
+ * as it goes and saved when the finger lifts.
+ */
+private class Draft(val index: Int, val was: RedactBox?, val box: RedactBox)
 
 /**
  * [rendered] (once [ready]; [failed] when it can't be drawn) with the boxes on page [pageIndex].
@@ -249,7 +252,7 @@ private fun BoxEditor(
     selected: Int,
     onSelect: (Int) -> Unit,
     onAdd: (RedactBox) -> Unit,
-    onChange: (Int, RedactBox) -> Unit,
+    onChange: (index: Int, was: RedactBox, box: RedactBox) -> Unit,
 ) {
     val latestBoxes by rememberUpdatedState(boxes)
     val latestSelected by rememberUpdatedState(selected)
@@ -302,21 +305,24 @@ private fun BoxEditor(
                             val hit = if (handle) latestSelected else Redaction.hit(all, pageIndex, start.x, start.y, reach / w, reach / h)
                             // The page doesn't scroll the screen: drags on it draw.
                             down.consume()
+                            // The box touched may have gone meanwhile, deleted by another finger,
+                            // and another box taken its place: that one isn't chosen or changed.
+                            fun touched() = hit < 0 || latestBoxes.getOrNull(hit) == all[hit]
                             val moved = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
                             if (moved == null) {
-                                onSelect(hit)
+                                if (touched()) onSelect(hit)
                                 return@awaitEachGesture
                             }
                             fun at(position: Offset) = Offset(position.x / w, position.y / h)
                             fun shaped(position: Offset): Draft {
                                 val p = at(position)
                                 return when {
-                                    handle -> Draft(hit, Redaction.withCorner(all[hit], p.x, p.y))
-                                    hit >= 0 -> Draft(hit, Redaction.moved(all[hit], p.x - start.x, p.y - start.y))
-                                    else -> Draft(-1, Redaction.between(pageIndex, start.x, start.y, p.x, p.y))
+                                    handle -> Draft(hit, all[hit], Redaction.withCorner(all[hit], p.x, p.y))
+                                    hit >= 0 -> Draft(hit, all[hit], Redaction.moved(all[hit], p.x - start.x, p.y - start.y))
+                                    else -> Draft(-1, null, Redaction.between(pageIndex, start.x, start.y, p.x, p.y))
                                 }
                             }
-                            if (hit >= 0) onSelect(hit)
+                            if (hit >= 0 && touched()) onSelect(hit)
                             draft = shaped(moved.position)
                             try {
                                 val finished = drag(moved.id) { change ->
@@ -325,8 +331,8 @@ private fun BoxEditor(
                                 }
                                 val result = draft
                                 if (finished && result != null) {
-                                    if (result.index >= 0) {
-                                        onChange(result.index, result.box)
+                                    if (result.was != null) {
+                                        onChange(result.index, result.was, result.box)
                                     } else if (result.box.width * w >= MIN_DRAWN.toPx() && result.box.height * h >= MIN_DRAWN.toPx()) {
                                         onAdd(result.box)
                                     }
@@ -341,10 +347,10 @@ private fun BoxEditor(
                 if (!ready) return@Canvas
                 val editing = draft
                 for (index in onPage) {
-                    val box = if (editing?.index == index) editing.box else boxes[index]
+                    val box = if (editing?.index == index && editing.was == boxes[index]) editing.box else boxes[index]
                     drawBox(box, chosen = index == chosen, frame)
                 }
-                if (editing != null && editing.index < 0) drawBox(editing.box, chosen = true, frame)
+                if (editing != null && editing.was == null) drawBox(editing.box, chosen = true, frame)
             }
             if (failed) {
                 Text(

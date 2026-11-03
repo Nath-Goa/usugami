@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
@@ -177,14 +178,21 @@ internal fun EditPreview(
                                 }
                                 down.consume()
                                 if (hit.id != chosen?.id) select(hit.id)
+                                // A tap only chooses: a finger that doesn't mean to drag still moves a
+                                // pixel or two, which mustn't move the item, or take the place of Redo.
+                                val start = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return@awaitEachGesture
+                                fun dragTo(position: Offset) {
+                                    val moved = (position - down.position) * toPage
+                                    step(
+                                        if (handle != null) EditLayout.dragHandle(hit, handle, position.x * toPage, position.y * toPage, shownWidth, shownHeight)
+                                        else EditLayout.moved(hit, moved.x, moved.y, shownWidth, shownHeight),
+                                    )
+                                }
                                 begin()
                                 try {
-                                    drag(down.id) { change ->
-                                        val moved = (change.position - down.position) * toPage
-                                        step(
-                                            if (handle != null) EditLayout.dragHandle(hit, handle, change.position.x * toPage, change.position.y * toPage, shownWidth, shownHeight)
-                                            else EditLayout.moved(hit, moved.x, moved.y, shownWidth, shownHeight),
-                                        )
+                                    dragTo(start.position)
+                                    drag(start.id) { change ->
+                                        dragTo(change.position)
                                         change.consume()
                                     }
                                 } finally {

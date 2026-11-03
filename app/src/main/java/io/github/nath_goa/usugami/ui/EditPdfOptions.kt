@@ -270,6 +270,8 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
             initial = existing?.text.orEmpty(),
             title = if (existing == null) R.string.edit_text_add else R.string.edit_text_change,
             onDone = { text ->
+                // Done tapped again before the dialog has gone adds or changes nothing more.
+                if (textDialog == null) return@EditTextDialog
                 textDialog = null
                 val (unitWidth, unitHeight) = PageText.unitSize(text)
                 if (existing == null) {
@@ -316,8 +318,11 @@ private fun EditToolbar(
                         text = { Text(stringResource(label)) },
                         leadingIcon = { Icon(icon, contentDescription = null) },
                         onClick = {
-                            open = false
-                            onShape(kind, filled)
+                            // An entry tapped again, or another one, while the menu fades away adds nothing more.
+                            if (open) {
+                                open = false
+                                onShape(kind, filled)
+                            }
                         },
                     )
                 }
