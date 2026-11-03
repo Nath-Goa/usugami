@@ -7,22 +7,17 @@ import android.graphics.Paint
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.core.graphics.createBitmap
-import com.tom_roush.pdfbox.contentstream.PDFStreamEngine
-import com.tom_roush.pdfbox.contentstream.operator.DrawObject
-import com.tom_roush.pdfbox.contentstream.operator.Operator
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSObject
-import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceGray
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
-import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
@@ -235,7 +230,7 @@ internal object Redactor {
             val page = doc.getPage(index)
             redactedPages += page.cosObject
             page.cosObject.getCOSArray(COSName.ANNOTS)?.forEach { (it.resolve() as? COSDictionary)?.let(removedAnnotations::add) }
-            drawnXObjects(page, drawnThere)
+            XObjectCleanup.drawnBy(page, drawnThere)
         }
 
         ParcelFileDescriptor.open(view, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
@@ -250,14 +245,7 @@ internal object Redactor {
 
         // Images and forms that only the redacted pages drew must not stay behind, as they would
         // where pages share one list of resources: they are emptied in place.
-        val usedElsewhere = identitySet<COSBase>()
-        for (index in 0 until doc.numberOfPages) {
-            if (index in byPage) continue
-            check()
-            usedXObjects(doc.getPage(index), usedElsewhere)
-        }
-        collectXObjects(doc.documentCatalog.cosObject.getCOSDictionary(COSName.ACRO_FORM)?.getDictionaryObject(COSName.DR), usedElsewhere)
-        for (xobject in drawnThere) if (xobject !in usedElsewhere && xobject is COSStream) empty(xobject)
+        XObjectCleanup.emptyUnused(doc, drawnThere, (0 until doc.numberOfPages).filter { it !in byPage }.map(doc::getPage), check)
 
         check()
         removeLeaks(doc, redactedPages, removedAnnotations)
@@ -361,106 +349,6 @@ internal object Redactor {
     }
 
     // ---- What else could leak ----
-
-    /** Finds the images and forms [page]'s content draws, those inside forms included. */
-    private class DrawnXObjects(private val drawn: MutableSet<COSBase>, private val contexts: MutableSet<COSBase>) : PDFStreamEngine() {
-        init {
-            addOperator(DrawObject())
-        }
-
-        override fun processOperator(operator: Operator, operands: List<COSBase>) {
-            if (operator.name == "Do") {
-                val name = operands.firstOrNull() as? COSName
-                val xobject = if (name != null) try { resources?.getXObject(name) } catch (_: IOException) { null } else null
-                if (xobject != null) {
-                    drawn += xobject.cosObject
-                    (xobject as? PDFormXObject)?.resources?.cosObject?.let(contexts::add)
-                }
-            }
-            super.processOperator(operator, operands)
-        }
-    }
-
-    /**
-     * Adds to [into] the images and forms a redacted [page] draws. If its content can't be read,
-     * everything its resources list counts, so nothing it might have drawn is missed.
-     */
-    private fun drawnXObjects(page: PDPage, into: MutableSet<COSBase>) {
-        val found = identitySet<COSBase>()
-        try {
-            DrawnXObjects(found, identitySet()).processPage(page)
-            into += found
-        } catch (_: Exception) {
-            collectXObjects(page.resources?.cosObject, into)
-        }
-    }
-
-    /**
-     * Adds to [into] every image and form an unredacted [page] might draw: what its content draws,
-     * and, to be safe, all those reachable from its patterns, fonts, graphics states, shadings and
-     * annotation appearances, which aren't followed in detail. If its content can't be read,
-     * everything its resources list counts.
-     */
-    private fun usedXObjects(page: PDPage, into: MutableSet<COSBase>) {
-        val contexts = identitySet<COSBase>()
-        // Its own resources, or those it inherits from the page tree.
-        page.resources?.cosObject?.let(contexts::add)
-        try {
-            DrawnXObjects(into, contexts).processPage(page)
-            for (context in contexts) {
-                val resources = context as? COSDictionary ?: continue
-                for (key in listOf(COSName.PATTERN, COSName.FONT, COSName.EXT_G_STATE, COSName.SHADING, COSName.PROPERTIES)) {
-                    collectXObjects(resources.getDictionaryObject(key), into)
-                }
-            }
-        } catch (_: Exception) {
-            collectXObjects(page.resources?.cosObject, into)
-        }
-        page.cosObject.getCOSArray(COSName.ANNOTS)?.forEach { annotation ->
-            collectXObjects((annotation.resolve() as? COSDictionary)?.getDictionaryObject(COSName.AP), into)
-        }
-    }
-
-    /** Adds to [into] every image and form stream reachable from [start], not following links up to pages. */
-    private fun collectXObjects(start: COSBase?, into: MutableSet<COSBase>) {
-        val seen = identitySet<COSBase>()
-        val pending = ArrayDeque<COSBase>()
-        start?.resolve()?.let(pending::add)
-        while (pending.isNotEmpty()) {
-            val item = pending.removeLast()
-            if (!seen.add(item)) continue
-            when (item) {
-                is COSDictionary -> {
-                    if (item is COSStream) {
-                        val subtype = item.getCOSName(COSName.SUBTYPE)
-                        if (subtype == COSName.IMAGE || subtype == COSName.FORM) into += item
-                    }
-                    for ((key, value) in item.entrySet()) {
-                        if (key == COSName.PARENT || key == COSName.P) continue
-                        value.resolve()?.let(pending::add)
-                    }
-                }
-                is COSArray -> item.forEach { value -> value.resolve()?.let(pending::add) }
-            }
-        }
-    }
-
-    /** Empties an image or form that only redacted pages drew: a white pixel, or nothing to draw. */
-    private fun empty(stream: COSStream) {
-        val image = stream.getCOSName(COSName.SUBTYPE) == COSName.IMAGE
-        val keep = if (image) setOf(COSName.TYPE, COSName.SUBTYPE) else setOf(COSName.TYPE, COSName.SUBTYPE, COSName.BBOX, COSName.MATRIX, COSName.FORMTYPE)
-        for (key in stream.keySet().toList()) if (key !in keep) stream.removeItem(key)
-        if (image) {
-            stream.setInt(COSName.WIDTH, 1)
-            stream.setInt(COSName.HEIGHT, 1)
-            stream.setInt(COSName.BITS_PER_COMPONENT, 8)
-            stream.setItem(COSName.COLORSPACE, COSName.DEVICEGRAY)
-            stream.createOutputStream().use { it.write(0xFF) }
-        } else {
-            stream.setItem(COSName.RESOURCES, COSDictionary())
-            stream.createOutputStream().close()
-        }
-    }
 
     /**
      * Removes what could still hold the hidden content once the redacted pages are pictures:

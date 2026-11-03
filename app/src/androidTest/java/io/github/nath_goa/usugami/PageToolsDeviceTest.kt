@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.core.content.FileProvider
@@ -12,7 +13,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
@@ -22,6 +25,7 @@ import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.ui.PdfTool
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -75,8 +79,8 @@ class PageToolsDeviceTest {
         return result!!.getOrThrow()
     }
 
-    private fun waitUntil(what: String, condition: () -> Boolean) {
-        val deadline = SystemClock.uptimeMillis() + 15_000
+    private fun waitUntil(what: String, timeout: Long = 15_000, condition: () -> Boolean) {
+        val deadline = SystemClock.uptimeMillis() + timeout
         while (!onMain(condition)) {
             check(SystemClock.uptimeMillis() < deadline) { "Timed out waiting for $what" }
             Thread.sleep(50)
@@ -203,6 +207,115 @@ class PageToolsDeviceTest {
         assertTrue(onMain { vm.pages.value.isEmpty() })
     }
 
+    /**
+     * A part of a split holds only its own pages, though their links, comments and form fields
+     * point at the others: nothing of those (their text, a form field's value) comes along.
+     */
+    @Test fun splitPartsHoldOnlyTheirOwnPages() {
+        val source = import(chapters(made("split_chapters.pdf")))
+        val part = save(engine.split(source, listOf(listOf(0)), "part").single().file, "split_page_one.pdf")
+        assertEquals(listOf("PAGE ONE"), pageTexts(part))
+        val everything = everythingIn(part)
+        for (gone in listOf("PAGE TWO", "PAGE THREE", "PAGE FOUR", "PAGE FIVE", "SECRET VALUE")) {
+            assertFalse("\"$gone\" is in the part", everything.contains(gone))
+        }
+        assertTrue("Page 1's own field stays", everything.contains("KEEP VALUE"))
+
+        val parts = engine.split(source, PAGE_WORDS.indices.map { listOf(it) }, "each")
+        for ((index, file) in parts.withIndex()) {
+            val all = everythingIn(file.file)
+            for ((other, word) in PAGE_WORDS.withIndex()) {
+                assertEquals("Part ${index + 1} has \"PAGE $word\"", index == other, all.contains("PAGE $word"))
+            }
+            assertEquals("Only page 4's part has its field", index == 3, all.contains("SECRET VALUE"))
+        }
+    }
+
+    /**
+     * Pages that share one list of resources (also inherited from the page tree) each draw their own
+     * image: a page deleted, left out or split off takes its image with it, and the pages that stay
+     * still show theirs.
+     */
+    @Test fun picturesOfRemovedPagesGoThoughPagesShareResources() {
+        val alpha = import(asset("alpha.pdf"))
+        for (inherited in listOf(false, true)) {
+            val source = import(sharedResources(made("shared_$inherited.pdf"), inherited))
+            assertTrue("The fixture holds every image", IMAGE_MARKERS.all { everythingIn(source.file).contains(it) })
+            fun assertImages(file: File, kept: List<Int>, what: String) {
+                val everything = everythingIn(file)
+                for ((index, marker) in IMAGE_MARKERS.withIndex()) {
+                    assertEquals("$what (inherited: $inherited) has image ${index + 1}", index in kept, everything.contains(marker))
+                }
+            }
+            fun assertDrawn(file: File, pages: Int) {
+                for (index in 0 until pages) {
+                    val bitmap = render(file, index)
+                    assertTrue("Page ${index + 1} shows its image", count(bitmap, 110, 310, 490, 490) { Color.red(it) < 120 } > 30_000)
+                }
+            }
+
+            val deleted = engine.deletePages(source, listOf(1), "deleted").file
+            assertEquals(listOf("PAGE ONE", "PAGE THREE"), pageTexts(deleted))
+            assertImages(deleted, listOf(0, 2), "Delete pages")
+            assertDrawn(deleted, 2)
+
+            val reorganized = engine.reorganize(source, emptyList(), listOf(PdfPageRef(source.id, 2), PdfPageRef(source.id, 0)), "reorganized").file
+            assertImages(reorganized, listOf(2, 0), "Reorganize")
+            assertDrawn(reorganized, 2)
+
+            val pages = listOf(PdfPageRef(source.id, 0), PdfPageRef(alpha.id, 0), PdfPageRef(source.id, 2))
+            val merged = engine.merge(listOf(source, alpha), pages, "merged").file
+            assertImages(merged, listOf(0, 2), "Merge")
+
+            val parts = engine.split(source, listOf(listOf(0), listOf(1, 2)), "split")
+            assertImages(parts[0].file, listOf(0), "Split's first part")
+            assertImages(parts[1].file, listOf(1, 2), "Split's second part")
+            assertDrawn(parts[1].file, 2)
+        }
+    }
+
+    /** The tags of a deleted page's content go, with their alternate text; the others stay. */
+    @Test fun tagsOfDeletedPagesGo() {
+        val source = import(taggedPages(made("tagged.pdf")))
+        assertTrue(everythingIn(source.file).contains("SECRET ALT 2"))
+        for ((what, result) in listOf(
+            "Delete pages" to { engine.deletePages(source, listOf(1), "tagged_deleted").file },
+            "Reorganize" to { engine.reorganize(source, emptyList(), listOf(PdfPageRef(source.id, 2), PdfPageRef(source.id, 0)), "tagged_reorganized").file },
+        )) {
+            val file = save(result(), "tagged_${what.replace(' ', '_')}.pdf")
+            val everything = everythingIn(file)
+            assertFalse("$what: page 2's alternate text is gone", everything.contains("SECRET ALT 2"))
+            for (kept in listOf("SECRET ALT 1", "SECRET ALT 3", "SPANS PAGES")) assertTrue("$what keeps \"$kept\"", everything.contains(kept))
+            PDDocument.load(file).use { doc ->
+                val root = doc.documentCatalog.structureTreeRoot
+                val elements = root.kids.filterIsInstance<PDStructureElement>().single().kids.filterIsInstance<PDStructureElement>()
+                assertEquals("$what: the figures left and the paragraph", listOf("Figure", "Figure", "P"), elements.map { it.structureType })
+            }
+        }
+    }
+
+    /** Pages keep the numbers viewers show for them (a book's i, ii, iii, then 1, 2, 3) wherever they go. */
+    @Test fun pagesKeepTheirLabels() {
+        val book = import(labelledPages(made("book.pdf")))
+        assertEquals(listOf("i", "ii", "iii", "1", "2", "3"), pageLabels(book.file))
+        assertEquals(listOf("ii", "iii", "1", "2", "3"), pageLabels(engine.deletePages(book, listOf(0), "no_cover").file))
+        assertEquals(listOf("i", "iii", "2", "3"), pageLabels(engine.deletePages(book, listOf(1, 3), "fewer").file))
+        // Reversed, with a blank page at the end, which goes on from the page before it.
+        val reversed = (5 downTo 0).map { PdfPageRef(book.id, it) } + PdfPageRef.blank(0, 300f, 400f)
+        assertEquals(listOf("3", "2", "1", "iii", "ii", "i", "ii"), pageLabels(engine.reorganize(book, emptyList(), reversed, "reversed").file))
+        // A PDF without labels has none to keep, even once joined to one with labels: its pages go
+        // on from the page before them, wherever they go.
+        val alpha = import(asset("alpha.pdf"))
+        val mixed = listOf(PdfPageRef(alpha.id, 2), PdfPageRef(alpha.id, 0), PdfPageRef(book.id, 4), PdfPageRef(alpha.id, 1), PdfPageRef(book.id, 1))
+        assertEquals(listOf("1", "2", "2", "3", "ii"), pageLabels(engine.merge(listOf(alpha, book), mixed, "merged").file))
+        val added = listOf(PdfPageRef(book.id, 3), PdfPageRef(alpha.id, 1), PdfPageRef(alpha.id, 0), PdfPageRef(book.id, 0))
+        assertEquals(listOf("1", "2", "3", "i"), pageLabels(engine.reorganize(book, listOf(alpha), added, "added").file))
+
+        // Labels that are just the pages' places follow the new places, as if there were none.
+        val plain = import(labelledPages(made("plain.pdf"), plain = true))
+        assertEquals(listOf("1", "2", "3", "4", "5"), pageLabels(engine.deletePages(plain, listOf(2), "plain_deleted").file))
+    }
+
     @Test fun deletingEveryPageIsRefused() {
         val source = import(asset("alpha.pdf"))
         try {
@@ -315,6 +428,125 @@ class PageToolsDeviceTest {
         }
     }
 
+    /**
+     * Merge's pages follow the files' order when it changes, each page keeping its turn, until pages
+     * of different files are mixed. Nothing done to the pages, there is nothing to lose by leaving.
+     */
+    @Test fun mergePagesFollowTheFilesOrder() {
+        val vm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }.also { vm = it }
+        onMain { vm.addPdfs(listOf(picked(asset("alpha.pdf")), picked(asset("beta.pdf"))), replace = false) }
+        waitUntil("both PDFs to be added") { vm.inputs.value.size == 2 && !vm.importing.value }
+        val (alpha, beta) = onMain { vm.inputs.value }
+        assertFalse("Nothing to lose yet", onMain { vm.hasUnsavedWork(PdfTool.MERGE) })
+        assertTrue("Reorganize counts the PDF added", onMain { vm.hasUnsavedWork(PdfTool.REORGANIZE) })
+
+        onMain { vm.moveInput(beta.id, -1) }
+        val a = (0..2).map { PdfPageRef(alpha.id, it) }
+        val b = (0..1).map { PdfPageRef(beta.id, it) }
+        assertEquals(b + a, onMain { vm.pages.value })
+        assertFalse("Moving files loses nothing", onMain { vm.hasUnsavedWork(PdfTool.MERGE) })
+
+        onMain { vm.rotatePage(a[0], 90) }
+        assertTrue(onMain { vm.hasUnsavedWork(PdfTool.MERGE) })
+        val turned = listOf(a[0].copy(rotation = 90)) + a.drop(1)
+        onMain { vm.sortInputs() }
+        assertEquals("A to Z: alpha first", turned + b, onMain { vm.pages.value })
+        onMain { vm.sortInputs(reverse = true) }
+        assertEquals("Z to A: beta first", b + turned, onMain { vm.pages.value })
+
+        onMain { vm.runMerge(pageMode = true, fileName = "ordered") }
+        waitUntil("the merge") { vm.result.value != null && !vm.processing.value }
+        val texts = pageTexts(onMain { vm.result.value!!.single().file }).map { page -> page.filterNot(Char::isWhitespace) }
+        assertEquals(5, texts.size)
+        for ((index, expected) in listOf("BETAONE", "BETATWO", "ALPHAONE", "ALPHATWO", "ALPHATHREE").withIndex()) {
+            assertTrue("Page ${index + 1} says ${texts[index]}", texts[index].contains(expected))
+        }
+
+        // Once pages of both files are mixed, that order stays.
+        onMain { vm.backToEditing() }
+        onMain { vm.movePageBy(turned[0], -1) }
+        val mixed = onMain { vm.pages.value }
+        assertEquals(listOf(b[0], turned[0], b[1]) + turned.drop(1), mixed)
+        onMain { vm.moveInput(alpha.id, -1) }
+        assertEquals(listOf(alpha.id, beta.id), onMain { vm.inputs.value.map { it.id } })
+        assertEquals(mixed, onMain { vm.pages.value })
+    }
+
+    /** Removing the PDF while another PDF, or a picture, is still being added abandons that too. */
+    @Test fun startingOverAbandonsWhatIsBeingAdded() {
+        val inputDir = File(app.cacheDir, "pdf-inputs")
+        val vm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }.also { vm = it }
+        onMain { vm.addPdfs(listOf(picked(asset("alpha.pdf"))), replace = true) }
+        waitUntil("alpha to be added") { vm.inputs.value.size == 1 && !vm.importing.value }
+        // The import has started, and waits for its copy, when the PDF is removed.
+        onMain {
+            vm.addPdfs(listOf(picked(asset("beta.pdf"))), replace = false)
+            vm.startOver()
+        }
+        Thread.sleep(1500)
+        assertTrue("Beta didn't become the tool's PDF: ${onMain { vm.inputs.value }}", onMain { vm.inputs.value.isEmpty() })
+        assertTrue(onMain { vm.pages.value.isEmpty() && vm.locked.value.isEmpty() && !vm.importing.value })
+        waitUntil("the copies to be deleted") { inputDir.list().isNullOrEmpty() }
+
+        // Edit PDF's picture.
+        onMain { vm.addPdfs(listOf(picked(asset("alpha.pdf"))), replace = true) }
+        waitUntil("alpha to be added again") { vm.inputs.value.size == 1 && !vm.importing.value }
+        val picture = File(app.cacheDir, "output/test-picked/picture.png").apply {
+            parentFile!!.mkdirs()
+            outputStream().use { Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+        onMain {
+            vm.addPicture(FileProvider.getUriForFile(app, "${app.packageName}.files", picture))
+            vm.startOver()
+        }
+        Thread.sleep(1500)
+        assertTrue("No picture on a PDF that has gone", onMain { vm.editItems.value.isEmpty() })
+        assertFalse(onMain { vm.importing.value })
+    }
+
+    /**
+     * The page list goes in the saved state, which Android keeps small: a long PDF's untouched pages
+     * take no room, and changed ones a few bytes each. They come back as they were.
+     */
+    @Test fun aLongPdfsPagesFitTheSavedState() {
+        val long = made("long.pdf").also { file ->
+            PDDocument().use { doc ->
+                repeat(LONG_PAGES) { doc.addPage(PDPage(PDRectangle.A4)) }
+                doc.save(file)
+            }
+        }
+        val handle = SavedStateHandle()
+        val vm = onMain { PdfToolsViewModel(app, handle) }.also { vm = it }
+        onMain { vm.addPdfs(listOf(picked(long)), replace = true) }
+        waitUntil("the long PDF to be added", 60_000) { vm.inputs.value.size == 1 && !vm.importing.value }
+        assertEquals(LONG_PAGES, onMain { vm.pages.value.size })
+        // As SavedStateHandle writes its values into the activity's saved state.
+        fun savedBytes(): Int = onMain {
+            val parcel = Parcel.obtain()
+            try {
+                parcel.writeValue(ArrayList(handle.keys().map { handle.get<Any?>(it) }))
+                parcel.dataSize()
+            } finally {
+                parcel.recycle()
+            }
+        }
+        assertTrue("Untouched pages: ${savedBytes()} bytes", savedBytes() < 10_000)
+
+        val pages = onMain { vm.pages.value }
+        onMain { vm.rotatePage(pages[5], 90) }
+        onMain { vm.removePage(pages[9]) }
+        onMain { vm.addBlankPage(pages[0]) }
+        waitUntil("the blank page") { vm.pages.value[1].isBlank }
+        assertTrue("Changed pages: ${savedBytes()} bytes", savedBytes() < 100_000)
+
+        // Android brings Usugami back with the same saved state.
+        val changed = onMain { vm.pages.value }
+        val again = onMain { PdfToolsViewModel(app, handle) }
+        assertEquals(changed, onMain { again.pages.value })
+        assertEquals(90, onMain { again.pages.value[6].rotation })
+        assertTrue(onMain { again.pages.value[1].let { it.isBlank && it.width > 0f && it.height > 0f } })
+    }
+
     /** Page [index] of [file] as shown, one pixel per point, on white. */
     private fun render(file: File, index: Int): Bitmap =
         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
@@ -333,6 +565,11 @@ class PageToolsDeviceTest {
         var found = 0
         for (y in bitmap.height - top until bitmap.height - bottom) for (x in left until right) if (match(bitmap.getPixel(x, y))) found++
         return found
+    }
+
+    private companion object {
+        /** A PDF long enough that its pages as objects would crowd the saved state. */
+        const val LONG_PAGES = 5000
     }
 
     private fun red(pixel: Int) = Color.red(pixel) > 200 && Color.green(pixel) < 80 && Color.blue(pixel) < 80

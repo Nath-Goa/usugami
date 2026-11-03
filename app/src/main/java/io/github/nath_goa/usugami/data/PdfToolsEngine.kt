@@ -2,6 +2,7 @@ package io.github.nath_goa.usugami.data
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Parcelable
 import android.provider.OpenableColumns
@@ -181,6 +182,7 @@ class PdfToolsEngine(private val context: Context) {
         val taken = HashSet<String>()
         try {
             load(input.file, input.password).use { source ->
+                val sourcePages = source.pages.toList()
                 return groups.mapIndexed { index, pages ->
                     check()
                     require(pages.all { it in 0 until source.numberOfPages })
@@ -193,10 +195,13 @@ class PdfToolsEngine(private val context: Context) {
                             check()
                             val page = source.getPage(pageIndex)
                             val imported = dest.importPage(page)
-                            if (page.resources != null && !page.cosObject.containsKey(COSName.RESOURCES)) {
-                                imported.resources = page.resources
-                            }
+                            // Its resources, also when inherited, listing only the pictures and forms
+                            // it draws: pages often share one list that holds every page's.
+                            page.resources?.let { imported.resources = PDResources(XObjectCleanup.drawnOnly(page, it.cosObject)) }
                         }
+                        // The copies' links, comments and form fields still lead to the source's pages,
+                        // which would bring the whole source into the part.
+                        PageCleanup.dropSourcePages(dest, sourcePages, check)
                         dest.save(target)
                     }
                     PdfFile(target, pages.size, 0)
@@ -218,11 +223,17 @@ class PdfToolsEngine(private val context: Context) {
             PDDocument(memory()).use { dest ->
                 val offsets = HashMap<Long, Int>()
                 val merger = PDFMergerUtility()
+                // Each PDF's own page labels, read before it is joined: joining numbers the pages
+                // of one without labels on from the PDF before it.
+                val labels = IdentityHashMap<COSDictionary, PageLabeling.Label>()
                 for (input in inputs) {
                     check()
-                    offsets[input.id] = dest.numberOfPages
+                    val start = dest.numberOfPages
+                    offsets[input.id] = start
                     load(input.file, input.password).use { source ->
+                        val own = if (pages != null) PageLabeling.of(source) else null
                         merger.appendDocument(dest, source)
+                        if (own != null) labels += PageLabeling.byPage((start until dest.numberOfPages).map(dest::getPage), own)
                     }
                 }
                 if (pages != null) {
@@ -239,6 +250,7 @@ class PdfToolsEngine(private val context: Context) {
                     }
                     // Bookmarks, links and form fields of the pages left out mustn't carry them into the file.
                     PageCleanup.dropRemovedPages(dest, originals, check)
+                    PageLabeling.restore(dest, labels)
                 }
                 dest.save(target)
                 return PdfFile(target, dest.numberOfPages, 0)
@@ -283,38 +295,47 @@ class PdfToolsEngine(private val context: Context) {
 
     /**
      * Saves [input] without [pages] (zero-based), which must leave at least one page. Their
-     * bookmarks, form fields and links to them go too, so nothing of them stays in the file.
+     * bookmarks, form fields and links to them go too, so nothing of them stays in the file. The
+     * pages left keep their labels (see [PageLabeling]).
      */
     fun deletePages(input: PdfInput, pages: Collection<Int>, fileName: String, check: () -> Unit = {}): PdfFile =
         edit(input, fileName, "Pages_deleted", check) { doc ->
             val doomed = pages.toSortedSet()
             require(doomed.isNotEmpty() && doomed.size < doc.numberOfPages && doomed.all { it in 0 until doc.numberOfPages })
+            val labels = PageLabeling.of(doc)?.let { PageLabeling.byPage(doc.pages.toList(), it) }
             val removed = doomed.map(doc::getPage)
             for (page in removed) {
                 check()
                 doc.removePage(page)
             }
             PageCleanup.dropRemovedPages(doc, removed, check)
+            labels?.let { PageLabeling.restore(doc, it) }
         }
 
     /**
      * Saves [main] with the pages in [pages]' order: its own pages, pages of [extras] (other PDFs
      * the user added) and blank pages, each turned as it says. Pages left out are dropped as
      * [deletePages] drops them. [main]'s bookmarks, form, tags and document details are kept; an
-     * extra PDF's come along with its pages, as in Merge.
+     * extra PDF's come along with its pages, as in Merge. Each page keeps its label.
      */
     fun reorganize(main: PdfInput, extras: List<PdfInput>, pages: List<PdfPageRef>, fileName: String, check: () -> Unit = {}): PdfFile =
         edit(main, fileName, "Reorganized", check) { doc ->
             require(pages.isNotEmpty() && pages.map { it.key }.toSet().size == pages.size)
             val sources = HashMap<Long, List<PDPage>>()
             sources[main.id] = doc.pages.toList()
+            // Each PDF's own page labels, read before an extra one is joined (see merge).
+            val labels = PageLabeling.of(doc)?.let { PageLabeling.byPage(doc.pages.toList(), it) }
             val merger = PDFMergerUtility()
             for (extra in extras) {
                 if (extra.id in sources || pages.none { it.inputId == extra.id }) continue
                 check()
                 val start = doc.numberOfPages
-                load(extra.file, extra.password).use { merger.appendDocument(doc, it) }
-                sources[extra.id] = (start until doc.numberOfPages).map(doc::getPage)
+                load(extra.file, extra.password).use { source ->
+                    val own = PageLabeling.of(source)
+                    merger.appendDocument(doc, source)
+                    sources[extra.id] = (start until doc.numberOfPages).map(doc::getPage)
+                    if (own != null) labels?.putAll(PageLabeling.byPage(sources.getValue(extra.id), own))
+                }
             }
             val before = doc.pages.toList()
             val order = pages.map { ref ->
@@ -332,6 +353,7 @@ class PdfToolsEngine(private val context: Context) {
             }
             setPages(doc, order)
             PageCleanup.dropRemovedPages(doc, before, check)
+            labels?.let { PageLabeling.restore(doc, it) }
         }
 
     /**
@@ -662,14 +684,23 @@ class PdfToolsEngine(private val context: Context) {
                     try {
                         val longest = maxOf(obj.width, obj.height)
                         val sample = maxOf(1, (longest + maxDimension - 1) / maxDimension)
-                        // Some PDFBox-Android decoders fail while cropping a subsampled
-                        // bitmap whose dimensions are not divisible by the sample factor.
-                        // Decode at full size for ordinary images in that case.
-                        // BitmapFactory returns null for JPEG streams it cannot decode, and PDFBox
-                        // passes that through, so the result must be treated as nullable.
-                        val decoded: Bitmap? = try {
+                        // BitmapFactory returns null for JPEG streams it cannot decode, so the
+                        // result must be treated as nullable.
+                        val decoded: Bitmap? = if (obj.suffix == "jpg") {
+                            // PDFBox-Android hands a JPEG to BitmapFactory only at full size: asked
+                            // for a smaller one, it reads the still-compressed bytes as pixels and
+                            // fails. BitmapFactory shrinks it while decoding instead, so even a huge
+                            // scan or photo needs little memory. The stream gives the JPEG's bytes,
+                            // as PDFBox gives them to BitmapFactory.
+                            obj.createInputStream().use { stream ->
+                                BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = Integer.highestOneBit(sample) })
+                            }
+                        } else try {
                             obj.getImage(null, sample)
                         } catch (_: IllegalArgumentException) {
+                            // Some PDFBox-Android decoders fail while cropping a subsampled
+                            // bitmap whose dimensions are not divisible by the sample factor.
+                            // Decode at full size for ordinary images in that case.
                             if (obj.width.toLong() * obj.height > 20_000_000L) continue
                             obj.image
                         }
@@ -762,20 +793,24 @@ class PdfToolsEngine(private val context: Context) {
         }
     }
 
-    /** Reads the first five bytes without InputStream.readNBytes, which needs API 33. */
+    /**
+     * Whether "%PDF-" is in the first 1024 bytes, where viewers look for it: a byte order mark or a
+     * blank line from the server that made the PDF may come first. Reads them without
+     * InputStream.readNBytes, which needs API 33.
+     */
     private fun hasPdfHeader(file: File): Boolean {
         val expected = "%PDF-".toByteArray()
-        val header = ByteArray(expected.size)
+        val start = ByteArray(1024)
         val read = file.inputStream().use { input ->
             var total = 0
-            while (total < header.size) {
-                val count = input.read(header, total, header.size - total)
+            while (total < start.size) {
+                val count = input.read(start, total, start.size - total)
                 if (count < 0) break
                 total += count
             }
             total
         }
-        return read == header.size && header.contentEquals(expected)
+        return (0..read - expected.size).any { at -> expected.indices.all { start[at + it] == expected[it] } }
     }
 
     private fun displayName(uri: Uri): String? = try {

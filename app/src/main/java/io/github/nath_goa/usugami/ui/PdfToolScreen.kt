@@ -142,6 +142,7 @@ fun PdfToolScreen(
         val redactBoxes by vm.redactBoxes.collectAsStateWithLifecycle()
     val finding by vm.finding.collectAsStateWithLifecycle()
     val previewView by vm.previewView.collectAsStateWithLifecycle()
+    val views by vm.views.collectAsStateWithLifecycle()
     // Word, PowerPoint and EPUB to PDF take one document instead of PDFs.
     val officeKind = tool.officeKind
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
@@ -208,6 +209,8 @@ fun PdfToolScreen(
         if (single != null && tool in PREVIEWED) vm.preparePreview(single, required = false)
     }
     val shown = single?.let { input -> previewView?.takeIf { it.id == input.id } ?: input }
+    // What each PDF's thumbnails are drawn from, on screens with several PDFs too.
+    val drawn: (PdfInput) -> PdfInput = { input -> previewView?.takeIf { it.id == input.id } ?: views[input.id] ?: input }
     // The bar takes a tint of its own once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Box {
@@ -299,15 +302,15 @@ fun PdfToolScreen(
                                 OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
                                 AnimatedVisibility(visible = pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page list") {
                                     Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                        MergePages(inputs, pages, vm)
+                                        MergePages(inputs, pages, vm, drawn)
                                     }
                                 }
                             }
                         } else {
-                            PdfInputCard(inputs[0], onRemove = onRemove)
+                            PdfInputCard(inputs[0], thumbnail = drawn(inputs[0]), onRemove = onRemove)
                         }
                         when (tool) {
-                            PdfTool.SPLIT -> SplitOptions(inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
+                            PdfTool.SPLIT -> SplitOptions(shown ?: inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
                             PdfTool.MERGE -> Unit
                             PdfTool.COMPRESS -> CompressOptions(level, onLevel = { level = it })
                             PdfTool.ROTATE -> RotateOptions(shown ?: inputs[0], pages, vm)
@@ -331,7 +334,7 @@ fun PdfToolScreen(
                             PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> Unit
                             PdfTool.DELETE_PAGES -> DeletePagesOptions(shown ?: inputs[0], deleteText, onText = { deleteText = it })
                             PdfTool.REORGANIZE -> ReorganizeOptions(
-                                inputs, pages, vm,
+                                inputs, pages, vm, drawn,
                                 changed = reorganized,
                                 importing = importing,
                                 selected = chosenPage,
@@ -415,7 +418,7 @@ fun PdfToolScreen(
 private const val WORKING_DIALOG_DELAY_MS = 400L
 
 /** The tools that draw the PDF's pages for the user to work on. Redact PDF prepares its own. */
-private val PREVIEWED = setOf(PdfTool.ROTATE, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.DELETE_PAGES, PdfTool.EDIT)
+private val PREVIEWED = setOf(PdfTool.SPLIT, PdfTool.ROTATE, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.DELETE_PAGES, PdfTool.REORGANIZE, PdfTool.EDIT)
 
 @Composable
 private fun FileNameField(fileName: String, onChange: (String) -> Unit) {
@@ -472,12 +475,13 @@ private fun PasswordDialog(
     )
 }
 
+/** The tool's PDF, [input]; its first page is drawn from [thumbnail] (see [PdfToolsViewModel.views]). */
 @Composable
-private fun PdfInputCard(input: PdfInput, onRemove: () -> Unit) {
+private fun PdfInputCard(input: PdfInput, thumbnail: PdfInput, onRemove: () -> Unit) {
     val context = LocalContext.current
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            PdfThumbnail(input, 0, Modifier.size(width = 58.dp, height = 78.dp))
+            PdfThumbnail(thumbnail, 0, Modifier.size(width = 58.dp, height = 78.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(input.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
@@ -509,6 +513,14 @@ private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode:
     Column {
         Text(stringResource(if (pageMode) R.string.pdf_page_mode_hint else R.string.pdf_file_mode_hint),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // Says why Merge can't be pressed yet, and a screen reader says it as it shows.
+        AnimatedVisibility(visible = inputs.size == 1, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "need two") {
+            Text(
+                stringResource(R.string.pdf_need_two),
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+        }
         AnimatedVisibility(visible = !pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "file list") {
             Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 inputs.forEachIndexed { index, input ->
@@ -541,8 +553,9 @@ private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode:
     }
 }
 
+/** Merge's pages; each is drawn from [drawn] of its PDF. */
 @Composable
-private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfToolsViewModel) {
+private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfToolsViewModel, drawn: (PdfInput) -> PdfInput) {
     val byId = remember(inputs) { inputs.associateBy { it.id } }
     TextButton(onClick = vm::resetPages) { Text(stringResource(R.string.pdf_reset_pages)) }
     val state = rememberLazyListState()
@@ -574,7 +587,7 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                             },
                     ) {
                         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            PdfThumbnail(input, ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle })
+                            PdfThumbnail(drawn(input), ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle })
                             Spacer(Modifier.width(8.dp))
                             Text("${index + 1}. ${input.name} · ${ref.page + 1}", modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                             IconButton(onClick = { vm.rotatePage(ref, 90) }) {
@@ -621,7 +634,9 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
             OutlinedTextField(
                 value = text, onValueChange = onText,
                 label = { Text(stringResource(if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_hint else if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom else R.string.pdf_selected)) },
-                supportingText = { Text(stringResource(if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom_hint else if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_hint else R.string.pdf_selected_hint)) },
+                supportingText = { Text(stringResource(if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom_hint else if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_example else R.string.pdf_selected_hint)) },
+                // Pages per PDF is a number.
+                keyboardOptions = KeyboardOptions(keyboardType = if (rangeMode == SplitMode.FIXED) KeyboardType.Number else KeyboardType.Text),
                 singleLine = true, modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
             )
         }
@@ -643,6 +658,7 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
             }
         }
         AnimatedVisibility(visible = mode == SplitMode.SELECTED, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page picker") {
+            // In the order typed, which a combined PDF keeps.
             val selected = try { PdfPageSelection.selected(text, input.pageCount).toSet() } catch (_: Exception) { emptySet() }
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
                 items(input.pageCount) { i ->
@@ -655,11 +671,8 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
                     )
                     val pageLabel = stringResource(R.string.pdf_page_number, i + 1)
                     OutlinedCard(
-                        onClick = {
-                            val new = selected.toMutableSet()
-                            if (active) new.remove(i) else new.add(i)
-                            onText(new.sorted().joinToString(",") { (it + 1).toString() })
-                        },
+                        // A page tapped goes at the end; the others keep their order, and ranges stay short.
+                        onClick = { onText(PdfPageSelection.formatInOrder(if (active) selected.toList() - i else selected.toList() + i)) },
                         border = BorderStroke(borderWidth, borderColor),
                         modifier = Modifier.width(105.dp).semantics { this.selected = active },
                     ) {

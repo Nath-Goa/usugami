@@ -7,12 +7,18 @@ package io.github.nath_goa.usugami.core
 class PageSelectionException(val problem: Problem, val pageCount: Int) : IllegalArgumentException(
     when (problem) {
         Problem.FORMAT -> "Use page numbers such as 1,3-5"
+        Problem.RANGES_FORMAT -> "Use ranges such as 1-3;5;7-9"
         Problem.OUT_OF_RANGE -> "Pages must be between 1 and $pageCount"
+        Problem.REVERSED -> "Write ranges from low to high, such as 3-8"
         Problem.CHUNK_SIZE -> "Pages per PDF must be between 1 and $pageCount"
         Problem.ALL_PAGES -> "Keep at least one page"
     },
 ) {
-    enum class Problem { FORMAT, OUT_OF_RANGE, CHUNK_SIZE, ALL_PAGES }
+    /**
+     * [FORMAT] is for page lists (1,3-5), [RANGES_FORMAT] for Split's custom ranges, which are
+     * separated by semicolons (1-3;5). [REVERSED] is a range whose pages exist but run backwards (8-3).
+     */
+    enum class Problem { FORMAT, RANGES_FORMAT, OUT_OF_RANGE, REVERSED, CHUNK_SIZE, ALL_PAGES }
 }
 
 /** One-based page input used by the PDF screens. Returned indexes are zero-based. */
@@ -55,9 +61,33 @@ object PdfPageSelection {
         return parts.joinToString(",")
     }
 
+    /**
+     * Like [format], but keeping [pages]' order, as typed into Split's "Selected pages", where the
+     * order is the new PDF's: pages 9, 0, 1, 2 and 4 become "10,1-3,5". Only runs going up become ranges.
+     */
+    fun formatInOrder(pages: List<Int>): String {
+        val parts = ArrayList<String>()
+        var start = 0
+        while (start < pages.size) {
+            var end = start
+            while (end + 1 < pages.size && pages[end + 1] == pages[end] + 1) end++
+            parts += if (end == start) "${pages[start] + 1}" else "${pages[start] + 1}-${pages[end] + 1}"
+            start = end + 1
+        }
+        return parts.joinToString(",")
+    }
+
     fun customRanges(text: String, pageCount: Int): List<List<Int>> {
         require(pageCount > 0)
-        val ranges = text.split(';').map { range(it, pageCount) }
+        val ranges = text.split(';').map { part ->
+            try {
+                range(part, pageCount)
+            } catch (e: PageSelectionException) {
+                // Typed like a page list ("1-3,5"): the message shows how ranges are separated.
+                if (e.problem == PageSelectionException.Problem.FORMAT) throw PageSelectionException(PageSelectionException.Problem.RANGES_FORMAT, pageCount)
+                throw e
+            }
+        }
         require(ranges.isNotEmpty())
         return ranges
     }
@@ -75,6 +105,7 @@ object PdfPageSelection {
         val outOfRange = PageSelectionException(PageSelectionException.Problem.OUT_OF_RANGE, pageCount)
         val first = match.groupValues[1].toIntOrNull() ?: throw outOfRange
         val last = match.groupValues[2].takeIf { it.isNotEmpty() }?.let { it.toIntOrNull() ?: throw outOfRange } ?: first
+        if (first in 1..pageCount && last in 1 until first) throw PageSelectionException(PageSelectionException.Problem.REVERSED, pageCount)
         if (first !in 1..pageCount || last !in first..pageCount) throw outOfRange
         return (first..last).map { it - 1 }
     }

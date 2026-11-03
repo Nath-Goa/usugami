@@ -41,8 +41,10 @@
     <string name="pdf_unlock">Ouvrir le PDF</string>
     <string name="pdf_invalid_pages">Vérifiez les numéros de page et réessayez.</string>
     <string name="pdf_pages_format" tools:ignore="TypographyDashes">Utilisez des numéros de page comme 1,3-5.</string>
+    <string name="pdf_ranges_format" tools:ignore="TypographyDashes">Utilisez des plages comme 1-3;5;7-9.</string>
     <!-- %1$d is the number of pages in the PDF: the highest page number allowed. -->
     <string name="pdf_pages_range" tools:ignore="PluralsCandidate">Les numéros de page doivent être compris entre 1 et %1$d.</string>
+    <string name="pdf_pages_reversed" tools:ignore="TypographyDashes">Écrivez les plages dans l\'ordre croissant, comme 3-8.</string>
     <string name="pdf_pages_chunk" tools:ignore="PluralsCandidate">Le nombre de pages par PDF doit être compris entre 1 et %1$d.</string>
     <string name="pdf_process_failed">Impossible de traiter ce PDF. Vérifiez le fichier et l\'espace de stockage disponible.</string>
     <string name="pdf_saved_downloads">Enregistré dans Téléchargements</string>
@@ -60,6 +62,7 @@
     <string name="pdf_custom_hint" tools:ignore="TypographyDashes">Par exemple : 1-3;5-7;9</string>
     <string name="pdf_fixed">Plages fixes</string>
     <string name="pdf_fixed_hint">Pages par PDF</string>
+    <string name="pdf_fixed_example">Par exemple : 5</string>
     <string name="pdf_every_page">Chaque page</string>
     <string name="pdf_page_mode_switch">Organiser les pages individuellement</string>
     <string name="pdf_page_number">Page %1$d</string>
@@ -80,6 +83,7 @@
     <string name="pdf_discard_title">Supprimer ce PDF ?</string>
     <string name="tool_discard_title">Supprimer vos modifications ?</string>
     <string name="pdf_discard_shared_body">Les images que vous avez partagées sont prêtes à être converties, mais ce PDF n\'est pas encore enregistré. Enregistrez-le ou partagez-le d\'abord si vous voulez le conserver.</string>
+    <string name="pdf_discard_shared_changes">Les images que vous avez partagées sont prêtes à être converties. Les ouvrir supprime vos modifications de ce PDF.</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">Faire pivoter le PDF</string>
     <string name="pdf_page_numbers_action">Numéroter les pages</string>

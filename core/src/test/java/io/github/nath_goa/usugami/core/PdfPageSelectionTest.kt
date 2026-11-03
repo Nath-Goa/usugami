@@ -30,9 +30,17 @@ class PdfPageSelectionTest {
         assertEquals(PageSelectionException.Problem.FORMAT, problem { PdfPageSelection.selected("one", 6) })
         assertEquals(PageSelectionException.Problem.FORMAT, problem { PdfPageSelection.selected("", 6) })
         assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.selected("7", 6) })
-        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.selected("2-1", 6) })
+        assertEquals(PageSelectionException.Problem.REVERSED, problem { PdfPageSelection.selected("2-1", 6) })
+        assertEquals(PageSelectionException.Problem.REVERSED, problem { PdfPageSelection.selected("5-2", 6) })
+        // A range running backwards from a page that doesn't exist is out of range, as it says.
+        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.selected("8-3", 6) })
         assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.selected("99999999999", 6) })
         assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.customRanges("1-99999999999", 6) })
+        // Custom ranges typed as a page list are told how ranges are written, not to use commas.
+        assertEquals(PageSelectionException.Problem.RANGES_FORMAT, problem { PdfPageSelection.customRanges("1-3,5", 6) })
+        assertEquals(PageSelectionException.Problem.RANGES_FORMAT, problem { PdfPageSelection.customRanges("1,3-5", 6) })
+        assertEquals(PageSelectionException.Problem.REVERSED, problem { PdfPageSelection.customRanges("1-2;5-3", 6) })
+        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, problem { PdfPageSelection.customRanges("1-2;7", 6) })
         assertEquals(PageSelectionException.Problem.CHUNK_SIZE, problem { PdfPageSelection.fixed(3, 4) })
         assertEquals(6, assertThrows(PageSelectionException::class.java) { PdfPageSelection.selected("7", 6) }.pageCount)
     }
@@ -52,6 +60,18 @@ class PdfPageSelectionTest {
         // What it writes reads back as the same pages.
         val pages = listOf(0, 2, 3, 4, 8, 9, 11)
         assertEquals(pages, PdfPageSelection.selected(PdfPageSelection.format(pages), 12))
+    }
+
+    @Test fun pagesAreWrittenInTheOrderGiven() {
+        // Split's "Selected pages" keeps the order typed: tapping a page adds it at the end.
+        assertEquals("10,1-3,5", PdfPageSelection.formatInOrder(listOf(9, 0, 1, 2, 4)))
+        assertEquals("", PdfPageSelection.formatInOrder(emptyList()))
+        assertEquals("3,2,1", PdfPageSelection.formatInOrder(listOf(2, 1, 0)))
+        // Deselecting one page of a long range keeps it short.
+        assertEquals("1-5,7-500", PdfPageSelection.formatInOrder((0 until 500).toList() - 5))
+        // What it writes reads back as the same pages, in the same order.
+        val pages = listOf(7, 2, 3, 4, 0, 11, 9, 10)
+        assertEquals(pages, PdfPageSelection.selected(PdfPageSelection.formatInOrder(pages), 12))
     }
 
     @Test fun badChunkSizeExplainsTheLimit() {

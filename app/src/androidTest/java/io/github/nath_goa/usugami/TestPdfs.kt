@@ -2,16 +2,21 @@ package io.github.nath_goa.usugami
 
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
+import com.tom_roush.pdfbox.pdmodel.common.PDPageLabelRange
+import com.tom_roush.pdfbox.pdmodel.common.PDPageLabels
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDColor
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
+import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotation
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
@@ -232,4 +237,121 @@ fun everythingIn(file: File): String = PDDocument.load(file).use { doc ->
             if (obj is COSStream) append(obj.createInputStream().use { String(it.readBytes(), Charsets.ISO_8859_1) }).append('\n')
         }
     }
+}
+
+/** The bytes of each image in [sharedResources], one row of 16 gray pixels per line: findable in the file. */
+val IMAGE_MARKERS = listOf("IMAGE ONE 111111", "IMAGE TWO 222222", "IMAGE THREE 3333")
+
+/**
+ * Three A4 pages saying "PAGE ONE" to "PAGE THREE", each drawing its own 16 by 2 pixel gray image
+ * (see [IMAGE_MARKERS]) large at (100, 300) to (500, 500). All three images are in one list of
+ * resources the pages share, as many PDF makers do; with [inherited], the pages inherit it from
+ * the page tree, as scanners' PDFs often do.
+ */
+fun sharedResources(file: File, inherited: Boolean = false): File = file.also {
+    PDDocument().use { doc ->
+        val pages = (0..2).map { PDPage(PDRectangle.A4).also(doc::addPage) }
+        val shared = PDResources()
+        if (inherited) doc.pages.cosObject.setItem(COSName.RESOURCES, shared.cosObject) else pages.forEach { it.resources = shared }
+        for ((index, page) in pages.withIndex()) {
+            val stream = doc.document.createCOSStream()
+            stream.createOutputStream(COSName.FLATE_DECODE).use { it.write((IMAGE_MARKERS[index] + IMAGE_MARKERS[index]).toByteArray()) }
+            stream.setItem(COSName.TYPE, COSName.XOBJECT)
+            stream.setItem(COSName.SUBTYPE, COSName.IMAGE)
+            stream.setInt(COSName.WIDTH, 16)
+            stream.setInt(COSName.HEIGHT, 2)
+            stream.setInt(COSName.BITS_PER_COMPONENT, 8)
+            stream.setItem(COSName.COLORSPACE, COSName.DEVICEGRAY)
+            PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true).use { content ->
+                content.drawImage(PDImageXObject(PDStream(stream), null), 100f, 300f, 400f, 200f)
+            }
+            writeText(doc, page, "PAGE ${PAGE_WORDS[index]}")
+        }
+        check(pages.all { it.cosObject.containsKey(COSName.RESOURCES) != inherited })
+        doc.save(file)
+    }
+}
+
+/**
+ * Three A4 pages saying "PAGE ONE" to "PAGE THREE", tagged for screen readers: under a Document
+ * element, a figure for each page with the alternate text "SECRET ALT 1" to "SECRET ALT 3", and a
+ * paragraph running from page 1 onto page 2 whose ActualText is "SPANS PAGES".
+ */
+fun taggedPages(file: File): File = file.also {
+    PDDocument().use { doc ->
+        val pages = (0..2).map { index ->
+            PDPage(PDRectangle.A4).also { page ->
+                doc.addPage(page)
+                writeText(doc, page, "PAGE ${PAGE_WORDS[index]}")
+                page.cosObject.setInt(COSName.STRUCT_PARENTS, index)
+            }
+        }
+        val root = COSDictionary().apply { setItem(COSName.TYPE, COSName.getPDFName("StructTreeRoot")) }
+        val document = COSDictionary().apply {
+            setItem(COSName.TYPE, COSName.STRUCT_ELEM)
+            setName(COSName.S, "Document")
+            setItem(COSName.P, root)
+        }
+        fun element(type: String, page: PDPage) = COSDictionary().apply {
+            setItem(COSName.TYPE, COSName.STRUCT_ELEM)
+            setName(COSName.S, type)
+            setItem(COSName.P, document)
+            setItem(COSName.PG, page.cosObject)
+        }
+        // Marked content 0 of each page.
+        val figures = pages.mapIndexed { index, page ->
+            element("Figure", page).apply {
+                setString(COSName.ALT, "SECRET ALT ${index + 1}")
+                setInt(COSName.K, 0)
+            }
+        }
+        // Marked content 1 of pages 1 and 2.
+        val paragraph = element("P", pages[0]).apply {
+            setString(COSName.ACTUAL_TEXT, "SPANS PAGES")
+            setItem(COSName.K, COSArray().apply {
+                add(COSInteger.get(1))
+                add(COSDictionary().apply {
+                    setItem(COSName.TYPE, COSName.getPDFName("MCR"))
+                    setItem(COSName.PG, pages[1].cosObject)
+                    setInt(COSName.MCID, 1)
+                })
+            })
+        }
+        document.setItem(COSName.K, COSArray().apply { figures.forEach(::add); add(paragraph) })
+        root.setItem(COSName.K, document)
+        root.setItem(COSName.PARENT_TREE, COSDictionary().apply {
+            setItem(COSName.NUMS, COSArray().apply {
+                for (index in pages.indices) {
+                    add(COSInteger.get(index.toLong()))
+                    add(COSArray().apply {
+                        add(figures[index])
+                        if (index < 2) add(paragraph)
+                    })
+                }
+            })
+        })
+        doc.documentCatalog.cosObject.setItem(COSName.STRUCT_TREE_ROOT, root)
+        doc.documentCatalog.cosObject.setItem(COSName.MARK_INFO, COSDictionary().apply { setBoolean(COSName.getPDFName("Marked"), true) })
+        doc.save(file)
+    }
+}
+
+/**
+ * Six A4 pages numbered as a book's are: "i" to "iii", then "1" to "3". With [plain], they are
+ * labelled 1 to 6 instead, which is what viewers show anyway.
+ */
+fun labelledPages(file: File, plain: Boolean = false): File = file.also {
+    PDDocument().use { doc ->
+        repeat(6) { index -> PDPage(PDRectangle.A4).also { doc.addPage(it); writeText(doc, it, "PAGE ${index + 1}") } }
+        val labels = PDPageLabels(doc)
+        labels.setLabelItem(0, PDPageLabelRange().apply { style = if (plain) PDPageLabelRange.STYLE_DECIMAL else PDPageLabelRange.STYLE_ROMAN_LOWER })
+        if (!plain) labels.setLabelItem(3, PDPageLabelRange().apply { style = PDPageLabelRange.STYLE_DECIMAL })
+        doc.documentCatalog.pageLabels = labels
+        doc.save(file)
+    }
+}
+
+/** The label each page of [file] shows in a viewer. */
+fun pageLabels(file: File): List<String> = PDDocument.load(file).use { doc ->
+    (doc.documentCatalog.pageLabels ?: PDPageLabels(doc)).labelsByPageIndices.toList()
 }

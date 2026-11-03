@@ -204,14 +204,16 @@ private fun DeleteTile(input: PdfInput, index: Int, marked: Boolean, onToggle: (
  * moves, turns or removes it, and pages added go after it. Pages can also be dragged after a long
  * press, and a screen reader finds the bar's actions on each page.
  *
- * [inputs] starts with the PDF being reorganized; the others are PDFs pages were added from.
- * [changed] says the pages differ from the PDF's own. [onAddPdf] picks a PDF to add pages from.
+ * [inputs] starts with the PDF being reorganized; the others are PDFs pages were added from. Each
+ * one's pages are drawn from [drawn] of it. [changed] says the pages differ from the PDF's own.
+ * [onAddPdf] picks a PDF to add pages from.
  */
 @Composable
 internal fun ReorganizeOptions(
     inputs: List<PdfInput>,
     pages: List<PdfPageRef>,
     vm: PdfToolsViewModel,
+    drawn: (PdfInput) -> PdfInput,
     changed: Boolean,
     importing: Boolean,
     selected: String?,
@@ -279,6 +281,7 @@ internal fun ReorganizeOptions(
                     val remove = stringResource(R.string.remove_page, number)
                     ReorganizeTile(
                         input = byId[ref.inputId],
+                        picture = byId[ref.inputId]?.let(drawn),
                         ref = ref,
                         number = number,
                         fromOther = !ref.isBlank && ref.inputId != mainId,
@@ -373,10 +376,14 @@ private fun PageActions(ref: PdfPageRef?, index: Int, count: Int, vm: PdfToolsVi
     }
 }
 
-/** A page in Reorganize's grid: its picture, turned as it will be, and its place in the new PDF. */
+/**
+ * A page in Reorganize's grid: its picture, turned as it will be, and its place in the new PDF. The
+ * picture is drawn from [picture]: [input] itself, or a copy of it Android's renderer can open.
+ */
 @Composable
 private fun ReorganizeTile(
     input: PdfInput?,
+    picture: PdfInput?,
     ref: PdfPageRef,
     number: Int,
     fromOther: Boolean,
@@ -411,8 +418,8 @@ private fun ReorganizeTile(
             },
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(TILE_ASPECT), contentAlignment = Alignment.Center) {
-            if (input == null || ref.isBlank) BlankPage(ref, Modifier.fillMaxSize())
-            else TurnedThumbnail(input, ref.page, ref.rotation, Modifier.fillMaxSize(), aspect = TILE_ASPECT)
+            if (picture == null || ref.isBlank) BlankPage(ref, Modifier.fillMaxSize())
+            else TurnedThumbnail(picture, ref.page, ref.rotation, Modifier.fillMaxSize(), aspect = TILE_ASPECT)
         }
         Text(
             "$number",

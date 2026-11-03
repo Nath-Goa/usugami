@@ -41,8 +41,10 @@
     <string name="pdf_unlock">PDF खोलें</string>
     <string name="pdf_invalid_pages">पेज नंबर जांचें और फिर से कोशिश करें।</string>
     <string name="pdf_pages_format" tools:ignore="TypographyDashes">1,3-5 जैसे पेज नंबर इस्तेमाल करें।</string>
+    <string name="pdf_ranges_format" tools:ignore="TypographyDashes">1-3;5;7-9 जैसी रेंज इस्तेमाल करें।</string>
     <!-- %1$d is the number of pages in the PDF: the highest page number allowed. -->
     <string name="pdf_pages_range" tools:ignore="PluralsCandidate">पेज 1 से %1$d के बीच होने चाहिए।</string>
+    <string name="pdf_pages_reversed" tools:ignore="TypographyDashes">रेंज में छोटा नंबर पहले लिखें, जैसे 3-8।</string>
     <string name="pdf_pages_chunk" tools:ignore="PluralsCandidate">हर PDF में पेज की संख्या 1 से %1$d के बीच होनी चाहिए।</string>
     <string name="pdf_process_failed">इस PDF को प्रोसेस नहीं किया जा सका। फ़ाइल और स्टोरेज में खाली जगह जांचें।</string>
     <string name="pdf_saved_downloads">डाउनलोड में सेव किया गया</string>
@@ -60,6 +62,7 @@
     <string name="pdf_custom_hint" tools:ignore="TypographyDashes">उदाहरण के लिए: 1-3;5-7;9</string>
     <string name="pdf_fixed">तय हिस्से</string>
     <string name="pdf_fixed_hint">हर PDF में पेज</string>
+    <string name="pdf_fixed_example">उदाहरण के लिए: 5</string>
     <string name="pdf_every_page">हर पेज</string>
     <string name="pdf_page_mode_switch">अलग-अलग पेज क्रम में लगाएं</string>
     <string name="pdf_page_number">पेज %1$d</string>
@@ -79,6 +82,7 @@
     <string name="pdf_discard_title">इस PDF को खारिज करें?</string>
     <string name="tool_discard_title">अपने बदलाव खारिज करें?</string>
     <string name="pdf_discard_shared_body">आपकी शेयर की गई इमेज कन्वर्ट करने के लिए तैयार हैं, लेकिन यह PDF अभी सेव नहीं हुई है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव या शेयर करें।</string>
+    <string name="pdf_discard_shared_changes">आपकी शेयर की गई इमेज कन्वर्ट करने के लिए तैयार हैं। उन्हें खोलने पर इस PDF में किए गए आपके बदलाव खारिज हो जाएंगे।</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">PDF घुमाएं</string>
     <string name="pdf_page_numbers_action">पेज नंबर जोड़ें</string>

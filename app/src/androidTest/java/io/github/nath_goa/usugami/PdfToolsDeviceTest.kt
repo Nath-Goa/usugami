@@ -3,10 +3,12 @@ package io.github.nath_goa.usugami
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Point
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
@@ -181,6 +183,61 @@ class PdfToolsDeviceTest {
             val unlockedCompressed = save(engine.compress(unlocked, PdfCompression.LESS, "protected_compressed").file, "protected_compressed.pdf")
             assertTrue(text(unlockedCompressed).contains("ALPHA ONE"))
         }
+    }
+
+    /**
+     * Big JPEGs, a 600-dpi scan or a phone's 50-megapixel photo, are shrunk too, and a smaller one is
+     * decoded no bigger than needed. Each fills an A4 page, so at the recommended level it must come
+     * out at most 1754 pixels long (A4's long side at 150 dpi).
+     */
+    @Test fun compressShrinksBigJpegs() {
+        for ((width, height) in listOf(5200 to 4000, 3000 to 2000)) {
+            val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565)
+            Canvas(bitmap).apply {
+                drawPaint(Paint().apply { shader = LinearGradient(0f, 0f, width.toFloat(), height.toFloat(), Color.BLUE, Color.YELLOW, Shader.TileMode.CLAMP) })
+                val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.RED; strokeWidth = 12f }
+                for (i in 0 until 40) drawCircle(width * (i % 8 + 0.5f) / 8, height * (i / 8 + 0.5f) / 5, height / 14f, ink.apply { style = if (i % 2 == 0) Paint.Style.STROKE else Paint.Style.FILL })
+            }
+            val jpeg = java.io.ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 90, it) }.toByteArray()
+            bitmap.recycle()
+            val file = File(context.cacheDir, "photo_${width}x$height.pdf")
+            PDDocument().use { doc ->
+                val page = PDPage(PDRectangle.A4)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { it.drawImage(JPEGFactory.createFromByteArray(doc, jpeg), 0f, 0f, PDRectangle.A4.width, PDRectangle.A4.height) }
+                doc.save(file)
+            }
+            val input = engine.import(Uri.fromFile(file), 1008L + width)
+            val compressed = save(engine.compress(input, PdfCompression.RECOMMENDED, "photo").file, "compress_photo_${width}x$height.pdf")
+            assertTrue("${width}x$height: ${compressed.length()} bytes from ${file.length()}", compressed.length() < file.length() / 2)
+            PDDocument.load(compressed).use { doc ->
+                val image = imagesOn(doc.getPage(0)).single().image
+                assertTrue("${width}x$height became ${image.width}x${image.height}", maxOf(image.width, image.height) <= 1754)
+                assertEquals(width.toFloat() / height, image.width.toFloat() / image.height, 0.01f)
+            }
+        }
+    }
+
+    /**
+     * A PDF with a few bytes before "%PDF-", as some web servers send them (a byte order mark, a
+     * line break), opens, as it does in viewers. A file that starts otherwise isn't a PDF.
+     */
+    @Test fun bytesBeforeThePdfHeaderAreAllowed() {
+        val alpha = fixture("alpha.pdf").readBytes()
+        val prefixed = File(context.cacheDir, "bom.pdf").apply { writeBytes(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte(), 0x0D, 0x0A) + alpha) }
+        val input = engine.import(Uri.fromFile(prefixed), 1011)
+        assertEquals(3, input.pageCount)
+        val split = engine.split(input, listOf(listOf(1)), "bom_split").single()
+        assertTrue(text(split.file).contains("ALPHA TWO"))
+
+        val late = File(context.cacheDir, "late.pdf").apply { writeBytes(ByteArray(1100) { ' '.code.toByte() } + alpha) }
+        try {
+            engine.import(Uri.fromFile(late), 1012)
+            fail("\"%PDF-\" so far into the file doesn't make it a PDF")
+        } catch (e: java.io.IOException) {
+            assertEquals("This file is not a PDF", e.message)
+        }
+        assertFalse("The copy should be removed", File(context.cacheDir, "pdf-inputs/1012.pdf").exists())
     }
 
     /**

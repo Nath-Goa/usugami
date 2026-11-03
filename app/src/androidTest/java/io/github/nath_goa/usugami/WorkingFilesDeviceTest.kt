@@ -94,9 +94,11 @@ class WorkingFilesDeviceTest {
         val gone = File(app.cacheDir, "pdf-inputs/2.pdf").apply { delete() }
         val scratch = file("pdfbox/left-over.tmp")
         val inputs = arrayListOf(PdfInput(1, kept.path, "kept.pdf", 2), PdfInput(2, gone.path, "gone.pdf", 1))
-        val pages = arrayListOf(PdfPageRef(1, 0), PdfPageRef(2, 0), PdfPageRef(1, 1))
-        // PdfToolsViewModel's saved-state keys.
-        val handle = SavedStateHandle(mapOf("pdf_inputs" to inputs, "pdf_pages" to pages))
+        // PdfToolsViewModel's saved-state keys. The pages are 1:0, 2:0 and 1:1: each one's PDF, and its
+        // number times four plus its quarter turns, with blank pages' sizes (none here) beside them.
+        val handle = SavedStateHandle(
+            mapOf("pdf_inputs" to inputs, "pdf_page_inputs" to longArrayOf(1, 2, 1), "pdf_page_numbers" to intArrayOf(0, 0, 4), "pdf_blank_sizes" to FloatArray(0)),
+        )
 
         val vm = onMain { PdfToolsViewModel(app, handle) }
 

@@ -41,8 +41,10 @@
     <string name="pdf_unlock">Abrir PDF</string>
     <string name="pdf_invalid_pages">Revisa los números de página y vuelve a intentarlo.</string>
     <string name="pdf_pages_format" tools:ignore="TypographyDashes">Usa números de página como 1,3-5.</string>
+    <string name="pdf_ranges_format" tools:ignore="TypographyDashes">Usa rangos como 1-3;5;7-9.</string>
     <!-- %1$d is the number of pages in the PDF: the highest page number allowed. -->
     <string name="pdf_pages_range" tools:ignore="PluralsCandidate">Las páginas deben estar entre 1 y %1$d.</string>
+    <string name="pdf_pages_reversed" tools:ignore="TypographyDashes">Escribe los rangos de menor a mayor, como 3-8.</string>
     <string name="pdf_pages_chunk" tools:ignore="PluralsCandidate">El número de páginas por PDF debe estar entre 1 y %1$d.</string>
     <string name="pdf_process_failed">No se pudo procesar este PDF. Revisa el archivo y el almacenamiento libre.</string>
     <string name="pdf_saved_downloads">Guardado en Descargas</string>
@@ -60,6 +62,7 @@
     <string name="pdf_custom_hint" tools:ignore="TypographyDashes">Por ejemplo: 1-3;5-7;9</string>
     <string name="pdf_fixed">Bloques fijos</string>
     <string name="pdf_fixed_hint">Páginas por PDF</string>
+    <string name="pdf_fixed_example">Por ejemplo: 5</string>
     <string name="pdf_every_page">Cada página</string>
     <string name="pdf_page_mode_switch">Ordenar páginas individuales</string>
     <string name="pdf_page_number">Página %1$d</string>
@@ -80,6 +83,7 @@
     <string name="pdf_discard_title">¿Descartar este PDF?</string>
     <string name="tool_discard_title">¿Descartar tus cambios?</string>
     <string name="pdf_discard_shared_body">Las imágenes que compartiste están listas para convertir, pero este PDF aún no se ha guardado. Guárdalo o compártelo primero si quieres conservarlo.</string>
+    <string name="pdf_discard_shared_changes">Las imágenes que compartiste están listas para convertir. Abrirlas descarta tus cambios en este PDF.</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">Girar PDF</string>
     <string name="pdf_page_numbers_action">Numerar páginas</string>

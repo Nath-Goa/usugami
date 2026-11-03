@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami.data
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSNull
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -16,27 +17,59 @@ import java.util.IdentityHashMap
  * Pages taken out of a document's page tree can still be reached through bookmarks, links, named
  * destinations, form fields and the tags of an accessible PDF, and PDFBox writes everything that
  * can be reached. A deleted page, with its text and pictures, would then still be inside the saved
- * file. This cuts those links, so a deleted page is really gone.
+ * file. This cuts those links, so a deleted page is really gone. Pictures only deleted pages drew
+ * are emptied, as pages that stay may still list them (pages often share one list of resources),
+ * and the tags of what was on deleted pages go.
  */
 internal object PageCleanup {
     /**
      * Cuts every link to [removed] pages that are no longer in [doc]'s page tree: their form fields
-     * go, bookmarks to them go (unless they hold bookmarks to pages that stay), and any other
-     * reference to them or their annotations, such as a link's destination, is emptied. [check] is
-     * called now and then.
+     * go, bookmarks to them go (unless they hold bookmarks to pages that stay), so do their tags and
+     * the pictures and forms only they drew, and any other reference to them or their annotations,
+     * such as a link's destination, is emptied. [check] is called now and then.
      */
     fun dropRemovedPages(doc: PDDocument, removed: Collection<PDPage>, check: () -> Unit = {}) {
+        val (gone, goneAnnotations) = goneObjects(doc, removed) ?: return
+        pruneForm(doc, goneAnnotations)
+        pruneOutline(doc, gone)
+        // Pictures they alone drew go too, though pages that stay may still list them.
+        val drawn = identitySet<COSBase>()
+        for (page in removed) {
+            if (page.cosObject !in gone) continue
+            check()
+            XObjectCleanup.drawnBy(page, drawn)
+        }
+        XObjectCleanup.emptyUnused(doc, drawn, doc.pages, check)
+        val goneTags = pruneTags(doc, gone, goneAnnotations)
+        cutReferences(doc.document.trailer, identitySet<COSDictionary>().apply { addAll(gone); addAll(goneAnnotations); addAll(goneTags) }, check)
+    }
+
+    /**
+     * For pages copied into [doc] from [sourcePages], the pages of a document still open: cuts every
+     * link from them to those pages and their other annotations, such as a link's destination or a
+     * form field's other widgets, which would bring those pages, and so the whole source, into
+     * [doc]'s file. Nothing else is changed: the copies share their annotations with the source,
+     * which loses only links to its own pages, which no copy can use anyway.
+     */
+    fun dropSourcePages(doc: PDDocument, sourcePages: Collection<PDPage>, check: () -> Unit = {}) {
+        val (gone, goneAnnotations) = goneObjects(doc, sourcePages) ?: return
+        cutReferences(doc.document.trailer, identitySet<COSDictionary>().apply { addAll(gone); addAll(goneAnnotations) }, check)
+    }
+
+    /**
+     * The [removed] pages no longer in [doc]'s page tree, and their annotations that no page left
+     * shows; null when no page has gone.
+     */
+    private fun goneObjects(doc: PDDocument, removed: Collection<PDPage>): Pair<Set<COSDictionary>, Set<COSDictionary>>? {
         val kept = identitySet<COSDictionary>().apply { doc.pages.forEach { add(it.cosObject) } }
         val gone = identitySet<COSDictionary>().apply { removed.forEach { if (it.cosObject !in kept) add(it.cosObject) } }
-        if (gone.isEmpty()) return
+        if (gone.isEmpty()) return null
         // Their annotations go too (unless a page that stays shows them as well): a reply to a
         // comment, or the tags of an accessible PDF, can still point at them.
         val keptAnnotations = identitySet<COSDictionary>().apply { kept.forEach { annotationsOf(it, this) } }
         val goneAnnotations = identitySet<COSDictionary>().apply { gone.forEach { annotationsOf(it, this) } }
         goneAnnotations.removeAll(keptAnnotations)
-        pruneForm(doc, goneAnnotations)
-        pruneOutline(doc, gone)
-        cutReferences(doc.document.trailer, identitySet<COSDictionary>().apply { addAll(gone); addAll(goneAnnotations) }, check)
+        return gone to goneAnnotations
     }
 
     private fun annotationsOf(page: COSDictionary, into: MutableSet<COSDictionary>) {
@@ -144,6 +177,49 @@ internal object PageCleanup {
     }
 
     /**
+     * Takes out of the tags (the structure tree of an accessible PDF) the elements whose content was
+     * all on [gone] pages or in [goneAnnotations], with their alternate text, ActualText, titles and
+     * expansions, which can repeat what the pages said. Returns them, so that references to them from
+     * elsewhere (the parent tree) are cut too. Elements with content on pages that stay are kept.
+     */
+    private fun pruneTags(doc: PDDocument, gone: Set<COSDictionary>, goneAnnotations: Set<COSDictionary>): Set<COSDictionary> {
+        val root = doc.documentCatalog.cosObject.getDictionaryObject(COSName.STRUCT_TREE_ROOT) as? COSDictionary ?: return emptySet()
+        val dropped = identitySet<COSDictionary>()
+        val seen = identitySet<COSDictionary>()
+
+        /**
+         * Removes [element]'s kids that were on gone pages: marked content (by number, or by a
+         * reference saying which page), objects such as annotations, and elements left with nothing.
+         * Returns whether [element] goes too: it had content there and has none left. Its content is
+         * on [page] unless it or an item says otherwise.
+         */
+        fun prune(element: COSDictionary, page: COSBase?, depth: Int): Boolean {
+            if (depth > MAX_DEPTH || !seen.add(element)) return false
+            val on = element.getDictionaryObject(COSName.PG) ?: page
+            fun goes(kid: COSBase?): Boolean = when {
+                kid is COSInteger -> on in gone
+                kid !is COSDictionary -> false
+                kid.getCOSName(COSName.TYPE) == MARKED_CONTENT || kid.getCOSName(COSName.TYPE) == OBJECT ->
+                    (kid.getDictionaryObject(COSName.PG) ?: on) in gone || kid.getDictionaryObject(COSName.OBJ) in goneAnnotations
+                else -> prune(kid, on, depth + 1).also { if (it) dropped += kid }
+            }
+            val isRoot = element === root
+            return when (val kids = element.getDictionaryObject(COSName.K)) {
+                // An element on a gone page with nothing in it, such as a figure's alternate text alone.
+                null -> !isRoot && on in gone
+                is COSArray -> {
+                    if (kids.size() == 0) return !isRoot && on in gone
+                    for (i in kids.size() - 1 downTo 0) if (goes(kids.getObject(i))) kids.remove(i)
+                    !isRoot && kids.size() == 0
+                }
+                else -> goes(kids).also { if (it) element.removeItem(COSName.K) } && !isRoot
+            }
+        }
+        prune(root, null, 0)
+        return dropped
+    }
+
+    /**
      * Walks everything that can be reached from [start] and empties each reference to [gone] pages
      * and annotations: a dictionary entry is removed, an array entry becomes null. They aren't
      * entered, so nothing reached only through them is written.
@@ -177,8 +253,12 @@ internal object PageCleanup {
         }
     }
 
-    /** Bookmarks and fields nest; a damaged file could make them loop or nest without end. */
+    /** Bookmarks, fields and tags nest; a damaged file could make them loop or nest without end. */
     private const val MAX_DEPTH = 64
+
+    /** The types of a tag's references to marked content and to objects, such as annotations. */
+    private val MARKED_CONTENT = COSName.getPDFName("MCR")
+    private val OBJECT = COSName.getPDFName("OBJR")
 
     private fun <T> identitySet(): MutableSet<T> = Collections.newSetFromMap(IdentityHashMap())
 }

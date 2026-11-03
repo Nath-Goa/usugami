@@ -8,9 +8,12 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import io.github.nath_goa.usugami.ui.renderPdfPage
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -79,6 +82,29 @@ class PdfPasswordDeviceTest {
         assertTrue(onMain { vm.locked.value.isEmpty() })
         waitUntil("the skipped copy to be deleted") { !second.file.exists() }
         assertEquals(2, onMain { vm.inputs.value.size })
+    }
+
+    /**
+     * Android's renderer can't open a PDF with a password, so its pages' thumbnails, in Merge's and
+     * Reorganize's lists too, are drawn from a copy without it. It goes with the PDF.
+     */
+    @Test fun pagesOfAPdfWithAPasswordAreDrawnFromACopy() {
+        val vm = newViewModel()
+        onMain { vm.addPdfs(listOf(pdf("alpha.pdf"), pdf("protected.pdf", "statement.pdf")), replace = false) }
+        waitUntil("the password to be asked") { vm.locked.value.size == 1 && !vm.importing.value }
+        onMain { vm.unlock(vm.locked.value.single(), "test123") }
+        waitUntil("the PDF to be opened") { vm.inputs.value.size == 2 }
+        val unlocked = onMain { vm.inputs.value[1] }
+        assertNull("Android's renderer can't open the PDF itself", renderPdfPage(unlocked, 0, 150))
+
+        waitUntil("the copy to draw from") { vm.views.value[unlocked.id] != null }
+        val view = onMain { vm.views.value.getValue(unlocked.id) }
+        assertEquals("Only the PDF with a password needs one", setOf(unlocked.id), onMain { vm.views.value.keys })
+        for (page in 0 until unlocked.pageCount) assertNotNull("Page ${page + 1} is drawn", renderPdfPage(view, page, 150))
+
+        onMain { vm.removeInput(unlocked.id) }
+        assertTrue(onMain { vm.views.value.isEmpty() })
+        waitUntil("the copy to be deleted") { !view.file.exists() }
     }
 
     /** The user may switch to another app to find the password, and the system may stop Usugami meanwhile. */
