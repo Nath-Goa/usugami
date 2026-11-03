@@ -590,9 +590,8 @@ class ScreensDeviceTest {
         // Moved with buttons instead of dragging: five steps left and five up.
         repeat(5) {
             for (label in listOf(R.string.sign_move_left, R.string.sign_move_up)) {
+                // Each press moves on from the last, even before the screen has caught up.
                 click(findBelow("the move button") { it.says(app.getString(label)) })
-                // Each button moves on from where the signature is once the screen has caught up.
-                Thread.sleep(250)
             }
         }
 

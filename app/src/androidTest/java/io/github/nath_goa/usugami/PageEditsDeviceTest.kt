@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Gainmap
 import android.graphics.Path
 import android.graphics.PointF
 import android.graphics.pdf.PdfRenderer
@@ -13,6 +14,7 @@ import android.os.ParcelFileDescriptor
 import androidx.core.os.BundleCompat
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.SavedStateHandle
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.contentstream.PDFGraphicsStreamEngine
 import com.tom_roush.pdfbox.cos.COSName
@@ -31,6 +33,7 @@ import io.github.nath_goa.usugami.core.InkItem
 import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.PageItem
 import io.github.nath_goa.usugami.core.PictureItem
+import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.ShapeKind
 import io.github.nath_goa.usugami.core.TextItem
@@ -39,6 +42,8 @@ import io.github.nath_goa.usugami.data.PagePictures
 import io.github.nath_goa.usugami.data.PageText
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.Signature
+import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.ui.EditHistory
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -47,6 +52,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
 
@@ -388,6 +394,68 @@ class PageEditsDeviceTest {
         pictures.deleteAllExcept(emptyList())
     }
 
+    @Test fun itemsAndSignaturesCoverTheFieldsAndCommentsUnderThem() {
+        val source = import(formPdf(File(context.cacheDir, "edit_form.pdf")))
+        val height = sizes(source)[0].second
+        // Blue boxes over the filled-in name and over the red square comment, as the preview shows them.
+        val blue = 0xFF1565C0.toInt()
+        val items = listOf(
+            ShapeItem(1, 0, ShapeKind.RECTANGLE, 70f, height - 626f, 330f, height - 598f, 2f, blue, filled = true),
+            ShapeItem(2, 0, ShapeKind.RECTANGLE, 340f, height - 510f, 510f, height - 390f, 2f, blue, filled = true),
+        )
+        val edited = save(engine.editPages(source, items, "form_edited").file, "edited_form.pdf")
+        PDDocument.load(edited).use { doc ->
+            val page = doc.getPage(0)
+            // What was under them is part of the page now, drawn before them; the rest stays as it was.
+            assertEquals(listOf("city", "agree"), doc.documentCatalog.acroForm.fields.map { it.partialName })
+            assertEquals(listOf("Widget", "Widget", "Text", "Popup", "Link"), page.annotations.map { it.subtype })
+            val paths = pathsOn(page)
+            val square = paths.indexOfFirst { it.filled && it.color.contentEquals(floatArrayOf(1f, 0f, 0f)) }
+            val boxes = paths.withIndex().filter { (_, path) -> path.filled && path.color[2] > 0.7f }.map { it.index }
+            assertTrue("The square comment, then the boxes over it: $square, $boxes", square >= 0 && boxes.size == 2 && square < boxes.first())
+            assertTrue(PDFTextStripper().getText(doc).contains("Jane Doe"))
+        }
+        // A signature over the ticked box: the box becomes part of the page, under the signature.
+        val signature = Signature(listOf(floatArrayOf(100f, 100f, 300f, 160f, 500f, 100f)), SignatureInk.BLACK)
+        val placement = SignaturePlacement(79f / sizes(source)[0].first, (height - 527f) / height, 0.12f)
+        val signed = save(engine.sign(source, signature, 0, placement, "form_signed").file, "signed_form.pdf")
+        PDDocument.load(signed).use { doc ->
+            assertEquals(listOf("name", "city"), doc.documentCatalog.acroForm.fields.map { it.partialName })
+            assertEquals(listOf("Widget", "Widget", "Square", "Text", "Popup", "Link"), doc.getPage(0).annotations.map { it.subtype })
+        }
+    }
+
+    /** Photos go in as plain JPEG: a lossy WebP one too, and an Ultra HDR one without its gain map. */
+    @SdkSuppress(minSdkVersion = 34)
+    @Test fun photosGoInAsPlainJpeg() {
+        fun picked(name: String, format: Bitmap.CompressFormat, photo: Bitmap = Bitmap.createBitmap(400, 300, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.rgb(200, 120, 40)) }) =
+            File(context.cacheDir, name).let { file ->
+                file.outputStream().use { photo.compress(format, 90, it) }
+                checkNotNull(pictures.import(Uri.fromFile(file), nextId++))
+            }
+        assertTrue("A lossy WebP is a photo", picked("edit_photo.webp", Bitmap.CompressFormat.WEBP_LOSSY).jpeg)
+        assertFalse("A lossless WebP isn't", picked("edit_drawing.webp", Bitmap.CompressFormat.WEBP_LOSSLESS).jpeg)
+
+        val hdr = Bitmap.createBitmap(400, 300, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(Color.rgb(200, 120, 40))
+            gainmap = Gainmap(Bitmap.createBitmap(100, 75, Bitmap.Config.ARGB_8888))
+        }
+        val photo = picked("edit_hdr.jpg", Bitmap.CompressFormat.JPEG, hdr)
+        assumeTrue("This device did not write an Ultra HDR JPEG", String(File(photo.path).readBytes(), Charsets.ISO_8859_1).contains("hdrgm"))
+        val source = import(mixedPages("edit_hdr.pdf"))
+        val item = EditLayout.newPicture(1, 0, photo.path, photo.width.toFloat() / photo.height, photo.orientation, photo.jpeg, 595.28f, 841.89f)
+        val edited = engine.editPages(source, listOf(item), "hdr").file
+        PDDocument.load(edited).use { doc ->
+            val image = imagesOn(doc.getPage(0)).single().image
+            assertEquals("jpg", image.suffix)
+            val bytes = String(image.cosObject.createRawInputStream().use { it.readBytes() }, Charsets.ISO_8859_1)
+            assertFalse(bytes.contains("hdrgm"))
+            assertFalse(bytes.contains("MPF"))
+            assertEquals("One picture, ending where the JPEG ends", bytes.length - 2, bytes.indexOf("ÿÙ"))
+        }
+        pictures.deleteAllExcept(emptyList())
+    }
+
     @Test fun textNoFontCanDrawIsRefused() {
         assertTrue(PageText.canDraw("Hello é ñ\nगोपनीय"))
         assertFalse(PageText.canDraw("͸"))
@@ -427,6 +495,11 @@ class PageEditsDeviceTest {
         assertEquals(listOf(box, stroke), history.items.value)
         assertEquals("Then the stroke, on page 1", 0, history.undo())
         assertEquals(listOf<PageItem>(box), history.items.value)
+        assertTrue(history.canRedo.value)
+        // Touching an item without moving it changes nothing, so Redo still has what it had.
+        history.begin()
+        history.step(history.items.value)
+        history.end()
         assertTrue(history.canRedo.value)
         assertEquals(0, history.redo())
         assertEquals(listOf(box, stroke), history.items.value)

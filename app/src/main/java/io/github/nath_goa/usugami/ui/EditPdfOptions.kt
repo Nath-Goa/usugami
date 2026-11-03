@@ -249,6 +249,7 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
         pageWidth = pageWidth,
         pageHeight = pageHeight,
         onChange = vm::changeEditItem,
+        onMove = { dx, dy -> selected?.let { vm.moveEditItem(it.id, dx, dy, pageWidth, pageHeight) } },
         onBegin = vm::beginEditChange,
         onStep = vm::stepEditItem,
         onEnd = vm::endEditChange,
@@ -388,6 +389,7 @@ private fun EditProperties(
     pageWidth: Float,
     pageHeight: Float,
     onChange: (PageItem) -> Unit,
+    onMove: (Float, Float) -> Unit,
     onBegin: () -> Unit,
     onStep: (PageItem) -> Unit,
     onEnd: () -> Unit,
@@ -431,7 +433,7 @@ private fun EditProperties(
                     )) {
                         val target = EditLayout.moved(item, dx, dy, pageWidth, pageHeight)
                         // Off once the item is against that edge of the page.
-                        IconButton(onClick = { onChange(target) }, enabled = target != item) {
+                        IconButton(onClick = { onMove(dx, dy) }, enabled = target != item) {
                             Icon(icon, contentDescription = stringResource(label))
                         }
                     }

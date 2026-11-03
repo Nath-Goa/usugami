@@ -108,6 +108,10 @@ internal fun EditPreview(
     val step by rememberUpdatedState(onStep)
     val end by rememberUpdatedState(onEnd)
     val stroke by rememberUpdatedState(onStroke)
+    // Read as each touch starts: the page's exact size can arrive while a finger is down, and that
+    // mustn't restart the touch handling and drop what the finger is doing.
+    val latestWidth by rememberUpdatedState(pageWidth)
+    val latestHeight by rememberUpdatedState(pageHeight)
     // The stroke being drawn, in points on the page: x, y, x, y, …
     val live = remember { mutableStateListOf<Float>() }
     val pictures = remember { mutableStateMapOf<String, ImageBitmap>() }
@@ -149,11 +153,13 @@ internal fun EditPreview(
                     // While drawing, a stroke from the page's edge draws, instead of going back.
                     .then(if (mode != EditMode.SELECT) Modifier.systemGestureExclusion() else Modifier)
                     .semantics { contentDescription = description }
-                    .pointerInput(mode, pageWidth, pageHeight) {
-                        val toPage = pageWidth / size.width
+                    .pointerInput(mode) {
                         if (mode == EditMode.SELECT) {
                             awaitEachGesture {
                                 val down = awaitFirstDown(requireUnconsumed = false)
+                                val shownWidth = latestWidth
+                                val shownHeight = latestHeight
+                                val toPage = shownWidth / size.width
                                 val x = down.position.x * toPage
                                 val y = down.position.y * toPage
                                 val chosen = latestSelected
@@ -176,8 +182,8 @@ internal fun EditPreview(
                                     drag(down.id) { change ->
                                         val moved = (change.position - down.position) * toPage
                                         step(
-                                            if (handle != null) EditLayout.dragHandle(hit, handle, change.position.x * toPage, change.position.y * toPage, pageWidth, pageHeight)
-                                            else EditLayout.moved(hit, moved.x, moved.y, pageWidth, pageHeight),
+                                            if (handle != null) EditLayout.dragHandle(hit, handle, change.position.x * toPage, change.position.y * toPage, shownWidth, shownHeight)
+                                            else EditLayout.moved(hit, moved.x, moved.y, shownWidth, shownHeight),
                                         )
                                         change.consume()
                                     }
@@ -189,6 +195,11 @@ internal fun EditPreview(
                             awaitEachGesture {
                                 val down = awaitFirstDown()
                                 down.consume()
+                                val shownWidth = latestWidth
+                                val shownHeight = latestHeight
+                                val toPage = shownWidth / size.width
+                                // The stroke goes on the page it was started on, even if another is chosen meanwhile.
+                                val commit = stroke
                                 var room = inkRoom()
                                 if (room <= 0) {
                                     onFull()
@@ -197,8 +208,8 @@ internal fun EditPreview(
                                 // Points closer together than about a millimetre on the screen add nothing.
                                 val minStep = 2.dp.toPx() * toPage
                                 fun add(position: Offset) {
-                                    val px = (position.x * toPage).coerceIn(0f, pageWidth)
-                                    val py = (position.y * toPage).coerceIn(0f, pageHeight)
+                                    val px = (position.x * toPage).coerceIn(0f, shownWidth)
+                                    val py = (position.y * toPage).coerceIn(0f, shownHeight)
                                     val count = live.size
                                     if (room <= 0 || (count >= 2 && hypot(px - live[count - 2], py - live[count - 1]) < minStep)) return
                                     live.addAll(listOf(px, py))
@@ -206,16 +217,20 @@ internal fun EditPreview(
                                 }
                                 live.clear()
                                 add(down.position)
-                                // One finger draws; others are ignored. Points between frames make the curve smoother.
-                                while (true) {
-                                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                                    change.historical.forEach { add(it.position) }
-                                    add(change.position)
-                                    change.consume()
-                                    if (!change.pressed) break
+                                try {
+                                    // One finger draws; others are ignored. Points between frames make the curve smoother.
+                                    while (true) {
+                                        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                        change.historical.forEach { add(it.position) }
+                                        add(change.position)
+                                        change.consume()
+                                        if (!change.pressed) break
+                                    }
+                                    if (live.isNotEmpty()) commit(live.toFloatArray())
+                                } finally {
+                                    // Also when the touch is cut short (the mode changed, say): no stroke is left drawn that isn't kept.
+                                    live.clear()
                                 }
-                                if (live.isNotEmpty()) stroke(live.toFloatArray())
-                                live.clear()
                             }
                         }
                     },

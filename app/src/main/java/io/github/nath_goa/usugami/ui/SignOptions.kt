@@ -102,7 +102,8 @@ internal val SignaturePlacementSaver = Saver<SignaturePlacement?, FloatArray>(
 
 /**
  * [placement] null means the signature hasn't been moved: it then sits where
- * [SignatureLayout.default] puts it on whichever page is chosen.
+ * [SignatureLayout.default] puts it on whichever page is chosen. [onNudge] applies a move to the
+ * placement as it is at that moment, which may be newer than the [placement] last shown.
  */
 @Composable
 internal fun SignOptions(
@@ -113,6 +114,7 @@ internal fun SignOptions(
     onPage: (Int) -> Unit,
     placement: SignaturePlacement?,
     onPlacement: (SignaturePlacement) -> Unit,
+    onNudge: (SignatureMove) -> Unit,
 ) {
     Text(stringResource(R.string.sign_signature), style = MaterialTheme.typography.titleMedium)
     Column {
@@ -132,7 +134,7 @@ internal fun SignOptions(
                         Text(stringResource(R.string.sign_page), style = MaterialTheme.typography.titleMedium)
                         PageStrip(input, page, onPage)
                     }
-                    SignaturePlacer(input, page, shown, placement, onPlacement)
+                    SignaturePlacer(input, page, shown, placement, onPlacement, onNudge)
                 }
             }
         }
@@ -245,6 +247,7 @@ private fun SignaturePlacer(
     signature: Signature,
     placement: SignaturePlacement?,
     onPlacement: (SignaturePlacement) -> Unit,
+    onNudge: (SignatureMove) -> Unit,
 ) {
     // The page last drawn stays while the next one is drawn, instead of flashing blank.
     var page by remember(input.path) { mutableStateOf<RenderedPage?>(null) }
@@ -256,7 +259,11 @@ private fun SignaturePlacer(
     val pageHeight = page?.height ?: 842f
     val aspect = signature.aspect
     fun fit(wanted: SignaturePlacement) = SignatureLayout.clamp(wanted, pageWidth, pageHeight, aspect)
-    val current = fit(placement ?: SignatureLayout.default(pageWidth, pageHeight, aspect))
+    fun placed(from: SignaturePlacement?) = fit(from ?: SignatureLayout.default(pageWidth, pageHeight, aspect))
+    val current = placed(placement)
+    // A step on from where the signature is when the button is pressed, which may be further than
+    // the screen shows yet: quick presses each move it a step.
+    fun step(dx: Float, dy: Float): SignatureMove = { latest -> placed(latest).let { fit(it.copy(centerX = it.centerX + dx, centerY = it.centerY + dy)) } }
 
     Text(stringResource(R.string.sign_place), style = MaterialTheme.typography.titleMedium)
     Column {
@@ -283,17 +290,20 @@ private fun SignaturePlacer(
         )
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        NudgeButton(Icons.Rounded.West, R.string.sign_move_left, fit(current.copy(centerX = current.centerX - NUDGE)), current, onPlacement)
-        NudgeButton(Icons.Rounded.North, R.string.sign_move_up, fit(current.copy(centerY = current.centerY - NUDGE)), current, onPlacement)
-        NudgeButton(Icons.Rounded.South, R.string.sign_move_down, fit(current.copy(centerY = current.centerY + NUDGE)), current, onPlacement)
-        NudgeButton(Icons.Rounded.East, R.string.sign_move_right, fit(current.copy(centerX = current.centerX + NUDGE)), current, onPlacement)
+        NudgeButton(Icons.Rounded.West, R.string.sign_move_left, step(-NUDGE, 0f), current, onNudge)
+        NudgeButton(Icons.Rounded.North, R.string.sign_move_up, step(0f, -NUDGE), current, onNudge)
+        NudgeButton(Icons.Rounded.South, R.string.sign_move_down, step(0f, NUDGE), current, onNudge)
+        NudgeButton(Icons.Rounded.East, R.string.sign_move_right, step(NUDGE, 0f), current, onNudge)
     }
 }
 
-/** Moves the signature to [target]; off once it is against that edge of the page. */
+/** A move of the signature: where it goes from where it is (null: not moved yet). */
+internal typealias SignatureMove = (SignaturePlacement?) -> SignaturePlacement
+
+/** Moves the signature by [move]; off once it is against that edge of the page. */
 @Composable
-private fun NudgeButton(icon: ImageVector, @StringRes label: Int, target: SignaturePlacement, current: SignaturePlacement, onPlacement: (SignaturePlacement) -> Unit) {
-    IconButton(onClick = { onPlacement(target) }, enabled = target != current) {
+private fun NudgeButton(icon: ImageVector, @StringRes label: Int, move: SignatureMove, current: SignaturePlacement, onNudge: (SignatureMove) -> Unit) {
+    IconButton(onClick = { onNudge(move) }, enabled = move(current) != current) {
         Icon(icon, contentDescription = stringResource(label))
     }
 }

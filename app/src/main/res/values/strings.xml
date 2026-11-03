@@ -251,6 +251,11 @@
     <!-- XFA is a kind of PDF form; keep the name. -->
     <string name="flatten_xfa_only">This PDF\'s form is a dynamic XFA form, which Usugami can\'t flatten.</string>
     <string name="flatten_xfa_dropped">This PDF had a dynamic XFA form, which was removed. Its other form fields and comments were flattened.</string>
+    <!-- After Flatten PDF: fields whose text the form's own font can't draw (Hindi or the rupee sign in a Latin-only font, say) are left as fields rather than come out blank. -->
+    <plurals name="flatten_fields_kept">
+        <item quantity="one">%d form field has text that Usugami can\'t draw with its font, so it was left fillable to keep that text.</item>
+        <item quantity="other">%d form fields have text that Usugami can\'t draw with their font, so they were left fillable to keep that text.</item>
+    </plurals>
     <!-- Edit PDF: text, drawings, highlights, shapes and pictures put on top of a PDF's pages. "Redact PDF" is the name of another tool. -->
     <string name="tool_edit">Edit PDF</string>
     <string name="tool_edit_detail">Add text, drawings, shapes and pictures</string>

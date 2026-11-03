@@ -602,6 +602,24 @@ class PageToolsDeviceTest {
         assertTrue("The ticked box", count(bitmap, 72, 520, 86, 534, ::blue) > 50)
     }
 
+    @Test fun fieldsPdfBoxCantDrawKeepTheirLookOrStayFields() {
+        val source = import(unencodableFormPdf(made("unencodable_form.pdf")))
+        // The preview's view keeps the look the amount had.
+        assertTrue(text(engine.previewView(source).file).contains("OLD AMOUNT"))
+        val result = engine.flatten(source, "unencodable_flattened")
+        assertEquals("The name, which has no look to keep, stays a field", 1, result.keptFields)
+        val flat = save(result.file.file, "unencodable_flattened.pdf")
+        assertTrue("The amount kept its look instead of coming out blank", text(flat).contains("OLD AMOUNT"))
+        PDDocument.load(flat).use { doc ->
+            val form = doc.documentCatalog.acroForm
+            val name = form.fields.single()
+            assertEquals("name", name.partialName)
+            assertEquals("नाम", name.valueAsString)
+            assertTrue(form.needAppearances)
+            assertEquals(name.widgets.single().cosObject, doc.getPage(0).annotations.single().cosObject)
+        }
+    }
+
     @Test fun nothingToFlattenIsSaid() {
         val plain = import(asset("alpha.pdf"))
         try {

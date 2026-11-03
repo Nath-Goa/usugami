@@ -23,6 +23,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationSquareCircle
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationText
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceCharacteristicsDictionary
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceEntry
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
@@ -175,6 +176,43 @@ fun formPdf(file: File, name: String = "Jane Doe", xfa: Boolean = false): File =
             form.xfa = PDXFAResource(packet)
             doc.documentCatalog.cosObject.setBoolean(COSName.getPDFName("NeedsRendering"), true)
         }
+        doc.save(file)
+    }
+}
+
+/**
+ * One A4 page with a form in Helvetica, which has no rupee sign and no Devanagari, that asks viewers
+ * to draw its fields (NeedAppearances), as some form-filling apps leave them:
+ * - a text field "amount" holding "₹ 5,000", with a white background (/MK) and the look its app
+ *   gave it, saying "OLD AMOUNT"
+ * - a text field "name" holding "नाम", with no look at all
+ */
+fun unencodableFormPdf(file: File): File = file.also {
+    PDDocument().use { doc ->
+        val page = PDPage(PDRectangle.A4)
+        doc.addPage(page)
+        val form = newForm(doc)
+        form.needAppearances = true
+        val amount = textField(form, page, "amount", PDRectangle(72f, 600f, 250f, 24f), null)
+        val widget = amount.widgets.single()
+        widget.appearanceCharacteristics = PDAppearanceCharacteristicsDictionary(COSDictionary()).apply {
+            background = PDColor(floatArrayOf(1f, 1f, 1f), PDDeviceRGB.INSTANCE)
+        }
+        val look = PDAppearanceStream(doc).apply {
+            bBox = PDRectangle(250f, 24f)
+            resources = PDResources().apply { put(COSName.getPDFName("Helv"), PDType1Font.HELVETICA) }
+        }
+        PDPageContentStream(doc, look).use { content ->
+            content.beginText()
+            content.setFont(PDType1Font.HELVETICA, 12f)
+            content.newLineAtOffset(2f, 7f)
+            content.showText("OLD AMOUNT")
+            content.endText()
+        }
+        widget.appearance = PDAppearanceDictionary().apply { setNormalAppearance(look) }
+        amount.cosObject.setString(COSName.V, "₹ 5,000")
+        val name = textField(form, page, "name", PDRectangle(72f, 560f, 250f, 24f), null)
+        name.cosObject.setString(COSName.V, "नाम")
         doc.save(file)
     }
 }

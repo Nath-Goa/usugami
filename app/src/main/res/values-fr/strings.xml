@@ -240,6 +240,11 @@
     <string name="flatten_nothing">Ce PDF n\'a ni champs de formulaire ni commentaires à aplatir.</string>
     <string name="flatten_xfa_only">Le formulaire de ce PDF est un formulaire XFA dynamique, qu\'Usugami ne peut pas aplatir.</string>
     <string name="flatten_xfa_dropped">Ce PDF contenait un formulaire XFA dynamique, qui a été retiré. Ses autres champs de formulaire et ses commentaires ont été aplatis.</string>
+    <plurals name="flatten_fields_kept">
+        <item quantity="one">%d champ de formulaire contient du texte qu\'Usugami ne peut pas dessiner avec sa police : il est resté remplissable pour garder ce texte.</item>
+        <item quantity="many">%d champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</item>
+        <item quantity="other">%d champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</item>
+    </plurals>
     <string name="tool_edit">Modifier un PDF</string>
     <string name="tool_edit_detail">Ajouter texte, dessins, formes et images</string>
     <string name="pdf_edit_action">Enregistrer le PDF</string>

@@ -240,6 +240,11 @@
     <string name="flatten_nothing">Este PDF no tiene campos de formulario ni comentarios que acoplar.</string>
     <string name="flatten_xfa_only">El formulario de este PDF es un formulario XFA dinámico, que Usugami no puede acoplar.</string>
     <string name="flatten_xfa_dropped">Este PDF tenía un formulario XFA dinámico, que se quitó. Sus demás campos de formulario y comentarios se acoplaron.</string>
+    <plurals name="flatten_fields_kept">
+        <item quantity="one">%d campo de formulario tiene texto que Usugami no puede dibujar con su fuente, así que se dejó rellenable para conservar ese texto.</item>
+        <item quantity="many">%d campos de formulario tienen texto que Usugami no puede dibujar con su fuente, así que se dejaron rellenables para conservar ese texto.</item>
+        <item quantity="other">%d campos de formulario tienen texto que Usugami no puede dibujar con su fuente, así que se dejaron rellenables para conservar ese texto.</item>
+    </plurals>
     <string name="tool_edit">Editar PDF</string>
     <string name="tool_edit_detail">Añade texto, dibujos, formas e imágenes</string>
     <string name="pdf_edit_action">Guardar PDF</string>

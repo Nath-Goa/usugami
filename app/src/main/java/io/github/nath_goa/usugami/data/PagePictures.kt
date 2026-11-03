@@ -10,12 +10,18 @@ import android.graphics.Paint
 import android.net.Uri
 import androidx.core.graphics.createBitmap
 import androidx.exifinterface.media.ExifInterface
+import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
-import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceGray
+import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import io.github.nath_goa.usugami.core.ImageTransform
+import io.github.nath_goa.usugami.core.Jpeg
 import io.github.nath_goa.usugami.core.PictureItem
+import io.github.nath_goa.usugami.core.Webp
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import kotlin.math.max
@@ -62,7 +68,8 @@ class PagePictures(private val context: Context) {
             val orientation = orientation(file)
             val sideways = ImageTransform.fromExif(orientation).swapsAxes
             // Photos stay photos; drawings, screenshots and pictures with transparency stay lossless.
-            val jpeg = bounds.outMimeType in PHOTO_TYPES
+            // A WebP file can be either: its header says which.
+            val jpeg = bounds.outMimeType in PHOTO_TYPES || (bounds.outMimeType == "image/webp" && Webp.isLossyOpaque(header(file)))
             return PickedPicture(
                 file.path,
                 if (sideways) bounds.outHeight else bounds.outWidth,
@@ -80,6 +87,18 @@ class PagePictures(private val context: Context) {
     fun deleteAllExcept(keep: Collection<String>) {
         val names = keep.mapTo(HashSet()) { File(it).name }
         dir.listFiles()?.forEach { if (it.name !in names) it.delete() }
+    }
+
+    /** The first bytes of [file], as many as [Webp.isLossyOpaque] reads. */
+    private fun header(file: File): ByteArray = file.inputStream().use { input ->
+        val header = ByteArray(Webp.HEADER_BYTES)
+        var read = 0
+        while (read < header.size) {
+            val count = input.read(header, read, header.size - read)
+            if (count < 0) break
+            read += count
+        }
+        header.copyOf(read)
     }
 
     private fun orientation(file: File): Int = try {
@@ -103,7 +122,7 @@ class PagePictures(private val context: Context) {
         /** …but never more pixels than this on their longer side. */
         private const val MAX_SIDE = 2400
 
-        private const val JPEG_QUALITY = 0.85f
+        private const val JPEG_QUALITY = 85
 
         /**
          * The picture at [path], upright, with its longer side at most [longSide] pixels. Null if it
@@ -147,13 +166,26 @@ class PagePictures(private val context: Context) {
                         bitmap.recycle()
                         bitmap = flat
                     }
-                    bitmap.setHasAlpha(false)
-                    return JPEGFactory.createFromImage(doc, bitmap, JPEG_QUALITY)
+                    return jpeg(doc, bitmap)
                 }
                 return LosslessFactory.createFromImage(doc, bitmap)
             } finally {
                 bitmap.recycle()
             }
+        }
+
+        /**
+         * [bitmap] as a JPEG image for [doc]. An Ultra HDR photo decodes with its gain map, and
+         * encoding writes that back (a second picture, with XMP and MPF data, that PDF viewers don't
+         * show), so the JPEG is stripped as Images to PDF strips a photo.
+         */
+        private fun jpeg(doc: PDDocument, bitmap: Bitmap): PDImageXObject {
+            val out = ByteArrayOutputStream()
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)) throw IOException("Can't encode picture")
+            val bytes = Jpeg.stripForEmbedding(out.toByteArray())
+            val info = Jpeg.parse(bytes)
+            val colors = if (info.components == 1) PDDeviceGray.INSTANCE else PDDeviceRGB.INSTANCE
+            return PDImageXObject(doc, ByteArrayInputStream(bytes), COSName.DCT_DECODE, info.width, info.height, 8, colors)
         }
     }
 }

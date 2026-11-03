@@ -87,8 +87,11 @@ class PdfWrongPassword : IOException("Wrong password")
 /** The PDF is encrypted for a certificate (digital ID) rather than with a password; Usugami can't open those. */
 class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encrypted PDFs aren't supported", cause)
 
-/** Flatten PDF's result: [droppedDynamicXfa] says a dynamic XFA form was removed (see [PdfToolsEngine.flatten]). */
-class FlattenResult(val file: PdfFile, val droppedDynamicXfa: Boolean)
+/**
+ * Flatten PDF's result: [droppedDynamicXfa] says a dynamic XFA form was removed, and [keptFields] is
+ * how many form fields were left fillable because their text couldn't be drawn (see [PdfToolsEngine.flatten]).
+ */
+class FlattenResult(val file: PdfFile, val droppedDynamicXfa: Boolean, val keptFields: Int)
 
 /**
  * Split, merge, compress, rotate, delete pages, reorganize, flatten, page numbers, watermarks,
@@ -384,13 +387,14 @@ class PdfToolsEngine(private val context: Context) {
     /**
      * Bakes [input]'s form fields and annotations (comments, highlights, drawings, stamps) into its
      * pages, so nothing can be changed or filled in; links keep working. A dynamic XFA form is
-     * dropped, and only its ordinary fields are flattened. Throws [NothingToFlatten] when there is
-     * nothing to flatten, rather than saving the same PDF again.
+     * dropped, and only its ordinary fields are flattened. A field whose text can't be drawn and
+     * that has no look of its own stays a field rather than lose its value. Throws [NothingToFlatten]
+     * when there is nothing to flatten, rather than saving the same PDF again.
      */
     fun flatten(input: PdfInput, fileName: String, check: () -> Unit = {}): FlattenResult {
-        var dynamicXfa = false
-        val file = edit(input, fileName, "Flattened", check) { doc -> dynamicXfa = Flattening.flatten(doc, check) }
-        return FlattenResult(file, dynamicXfa)
+        var flattened: Flattening.Flattened? = null
+        val file = edit(input, fileName, "Flattened", check) { doc -> flattened = Flattening.flatten(doc, check) }
+        return FlattenResult(file, flattened?.dynamicXfa == true, flattened?.keptFields ?: 0)
     }
 
     /**
@@ -517,6 +521,8 @@ class PdfToolsEngine(private val context: Context) {
             bitmap.recycle()
         }
         check()
+        // It goes over the form fields and comments under it, as the preview shows it.
+        Flattening.bakeUnder(doc, page, listOf(Flattening.pageArea(frame.matrix, area.x, area.y, area.width, area.height)), check)
         PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
             content.transform(frame.toMatrix())
             content.drawImage(image, area.x, area.y, area.width, area.height)

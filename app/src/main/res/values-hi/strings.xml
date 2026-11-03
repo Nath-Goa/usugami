@@ -235,6 +235,10 @@
     <string name="flatten_nothing">इस PDF में फ़्लैटन करने के लिए कोई फ़ॉर्म फ़ील्ड या टिप्पणी नहीं है।</string>
     <string name="flatten_xfa_only">इस PDF का फ़ॉर्म एक डायनैमिक XFA फ़ॉर्म है, जिसे Usugami फ़्लैटन नहीं कर सकता।</string>
     <string name="flatten_xfa_dropped">इस PDF में एक डायनैमिक XFA फ़ॉर्म था, जिसे हटा दिया गया। इसके बाकी फ़ॉर्म फ़ील्ड और टिप्पणियां फ़्लैटन कर दी गईं।</string>
+    <plurals name="flatten_fields_kept">
+        <item quantity="one">%d फ़ॉर्म फ़ील्ड में ऐसा टेक्स्ट है जिसे Usugami उसके फ़ॉन्ट से नहीं बना सकता, इसलिए वह टेक्स्ट बचाने के लिए उसे भरने लायक ही छोड़ दिया गया।</item>
+        <item quantity="other">%d फ़ॉर्म फ़ील्ड में ऐसा टेक्स्ट है जिसे Usugami उनके फ़ॉन्ट से नहीं बना सकता, इसलिए वह टेक्स्ट बचाने के लिए उन्हें भरने लायक ही छोड़ दिया गया।</item>
+    </plurals>
     <string name="tool_edit">PDF एडिट करें</string>
     <string name="tool_edit_detail">टेक्स्ट, ड्रॉइंग, आकृतियां और तस्वीरें जोड़ें</string>
     <string name="pdf_edit_action">PDF सेव करें</string>

@@ -707,11 +707,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun runFlatten(fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
         var droppedXfa = false
+        var keptFields = 0
         process(fileName, listOf(input), afterResult = {
             if (droppedXfa) message(strings.getString(R.string.flatten_xfa_dropped))
+            if (keptFields > 0) pluralMessage(R.plurals.flatten_fields_kept, keptFields)
         }) { check ->
             val result = engine.flatten(input, fileName, check)
             droppedXfa = result.droppedDynamicXfa
+            keptFields = result.keptFields
             listOf(result.file)
         }
     }
@@ -746,6 +749,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     /** Puts [item] in place of the item with its id, as one change. */
     fun changeEditItem(item: PageItem) = history.change(replaced(item))
+
+    /**
+     * Moves the item with [id] by ([dx], [dy]) points from where it is now, kept on the page, as one
+     * change: a second press of a move button goes on from the first, even before the screen shows it.
+     */
+    fun moveEditItem(id: Long, dx: Float, dy: Float, pageWidth: Float, pageHeight: Float) {
+        val item = history.items.value.firstOrNull { it.id == id } ?: return
+        history.change(replaced(EditLayout.moved(item, dx, dy, pageWidth, pageHeight)))
+    }
 
     /** A drag or a slider starts changing an item: its steps ([stepEditItem]) are one change for Undo. */
     fun beginEditChange() = history.begin()

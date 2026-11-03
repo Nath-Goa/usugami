@@ -27,6 +27,12 @@ internal class EditHistory(private val handle: SavedStateHandle) {
     /** A change made of many steps, such as a drag, is under way: its steps are one change for Undo. */
     private var gesture = false
 
+    /**
+     * The items before that change, until a step changes something and they go on the Undo list:
+     * a touch that moves nothing leaves Undo and Redo as they were.
+     */
+    private var before: List<PageItem>? = null
+
     private var nextId = (items.value.maxOfOrNull { it.id } ?: 0L) + 1
 
     fun newId(): Long = nextId++
@@ -37,7 +43,7 @@ internal class EditHistory(private val handle: SavedStateHandle) {
 
     /** Makes [list] the items, as one change. */
     fun change(list: List<PageItem>) {
-        gesture = false
+        stopGesture()
         if (list == items.value) return
         push(items.value)
         set(list)
@@ -46,28 +52,39 @@ internal class EditHistory(private val handle: SavedStateHandle) {
     /** Starts a change made of many steps (a drag, or a slider moved); [step] makes each. */
     fun begin() {
         if (gesture) return
-        push(items.value)
         gesture = true
+        before = items.value
     }
 
     fun step(list: List<PageItem>) {
         if (!gesture) begin()
+        val start = before
+        if (start != null && list != items.value) {
+            push(start)
+            before = null
+        }
         set(list)
     }
 
-    /** The change [begin] started is over; one that changed nothing leaves nothing to undo. */
+    /** The change [begin] started is over; one that ended where it started leaves nothing to undo. */
     fun end() {
         if (!gesture) return
-        gesture = false
-        if (undoStack.lastOrNull() == items.value) {
+        val pushed = before == null
+        stopGesture()
+        if (pushed && undoStack.lastOrNull() == items.value) {
             undoStack.removeLast()
             updateFlags()
         }
     }
 
+    private fun stopGesture() {
+        gesture = false
+        before = null
+    }
+
     /** Takes back the latest change. Returns the page it was on, or null when there is nothing to undo. */
     fun undo(): Int? {
-        gesture = false
+        stopGesture()
         val previous = undoStack.removeLastOrNull() ?: return null
         redoStack.addLast(items.value)
         return travel(previous)
@@ -75,7 +92,7 @@ internal class EditHistory(private val handle: SavedStateHandle) {
 
     /** Makes again the change Undo last took back. Returns the page it is on, or null when there is nothing to redo. */
     fun redo(): Int? {
-        gesture = false
+        stopGesture()
         val next = redoStack.removeLastOrNull() ?: return null
         undoStack.addLast(items.value)
         return travel(next)
@@ -93,7 +110,7 @@ internal class EditHistory(private val handle: SavedStateHandle) {
 
     /** Forgets every item and the history, as when the tool closes. */
     fun clear() {
-        gesture = false
+        stopGesture()
         undoStack.clear()
         redoStack.clear()
         set(emptyList())

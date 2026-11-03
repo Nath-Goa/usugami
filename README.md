@@ -199,6 +199,8 @@ old "PDFer".
 
 - Makes filled-in form fields, comments, highlights, drawings and stamps part of the page, so
   nothing can be changed or filled in any more, and every PDF viewer shows them the same way.
+- A field whose text the form's own font can't show (Hindi typed into a form made for English,
+  say) and that no app has drawn yet stays a field instead of losing its text, and Usugami tells you.
 - Links keep working.
 - If a PDF has nothing to flatten, Usugami tells you instead of saving a copy.
 
