@@ -740,6 +740,32 @@ class OfficeConverterDeviceTest {
         assertTrue(pageTexts(pdf).joinToString(" ").contains("Shallow"))
     }
 
+    @Test fun everyWayOfNestingHoldsInTheStack() {
+        // Links in a paragraph, tables in cells, content controls and PowerPoint's groups are each read
+        // a level at a time, one call inside another. In a debuggable app on Android 15, a worker
+        // thread's stack ran out before the levels read stop; what's deeper is left out, and the rest converts.
+        val depth = 1_000
+        val group = """<p:grpSp><p:nvGrpSpPr><p:cNvPr id="5" name="Group"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/>"""
+        val files = listOf(
+            wordDocument("<w:p>" + "<w:hyperlink>".repeat(depth) + "<w:r><w:t>Deep</w:t></w:r>" + "</w:hyperlink>".repeat(depth) + "</w:p>" + para("Shallow"), "links.docx") to OfficeKind.WORD,
+            wordDocument("<w:tbl><w:tr><w:tc>".repeat(depth) + para("Deep") + "</w:tc></w:tr></w:tbl>".repeat(depth) + para("Shallow"), "tables.docx") to OfficeKind.WORD,
+            wordDocument("<w:sdt><w:sdtContent>".repeat(depth) + para("Deep") + "</w:sdtContent></w:sdt>".repeat(depth) + para("Shallow"), "controls.docx") to OfficeKind.WORD,
+            deck(
+                "groups.pptx",
+                listOf(
+                    slide(
+                        group.repeat(depth) + textBox(2, 36, 36, 300, 72, "<a:p>${run("Deep", 18)}</a:p>") + "</p:grpSp>".repeat(depth) +
+                            textBox(3, 36, 136, 300, 72, "<a:p>${run("Shallow", 18)}</a:p>"),
+                    ),
+                ),
+            ) to OfficeKind.POWERPOINT,
+        )
+        for ((file, kind) in files) {
+            val text = pageTexts(convert(file, kind, "nested-${file.nameWithoutExtension}")).joinToString(" ")
+            assertTrue("${file.name}: $text", text.contains("Shallow") && !text.contains("Deep"))
+        }
+    }
+
     // ---- PowerPoint ----
 
     @Test fun powerPointSlidesComeInOrderWithoutHiddenOnes() {

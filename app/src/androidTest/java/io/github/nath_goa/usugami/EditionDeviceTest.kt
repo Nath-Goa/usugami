@@ -85,7 +85,9 @@ class EditionDeviceTest {
         }
 
         click(find(app.getString(R.string.convert)))
-        find(app.getString(R.string.create_pdf)) // the sheet is open
+        // The sheet's title says Create PDF too, and shows as soon as the sheet starts to slide up. Its
+        // button comes last, so once the button shows, the rest of the sheet is on the screen too.
+        find(app.getString(R.string.create_pdf)) { node -> generateSequence(node) { it.parent }.any { it.isClickable } }
         // The switch's row reads its title and detail together.
         val ocrSwitch = nodes().any { it.text?.contains(app.getString(R.string.ocr_title)) == true }
         assertEquals(BuildConfig.HAS_OCR, ocrSwitch)
@@ -106,10 +108,10 @@ class EditionDeviceTest {
         return all
     }
 
-    private fun find(text: String): AccessibilityNodeInfo {
+    private fun find(text: String, match: (AccessibilityNodeInfo) -> Boolean = { true }): AccessibilityNodeInfo {
         val deadline = SystemClock.uptimeMillis() + 10_000
         while (true) {
-            nodes().firstOrNull { it.text?.toString() == text || it.contentDescription?.toString() == text }?.let { return it }
+            nodes().firstOrNull { (it.text?.toString() == text || it.contentDescription?.toString() == text) && match(it) }?.let { return it }
             check(SystemClock.uptimeMillis() < deadline) { "Timed out waiting for \"$text\"" }
             Thread.sleep(100)
         }

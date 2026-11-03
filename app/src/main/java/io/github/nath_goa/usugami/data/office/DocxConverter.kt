@@ -189,15 +189,16 @@ internal class DocxConverter(
     private fun readSections(): List<Section> {
         val found = ArrayList<Section>()
         pkg.xml(main, check)?.use { x ->
-            fun walk() {
-                x.children {
-                    when (x.name) {
-                        "sectPr" -> found += readSection(x, found.lastOrNull())
-                        "body", "p", "pPr", "sdt", "sdtContent", "customXml", "ins" -> walk()
+            x.descendants {
+                when (x.name) {
+                    "sectPr" -> {
+                        found += readSection(x, found.lastOrNull())
+                        false
                     }
+                    "body", "p", "pPr", "sdt", "sdtContent", "customXml", "ins" -> true
+                    else -> false
                 }
             }
-            walk()
         }
         return found.ifEmpty { listOf(DEFAULT_SECTION) }
     }

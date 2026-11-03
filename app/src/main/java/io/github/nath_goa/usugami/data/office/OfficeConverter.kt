@@ -202,15 +202,17 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
                     }
                 }
             } else {
-                OfficePackage(input.file).use { pkg ->
-                    PagedPdf(workDir).use { pdf ->
-                        val images = OfficeImages(pkg::open, pdf, check)
-                        pages = when (input.kind) {
-                            OfficeKind.WORD -> DocxConverter(pkg, pdf, images, check) { progress(OfficeProgress(it, null)) }.convert()
-                            OfficeKind.POWERPOINT -> PptxConverter(pkg, pdf, images, check) { slide, total -> progress(OfficeProgress(slide, total)) }.convert()
-                            OfficeKind.EPUB -> 0
+                withReadingStack {
+                    OfficePackage(input.file).use { pkg ->
+                        PagedPdf(workDir).use { pdf ->
+                            val images = OfficeImages(pkg::open, pdf, check)
+                            pages = when (input.kind) {
+                                OfficeKind.WORD -> DocxConverter(pkg, pdf, images, check) { progress(OfficeProgress(it, null)) }.convert()
+                                OfficeKind.POWERPOINT -> PptxConverter(pkg, pdf, images, check) { slide, total -> progress(OfficeProgress(slide, total)) }.convert()
+                                OfficeKind.EPUB -> 0
+                            }
+                            pdf.finish()
                         }
-                        pdf.finish()
                     }
                 }
             }

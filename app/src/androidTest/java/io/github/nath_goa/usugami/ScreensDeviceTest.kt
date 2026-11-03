@@ -252,8 +252,9 @@ class ScreensDeviceTest {
     private fun openTool(title: Int, activity: MainActivity): PdfToolsViewModel {
         // The tools further down Home are scrolled to, as a screen reader would.
         click(findBelow("the tool on the home screen") { it.text?.contains(app.getString(title)) == true })
-        // Home stays in the tree while it slides away, and its cards name the tools as their buttons do.
-        // Its settings button is always on screen, unlike a section scrolled out of view.
+        // Home leaves the tree all at once as it starts to slide away; until then its cards name the
+        // tools as their buttons do. Its settings button is always on screen, unlike a section
+        // scrolled out of view.
         waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.settings)) } }
         return onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
     }
@@ -305,10 +306,18 @@ class ScreensDeviceTest {
         }
     }
 
-    /** Whether a radio button is the chosen one. */
+    /**
+     * Whether a radio button is the chosen one, as Usugami says now. The node may come from the
+     * accessibility cache, which isn't always told when a choice changes, and would keep saying what
+     * it was.
+     */
     // isChecked gives way to getChecked() from Android 16, which older devices don't have.
     @Suppress("DEPRECATION")
-    private val AccessibilityNodeInfo.chosen: Boolean get() = isChecked
+    private val AccessibilityNodeInfo.chosen: Boolean
+        get() {
+            refresh()
+            return isChecked
+        }
 
     /** A choice shown as a radio button; Compose reports the selected one as checked. */
     private fun radio(label: String): AccessibilityNodeInfo {
@@ -502,6 +511,9 @@ class ScreensDeviceTest {
         waitUntil("the question to go") { nodes().none { it.says(app.getString(R.string.tool_discard_title)) } }
         assertEquals(listOf(0, 90, 0), onMain { pdfVm.pages.value.map { it.rotation } })
 
+        // The question can leave the screen before its window gives the focus back: a key pressed in
+        // between goes to the closed window and is lost.
+        waitUntil("Usugami to have the focus again") { onMain { activity.hasWindowFocus() } }
         backKey()
         click(find("Discard") { it.says(app.getString(R.string.discard)) })
         find("Home") { it.says(app.getString(R.string.settings)) }

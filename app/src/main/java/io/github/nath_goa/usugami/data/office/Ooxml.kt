@@ -106,6 +106,35 @@ internal class OfficePackage(file: File) : Closeable {
 
 internal class Relationship(val type: String, val target: String, val external: Boolean)
 
+/**
+ * Runs [block] on a thread of its own with a stack of [READING_STACK] bytes, and returns what it
+ * returns or throws what it throws. Reading a Word or PowerPoint file goes a few calls deeper for each
+ * level its elements nest, up to [OfficeXml.MAX_DEPTH] levels. That is more than the 1 MB stack of a
+ * worker thread holds where calls take the most room, as in a debuggable app on Android 15 (about
+ * 6 KB a level, so under 200 levels).
+ */
+internal fun <T> withReadingStack(block: () -> T): T {
+    var result: Result<T>? = null
+    val thread = Thread(null, { result = runCatching(block) }, "office-reader", READING_STACK)
+    thread.start()
+    // Waits for the reading to end even if interrupted, so that nothing is still writing the
+    // work files when the caller clears them.
+    var interrupted = false
+    while (true) {
+        try {
+            thread.join()
+            break
+        } catch (_: InterruptedException) {
+            interrupted = true
+        }
+    }
+    if (interrupted) Thread.currentThread().interrupt()
+    return result!!.getOrThrow()
+}
+
+/** Room for [OfficeXml.MAX_DEPTH] levels several times over, as much as an app's main thread has. */
+private const val READING_STACK = 8L * 1024 * 1024
+
 /** Which vocabulary an element comes from. Element names repeat between them (w:p, a:p, p:sp...). */
 internal enum class Ns { WORD, DRAWING, SLIDE, WORD_DRAWING, PICTURE, COMPATIBILITY, MATH, VML, OTHER }
 
@@ -164,6 +193,27 @@ internal class OfficeXml private constructor(private val parser: XmlPullParser, 
                     block()
                     // Children the block left unread are skipped.
                     if (parser.eventType == XmlPullParser.START_TAG && parser.depth == parent + 1) skip()
+                }
+            }
+        }
+    }
+
+    /**
+     * Calls [enter] at each element inside the current one, in order, going on into an element's own
+     * children only when [enter] returns true for it, then leaves the reader at the current element's
+     * end. Like [children] called one level inside another, but in a loop, so it uses no more stack
+     * however deep it goes. Elements nested deeper than [MAX_DEPTH] are skipped, as [children] skips them.
+     */
+    fun descendants(enter: () -> Boolean) {
+        val top = parser.depth
+        while (true) {
+            when (next()) {
+                XmlPullParser.END_DOCUMENT -> return
+                XmlPullParser.END_TAG -> if (parser.depth == top) return
+                XmlPullParser.START_TAG -> {
+                    val depth = parser.depth
+                    // An element not gone into is skipped, unless [enter] has read it already.
+                    if ((depth > MAX_DEPTH || !enter()) && parser.eventType == XmlPullParser.START_TAG && parser.depth == depth) skip()
                 }
             }
         }

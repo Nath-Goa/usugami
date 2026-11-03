@@ -29,6 +29,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -210,10 +211,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         label = "screen",
     ) { current ->
         // While a screen animates away it must not handle Back or touches, and it keeps showing
-        // its last data.
+        // its last data. A screen reader no longer finds it either: its buttons could still be
+        // pressed through the screen reader, and parts of it the new screen doesn't cover yet
+        // would be read out with the new screen.
         val active = transition.targetState == EnterExitState.Visible
         val screenSnackbar = if (active) snackbar else idleSnackbar
-        Box {
+        Box(if (active) Modifier else Modifier.clearAndSetSemantics {}) {
             if (current == "home" || current.startsWith("images")) {
                 // Once a PDF tool's screens have gone (the user went home, or shared images opened the
                 // editor), nothing of that tool can be shown again: opening a tool starts afresh. Its
