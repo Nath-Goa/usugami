@@ -97,19 +97,22 @@ private const val TILE_ASPECT = 0.75f
 /** The grids scroll inside the screen past this height, so the file name stays near. */
 private val GridMaxHeight = 480.dp
 
+/** The pages [text] names, zero-based and in the order typed; none while it can't be read. */
+internal fun typedPages(text: String, pageCount: Int): List<Int> = try {
+    PdfPageSelection.selected(text, pageCount)
+} catch (_: Exception) {
+    emptyList()
+}
+
 /**
  * The pages to delete, typed like "2,5-7" or marked by tapping their pictures; the two stay in
- * step. The count says how many are marked, and marking every page says one must stay.
+ * step. The count says how many are marked, and marking every page says one must stay. A tapped
+ * page is marked or unmarked through [onTap], in the text as it is then: two pages tapped before
+ * the screen redraws are both marked.
  */
 @Composable
-internal fun DeletePagesOptions(input: PdfInput, text: String, onText: (String) -> Unit) {
-    val marked = remember(text, input.pageCount) {
-        try {
-            PdfPageSelection.selected(text, input.pageCount).toSet()
-        } catch (_: Exception) {
-            emptySet()
-        }
-    }
+internal fun DeletePagesOptions(input: PdfInput, text: String, onText: (String) -> Unit, onTap: (change: (String) -> String) -> Unit) {
+    val marked = remember(text, input.pageCount) { typedPages(text, input.pageCount).toSet() }
     OutlinedTextField(
         value = text,
         onValueChange = onText,
@@ -143,7 +146,10 @@ internal fun DeletePagesOptions(input: PdfInput, text: String, onText: (String) 
         items(input.pageCount, key = { it }) { index ->
             val isMarked = index in marked
             DeleteTile(input, index, isMarked) {
-                onText(PdfPageSelection.format(if (isMarked) marked - index else marked + index))
+                onTap { current ->
+                    val now = typedPages(current, input.pageCount).toSet()
+                    PdfPageSelection.format(if (index in now) now - index else now + index)
+                }
             }
         }
     }
@@ -466,20 +472,25 @@ private fun AddPagesButton(enabled: Boolean, onAddPdf: () -> Unit, onAddBlank: (
             Text(stringResource(R.string.reorganize_add))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            // An entry tapped again, or the other one, while the menu fades away adds nothing more.
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.reorganize_add_pdf)) },
                 leadingIcon = { Icon(Icons.Rounded.PictureAsPdf, contentDescription = null) },
                 onClick = {
-                    open = false
-                    onAddPdf()
+                    if (open) {
+                        open = false
+                        onAddPdf()
+                    }
                 },
             )
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.reorganize_add_blank)) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.NoteAdd, contentDescription = null) },
                 onClick = {
-                    open = false
-                    onAddBlank()
+                    if (open) {
+                        open = false
+                        onAddBlank()
+                    }
                 },
             )
         }

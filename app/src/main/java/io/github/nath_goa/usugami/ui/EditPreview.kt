@@ -96,7 +96,7 @@ internal fun EditPreview(
     description: String,
     onSelect: (Long?) -> Unit,
     onBegin: () -> Unit,
-    onStep: (PageItem) -> Unit,
+    onDrag: (was: PageItem, item: PageItem) -> Boolean,
     onEnd: () -> Unit,
     onStroke: (FloatArray) -> Boolean,
     inkRoom: () -> Int,
@@ -106,7 +106,7 @@ internal fun EditPreview(
     val latestSelected by rememberUpdatedState(selected)
     val select by rememberUpdatedState(onSelect)
     val begin by rememberUpdatedState(onBegin)
-    val step by rememberUpdatedState(onStep)
+    val dragStep by rememberUpdatedState(onDrag)
     val end by rememberUpdatedState(onEnd)
     val stroke by rememberUpdatedState(onStroke)
     // Read as each touch starts: the page's exact size can arrive while a finger is down, and that
@@ -181,22 +181,34 @@ internal fun EditPreview(
                                 // A tap only chooses: a finger that doesn't mean to drag still moves a
                                 // pixel or two, which mustn't move the item, or take the place of Redo.
                                 val start = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() } ?: return@awaitEachGesture
-                                fun dragTo(position: Offset) {
+                                // Each step goes on from the item as the last one left it. Changed some
+                                // other way meanwhile (another finger picked a colour or another page, or
+                                // undid the drag), it is left as it is now, and the drag is over.
+                                var last: PageItem = hit
+                                fun dragTo(position: Offset): Boolean {
                                     val moved = (position - down.position) * toPage
-                                    step(
-                                        if (handle != null) EditLayout.dragHandle(hit, handle, position.x * toPage, position.y * toPage, shownWidth, shownHeight)
-                                        else EditLayout.moved(hit, moved.x, moved.y, shownWidth, shownHeight),
-                                    )
+                                    val next = if (handle != null) EditLayout.dragHandle(hit, handle, position.x * toPage, position.y * toPage, shownWidth, shownHeight)
+                                    else EditLayout.moved(hit, moved.x, moved.y, shownWidth, shownHeight)
+                                    if (!dragStep(last, next)) return false
+                                    last = next
+                                    return true
                                 }
                                 begin()
+                                var dragging = true
+                                fun stop() {
+                                    if (!dragging) return
+                                    dragging = false
+                                    end()
+                                }
                                 try {
-                                    dragTo(start.position)
+                                    if (!dragTo(start.position)) stop()
                                     drag(start.id) { change ->
-                                        dragTo(change.position)
+                                        if (dragging && !dragTo(change.position)) stop()
+                                        // Still this drag's finger, even once it is over: the screen doesn't scroll under it.
                                         change.consume()
                                     }
                                 } finally {
-                                    end()
+                                    stop()
                                 }
                             }
                         } else {

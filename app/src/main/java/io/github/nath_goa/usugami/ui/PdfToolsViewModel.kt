@@ -63,13 +63,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD,
@@ -199,7 +201,21 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val _passwordRemoved = MutableStateFlow(handle[KEY_PASSWORD_REMOVED] ?: false)
     val passwordRemoved = _passwordRemoved.asStateFlow()
     private val _messages = Channel<String>(Channel.BUFFERED)
-    val messages = _messages.receiveAsFlow()
+    /**
+     * Messages waiting to show or showing. The same one again meanwhile, as when a button is tapped
+     * over and over, isn't put behind it: it would show again and again, long after the taps.
+     */
+    private val unshown: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    /** Messages to show, one at a time: each is done with when its collector asks for the next. */
+    val messages: Flow<String> = flow {
+        for (text in _messages) {
+            try {
+                emit(text)
+            } finally {
+                unshown -= text
+            }
+        }
+    }
 
     /** What the last run was named (the file name typed), which a ZIP file of its PDFs is named after. */
     private var resultName: String
@@ -463,28 +479,45 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     /**
      * Adds a blank page after [after] (or at the end), the size of the page it follows as that page
-     * shows: a blank page among sideways pages lies sideways too.
+     * shows: a blank page among sideways pages lies sideways too. Reading a PDF page's size waits for
+     * other file work, so adding is busy meanwhile, as adding a PDF's pages is: asked for again, it
+     * adds no second page, and the PDF can't be saved without it.
      */
     fun addBlankPage(after: PdfPageRef?) {
+        if (_processing.value || _importing.value) return
         val list = pages.value
         val index = after?.let { list.indexOfFirst { ref -> ref.key == it.key } }?.takeIf { it >= 0 } ?: list.lastIndex
         val neighbour = list.getOrNull(index) ?: return
-        val source = inputs.value.firstOrNull { it.id == neighbour.inputId }
-        if (!neighbour.isBlank && source == null) return
-        viewModelScope.launch {
-            val (width, height) = if (neighbour.isBlank) neighbour.width to neighbour.height
-            else withContext(fileOps) { engine.shownPageSize(source!!, neighbour.page) }
-            val sideways = neighbour.rotation % 180 != 0
-            // The list may have changed while the size was read, or the PDF been put away (and
-            // another picked since): the blank page belongs to the pages it was asked for.
-            val current = pages.value
-            if (current.isEmpty() || (source != null && inputs.value.none { it.id == source.id })) return@launch
-            val at = current.indexOfFirst { it.key == neighbour.key }.takeIf { it >= 0 } ?: current.lastIndex
-            val number = (current.filter { it.isBlank }.maxOfOrNull { it.page } ?: -1) + 1
-            val blank = if (sideways) PdfPageRef.blank(number, height, width) else PdfPageRef.blank(number, width, height)
-            pushUndo(current)
-            setPages(current.subList(0, at + 1) + blank + current.subList(at + 1, current.size))
+        if (neighbour.isBlank) return insertBlankPage(neighbour, neighbour.width, neighbour.height)
+        val source = inputs.value.firstOrNull { it.id == neighbour.inputId } ?: return
+        _importing.value = true
+        val generation = ++importGeneration
+        importJob = viewModelScope.launch {
+            // Put away meanwhile (and another PDF picked since, say), the PDF takes its blank page with it.
+            fun abandoned() = generation != importGeneration
+            try {
+                val (width, height) = withContext(fileOps) { engine.shownPageSize(source, neighbour.page) }
+                if (!abandoned() && inputs.value.any { it.id == source.id }) insertBlankPage(neighbour, width, height)
+            } finally {
+                if (!abandoned()) _importing.value = false
+            }
         }
+    }
+
+    /**
+     * Puts a blank page of [width] by [height] points, turned as [neighbour] is, after it, or at the
+     * end if it has gone since it was asked for: the pages may have changed while the size was read.
+     */
+    private fun insertBlankPage(neighbour: PdfPageRef, width: Float, height: Float) {
+        val current = pages.value
+        if (current.isEmpty()) return
+        val found = current.indexOfFirst { it.key == neighbour.key }
+        val at = if (found >= 0) found else current.lastIndex
+        val sideways = (current.getOrNull(found) ?: neighbour).rotation % 180 != 0
+        val number = (current.filter { it.isBlank }.maxOfOrNull { it.page } ?: -1) + 1
+        val blank = if (sideways) PdfPageRef.blank(number, height, width) else PdfPageRef.blank(number, width, height)
+        pushUndo(current)
+        setPages(current.subList(0, at + 1) + blank + current.subList(at + 1, current.size))
     }
 
     /** Saves the page list so the change about to be made can be undone. */
@@ -629,10 +662,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** The first PDF's pages as they are: what Reorganize PDF starts from, and goes back to on Reset. */
     fun originalPages(): List<PdfPageRef> = inputs.value.firstOrNull()?.let { main -> (0 until main.pageCount).map { PdfPageRef(main.id, it) } }.orEmpty()
 
-    /** Reorganize PDF's Reset: the first PDF's pages, as they were. Pages added from other PDFs go. */
+    /**
+     * Reorganize PDF's Reset: the first PDF's pages, as they were. Pages added from other PDFs go.
+     * Pressed again before the button turns off, it changes nothing, and Undo has nothing more to take back.
+     */
     fun resetToOriginal() {
+        val original = originalPages()
+        if (pages.value == original) return
         pushUndo(pages.value)
-        setPages(originalPages())
+        setPages(original)
     }
 
     fun runSplit(mode: SplitMode, text: String, combine: Boolean, fileName: String) {
@@ -794,6 +832,17 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun beginEditChange() = history.begin()
 
     fun stepEditItem(item: PageItem) = history.step(replaced(item))
+
+    /**
+     * A step of a drag of the chosen item: from [was], as the drag's last step left it, to [item].
+     * Once it is no longer [was], or no longer chosen (another finger changed its colour, undid the
+     * drag or chose another page), nothing changes, and false says the drag is over.
+     */
+    fun dragEditItem(was: PageItem, item: PageItem): Boolean {
+        if (history.selected.value != was.id || was !in history.items.value) return false
+        history.step(replaced(item))
+        return true
+    }
 
     fun endEditChange() = history.end()
 
@@ -1435,7 +1484,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
     private fun setLocked(list: List<PdfInput>) { handle[KEY_LOCKED] = ArrayList(list) }
-    private fun message(text: String) { _messages.trySend(text) }
+    private fun message(text: String) {
+        if (unshown.add(text) && _messages.trySend(text).isFailure) unshown -= text
+    }
     private fun pluralMessage(@PluralsRes res: Int, count: Int) = message(strings.getQuantityString(res, count, count))
 
     private var finishing = false

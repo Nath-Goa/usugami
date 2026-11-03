@@ -218,7 +218,7 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
             description = stringResource(R.string.edit_preview_description, page + 1),
             onSelect = vm::selectEditItem,
             onBegin = vm::beginEditChange,
-            onStep = vm::stepEditItem,
+            onDrag = vm::dragEditItem,
             onEnd = vm::endEditChange,
             onStroke = { points ->
                 val highlighter = mode == EditMode.HIGHLIGHTER
@@ -416,6 +416,11 @@ private fun EditProperties(
 ) {
     // The controls fade and fold away with the item, instead of vanishing and leaving a gap that closes.
     val item = freezeWhen(selected == null, selected)
+    // Meanwhile they change nothing, as Delete, Move and Change text don't: the item is no longer
+    // chosen, and may be on a page no longer shown.
+    fun ifChosen(change: () -> Unit) {
+        if (selected != null) change()
+    }
     val drawing = selected == null && mode != EditMode.SELECT
     val penMode = freezeWhen(!drawing, mode)
     Column(Modifier.fillMaxWidth()) {
@@ -460,11 +465,11 @@ private fun EditProperties(
                     label = stringResource(R.string.sign_size),
                     value = EditLayout.size(item),
                     range = range,
-                    onValue = { onStep(EditLayout.resized(item, it, pageWidth, pageHeight)) },
+                    onValue = { ifChosen { onStep(EditLayout.resized(item, it, pageWidth, pageHeight)) } },
                     onBegin = onBegin,
                     onEnd = {
                         onEnd()
-                        if (item is TextItem) onStyle(style.copy(textSize = item.size))
+                        if (item is TextItem) ifChosen { onStyle(style.copy(textSize = item.size)) }
                     },
                 )
                 val lineWidth = when (item) {
@@ -484,18 +489,20 @@ private fun EditProperties(
                                 is ShapeItem -> item.copy(width = width)
                                 else -> item
                             }
-                            onStep(EditLayout.onPage(changed, pageWidth, pageHeight))
+                            ifChosen { onStep(EditLayout.onPage(changed, pageWidth, pageHeight)) }
                         },
                         onBegin = onBegin,
                         onEnd = {
                             onEnd()
-                            onStyle(
-                                when {
-                                    item is ShapeItem -> style.copy(shapeWidth = lineWidth)
-                                    highlighter -> style.copy(highlighterWidth = lineWidth)
-                                    else -> style.copy(penWidth = lineWidth)
-                                },
-                            )
+                            ifChosen {
+                                onStyle(
+                                    when {
+                                        item is ShapeItem -> style.copy(shapeWidth = lineWidth)
+                                        highlighter -> style.copy(highlighterWidth = lineWidth)
+                                        else -> style.copy(penWidth = lineWidth)
+                                    },
+                                )
+                            }
                         },
                     )
                 }
@@ -504,7 +511,7 @@ private fun EditProperties(
                     Row(
                         Modifier
                             .fillMaxWidth()
-                            .toggleable(value = item.filled, role = Role.Switch, onValueChange = { onChange(item.copy(filled = it)) })
+                            .toggleable(value = item.filled, role = Role.Switch, onValueChange = { ifChosen { onChange(item.copy(filled = it)) } })
                             .semantics { contentDescription = fill }
                             .padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -521,20 +528,22 @@ private fun EditProperties(
                 }
                 if (color != null) {
                     EditColors(color) { argb ->
-                        when (item) {
-                            is TextItem -> {
-                                onChange(item.copy(color = argb))
-                                onStyle(style.copy(textColor = argb))
+                        ifChosen {
+                            when (item) {
+                                is TextItem -> {
+                                    onChange(item.copy(color = argb))
+                                    onStyle(style.copy(textColor = argb))
+                                }
+                                is InkItem -> {
+                                    onChange(item.copy(color = argb))
+                                    onStyle(if (item.highlighter) style.copy(highlighterColor = argb) else style.copy(penColor = argb))
+                                }
+                                is ShapeItem -> {
+                                    onChange(item.copy(color = argb))
+                                    onStyle(style.copy(shapeColor = argb))
+                                }
+                                is PictureItem -> Unit
                             }
-                            is InkItem -> {
-                                onChange(item.copy(color = argb))
-                                onStyle(if (item.highlighter) style.copy(highlighterColor = argb) else style.copy(penColor = argb))
-                            }
-                            is ShapeItem -> {
-                                onChange(item.copy(color = argb))
-                                onStyle(style.copy(shapeColor = argb))
-                            }
-                            is PictureItem -> Unit
                         }
                     }
                 }

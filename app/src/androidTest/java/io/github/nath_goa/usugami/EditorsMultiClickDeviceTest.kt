@@ -10,6 +10,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.ViewRootForTest
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasClickAction
@@ -28,6 +31,7 @@ import androidx.compose.ui.test.swipe
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.pdmodel.PDDocument
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.ShapeKind
@@ -38,6 +42,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -48,9 +53,11 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.EmptyCoroutineContext
 
 /**
- * Taps that come faster than the screen updates, in Redact PDF, Edit PDF and the page tools: a
- * double tap, two buttons in the same frame, a menu entry tapped while the menu fades away, a
- * button pressed while a finger drags, a tap while saving waits for other file work.
+ * Taps that come faster than the screen updates, in Redact PDF, Edit PDF, Sign PDF's pad and the page
+ * tools: a double tap, two buttons or pages in the same frame, a menu entry tapped while the menu
+ * fades away, controls used while they fade away, a button pressed while a finger drags or draws,
+ * a tap while saving or adding a page waits for other file work, a button tapped over and over with
+ * pages it can't use.
  */
 class EditorsMultiClickDeviceTest {
     @get:Rule val rule = createEmptyComposeRule()
@@ -133,6 +140,14 @@ class EditorsMultiClickDeviceTest {
             }
         }
         rule.waitForIdle()
+    }
+
+    /** Stops file work (reading a page's size, saving) until the latch it returns is counted down. */
+    private fun holdFileOps(vm: PdfToolsViewModel): CountDownLatch {
+        val fileOps = PdfToolsViewModel::class.java.getDeclaredField("fileOps").apply { isAccessible = true }.get(vm) as CoroutineDispatcher
+        val busy = CountDownLatch(1)
+        fileOps.dispatch(EmptyCoroutineContext, Runnable { busy.await(30, TimeUnit.SECONDS) })
+        return busy
     }
 
     // Redact PDF
@@ -267,9 +282,7 @@ class EditorsMultiClickDeviceTest {
         rule.onNode(hasText(string(R.string.edit_item_rectangle)) and hasClickAction()).performClick()
         rule.waitUntil(5_000) { vm.editItems.value.size == 1 }
         // Other file work, such as a large PDF's preview being prepared, holds up the save.
-        val fileOps = PdfToolsViewModel::class.java.getDeclaredField("fileOps").apply { isAccessible = true }.get(vm) as CoroutineDispatcher
-        val busy = CountDownLatch(1)
-        fileOps.dispatch(EmptyCoroutineContext, Runnable { busy.await(30, TimeUnit.SECONDS) })
+        val busy = holdFileOps(vm)
         val save = hasText(string(R.string.pdf_edit_action)) and hasClickAction()
         try {
             rule.onNode(save).performClick()
@@ -320,5 +333,267 @@ class EditorsMultiClickDeviceTest {
         rule.onNode(turn).performClick()
         rule.waitForIdle()
         assertEquals(listOf(270, 0, 0), vm.pages.value.map { it.rotation })
+    }
+
+    @Test fun reorganizeDoubleTapOnResetLeavesOneUndoStep() {
+        val vm = openWithAlpha(R.string.tool_reorganize)
+        val first = hasContentDescription(string(R.string.pdf_page_number, 1)) and hasClickAction()
+        waitFor(first)
+        rule.onNode(first).performScrollTo().performClick()
+        val remove = hasContentDescription(string(R.string.remove_page, 1))
+        waitFor(remove)
+        rule.onNode(remove).performClick()
+        rule.waitUntil(5_000) { vm.pages.value.size == 2 }
+        val reset = hasText(string(R.string.pdf_reset_pages)) and hasClickAction()
+        rule.onNode(reset).performScrollTo()
+        tapInOneFrame(reset, reset)
+        assertEquals(vm.originalPages(), vm.pages.value)
+        // One Undo brings the change back.
+        rule.onNode(hasContentDescription(string(R.string.undo))).performScrollTo().performClick()
+        rule.waitForIdle()
+        assertEquals(2, vm.pages.value.size)
+    }
+
+    @Test fun reorganizeBlankPageAskedForWhileFilesAreBusyIsAddedOnceAndSaved() {
+        val vm = openWithAlpha(R.string.tool_reorganize)
+        val first = hasContentDescription(string(R.string.pdf_page_number, 1)) and hasClickAction()
+        waitFor(first)
+        rule.onNode(first).performScrollTo().performClick()
+        // A change first, so the PDF can be saved.
+        rule.onNode(hasContentDescription(string(R.string.rotate_page_right, 1))).performClick()
+        rule.waitUntil(5_000) { vm.pages.value.first().rotation == 90 }
+        val add = hasText(string(R.string.reorganize_add)) and hasClickAction()
+        val blank = hasText(string(R.string.reorganize_add_blank)) and hasClickAction()
+        val save = hasText(string(R.string.pdf_reorganize_action)) and hasClickAction()
+        // The page's size is read with the other file work, which is busy (a large PDF's preview, say).
+        val busy = holdFileOps(vm)
+        try {
+            rule.onNode(add).performScrollTo().performClick()
+            waitFor(blank)
+            tapInOneFrame(blank, blank)
+            // Nothing shows yet: asked for again, if the button lets it.
+            if (exists(add and isEnabled())) {
+                rule.onNode(add).performClick()
+                waitFor(blank)
+                rule.onNode(blank).performClick()
+                rule.waitForIdle()
+            }
+            // And saved straight away.
+            rule.onNode(save).performClick()
+            rule.waitForIdle()
+        } finally {
+            busy.countDown()
+        }
+        rule.waitUntil(10_000) { vm.pages.value.any { it.isBlank } }
+        rule.waitUntil(10_000) { !vm.importing.value && !vm.processing.value }
+        Thread.sleep(500)
+        rule.waitForIdle()
+        assertEquals(1, vm.pages.value.count { it.isBlank })
+        assertEquals(4, vm.pages.value.size)
+        // A save asked for before the blank page came has it too.
+        if (vm.result.value == null) rule.onNode(save).performClick()
+        rule.waitUntil(20_000) { vm.result.value != null }
+        assertEquals(4, PDDocument.load(vm.result.value!!.single().file).use { it.numberOfPages })
+    }
+
+    // Delete pages and Split PDF's page pickers
+
+    @Test fun deletePagesTwoPagesTappedTogetherAreBothMarked() {
+        openWithAlpha(R.string.tool_delete_pages)
+        val page = { n: Int -> hasContentDescription(string(R.string.pdf_page_number, n)) and hasClickAction() }
+        waitFor(page(3))
+        rule.onNode(page(3)).performScrollTo()
+        tapInOneFrame(page(2), page(3))
+        val field = rule.onNode(hasSetTextAction() and hasText(string(R.string.delete_pages_field)))
+        field.assert(hasText("2-3"))
+        assertTrue(exists(hasText(string(R.string.delete_pages_count, 2, 3))))
+        // Each tap goes on from the one before: page 2 unmarked, page 1 marked.
+        tapInOneFrame(page(2), page(1))
+        field.assert(hasText("1,3"))
+    }
+
+    @Test fun splitTwoPagesTappedTogetherAreBothSelected() {
+        openWithAlpha(R.string.tool_split)
+        val page = { n: Int -> hasContentDescription(string(R.string.pdf_page_number, n)) and hasClickAction() }
+        waitFor(page(3))
+        rule.onNode(page(3)).performScrollTo()
+        tapInOneFrame(page(2), page(3))
+        val field = rule.onNode(hasSetTextAction() and hasText(string(R.string.pdf_selected)))
+        field.assert(hasText("2-3"))
+        // In the order tapped: page 3 goes, and page 1 comes after page 2.
+        tapInOneFrame(page(3), page(1))
+        field.assert(hasText("2,1"))
+    }
+
+    @Test fun splitWithWrongPagesTappedRepeatedlySaysSoOnce() {
+        openWithAlpha(R.string.tool_split)
+        val field = hasSetTextAction() and hasText(string(R.string.pdf_selected))
+        waitFor(field)
+        rule.onNode(field).performScrollTo().performTextInput("abc")
+        val split = hasText(string(R.string.pdf_split_action)) and hasClickAction()
+        repeat(4) { rule.onNode(split).performClick() }
+        val message = hasText(string(R.string.pdf_pages_format))
+        waitFor(message)
+        // The screen's timers run on the test's clock, which moves on only when told to: a message
+        // shows for 4 seconds, and the next one comes as it goes.
+        val shown = rule.mainClock.currentTime
+        while (exists(message)) {
+            assertTrue("Shown once, not once per tap", rule.mainClock.currentTime - shown < 8_000)
+            rule.mainClock.advanceTimeBy(250)
+        }
+        rule.mainClock.advanceTimeBy(2_000)
+        assertFalse("Shown again", exists(message))
+        // Tapped again later, it says so again.
+        rule.onNode(split).performClick()
+        waitFor(message)
+    }
+
+    // Edit PDF, continued
+
+    private fun editWithFilledRectangle(): Pair<PdfToolsViewModel, ShapeItem> {
+        val vm = editWithAlpha()
+        openShapeMenu()
+        rule.onNode(hasText(string(R.string.edit_item_filled_rectangle)) and hasClickAction()).performClick()
+        rule.waitUntil(5_000) { vm.editItems.value.size == 1 }
+        rule.waitForIdle()
+        return vm to vm.editItems.value.single() as ShapeItem
+    }
+
+    @Test fun editControlsFadingAwayChangeNothing() {
+        val (vm, placed) = editWithFilledRectangle()
+        // A new shape is red.
+        val blue = hasContentDescription(string(R.string.color_blue)) and hasClickAction()
+        val fill = hasContentDescription(string(R.string.edit_fill)) and hasClickAction()
+        rule.onNode(blue).performScrollTo()
+        rule.mainClock.autoAdvance = false
+        // Page 2 is chosen in the strip: the shape on page 1 is let go, and its controls fade away…
+        rule.onNode(hasContentDescription(string(R.string.pdf_page_number, 2)) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        rule.mainClock.advanceTimeByFrame()
+        rule.mainClock.advanceTimeByFrame()
+        // …and are used while they still show.
+        rule.onNode(blue).performSemanticsAction(SemanticsActions.OnClick)
+        rule.onNode(fill).performSemanticsAction(SemanticsActions.OnClick)
+        rule.onNode(hasContentDescription(string(R.string.sign_size)) and SemanticsMatcher.keyIsDefined(SemanticsActions.SetProgress))
+            .performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
+        rule.mainClock.autoAdvance = true
+        rule.waitForIdle()
+        assertEquals(placed, vm.editItems.value.single())
+        // Undo takes back adding it, not a change made out of sight.
+        rule.onNode(hasContentDescription(string(R.string.undo))).performScrollTo().performClick()
+        rule.waitForIdle()
+        assertTrue(vm.editItems.value.isEmpty())
+    }
+
+    /** Where [item] is on the preview [node] of a page the shape [placed] was put in the middle of. */
+    private fun centerOf(item: ShapeItem, placed: ShapeItem, node: SemanticsNodeInteraction): Offset {
+        val size = node.fetchSemanticsNode().size
+        return Offset((item.x1 + item.x2) / 2 / (placed.x1 + placed.x2) * size.width, (item.y1 + item.y2) / 2 / (placed.y1 + placed.y2) * size.height)
+    }
+
+    @Test fun editDragGivesWayToWhatAnotherFingerDoes() {
+        val (vm, placed) = editWithFilledRectangle()
+        val preview = rule.onNode(hasContentDescription(string(R.string.edit_preview_description, 1)))
+        preview.performScrollTo()
+        fun startDrag() {
+            val at = centerOf(vm.editItems.value.single() as ShapeItem, placed, preview)
+            preview.performTouchInput {
+                down(0, at)
+                moveBy(0, Offset(viewConfiguration.touchSlop + 8f, 0f))
+                moveBy(0, Offset(24f, 0f))
+            }
+            rule.waitForIdle()
+        }
+        fun endDrag(on: SemanticsNodeInteraction = preview) {
+            on.performTouchInput {
+                moveBy(0, Offset(24f, 0f))
+                moveBy(0, Offset(24f, 0f))
+                up(0)
+            }
+            rule.waitForIdle()
+        }
+
+        // A colour picked with another finger mid-drag stays, and the drag stops there.
+        startDrag()
+        assertNotEquals(placed, vm.editItems.value.single())
+        rule.onNode(hasContentDescription(string(R.string.color_blue)) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
+        val blue = vm.editItems.value.single() as ShapeItem
+        assertNotEquals(placed.color, blue.color)
+        endDrag()
+        assertEquals(blue, vm.editItems.value.single())
+
+        // Undo mid-drag stays undone, and Redo can bring the drag back.
+        startDrag()
+        val dragged = vm.editItems.value.single()
+        rule.onNode(hasContentDescription(string(R.string.undo))).performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
+        assertEquals(blue, vm.editItems.value.single())
+        endDrag()
+        assertEquals(blue, vm.editItems.value.single())
+        assertTrue("Redo is kept", vm.canRedoEdit.value)
+        rule.onNode(hasContentDescription(string(R.string.redo))).performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
+        assertEquals(dragged, vm.editItems.value.single())
+
+        // Another page chosen mid-drag: the item no longer moves out of sight.
+        startDrag()
+        rule.onNode(hasContentDescription(string(R.string.pdf_page_number, 2)) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
+        val left = vm.editItems.value.single()
+        endDrag(rule.onNode(hasContentDescription(string(R.string.edit_preview_description, 2))))
+        assertEquals(left, vm.editItems.value.single())
+    }
+
+    // Sign PDF's pad
+
+    private fun openSignaturePad(): Pair<PdfToolsViewModel, SemanticsNodeInteraction> {
+        val vm = openWithAlpha(R.string.tool_sign)
+        val draw = hasText(string(R.string.sign_draw)) and hasClickAction()
+        waitFor(draw)
+        rule.onNode(draw).performScrollTo().performClick()
+        val pad = hasContentDescription(string(R.string.sign_pad))
+        waitFor(pad)
+        rule.waitForIdle()
+        val node = rule.onNode(pad)
+        // A first stroke.
+        node.performTouchInput { swipe(Offset(width * 0.2f, height * 0.5f), Offset(width * 0.5f, height * 0.4f), 200) }
+        rule.waitForIdle()
+        return vm to node
+    }
+
+    private fun startStroke(pad: SemanticsNodeInteraction) {
+        pad.performTouchInput {
+            down(0, Offset(width * 0.55f, height * 0.5f))
+            moveBy(0, Offset(30f, 10f))
+            moveBy(0, Offset(30f, -10f))
+            moveBy(0, Offset(30f, 10f))
+        }
+        rule.waitForIdle()
+    }
+
+    @Test fun signaturePadClearedMidStrokeStaysEmpty() {
+        val (_, pad) = openSignaturePad()
+        val clear = hasText(string(R.string.sign_clear)) and hasClickAction()
+        val done = hasText(string(R.string.sign_done)) and hasClickAction()
+        rule.onNode(done).assertIsEnabled()
+        // One finger signs on; another taps Clear.
+        startStroke(pad)
+        rule.onNode(clear).performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
+        pad.performTouchInput {
+            moveBy(0, Offset(30f, 0f))
+            up(0)
+        }
+        rule.waitForIdle()
+        rule.onNode(done).assertIsNotEnabled()
+        rule.onNode(clear).assertIsNotEnabled()
+    }
+
+    @Test fun signatureDoneMidStrokeKeepsTheStrokeDrawn() {
+        val (vm, pad) = openSignaturePad()
+        startStroke(pad)
+        rule.onNode(hasText(string(R.string.sign_done)) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
+        assertEquals(2, vm.signature.value!!.strokes.size)
     }
 }

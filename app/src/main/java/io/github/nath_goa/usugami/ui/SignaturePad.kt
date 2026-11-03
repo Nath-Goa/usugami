@@ -36,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -83,6 +84,8 @@ internal fun inkLabel(ink: SignatureInk): Int = when (ink) {
 @Composable
 internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit, onDismiss: () -> Unit) {
     var draft by rememberSaveable { mutableStateOf(initial ?: Signature(emptyList(), SignatureInk.BLACK)) }
+    // Done, tapped with another finger, takes the stroke being drawn too; Clear drops it.
+    val drawing = remember { DrawingStroke() }
     // Edge to edge like the screens, so nothing of the screen below shows around it, even beside a
     // camera cutout in landscape.
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -99,7 +102,7 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
             },
             bottomBar = {
                 Button(
-                    onClick = { onDone(draft) },
+                    onClick = { onDone(drawing.addedTo(draft)) },
                     enabled = !draft.isEmpty,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -118,18 +121,44 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
                 Text(stringResource(R.string.sign_pad_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // As wide as the screen; in landscape, as tall as the room left.
                 Box(Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    SignaturePad(draft, onStroke = { draft += it }, Modifier.aspectRatio(SignatureLayout.PAD_WIDTH / SignatureLayout.PAD_HEIGHT))
+                    SignaturePad(draft, drawing, onStroke = { draft += it }, Modifier.aspectRatio(SignatureLayout.PAD_WIDTH / SignatureLayout.PAD_HEIGHT))
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.sign_ink), style = MaterialTheme.typography.titleSmall)
                     Spacer(Modifier.width(8.dp))
                     ColorSwatches(SignatureInk.entries, draft.ink, onSelect = { draft = draft.withInk(it) }, argb = { it.argb }, label = ::inkLabel)
                     Spacer(Modifier.weight(1f))
-                    OutlinedButton(onClick = { draft = draft.cleared() }, enabled = !draft.isEmpty) { Text(stringResource(R.string.sign_clear)) }
+                    OutlinedButton(onClick = {
+                        draft = draft.cleared()
+                        drawing.drop()
+                    }, enabled = !draft.isEmpty) { Text(stringResource(R.string.sign_clear)) }
                 }
             }
         }
     }
+}
+
+/** The stroke a finger is drawing on the pad, in pad units: x, y, x, y, … */
+@Stable
+private class DrawingStroke {
+    val points = mutableStateListOf<Float>()
+
+    /** Clear was tapped while it was drawn: the rest of it isn't drawn either. */
+    var dropped = false
+        private set
+
+    fun start() {
+        points.clear()
+        dropped = false
+    }
+
+    fun drop() {
+        points.clear()
+        dropped = true
+    }
+
+    /** [signature] with this stroke, as far as it has been drawn. */
+    fun addedTo(signature: Signature) = if (points.isEmpty()) signature else signature + points.toFloatArray()
 }
 
 /**
@@ -137,9 +166,8 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
  * place when the pad changes size, as it does on rotation.
  */
 @Composable
-private fun SignaturePad(signature: Signature, onStroke: (FloatArray) -> Unit, modifier: Modifier) {
-    // The stroke being drawn, in pad units: x, y, x, y, …
-    val stroke = remember { mutableStateListOf<Float>() }
+private fun SignaturePad(signature: Signature, drawing: DrawingStroke, onStroke: (FloatArray) -> Unit, modifier: Modifier) {
+    val stroke = drawing.points
     val latest by rememberUpdatedState(signature)
     val finish by rememberUpdatedState(onStroke)
     val drawn = remember(signature.strokes) { signature.path().asComposePath() }
@@ -163,11 +191,11 @@ private fun SignaturePad(signature: Signature, onStroke: (FloatArray) -> Unit, m
                         val x = (position.x * toPad).coerceIn(0f, SignatureLayout.PAD_WIDTH)
                         val y = (position.y * toPad).coerceIn(0f, SignatureLayout.PAD_HEIGHT)
                         val count = stroke.size
-                        if (room <= 0 || (count >= 2 && hypot(x - stroke[count - 2], y - stroke[count - 1]) < Signature.MIN_STEP)) return
+                        if (drawing.dropped || room <= 0 || (count >= 2 && hypot(x - stroke[count - 2], y - stroke[count - 1]) < Signature.MIN_STEP)) return
                         stroke.addAll(listOf(x, y))
                         room--
                     }
-                    stroke.clear()
+                    drawing.start()
                     add(down.position)
                     down.consume()
                     // One finger signs; others are ignored. Points between frames make the curve smoother.
@@ -178,7 +206,7 @@ private fun SignaturePad(signature: Signature, onStroke: (FloatArray) -> Unit, m
                         change.consume()
                         if (!change.pressed) break
                     }
-                    if (stroke.isNotEmpty()) finish(stroke.toFloatArray())
+                    if (!drawing.dropped && stroke.isNotEmpty()) finish(stroke.toFloatArray())
                     stroke.clear()
                 }
             },

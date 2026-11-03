@@ -312,7 +312,14 @@ fun PdfToolScreen(
                             PdfInputCard(inputs[0], thumbnail = drawn(inputs[0]), onRemove = onRemove)
                         }
                         when (tool) {
-                            PdfTool.SPLIT -> SplitOptions(shown ?: inputs[0], splitMode, onMode = { splitMode = it }, pageText, onText = { pageText = it }, combine, onCombine = { combine = it })
+                            PdfTool.SPLIT -> SplitOptions(
+                                shown ?: inputs[0],
+                                splitMode, onMode = { splitMode = it },
+                                pageText, onText = { pageText = it },
+                                // Read and written at once, so a second page tapped before the screen redraws adds to the first.
+                                onTap = { change -> pageText = change(pageText) },
+                                combine, onCombine = { combine = it },
+                            )
                             PdfTool.MERGE -> Unit
                             PdfTool.COMPRESS -> CompressOptions(level, onLevel = { level = it })
                             PdfTool.ROTATE -> RotateOptions(shown ?: inputs[0], pages, vm)
@@ -336,7 +343,11 @@ fun PdfToolScreen(
                                 onNudge = { move -> signPlacement = move(signPlacement) },
                             )
                             PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> Unit
-                            PdfTool.DELETE_PAGES -> DeletePagesOptions(shown ?: inputs[0], deleteText, onText = { deleteText = it })
+                            PdfTool.DELETE_PAGES -> DeletePagesOptions(
+                                shown ?: inputs[0],
+                                deleteText, onText = { deleteText = it },
+                                onTap = { change -> deleteText = change(deleteText) },
+                            )
                             PdfTool.REORGANIZE -> ReorganizeOptions(
                                 inputs, pages, vm, drawn,
                                 changed = reorganized,
@@ -616,7 +627,16 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -> Unit, text: String, onText: (String) -> Unit, combine: Boolean, onCombine: (Boolean) -> Unit) {
+private fun SplitOptions(
+    input: PdfInput,
+    mode: SplitMode,
+    onMode: (SplitMode) -> Unit,
+    text: String,
+    onText: (String) -> Unit,
+    onTap: (change: (String) -> String) -> Unit,
+    combine: Boolean,
+    onCombine: (Boolean) -> Unit,
+) {
     Text(stringResource(R.string.tool_split), style = MaterialTheme.typography.titleMedium)
     val modes = listOf(
         SplitMode.SELECTED to R.string.pdf_selected,
@@ -665,7 +685,7 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
         }
         AnimatedVisibility(visible = mode == SplitMode.SELECTED, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page picker") {
             // In the order typed, which a combined PDF keeps.
-            val selected = try { PdfPageSelection.selected(text, input.pageCount).toSet() } catch (_: Exception) { emptySet() }
+            val selected = typedPages(text, input.pageCount).toSet()
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
                 items(input.pageCount) { i ->
                     val active = i in selected
@@ -678,7 +698,13 @@ private fun SplitOptions(input: PdfInput, mode: SplitMode, onMode: (SplitMode) -
                     val pageLabel = stringResource(R.string.pdf_page_number, i + 1)
                     OutlinedCard(
                         // A page tapped goes at the end; the others keep their order, and ranges stay short.
-                        onClick = { onText(PdfPageSelection.formatInOrder(if (active) selected.toList() - i else selected.toList() + i)) },
+                        // From the pages chosen now, not as last drawn: two tapped at once are both chosen.
+                        onClick = {
+                            onTap { current ->
+                                val now = typedPages(current, input.pageCount)
+                                PdfPageSelection.formatInOrder(if (i in now) now - i else now + i)
+                            }
+                        },
                         border = BorderStroke(borderWidth, borderColor),
                         modifier = Modifier.width(105.dp).semantics { this.selected = active },
                     ) {
