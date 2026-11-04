@@ -27,8 +27,15 @@ import java.io.File
  * A finished PDF in the app's cache, ready to save or share. [originalBytes] is the size of its source images.
  * [images] are, for a PDF just made from images, the image on each page and where it is drawn: text
  * recognition reads those rather than the compressed copies in the PDF. Empty for other PDFs.
+ * [keptOriginal]: Compress PDF couldn't make it smaller, so it is the PDF picked, as it was.
  */
-data class PdfFile(val file: File, val pageCount: Int, val originalBytes: Long, val images: List<PlacedImage> = emptyList()) {
+data class PdfFile(
+    val file: File,
+    val pageCount: Int,
+    val originalBytes: Long,
+    val images: List<PlacedImage> = emptyList(),
+    val keptOriginal: Boolean = false,
+) {
     val name: String get() = file.name
     val sizeBytes: Long get() = file.length()
 }

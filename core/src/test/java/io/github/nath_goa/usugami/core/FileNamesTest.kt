@@ -41,6 +41,18 @@ class FileNamesTest {
     }
 
     @Test
+    fun uniqueNamesAreCleanedAndTellFilesApartIgnoringCase() {
+        assertEquals(
+            listOf("Report", "Report (2)", "report (3)", "Notes", "Compressed", "Compressed (2)", "a_b"),
+            FileNames.uniqueNames(listOf("Report", "Report.pdf", " report ", "Notes", "", "...", "a/b"), "Compressed"),
+        )
+        // A name typed like one made unique isn't taken twice.
+        assertEquals(listOf("a", "a (2)", "a (3)"), FileNames.uniqueNames(listOf("a", "a (2)", "a"), "x"))
+        assertEquals(listOf("Été", "été (2)"), FileNames.uniqueNames(listOf("Été", "été"), "x"))
+        assertEquals(emptyList<String>(), FileNames.uniqueNames(emptyList(), "x"))
+    }
+
+    @Test
     fun naturalOrder() {
         val sorted = listOf("img10.jpg", "IMG2.jpg", "img1.jpg", "b.png", "A.png", "img02.jpg", "img2b.jpg")
             .sortedWith(NaturalOrder)

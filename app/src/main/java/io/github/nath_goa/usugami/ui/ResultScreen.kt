@@ -11,6 +11,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -29,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FolderZip
@@ -70,6 +73,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -91,6 +96,14 @@ class ResultActions(
     /** For several PDFs: one ZIP file of them, shared, or saved with the "Save as" screen. */
     val shareZip: () -> Unit,
     val saveZip: () -> Unit,
+    /**
+     * For several PDFs, each PDF's own Share and Save buttons, beside Open: saved into Downloads
+     * ([saveOneToDownloads], null where Android has no Downloads to save to) or with the "Save as"
+     * screen. Without [saveOneAs], each PDF has only Open.
+     */
+    val shareOne: ((PdfFile) -> Unit)? = null,
+    val saveOneToDownloads: ((PdfFile) -> Unit)? = null,
+    val saveOneAs: ((PdfFile) -> Unit)? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -103,6 +116,8 @@ fun ResultScreen(
     actions: ResultActions,
     zipProgress: ZipProgress? = null,
     note: String? = null,
+    /** The names of the PDFs saved so far, each marked as saved (with [ResultActions.saveOneAs]). */
+    savedFiles: Set<String> = emptySet(),
 ) {
     var confirmStartOver by rememberSaveable { mutableStateOf(false) }
     val single = files.size == 1
@@ -164,7 +179,23 @@ fun ResultScreen(
             Spacer(Modifier.height(20.dp))
 
             Column(Modifier.widthIn(max = 480.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                files.forEach { file -> FileRow(file, showOpen = !single, onOpen = { actions.open(file) }) }
+                files.forEach { file ->
+                    val saveAs = actions.saveOneAs
+                    if (!single && saveAs != null) {
+                        OwnFileRow(
+                            file,
+                            saved = file.name in savedFiles,
+                            onOpen = { actions.open(file) },
+                            onShare = actions.shareOne?.let { share -> { share(file) } },
+                            onSaveToDownloads = actions.saveOneToDownloads?.let { save -> { save(file) } },
+                            onSaveAs = { saveAs(file) },
+                            canShare = zipProgress == null,
+                            canSave = idle,
+                        )
+                    } else {
+                        FileRow(file, showOpen = !single, onOpen = { actions.open(file) })
+                    }
+                }
             }
             if (note != null) {
                 Spacer(Modifier.height(12.dp))
@@ -316,32 +347,11 @@ private const val ZIP_DIALOG_DELAY_MS = 400L
 
 @Composable
 private fun FileRow(file: PdfFile, showOpen: Boolean, onOpen: () -> Unit) {
-    val context = LocalContext.current
-    // Read the size once. Start over deletes the files while this screen is still animating away,
-    // and reading the size again then would show "0 B".
-    val sizeBytes = remember(file) { file.sizeBytes }
-    val size = Formatter.formatShortFileSize(context, sizeBytes)
-    val pages = pluralStringResource(R.plurals.page_count, file.pageCount, file.pageCount)
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(
-                    stringResource(R.string.result_details, pages, size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                val percent = Compressor.savedPercent(file.originalBytes, sizeBytes)
-                if (percent != null) {
-                    Text(
-                        stringResource(R.string.compressed_from, Formatter.formatShortFileSize(context, file.originalBytes), percent),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
+            FileDetails(file, Modifier.weight(1f))
             if (showOpen) {
                 IconButton(onClick = onOpen) {
                     // One per file, so the label names the file.
@@ -352,6 +362,130 @@ private fun FileRow(file: PdfFile, showOpen: Boolean, onOpen: () -> Unit) {
             }
         }
     }
+}
+
+/** [file]'s name, pages and size, and how much smaller it was made, or that its original was kept. */
+@Composable
+private fun FileDetails(file: PdfFile, modifier: Modifier = Modifier, saved: Boolean = false) {
+    val context = LocalContext.current
+    // Read the size once. Start over deletes the files while this screen is still animating away,
+    // and reading the size again then would show "0 B".
+    val sizeBytes = remember(file) { file.sizeBytes }
+    val size = Formatter.formatShortFileSize(context, sizeBytes)
+    val pages = pluralStringResource(R.plurals.page_count, file.pageCount, file.pageCount)
+    Column(modifier) {
+        Text(file.name, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(
+            stringResource(R.string.result_details, pages, size),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        val percent = Compressor.savedPercent(file.originalBytes, sizeBytes)
+        if (percent != null) {
+            Text(
+                stringResource(R.string.compressed_from, Formatter.formatShortFileSize(context, file.originalBytes), percent),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        } else if (file.keptOriginal) {
+            Text(stringResource(R.string.original_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        AnimatedVisibility(visible = saved, enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()), label = "saved mark") {
+            Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.msg_saved), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+/**
+ * One of several PDFs, with buttons of its own under it: Open, Share, and Save, which offers
+ * Downloads and "Save as" (or goes straight to "Save as" where Android has no Downloads to save to).
+ * [saved] marks it once it has been saved, on its own or with the others.
+ */
+@Composable
+private fun OwnFileRow(
+    file: PdfFile,
+    saved: Boolean,
+    onOpen: () -> Unit,
+    onShare: (() -> Unit)?,
+    onSaveToDownloads: (() -> Unit)?,
+    onSaveAs: () -> Unit,
+    canShare: Boolean,
+    canSave: Boolean,
+) {
+    OutlinedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(top = 12.dp, bottom = 4.dp, end = 8.dp)) {
+            Row(Modifier.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
+                Spacer(Modifier.width(12.dp))
+                FileDetails(file, Modifier.weight(1f), saved = saved)
+            }
+            // Under the details, so a long name, a long translation or a large font size wraps the
+            // buttons onto another line instead of squeezing the name. Each names its PDF for a screen reader.
+            val openLabel = stringResource(R.string.open_file, file.name)
+            val shareLabel = stringResource(R.string.share_file, file.name)
+            val saveLabel = stringResource(R.string.save_file, file.name)
+            // Their icons line up with the PDF's.
+            FlowRow(Modifier.padding(start = 8.dp)) {
+                TextButton(onClick = onOpen, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = openLabel }) {
+                    RowButtonContent(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open))
+                }
+                if (onShare != null) {
+                    TextButton(onClick = onShare, enabled = canShare, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = shareLabel }) {
+                        RowButtonContent(Icons.Rounded.Share, stringResource(R.string.share))
+                    }
+                }
+                var menu by rememberSaveable(file.name) { mutableStateOf(false) }
+                Box {
+                    TextButton(
+                        // With Downloads to save to, a menu offers it and "Save as"; otherwise "Save as" opens.
+                        onClick = { if (onSaveToDownloads != null) menu = true else onSaveAs() },
+                        enabled = canSave,
+                        contentPadding = RowButtonPadding,
+                        modifier = Modifier.semantics { contentDescription = saveLabel },
+                    ) {
+                        RowButtonContent(Icons.Rounded.Download, stringResource(R.string.save))
+                    }
+                    // The items can still be tapped while the menu fades out: only the first tap counts.
+                    DropdownMenu(expanded = menu && canSave, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.save_to_downloads)) },
+                            leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
+                            onClick = {
+                                if (menu) {
+                                    menu = false
+                                    onSaveToDownloads?.invoke()
+                                }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.save_as)) },
+                            leadingIcon = { Icon(Icons.Rounded.SaveAs, contentDescription = null) },
+                            onClick = {
+                                if (menu) {
+                                    menu = false
+                                    onSaveAs()
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Narrower than a text button's own, so the three fit on one line on most phones. */
+private val RowButtonPadding = PaddingValues(horizontal = 8.dp)
+
+@Composable
+private fun RowButtonContent(icon: ImageVector, text: String) {
+    Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+    Spacer(Modifier.width(6.dp))
+    Text(text)
 }
 
 @Composable

@@ -28,6 +28,8 @@
     <string name="tool_redact_detail">टेक्स्ट और तस्वीरें हमेशा के लिए काली करें</string>
     <string name="pick_pdf">PDF चुनें</string>
     <string name="add_pdfs">PDF जोड़ें</string>
+    <string name="pick_pdfs">PDF फ़ाइलें चुनें</string>
+    <string name="pick_several_hint">आप एक साथ कई चुन सकते हैं।</string>
     <!-- %1$s is a file name. -->
     <string name="move_file_earlier">%1$s को पहले ले जाएं</string>
     <string name="move_file_later">%1$s को बाद में ले जाएं</string>
@@ -50,6 +52,14 @@
     <string name="pdf_process_failed">इस PDF को प्रोसेस नहीं किया जा सका। फ़ाइल और स्टोरेज में खाली जगह जांचें।</string>
     <string name="pdf_saved_downloads">डाउनलोड में सेव किया गया</string>
     <string name="pdf_working">आपकी PDF पर काम चल रहा है…</string>
+    <string name="pdf_working_many">आपकी PDF फ़ाइलों पर काम चल रहा है…</string>
+    <!-- A tool working on several PDFs, one after another: which one it is on, and how many there are. -->
+    <string name="batch_progress" tools:ignore="PluralsCandidate">%2$d में से PDF %1$d</string>
+    <!-- %1$d counts the files that failed (never 0), %2$s lists their names. -->
+    <plurals name="batch_failed" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s को प्रोसेस नहीं किया जा सका। फ़ाइल और स्टोरेज में खाली जगह जांचें।</item>
+        <item quantity="other">%1$d फ़ाइलें प्रोसेस नहीं की जा सकीं: %2$s। फ़ाइलें और स्टोरेज में खाली जगह जांचें।</item>
+    </plurals>
     <string name="pdf_file_mode">फ़ाइलें</string>
     <string name="pdf_page_mode">पेज</string>
     <string name="pdf_file_mode_hint">पूरी PDF फ़ाइलों को अपने मनचाहे क्रम में लगाएं।</string>
@@ -73,8 +83,16 @@
     <string name="pdf_split_action">PDF स्प्लिट करें</string>
     <string name="pdf_merge_action">PDF मर्ज करें</string>
     <string name="pdf_compress_action">PDF कंप्रेस करें</string>
+    <plurals name="pdf_compress_action_many">
+        <item quantity="one">%d PDF कंप्रेस करें</item>
+        <item quantity="other">%d PDF कंप्रेस करें</item>
+    </plurals>
     <string name="pdf_no_reduction">यह PDF पहले से ही छोटी है; इसका मूल साइज़ रखा गया।</string>
     <string name="pdf_compress_note">टेक्स्ट और ड्रॉइंग साफ़ रहते हैं। जहां जगह बचती है, वहां इमेज छोटी की जाती हैं।</string>
+    <string name="compression_for_all">सभी PDF का कंप्रेशन</string>
+    <string name="compression_for_all_hint">किसी एक को उसका अपना स्तर देने के लिए उसे नीचे बदलें।</string>
+    <!-- Shown under a PDF that Compress PDF couldn't make smaller. -->
+    <string name="original_kept">पहले से छोटी है: मूल फ़ाइल रखी गई</string>
     <plurals name="pdf_password_removed" tools:ignore="ImpliedQuantity">
         <item quantity="one">नई PDF में कोई पासवर्ड नहीं है।</item>
         <item quantity="other">नई PDF फ़ाइलों में कोई पासवर्ड नहीं है।</item>
@@ -441,6 +459,9 @@
     </plurals>
     <string name="open">खोलें</string>
     <string name="open_file">%1$s खोलें</string>
+    <string name="share_file">%1$s शेयर करें</string>
+    <string name="save_file">%1$s सेव करें</string>
+    <string name="save">सेव करें</string>
     <string name="share">शेयर करें</string>
     <string name="share_all">सभी शेयर करें</string>
     <string name="save_to_downloads">डाउनलोड में सेव करें</string>

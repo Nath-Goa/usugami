@@ -207,6 +207,13 @@ old "PDFer".
 - Text stays selectable and drawings stay sharp; only images are reduced.
 - Never makes a PDF bigger: if compressing can't save space, you keep the original. (Except
   for password-protected PDFs, which are always saved again without the password.)
+- **Many PDFs at once:** pick several, then add more or remove one at any time. Set the level for
+  all of them in one go, or give a PDF a level of its own, and name each new PDF as you like.
+  They're compressed one after another; if one can't be read, Usugami names it and still makes the
+  others.
+- Each new PDF says how much smaller it got, or that its original was kept, and has its own
+  **Open**, **Share** and **Save** buttons. **Save to Downloads** and **Save to folder…** save
+  them all, each as its own file.
 
 **Flatten PDF**
 
@@ -290,9 +297,11 @@ old "PDFer".
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
-  folder.
-- When a tool makes several PDFs (Split PDF in parts, or one PDF per image), **Share or save as
-  ZIP** puts them all in one ZIP file, named after them, to share or save in one go.
+  folder. When a PDF tool makes several PDFs, each one also has its own **Open**, **Share** and
+  **Save**.
+- When a tool makes several PDFs (Split PDF in parts, Compress PDF with several PDFs, or one PDF
+  per image), **Share or save as ZIP** puts them all in one ZIP file, named after them, to share
+  or save in one go.
 - Comes in **English**, **French**, **Spanish** and **Hindi**: pick one the first time you open
   Usugami, and change it any time in **Settings**. Text recognition starts on the same language.
 - Light and dark theme follow your phone, or pick **Light** or **Dark** in **Settings** →

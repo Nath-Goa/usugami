@@ -13,7 +13,10 @@ and pull request (`.github/workflows/ci.yml`).
 ```
 
 They cover page layout and page sizes, EXIF orientation, JPEG parsing and metadata removal,
-lossless PNG encoding, compression sizing, PDF syntax, the PDF writer, file names, page
+lossless PNG encoding, compression sizing, PDF syntax, the PDF writer, file names (also for
+several PDFs made at once: cleaned, and told apart whatever their case), what Compress PDF keeps
+for each of several PDFs (a level for all of them, one PDF's own level kept until the next level
+for all, PDFs added and removed, and all of it packed for Android's saved state), page
 selections such as `1-3;5;7-9`, where page numbers, watermarks and signatures go on pages that
 are turned (`/Rotate`) or cropped, where a signature starts and how far it can grow, how big its
 image is, page lists written back as ranges (`2,5-7`), that deleting every page is refused, and
@@ -96,7 +99,13 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   rendering), a field left without an appearance drawn, a comment with no appearance of its own
   drawn, no fields or widgets left, links kept, a dynamic XFA form removed and the rest flattened,
   nothing to flatten reported (an XFA-only form too), and cancelling leaving nothing behind
-- compress: all three levels, selectable text kept, never larger than the original
+- compress: all three levels, selectable text kept, never larger than the original; several PDFs
+  at once, each at its own level and under its own name (two alike told apart), a PDF that can't
+  get smaller kept byte for byte and said so, a damaged one named while the others are made (and
+  no result when none is), PDFs with a password asked for in turn, the levels and names kept when
+  the process is restarted, one PDF compressed as before, cancelling leaving nothing behind, and
+  each PDF of the result saved on its own, into Downloads (without a second copy) or into the
+  document "Save as" made, also after the process was restarted while that screen was open
 - password-protected PDFs: opening with the password, then split, compress and rotate
 - rotate: only the chosen pages turn, on top of the turn they already had, and nothing else changes
 - page numbers: each in the chosen corner of the page as shown (also on turned and cropped pages),
@@ -183,7 +192,10 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   all" asking first, the redacted result, and the boxes still there after going back from it; the
   result screen's "Share or save as ZIP" menu for a split and for one PDF per image, with the share
   screen and the "Save as" screen it starts caught and answered (the type, the name and the ZIP
-  file written), and no such button for a single PDF; Settings → Appearance starting on the phone's
+  file written), and no such button for a single PDF; Compress PDF with two PDFs: the level for
+  all and one PDF's own level and name, kept through the activity being recreated, how much
+  smaller each got or that its original was kept, and each PDF's own Open, Share and Save (with
+  "Save as" caught and answered, and Save to Downloads); Settings → Appearance starting on the phone's
   setting, then Dark and Light holding through the activity being recreated, Usugami being opened
   again and the first-launch language screen (each checked by the configuration, the colors the
   window draws and the status bar icons), both the way Android applies it from Android 12 and the

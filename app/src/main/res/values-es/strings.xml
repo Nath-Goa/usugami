@@ -28,6 +28,8 @@
     <string name="tool_redact_detail">Tapa texto e imágenes para siempre</string>
     <string name="pick_pdf">Elegir PDF</string>
     <string name="add_pdfs">Añadir PDF</string>
+    <string name="pick_pdfs">Elegir PDF</string>
+    <string name="pick_several_hint">Puedes elegir varios a la vez.</string>
     <!-- %1$s is a file name. -->
     <string name="move_file_earlier">Mover %1$s una posición antes</string>
     <string name="move_file_later">Mover %1$s una posición después</string>
@@ -50,6 +52,15 @@
     <string name="pdf_process_failed">No se pudo procesar este PDF. Revisa el archivo y el almacenamiento libre.</string>
     <string name="pdf_saved_downloads">Guardado en Descargas</string>
     <string name="pdf_working">Procesando tu PDF…</string>
+    <string name="pdf_working_many">Procesando tus PDF…</string>
+    <!-- A tool working on several PDFs, one after another: which one it is on, and how many there are. -->
+    <string name="batch_progress" tools:ignore="PluralsCandidate">PDF %1$d de %2$d</string>
+    <!-- %1$d counts the files that failed (never 0), %2$s lists their names. -->
+    <plurals name="batch_failed">
+        <item quantity="one">No se pudo procesar %2$s. Revisa el archivo y el almacenamiento libre.</item>
+        <item quantity="many">No se pudieron procesar %1$d archivos: %2$s. Revisa los archivos y el almacenamiento libre.</item>
+        <item quantity="other">No se pudieron procesar %1$d archivos: %2$s. Revisa los archivos y el almacenamiento libre.</item>
+    </plurals>
     <string name="pdf_file_mode">Archivos</string>
     <string name="pdf_page_mode">Páginas</string>
     <string name="pdf_file_mode_hint">Coloca los PDF completos en el orden que quieras.</string>
@@ -73,8 +84,17 @@
     <string name="pdf_split_action">Dividir PDF</string>
     <string name="pdf_merge_action">Unir PDF</string>
     <string name="pdf_compress_action">Comprimir PDF</string>
+    <plurals name="pdf_compress_action_many">
+        <item quantity="one">Comprimir %d PDF</item>
+        <item quantity="many">Comprimir %d PDF</item>
+        <item quantity="other">Comprimir %d PDF</item>
+    </plurals>
     <string name="pdf_no_reduction">Este PDF ya es compacto; se conservó el tamaño original.</string>
     <string name="pdf_compress_note">El texto y los dibujos se mantienen nítidos. Las imágenes se reducen cuando así se ahorra espacio.</string>
+    <string name="compression_for_all">Compresión de todos los PDF</string>
+    <string name="compression_for_all_hint">Cambia uno de abajo para darle su propio nivel.</string>
+    <!-- Shown under a PDF that Compress PDF couldn't make smaller. -->
+    <string name="original_kept">Ya es compacto: se conservó el original</string>
     <plurals name="pdf_password_removed">
         <item quantity="one">El nuevo PDF no tiene contraseña.</item>
         <item quantity="many">Los nuevos PDF no tienen contraseña.</item>
@@ -453,6 +473,9 @@
     </plurals>
     <string name="open">Abrir</string>
     <string name="open_file">Abrir %1$s</string>
+    <string name="share_file">Compartir %1$s</string>
+    <string name="save_file">Guardar %1$s</string>
+    <string name="save">Guardar</string>
     <string name="share">Compartir</string>
     <string name="share_all">Compartir todos</string>
     <string name="save_to_downloads">Guardar en Descargas</string>

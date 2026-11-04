@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.graphics.Shader
 import android.net.Uri
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nath_goa.usugami.data.CompressJob
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
@@ -172,6 +173,66 @@ class PdfToolsDeviceTest {
             val unlockedCompressed = save(engine.compress(unlocked, PdfCompression.LESS, "protected_compressed").file, "protected_compressed.pdf")
             assertTrue(text(unlockedCompressed).contains("ALPHA ONE"))
         }
+    }
+
+    /**
+     * Several PDFs at once: each into a PDF of its own, at its own level and under its own name (names
+     * cleaned and told apart), in turn. A PDF that can't get smaller is kept byte for byte and says so,
+     * one that fails doesn't stop the others, and cancelling leaves nothing behind.
+     */
+    @Test fun compressEachMakesAPdfOfEachKeepsWhatCantShrinkAndGoesOnPastFailures() {
+        val scanned = engine.import(Uri.fromFile(noiseScan("each_scan.pdf", lossless = false)), 1101)
+        val compact = engine.import(Uri.fromFile(compactPdf(File(context.cacheDir, "each_compact.pdf"), "ALREADY COMPACT")), 1102)
+        val damaged = engine.import(Uri.fromFile(fixture("beta.pdf")), 1103)
+        // Damaged after it was picked: it can't be read any more.
+        damaged.file.writeText("%PDF-1.4 nothing else")
+        val protected = try {
+            engine.import(Uri.fromFile(fixture("protected.pdf")), 1104)
+            error("Password request expected")
+        } catch (e: PdfPasswordRequired) {
+            engine.unlock(e.input, "test123")
+        }
+        val jobs = listOf(
+            CompressJob(scanned, PdfCompression.EXTREME, "Report"),
+            CompressJob(compact, PdfCompression.LESS, "report.pdf"),
+            CompressJob(damaged, PdfCompression.RECOMMENDED, "Broken"),
+            CompressJob(protected, PdfCompression.RECOMMENDED, " a/b "),
+        )
+        val started = ArrayList<Int>()
+        val outcomes = engine.compressEach(jobs, onNext = { started += it })
+        assertEquals("Each PDF in turn", listOf(0, 1, 2, 3), started)
+        assertEquals(4, outcomes.size)
+        assertTrue("The damaged PDF failed", outcomes[2].isFailure)
+
+        val (scan, text, unlocked) = listOf(0, 1, 3).map { outcomes[it].getOrThrow() }
+        assertEquals(listOf("Report.pdf", "report (2).pdf", "a_b.pdf"), listOf(scan, text, unlocked).map { it.name })
+        assertTrue("The scan shrank", scan.sizeBytes < scanned.file.length() / 2)
+        assertEquals(scanned.file.length(), scan.originalBytes)
+        assertFalse(scan.keptOriginal)
+        assertTrue(text(scan.file).contains("Keep this selectable caption"))
+        // At its own level, Extreme: at most A4's long side at 100 dpi, where Less would keep 200.
+        PDDocument.load(scan.file).use { doc -> assertTrue(imagesOn(doc.getPage(0)).single().image.height <= 1169) }
+
+        assertTrue("An already compact PDF can't get smaller", text.keptOriginal)
+        assertArrayEquals("The original, as it was", compact.file.readBytes(), text.file.readBytes())
+        assertEquals(compact.file.length(), text.originalBytes)
+        assertTrue(text(text.file).contains("ALREADY COMPACT"))
+
+        // A PDF with a password is always saved again, without it.
+        assertFalse(unlocked.keptOriginal)
+        PDDocument.load(unlocked.file).use { assertFalse(it.isEncrypted) }
+        assertTrue(text(unlocked.file).contains("ALPHA ONE"))
+        assertEquals("Nothing else in the output folder", setOf("Report.pdf", "report (2).pdf", "a_b.pdf"), scan.file.parentFile!!.list()!!.toSet())
+
+        // Cancelled during the second PDF, none is left, the first's neither.
+        try {
+            engine.compressEach(jobs.take(2), check = { if (started.size > 5) throw kotlinx.coroutines.CancellationException() }, onNext = { started += it })
+            fail("Cancelling should stop it")
+        } catch (_: kotlinx.coroutines.CancellationException) {
+        }
+        assertEquals(listOf(0, 1, 2, 3, 0, 1), started)
+        assertTrue("Nothing left behind", scan.file.parentFile?.list().isNullOrEmpty())
+        listOf(scanned, compact, damaged, protected).forEach(engine::delete)
     }
 
     /**

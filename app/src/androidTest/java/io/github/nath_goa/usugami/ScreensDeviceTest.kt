@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami
 import android.app.Activity
 import android.app.Application
 import android.app.Instrumentation
+import android.content.ContentUris
 import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
@@ -16,6 +17,8 @@ import android.os.Build
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.provider.MediaStore
+import android.text.format.Formatter
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -34,6 +37,7 @@ import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.core.Compression
+import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.InkItem
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
@@ -1410,6 +1414,107 @@ class ScreensDeviceTest {
         unsavedCompressResult(activity)
         findBelow("Start over") { it.says(app.getString(R.string.start_over)) }
         assertTrue(nodes().none { it.says(app.getString(R.string.zip_button)) })
+    }
+
+    private fun top(node: AccessibilityNodeInfo) = Rect().also(node::getBoundsInScreen).top
+
+    /** The choice [label] (a radio button) that comes first below [top] on the screen. */
+    private fun choiceBelow(label: String, top: Int): AccessibilityNodeInfo {
+        var found: AccessibilityNodeInfo? = null
+        waitUntil("the \"$label\" choice below $top") {
+            found = nodes().filter { it.says(label) }.mapNotNull { node -> ancestor(node) { it.isCheckable } }.filter { top(it) > top }.minByOrNull(::top)
+            found != null
+        }
+        return found!!
+    }
+
+    /** Usugami's PDFs in Downloads whose names start with [prefix]: their entries and names. */
+    private fun downloads(prefix: String): List<Pair<Uri, String>> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return emptyList()
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val columns = arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME)
+        return app.contentResolver.query(collection, columns, "${MediaStore.Downloads.DISPLAY_NAME} LIKE ?", arrayOf("$prefix%"), null)!!.use { c ->
+            buildList { while (c.moveToNext()) add(ContentUris.withAppendedId(collection, c.getLong(0)) to c.getString(1)) }
+        }
+    }
+
+    /**
+     * Compress PDF with several PDFs: a level for all of them, one PDF's own level and name, all kept
+     * through the activity being recreated; then each PDF of the result is saved with its own button.
+     */
+    @Test fun severalPdfsAreCompressedEachWithItsOwnLevelAndNameAndSavedOnTheirOwn() {
+        val first = launch()
+        val pdfVm = openTool(R.string.tool_compress, first)
+        find("the card to choose PDFs") { it.says(app.getString(R.string.pick_pdfs)) }
+        find("the hint that several can be chosen") { it.says(app.getString(R.string.pick_several_hint)) }
+        // Alpha gets smaller; the notes can't.
+        val compact = compactPdf(File(app.cacheDir, "output/test-picked/compact.pdf").apply { parentFile!!.mkdirs() }, "NOTES")
+        onMain { pdfVm.addPdfs(listOf(pdf("alpha.pdf"), picked("notes.pdf", compact.readBytes())), replace = false) }
+        waitUntil("the PDFs to be added") { onMain { pdfVm.inputs.value.size } == 2 }
+        val (alpha, notes) = onMain { pdfVm.inputs.value }
+        find("the notes' remove button, named") { it.says(app.getString(R.string.remove_file, "notes.pdf")) }
+
+        // The level for all sets both.
+        val forAll = top(find("the level for all") { it.says(app.getString(R.string.compression_for_all)) })
+        click(choiceBelow(app.getString(R.string.compression_extreme), forAll))
+        waitUntil("both PDFs to be at Extreme") { onMain { pdfVm.batch.value.common } == PdfCompression.EXTREME.ordinal }
+        // The notes' own level and name, in its card.
+        val less = app.getString(R.string.compression_less)
+        click(choiceBelow(less, top(find("the notes' card") { it.says("notes.pdf") })))
+        waitUntil("the notes alone to be at Less") { onMain { pdfVm.compressionOf(notes) } == PdfCompression.LESS }
+        assertEquals(PdfCompression.EXTREME, onMain { pdfVm.compressionOf(alpha) })
+        assertFalse("None is chosen for all while they differ", choiceBelow(app.getString(R.string.compression_extreme), forAll).chosen)
+        val stamp = "Batch ${System.currentTimeMillis()}"
+        type(nodes().filter { it.isEditable && top(it) > top(find("the notes' card") { it.says("notes.pdf") }) }.minBy(::top), "$stamp notes")
+        onMain { pdfVm.setBatchName(alpha.id, "$stamp alpha") }
+
+        // All of it survives the activity being recreated, as on rotation.
+        onMain { first.recreate() }
+        recreatedFrom(first)
+        findBelow("the notes' name, still typed") { it.isEditable && it.text?.toString() == "$stamp notes" }
+        assertTrue("The notes' own level, still chosen", choiceBelow(less, top(findAbove("the notes' card") { it.says("notes.pdf") })).chosen)
+
+        val compress = app.resources.getQuantityString(R.plurals.pdf_compress_action_many, 2, 2)
+        click(find("the enabled button") { it.says(compress) && ancestor(it) { node -> node.isClickable }?.isEnabled == true })
+        find("the result screen") { it.says(app.getString(R.string.result_heading_many)) }
+        val files = onMain { pdfVm.result.value!! }
+        assertEquals(listOf("$stamp alpha.pdf", "$stamp notes.pdf"), files.map { it.name })
+        // Alpha says how much smaller it got, the notes that their original was kept.
+        val percent = checkNotNull(Compressor.savedPercent(files[0].originalBytes, files[0].sizeBytes))
+        val from = Formatter.formatShortFileSize(app, files[0].originalBytes)
+        find("how much smaller alpha got") { it.says(app.getString(R.string.compressed_from, from, percent)) }
+        find("the notes' original kept") { it.says(app.getString(R.string.original_kept)) }
+        find("the notes' own Open button") { it.says(app.getString(R.string.open_file, files[1].name)) }
+        find("the notes' own Share button") { it.says(app.getString(R.string.share_file, files[1].name)) }
+
+        // The notes alone, with "Save as" (offered in a menu beside Downloads where there are Downloads).
+        val document = File(app.cacheDir, "output/test-picked/saved-one.pdf").apply { parentFile!!.mkdirs(); writeBytes(ByteArray(0)) }
+        val picked = FileProvider.getUriForFile(app, "${app.packageName}.files", document)
+        val hasDownloads = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        try {
+            val create = intercept(Intent.ACTION_CREATE_DOCUMENT, Instrumentation.ActivityResult(Activity.RESULT_OK, Intent().setData(picked))) {
+                click(find("the notes' own Save button") { it.says(app.getString(R.string.save_file, files[1].name)) })
+                if (hasDownloads) click(find("Save as in the menu") { it.says(app.getString(R.string.save_as)) })
+            }
+            assertEquals("The document is named after the notes' PDF", files[1].name, create.getStringExtra(Intent.EXTRA_TITLE))
+            waitUntil("the notes' PDF to be saved") { onMain { pdfVm.savedFiles.value } == setOf(files[1].name) }
+            assertTrue(files[1].file.readBytes().contentEquals(document.readBytes()))
+            assertFalse("Alpha isn't saved yet", onMain { pdfVm.saved.value })
+            findBelow("the note that not all are saved") { it.says(app.getString(R.string.not_saved_note)) }
+
+            // Alpha alone, into Downloads.
+            if (hasDownloads) {
+                click(findAbove("alpha's own Save button") { it.says(app.getString(R.string.save_file, files[0].name)) })
+                // Once the menu shows: until then the screen's own "Save to Downloads" (all of them) is there.
+                find("the menu") { it.says(app.getString(R.string.save_as)) }
+                click(find("Save to Downloads in the menu") { it.says(app.getString(R.string.save_to_downloads)) })
+                find("the message") { it.says(app.getString(R.string.msg_saved_downloads, files[0].name)) }
+                waitUntil("both to count as saved") { onMain { pdfVm.saved.value } }
+                assertEquals(listOf(files[0].name), downloads(stamp).map { it.second })
+            }
+        } finally {
+            downloads(stamp).forEach { app.contentResolver.delete(it.first, null, null) }
+        }
     }
 
     /** Set by tests that change the appearance, which outlives the activity (and Usugami, from Android 12). */

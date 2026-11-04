@@ -23,11 +23,11 @@ class PdfSaver(private val context: Context) {
 
     /**
      * Copies [files] into the public Downloads folder and returns the copies. A file [earlier] says
-     * was copied there already, and still is, isn't copied again: saving a result a second time (a
-     * second tap, say) doesn't add "Name (1).pdf".
+     * (at its place, or null) was copied there already, and still is, isn't copied again: saving a
+     * result a second time (a second tap, say) doesn't add "Name (1).pdf".
      */
     @RequiresApi(Build.VERSION_CODES.Q)
-    fun saveToDownloads(files: List<File>, earlier: List<DownloadsCopy>? = null): List<DownloadsCopy> =
+    fun saveToDownloads(files: List<File>, earlier: List<DownloadsCopy?>? = null): List<DownloadsCopy> =
         files.mapIndexed { i, file -> earlier?.getOrNull(i)?.let(::stillInDownloads) ?: saveToDownloads(file) }
 
     /** Copies [file] into the public Downloads folder. */

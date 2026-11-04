@@ -30,6 +30,8 @@
     <string name="tool_redact_detail">Black out text and pictures for good</string>
     <string name="pick_pdf">Choose PDF</string>
     <string name="add_pdfs">Add PDFs</string>
+    <string name="pick_pdfs">Choose PDFs</string>
+    <string name="pick_several_hint">You can choose several at once.</string>
     <!-- %1$s is a file name. -->
     <string name="move_file_earlier">Move %1$s earlier</string>
     <string name="move_file_later">Move %1$s later</string>
@@ -52,6 +54,14 @@
     <string name="pdf_process_failed">Couldn\'t process this PDF. Check the file and free storage.</string>
     <string name="pdf_saved_downloads">Saved to Downloads</string>
     <string name="pdf_working">Working on your PDF…</string>
+    <string name="pdf_working_many">Working on your PDFs…</string>
+    <!-- A tool working on several PDFs, one after another: which one it is on, and how many there are. -->
+    <string name="batch_progress" tools:ignore="PluralsCandidate">PDF %1$d of %2$d</string>
+    <!-- %1$d counts the files that failed (never 0), %2$s lists their names. -->
+    <plurals name="batch_failed">
+        <item quantity="one">Couldn\'t process %2$s. Check the file and free storage.</item>
+        <item quantity="other">Couldn\'t process %1$d files: %2$s. Check the files and free storage.</item>
+    </plurals>
     <string name="pdf_file_mode">Files</string>
     <string name="pdf_page_mode">Pages</string>
     <string name="pdf_file_mode_hint">Move whole PDFs into the order you want.</string>
@@ -77,8 +87,16 @@
     <string name="pdf_split_action">Split PDF</string>
     <string name="pdf_merge_action">Merge PDFs</string>
     <string name="pdf_compress_action">Compress PDF</string>
+    <plurals name="pdf_compress_action_many">
+        <item quantity="one">Compress %d PDF</item>
+        <item quantity="other">Compress %d PDFs</item>
+    </plurals>
     <string name="pdf_no_reduction">This PDF is already compact; the original size was kept.</string>
     <string name="pdf_compress_note">Text and drawings stay sharp. Images are reduced where it saves space.</string>
+    <string name="compression_for_all">Compression for all PDFs</string>
+    <string name="compression_for_all_hint">Change one below to give it a level of its own.</string>
+    <!-- Shown under a PDF that Compress PDF couldn't make smaller. -->
+    <string name="original_kept">Already compact: the original was kept</string>
     <!-- Counts PDFs, so never 0: in French and Hindi "one" may leave the number out. -->
     <plurals name="pdf_password_removed">
         <item quantity="one">The new PDF has no password.</item>
@@ -478,6 +496,9 @@
     </plurals>
     <string name="open">Open</string>
     <string name="open_file">Open %1$s</string>
+    <string name="share_file">Share %1$s</string>
+    <string name="save_file">Save %1$s</string>
+    <string name="save">Save</string>
     <string name="share">Share</string>
     <string name="share_all">Share all</string>
     <string name="save_to_downloads">Save to Downloads</string>

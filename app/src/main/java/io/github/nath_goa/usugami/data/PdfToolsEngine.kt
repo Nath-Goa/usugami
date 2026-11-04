@@ -44,6 +44,7 @@ import java.io.File
 import java.io.IOException
 import java.util.Collections
 import java.util.IdentityHashMap
+import kotlinx.coroutines.CancellationException
 import kotlinx.parcelize.Parcelize
 
 @Parcelize
@@ -79,6 +80,9 @@ data class PdfPageRef(
 enum class PdfCompression(val dpi: Int, val quality: Float) {
     LESS(200, 0.85f), RECOMMENDED(150, 0.68f), EXTREME(100, 0.48f)
 }
+
+/** One of several PDFs to compress at once: [input] at [level], into a PDF named [fileName]. */
+data class CompressJob(val input: PdfInput, val level: PdfCompression, val fileName: String)
 
 class PdfPasswordRequired(val input: PdfInput) : IOException("Password required")
 
@@ -640,6 +644,60 @@ class PdfToolsEngine(private val context: Context) {
         clearOutput()
         outputDir.mkdirs()
         val target = File(outputDir, "${FileNames.sanitize(fileName, "Compressed")}.pdf")
+        try {
+            return compressTo(input, level, target, check)
+        } catch (t: Throwable) {
+            clearOutput()
+            throw t
+        }
+    }
+
+    /**
+     * Compresses each of [jobs] in turn into a PDF of its own, as [compress] does one, named as each
+     * asks (cleaned, and told apart when two ask for one name). See [each].
+     */
+    fun compressEach(jobs: List<CompressJob>, check: () -> Unit = {}, onNext: (Int) -> Unit = {}): List<Result<PdfFile>> {
+        val names = FileNames.uniqueNames(jobs.map { it.fileName }, "Compressed")
+        return each(jobs.size, check, onNext) { i -> compressTo(jobs[i].input, jobs[i].level, File(outputDir, "${names[i]}.pdf"), check) }
+    }
+
+    /**
+     * Makes [count] PDFs one after another, in place of the PDFs made before: [make] makes number i
+     * into the output folder, after [onNext] is told it starts. One that fails is left out, its error
+     * in its place, and the others are still made. Cancelled through [check], it leaves none behind.
+     */
+    fun each(count: Int, check: () -> Unit, onNext: (Int) -> Unit, make: (Int) -> PdfFile): List<Result<PdfFile>> {
+        clearOutput()
+        outputDir.mkdirs()
+        try {
+            return List(count) { i ->
+                check()
+                onNext(i)
+                try {
+                    Result.success(make(i))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Result.failure(e)
+                } catch (e: OutOfMemoryError) {
+                    // One PDF too big for memory doesn't stop the others: its objects are freed with it.
+                    Result.failure(e)
+                } catch (e: LinkageError) {
+                    Result.failure(e)
+                }
+            }
+        } catch (t: Throwable) {
+            clearOutput()
+            throw t
+        }
+    }
+
+    /**
+     * Compresses [input] into [target]. An unprotected PDF that wouldn't get at least 1% smaller is
+     * copied as it is instead, and its [PdfFile.keptOriginal] says so. Nothing is left at [target]
+     * if it fails.
+     */
+    private fun compressTo(input: PdfInput, level: PdfCompression, target: File, check: () -> Unit): PdfFile {
         val candidate = File(outputDir, "candidate.tmp")
         try {
             load(input.file, input.password).use { doc ->
@@ -658,11 +716,11 @@ class PdfToolsEngine(private val context: Context) {
                 doc.save(candidate)
             }
             // A saving under 1% isn't worth a re-encoded copy: the original is kept, as it says.
-            if (input.password.isNotEmpty() || Compressor.savedPercent(input.file.length(), candidate.length()) != null) candidate.copyTo(target, overwrite = true)
-            else input.file.copyTo(target, overwrite = true)
-            return PdfFile(target, input.pageCount, input.file.length())
+            val keep = input.password.isEmpty() && Compressor.savedPercent(input.file.length(), candidate.length()) == null
+            (if (keep) input.file else candidate).copyTo(target, overwrite = true)
+            return PdfFile(target, input.pageCount, input.file.length(), keptOriginal = keep)
         } catch (t: Throwable) {
-            clearOutput()
+            target.delete()
             throw t
         } finally {
             candidate.delete()

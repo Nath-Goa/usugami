@@ -1,5 +1,6 @@
 package io.github.nath_goa.usugami
 
+import android.graphics.Bitmap
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSInteger
@@ -17,6 +18,7 @@ import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDColor
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
+import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotation
@@ -448,4 +450,22 @@ fun labelledPages(file: File, plain: Boolean = false): File = file.also {
 /** The label each page of [file] shows in a viewer. */
 fun pageLabels(file: File): List<String> = PDDocument.load(file).use { doc ->
     (doc.documentCatalog.pageLabels ?: PDPageLabels(doc)).labelsByPageIndices.toList()
+}
+
+/**
+ * A PDF Compress PDF can't make smaller: a line of [text] over a picture of noise with see-through
+ * parts, which compressing leaves as it is, saved by PDFBox as Usugami saves PDFs.
+ */
+fun compactPdf(file: File, text: String): File = file.also {
+    val random = java.util.Random(3)
+    val pixels = IntArray(300 * 300) { (0x80 + random.nextInt(0x80)) shl 24 or random.nextInt(0x1000000) }
+    val bitmap = Bitmap.createBitmap(pixels, 300, 300, Bitmap.Config.ARGB_8888)
+    PDDocument().use { doc ->
+        val page = PDPage(PDRectangle.A4)
+        doc.addPage(page)
+        PDPageContentStream(doc, page).use { it.drawImage(LosslessFactory.createFromImage(doc, bitmap), 72f, 300f, 300f, 300f) }
+        writeText(doc, page, text)
+        doc.save(file)
+    }
+    bitmap.recycle()
 }

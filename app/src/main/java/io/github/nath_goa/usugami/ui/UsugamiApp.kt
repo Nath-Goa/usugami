@@ -77,6 +77,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val pdfProcessing by pdfVm.processing.collectAsStateWithLifecycle()
     val pdfSaved by pdfVm.saved.collectAsStateWithLifecycle()
     val pdfSaving by pdfVm.saving.collectAsStateWithLifecycle()
+    val pdfSavedFiles by pdfVm.savedFiles.collectAsStateWithLifecycle()
     val pdfPasswordRemoved by pdfVm.passwordRemoved.collectAsStateWithLifecycle()
     val zipProgress by vm.zipProgress.collectAsStateWithLifecycle()
     val pdfZipProgress by pdfVm.zipProgress.collectAsStateWithLifecycle()
@@ -382,7 +383,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             saveAs = {
                                 if (pdfVm.checkResult()) {
                                     launch(R.string.msg_no_file_picker) {
-                                        if (files.size == 1) createDocument.launch(files[0].name) else pickFolder.launch(null)
+                                        if (files.size == 1) {
+                                            pdfVm.prepareSaveAs(null)
+                                            createDocument.launch(files[0].name)
+                                        } else {
+                                            pickFolder.launch(null)
+                                        }
                                     }
                                 }
                             },
@@ -394,9 +400,21 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                     launch(R.string.msg_no_file_picker) { createZip.launch(pdfVm.zipFileName()) }
                                 }
                             },
+                            // Each PDF of several also has Share and Save buttons of its own.
+                            shareOne = { file -> if (pdfVm.checkResult()) launch(R.string.msg_no_share_app) { context.startActivity(pdfVm.shareIntent(listOf(file))) } },
+                            saveOneToDownloads = if (pdfVm.canSaveToDownloads) pdfVm::saveOneToDownloads else null,
+                            saveOneAs = { file ->
+                                if (pdfVm.checkResult()) {
+                                    launch(R.string.msg_no_file_picker) {
+                                        pdfVm.prepareSaveAs(file)
+                                        createDocument.launch(file.name)
+                                    }
+                                }
+                            },
                         ),
                         zipProgress = pdfZipProgress,
                         note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else null,
+                        savedFiles = pdfSavedFiles,
                     )
                 }
                 else -> {

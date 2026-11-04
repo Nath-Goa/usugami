@@ -32,6 +32,16 @@ object FileNames {
         return "$base ($n)"
     }
 
+    /**
+     * Names for files made together, from the names [wanted] for them, in order: each made safe
+     * ([sanitize], with [fallback] for a blank one) and unique among them, ignoring case, as [unique]
+     * does. Two PDFs both named "Report" become "Report" and "Report (2)".
+     */
+    fun uniqueNames(wanted: List<String>, fallback: String): List<String> {
+        val taken = HashSet<String>()
+        return wanted.map { name -> unique(sanitize(name, fallback), taken).also { taken += it } }
+    }
+
     private fun truncateUtf8(text: String, maxBytes: Int): String {
         if (text.toByteArray(Charsets.UTF_8).size <= maxBytes) return text
         val sb = StringBuilder()

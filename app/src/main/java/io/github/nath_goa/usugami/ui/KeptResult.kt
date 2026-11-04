@@ -22,9 +22,11 @@ internal class KeptResult(private val handle: SavedStateHandle) {
         val pages = kept.getIntArray("pages") ?: return null
         val originals = kept.getLongArray("originals") ?: return null
         if (pages.isEmpty() || files.size != pages.size || originals.size != pages.size) return null
+        // Kept by Compress PDF; a result kept by an older version has none.
+        val keptOriginals = kept.getBooleanArray("kept_originals")?.takeIf { it.size == pages.size }
         return files.indices.map { i ->
             val file = if ('/' in files[i]) File(files[i]) else File(folder, files[i])
-            PdfFile(file, pages[i], originals[i])
+            PdfFile(file, pages[i], originals[i], keptOriginal = keptOriginals?.get(i) == true)
         }
     }
 
@@ -56,6 +58,7 @@ internal class KeptResult(private val handle: SavedStateHandle) {
                 }.encodeToByteArray(),
                 "pages" to IntArray(files.size) { files[it].pageCount },
                 "originals" to LongArray(files.size) { files[it].originalBytes },
+                "kept_originals" to BooleanArray(files.size) { files[it].keptOriginal },
             )
         }
     }

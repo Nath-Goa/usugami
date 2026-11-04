@@ -98,10 +98,12 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.BatchChoices
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PageSize
@@ -145,13 +147,16 @@ fun PdfToolScreen(
     val finding by vm.finding.collectAsStateWithLifecycle()
     val previewView by vm.previewView.collectAsStateWithLifecycle()
     val views by vm.views.collectAsStateWithLifecycle()
+    val batch by vm.batch.collectAsStateWithLifecycle()
+    val batchProgress by vm.batchProgress.collectAsStateWithLifecycle()
+    // A tool that also takes several PDFs ([isBatch]) lists them, each with its own name and choices.
+    val many = tool.isBatch && inputs.size > 1
     // Word, PowerPoint and EPUB to PDF take one document instead of PDFs.
     val officeKind = tool.officeKind
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
     var pageText by rememberSaveable(tool) { mutableStateOf("") }
     var combine by rememberSaveable(tool) { mutableStateOf(true) }
     var pageMode by rememberSaveable(tool) { mutableStateOf(false) }
-    var level by rememberSaveable(tool) { mutableStateOf(PdfCompression.RECOMMENDED) }
     var numberPosition by rememberSaveable(tool) { mutableStateOf(PageNumberPosition.BOTTOM_CENTER) }
     var numberSize by rememberSaveable(tool) { mutableStateOf(PageNumberSize.MEDIUM) }
     var skipText by rememberSaveable(tool) { mutableStateOf("") }
@@ -177,7 +182,8 @@ fun PdfToolScreen(
     }
     var fileName by rememberSaveable(tool, inputKey) { mutableStateOf(vm.defaultName(tool)) }
     val ready = when (tool) {
-        PdfTool.SPLIT, PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.FLATTEN -> inputs.size == 1
+        PdfTool.SPLIT, PdfTool.PAGE_NUMBERS, PdfTool.FLATTEN -> inputs.size == 1
+        PdfTool.COMPRESS -> inputs.isNotEmpty()
         PdfTool.MERGE -> inputs.size >= 2 && (!pageMode || pages.isNotEmpty())
         PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
         PdfTool.WATERMARK -> inputs.size == 1 && watermarkText.isNotBlank()
@@ -231,7 +237,8 @@ fun PdfToolScreen(
                         when (tool) {
                             PdfTool.SPLIT -> vm.runSplit(splitMode, pageText, combine, fileName)
                             PdfTool.MERGE -> vm.runMerge(pageMode, fileName)
-                            PdfTool.COMPRESS -> vm.runCompress(level, fileName)
+                            // Each PDF at its level, into a PDF of its name.
+                            PdfTool.COMPRESS -> vm.runCompressAll()
                             PdfTool.ROTATE -> vm.runRotate(fileName)
                             PdfTool.PAGE_NUMBERS -> vm.runPageNumbers(numberPosition, numberSize, skipText, fileName)
                             PdfTool.WATERMARK -> vm.runWatermark(watermarkText, watermarkColor, watermarkOpacity, fileName)
@@ -251,7 +258,9 @@ fun PdfToolScreen(
                         .fillMaxWidth()
                         .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(horizontal = 20.dp, vertical = 10.dp),
-                ) { Text(stringResource(action)) }
+                ) {
+                    Text(if (many) pluralStringResource(R.plurals.pdf_compress_action_many, inputs.size, inputs.size) else stringResource(action))
+                }
             },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { padding ->
@@ -274,21 +283,31 @@ fun PdfToolScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (if (officeKind != null) document == null else inputs.isEmpty()) {
                         // Picking is off while PDFs are being added: a second pick then would be ignored.
-                        OutlinedCard(onClick = if (tool == PdfTool.MERGE) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
+                        OutlinedCard(onClick = if (tool == PdfTool.MERGE || tool.isBatch) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
                             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
                                 Spacer(Modifier.height(12.dp))
                                 Text(
                                     stringResource(
-                                        when (tool) {
-                                            PdfTool.MERGE -> R.string.add_pdfs
-                                            PdfTool.WORD -> R.string.pick_word
-                                            PdfTool.POWERPOINT -> R.string.pick_powerpoint
-                                            PdfTool.EPUB -> R.string.pick_epub
+                                        when {
+                                            tool == PdfTool.MERGE -> R.string.add_pdfs
+                                            tool.isBatch -> R.string.pick_pdfs
+                                            tool == PdfTool.WORD -> R.string.pick_word
+                                            tool == PdfTool.POWERPOINT -> R.string.pick_powerpoint
+                                            tool == PdfTool.EPUB -> R.string.pick_epub
                                             else -> R.string.pick_pdf
                                         },
                                     ),
                                 )
+                                if (tool.isBatch) {
+                                    Text(
+                                        stringResource(R.string.pick_several_hint),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier.padding(top = 4.dp),
+                                    )
+                                }
                             }
                         }
                     } else if (officeKind != null) {
@@ -308,10 +327,14 @@ fun PdfToolScreen(
                                     }
                                 }
                             }
+                        } else if (many) {
+                            CompressBatch(inputs, vm, batch, drawn, importing, pickMultiple)
                         } else {
                             PdfInputCard(inputs[0], thumbnail = drawn(inputs[0]), onRemove = onRemove)
+                            // More can be added, to work on all of them at once.
+                            if (tool.isBatch) OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
                         }
-                        when (tool) {
+                        if (!many) when (tool) {
                             PdfTool.SPLIT -> SplitOptions(
                                 shown ?: inputs[0],
                                 splitMode, onMode = { splitMode = it },
@@ -321,7 +344,8 @@ fun PdfToolScreen(
                                 combine, onCombine = { combine = it },
                             )
                             PdfTool.MERGE -> Unit
-                            PdfTool.COMPRESS -> CompressOptions(level, onLevel = { level = it })
+                            // Its level is the one for all: a PDF added gets it too.
+                            PdfTool.COMPRESS -> CompressOptions(batch.compressionOf(inputs[0].id), onLevel = { vm.setBatchChoiceForAll(it.ordinal) })
                             PdfTool.ROTATE -> RotateOptions(shown ?: inputs[0], pages, vm)
                             PdfTool.PAGE_NUMBERS -> PageNumberOptions(
                                 numberPosition, onPosition = { numberPosition = it },
@@ -366,7 +390,12 @@ fun PdfToolScreen(
                             })
                             PdfTool.REDACT -> RedactOptions(inputs[0], vm)
                         }
-                        FileNameField(fileName, onChange = { fileName = it })
+                        // A tool for several PDFs keeps each one's name, also while there is only one.
+                        if (tool.isBatch) {
+                            if (!many) OutputNameField(inputs[0].id, vm.outputName(tool, inputs[0]), onChange = { vm.setBatchName(inputs[0].id, it) })
+                        } else {
+                            FileNameField(fileName, onChange = { fileName = it })
+                        }
                     }
                 }
             }
@@ -420,13 +449,85 @@ fun PdfToolScreen(
         } else if (showWorking) {
             AlertDialog(
                 onDismissRequest = {},
-                title = { Text(stringResource(R.string.pdf_working)) },
-                text = { LinearProgressIndicator(Modifier.fillMaxWidth()) },
+                title = { Text(stringResource(if (many) R.string.pdf_working_many else R.string.pdf_working)) },
+                text = { if (many) BatchProgressText(batchProgress) else LinearProgressIndicator(Modifier.fillMaxWidth()) },
                 confirmButton = {},
                 dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
             )
         }
     }
+}
+
+/** Which of several PDFs is being made ("PDF 2 of 5") and its name; until the first starts, just a bar. */
+@Composable
+private fun BatchProgressText(progress: BatchProgress?) {
+    val fraction by animateFloatAsState(
+        if (progress == null) 0f else (progress.number - 1f) / progress.total,
+        Motion.medium(),
+        label = "batch progress",
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (progress == null) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        } else {
+            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+            Column {
+                // A screen reader says it as it moves on to the next PDF.
+                Text(
+                    stringResource(R.string.batch_progress, progress.number, progress.total),
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                )
+                Text(
+                    progress.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Compress PDF with several PDFs: a level for all of them at once, then each PDF with a level and a
+ * name of its own (see [BatchList]), and a button to add more.
+ */
+@Composable
+private fun CompressBatch(
+    inputs: List<PdfInput>,
+    vm: PdfToolsViewModel,
+    batch: BatchChoices,
+    drawn: (PdfInput) -> PdfInput,
+    importing: Boolean,
+    pickMultiple: () -> Unit,
+) {
+    val byId = remember(inputs) { inputs.associateBy { it.id } }
+    val common = batch.common?.let { PdfCompression.entries.getOrNull(it) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(stringResource(R.string.compression_for_all), style = MaterialTheme.typography.titleMedium)
+        // None is chosen while the PDFs' levels differ.
+        CompressionLevels(common, onLevel = { vm.setBatchChoiceForAll(it.ordinal) })
+        Text(
+            stringResource(R.string.compression_for_all_hint) + " " + stringResource(R.string.pdf_compress_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    BatchList(
+        entries = inputs.map { pdfBatchEntry(it) },
+        outputName = { id -> byId[id]?.let { vm.outputName(PdfTool.COMPRESS, it) }.orEmpty() },
+        onOutputName = vm::setBatchName,
+        onRemove = vm::removeInput,
+        thumbnail = { id -> byId[id]?.let { PdfThumbnail(drawn(it), 0, Modifier.size(width = 44.dp, height = 58.dp)) } },
+        options = { id ->
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.labelLarge)
+                CompressionLevels(batch.compressionOf(id), onLevel = { vm.setBatchChoice(id, it.ordinal) })
+            }
+        },
+    )
+    OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
 }
 
 /** How long a tool works before its progress dialog shows. */
@@ -724,10 +825,18 @@ private fun SplitOptions(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> Unit) {
     Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.titleMedium)
+    CompressionLevels(level, onLevel)
+    Text(stringResource(R.string.pdf_compress_note), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** Less, Recommended and Extreme, with [level] chosen (none when it is null). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CompressionLevels(level: PdfCompression?, onLevel: (PdfCompression) -> Unit) {
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
         PdfCompression.entries.forEachIndexed { index, item ->
             SegmentedButton(selected = level == item, onClick = { onLevel(item) },
@@ -741,8 +850,6 @@ private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> 
                 })) })
         }
     }
-    Text(stringResource(R.string.pdf_compress_note), style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 /** How optional sections on this screen appear: fading in while opening downwards. */
