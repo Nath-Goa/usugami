@@ -395,7 +395,9 @@ On a phone or emulator, with the release APKs:
 - Usugami: the first OCR in each language downloads that model through Google Play services.
 - Usugami OCR: OCR works with the internet turned off, on a real ARM phone, with a few photographed
   pages in each language (one upside down); note the time per page.
-- Usugami Lite: no OCR switch when creating a PDF, and About shows "Usugami Lite".
+- Usugami Lite: no OCR switch when creating a PDF, and About shows "Usugami Lite". Installed next
+  to Usugami OCR, it is a separate app named "Usugami Lite" in the launcher; a PDF shared from one
+  opens in the other.
 - The About screen shows the license, privacy policy and notices.
 
 CI and the release workflow also check the three APKs' manifests with

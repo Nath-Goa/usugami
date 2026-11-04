@@ -11,7 +11,14 @@
 Every other tool works offline in all three, and Usugami itself has no internet permission. In
 Usugami.apk, text recognition uses Google's ML Kit, which runs on your phone but is closed source;
 Usugami Lite and Usugami OCR contain no Google code. The rest of Usugami is GPL-3.0-or-later. All
-three files are signed with the same key: install one over another to switch editions.
+three files are signed with the same key. Usugami and Usugami OCR are the same app: install one over
+the other to switch. Usugami Lite is an app of its own (package name `io.github.nath_goa.usugami.lite`)
+that installs next to them.
+
+Had Usugami Lite 1.5.0? It was still the same app as Usugami, so Usugami-lite.apk now installs as a
+new app, "Usugami Lite", next to it. Save any PDFs you need from the old one, then uninstall it (it
+is called "Usugami"). In Obtainium, remove the old Usugami Lite and
+[add it again](https://github.com/${GITHUB_REPOSITORY}#automatic-updates-with-obtainium).
 
 Had Usugami Offline? It is now Usugami OCR: install Usugami-ocr.apk over it, and your files and
 settings are kept. In Obtainium, change its APK filter to `^Usugami-ocr\.apk$`.
@@ -21,10 +28,11 @@ Needs Android 8.0 or newer. New to installing APKs? Follow the
 
 ## Verify your download (optional)
 
-- Package name: `io.github.nath_goa.usugami`
+- Package name: `io.github.nath_goa.usugami` (Usugami and Usugami OCR) or
+  `io.github.nath_goa.usugami.lite` (Usugami Lite)
 - Signing certificate SHA-256: `${CERT_SHA256}`
 
-On a phone with Android 9 or newer, paste those two lines into
+On a phone with Android 9 or newer, paste the package name and the certificate into
 [AppVerifier](https://github.com/soupslurpr/AppVerifier). On a computer:
 
 ```sh

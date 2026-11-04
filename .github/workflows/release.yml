@@ -109,7 +109,11 @@ jobs:
           tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
           expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': \n' | tr 'A-F' 'a-f')
           [ -n "$expected" ] || { echo "::error::Repository variable USUGAMI_CERT_SHA256 is not set"; exit 1; }
-          for apk in dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk; do
+          # Usugami and Usugami OCR share a package name; Usugami Lite is an app of its own.
+          for entry in dist/Usugami.apk:io.github.nath_goa.usugami \
+              dist/Usugami-lite.apk:io.github.nath_goa.usugami.lite \
+              dist/Usugami-ocr.apk:io.github.nath_goa.usugami; do
+            apk="${entry%%:*}" package="${entry#*:}"
             "${tools}apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
             actual=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | sort -u)
             [ "$actual" = "$expected" ] || { echo "::error::$apk is signed by '$actual', expected $expected"; exit 1; }
@@ -117,8 +121,8 @@ jobs:
             badging=$(sed -n '1p' "$RUNNER_TEMP/badging.txt")
             echo "$apk: $badging"
             case "$badging" in
-              *"name='io.github.nath_goa.usugami'"*"versionName='$VERSION_NAME'"*) ;;
-              *) echo "::error::$apk has the wrong package name or versionName (expected $VERSION_NAME)"; exit 1 ;;
+              *"name='$package'"*"versionName='$VERSION_NAME'"*) ;;
+              *) echo "::error::$apk has the wrong package name or versionName (expected $package $VERSION_NAME)"; exit 1 ;;
             esac
           done
 
@@ -201,7 +205,11 @@ jobs:
           expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': \n' | tr 'A-F' 'a-f')
           [ -n "$expected" ] || { echo "::error::Repository variable USUGAMI_CERT_SHA256 is not set"; exit 1; }
           [ -n "$VERSION_NAME" ] || { echo "::error::The build job did not pass on the versionName"; exit 1; }
-          for apk in dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk; do
+          # Usugami and Usugami OCR share a package name; Usugami Lite is an app of its own.
+          for entry in dist/Usugami.apk:io.github.nath_goa.usugami \
+              dist/Usugami-lite.apk:io.github.nath_goa.usugami.lite \
+              dist/Usugami-ocr.apk:io.github.nath_goa.usugami; do
+            apk="${entry%%:*}" package="${entry#*:}"
             "${tools}apksigner" verify --print-certs "$apk" > "$RUNNER_TEMP/certs.txt"
             actual=$(grep 'certificate SHA-256 digest' "$RUNNER_TEMP/certs.txt" | awk '{print $NF}' | sort -u)
             [ "$actual" = "$expected" ] || { echo "::error::$apk is signed by '$actual', expected $expected"; exit 1; }
@@ -209,8 +217,8 @@ jobs:
             badging=$(sed -n '1p' "$RUNNER_TEMP/badging.txt")
             echo "$apk: $badging"
             case "$badging" in
-              *"name='io.github.nath_goa.usugami'"*"versionName='$VERSION_NAME'"*) ;;
-              *) echo "::error::$apk has the wrong package name or versionName (expected $VERSION_NAME)"; exit 1 ;;
+              *"name='$package'"*"versionName='$VERSION_NAME'"*) ;;
+              *) echo "::error::$apk has the wrong package name or versionName (expected $package $VERSION_NAME)"; exit 1 ;;
             esac
           done
           (cd dist && sha256sum -c SHA256SUMS.txt)

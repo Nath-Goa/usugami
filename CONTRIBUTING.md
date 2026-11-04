@@ -50,7 +50,10 @@ The three editions are product flavors in the `edition` dimension:
 
 - `standard` (Usugami): text recognition with Google ML Kit through Google Play services. Code in
   `app/src/standard`; the only edition with Google libraries.
-- `lite` (Usugami Lite): no text recognition. Code in `app/src/lite`.
+- `lite` (Usugami Lite): no text recognition. Code in `app/src/lite`. Its application ID has
+  `.lite` added (`io.github.nath_goa.usugami.lite`) and its launcher name is "Usugami Lite", so it
+  is an app of its own and installs next to the other two, which share theirs. Anything that names
+  the package must use the app's own (`context.packageName`, `${applicationId}` in the manifest).
 - `ocr` (Usugami OCR): open-source text recognition built in: PaddleOCR's PP-OCRv5 models
   (`app/src/ocr/assets/ocr`, made by `tools/make_ocr_models.py`) run by ncnn. The pipeline is in
   `app/src/ocr`, its pure logic (text boxes, reading order, decoding) in `core`, and ncnn with the

@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Usugami Lite is an app of its own, next to Usugami (see app/build.gradle.kts). The name is
+         the same in every language. -->
+    <string name="app_label" translatable="false">Usugami Lite</string>
     <!-- Usugami Lite has no text recognition, so Home's card and search for Images to PDF don't
          mention it (app/src/main has the other editions' texts). -->
     <string name="tool_images_detail">Camera scans, JPGs and PNGs to one PDF, or one PDF each</string>

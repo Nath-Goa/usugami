@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">Usugami</string>
+    <!-- The name under the launcher icon and in Android's list of apps. Usugami Lite is a separate
+         app (its own app ID) and has its own name (app/src/lite). -->
+    <string name="app_label" translatable="false">Usugami</string>
     <string name="back">Back</string>
 
     <!-- Home and PDF tools -->

@@ -48,8 +48,10 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 > instead. If you don't need text recognition at all, **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**
 > is the smallest.
 
-All three editions use the same package name and signing key, so you can switch at any time by
-installing another edition's APK over the one you have. Your files and settings are kept. Every
+All three editions are signed with the same key. Usugami and Usugami OCR are the same app (package
+name `io.github.nath_goa.usugami`), so you can switch between them at any time by installing one
+over the other; your files and settings are kept. Usugami Lite is an app of its own
+(`io.github.nath_goa.usugami.lite`, since version 1.5.1), so it installs next to them. Every
 [release](https://github.com/Nath-Goa/usugami/releases) also has a `SHA256SUMS.txt` file for
 [checking your download](#verify-your-download).
 
@@ -118,8 +120,15 @@ If you skipped step 3 or want to change it later:
 **Updating:** download the new APK and install it over the old one, the same way. Your files and
 settings are kept. To get updates automatically, use [Obtainium](#automatic-updates-with-obtainium).
 
-**Switching editions:** install another edition's APK over the one you have. No need to uninstall
-first.
+**Switching editions:** install Usugami.apk over Usugami OCR, or Usugami-ocr.apk over Usugami. No
+need to uninstall first. Usugami Lite is a separate app: install it next to the others, and
+uninstall the one you no longer want (save any PDFs you need to Downloads first).
+
+**Had Usugami Lite 1.5.0?** It was still the same app as Usugami. Since 1.5.1, Usugami Lite has a
+package name of its own, so **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**
+installs as a new app, "Usugami Lite", next to your old one, which is called "Usugami". Save any
+PDFs you need from the old one, then uninstall it. If Obtainium updates it, remove it there and
+[add Usugami Lite](#automatic-updates-with-obtainium) again: the old entry can't update to the new app.
 
 **Had Usugami Offline?** Since version 1.5.0 it is Usugami OCR, with open-source text recognition
 built in instead of Google's, and there is no Usugami-offline.apk any more. Install
@@ -402,12 +411,13 @@ certificate, and only the developer has the key.
 
 | | |
 |---|---|
-| Package name | `io.github.nath_goa.usugami` |
+| Package name | `io.github.nath_goa.usugami` (Usugami and Usugami OCR) or `io.github.nath_goa.usugami.lite` (Usugami Lite) |
 | Signing certificate SHA-256 | `6F:4F:23:AD:E0:3E:63:6A:7C:C3:68:16:89:44:D0:CC:FC:81:32:EF:34:C5:0B:C5:A4:6B:0C:A4:CB:BD:F4:ED` |
 
 - **On your phone (Android 9 or newer):** install
   [AppVerifier](https://github.com/soupslurpr/AppVerifier), then paste these two lines into it
-  after installing Usugami:
+  after installing Usugami or Usugami OCR (for Usugami Lite, the first line is
+  `io.github.nath_goa.usugami.lite`):
 
   ```text
   io.github.nath_goa.usugami
@@ -463,11 +473,13 @@ the signing certificate already set, so Obtainium refuses any APK that wasn't si
 key:
 
 - [Add **Usugami** to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D) (the main edition)
-- [Add **Usugami Lite** to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%20Lite%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami-lite%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D)
+- [Add **Usugami Lite** to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami.lite%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%20Lite%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami-lite%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D)
 - [Add **Usugami OCR** to Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%20OCR%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami-ocr%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D)
 
-Open the link on your phone with Obtainium installed, and confirm. Add only one of them: the
-editions share a package name, so a phone has one of them at a time.
+Open the link on your phone with Obtainium installed, and confirm. Usugami and Usugami OCR share a
+package name, so add only one of those two; Usugami Lite is an app of its own and can be added next
+to either. (Added Usugami Lite before version 1.5.1? Remove it and add it again with its link
+above, which has its new package name.)
 
 On Android 8.0 and 8.1, Obtainium can't read signing certificates, so it refuses to install an
 app that has a certificate set. On those versions, add Usugami by hand (below) and leave the
@@ -756,8 +768,9 @@ The APKs end up in:
 - `app/build/outputs/apk/lite/release/app-lite-release.apk`
 - `app/build/outputs/apk/ocr/release/app-ocr-release.apk`
 
-The three editions are product flavors (`standard`, `lite` and `ocr`, dimension `edition`) with the
-same application ID. Without a signing key, release builds come out unsigned
+The three editions are product flavors (`standard`, `lite` and `ocr`, dimension `edition`). Usugami
+and Usugami OCR have the same application ID; Usugami Lite adds `.lite` to it, so it is an app of
+its own. Without a signing key, release builds come out unsigned
 (`app-<flavor>-release-unsigned.apk`). To sign them, set these environment variables:
 
 ```sh

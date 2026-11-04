@@ -46,11 +46,14 @@ android {
         }
     }
 
-    // Three editions with the same app ID and signing key, so any one can be installed over another.
+    // Three editions, all signed with the same key.
     // standard ("Usugami", Usugami.apk): text recognition with Google ML Kit through Google Play
     //   services, which downloads the models. The only edition with Google code.
-    // lite ("Usugami Lite", Usugami-lite.apk): no text recognition and no Google libraries.
     // ocr ("Usugami OCR", Usugami-ocr.apk): open-source text recognition built in; no Google libraries.
+    //   The same app ID as standard, so either one installs over the other.
+    // lite ("Usugami Lite", Usugami-lite.apk): no text recognition and no Google libraries. Its own
+    //   app ID (io.github.nath_goa.usugami.lite) and launcher name, so it is a separate app that
+    //   installs next to the others (F-Droid lists it as an app of its own).
     flavorDimensions += "edition"
     productFlavors {
         create("standard") {
@@ -65,6 +68,7 @@ android {
         }
         create("lite") {
             dimension = "edition"
+            applicationIdSuffix = ".lite"
             buildConfigField("String", "EDITION", "\"lite\"")
             buildConfigField("boolean", "HAS_OCR", "false")
         }

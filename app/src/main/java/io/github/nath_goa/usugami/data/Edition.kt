@@ -5,8 +5,9 @@ import io.github.nath_goa.usugami.BuildConfig
 import io.github.nath_goa.usugami.R
 
 /**
- * Usugami's three editions, the product flavors in app/build.gradle.kts. They share the app ID and
- * signing key, so any one can be installed over another.
+ * Usugami's three editions, the product flavors in app/build.gradle.kts, all signed with the same key.
+ * Usugami and Usugami OCR share the app ID, so either one installs over the other; Usugami Lite has
+ * its own (io.github.nath_goa.usugami.lite) and installs next to them.
  */
 enum class Edition(@param:StringRes val title: Int, @param:StringRes val description: Int) {
     /** "Usugami": text recognition with Google ML Kit through Google Play services. */
