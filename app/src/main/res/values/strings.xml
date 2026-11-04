@@ -451,6 +451,7 @@
     <string name="empty_share_hint">Tip: you can also share images to Usugami from your gallery.</string>
     <string name="add_from_photos">Photos</string>
     <string name="add_from_files">Files</string>
+    <string name="add_from_camera">Take photo</string>
     <!-- Beside "Convert to PDF" on a phone-wide bar; a translation can be just the verb ("Add"). -->
     <string name="add_images">Add images</string>
     <string name="add_more">Add more</string>
@@ -471,12 +472,35 @@
     <string name="rotate_page_left" tools:ignore="PluralsCandidate">Rotate page %1$d left</string>
     <string name="rotate_page_right" tools:ignore="PluralsCandidate">Rotate page %1$d right</string>
     <string name="remove_page">Remove page %1$d</string>
+    <string name="crop_page" tools:ignore="PluralsCandidate">Crop page %1$d</string>
+    <string name="cropping_page" tools:ignore="PluralsCandidate">Cropping page %1$d…</string>
     <string name="move_page_earlier" tools:ignore="PluralsCandidate">Move page %1$d earlier</string>
     <string name="move_page_later" tools:ignore="PluralsCandidate">Move page %1$d later</string>
     <plurals name="image_count">
         <item quantity="one">%d image</item>
         <item quantity="other">%d images</item>
     </plurals>
+
+    <!-- Cropping a page out of a photo -->
+    <string name="crop_title">Crop page</string>
+    <!-- Above the photo when the page was found on it automatically. -->
+    <string name="crop_found">Usugami found the page. Drag the corners to adjust them.</string>
+    <string name="crop_not_found">Drag the corners onto the corners of the page.</string>
+    <string name="crop_not_a_page">The corners don\'t make a page: put each one on a corner of the page.</string>
+    <string name="crop_reset">Reset</string>
+    <string name="crop_whole">Whole image</string>
+    <string name="crop_done">Done</string>
+    <!-- Crops this photo and opens the camera for the next page. -->
+    <string name="crop_take_another">Take another</string>
+    <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
+    <string name="crop_discard">Discard photo</string>
+    <string name="crop_image_description">The image, with the outline of the page</string>
+    <!-- The handles a screen reader names; each is moved with the "Move left" etc. actions. -->
+    <string name="crop_corner_top_left">Top-left corner</string>
+    <string name="crop_corner_top_right">Top-right corner</string>
+    <string name="crop_corner_bottom_right">Bottom-right corner</string>
+    <string name="crop_corner_bottom_left">Bottom-left corner</string>
+    <string name="crop_failed">Couldn\'t crop the page. It was kept as it was.</string>
 
     <!-- Options -->
     <!-- An option and its current value on the editor's chips, e.g. "Margin: Small". -->
@@ -632,6 +656,7 @@
     <string name="msg_no_share_app">No app on this phone can share PDFs.</string>
     <string name="msg_no_file_picker">This phone has no file picker to save with.</string>
     <string name="msg_no_picker">This phone has no app to pick files with.</string>
+    <string name="msg_no_camera">This phone has no camera app to take photos with.</string>
     <plurals name="msg_files_cleared">
         <item quantity="one">%d file was removed because its temporary copy was cleared. Please add it again.</item>
         <item quantity="other">%d files were removed because their temporary copies were cleared. Please add them again.</item>

@@ -415,6 +415,7 @@
     <string name="empty_share_hint">सलाह: आप अपनी गैलरी से इमेज को Usugami पर शेयर भी कर सकते हैं।</string>
     <string name="add_from_photos">फ़ोटो</string>
     <string name="add_from_files">फ़ाइलें</string>
+    <string name="add_from_camera">फ़ोटो लें</string>
     <string name="add_images">जोड़ें</string>
     <string name="add_more">और जोड़ें</string>
     <string name="convert">PDF में बदलें</string>
@@ -433,12 +434,35 @@
     <string name="rotate_page_left" tools:ignore="PluralsCandidate">पेज %1$d को बाईं ओर घुमाएं</string>
     <string name="rotate_page_right" tools:ignore="PluralsCandidate">पेज %1$d को दाईं ओर घुमाएं</string>
     <string name="remove_page">पेज %1$d हटाएं</string>
+    <string name="crop_page" tools:ignore="PluralsCandidate">पेज %1$d क्रॉप करें</string>
+    <string name="cropping_page" tools:ignore="PluralsCandidate">पेज %1$d क्रॉप हो रहा है…</string>
     <string name="move_page_earlier" tools:ignore="PluralsCandidate">पेज %1$d को पहले ले जाएं</string>
     <string name="move_page_later" tools:ignore="PluralsCandidate">पेज %1$d को बाद में ले जाएं</string>
     <plurals name="image_count">
         <item quantity="one">%d इमेज</item>
         <item quantity="other">%d इमेज</item>
     </plurals>
+
+    <!-- Cropping a page out of a photo -->
+    <string name="crop_title">पेज क्रॉप करें</string>
+    <!-- Above the photo when the page was found on it automatically. -->
+    <string name="crop_found">Usugami को पेज मिल गया। कोनों को ठीक करने के लिए उन्हें खींचें।</string>
+    <string name="crop_not_found">कोनों को खींचकर पेज के कोनों पर रखें।</string>
+    <string name="crop_not_a_page">ये कोने पेज नहीं बनाते: हर कोने को पेज के किसी कोने पर रखें।</string>
+    <string name="crop_reset">रीसेट करें</string>
+    <string name="crop_whole">पूरी इमेज</string>
+    <string name="crop_done">हो गया</string>
+    <!-- Crops this photo and opens the camera for the next page. -->
+    <string name="crop_take_another">एक और लें</string>
+    <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
+    <string name="crop_discard">फ़ोटो हटाएं</string>
+    <string name="crop_image_description">इमेज, पेज की रूपरेखा के साथ</string>
+    <!-- The handles a screen reader names; each is moved with the "Move left" etc. actions. -->
+    <string name="crop_corner_top_left">ऊपर बायां कोना</string>
+    <string name="crop_corner_top_right">ऊपर दायां कोना</string>
+    <string name="crop_corner_bottom_right">नीचे दायां कोना</string>
+    <string name="crop_corner_bottom_left">नीचे बायां कोना</string>
+    <string name="crop_failed">पेज क्रॉप नहीं हो सका। उसे पहले जैसा ही रखा गया है।</string>
 
     <!-- Options -->
     <string name="option_value">%1$s: %2$s</string>
@@ -586,6 +610,7 @@
     <string name="msg_no_share_app">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो PDF शेयर कर सके।</string>
     <string name="msg_no_file_picker">इस फ़ोन पर सेव करने के लिए फ़ाइल चुनने वाला कोई ऐप नहीं है।</string>
     <string name="msg_no_picker">इस फ़ोन पर फ़ाइल चुनने वाला कोई ऐप नहीं है।</string>
+    <string name="msg_no_camera">इस फ़ोन पर फ़ोटो लेने के लिए कोई कैमरा ऐप नहीं है।</string>
     <plurals name="msg_files_cleared">
         <item quantity="one">%d फ़ाइल हटा दी गई, क्योंकि उसकी अस्थायी कॉपी मिटा दी गई थी। कृपया उसे फिर से जोड़ें।</item>
         <item quantity="other">%d फ़ाइलें हटा दी गईं, क्योंकि उनकी अस्थायी कॉपी मिटा दी गई थीं। कृपया उन्हें फिर से जोड़ें।</item>

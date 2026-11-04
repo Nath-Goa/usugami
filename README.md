@@ -125,6 +125,15 @@ old "PDFer".
 
 - Add JPG and PNG images from **Photos** (the system photo picker), **Files**, or by **sharing**
   them to Usugami from another app.
+- **Take photo** to scan pages with your phone's own camera app, one after another: after each
+  photo, crop it, then **Take another** or **Done**. Usugami still asks for no permissions: the
+  camera app saves just that photo for Usugami.
+- **Crop and straighten** any page, a photo just taken or any image you added: drag its four
+  corners onto the page's corners (a magnifier shows what's under your finger, and buttons move a
+  corner a step at a time), and the page comes out straight, as if scanned. Usugami finds the page
+  by itself when it stands out from the table it lies on. **Reset** goes back to the page it found,
+  **Whole image** keeps the whole picture, and the picture as added is kept, so a page can be
+  cropped again from scratch.
 - Live page previews. Long-press and drag to **reorder**; **rotate**, **remove**, or **sort** by
   name or reverse the order.
 - Page size **Fit** (same as the image), **A4**, **US Letter**, **US Legal**, **A3** or **A5**;
@@ -138,8 +147,8 @@ old "PDFer".
   part of "motion photos", are removed from the images.
 - Optional **searchable PDF** with text recognition (OCR) in **English**, **French**,
   **Spanish** or **Hindi**. Hindi mode also keeps any English text. Text is read from your
-  original images, not the compressed copies, so small print is found even at Extreme. (In
-  Usugami and Usugami OCR; Usugami Lite has no text recognition.)
+  original images (cropped pages as cropped), not the compressed copies, so small print is found
+  even at Extreme. (In Usugami and Usugami OCR; Usugami Lite has no text recognition.)
 
 **Word to PDF**
 
@@ -345,7 +354,9 @@ old "PDFer".
   upload your files.
 - **No ads, no analytics, no tracking, no accounts, no in-app purchases.**
 - **Only the files you pick.** Usugami asks for no permissions; Android gives it access to just the
-  images, PDFs and documents you choose or share.
+  images, PDFs and documents you choose or share. **Take photo** opens your phone's camera app,
+  which Usugami lets save just that one photo into its private storage; Usugami can't use the
+  camera itself.
 - **Temporary copies are cleaned up.** While you work, copies live in Usugami's private cache and
   are deleted automatically.
 - **Usugami (the main edition) and Google Play services:** text recognition runs on your phone,
@@ -768,8 +779,9 @@ core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, p
                       JPEG/PNG handling, metadata removal, compression sizing, page ranges,
                       where stamps, signatures and Edit PDF's additions go on a page, the
                       Word and PowerPoint helpers (units, colors, list numbers), the EPUB
-                      helpers (links, HTML characters, simple CSS), font subsetting, and
-                      Usugami OCR's post-processing (text boxes, reading order, decoding)
+                      helpers (links, HTML characters, simple CSS), font subsetting,
+                      Usugami OCR's post-processing (text boxes, reading order, decoding),
+                      and finding a page on a photo and where its corners go to crop it
 ocr-native/           Usugami OCR's native library: ncnn built from source with a small JNI
                       bridge (only the ocr edition contains it)
 tools/                validate_pdfs.py (checks output with independent PDF tools),

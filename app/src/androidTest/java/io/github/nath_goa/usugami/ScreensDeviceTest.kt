@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami
 import android.app.Activity
 import android.app.Application
 import android.app.Instrumentation
+import android.content.ActivityNotFoundException
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Intent
@@ -43,6 +44,7 @@ import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Compressor
+import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.InkItem
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
@@ -1129,6 +1131,118 @@ class ScreensDeviceTest {
         assertTrue(card.performAction(card.action(earlier)!!.id))
         waitUntil("page 2 to move first") { onMain { vm.items.value.map { it.id } } == listOf(ids[1], ids[0], ids[2]) }
         onMain { vm.clearAll() }
+    }
+
+    /**
+     * Stands in for the camera app: catches the photo Usugami asks for, "takes" [photo] into the file
+     * it was given and returns, or with [noCamera], fails as on a phone without a camera app.
+     */
+    private inner class Camera(private val photo: Bitmap?, private val noCamera: Boolean = false) : Instrumentation.ActivityMonitor() {
+        @Volatile var taken = 0
+
+        override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
+            if (intent.action != MediaStore.ACTION_IMAGE_CAPTURE) return null
+            if (noCamera) throw ActivityNotFoundException()
+            val output = IntentCompat.getParcelableExtra(intent, MediaStore.EXTRA_OUTPUT, Uri::class.java)!!
+            assertTrue("The camera app may write the file", (intent.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0)
+            app.contentResolver.openOutputStream(output)!!.use { photo!!.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            taken++
+            return Instrumentation.ActivityResult(Activity.RESULT_OK, null)
+        }
+    }
+
+    private fun <T> withCamera(camera: Camera, block: () -> T): T {
+        instrumentation.addMonitor(camera)
+        try {
+            return block()
+        } finally {
+            instrumentation.removeMonitor(camera)
+        }
+    }
+
+    @Test fun photosAreTakenAndCroppedWithAScreenReadersActions() {
+        val first = launch()
+        val vm = onMain { ViewModelProvider(first)[MainViewModel::class.java] }
+        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
+        val camera = Camera(PagePhotos.photo())
+        withCamera(camera) {
+            click(button(R.string.add_from_camera))
+            find("the crop screen, which found the page") { it.says(app.getString(R.string.crop_found)) }
+            assertEquals(1, camera.taken)
+            val session = checkNotNull(onMain { vm.crop.value })
+            assertTrue(session.fromCamera)
+
+            // The corners are items of their own, which a screen reader moves with actions: the
+            // top-left corner five steps left.
+            val left = app.getString(R.string.edit_move_left)
+            repeat(5) {
+                val corner = find("the top-left corner") { it.says(app.getString(R.string.crop_corner_top_left)) && it.action(left) != null }
+                assertTrue(corner.performAction(corner.action(left)!!.id))
+            }
+            // Chosen with a tap, the bottom-right corner moves three steps down with the arrow buttons.
+            click(find("the bottom-right corner") { it.says(app.getString(R.string.crop_corner_bottom_right)) && it.action(left) != null })
+            // The corners are chosen like radio buttons.
+            waitUntil("the bottom-right corner to be chosen") {
+                nodes().any { it.says(app.getString(R.string.crop_corner_bottom_right)) && it.isCheckable && it.chosen }
+            }
+            repeat(3) { click(button(R.string.edit_move_down)) }
+
+            // The corners stay where they were moved when the activity is recreated, as on rotation.
+            onMain { first.recreate() }
+            val activity = recreatedFrom(first)
+            find("the crop screen, again") { it.says(app.getString(R.string.crop_found)) }
+
+            // Take another crops this photo and takes the next.
+            click(actionButton(R.string.crop_take_another))
+            waitUntil("the next photo's crop screen") { onMain { vm.crop.value?.let { it.itemId != session.itemId } == true } }
+            assertEquals(2, camera.taken)
+            // Leaving the crop screen of a photo just taken discards it. (Pressed once the new screen
+            // has settled: while it slides in, its button can't be pressed yet.)
+            waitUntil("the discard button to be pressed") {
+                nodes().firstOrNull { it.says(app.getString(R.string.crop_discard)) }?.let { clickable(it).performAction(AccessibilityNodeInfo.ACTION_CLICK) } == true
+            }
+            find("the editor") { it.says(app.getString(R.string.convert)) }
+            waitUntil("the page to be cropped") { onMain { vm.items.value.size == 1 && vm.items.value.single().original != null } }
+            val page = onMain { vm.items.value.single() }
+            assertEquals(session.itemId, page.id)
+
+            // Each step is 0.4% of the photo's long side.
+            val step = 0.004f * PagePhotos.PHOTO_HEIGHT
+            val corners = page.original!!.corners
+            assertEquals(session.found[CropQuad.TOP_LEFT].x - 5 * step / PagePhotos.PHOTO_WIDTH, corners[CropQuad.TOP_LEFT].x, 1e-3f)
+            assertEquals(session.found[CropQuad.TOP_LEFT].y, corners[CropQuad.TOP_LEFT].y, 1e-3f)
+            assertEquals(session.found[CropQuad.BOTTOM_RIGHT].y + 3 * step / PagePhotos.PHOTO_HEIGHT, corners[CropQuad.BOTTOM_RIGHT].y, 1e-3f)
+
+            // The page's Crop button opens it again from the photo, with Back instead of discarding
+            // and without Take another; Back leaves the page as it was.
+            click(find("the page's crop button") { it.says(app.getString(R.string.crop_page, 1)) })
+            find("the crop screen for the page") { it.says(app.getString(R.string.crop_title)) }
+            find("its back button") { it.says(app.getString(R.string.back)) }
+            assertTrue(nodes().none { it.says(app.getString(R.string.crop_take_another)) })
+            assertTrue(nodes().none { it.says(app.getString(R.string.crop_discard)) })
+            backKey()
+            find("the editor, again") { it.says(app.getString(R.string.convert)) }
+            assertEquals(page, onMain { vm.items.value.single() })
+            assertNull(onMain { vm.crop.value })
+
+            // Usugami's editor has the page with the photo, and the camera's files have gone.
+            assertTrue(File(app.cacheDir, "camera").list().isNullOrEmpty())
+            onMain { ViewModelProvider(activity)[MainViewModel::class.java].clearAll() }
+        }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    @Test fun aPhoneWithoutACameraAppSaysSo() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
+        withCamera(Camera(null, noCamera = true)) {
+            click(button(R.string.add_from_camera))
+            find("the message") { it.says(app.getString(R.string.msg_no_camera)) }
+        }
+        assertTrue(onMain { vm.items.value.isEmpty() })
+        runBlocking { vm.awaitFileWork() }
+        assertTrue("Nothing is left for a camera", File(app.cacheDir, "camera").list().isNullOrEmpty())
     }
 
     @Test fun mergePagesCanBeMovedWithoutDraggingAndFileButtonsNameTheirFile() {

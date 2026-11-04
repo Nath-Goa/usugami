@@ -2,4 +2,6 @@
 <paths>
     <!-- Only finished PDFs and ZIP files of them (in the cache) are ever shared or opened in other apps. -->
     <cache-path name="pdfs" path="output/" />
+    <!-- The camera app is given one file here at a time, to save the photo it takes in. -->
+    <cache-path name="camera" path="camera/" />
 </paths>

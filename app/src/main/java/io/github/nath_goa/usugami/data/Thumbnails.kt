@@ -11,23 +11,24 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Small upright previews (EXIF orientation applied, user rotation not) kept in memory.
+ * Small upright previews (EXIF orientation applied, user rotation not) kept in memory, one per
+ * image file: a page cropped again has a new file, and a new preview.
  * The user's rotation is applied when drawing, so rotating never re-decodes anything.
  */
 class Thumbnails {
-    private val cache = object : LruCache<Long, Bitmap>(cacheBytes()) {
-        override fun sizeOf(key: Long, value: Bitmap) = value.allocationByteCount
+    private val cache = object : LruCache<String, Bitmap>(cacheBytes()) {
+        override fun sizeOf(key: String, value: Bitmap) = value.allocationByteCount
     }
     private val decoding = Dispatchers.IO.limitedParallelism(3)
 
-    fun cached(id: Long): Bitmap? = cache.get(id)
+    fun cached(item: ImageItem): Bitmap? = cache.get(item.path)
 
-    suspend fun load(item: ImageItem): Bitmap? = cache.get(item.id) ?: withContext(decoding) {
-        cache.get(item.id) ?: decode(item)?.also { cache.put(item.id, it) }
+    suspend fun load(item: ImageItem): Bitmap? = cache.get(item.path) ?: withContext(decoding) {
+        cache.get(item.path) ?: decode(item)?.also { cache.put(item.path, it) }
     }
 
-    fun remove(id: Long) {
-        cache.remove(id)
+    fun remove(item: ImageItem) {
+        cache.remove(item.path)
     }
 
     private fun decode(item: ImageItem): Bitmap? = try {

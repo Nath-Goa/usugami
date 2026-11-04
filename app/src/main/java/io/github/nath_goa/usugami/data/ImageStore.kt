@@ -20,6 +20,8 @@ import java.io.InputStream
 class ImageStore(context: Context) {
     private val resolver = context.contentResolver
     private val dir = File(context.cacheDir, "images")
+    /** Where the camera app saves the photos taken from Usugami, until they are added. */
+    private val captureDir = File(context.cacheDir, "camera")
 
     sealed interface ImportResult {
         data class Added(val item: ImageItem) : ImportResult
@@ -29,10 +31,10 @@ class ImageStore(context: Context) {
         data object NoSpace : ImportResult
     }
 
-    /** Copies [uri] into app storage. Blocking: call from a background thread. */
-    fun import(uri: Uri, id: Long): ImportResult {
+    /** Copies [uri] into app storage, named [name] or else as the picker names it. Blocking: call from a background thread. */
+    fun import(uri: Uri, id: Long, name: String? = null): ImportResult {
         dir.mkdirs()
-        val name = displayName(uri) ?: "Image"
+        val itemName = name ?: displayName(uri) ?: "Image"
         val tmp = File(dir, "$id.tmp")
         var stored: File? = null
         try {
@@ -65,7 +67,7 @@ class ImageStore(context: Context) {
                 ImageItem(
                     id = id,
                     path = file.path,
-                    name = name,
+                    name = itemName,
                     format = format,
                     width = bounds.outWidth,
                     height = bounds.outHeight,
@@ -88,16 +90,33 @@ class ImageStore(context: Context) {
     /** Where the copy of image [id] is kept. */
     fun fileFor(id: Long, format: ImageFormat): File = File(dir, "$id.${format.extension}")
 
+    /** Deletes the image's copy, and the image it was cropped from. */
     fun delete(item: ImageItem) {
         File(item.path).delete()
+        item.original?.let { File(it.path).delete() }
     }
 
-    fun exists(item: ImageItem): Boolean = File(item.path).isFile
+    fun exists(item: ImageItem): Boolean = File(item.path).isFile && item.original.let { it == null || File(it.path).isFile }
 
-    /** Deletes every stored image except those in [keep]. */
+    /** Deletes every stored image except those in [keep] (and the images they were cropped from). */
     fun deleteAllExcept(keep: Collection<ImageItem>) {
-        val keepPaths = keep.mapTo(HashSet()) { File(it.path).name }
+        val keepPaths = HashSet<String>()
+        for (item in keep) {
+            keepPaths += File(item.path).name
+            item.original?.let { keepPaths += File(it.path).name }
+        }
         dir.listFiles()?.forEach { if (it.name !in keepPaths) it.delete() }
+    }
+
+    /** A new, empty file [id] for the camera app to save a photo in. */
+    fun newCapture(id: Long): File {
+        captureDir.mkdirs()
+        return File(captureDir, "$id.jpg").apply { delete() }
+    }
+
+    /** Deletes the photos the camera app saved that were never added, except [keep] (one it may still be saving). */
+    fun clearCaptures(keep: String? = null) {
+        captureDir.listFiles()?.forEach { if (it.path != keep) it.delete() }
     }
 
     private fun displayName(uri: Uri): String? {

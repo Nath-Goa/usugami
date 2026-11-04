@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -17,7 +19,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.rotate
@@ -39,8 +40,10 @@ fun PagePreview(item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails,
     val geometry = remember(item.shownWidth, item.shownHeight, layout) {
         PageLayout.compute(item.shownWidth, item.shownHeight, layout)
     }
-    val thumbnail by produceState<ImageBitmap?>(thumbnails.cached(item.id)?.asImageBitmap(), item.id) {
-        if (value == null) value = thumbnails.load(item)?.asImageBitmap()
+    var thumbnail by remember { mutableStateOf(thumbnails.cached(item)?.asImageBitmap()) }
+    // A page cropped again keeps showing its last picture until the new one is ready.
+    LaunchedEffect(item.path) {
+        thumbnails.load(item)?.asImageBitmap()?.let { thumbnail = it }
     }
     // A thumbnail that has to be decoded fades in over the placeholder; a cached one shows at once.
     val thumbnailAlpha by animateFloatAsState(

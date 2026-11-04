@@ -73,7 +73,16 @@ screenshot isn't shrunk to its long side), the strips a large page is detected i
 over-long lines are cut. For text recognition in
 both editions that have it, they check where a point of a picked image lands on its page (A4 with
 a margin, Fit, landscape, turned a quarter, and every EXIF orientation and turn): exactly where the
-page's own drawing matrix puts it.
+page's own drawing matrix puts it. For cropping photos they find the page on synthetic photos (a
+sheet with print on a darker wooden table, with noise): upright, tilted, photographed at a slant,
+half in shadow or with the light falling off, with a folded corner, beside a pen and a cup, and on
+a large photo, each corner within about 1% of the page's; they are unsure of a page running off
+the photo or filling it, a small page, a page on a brighter table, a round plate and a bare table.
+They also check the largest four-cornered shape on a convex hull (against trying every four
+corners), Otsu's threshold, and the corners: put in order round the page, turned with the page and
+back, on the photo as stored for every EXIF orientation, which shapes make a page, and the
+straightened page's size (shaped by its average edges, as large as its longest, at most 3000
+pixels).
 
 ## 2. Device tests (Android)
 
@@ -223,7 +232,12 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   being recreated; Redact PDF's Find text boxing a phrase on every page, a box added, moved and
   widened with buttons, the preview naming the chosen box and stepping to the next, a box drawn
   with injected touches, all of it surviving the activity being recreated, deleting a box, "Remove
-  all" asking first, the redacted result, and the boxes still there after going back from it; the
+  all" asking first, the redacted result, and the boxes still there after going back from it; Take
+  photo with the camera app caught and answered (it may write the file it is given): the crop
+  screen on the page found, a corner moved with a screen reader's actions and another chosen like a
+  radio button and moved with the arrow buttons, both kept through the activity being recreated,
+  Take another cropping the photo and taking the next, the next one discarded, a page's Crop button
+  opening it again with Back instead, and the message on a phone without a camera app; the
   result screen's "Share or save as ZIP" menu for a split and for one PDF per image, with the share
   screen and the "Save as" screen it starts caught and answered (the type, the name and the ZIP
   file written), and no such button for a single PDF; Compress PDF with two PDFs: the level for
@@ -247,6 +261,17 @@ there showing the images;
   again and the first-launch language screen (each checked by the configuration, the colors the
   window draws and the status bar icons), both the way Android applies it from Android 12 and the
   way Usugami applies it itself on older versions
+- crop, with synthetic photos of a test page (a coloured square in each corner, a line across its
+  middle) lying at a slant on a table: the page is found within about 1% (also on a photo stored
+  sideways with an EXIF orientation) and not on a bare table; the straightened page has the page's
+  shape, each corner's colour in its corner and the line straight across the middle, from a JPEG,
+  a PNG (which stays a PNG) and a 17-megapixel photo (made at most 3000 pixels long), with no EXIF
+  data or location left. Through the view model, a photo the camera app saves into the file Usugami
+  gives it is added and the crop screen opens on the page found; Done crops it and keeps the photo,
+  cropping again starts from the photo with the corners as they were and turned with the page,
+  Whole image puts the photo back, and the pages cropped before are deleted; corners that make no
+  page are refused and crossed ones put in order; a photo cancelled, not saved or discarded on the
+  crop screen leaves no file; and cropped pages and an open crop screen survive the saved state
 - the OCR text layer, in the editions with text recognition: Devanagari and Latin text together,
   and text that follows tilted lines
 - text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,
@@ -255,7 +280,9 @@ there showing the images;
 - in both editions with text recognition, a photo of a printed page (stored sideways with an EXIF
   orientation, then turned in the editor) made into a PDF at Extreme: its small print, too small to
   read in the PDF's 100-dpi copy, is read from the photo as picked, and the text of a known word
-  lies over that word on the page
+  lies over that word on the page; and a photo of a page lying at a slant beside a sticky note,
+  cropped to the page found on it: the page is read as cropped, so the note (read from the photo
+  itself) is left out, and the title's text lies over the title on the straightened page
 - Usugami OCR's built-in text recognition (`app/src/androidTestOcr`): its native library loads (the
   test emulator has 16 KB memory pages), the English and Hindi test pages are read word for word into
   the text layer (the time per page is logged), a page upside down is read the right way up with
@@ -298,6 +325,9 @@ On a phone or emulator, with the release APKs:
 - From Files, share one PDF, two PDFs, a Word document and a PDF with images to Usugami: Choose a
   tool, the converter, and the message naming what was left out; then share a PDF while a tool has
   an unsaved result.
+- Take photo on a real phone: scan a few school pages one after another with Take another, drag a
+  corner (the magnifier follows), crop a gallery photo and a page turned in the editor, crop a page
+  again and use Whole image; with TalkBack, move a corner with its actions.
 - Split, merge in page mode, and compress, including a password-protected PDF.
 - Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
   page turned sideways; check the results in another PDF viewer.

@@ -428,6 +428,7 @@
     <string name="empty_share_hint">Astuce : vous pouvez aussi partager des images avec Usugami depuis votre galerie.</string>
     <string name="add_from_photos">Photos</string>
     <string name="add_from_files">Fichiers</string>
+    <string name="add_from_camera">Prendre une photo</string>
     <string name="add_images">Ajouter</string>
     <string name="add_more">Ajouter d\'autres</string>
     <string name="convert">Convertir en PDF</string>
@@ -447,6 +448,8 @@
     <string name="rotate_page_left" tools:ignore="PluralsCandidate">Faire pivoter la page %1$d vers la gauche</string>
     <string name="rotate_page_right" tools:ignore="PluralsCandidate">Faire pivoter la page %1$d vers la droite</string>
     <string name="remove_page">Retirer la page %1$d</string>
+    <string name="crop_page" tools:ignore="PluralsCandidate">Recadrer la page %1$d</string>
+    <string name="cropping_page" tools:ignore="PluralsCandidate">Recadrage de la page %1$d…</string>
     <string name="move_page_earlier" tools:ignore="PluralsCandidate">Avancer la page %1$d</string>
     <string name="move_page_later" tools:ignore="PluralsCandidate">Reculer la page %1$d</string>
     <plurals name="image_count">
@@ -454,6 +457,27 @@
         <item quantity="many">%d images</item>
         <item quantity="other">%d images</item>
     </plurals>
+
+    <!-- Cropping a page out of a photo -->
+    <string name="crop_title">Recadrer la page</string>
+    <!-- Above the photo when the page was found on it automatically. -->
+    <string name="crop_found">Usugami a trouvé la page. Faites glisser les coins pour les ajuster.</string>
+    <string name="crop_not_found">Faites glisser les coins sur les coins de la page.</string>
+    <string name="crop_not_a_page">Les coins ne forment pas une page : placez chacun sur un coin de la page.</string>
+    <string name="crop_reset">Réinitialiser</string>
+    <string name="crop_whole">Image entière</string>
+    <string name="crop_done">Terminé</string>
+    <!-- Crops this photo and opens the camera for the next page. -->
+    <string name="crop_take_another">Une autre photo</string>
+    <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
+    <string name="crop_discard">Supprimer la photo</string>
+    <string name="crop_image_description">L\'image, avec le contour de la page</string>
+    <!-- The handles a screen reader names; each is moved with the "Move left" etc. actions. -->
+    <string name="crop_corner_top_left">Coin supérieur gauche</string>
+    <string name="crop_corner_top_right">Coin supérieur droit</string>
+    <string name="crop_corner_bottom_right">Coin inférieur droit</string>
+    <string name="crop_corner_bottom_left">Coin inférieur gauche</string>
+    <string name="crop_failed">Impossible de recadrer la page. Elle a été gardée telle quelle.</string>
 
     <!-- Options -->
     <string name="option_value">%1$s : %2$s</string>
@@ -614,6 +638,7 @@
     <string name="msg_no_share_app">Aucune application sur ce téléphone ne peut partager les PDF.</string>
     <string name="msg_no_file_picker">Ce téléphone ne dispose d\'aucun sélecteur de fichiers permettant d\'enregistrer.</string>
     <string name="msg_no_picker">Ce téléphone ne dispose d\'aucun sélecteur de fichiers.</string>
+    <string name="msg_no_camera">Ce téléphone ne dispose d\'aucune application d\'appareil photo.</string>
     <plurals name="msg_files_cleared">
         <item quantity="one">%d fichier a été retiré, car sa copie temporaire a été effacée. Veuillez l\'ajouter à nouveau.</item>
         <item quantity="many">%d fichiers ont été retirés, car leurs copies temporaires ont été effacées. Veuillez les ajouter à nouveau.</item>

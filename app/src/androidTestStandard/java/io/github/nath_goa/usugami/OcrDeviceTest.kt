@@ -115,6 +115,11 @@ class OcrDeviceTest {
         }
     }
 
+    /** A photo cropped to the page on it is read as cropped: what lies beside the page is left out. */
+    @Test fun ocrOfACroppedPhotoReadsThePage() = runBlocking {
+        CroppedPhotoOcrCheck.run(context, engine, File(context.filesDir, "ocr_cropped"))
+    }
+
     /** A one-page PDF that holds [lines] only as a picture, like a scan. */
     private fun scannedText(lines: List<String>, file: File): File {
         val bitmap = Bitmap.createBitmap(1240, 1754, Bitmap.Config.ARGB_8888)

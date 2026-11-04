@@ -6,24 +6,32 @@ import android.content.res.Resources
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Parcelable
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.annotation.VisibleForTesting
+import androidx.core.content.FileProvider
 import androidx.core.os.bundleOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.Compression
+import io.github.nath_goa.usugami.core.CropPoint
+import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.ImageTransform
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.NaturalOrder
+import io.github.nath_goa.usugami.core.PageCrop
 import io.github.nath_goa.usugami.core.SharedFiles
 import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.CropQuadParceler
 import io.github.nath_goa.usugami.data.DownloadsCopy
 import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
@@ -33,6 +41,8 @@ import io.github.nath_goa.usugami.data.OcrEngine
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.data.OcrUnavailableException
+import io.github.nath_goa.usugami.data.OriginalImage
+import io.github.nath_goa.usugami.data.PageCropper
 import io.github.nath_goa.usugami.data.PdfExporter
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfOcr
@@ -58,6 +68,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.parcelize.Parcelize
+import kotlinx.parcelize.TypeParceler
+import java.io.File
 import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -72,6 +85,31 @@ data class Progress(val done: Int, val total: Int, val stage: Stage = Stage.CREA
 
 /** What the user chose in the Convert sheet. [ocrLanguage] is null when OCR is off. */
 data class ConvertChoices(val fileName: String, val ocrLanguage: OcrLanguage?)
+
+/**
+ * The crop screen, showing image [itemId] turned [rotation] degrees clockwise, as on its page. Its
+ * corners start at [start]; Reset puts them on [found], the page the automatic search found
+ * ([foundPage]), or else a little in from the image's edges. The corners are on the image as it shows
+ * upright (see [shown] and [upright]). A photo just taken ([fromCamera]) goes if the screen is left
+ * without cropping. [opened] tells one opening from the next.
+ */
+@Parcelize
+@TypeParceler<CropQuad, CropQuadParceler>
+data class CropSession(
+    val itemId: Long,
+    val fromCamera: Boolean,
+    val rotation: Int,
+    val start: CropQuad,
+    val found: CropQuad,
+    val foundPage: Boolean,
+    val opened: Long,
+) : Parcelable {
+    /** [quad] on the image as the screen shows it. */
+    fun shown(quad: CropQuad): CropQuad = quad.transformed(ImageTransform.rotation(rotation)).ordered()
+
+    /** [quad], as the screen shows the image, on the image upright. */
+    fun upright(quad: CropQuad): CropQuad = quad.transformed(ImageTransform.rotation(rotation).inverse()).ordered()
+}
 
 class MainViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
     // Messages are written here, in the language the user picked (see AppLanguages.localized).
@@ -89,6 +127,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** Serialises file work (cleanup, imports, deletes) so they never race each other. */
     private val fileOps = Dispatchers.IO.limitedParallelism(1)
 
+    /** Pages are cropped one at a time (each takes a large picture's memory), beside the file work. */
+    private val cropOps = Dispatchers.IO.limitedParallelism(1)
+
     private val restored = handle.contains(KEY_ITEMS)
 
     private val _items = MutableStateFlow(restoredItems())
@@ -104,8 +145,28 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private val _compression = MutableStateFlow(settingsStore.compression)
     val compression: StateFlow<Compression> = _compression.asStateFlow()
 
+    /** Images being added, and pages being cropped: a PDF waits for them. */
     private val _pendingImports = MutableStateFlow(0)
     val pendingImports: StateFlow<Int> = _pendingImports.asStateFlow()
+
+    /** The crop screen, while it shows. Kept in the saved state, as the images are. */
+    private val _crop = MutableStateFlow<CropSession?>(handle[KEY_CROP])
+    val crop: StateFlow<CropSession?> = _crop.asStateFlow()
+
+    /** The images whose page is being cropped. */
+    private val _cropping = MutableStateFlow<Set<Long>>(emptySet())
+    val cropping: StateFlow<Set<Long>> = _cropping.asStateFlow()
+
+    /** Set while the crop screen is being opened (the page looked for), so a second tap does nothing. */
+    private var openingCrop = false
+
+    /**
+     * The file the camera app saves the next photo in, while it is open. In the saved state: Android
+     * often stops Usugami while the camera app is open.
+     */
+    private var capture: String?
+        get() = handle[KEY_CAPTURE]
+        set(value) { handle[KEY_CAPTURE] = value }
 
     /** Non-null while a PDF is being created. */
     private val _progress = MutableStateFlow<Progress?>(null)
@@ -157,7 +218,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** Share screens for ZIP files of the result's PDFs, once each is ready. */
     val zipShares: Flow<Intent> = zipper.shares
 
-    private var nextId = maxOf(System.currentTimeMillis(), (items.value.maxOfOrNull { it.id } ?: 0L) + 1)
+    // Cropped pages' files are numbered from the same count.
+    private var nextId = maxOf(
+        System.currentTimeMillis(),
+        (items.value.maxOfOrNull { maxOf(it.id, File(it.path).nameWithoutExtension.toLongOrNull() ?: 0L) } ?: 0L) + 1,
+    )
     private var conversion: Job? = null
 
     /** Bumped by [clearAll], so imports still running drop their images instead of bringing the list back. */
@@ -231,6 +296,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             val (missing, resultGone) = withContext(fileOps) {
                 // Leftovers from an earlier session (or half-copied files) are removed.
                 store.deleteAllExcept(keep)
+                store.clearCaptures(keep = capture)
                 val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
                 exporter.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
@@ -241,6 +307,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
         viewModelScope.launch { _result.collect(keptResult::keep) }
         viewModelScope.launch { _saved.collect { handle[KEY_SAVED] = it } }
+        viewModelScope.launch { _crop.collect { handle[KEY_CROP] = it } }
     }
 
     // ---- Picking images ----
@@ -439,7 +506,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     fun remove(id: Long) {
         val item = items.value.firstOrNull { it.id == id } ?: return
         setItems(items.value - item)
-        thumbnails.remove(id)
+        thumbnails.remove(item)
         viewModelScope.launch(fileOps) { store.delete(item) }
     }
 
@@ -449,7 +516,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         _pendingImports.value = 0
         val all = items.value
         setItems(emptyList())
-        all.forEach { thumbnails.remove(it.id) }
+        all.forEach(thumbnails::remove)
         viewModelScope.launch(fileOps) { all.forEach(store::delete) }
     }
 
@@ -492,6 +559,200 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private fun setItems(list: List<ImageItem>) {
         _items.value = list
         if (list.isEmpty()) lastChoices = null
+        // The crop screen's image has gone (removed, or its copy cleared): there is nothing to crop.
+        _crop.value?.let { session -> if (list.none { it.id == session.itemId }) _crop.value = null }
+    }
+
+    /** Puts [item] in place of the image with its id. */
+    private fun replaceItem(item: ImageItem) = setItems(items.value.map { if (it.id == item.id) item else it })
+
+    // ---- Taking photos ----
+
+    /**
+     * A new file for the camera app to save a photo in, as the URI to give it: Usugami's file
+     * provider lets only the app it is given to write it. See [photoTaken].
+     */
+    fun newCapture(): Uri {
+        capture?.let { File(it).delete() }
+        val file = store.newCapture(nextId++)
+        capture = file.path
+        return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+    }
+
+    /**
+     * The camera app has closed, having saved a photo ([taken]) or not. The photo is added after any
+     * images still being added, and the crop screen opens for it. A photo not taken leaves nothing.
+     */
+    fun photoTaken(taken: Boolean) {
+        val path = capture ?: return
+        capture = null
+        val file = File(path)
+        if (!taken) {
+            viewModelScope.launch(fileOps) { file.delete() }
+            return
+        }
+        _pendingImports.update { it + 1 }
+        val generation = importGeneration
+        val name = "Scan_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT)) + ".jpg"
+        viewModelScope.launch {
+            importLock.withLock {
+                val id = nextId++
+                val r = withContext(fileOps) {
+                    try {
+                        // Some camera apps return without saving the photo.
+                        if (generation != importGeneration || file.length() == 0L) null else store.import(Uri.fromFile(file), id, name)
+                    } finally {
+                        file.delete()
+                    }
+                }
+                if (generation != importGeneration) {
+                    // Discarded while it was being added.
+                    if (r is ImageStore.ImportResult.Added) viewModelScope.launch(fileOps) { store.delete(r.item) }
+                    return@launch
+                }
+                _pendingImports.update { it - 1 }
+                when (r) {
+                    is ImageStore.ImportResult.Added -> {
+                        setItems(items.value + r.item)
+                        openCrop(r.item, fromCamera = true)
+                    }
+                    ImageStore.ImportResult.NoSpace -> pluralMessage(R.plurals.msg_import_no_space, 1)
+                    else -> pluralMessage(R.plurals.msg_failed_import, 1)
+                }
+            }
+        }
+    }
+
+    // ---- Cropping ----
+
+    /** Opens the crop screen for image [id], with its corners on the page if one is found. */
+    fun openCrop(id: Long) {
+        val item = items.value.firstOrNull { it.id == id } ?: return
+        // Not while its last crop is being made: it would start from the page before.
+        if (id in _cropping.value) return
+        openCrop(item, fromCamera = false)
+    }
+
+    private fun openCrop(item: ImageItem, fromCamera: Boolean) {
+        // A second tap while the page is looked for, or with the screen open, does nothing.
+        if (openingCrop || _crop.value != null || _progress.value != null) return
+        openingCrop = true
+        viewModelScope.launch {
+            try {
+                val source = item.source
+                val found = withContext(Dispatchers.IO) {
+                    try {
+                        PageCropper.findPage(source)?.takeIf { it.confident }?.quad
+                    } catch (e: Exception) {
+                        Log.w("Usugami", "Looking for the page failed", e)
+                        null
+                    } catch (e: OutOfMemoryError) {
+                        null
+                    }
+                }
+                // Removed or cropped meanwhile, or being made into a PDF.
+                val current = items.value.firstOrNull { it.id == item.id }
+                if (current == null || current.source != source || _progress.value != null) return@launch
+                val reset = found ?: CropQuad.inset(PageCrop.INSET)
+                _crop.value = CropSession(
+                    itemId = item.id,
+                    fromCamera = fromCamera,
+                    rotation = current.rotation,
+                    start = current.original?.corners ?: reset,
+                    found = reset,
+                    foundPage = found != null,
+                    opened = SystemClock.uptimeMillis(),
+                )
+            } finally {
+                openingCrop = false
+            }
+        }
+    }
+
+    /**
+     * Crops the crop screen's page to [shown] (its corners as the screen shows the image) and closes
+     * the screen; the page is made in the background. The whole image puts the page back as it was
+     * picked or taken. Returns false, leaving the screen open, when the corners don't make a page.
+     */
+    fun finishCrop(shown: CropQuad): Boolean {
+        val session = _crop.value ?: return false
+        val item = items.value.firstOrNull { it.id == session.itemId }
+        if (item == null) {
+            _crop.value = null
+            return false
+        }
+        val source = item.source
+        val quad = session.upright(shown)
+        val whole = quad.isWhole()
+        if (!whole && !quad.isUsable(source.uprightWidth, source.uprightHeight)) return false
+        _crop.value = null
+        when {
+            // Nothing changed.
+            if (whole) item.original == null else item.original?.corners?.isCloseTo(quad) == true -> Unit
+            whole -> {
+                replaceItem(item.copy(path = source.path, format = source.format, width = source.width, height = source.height, exifOrientation = source.exifOrientation, original = null))
+                thumbnails.remove(item)
+                viewModelScope.launch(fileOps) { File(item.path).delete() }
+            }
+            else -> crop(item, source, quad)
+        }
+        return true
+    }
+
+    /** Leaves the crop screen without cropping. A photo just taken is discarded. */
+    fun closeCrop() {
+        val session = _crop.value ?: return
+        _crop.value = null
+        if (session.fromCamera) remove(session.itemId)
+    }
+
+    /** Makes [item]'s page from [source], straightened inside [quad], and puts it in place. */
+    private fun crop(item: ImageItem, source: OriginalImage, quad: CropQuad) {
+        val id = item.id
+        val target = store.fileFor(nextId++, source.format)
+        val generation = importGeneration
+        _cropping.update { it + id }
+        _pendingImports.update { it + 1 }
+        viewModelScope.launch {
+            val page = try {
+                withContext(cropOps) { PageCropper.crop(source, quad, target) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("Usugami", "Cropping failed", e)
+                null
+            } catch (e: OutOfMemoryError) {
+                null
+            } finally {
+                _cropping.update { it - id }
+            }
+            if (generation != importGeneration) {
+                // Discarded while it was being cropped.
+                viewModelScope.launch(fileOps) { target.delete() }
+                return@launch
+            }
+            _pendingImports.update { it - 1 }
+            val current = items.value.firstOrNull { it.id == id }
+            when {
+                page == null -> message(R.string.crop_failed)
+                current == null || current.source.path != source.path -> viewModelScope.launch(fileOps) { target.delete() }
+                else -> {
+                    replaceItem(
+                        current.copy(
+                            path = target.path,
+                            format = source.format,
+                            width = page.width,
+                            height = page.height,
+                            exifOrientation = 1,
+                            original = source.copy(corners = quad),
+                        ),
+                    )
+                    thumbnails.remove(current)
+                    // The page as it was cropped before.
+                    if (current.original != null) viewModelScope.launch(fileOps) { File(current.path).delete() }
+                }
+            }
+        }
     }
 
     /** The images [packItems] kept in the saved state, if Android restarted Usugami. */
@@ -502,18 +763,44 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val details = saved.getIntArray("details") ?: return emptyList()
         if (ids.isEmpty() || sizes.size != 2 * ids.size || details.size != ids.size) return emptyList()
         val names = saved.getByteArray("names")?.decodeToString()?.split('/').orEmpty()
+        val crops = restoredCrops(saved, ids)
         return ids.indices.map { i ->
             val format = ImageFormat.entries[details[i] shr 16]
+            val crop = crops[i]
             ImageItem(
                 id = ids[i],
-                path = store.fileFor(ids[i], format).path,
+                path = store.fileFor(crop?.first ?: ids[i], format).path,
                 name = names.getOrNull(i) ?: "Image",
                 format = format,
                 width = sizes[2 * i],
                 height = sizes[2 * i + 1],
                 exifOrientation = details[i] shr 8 and 0xFF,
                 rotation = (details[i] and 0xFF) * 90,
+                original = crop?.second,
             )
+        }
+    }
+
+    /** The cropped pages [packItems] kept, by their place in the list: each page's file and its original. */
+    private fun restoredCrops(saved: Bundle, ids: LongArray): Map<Int, Pair<Long, OriginalImage>> {
+        val places = saved.getIntArray("crops") ?: return emptyMap()
+        val files = saved.getLongArray("cropFiles") ?: return emptyMap()
+        val sizes = saved.getIntArray("cropSizes") ?: return emptyMap()
+        val details = saved.getIntArray("cropDetails") ?: return emptyMap()
+        val corners = saved.getFloatArray("cropCorners") ?: return emptyMap()
+        val n = places.size
+        if (files.size != n || sizes.size != 2 * n || details.size != n || corners.size != 8 * n || places.any { it !in ids.indices }) return emptyMap()
+        return (0 until n).associate { c ->
+            val format = ImageFormat.entries[details[c] shr 8]
+            val original = OriginalImage(
+                path = store.fileFor(ids[places[c]], format).path,
+                format = format,
+                width = sizes[2 * c],
+                height = sizes[2 * c + 1],
+                exifOrientation = details[c] and 0xFF,
+                corners = CropQuad(List(4) { CropPoint(corners[8 * c + 2 * it], corners[8 * c + 2 * it + 1]) }),
+            )
+            places[c] to (files[c] to original)
         }
     }
 
@@ -521,7 +808,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private fun forgetMissing(missing: List<ImageItem>) {
         val ids = missing.mapTo(HashSet()) { it.id }
         setItems(items.value.filterNot { it.id in ids })
-        ids.forEach(thumbnails::remove)
+        missing.forEach(thumbnails::remove)
         pluralMessage(R.plurals.msg_files_cleared, ids.size)
     }
 
@@ -858,20 +1145,32 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_RESULT_NAME = "result_name"
         private const val KEY_SHARED = "shared_files"
         private const val KEY_SHARES_UNDER_WAY = "shares_under_way"
+        private const val KEY_CROP = "crop"
+        private const val KEY_CAPTURE = "capture"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,
          * and a few thousand images were more than the saved state can hold, which crashed Usugami as
          * it went to the background. The copies' paths follow from their ids (see [ImageStore.fileFor]),
-         * and names never contain "/" (they are what follows the last one).
+         * and names never contain "/" (they are what follows the last one). A cropped page's file has
+         * a number of its own, and the image it was cropped from has the page's id.
          */
         @VisibleForTesting
-        internal fun packItems(list: List<ImageItem>): Bundle = bundleOf(
-            "ids" to LongArray(list.size) { list[it].id },
-            "names" to list.joinToString("/") { it.name }.encodeToByteArray(),
-            "sizes" to IntArray(2 * list.size) { if (it % 2 == 0) list[it / 2].width else list[it / 2].height },
-            "details" to IntArray(list.size) { list[it].run { format.ordinal shl 16 or (exifOrientation shl 8) or rotation / 90 } },
-        )
+        internal fun packItems(list: List<ImageItem>): Bundle {
+            val cropped = list.indices.filter { list[it].original != null }
+            fun original(c: Int) = list[cropped[c]].original!!
+            return bundleOf(
+                "ids" to LongArray(list.size) { list[it].id },
+                "names" to list.joinToString("/") { it.name }.encodeToByteArray(),
+                "sizes" to IntArray(2 * list.size) { if (it % 2 == 0) list[it / 2].width else list[it / 2].height },
+                "details" to IntArray(list.size) { list[it].run { format.ordinal shl 16 or (exifOrientation shl 8) or rotation / 90 } },
+                "crops" to cropped.toIntArray(),
+                "cropFiles" to LongArray(cropped.size) { File(list[cropped[it]].path).nameWithoutExtension.toLong() },
+                "cropSizes" to IntArray(2 * cropped.size) { if (it % 2 == 0) original(it / 2).width else original(it / 2).height },
+                "cropDetails" to IntArray(cropped.size) { original(it).run { format.ordinal shl 8 or exifOrientation } },
+                "cropCorners" to FloatArray(8 * cropped.size) { i -> original(i / 8).corners[i % 8 / 2].let { if (i % 2 == 0) it.x else it.y } },
+            )
+        }
     }
 }
 

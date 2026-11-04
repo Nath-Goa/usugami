@@ -119,6 +119,11 @@ class BuiltInOcrDeviceTest {
         PhotoOcrCheck.run(context, engine, dir)
     }
 
+    /** A photo cropped to the page on it is read as cropped: what lies beside the page is left out. */
+    @Test fun readsACroppedPhotosPage() = runBlocking {
+        CroppedPhotoOcrCheck.run(context, engine, File(dir, "cropped"))
+    }
+
     /** The native bridge turns bad input into exceptions instead of crashing the app. */
     @Test fun nativeBridgeRejectsBadInput() {
         val net = NcnnNet.load(context.assets, "ocr/PP-OCRv5_mobile_det.ncnn.param", "ocr/PP-OCRv5_mobile_det.ncnn.bin", reuseMemory = true)

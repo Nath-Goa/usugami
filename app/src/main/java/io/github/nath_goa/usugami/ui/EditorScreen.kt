@@ -49,8 +49,10 @@ import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Crop
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Rotate90DegreesCcw
@@ -59,11 +61,13 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -114,8 +118,10 @@ import sh.calvin.reorderable.rememberReorderableLazyGridState
 class EditorActions(
     val addFromPhotos: () -> Unit,
     val addFromFiles: () -> Unit,
+    val takePhoto: () -> Unit,
     val changeLayout: (LayoutSettings) -> Unit,
     val rotate: (id: Long, degrees: Int) -> Unit,
+    val crop: (id: Long) -> Unit,
     val remove: (id: Long) -> Unit,
     val move: (fromId: Long, toId: Long) -> Unit,
     val moveBy: (id: Long, offset: Int) -> Unit,
@@ -134,6 +140,7 @@ fun EditorScreen(
     snackbar: SnackbarHostState,
     actions: EditorActions,
     onBack: () -> Unit,
+    cropping: Set<Long> = emptySet(),
 ) {
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     // The bar takes a tint of its own once the page scrolls under it.
@@ -204,6 +211,7 @@ fun EditorScreen(
                     convertEnabled = pendingImports == 0,
                     onAddPhotos = actions.addFromPhotos,
                     onAddFiles = actions.addFromFiles,
+                    onTakePhoto = actions.takePhoto,
                     onConvert = actions.convert,
                 )
             }
@@ -234,7 +242,7 @@ fun EditorScreen(
                 if (empty) {
                     val bottom = freezeWhen(items.isNotEmpty(), padding.calculateBottomPadding())
                     Box(Modifier.fillMaxSize().padding(bottom = bottom)) {
-                        EmptyState(pendingImports > 0, actions.addFromPhotos, actions.addFromFiles)
+                        EmptyState(pendingImports > 0, actions.addFromPhotos, actions.addFromFiles, actions.takePhoto)
                     }
                 } else {
                     // Keeps showing the last pages while they fade out after the last image goes.
@@ -242,7 +250,7 @@ fun EditorScreen(
                     val bottom = freezeWhen(items.isEmpty(), padding.calculateBottomPadding())
                     Column(Modifier.fillMaxSize().padding(bottom = bottom)) {
                         OptionsRow(layout, actions.changeLayout, Modifier.padding(top = 4.dp, bottom = 4.dp))
-                        PageGrid(shownItems, layout, thumbnails, actions)
+                        PageGrid(shownItems, layout, thumbnails, actions, cropping)
                     }
                 }
             }
@@ -266,7 +274,7 @@ fun EditorScreen(
 }
 
 @Composable
-private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails: Thumbnails, actions: EditorActions) {
+private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails: Thumbnails, actions: EditorActions, cropping: Set<Long>) {
     val haptic = LocalHapticFeedback.current
     val gridState = rememberLazyGridState()
     // The reorder hint is inserted above the first page when the second image arrives. The grid
@@ -329,18 +337,18 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
                             if (turned != null) stateDescription = turned
                         },
                 ) {
-                    PageCardContent(index + 1, item, layout, thumbnails, actions)
+                    PageCardContent(index + 1, item, layout, thumbnails, actions, cropping = item.id in cropping)
                 }
             }
         }
         item(key = "add") {
-            AddMoreCard(actions.addFromPhotos, actions.addFromFiles, Modifier.animateItem())
+            AddMoreCard(actions.addFromPhotos, actions.addFromFiles, actions.takePhoto, Modifier.animateItem())
         }
     }
 }
 
 @Composable
-private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails, actions: EditorActions) {
+private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails, actions: EditorActions, cropping: Boolean) {
     Column {
         Box(
             Modifier
@@ -366,6 +374,19 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
                         .padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
+            // On the picture, as the bar below has room for three buttons on a narrow card. Off
+            // while the page is being cropped, which a crop would start from.
+            FilledTonalIconButton(
+                onClick = { actions.crop(item.id) },
+                enabled = !cropping,
+                modifier = Modifier.align(Alignment.TopEnd),
+            ) {
+                Icon(Icons.Rounded.Crop, contentDescription = stringResource(R.string.crop_page, pageNumber))
+            }
+            if (cropping) {
+                val label = stringResource(R.string.cropping_page, pageNumber)
+                CircularProgressIndicator(Modifier.align(Alignment.Center).semantics { contentDescription = label })
+            }
         }
         Text(
             item.name,
@@ -390,7 +411,7 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
 }
 
 @Composable
-private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit, modifier: Modifier = Modifier) {
+private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit, onTakePhoto: () -> Unit, modifier: Modifier = Modifier) {
     var menu by remember { mutableStateOf(false) }
     Box(modifier) {
         OutlinedCard(
@@ -408,12 +429,12 @@ private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit, modifie
                 Text(stringResource(R.string.add_more), style = MaterialTheme.typography.labelLarge)
             }
         }
-        AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
+        AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles, onTakePhoto)
     }
 }
 
 @Composable
-private fun AddMenu(expanded: () -> Boolean, onDismiss: () -> Unit, onAddPhotos: () -> Unit, onAddFiles: () -> Unit) {
+private fun AddMenu(expanded: () -> Boolean, onDismiss: () -> Unit, onAddPhotos: () -> Unit, onAddFiles: () -> Unit, onTakePhoto: () -> Unit) {
     // The items can still be tapped while the menu fades out: only the first tap counts.
     DropdownMenu(expanded = expanded(), onDismissRequest = onDismiss) {
         DropdownMenuItem(
@@ -433,6 +454,16 @@ private fun AddMenu(expanded: () -> Boolean, onDismiss: () -> Unit, onAddPhotos:
                 if (expanded()) {
                     onDismiss()
                     onAddFiles()
+                }
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.add_from_camera)) },
+            leadingIcon = { Icon(Icons.Rounded.PhotoCamera, contentDescription = null) },
+            onClick = {
+                if (expanded()) {
+                    onDismiss()
+                    onTakePhoto()
                 }
             },
         )
@@ -473,6 +504,7 @@ private fun BottomActions(
     convertEnabled: Boolean,
     onAddPhotos: () -> Unit,
     onAddFiles: () -> Unit,
+    onTakePhoto: () -> Unit,
     onConvert: () -> Unit,
 ) {
     val labelStyle = MaterialTheme.typography.labelLarge
@@ -501,7 +533,7 @@ private fun BottomActions(
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.add_images), maxLines = 1, overflow = TextOverflow.Ellipsis, autoSize = shrunk)
                     }
-                    AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles)
+                    AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles, onTakePhoto)
                 }
                 Spacer(Modifier.width(ButtonGap))
                 Button(
@@ -527,7 +559,7 @@ private val ButtonGap = 12.dp
 private val ButtonChrome = 16.dp + 24.dp + 18.dp + 6.dp
 
 @Composable
-private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: () -> Unit) {
+private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: () -> Unit, onTakePhoto: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -578,6 +610,12 @@ private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: 
             Icon(Icons.Rounded.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.add_from_files))
+        }
+        Spacer(Modifier.height(8.dp))
+        FilledTonalButton(onClick = onTakePhoto, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
+            Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.add_from_camera))
         }
         Spacer(Modifier.height(24.dp))
         Text(

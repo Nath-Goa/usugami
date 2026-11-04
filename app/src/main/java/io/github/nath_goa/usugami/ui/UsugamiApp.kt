@@ -69,6 +69,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val merge by vm.merge.collectAsStateWithLifecycle()
     val compression by vm.compression.collectAsStateWithLifecycle()
     val pendingImports by vm.pendingImports.collectAsStateWithLifecycle()
+    val crop by vm.crop.collectAsStateWithLifecycle()
+    val cropping by vm.cropping.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
     val cancelling by vm.cancelling.collectAsStateWithLifecycle()
     val ocrProblem by vm.ocrProblem.collectAsStateWithLifecycle()
@@ -163,6 +165,9 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { vm.addImages(it) }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.addImages(it) }
+    // The phone's own camera app takes the photos, into a file Usugami gives it: Usugami needs no
+    // camera permission.
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { vm.photoTaken(it) }
     // The PDF tool whose picker is open. What is picked goes to that tool while it shows, and not to
     // Home or another tool when the user left before the picker covered Usugami.
     var pickingFor by rememberSaveable { mutableStateOf<String?>(null) }
@@ -236,6 +241,18 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     }
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
+
+    /** Opens the camera app to take a photo for a page; it is added and cropped when it comes back. */
+    fun takePhoto() {
+        if (!opener.open()) return
+        try {
+            camera.launch(vm.newCapture())
+        } catch (_: ActivityNotFoundException) {
+            opener.notOpened()
+            vm.photoTaken(false)
+            vm.showMessage(R.string.msg_no_camera)
+        }
+    }
 
     // A tool's choices (its options, a signature's place) are kept while its result shows, so
     // "Back to editing" returns to them. Opening the tool from Home starts afresh.
@@ -325,10 +342,15 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     // Which screen is showing. The result screens sit one level deeper than their editors, which
     // sit one level deeper than home, and so do Settings ("settings"), About ("settings/about") and
     // the texts About opens ("settings/about/privacy"); that depth decides the slide direction.
-    // A tool opened from Choose a tool ("share") sits one level deeper than it.
+    // A tool opened from Choose a tool ("share") sits one level deeper than it. The crop screen sits
+    // beside the editor's result.
     val screen = when {
         route == "home" || route.startsWith("settings") || route == "share" -> route
-        route == "images" -> if (result == null) "images" else "images/result"
+        route == "images" -> when {
+            result != null -> "images/result"
+            crop != null -> "images/crop"
+            else -> "images"
+        }
         else -> (if (toolFromShare) "share/" else "") + if (pdfResult == null) route else "$route/result"
     }
     // Where shared files are going, for the screen they open in to say more are coming.
@@ -446,8 +468,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                 }
                             },
                             addFromFiles = { launch(R.string.msg_no_picker) { filePicker.launch(arrayOf("image/jpeg", "image/png")) } },
+                            takePhoto = ::takePhoto,
                             changeLayout = vm::setLayout,
                             rotate = vm::rotate,
+                            crop = vm::openCrop,
                             remove = vm::remove,
                             move = vm::move,
                             moveBy = vm::moveBy,
@@ -458,7 +482,26 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             convert = { if (vm.progress.value == null) showConvertSheet = true },
                         ),
                         onBack = leave,
+                        cropping = cropping,
                     )
+                }
+                current == "images/crop" -> {
+                    val session = freezeWhen(!active, crop)
+                    val item = freezeWhen(!active, session?.let { s -> items.firstOrNull { it.id == s.itemId } })
+                    BackHandler(enabled = active) { vm.closeCrop() }
+                    if (session != null) {
+                        CropScreen(
+                            session = session,
+                            item = item,
+                            snackbar = screenSnackbar,
+                            actions = CropActions(
+                                done = { vm.finishCrop(it) },
+                                // A second tap, once the first has closed the screen, opens no second camera.
+                                takeAnother = { if (vm.finishCrop(it)) takePhoto() },
+                                close = vm::closeCrop,
+                            ),
+                        )
+                    }
                 }
                 current == "images/result" -> {
                     val files = freezeWhen(!active, result) ?: emptyList()
