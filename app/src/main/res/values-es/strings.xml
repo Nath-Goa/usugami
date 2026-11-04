@@ -35,8 +35,11 @@
     <string name="move_file_later">Mover %1$s una posición después</string>
     <string name="remove_file">Quitar %1$s</string>
     <string name="pdf_import_failed">No se pudo abrir ese PDF. Puede que esté dañado o que no sea compatible.</string>
+    <string name="pdf_import_failed_many">No se pudieron abrir esos PDF. Puede que estén dañados o que no sean compatibles.</string>
     <string name="open_no_space">No hay suficiente almacenamiento libre para abrir ese archivo. Libera espacio y vuelve a intentarlo.</string>
+    <string name="open_no_space_many">No hay suficiente almacenamiento libre para abrir esos archivos. Libera espacio y vuelve a intentarlo.</string>
     <string name="pdf_certificate_unsupported">Este PDF está bloqueado con un certificado (ID digital). Usugami solo puede abrir PDF bloqueados con contraseña.</string>
+    <string name="pdf_certificate_unsupported_many">Estos PDF están bloqueados con un certificado (ID digital). Usugami solo puede abrir PDF bloqueados con contraseña.</string>
     <string name="pdf_wrong_password">Con esa contraseña no se pudo abrir el PDF.</string>
     <string name="pdf_password_title">Contraseña del PDF</string>
     <string name="pdf_password_body">\"%1$s\" está protegido. Escribe su contraseña para continuar.</string>
@@ -255,12 +258,19 @@
     <string name="office_note_word">Se convierten el texto, los títulos, las listas, las tablas y las imágenes. Las fuentes de tu teléfono sustituyen a las del documento, así que algunas líneas pueden cortarse en otro sitio.</string>
     <string name="office_note_powerpoint">Cada diapositiva se convierte en una página; las diapositivas ocultas se omiten. Las fuentes de tu teléfono sustituyen a las de la presentación, y los gráficos aparecen como recuadros grises.</string>
     <string name="office_legacy_word">Es un archivo antiguo de Word (.doc). Guárdalo como .docx en Word u otra app y vuelve a intentarlo.</string>
+    <string name="office_legacy_word_many">Son archivos antiguos de Word (.doc). Guárdalos como .docx en Word u otra app y vuelve a intentarlo.</string>
     <string name="office_legacy_powerpoint">Es un archivo antiguo de PowerPoint (.ppt). Guárdalo como .pptx en PowerPoint u otra app y vuelve a intentarlo.</string>
+    <string name="office_legacy_powerpoint_many">Son archivos antiguos de PowerPoint (.ppt). Guárdalos como .pptx en PowerPoint u otra app y vuelve a intentarlo.</string>
     <string name="office_encrypted">Este archivo está protegido con contraseña. Quita la contraseña en Word o PowerPoint, guarda el archivo y vuelve a intentarlo.</string>
+    <string name="office_encrypted_many">Estos archivos están protegidos con contraseña. Quita la contraseña en Word o PowerPoint, guarda los archivos y vuelve a intentarlo.</string>
     <string name="office_not_word">Este archivo no es un documento de Word (.docx), o está dañado.</string>
+    <string name="office_not_word_many">Estos archivos no son documentos de Word (.docx), o están dañados.</string>
     <string name="office_not_powerpoint">Este archivo no es una presentación de PowerPoint (.pptx), o está dañado.</string>
+    <string name="office_not_powerpoint_many">Estos archivos no son presentaciones de PowerPoint (.pptx), o están dañados.</string>
     <string name="office_no_slides">Esta presentación no tiene diapositivas para convertir. Las diapositivas ocultas se omiten.</string>
+    <string name="office_no_slides_many">Estas presentaciones no tienen diapositivas para convertir. Las diapositivas ocultas se omiten.</string>
     <string name="office_embedded_content">Este documento guarda su texto como una página web o un archivo RTF incrustado, que Usugami no puede convertir. Ábrelo en Word, guárdalo y vuelve a intentarlo.</string>
+    <string name="office_embedded_content_many">Estos documentos guardan su texto como una página web o un archivo RTF incrustado, que Usugami no puede convertir. Ábrelos en Word, guárdalos y vuelve a intentarlo.</string>
     <string name="office_convert_failed">No se pudo convertir este archivo. Revisa el archivo y el almacenamiento libre.</string>
     <plurals name="progress_slides">
         <item quantity="one">%1$d de %2$d diapositiva</item>
@@ -298,12 +308,15 @@
     <string name="flatten_note">Los campos de formulario, los comentarios y los dibujos pasan a formar parte de la página, así que ya no se pueden cambiar ni rellenar. Los enlaces siguen funcionando.</string>
     <string name="flatten_nothing">Este PDF no tiene campos de formulario ni comentarios que acoplar.</string>
     <string name="flatten_xfa_only">El formulario de este PDF es un formulario XFA dinámico, que Usugami no puede acoplar.</string>
+    <string name="flatten_xfa_only_many">Los formularios de estos PDF son formularios XFA dinámicos, que Usugami no puede acoplar.</string>
     <string name="flatten_xfa_dropped">Este PDF tenía un formulario XFA dinámico, que se quitó. Sus demás campos de formulario y comentarios se acoplaron.</string>
+    <string name="flatten_xfa_dropped_many">Estos PDF tenían un formulario XFA dinámico, que se quitó. Sus demás campos de formulario y comentarios se acoplaron.</string>
     <plurals name="flatten_fields_kept">
         <item quantity="one">%d campo de formulario tiene texto que Usugami no puede dibujar con su fuente, así que se dejó rellenable para conservar ese texto.</item>
         <item quantity="many">%d campos de formulario tienen texto que Usugami no puede dibujar con su fuente, así que se dejaron rellenables para conservar ese texto.</item>
         <item quantity="other">%d campos de formulario tienen texto que Usugami no puede dibujar con su fuente, así que se dejaron rellenables para conservar ese texto.</item>
     </plurals>
+    <string name="flatten_fields_kept_many">Algunos campos de formulario tienen texto que Usugami no puede dibujar con su fuente, así que se dejaron rellenables para conservar ese texto.</string>
     <string name="tool_edit">Editar PDF</string>
     <string name="tool_edit_detail">Añade texto, dibujos, formas e imágenes</string>
     <string name="pdf_edit_action">Guardar PDF</string>
@@ -351,8 +364,11 @@
     <string name="office_note_epub">Se convierten los capítulos, los títulos, los estilos de texto, las listas, las tablas y las imágenes, y el índice pasa a ser marcadores. Se usan las fuentes de tu teléfono.</string>
     <string name="book_page_note">A5 es más o menos el tamaño de un libro de bolsillo; A4 es mejor para imprimir.</string>
     <string name="epub_protected">Este libro tiene DRM (protección contra copia), así que Usugami no puede leerlo. Solo se pueden convertir libros sin DRM.</string>
+    <string name="epub_protected_many">Estos libros tienen DRM (protección contra copia), así que Usugami no puede leerlos. Solo se pueden convertir libros sin DRM.</string>
     <string name="epub_not_recognized">Este archivo no es un libro electrónico EPUB, o está dañado.</string>
+    <string name="epub_not_recognized_many">Estos archivos no son libros electrónicos EPUB, o están dañados.</string>
     <string name="epub_empty">Este libro no tiene nada que convertir.</string>
+    <string name="epub_empty_many">Estos libros no tienen nada que convertir.</string>
     <string name="progress_chapter">Capítulo %1$d de %2$d</string>
 
     <string name="ocr_title">Hacer buscable el texto (OCR)</string>
@@ -572,6 +588,7 @@
         <item quantity="many">No se pudieron leer %d archivos compartidos.</item>
         <item quantity="other">No se pudieron leer %d archivos compartidos.</item>
     </plurals>
+    <string name="msg_share_interrupted">Usugami se cerró antes de poder recibir los archivos que compartiste. Vuelve a compartirlos.</string>
     <string name="msg_saved_downloads">Guardado en Descargas como %1$s</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">Se guardó %d PDF en Descargas</item>

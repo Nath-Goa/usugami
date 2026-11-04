@@ -249,7 +249,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val _saved = MutableStateFlow(handle[KEY_SAVED] ?: false)
     val saved = _saved.asStateFlow()
     /** The names of the result's PDFs saved so far, all at once or each on its own. */
-    private val _savedFiles = MutableStateFlow(handle.get<ArrayList<String>>(KEY_SAVED_FILES)?.toSet().orEmpty())
+    private val _savedFiles = MutableStateFlow(restoredSavedFiles())
     val savedFiles = _savedFiles.asStateFlow()
     /** True when the result was made from a PDF opened with a password: the new PDF has none. */
     private val _passwordRemoved = MutableStateFlow(handle[KEY_PASSWORD_REMOVED] ?: false)
@@ -380,12 +380,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         importJob = viewModelScope.launch {
             val job = coroutineContext[Job]!!
             fun abandoned() = generation != importGeneration
-            // Why each file left out was, and their names: those alike are named in one message.
-            val refused = LinkedHashMap<String, MutableList<String>>()
-            suspend fun failed(uri: Uri, text: String) {
+            // The files left out, by name, and why.
+            val refused = ArrayList<Pair<String, Said>>()
+            suspend fun failed(uri: Uri, why: Said) {
                 if (abandoned()) return
                 val name = withContext(fileOps) { office.displayName(uri) } ?: "${kind.fallbackName}.${kind.extension}"
-                refused.getOrPut(text) { ArrayList() } += name
+                refused += name to why
             }
             try {
                 for (uri in uris) {
@@ -399,18 +399,18 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: OfficeFileProblem) {
-                        failed(uri, officeMessage(e, kind))
+                        failed(uri, officeReason(e, kind))
                     } catch (e: Exception) {
-                        failed(uri, if (e.isOutOfSpace()) strings.getString(R.string.open_no_space) else officeMessage(OfficeNotRecognized(), kind))
+                        failed(uri, if (e.isOutOfSpace()) said(R.string.open_no_space, R.string.open_no_space_many) else officeReason(OfficeNotRecognized(), kind))
                     } catch (_: OutOfMemoryError) {
-                        failed(uri, officeMessage(OfficeNotRecognized(), kind))
+                        failed(uri, officeReason(OfficeNotRecognized(), kind))
                     }
                 }
             } finally {
                 if (!abandoned()) {
                     _importing.value = false
                     // One file picked is told about as before, without its name.
-                    for ((text, names) in refused) message(if (uris.size == 1) text else strings.getString(R.string.file_problem, names.joinToString(", "), text))
+                    if (uris.size == 1) refused.forEach { message(it.second.one) } else sayOf(refused)
                 }
             }
         }
@@ -432,10 +432,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
         _importing.value = true
         val generation = ++importGeneration
+        // Kept in the saved state until they are all in: when Android closes Usugami meanwhile, those not
+        // in yet are gone, and the user is told (see takeShareInterrupted).
+        handle[KEY_TAKING_SHARED] = generation
         importJob = viewModelScope.launch {
             fun abandoned() = generation != importGeneration
-            // Why each file left out was, and their names: those alike are named in one message.
-            val refused = LinkedHashMap<String, MutableList<String>>()
+            // The files left out, by name, and why.
+            val refused = ArrayList<Pair<String, Said>>()
             try {
                 for (shared in files) {
                     if (abandoned()) break
@@ -456,35 +459,45 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: PdfCertificateEncrypted) {
-                        strings.getString(R.string.pdf_certificate_unsupported)
+                        said(R.string.pdf_certificate_unsupported, R.string.pdf_certificate_unsupported_many)
                     } catch (e: OfficeFileProblem) {
-                        officeMessage(e, officeKind ?: OfficeKind.WORD)
+                        officeReason(e, officeKind ?: OfficeKind.WORD)
                     } catch (e: Exception) {
                         when {
-                            e.isOutOfSpace() -> strings.getString(R.string.open_no_space)
-                            officeKind == null -> strings.getString(R.string.pdf_import_failed)
-                            else -> officeMessage(OfficeNotRecognized(), officeKind)
+                            e.isOutOfSpace() -> said(R.string.open_no_space, R.string.open_no_space_many)
+                            officeKind == null -> said(R.string.pdf_import_failed, R.string.pdf_import_failed_many)
+                            else -> officeReason(OfficeNotRecognized(), officeKind)
                         }
                     } catch (_: LinkageError) {
                         // Never crash on a PDF that PDFBox can't handle.
-                        strings.getString(R.string.pdf_import_failed)
+                        said(R.string.pdf_import_failed, R.string.pdf_import_failed_many)
                     } catch (_: OutOfMemoryError) {
-                        if (officeKind == null) strings.getString(R.string.pdf_import_failed) else officeMessage(OfficeNotRecognized(), officeKind)
+                        if (officeKind == null) said(R.string.pdf_import_failed, R.string.pdf_import_failed_many) else officeReason(OfficeNotRecognized(), officeKind)
                     }
-                    if (reason != null) refused.getOrPut(reason) { ArrayList() } += shared.name
+                    if (reason != null) refused += shared.name to reason
                 }
             } finally {
+                if (handle.get<Int>(KEY_TAKING_SHARED) == generation) handle.remove<Int>(KEY_TAKING_SHARED)
                 // Those not taken in (the tool was put away meanwhile) are deleted, so that none is left
                 // in the cache. Those taken in were moved, and those that couldn't be used deleted.
                 withContext(NonCancellable + fileOps) { files.forEach { it.file.delete() } }
                 if (!abandoned()) {
                     _importing.value = false
                     // One file shared is told about as one picked is, without its name.
-                    for ((text, names) in refused) message(if (files.size == 1) text else strings.getString(R.string.file_problem, names.joinToString(", "), text))
+                    if (files.size == 1) refused.forEach { message(it.second.one) } else sayOf(refused)
                 }
             }
         }
     }
+
+    /** Android closed Usugami while it took in files shared to it (see [addShared]). */
+    private var shareInterrupted = handle.remove<Int>(KEY_TAKING_SHARED) != null
+
+    /**
+     * Whether Android closed Usugami while it took in files shared to it, so that those not in yet are
+     * gone: true once, for the user to be told.
+     */
+    fun takeShareInterrupted(): Boolean = shareInterrupted.also { shareInterrupted = false }
 
     /** Puts away the Word, PowerPoint or EPUB file [id], and frees its copy. */
     fun removeDocument(id: Long) {
@@ -514,20 +527,40 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /** Why a Word, PowerPoint or EPUB file can't be converted, in the user's language. */
-    private fun officeMessage(e: OfficeFileProblem, kind: OfficeKind): String = strings.getString(
-        when (e) {
-            is OfficeLegacyFormat -> if (kind == OfficeKind.WORD) R.string.office_legacy_word else R.string.office_legacy_powerpoint
-            is OfficeEncrypted -> R.string.office_encrypted
-            is EpubProtected -> R.string.epub_protected
-            is OfficeNothingToConvert -> if (kind == OfficeKind.EPUB) R.string.epub_empty else R.string.office_no_slides
-            is OfficeEmbeddedContent -> R.string.office_embedded_content
-            is OfficeNotRecognized -> when (kind) {
-                OfficeKind.WORD -> R.string.office_not_word
-                OfficeKind.POWERPOINT -> R.string.office_not_powerpoint
-                OfficeKind.EPUB -> R.string.epub_not_recognized
-            }
-        },
-    )
+    private fun officeMessage(e: OfficeFileProblem, kind: OfficeKind): String = officeReason(e, kind).one
+
+    /** Why Word, PowerPoint or EPUB files can't be converted, said of one and of several (see [Said]). */
+    private fun officeReason(e: OfficeFileProblem, kind: OfficeKind): Said = when (e) {
+        is OfficeLegacyFormat ->
+            if (kind == OfficeKind.WORD) said(R.string.office_legacy_word, R.string.office_legacy_word_many)
+            else said(R.string.office_legacy_powerpoint, R.string.office_legacy_powerpoint_many)
+        is OfficeEncrypted -> said(R.string.office_encrypted, R.string.office_encrypted_many)
+        is EpubProtected -> said(R.string.epub_protected, R.string.epub_protected_many)
+        is OfficeNothingToConvert ->
+            if (kind == OfficeKind.EPUB) said(R.string.epub_empty, R.string.epub_empty_many)
+            else said(R.string.office_no_slides, R.string.office_no_slides_many)
+        is OfficeEmbeddedContent -> said(R.string.office_embedded_content, R.string.office_embedded_content_many)
+        is OfficeNotRecognized -> when (kind) {
+            OfficeKind.WORD -> said(R.string.office_not_word, R.string.office_not_word_many)
+            OfficeKind.POWERPOINT -> said(R.string.office_not_powerpoint, R.string.office_not_powerpoint_many)
+            OfficeKind.EPUB -> said(R.string.epub_not_recognized, R.string.epub_not_recognized_many)
+        }
+    }
+
+    /** What [one] says of one file, and [many] of several. */
+    private fun said(@StringRes one: Int, @StringRes many: Int) = Said(strings.getString(one), strings.getString(many))
+
+    /**
+     * Says what [said] says of each of several files, naming it. Files of which the same is said are
+     * named together, in one message worded for them all: messages show one at a time, and one for
+     * each file would keep the others waiting long after.
+     */
+    private fun sayOf(said: List<Pair<String, Said>>) {
+        for (group in said.groupBy { it.second.many }.values) {
+            val text = if (group.size == 1) group[0].second.one else group[0].second.many
+            message(strings.getString(R.string.file_problem, group.joinToString(", ") { it.first }, text))
+        }
+    }
 
     /** The copies of [missing], files picked to convert, were cleared from the cache: drop them, and say so. */
     private fun forgetDocuments(missing: List<OfficeInput>) {
@@ -726,7 +759,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** Drops PDFs whose copies the system has cleared from the cache, and says so. */
     private fun forgetInputs(missing: List<PdfInput>) {
         val ids = missing.mapTo(HashSet()) { it.id }
-        if (inputs.value.any { it.id in ids }) clearRedaction()
+        // Only with the PDF previewed: Add watermark previews the first of its PDFs.
+        if (inputs.value.firstOrNull()?.id in ids) clearRedaction()
         setInputs(inputs.value.filterNot { it.id in ids })
         setPages(pages.value.filterNot { it.inputId in ids })
         setLocked(locked.value.filterNot { it.id in ids })
@@ -735,7 +769,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun removeInput(id: Long) {
         val input = inputs.value.firstOrNull { it.id == id } ?: return
-        clearRedaction()
+        // Only with the PDF previewed, the first: Add watermark keeps the preview of its first PDF, or
+        // the one being made, when another of its PDFs is removed.
+        if (inputs.value.first().id == id) clearRedaction()
         setInputs(inputs.value - input)
         setPages(pages.value.filterNot { it.inputId == id })
         viewModelScope.launch(fileOps) { engine.delete(input) }
@@ -1063,15 +1099,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             return
         }
         val jobs = list.map { ToolJob(it, outputName(PdfTool.FLATTEN, it)) }
-        var notes = emptyList<String>()
-        processEach("Flattened_PDFs", list.map { it.name }, list, afterResult = { notes.forEach(::message) }) { check, onNext ->
+        var notes = emptyList<Pair<String, Said>>()
+        processEach("Flattened_PDFs", list.map { it.name }, list, afterResult = { sayOf(notes) }) { check, onNext ->
             val outcomes = engine.flattenEach(jobs, check, onNext)
             notes = outcomes.withIndex().flatMap { (i, outcome) ->
                 val result = outcome.getOrNull() ?: return@flatMap emptyList()
+                val kept = strings.getQuantityString(R.plurals.flatten_fields_kept, result.keptFields, result.keptFields)
                 listOfNotNull(
-                    strings.getString(R.string.flatten_xfa_dropped).takeIf { result.droppedDynamicXfa },
-                    strings.getQuantityString(R.plurals.flatten_fields_kept, result.keptFields, result.keptFields).takeIf { result.keptFields > 0 },
-                ).map { strings.getString(R.string.file_problem, list[i].name, it) }
+                    said(R.string.flatten_xfa_dropped, R.string.flatten_xfa_dropped_many).takeIf { result.droppedDynamicXfa },
+                    Said(kept, strings.getString(R.string.flatten_fields_kept_many)).takeIf { result.keptFields > 0 },
+                ).map { list[i].name to it }
             }
             outcomes.map { outcome -> outcome.map { it.file } }
         }
@@ -1469,20 +1506,22 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     /**
      * Says which files of several couldn't be made into PDFs, by name: those with nothing to do (no
-     * page left to number, nothing to flatten) together, those with a reason of their own each with
-     * it, and the rest together.
+     * page left to number, nothing to flatten) together, those with a reason of their own with it
+     * (those with the same reason together), and the rest together.
      */
     private fun reportFailures(failures: List<Pair<String, Throwable>>) {
         val failed = ArrayList<String>()
         val nothingToNumber = ArrayList<String>()
         val nothingToFlatten = ArrayList<String>()
+        val reasons = ArrayList<Pair<String, Said>>()
         for ((name, e) in failures) {
             when {
                 e is NothingToNumber -> nothingToNumber += name
                 e is NothingToFlatten && !e.dynamicXfa -> nothingToFlatten += name
-                else -> failureReason(e)?.let { message(strings.getString(R.string.file_problem, name, it)) } ?: failed.add(name)
+                else -> failureReason(e)?.let { reasons += name to it } ?: failed.add(name)
             }
         }
+        sayOf(reasons)
         fun named(@PluralsRes res: Int, names: List<String>) {
             if (names.isNotEmpty()) message(strings.getQuantityString(res, names.size, names.size, names.joinToString(", ")))
         }
@@ -1492,11 +1531,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /** Why one of several files couldn't be made into a PDF, when there is more to say than that it failed. */
-    private fun failureReason(e: Throwable): String? = when (e) {
-        is OfficeFileProblem -> officeMessage(e, documents.value.firstOrNull()?.kind ?: OfficeKind.WORD)
-        is NothingToFlatten -> strings.getString(R.string.flatten_xfa_only)
-        is PdfCertificateEncrypted -> strings.getString(R.string.pdf_certificate_unsupported)
-        is WatermarkFontMissing -> strings.getString(R.string.watermark_no_font)
+    private fun failureReason(e: Throwable): Said? = when (e) {
+        is OfficeFileProblem -> officeReason(e, documents.value.firstOrNull()?.kind ?: OfficeKind.WORD)
+        is NothingToFlatten -> said(R.string.flatten_xfa_only, R.string.flatten_xfa_only_many)
+        is PdfCertificateEncrypted -> said(R.string.pdf_certificate_unsupported, R.string.pdf_certificate_unsupported_many)
+        // About the text typed, whichever PDFs it was for.
+        is WatermarkFontMissing -> said(R.string.watermark_no_font, R.string.watermark_no_font)
         else -> null
     }
 
@@ -1590,8 +1630,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun startOver() {
         // Not while the PDFs are being saved: their files would be deleted mid-save.
         if (_saving.value) return
-        // A PDF or picture still being added belongs to the PDF put away: the import is abandoned,
-        // as reset() abandons it, rather than adding it once done.
+        // A PDF, document or picture still being added belongs to the one put away: the import is
+        // abandoned, as reset() abandons it, rather than adding it once done.
         val importing = importJob?.isActive == true
         importJob?.cancel()
         importGeneration++
@@ -1606,6 +1646,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             // wait for this.
             if (importing) {
                 engine.deleteAllExcept(emptyList())
+                office.deleteAllExcept(emptyList())
                 pictures.deleteAllExcept(emptyList())
             }
         }
@@ -1654,11 +1695,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /**
-     * Forgets what was done with the PDFs in the tool showing, keeping the PDFs themselves, for
-     * another tool to take them: when the tool goes back to Choose a tool. Its changes, its result and
-     * the names and choices it gave each PDF go; a PDF or picture still being added is abandoned.
+     * Forgets what was done with the PDFs in [tool], keeping the PDFs themselves, for another tool to
+     * take them: when the tool goes back to Choose a tool. Its changes, its result and the names and
+     * choices it gave each PDF go; a PDF or picture still being added is abandoned. A tool for one PDF
+     * keeps only that one: the PDFs Reorganize PDF's "Add pages" added go with their pages, also one
+     * still waiting for its password.
      */
-    fun clearToolWork() {
+    fun clearToolWork(tool: PdfTool) {
         val importing = importJob?.isActive == true
         importJob?.cancel()
         importGeneration++
@@ -1666,6 +1709,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         _importing.value = false
         zipper.cancel()
         _result.value = null
+        val forOne = tool != PdfTool.MERGE && !tool.isBatch && inputs.value.isNotEmpty()
+        val added = if (forOne) inputs.value.drop(1) + locked.value else emptyList()
+        if (added.isNotEmpty()) {
+            setInputs(inputs.value.take(1))
+            setLocked(emptyList())
+            _wrongPassword.value = false
+            added.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
+        }
         setPages(allPages())
         handle[KEY_INSERT_AFTER] = null
         handle[KEY_PICTURE_PAGE] = null
@@ -1883,9 +1934,22 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         if (_result.value?.all { it.name in names } != false) _saved.value = true
     }
 
+    /**
+     * Keeps [names] in the saved state as one flag per PDF of the result, in its order: a few bytes
+     * each, as the result itself is kept (see [KeptResult]), since a result can have thousands of PDFs.
+     */
     private fun setSavedFiles(names: Set<String>) {
         _savedFiles.value = names
-        handle[KEY_SAVED_FILES] = ArrayList(names)
+        val files = _result.value
+        if (names.isEmpty() || files == null) handle.remove<BooleanArray>(KEY_SAVED_FILES)
+        else handle[KEY_SAVED_FILES] = BooleanArray(files.size) { files[it].name in names }
+    }
+
+    /** The names [setSavedFiles] kept, those of the result's PDFs that were saved. */
+    private fun restoredSavedFiles(): Set<String> {
+        val files = _result.value ?: return emptySet()
+        val saved = handle.get<BooleanArray>(KEY_SAVED_FILES)?.takeIf { it.size == files.size } ?: return emptySet()
+        return files.filterIndexed { i, _ -> saved[i] }.mapTo(HashSet()) { it.name }
     }
 
     fun cancelZip() = zipper.cancel()
@@ -1994,6 +2058,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_PASSWORD_REMOVED = "password_removed"
         const val KEY_RESULT_NAME = "result_name"
         const val KEY_BATCH = "batch"
+        const val KEY_TAKING_SHARED = "taking_shared"
 
         /** The choice for all PDFs a batch starts with: Compress PDF's Recommended. */
         val DEFAULT_BATCH_CHOICE = PdfCompression.RECOMMENDED.ordinal
@@ -2018,3 +2083,9 @@ private class PicturesCleared(val paths: List<String>) : Exception()
 
 /** No PDF of a batch could be made: [failures] are the files that failed, by name, and why. */
 private class BatchFailed(val failures: List<Pair<String, Throwable>>) : Exception()
+
+/**
+ * What is said of a file left out or of a PDF made (why it couldn't be used, say): [one] of one
+ * file, and [many] of several files of which the same is said, worded for them all.
+ */
+private class Said(val one: String, val many: String)

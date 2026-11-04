@@ -195,6 +195,20 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** The kind of the shared files being copied in, while they are. */
     val sharing: StateFlow<SharedKind?> = _sharing.asStateFlow()
 
+    /**
+     * How many shares are being sorted and copied in, or waiting their turn. Kept in the saved state:
+     * when Android closes Usugami meanwhile, their files are gone, and the user is told (see
+     * [takeShareInterrupted]).
+     */
+    private var sharesUnderWay: Int
+        get() = handle[KEY_SHARES_UNDER_WAY] ?: 0
+        set(value) {
+            if (value > 0) handle[KEY_SHARES_UNDER_WAY] = value else handle.remove<Int>(KEY_SHARES_UNDER_WAY)
+        }
+
+    /** Android closed Usugami while files shared to it were being copied in. */
+    private var shareInterrupted = (handle.remove<Int>(KEY_SHARES_UNDER_WAY) ?: 0) > 0
+
     init {
         handle.setSavedStateProvider(KEY_ITEMS) { packItems(_items.value) }
         val keep = if (restored) items.value else emptyList()
@@ -291,8 +305,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
      * those Usugami can't use, are left out, naming them. [refused] counts files turned away before.
      */
     fun share(uris: List<Uri>, sharedAs: String?, refused: Int = 0) {
-        if (uris.isEmpty()) return addImages(emptyList(), refused)
-        val generation = shareGeneration
+        if (uris.isEmpty()) {
+            // Images are told about as before, other files as shared files.
+            if (SharedFiles.kindOf(sharedAs, null) == SharedKind.IMAGE) return addImages(emptyList(), refused)
+            if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
+            return
+        }
+        // Until the share's last step: counted down on the main thread as soon as its files are listed.
+        sharesUnderWay++
         viewModelScope.launch {
             // One share at a time, in the order they came: the files of one shared while another is
             // being copied in go after them.
@@ -310,17 +330,19 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     SharedKind.IMAGE -> addImages(taken.map { uris[it] }, refused)
                     else -> {
                         if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
-                        copyShared(generation, kind, taken.map { uris[it] to names[it] })
+                        copyShared(kind, taken.map { uris[it] to names[it] })
                     }
                 }
             }
-        }
+        }.invokeOnCompletion { sharesUnderWay-- }
     }
 
     /** Copies [files] (each one's address and name), shared files of [kind], into [sharedFiles]. */
-    private suspend fun copyShared(generation: Int, kind: SharedKind, files: List<Pair<Uri, String>>) {
+    private suspend fun copyShared(kind: SharedKind, files: List<Pair<Uri, String>>) {
+        // Read as the files start to show as being copied in: [dropShares] stops the files the user
+        // sees coming, not those of a share still waiting its turn behind them.
+        val generation = shareGeneration
         fun dropped() = generation != shareGeneration
-        if (dropped()) return
         _sharing.value = kind
         val copies = ArrayList<SharedFile>()
         var failed = 0
@@ -377,6 +399,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         _sharing.value = null
         if (dropped.isNotEmpty()) viewModelScope.launch(shareOps) { dropped.forEach(inbox::delete) }
     }
+
+    /**
+     * Whether Android closed Usugami while files shared to it were being copied in, so that they are
+     * gone: true once, for the user to be told.
+     */
+    fun takeShareInterrupted(): Boolean = shareInterrupted.also { shareInterrupted = false }
 
     /**
      * For tests: returns once the shares started so far are sorted and copied in, and the cleanup of
@@ -829,6 +857,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_SAVED = "saved"
         private const val KEY_RESULT_NAME = "result_name"
         private const val KEY_SHARED = "shared_files"
+        private const val KEY_SHARES_UNDER_WAY = "shares_under_way"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,

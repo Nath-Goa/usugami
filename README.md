@@ -320,10 +320,12 @@ old "PDFer".
   Word, PowerPoint and EPUB files their converter, and PDFs **Choose a tool**, which lists every PDF
   tool for one PDF, and Merge PDF and the tools for several files for more. The tool you choose opens
   with them in it, and goes back to Choose a tool when you leave it. They're copied in at once, so
-  they're still there if Android stops Usugami in the background.
+  they're still there if Android stops Usugami in the background (if it stops Usugami while they're
+  still being copied in, Usugami tells you to share them again).
 - Shared together, files of different kinds: Usugami takes the kind most of them are (PDFs first
   when it's a tie) and names the files it left out, and those it can't open. If a tool has work you
-  haven't saved, Usugami asks first; while a PDF is being made, the shared files wait for it.
+  haven't saved, Usugami asks first; while a PDF is being made, the shared files wait for it. Images
+  shared while Choose a tool or a tool opened from it shows wait in Images to PDF until you leave.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any

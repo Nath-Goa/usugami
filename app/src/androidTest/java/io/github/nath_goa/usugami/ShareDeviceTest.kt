@@ -1,13 +1,17 @@
 package io.github.nath_goa.usugami
 
 import android.app.Application
+import android.content.ComponentName
+import android.content.Intent
 import android.net.Uri
 import android.os.SystemClock
 import androidx.core.content.FileProvider
+import androidx.core.content.IntentCompat
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfTool
@@ -21,6 +25,8 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -156,10 +162,14 @@ class ShareDeviceTest {
 
     @Test fun sharedFilesThatCantBeOpenedAreNamed() {
         val vm = main()
-        share(vm, shared("alpha.pdf", "alpha.pdf"), shared("broken.pdf"))
+        share(vm, shared("broken.pdf"), shared("alpha.pdf", "alpha.pdf"), shared("damaged.pdf"))
         val tools = tools()
         take(vm, tools)
-        assertEquals(strings.getString(R.string.file_problem, "broken.pdf", strings.getString(R.string.pdf_import_failed)), next(tools.messages))
+        // Together, in one message worded for both.
+        assertEquals(
+            strings.getString(R.string.file_problem, "broken.pdf, damaged.pdf", strings.getString(R.string.pdf_import_failed_many)),
+            next(tools.messages),
+        )
         assertEquals(listOf("alpha.pdf"), onMain { tools.inputs.value.map { it.name } })
         assertEquals("Nothing is left behind", emptyList<String>(), inbox.list().orEmpty().toList())
 
@@ -196,6 +206,71 @@ class ShareDeviceTest {
         assertEquals(listOf(taken.single().file.name), inbox.list()!!.toList())
     }
 
+    /** Files that couldn't be read before they reached Usugami are told about as shared files, images as images. */
+    @Test fun filesThatCouldntBeReadAreToldAboutByKind() {
+        val vm = main()
+        onMain { vm.share(emptyList(), "application/pdf", refused = 1) }
+        assertEquals(strings.getQuantityString(R.plurals.msg_share_unreadable, 1, 1), next(vm.messages))
+        onMain { vm.share(emptyList(), "image/jpeg", refused = 2) }
+        assertEquals(strings.getQuantityString(R.plurals.msg_failed_import, 2, 2), next(vm.messages))
+    }
+
+    /** A PDF made by a tool, shared, isn't offered to Usugami, which would refuse to read it. */
+    @Test fun aPdfMadeIsNotSharedToUsugamiItself() {
+        val made = PdfFile(File(app.cacheDir, "output/tools/Made.pdf"), 1, 0)
+        val tools = tools()
+        val intent = onMain { tools.shareIntent(listOf(made)) }
+        val excluded = IntentCompat.getParcelableArrayExtra(intent, Intent.EXTRA_EXCLUDE_COMPONENTS, ComponentName::class.java)
+        assertEquals(listOf(ComponentName(app, MainActivity::class.java)), excluded?.toList())
+    }
+
+    /**
+     * Leaving the screen files are coming in for stops those files only: a share still waiting its turn
+     * behind them, which doesn't show as coming in yet, comes in.
+     */
+    @Test fun droppingTheFilesComingLeavesTheSharesBehindThem() {
+        val vm = main()
+        val pdf = shared("alpha.pdf", "alpha.pdf")
+        val report = shared("Report.docx", "report.docx")
+        onMain {
+            vm.share(listOf(pdf), null)
+            vm.share(listOf(report), null)
+            vm.dropShares()
+        }
+        runBlocking { vm.awaitShares() }
+        assertEquals(listOf("alpha.pdf", "Report.docx"), onMain { vm.sharedFiles.value.map { it.name } })
+    }
+
+    /**
+     * Files being copied in, or taken in by a tool, are marked in the saved state until they are in:
+     * when Android closes Usugami meanwhile, they are gone, and the restored view models say so, once.
+     */
+    @Test fun filesLostWhenAndroidClosesUsugamiAreToldAbout() {
+        val handle = SavedStateHandle()
+        val vm = main(handle)
+        val pdf = shared("alpha.pdf", "alpha.pdf")
+        // Read before the share can go on: it goes on on the main thread.
+        assertEquals(1, onMain { vm.share(listOf(pdf), null).let { handle.get<Int>("shares_under_way") } })
+        runBlocking { vm.awaitShares() }
+        assertNull("Copied in", onMain { handle.get<Int>("shares_under_way") })
+        assertFalse(onMain { vm.takeShareInterrupted() })
+
+        val toolsHandle = SavedStateHandle()
+        val tools = tools(toolsHandle)
+        assertNotNull(onMain { tools.addShared(vm.takeSharedFiles()).let { toolsHandle.get<Int>("taking_shared") } })
+        waitUntil("the shared files to be taken in") { !tools.importing.value }
+        assertNull("Taken in", onMain { toolsHandle.get<Int>("taking_shared") })
+        assertEquals(listOf("alpha.pdf"), onMain { tools.inputs.value.map { it.name } })
+        assertFalse(onMain { tools.takeShareInterrupted() })
+
+        val restored = main(SavedStateHandle(mapOf("shares_under_way" to 1)))
+        assertTrue(onMain { restored.takeShareInterrupted() })
+        assertFalse("Said once", onMain { restored.takeShareInterrupted() })
+        val restoredTools = tools(SavedStateHandle(mapOf("taking_shared" to 1)))
+        assertTrue(onMain { restoredTools.takeShareInterrupted() })
+        assertFalse("Said once", onMain { restoredTools.takeShareInterrupted() })
+    }
+
     @Test fun droppedFilesLeaveNothingBehind() {
         val vm = main()
         share(vm, shared("alpha.pdf", "alpha.pdf"), shared("beta.pdf", "beta.pdf"))
@@ -226,11 +301,44 @@ class ShareDeviceTest {
             tools.rotatePage(tools.pages.value.first(), 90)
         }
         assertTrue(onMain { tools.hasUnsavedWork(PdfTool.MERGE) })
-        onMain { tools.clearToolWork() }
+        onMain { tools.clearToolWork(PdfTool.MERGE) }
         assertEquals(listOf(alpha, beta), onMain { tools.inputs.value })
         assertFalse(onMain { tools.hasUnsavedWork(PdfTool.MERGE) })
         assertEquals("alpha_watermarked", onMain { tools.outputName(PdfTool.WATERMARK, alpha) })
         assertFalse(onMain { tools.canUndo.value })
+    }
+
+    /**
+     * Back from a tool for one PDF to Choose a tool, the PDFs that tool added go with what it did: the
+     * PDFs Reorganize PDF's "Add pages" added, one waiting for its password too, and their copies, are gone.
+     */
+    @Test fun aPdfAddedToReorganizeGoesWhenItGoesBack() {
+        val vm = main()
+        share(vm, shared("alpha.pdf", "alpha.pdf"))
+        val tools = tools()
+        take(vm, tools)
+        val alpha = onMain { tools.inputs.value }.single()
+        onMain {
+            tools.prepareInsert(tools.pages.value.first())
+            tools.addPdfs(listOf(shared("beta.pdf", "beta.pdf")), replace = false)
+        }
+        waitUntil("the pages to be added") { !tools.importing.value }
+        val beta = onMain { tools.inputs.value }.last()
+        assertTrue(onMain { tools.hasUnsavedWork(PdfTool.REORGANIZE) })
+        // And one more, still waiting for its password.
+        onMain { tools.addPdfs(listOf(shared("statement.pdf", "protected.pdf")), replace = false) }
+        waitUntil("the PDF to wait for its password") { !tools.importing.value }
+        val statement = onMain { tools.locked.value }.single()
+
+        onMain { tools.clearToolWork(PdfTool.REORGANIZE) }
+        assertEquals(listOf(alpha), onMain { tools.inputs.value })
+        assertTrue(onMain { tools.locked.value.isEmpty() })
+        assertEquals(alpha.pageCount, onMain { tools.pages.value.size })
+        assertFalse(onMain { tools.hasUnsavedWork(PdfTool.REORGANIZE) })
+        runBlocking { tools.awaitFileWork() }
+        assertFalse("Its copy is deleted", beta.file.exists())
+        assertFalse(statement.file.exists())
+        assertTrue(alpha.file.isFile)
     }
 
     @Test fun choosingAToolOffersThoseThatTakeTheSharedPdfs() {

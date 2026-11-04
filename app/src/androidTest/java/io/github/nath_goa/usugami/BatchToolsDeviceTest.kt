@@ -24,7 +24,9 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -153,6 +155,34 @@ class BatchToolsDeviceTest {
         assertEquals("Watermarked_PDFs.zip", onMain { vm.zipFileName() })
     }
 
+    /**
+     * Add watermark previews the first of its PDFs (here one with a password, which needs a view of its
+     * own): removing another keeps that preview, also while it is being made. Removing the first puts
+     * it away.
+     */
+    @Test fun removingAnotherPdfKeepsThePreviewOfTheFirst() {
+        val vm = newViewModel()
+        add(vm, asset("protected.pdf", "statement.pdf"))
+        onMain { vm.unlock(vm.locked.value.single(), "test123") }
+        waitUntil("the PDF with a password to be opened") { vm.inputs.value.size == 1 }
+        add(vm, asset("alpha.pdf"), asset("beta.pdf"))
+        val (statement, alpha, beta) = onMain { vm.inputs.value }
+
+        onMain {
+            vm.preparePreview(statement, required = false)
+            vm.removeInput(alpha.id)
+        }
+        waitUntil("the preview to be made") { vm.previewView.value != null }
+        val view = onMain { vm.previewView.value!! }
+        assertEquals(statement.id, view.id)
+        assertNotEquals("A copy without the password", statement.path, view.path)
+
+        onMain { vm.removeInput(beta.id) }
+        assertSame(view, onMain { vm.previewView.value })
+        onMain { vm.removeInput(statement.id) }
+        assertNull(onMain { vm.previewView.value })
+    }
+
     @Test fun pagesToSkipGoForEveryPdfThatHasThem() {
         val vm = newViewModel()
         // Three pages, two pages, and one page.
@@ -195,6 +225,34 @@ class BatchToolsDeviceTest {
         process(plain) { runFlattenAll() }
         assertEquals(strings.getQuantityString(R.plurals.batch_nothing_to_flatten, 2, 2, "alpha.pdf, beta.pdf"), nextMessage(plain))
         assertNull(onMain { plain.result.value })
+    }
+
+    /**
+     * What flattening says of several PDFs comes in one message for all those it is said of, naming
+     * them, worded for them all; what it says of one alone names that one.
+     */
+    @Test fun whatFlatteningSaysOfSeveralPdfsComesOnceForAllOfThem() {
+        val vm = newViewModel()
+        add(
+            vm,
+            made("amounts.pdf") { unencodableFormPdf(it) },
+            made("tax form.pdf") { xfaOnlyPdf(it) },
+            made("more amounts.pdf") { unencodableFormPdf(it) },
+            made("visa form.pdf") { xfaOnlyPdf(it) },
+            made("permit.pdf") { formPdf(it, name = "Ana Lima", xfa = true) },
+        )
+        process(vm) { runFlattenAll() }
+        // First those left out, then what happened to the others.
+        assertEquals(
+            strings.getString(R.string.file_problem, "tax form.pdf, visa form.pdf", strings.getString(R.string.flatten_xfa_only_many)),
+            nextMessage(vm),
+        )
+        assertEquals(
+            strings.getString(R.string.file_problem, "amounts.pdf, more amounts.pdf", strings.getString(R.string.flatten_fields_kept_many)),
+            nextMessage(vm),
+        )
+        assertEquals(strings.getString(R.string.file_problem, "permit.pdf", strings.getString(R.string.flatten_xfa_dropped)), nextMessage(vm))
+        assertEquals(listOf("amounts_flattened.pdf", "more amounts_flattened.pdf", "permit_flattened.pdf"), onMain { vm.result.value!!.map { it.name } })
     }
 
     /** One PDF works as it always has, with its own messages. */
@@ -245,6 +303,38 @@ class BatchToolsDeviceTest {
         assertNull(onMain { again.convertProgress.value })
         assertFalse(onMain { again.passwordRemoved.value })
         assertTrue("Working files removed", !File(app.cacheDir, "office-work").exists())
+    }
+
+    /** Files picked together and left out for the same reason are named in one message, worded for them all. */
+    @Test fun filesLeftOutForTheSameReasonAreNamedTogether() {
+        val vm = newViewModel()
+        val minutes = made("minutes.doc") { it.apply { writeBytes(OLD_DOC + ByteArray(1024)) } }
+        val agenda = made("agenda.doc") { it.apply { writeBytes(OLD_DOC + ByteArray(2048)) } }
+        val notes = made("notes.docx") { it.apply { writeText("just some notes") } }
+        addDocuments(vm, OfficeKind.WORD, minutes, asset("report.docx"), notes, agenda)
+        assertEquals(
+            strings.getString(R.string.file_problem, "minutes.doc, agenda.doc", strings.getString(R.string.office_legacy_word_many)),
+            nextMessage(vm),
+        )
+        assertEquals(strings.getString(R.string.file_problem, "notes.docx", strings.getString(R.string.office_not_word)), nextMessage(vm))
+        assertEquals(listOf("report.docx"), onMain { vm.documents.value.map { it.name } })
+    }
+
+    /** Putting the documents away while another is being added leaves no copy behind, one finished anyway included. */
+    @Test fun startingOverWhileADocumentIsAddedLeavesNoCopyBehind() {
+        val vm = newViewModel()
+        addDocuments(vm, OfficeKind.WORD, asset("report.docx"))
+        val second = asset("report.docx", "Second.docx")
+        val copies = File(app.cacheDir, "office-inputs")
+        onMain {
+            vm.addDocuments(listOf(second), OfficeKind.WORD)
+            // The copy the import being abandoned makes, as if it were already done.
+            File(copies, "${System.currentTimeMillis()}.docx").writeText("copied")
+            vm.startOver()
+        }
+        runBlocking { vm.awaitFileWork() }
+        assertTrue(onMain { vm.documents.value.isEmpty() && !vm.importing.value })
+        assertEquals(emptyList<String>(), copies.list().orEmpty().toList())
     }
 
     @Test fun aFileThatCantBeConvertedIsNamedAndTheOthersAreMade() {

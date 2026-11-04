@@ -35,8 +35,11 @@
     <string name="move_file_later">%1$s को बाद में ले जाएं</string>
     <string name="remove_file">%1$s हटाएं</string>
     <string name="pdf_import_failed">वह PDF नहीं खोली जा सकी। हो सकता है कि वह खराब हो या समर्थित न हो।</string>
+    <string name="pdf_import_failed_many">ये PDF नहीं खोली जा सकीं। हो सकता है कि वे खराब हों या समर्थित न हों।</string>
     <string name="open_no_space">वह फ़ाइल खोलने के लिए स्टोरेज में काफ़ी खाली जगह नहीं है। कुछ जगह खाली करें और फिर से कोशिश करें।</string>
+    <string name="open_no_space_many">ये फ़ाइलें खोलने के लिए स्टोरेज में काफ़ी खाली जगह नहीं है। कुछ जगह खाली करें और फिर से कोशिश करें।</string>
     <string name="pdf_certificate_unsupported">यह PDF सर्टिफ़िकेट (डिजिटल आईडी) से लॉक है। Usugami सिर्फ़ पासवर्ड से लॉक की गई PDF खोल सकता है।</string>
+    <string name="pdf_certificate_unsupported_many">ये PDF सर्टिफ़िकेट (डिजिटल आईडी) से लॉक हैं। Usugami सिर्फ़ पासवर्ड से लॉक की गई PDF खोल सकता है।</string>
     <string name="pdf_wrong_password">उस पासवर्ड से PDF नहीं खुली।</string>
     <string name="pdf_password_title">PDF पासवर्ड</string>
     <string name="pdf_password_body">\"%1$s\" पासवर्ड से सुरक्षित है। जारी रखने के लिए इसका पासवर्ड डालें।</string>
@@ -245,12 +248,19 @@
     <string name="office_note_word">टेक्स्ट, हेडिंग, लिस्ट, टेबल और इमेज PDF में आ जाती हैं। डॉक्यूमेंट के फ़ॉन्ट की जगह आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं, इसलिए कुछ लाइनें अलग जगह पर टूट सकती हैं।</string>
     <string name="office_note_powerpoint">हर स्लाइड एक पेज बनती है; छिपी हुई स्लाइड छोड़ दी जाती हैं। प्रेज़ेंटेशन के फ़ॉन्ट की जगह आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं, और चार्ट स्लेटी बॉक्स के रूप में दिखते हैं।</string>
     <string name="office_legacy_word">यह पुरानी Word फ़ाइल (.doc) है। इसे Word या किसी दूसरे ऐप में .docx के रूप में सेव करके फिर से कोशिश करें।</string>
+    <string name="office_legacy_word_many">ये पुरानी Word फ़ाइलें (.doc) हैं। इन्हें Word या किसी दूसरे ऐप में .docx के रूप में सेव करके फिर से कोशिश करें।</string>
     <string name="office_legacy_powerpoint">यह पुरानी PowerPoint फ़ाइल (.ppt) है। इसे PowerPoint या किसी दूसरे ऐप में .pptx के रूप में सेव करके फिर से कोशिश करें।</string>
+    <string name="office_legacy_powerpoint_many">ये पुरानी PowerPoint फ़ाइलें (.ppt) हैं। इन्हें PowerPoint या किसी दूसरे ऐप में .pptx के रूप में सेव करके फिर से कोशिश करें।</string>
     <string name="office_encrypted">यह फ़ाइल पासवर्ड से सुरक्षित है। Word या PowerPoint में पासवर्ड हटाएं और फ़ाइल सेव करके फिर से कोशिश करें।</string>
+    <string name="office_encrypted_many">ये फ़ाइलें पासवर्ड से सुरक्षित हैं। Word या PowerPoint में पासवर्ड हटाएं और फ़ाइलें सेव करके फिर से कोशिश करें।</string>
     <string name="office_not_word">यह Word डॉक्यूमेंट (.docx) नहीं है, या फ़ाइल खराब है।</string>
+    <string name="office_not_word_many">ये Word डॉक्यूमेंट (.docx) नहीं हैं, या फ़ाइलें खराब हैं।</string>
     <string name="office_not_powerpoint">यह PowerPoint प्रेज़ेंटेशन (.pptx) नहीं है, या फ़ाइल खराब है।</string>
+    <string name="office_not_powerpoint_many">ये PowerPoint प्रेज़ेंटेशन (.pptx) नहीं हैं, या फ़ाइलें खराब हैं।</string>
     <string name="office_no_slides">इस प्रेज़ेंटेशन में बदलने के लिए कोई स्लाइड नहीं है। छिपी हुई स्लाइड छोड़ दी जाती हैं।</string>
+    <string name="office_no_slides_many">इन प्रेज़ेंटेशन में बदलने के लिए कोई स्लाइड नहीं है। छिपी हुई स्लाइड छोड़ दी जाती हैं।</string>
     <string name="office_embedded_content">इस दस्तावेज़ का टेक्स्ट उसके अंदर रखे वेब पेज या RTF फ़ाइल में है, जिसे Usugami नहीं बदल सकता। इसे Word में खोलें, सेव करें और फिर से कोशिश करें।</string>
+    <string name="office_embedded_content_many">इन दस्तावेज़ों का टेक्स्ट उनके अंदर रखे वेब पेज या RTF फ़ाइल में है, जिसे Usugami नहीं बदल सकता। इन्हें Word में खोलें, सेव करें और फिर से कोशिश करें।</string>
     <string name="office_convert_failed">यह फ़ाइल बदली नहीं जा सकी। फ़ाइल और स्टोरेज में खाली जगह जांचें।</string>
     <plurals name="progress_slides">
         <item quantity="one">%2$d में से %1$d स्लाइड</item>
@@ -286,11 +296,14 @@
     <string name="flatten_note">फ़ॉर्म फ़ील्ड, टिप्पणियां और ड्रॉइंग पेज का हिस्सा बन जाती हैं, इसलिए उन्हें बदला या भरा नहीं जा सकता। लिंक काम करते रहते हैं।</string>
     <string name="flatten_nothing">इस PDF में फ़्लैटन करने के लिए कोई फ़ॉर्म फ़ील्ड या टिप्पणी नहीं है।</string>
     <string name="flatten_xfa_only">इस PDF का फ़ॉर्म एक डायनैमिक XFA फ़ॉर्म है, जिसे Usugami फ़्लैटन नहीं कर सकता।</string>
+    <string name="flatten_xfa_only_many">इन PDF के फ़ॉर्म डायनैमिक XFA फ़ॉर्म हैं, जिन्हें Usugami फ़्लैटन नहीं कर सकता।</string>
     <string name="flatten_xfa_dropped">इस PDF में एक डायनैमिक XFA फ़ॉर्म था, जिसे हटा दिया गया। इसके बाकी फ़ॉर्म फ़ील्ड और टिप्पणियां फ़्लैटन कर दी गईं।</string>
+    <string name="flatten_xfa_dropped_many">इन PDF में डायनैमिक XFA फ़ॉर्म था, जिसे हटा दिया गया। इनके बाकी फ़ॉर्म फ़ील्ड और टिप्पणियां फ़्लैटन कर दी गईं।</string>
     <plurals name="flatten_fields_kept">
         <item quantity="one">%d फ़ॉर्म फ़ील्ड में ऐसा टेक्स्ट है जिसे Usugami उसके फ़ॉन्ट से नहीं बना सकता, इसलिए वह टेक्स्ट बचाने के लिए उसे भरने लायक ही छोड़ दिया गया।</item>
         <item quantity="other">%d फ़ॉर्म फ़ील्ड में ऐसा टेक्स्ट है जिसे Usugami उनके फ़ॉन्ट से नहीं बना सकता, इसलिए वह टेक्स्ट बचाने के लिए उन्हें भरने लायक ही छोड़ दिया गया।</item>
     </plurals>
+    <string name="flatten_fields_kept_many">कुछ फ़ॉर्म फ़ील्ड में ऐसा टेक्स्ट है जिसे Usugami उनके फ़ॉन्ट से नहीं बना सकता, इसलिए वह टेक्स्ट बचाने के लिए उन्हें भरने लायक ही छोड़ दिया गया।</string>
     <string name="tool_edit">PDF एडिट करें</string>
     <string name="tool_edit_detail">टेक्स्ट, ड्रॉइंग, आकृतियां और तस्वीरें जोड़ें</string>
     <string name="pdf_edit_action">PDF सेव करें</string>
@@ -338,8 +351,11 @@
     <string name="office_note_epub">अध्याय, हेडिंग, टेक्स्ट की स्टाइल, लिस्ट, टेबल और इमेज PDF में आ जाती हैं, और विषय-सूची बुकमार्क बन जाती है। आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं।</string>
     <string name="book_page_note">A5 लगभग एक पेपरबैक किताब जितना होता है; A4 प्रिंट करने के लिए अच्छा है।</string>
     <string name="epub_protected">यह किताब DRM (कॉपी सुरक्षा) से सुरक्षित है, इसलिए Usugami इसे नहीं पढ़ सकता। सिर्फ़ बिना DRM वाली किताबें बदली जा सकती हैं।</string>
+    <string name="epub_protected_many">ये किताबें DRM (कॉपी सुरक्षा) से सुरक्षित हैं, इसलिए Usugami इन्हें नहीं पढ़ सकता। सिर्फ़ बिना DRM वाली किताबें बदली जा सकती हैं।</string>
     <string name="epub_not_recognized">यह EPUB ई-बुक नहीं है, या फ़ाइल खराब है।</string>
+    <string name="epub_not_recognized_many">ये EPUB ई-बुक नहीं हैं, या फ़ाइलें खराब हैं।</string>
     <string name="epub_empty">इस किताब में बदलने के लिए कुछ नहीं है।</string>
+    <string name="epub_empty_many">इन किताबों में बदलने के लिए कुछ नहीं है।</string>
     <string name="progress_chapter">%2$d में से अध्याय %1$d</string>
 
     <string name="ocr_title">टेक्स्ट को खोजने लायक बनाएं (OCR)</string>
@@ -546,6 +562,7 @@
         <item quantity="one">शेयर की गई %d फ़ाइल नहीं पढ़ी जा सकी।</item>
         <item quantity="other">शेयर की गई %d फ़ाइलें नहीं पढ़ी जा सकीं।</item>
     </plurals>
+    <string name="msg_share_interrupted">आपकी शेयर की गई फ़ाइलें लेने से पहले ही Usugami बंद हो गया। कृपया उन्हें फिर से शेयर करें।</string>
     <string name="msg_saved_downloads">डाउनलोड में %1$s के रूप में सेव किया गया</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">%d PDF डाउनलोड में सेव की गई</item>

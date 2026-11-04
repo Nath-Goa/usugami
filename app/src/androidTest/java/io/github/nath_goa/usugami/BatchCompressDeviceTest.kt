@@ -244,6 +244,11 @@ class BatchCompressDeviceTest {
             assertEquals("%PDF-1.4 two", target.readText())
             assertEquals(setOf(second.name), onMain { again.savedFiles.value })
             assertFalse("Not all are saved yet", onMain { again.saved.value })
+            // Kept in the saved state as a flag for each PDF, and restored with the result.
+            assertArrayEquals(booleanArrayOf(false, true), onMain { handle.get<BooleanArray>("saved_files") })
+            val restored = newViewModel(handle)
+            runBlocking { restored.awaitFileWork() }
+            assertEquals(setOf(second.name), onMain { restored.savedFiles.value })
 
             assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
             onMain { again.saveOneToDownloads(first) }

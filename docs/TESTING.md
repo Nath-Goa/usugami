@@ -106,25 +106,30 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   rendering), a field left without an appearance drawn, a comment with no appearance of its own
   drawn, no fields or widgets left, links kept, a dynamic XFA form removed and the rest flattened,
   nothing to flatten reported (an XFA-only form too), and cancelling leaving nothing behind; several
-  PDFs at once, each under its own name, with what flattening each says, one with nothing to
-  flatten left out and named (and no result when none has anything), and cancelling leaving nothing
+  PDFs at once, each under its own name, with what flattening each says (what it says of several
+  said once, naming them all), one with nothing to flatten left out and named (and no result when
+  none has anything), and cancelling leaving nothing
 - compress: all three levels, selectable text kept, never larger than the original; several PDFs
   at once, each at its own level and under its own name (two alike told apart), a PDF that can't
   get smaller kept byte for byte and said so, a damaged one named while the others are made (and
   no result when none is), PDFs with a password asked for in turn, the levels and names kept when
   the process is restarted, one PDF compressed as before, cancelling leaving nothing behind, and
   each PDF of the result saved on its own, into Downloads (without a second copy) or into the
-  document "Save as" made, also after the process was restarted while that screen was open
+  document "Save as" made, also after the process was restarted while that screen was open, which
+  PDFs were saved kept as a flag for each
 - password-protected PDFs: opening with the password, then split, compress and rotate
 - files shared to Usugami: copied in at once and kept by name (the app's own copy gone), PDFs taken
   in by a tool without being copied again and still there when the process is restarted, the kind
   most of the files are taken and the others and those Usugami can't use named, a file without type
   or extension taken as the share says, PDFs with a password asked for, files that can't be opened
-  named (one shared alone told about as one picked), files waiting kept when the process is
-  restarted (copies cleared from the cache dropped and said, leftovers deleted), files of another kind
-  shared while others waited left out and named, dropped files and a tool put away while taking them
-  in leaving nothing behind, another tool taking the PDFs without what the last one did, and which
-  tools one PDF and several PDFs go to
+  named (together, worded for them all; one shared alone told about as one picked), files that
+  couldn't be read told about as shared files (images as images), files waiting kept when the process
+  is restarted (copies cleared from the cache dropped and said, leftovers deleted), files lost when
+  the process is restarted while they were being copied in or taken in said once, files of another
+  kind shared while others waited left out and named, dropped files and a tool put away while taking
+  them in leaving nothing behind, a share still waiting its turn not dropped with the files before it,
+  another tool taking the PDFs without what the last one did (a PDF Reorganize PDF added going with
+  its pages), a PDF made not shared to Usugami itself, and which tools one PDF and several PDFs go to
 - rotate: only the chosen pages turn, on top of the turn they already had, and nothing else changes
 - page numbers: each in the chosen corner of the page as shown (also on turned and cropped pages),
   none on skipped pages, checked both by text positions and by rendering the pages; several PDFs at
@@ -134,8 +139,8 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
 - watermark: centered along the shown diagonal of every page, translucent or opaque, real text with
   accents, Hindi shaped correctly, and text that no font on the phone can draw refused; several PDFs
   at once (one with a password among them), each under its own name, text no font can draw refused
-  before any is made, one that can't be read named while the others are made, and cancelling
-  leaving nothing
+  before any is made, one that can't be read named while the others are made, the first one's
+  preview kept (also while it is made) when another is removed, and cancelling leaving nothing
 - signature: the image lands exactly where the preview put it on upright, turned and cropped pages
   (checked by where the PDF draws it and by rendering the pages), starts in the lower right, has a
   transparent background, is trimmed to the ink at 300 dpi, adds little to the file, and leaves the
@@ -156,9 +161,10 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   hidden slides left out, progress by page and slide, old .doc and .ppt files, password-protected
   files, other files and XML with a DOCTYPE refused, and cancelling leaving nothing behind; several
   files at once, each into a PDF of its own name (two alike told apart), progress for each, an old
-  .doc file among those picked named with why it was left out, the files and their names kept when
-  the process is restarted, one that can't be converted named while the others are made, books
-  sharing the page size chosen, and cancelling leaving nothing behind
+  .doc file among those picked named with why it was left out (two named together, worded for
+  both), the files and their names kept when the process is restarted, one that can't be converted
+  named while the others are made, books sharing the page size chosen, no copy left behind when the
+  files are put away while another is added, and cancelling leaving nothing behind
 - EPUB to PDF, with small EPUB 2 and EPUB 3 books the tests write: A5 and A4 pages, chapters in the
   reading order (not the manifest's), each on a new page, page breaks from the style sheet, HTML's
   named characters, lists and tables, hidden parts and scripts left out, headings larger and bold,
@@ -231,8 +237,10 @@ every PDF tool, kept through the activity being recreated, Split PDF chosen open
 back to Choose a tool, and Back from there going Home; two PDFs offering only Merge PDF and the tools
 for several, Compress PDF chosen with both; a Word document opening Word to PDF and a text file shared
 with it named; a PDF shared over a result not saved asking first, and kept, opening once the tool is
-left; a PDF shared while a PDF is being made waiting for it, then asking, and discarded; and a PDF
-with a password asked for on Choose a tool;
+left; a PDF shared while a PDF is being made waiting for it, then asking, and discarded; a PDF
+with a password asked for on Choose a tool; and images shared over Choose a tool waiting in the
+editor, Choose a tool keeping its PDF and the tool opened from it going back to it, then Back from
+there showing the images;
   Home's search finding the seven tools that take several files by "several", "batch" and "many";
   Settings → Appearance starting on the phone's
   setting, then Dark and Light holding through the activity being recreated, Usugami being opened

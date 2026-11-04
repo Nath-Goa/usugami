@@ -100,6 +100,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     LaunchedEffect(pdfVm) {
         pdfVm.messages.collect { snackbar.showSnackbar(it) }
     }
+    // Android closed Usugami while it took in files shared to it, which are gone: said once.
+    LaunchedEffect(vm, pdfVm) {
+        if (vm.takeShareInterrupted() or pdfVm.takeShareInterrupted()) vm.showMessage(R.string.msg_share_interrupted)
+    }
     // A ZIP file of the result's PDFs is shared once it is ready, while Usugami is on screen: an app
     // in the background can't open the share screen.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -146,7 +150,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         // Leaving a tool discards its PDF, so ask first while one is being made, isn't saved yet, or
         // has work on it that would be lost.
         if (!arrived || route == "images" || stayOnPdf) return@LaunchedEffect
+        // Not while files shared to Usugami are waiting or being copied in, or are open on Choose a tool
+        // or a tool opened from it: they would go. The images wait in the editor, which Back from there
+        // leads to.
         val tool = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }
+        val sharedFilesOpen = route == "share" || tool != null && toolFromShare
+        if (sharedFilesOpen || vm.sharedFiles.value.isNotEmpty() || vm.sharing.value != null) return@LaunchedEffect
         val unsavedPdf = pdfVm.processing.value ||
             (if (pdfVm.result.value != null) !pdfVm.saved.value else tool != null && pdfVm.hasUnsavedWork(tool))
         if (tool != null && unsavedPdf) confirmLeavePdf = true else route = "images"
@@ -248,21 +257,21 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     }
 
     /**
-     * Leaves the PDF tool showing: for the files shared meanwhile, if any; else for the images shared
-     * meanwhile, in the editor; else for Choose a tool if the tool was opened from it, with its PDFs;
-     * else for Home.
+     * Leaves the PDF tool showing: for the files shared meanwhile, if any; else for Choose a tool if the
+     * tool was opened from it, with its PDFs (the images shared meanwhile wait, as Back from there
+     * leads to them); else for those images, in the editor; else for Home.
      */
     fun exitTool() {
         val target = shareTarget()
         // Leaving the tool shared files are being copied in for, the user doesn't want them any more.
         if (target == route) vm.dropShares() else if (target != null) return openForShare(target)
+        val tool = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }
         route = when {
-            vm.items.value.isNotEmpty() || vm.pendingImports.value > 0 -> "images"
-            toolFromShare && (pdfVm.inputs.value.isNotEmpty() || pdfVm.locked.value.isNotEmpty()) -> {
-                pdfVm.clearToolWork()
+            toolFromShare && tool != null && (pdfVm.inputs.value.isNotEmpty() || pdfVm.locked.value.isNotEmpty()) -> {
+                pdfVm.clearToolWork(tool)
                 "share"
             }
-            else -> "home"
+            else -> afterTool()
         }
     }
 

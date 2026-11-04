@@ -35,8 +35,11 @@
     <string name="move_file_later">Reculer %1$s</string>
     <string name="remove_file">Retirer %1$s</string>
     <string name="pdf_import_failed">Impossible d\'ouvrir ce PDF. Il est peut-être endommagé ou non pris en charge.</string>
+    <string name="pdf_import_failed_many">Impossible d\'ouvrir ces PDF. Ils sont peut-être endommagés ou non pris en charge.</string>
     <string name="open_no_space">L\'espace de stockage disponible est insuffisant pour ouvrir ce fichier. Libérez de l\'espace et réessayez.</string>
+    <string name="open_no_space_many">L\'espace de stockage disponible est insuffisant pour ouvrir ces fichiers. Libérez de l\'espace et réessayez.</string>
     <string name="pdf_certificate_unsupported">Ce PDF est verrouillé par un certificat (identifiant numérique). Usugami ne peut ouvrir que les PDF verrouillés par un mot de passe.</string>
+    <string name="pdf_certificate_unsupported_many">Ces PDF sont verrouillés par un certificat (identifiant numérique). Usugami ne peut ouvrir que les PDF verrouillés par un mot de passe.</string>
     <string name="pdf_wrong_password">Ce mot de passe n\'a pas permis d\'ouvrir le PDF.</string>
     <string name="pdf_password_title">Mot de passe du PDF</string>
     <string name="pdf_password_body">« %1$s » est protégé. Saisissez son mot de passe pour continuer.</string>
@@ -255,12 +258,19 @@
     <string name="office_note_word">Le texte, les titres, les listes, les tableaux et les images sont convertis. Les polices de votre téléphone remplacent celles du document : certaines lignes peuvent donc se couper ailleurs.</string>
     <string name="office_note_powerpoint">Chaque diapositive devient une page ; les diapositives masquées sont ignorées. Les polices de votre téléphone remplacent celles de la présentation, et les graphiques apparaissent sous forme de cadres gris.</string>
     <string name="office_legacy_word">C\'est un ancien fichier Word (.doc). Enregistrez-le au format .docx dans Word ou une autre application, puis réessayez.</string>
+    <string name="office_legacy_word_many">Ce sont d\'anciens fichiers Word (.doc). Enregistrez-les au format .docx dans Word ou une autre application, puis réessayez.</string>
     <string name="office_legacy_powerpoint">C\'est un ancien fichier PowerPoint (.ppt). Enregistrez-le au format .pptx dans PowerPoint ou une autre application, puis réessayez.</string>
+    <string name="office_legacy_powerpoint_many">Ce sont d\'anciens fichiers PowerPoint (.ppt). Enregistrez-les au format .pptx dans PowerPoint ou une autre application, puis réessayez.</string>
     <string name="office_encrypted">Ce fichier est protégé par un mot de passe. Retirez le mot de passe dans Word ou PowerPoint, enregistrez le fichier, puis réessayez.</string>
+    <string name="office_encrypted_many">Ces fichiers sont protégés par un mot de passe. Retirez le mot de passe dans Word ou PowerPoint, enregistrez les fichiers, puis réessayez.</string>
     <string name="office_not_word">Ce fichier n\'est pas un document Word (.docx), ou il est endommagé.</string>
+    <string name="office_not_word_many">Ces fichiers ne sont pas des documents Word (.docx), ou ils sont endommagés.</string>
     <string name="office_not_powerpoint">Ce fichier n\'est pas une présentation PowerPoint (.pptx), ou il est endommagé.</string>
+    <string name="office_not_powerpoint_many">Ces fichiers ne sont pas des présentations PowerPoint (.pptx), ou ils sont endommagés.</string>
     <string name="office_no_slides">Cette présentation n\'a aucune diapositive à convertir. Les diapositives masquées sont ignorées.</string>
+    <string name="office_no_slides_many">Ces présentations n\'ont aucune diapositive à convertir. Les diapositives masquées sont ignorées.</string>
     <string name="office_embedded_content">Ce document contient son texte sous forme de page web ou de fichier RTF intégré, qu\'Usugami ne peut pas convertir. Ouvrez-le dans Word, enregistrez-le, puis réessayez.</string>
+    <string name="office_embedded_content_many">Ces documents contiennent leur texte sous forme de page web ou de fichier RTF intégré, qu\'Usugami ne peut pas convertir. Ouvrez-les dans Word, enregistrez-les, puis réessayez.</string>
     <string name="office_convert_failed">Impossible de convertir ce fichier. Vérifiez le fichier et l\'espace de stockage disponible.</string>
     <plurals name="progress_slides">
         <item quantity="one">%1$d sur %2$d diapositive</item>
@@ -298,12 +308,15 @@
     <string name="flatten_note">Les champs de formulaire, les commentaires et les dessins sont intégrés à la page : ils ne peuvent plus être modifiés ni remplis. Les liens continuent de fonctionner.</string>
     <string name="flatten_nothing">Ce PDF n\'a ni champs de formulaire ni commentaires à aplatir.</string>
     <string name="flatten_xfa_only">Le formulaire de ce PDF est un formulaire XFA dynamique, qu\'Usugami ne peut pas aplatir.</string>
+    <string name="flatten_xfa_only_many">Les formulaires de ces PDF sont des formulaires XFA dynamiques, qu\'Usugami ne peut pas aplatir.</string>
     <string name="flatten_xfa_dropped">Ce PDF contenait un formulaire XFA dynamique, qui a été retiré. Ses autres champs de formulaire et ses commentaires ont été aplatis.</string>
+    <string name="flatten_xfa_dropped_many">Ces PDF contenaient un formulaire XFA dynamique, qui a été retiré. Leurs autres champs de formulaire et leurs commentaires ont été aplatis.</string>
     <plurals name="flatten_fields_kept">
         <item quantity="one">%d champ de formulaire contient du texte qu\'Usugami ne peut pas dessiner avec sa police : il est resté remplissable pour garder ce texte.</item>
         <item quantity="many">%d champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</item>
         <item quantity="other">%d champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</item>
     </plurals>
+    <string name="flatten_fields_kept_many">Des champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</string>
     <string name="tool_edit">Modifier un PDF</string>
     <string name="tool_edit_detail">Ajouter texte, dessins, formes et images</string>
     <string name="pdf_edit_action">Enregistrer le PDF</string>
@@ -351,8 +364,11 @@
     <string name="office_note_epub">Les chapitres, les titres, les styles de texte, les listes, les tableaux et les images sont convertis, et la table des matières devient des signets. Les polices de votre téléphone sont utilisées.</string>
     <string name="book_page_note">Le format A5 est à peu près celui d\'un livre de poche ; le A4 convient mieux à l\'impression.</string>
     <string name="epub_protected">Ce livre est protégé par des DRM (protection contre la copie) : Usugami ne peut donc pas le lire. Seuls les livres sans DRM peuvent être convertis.</string>
+    <string name="epub_protected_many">Ces livres sont protégés par des DRM (protection contre la copie) : Usugami ne peut donc pas les lire. Seuls les livres sans DRM peuvent être convertis.</string>
     <string name="epub_not_recognized">Ce fichier n\'est pas un livre numérique EPUB, ou il est endommagé.</string>
+    <string name="epub_not_recognized_many">Ces fichiers ne sont pas des livres numériques EPUB, ou ils sont endommagés.</string>
     <string name="epub_empty">Ce livre ne contient rien à convertir.</string>
+    <string name="epub_empty_many">Ces livres ne contiennent rien à convertir.</string>
     <string name="progress_chapter">Chapitre %1$d sur %2$d</string>
 
     <string name="ocr_title">Rendre le texte recherchable (OCR)</string>
@@ -572,6 +588,7 @@
         <item quantity="many">Impossible de lire %d fichiers partagés.</item>
         <item quantity="other">Impossible de lire %d fichiers partagés.</item>
     </plurals>
+    <string name="msg_share_interrupted">Usugami a été fermé avant d\'avoir pu récupérer les fichiers que vous avez partagés. Veuillez les partager à nouveau.</string>
     <string name="msg_saved_downloads">Enregistré dans Téléchargements sous le nom %1$s</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">%d PDF enregistré dans Téléchargements</item>

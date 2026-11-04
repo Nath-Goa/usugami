@@ -1,6 +1,7 @@
 package io.github.nath_goa.usugami.data
 
 import android.content.ClipData
+import android.content.ComponentName
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -12,6 +13,7 @@ import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
+import io.github.nath_goa.usugami.MainActivity
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -134,7 +136,9 @@ class PdfSaver(private val context: Context) {
         intent.type = type
         intent.clipData = ClipData.newRawUri(files[0].name, uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        // Not to Usugami itself, which takes PDFs shared to it: it doesn't read its own files for another app.
         return Intent.createChooser(intent, null)
+            .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(context, MainActivity::class.java)))
     }
 
     fun viewIntent(file: File): Intent = Intent(Intent.ACTION_VIEW)

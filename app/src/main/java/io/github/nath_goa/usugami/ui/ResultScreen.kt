@@ -60,6 +60,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -178,6 +179,9 @@ fun ResultScreen(
             )
             Spacer(Modifier.height(20.dp))
 
+            // The name of the PDF whose Save menu is open: one for the whole screen, so the saved state
+            // doesn't grow with the PDFs, of which there can be thousands.
+            val saveMenu = rememberSaveable { mutableStateOf<String?>(null) }
             Column(Modifier.widthIn(max = 480.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 files.forEach { file ->
                     val saveAs = actions.saveOneAs
@@ -189,6 +193,7 @@ fun ResultScreen(
                             onShare = actions.shareOne?.let { share -> { share(file) } },
                             onSaveToDownloads = actions.saveOneToDownloads?.let { save -> { save(file) } },
                             onSaveAs = { saveAs(file) },
+                            saveMenu = saveMenu,
                             canShare = zipProgress == null,
                             canSave = idle,
                         )
@@ -403,7 +408,8 @@ private fun FileDetails(file: PdfFile, modifier: Modifier = Modifier, saved: Boo
 /**
  * One of several PDFs, with buttons of its own under it: Open, Share, and Save, which offers
  * Downloads and "Save as" (or goes straight to "Save as" where Android has no Downloads to save to).
- * [saved] marks it once it has been saved, on its own or with the others.
+ * [saved] marks it once it has been saved, on its own or with the others. [saveMenu] holds the name
+ * of the PDF whose menu is open.
  */
 @Composable
 private fun OwnFileRow(
@@ -413,6 +419,7 @@ private fun OwnFileRow(
     onShare: (() -> Unit)?,
     onSaveToDownloads: (() -> Unit)?,
     onSaveAs: () -> Unit,
+    saveMenu: MutableState<String?>,
     canShare: Boolean,
     canSave: Boolean,
 ) {
@@ -438,11 +445,12 @@ private fun OwnFileRow(
                         RowButtonContent(Icons.Rounded.Share, stringResource(R.string.share))
                     }
                 }
-                var menu by rememberSaveable(file.name) { mutableStateOf(false) }
+                // Read when tapped, not when drawn: a second tap before the screen is drawn again finds it closed.
+                fun menuOpen() = saveMenu.value == file.name
                 Box {
                     TextButton(
                         // With Downloads to save to, a menu offers it and "Save as"; otherwise "Save as" opens.
-                        onClick = { if (onSaveToDownloads != null) menu = true else onSaveAs() },
+                        onClick = { if (onSaveToDownloads != null) saveMenu.value = file.name else onSaveAs() },
                         enabled = canSave,
                         contentPadding = RowButtonPadding,
                         modifier = Modifier.semantics { contentDescription = saveLabel },
@@ -450,13 +458,13 @@ private fun OwnFileRow(
                         RowButtonContent(Icons.Rounded.Download, stringResource(R.string.save))
                     }
                     // The items can still be tapped while the menu fades out: only the first tap counts.
-                    DropdownMenu(expanded = menu && canSave, onDismissRequest = { menu = false }) {
+                    DropdownMenu(expanded = menuOpen() && canSave, onDismissRequest = { if (menuOpen()) saveMenu.value = null }) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.save_to_downloads)) },
                             leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
                             onClick = {
-                                if (menu) {
-                                    menu = false
+                                if (menuOpen()) {
+                                    saveMenu.value = null
                                     onSaveToDownloads?.invoke()
                                 }
                             },
@@ -465,8 +473,8 @@ private fun OwnFileRow(
                             text = { Text(stringResource(R.string.save_as)) },
                             leadingIcon = { Icon(Icons.Rounded.SaveAs, contentDescription = null) },
                             onClick = {
-                                if (menu) {
-                                    menu = false
+                                if (menuOpen()) {
+                                    saveMenu.value = null
                                     onSaveAs()
                                 }
                             },

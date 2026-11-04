@@ -37,8 +37,12 @@
     <string name="move_file_later">Move %1$s later</string>
     <string name="remove_file">Remove %1$s</string>
     <string name="pdf_import_failed">Couldn\'t open that PDF. It may be damaged or unsupported.</string>
+    <!-- Said of several files at once, after their names (see file_problem): worded for all of them. Likewise the other strings ending in _many. -->
+    <string name="pdf_import_failed_many">Couldn\'t open these PDFs. They may be damaged or unsupported.</string>
     <string name="open_no_space">There isn\'t enough free storage to open that file. Free up some space and try again.</string>
+    <string name="open_no_space_many">There isn\'t enough free storage to open these files. Free up some space and try again.</string>
     <string name="pdf_certificate_unsupported">This PDF is locked with a certificate (digital ID). Usugami can only open PDFs locked with a password.</string>
+    <string name="pdf_certificate_unsupported_many">These PDFs are locked with a certificate (digital ID). Usugami can only open PDFs locked with a password.</string>
     <string name="pdf_wrong_password">That password didn\'t open the PDF.</string>
     <string name="pdf_password_title">PDF password</string>
     <string name="pdf_password_body">\"%1$s\" is protected. Enter its password to continue.</string>
@@ -261,12 +265,19 @@
     <string name="office_note_word">Text, headings, lists, tables and pictures convert. Your phone\'s fonts stand in for the document\'s, so some lines may break differently.</string>
     <string name="office_note_powerpoint">Each slide becomes a page; hidden slides are left out. Your phone\'s fonts stand in for the presentation\'s, and charts show as gray boxes.</string>
     <string name="office_legacy_word">This is an old Word file (.doc). Save it as .docx in Word or another app, then try again.</string>
+    <string name="office_legacy_word_many">These are old Word files (.doc). Save them as .docx in Word or another app, then try again.</string>
     <string name="office_legacy_powerpoint">This is an old PowerPoint file (.ppt). Save it as .pptx in PowerPoint or another app, then try again.</string>
+    <string name="office_legacy_powerpoint_many">These are old PowerPoint files (.ppt). Save them as .pptx in PowerPoint or another app, then try again.</string>
     <string name="office_encrypted">This file is protected with a password. Remove the password in Word or PowerPoint, save the file, then try again.</string>
+    <string name="office_encrypted_many">These files are protected with a password. Remove the password in Word or PowerPoint, save the files, then try again.</string>
     <string name="office_not_word">This isn\'t a Word document (.docx), or it\'s damaged.</string>
+    <string name="office_not_word_many">These aren\'t Word documents (.docx), or they\'re damaged.</string>
     <string name="office_not_powerpoint">This isn\'t a PowerPoint presentation (.pptx), or it\'s damaged.</string>
+    <string name="office_not_powerpoint_many">These aren\'t PowerPoint presentations (.pptx), or they\'re damaged.</string>
     <string name="office_no_slides">This presentation has no slides to convert. Hidden slides are left out.</string>
+    <string name="office_no_slides_many">These presentations have no slides to convert. Hidden slides are left out.</string>
     <string name="office_embedded_content">This document keeps its text as a web page or RTF file inside it, which Usugami can\'t convert. Open it in Word, save it, then try again.</string>
+    <string name="office_embedded_content_many">These documents keep their text as a web page or RTF file inside them, which Usugami can\'t convert. Open them in Word, save them, then try again.</string>
     <string name="office_convert_failed">Couldn\'t convert this file. Check the file and free storage.</string>
     <plurals name="progress_slides">
         <item quantity="one">%1$d of %2$d slide</item>
@@ -307,12 +318,15 @@
     <string name="flatten_nothing">This PDF has no form fields or comments to flatten.</string>
     <!-- XFA is a kind of PDF form; keep the name. -->
     <string name="flatten_xfa_only">This PDF\'s form is a dynamic XFA form, which Usugami can\'t flatten.</string>
+    <string name="flatten_xfa_only_many">These PDFs\' forms are dynamic XFA forms, which Usugami can\'t flatten.</string>
     <string name="flatten_xfa_dropped">This PDF had a dynamic XFA form, which was removed. Its other form fields and comments were flattened.</string>
+    <string name="flatten_xfa_dropped_many">These PDFs had a dynamic XFA form, which was removed. Their other form fields and comments were flattened.</string>
     <!-- After Flatten PDF: fields whose text the form's own font can't draw (Hindi or the rupee sign in a Latin-only font, say) are left as fields rather than come out blank. -->
     <plurals name="flatten_fields_kept">
         <item quantity="one">%d form field has text that Usugami can\'t draw with its font, so it was left fillable to keep that text.</item>
         <item quantity="other">%d form fields have text that Usugami can\'t draw with their font, so they were left fillable to keep that text.</item>
     </plurals>
+    <string name="flatten_fields_kept_many">Some form fields have text that Usugami can\'t draw with their font, so they were left fillable to keep that text.</string>
     <!-- Edit PDF: text, drawings, highlights, shapes and pictures put on top of a PDF's pages. "Redact PDF" is the name of another tool. -->
     <string name="tool_edit">Edit PDF</string>
     <string name="tool_edit_detail">Add text, drawings, shapes and pictures</string>
@@ -368,8 +382,11 @@
     <string name="office_note_epub">Chapters, headings, text styles, lists, tables and pictures convert, and the table of contents becomes bookmarks. Your phone\'s fonts are used.</string>
     <string name="book_page_note">A5 is about the size of a paperback; A4 suits printing.</string>
     <string name="epub_protected">This book is protected with DRM (copy protection), so Usugami can\'t read it. Only books without DRM can be converted.</string>
+    <string name="epub_protected_many">These books are protected with DRM (copy protection), so Usugami can\'t read them. Only books without DRM can be converted.</string>
     <string name="epub_not_recognized">This isn\'t an EPUB e-book, or it\'s damaged.</string>
+    <string name="epub_not_recognized_many">These aren\'t EPUB e-books, or they\'re damaged.</string>
     <string name="epub_empty">This book has nothing to convert.</string>
+    <string name="epub_empty_many">These books have nothing to convert.</string>
     <string name="progress_chapter">Chapter %1$d of %2$d</string>
 
     <string name="ocr_title">Make text searchable (OCR)</string>
@@ -590,6 +607,8 @@
         <item quantity="one">Couldn\'t read %d shared file.</item>
         <item quantity="other">Couldn\'t read %d shared files.</item>
     </plurals>
+    <!-- Android stopped Usugami in the background while it was copying in files shared to it, which are gone. -->
+    <string name="msg_share_interrupted">Usugami was closed before it could take in the files you shared. Please share them again.</string>
     <string name="msg_saved_downloads">Saved to Downloads as %1$s</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">Saved %d PDF to Downloads</item>

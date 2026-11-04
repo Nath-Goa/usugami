@@ -1429,6 +1429,34 @@ class ScreensDeviceTest {
         findBelow("Sign PDF") { it.says(app.getString(R.string.tool_sign)) }
     }
 
+    /**
+     * Images shared while Choose a tool shows wait in the editor, rather than put the shared PDF away:
+     * Choose a tool stays, and a tool opened from it goes back to it, not to the images. Back from
+     * there shows them.
+     */
+    @Test fun imagesSharedOverChooseAToolWaitForIt() {
+        val name = "Shared ${System.currentTimeMillis()}.pdf"
+        val activity = launchSharing(shareIntent("application/pdf", inDownloads(name, "application/pdf", asset("alpha.pdf"))))
+        chooseATool()
+        find("the shared PDF") { it.says(name) }
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        onMain { vm.addImages(listOf(photo("shared.jpg"))) }
+        waitUntil("the image to be added") { onMain { vm.items.value.size } == 1 }
+        assertTrue("Choose a tool stays", settledTexts().contains(app.getString(R.string.share_title)))
+        assertEquals(listOf(name), onMain { pdfVm.inputs.value.map { it.name } })
+
+        click(findBelow("Compress PDF") { it.says(app.getString(R.string.tool_compress)) })
+        waitUntil("Choose a tool to slide away") { nodes().none { it.says(app.getString(R.string.share_title)) } }
+        backKey()
+        chooseATool()
+        // Scrolled down to the tool before.
+        findAbove("the shared PDF, still there") { it.says(name) }
+        backKey()
+        find("the shared image in the editor") { it.says(app.getString(R.string.convert)) }
+        onMain { vm.clearAll() }
+    }
+
     private fun texts() = nodes().mapNotNull { it.text?.toString() }.toSet()
 
     /** The texts on screen once they stop changing, as they do when scrolling has finished. */
@@ -1662,7 +1690,8 @@ class ScreensDeviceTest {
         click(choiceBelow(less, top(find("the notes' card") { it.says("notes.pdf") })))
         waitUntil("the notes alone to be at Less") { onMain { pdfVm.compressionOf(notes) } == PdfCompression.LESS }
         assertEquals(PdfCompression.EXTREME, onMain { pdfVm.compressionOf(alpha) })
-        assertFalse("None is chosen for all while they differ", choiceBelow(app.getString(R.string.compression_extreme), forAll).chosen)
+        // Once the screen has caught up with the levels.
+        waitUntil("none to be chosen for all while they differ") { !choiceBelow(app.getString(R.string.compression_extreme), forAll).chosen }
         val stamp = "Batch ${System.currentTimeMillis()}"
         type(nodes().filter { it.isEditable && top(it) > top(find("the notes' card") { it.says("notes.pdf") }) }.minBy(::top), "$stamp notes")
         onMain { pdfVm.setBatchName(alpha.id, "$stamp alpha") }
