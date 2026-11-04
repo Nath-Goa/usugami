@@ -12,6 +12,19 @@ endif()
 # Small code: -Os, every function and variable in its own section so the linker can drop what is
 # unused. The same flags for debug builds, so the device tests run at the real speed.
 set(USUGAMI_FLAGS "-Os -DNDEBUG -ffunction-sections -fdata-sections -fvisibility=hidden -fvisibility-inlines-hidden")
+# Reproducible builds: the library must come out byte for byte the same wherever the repository,
+# the build folder (its name has a hash of the configuration) and the NDK are, so F-Droid's build
+# matches the release APKs. No absolute path may get into it:
+# - No debug info (-g0; the NDK adds -g, and the library is stripped anyway). With debug info,
+#   clang writes each OpenMP loop's source file, as an absolute path, into the library (ncnn has
+#   hundreds), and -ffile-prefix-map doesn't apply to those.
+# - __FILE__ in any header: each folder is written as a fixed name instead.
+get_filename_component(USUGAMI_REPO_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+string(APPEND USUGAMI_FLAGS
+    " -g0"
+    " -ffile-prefix-map=${CMAKE_BINARY_DIR}=build"
+    " -ffile-prefix-map=${USUGAMI_REPO_DIR}=."
+    " -ffile-prefix-map=${ANDROID_NDK}=ndk")
 foreach(lang C CXX)
     foreach(config DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
         set(CMAKE_${lang}_FLAGS_${config} "${USUGAMI_FLAGS}")
