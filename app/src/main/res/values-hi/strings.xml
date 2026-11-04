@@ -113,6 +113,11 @@
     <string name="tool_discard_title">अपने बदलाव खारिज करें?</string>
     <string name="pdf_discard_shared_body">आपकी शेयर की गई इमेज कन्वर्ट करने के लिए तैयार हैं, लेकिन यह PDF अभी सेव नहीं हुई है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
     <string name="pdf_discard_shared_changes">आपकी शेयर की गई इमेज कन्वर्ट करने के लिए तैयार हैं। उन्हें खोलने पर इस PDF में किए गए आपके बदलाव खारिज हो जाएंगे।</string>
+    <string name="share_discard_body">आपकी शेयर की गई फ़ाइलें खोलने के लिए तैयार हैं, लेकिन यह PDF अभी सेव नहीं हुई है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
+    <string name="share_discard_changes">आपकी शेयर की गई फ़ाइलें खोलने के लिए तैयार हैं। उन्हें खोलने पर इस PDF में किए गए आपके बदलाव खारिज हो जाएंगे।</string>
+    <string name="share_waits">आपकी शेयर की गई फ़ाइलें यह काम पूरा होने के बाद खुलेंगी।</string>
+    <string name="share_title">टूल चुनें</string>
+    <string name="share_several_hint">इन्हें मर्ज करें, या सब पर एक साथ काम करें। बाकी टूल के लिए एक ही PDF रखें।</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">PDF घुमाएं</string>
     <string name="pdf_page_numbers_action">पेज नंबर जोड़ें</string>
@@ -528,6 +533,18 @@
     <plurals name="msg_import_no_space">
         <item quantity="one">%d इमेज नहीं जोड़ी जा सकी: स्टोरेज में काफ़ी खाली जगह नहीं है।</item>
         <item quantity="other">%d इमेज नहीं जोड़ी जा सकीं: स्टोरेज में काफ़ी खाली जगह नहीं है।</item>
+    </plurals>
+    <plurals name="share_unsupported" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Usugami %2$s को नहीं खोल सकता, इसलिए इसे छोड़ दिया गया।</item>
+        <item quantity="other">Usugami %1$d फ़ाइलें नहीं खोल सकता, इसलिए इन्हें छोड़ दिया गया: %2$s।</item>
+    </plurals>
+    <plurals name="share_other_kind" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s को छोड़ दिया गया: Usugami एक बार में एक ही तरह की फ़ाइलें खोलता है।</item>
+        <item quantity="other">%1$d फ़ाइलें छोड़ दी गईं: %2$s। Usugami एक बार में एक ही तरह की फ़ाइलें खोलता है।</item>
+    </plurals>
+    <plurals name="msg_share_unreadable">
+        <item quantity="one">शेयर की गई %d फ़ाइल नहीं पढ़ी जा सकी।</item>
+        <item quantity="other">शेयर की गई %d फ़ाइलें नहीं पढ़ी जा सकीं।</item>
     </plurals>
     <string name="msg_saved_downloads">डाउनलोड में %1$s के रूप में सेव किया गया</string>
     <plurals name="msg_saved_downloads_many">

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.app.Instrumentation
 import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
@@ -33,6 +34,10 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.AppLanguage
@@ -126,6 +131,7 @@ class ScreensDeviceTest {
     @After fun tearDown() {
         activity?.let { onMain { it.finish() } }
         File(app.cacheDir, "output/test-picked").deleteRecursively()
+        downloadsMade.forEach { app.contentResolver.delete(it, null, null) }
         if (languageChanged) forgetLanguage()
         if (appearanceChanged) {
             Appearances.reset(app)
@@ -1228,6 +1234,199 @@ class ScreensDeviceTest {
         find("the shared image in the editor") { it.says(app.getString(R.string.convert)) }
         waitUntil("the PDF to be discarded") { onMain { pdfVm.result.value == null && pdfVm.inputs.value.isEmpty() } }
         onMain { vm.clearAll() }
+    }
+
+    /** Files put in Downloads by a test, as another app's files to share; deleted after it. */
+    private val downloadsMade = ArrayList<Uri>()
+
+    /**
+     * A file the way another app shares it: in Downloads, through MediaStore, named [name] with the
+     * type [type]. Usugami put it there, so it can read it, as a share lets it; its own files it
+     * refuses to read on another app's behalf.
+     */
+    private fun inDownloads(name: String, type: String, bytes: ByteArray): Uri {
+        Assume.assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        val values = ContentValues().apply {
+            put(MediaStore.Downloads.DISPLAY_NAME, name)
+            put(MediaStore.Downloads.MIME_TYPE, type)
+        }
+        val uri = app.contentResolver.insert(MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)!!
+        downloadsMade += uri
+        app.contentResolver.openOutputStream(uri)!!.use { it.write(bytes) }
+        return uri
+    }
+
+    private fun asset(name: String): ByteArray = instrumentation.context.assets.open(name).use { it.readBytes() }
+
+    /** A share of [uris], of [type], as another app sends it to Usugami. */
+    private fun shareIntent(type: String, vararg uris: Uri): Intent {
+        val intent = if (uris.size == 1) {
+            Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
+        } else {
+            Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris.toList()))
+        }
+        return intent.setClass(app, MainActivity::class.java).setType(type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    /** Starts Usugami with [share], as when the user shares files to it from another app. */
+    private fun launchSharing(share: Intent): MainActivity {
+        AppLanguages.skipChoice(app)
+        val intent = share.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        return (instrumentation.startActivitySync(intent) as MainActivity).also { activity = it }
+    }
+
+    /** Shares to Usugami while it shows. */
+    private fun shareTo(share: Intent) = app.startActivity(share.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+
+    private fun chooseATool() = find("Choose a tool") { it.says(app.getString(R.string.share_title)) }
+
+    /**
+     * A PDF shared to Usugami opens Choose a tool with every PDF tool, and stays through the activity
+     * being recreated. The tool chosen opens with the PDF in it, and goes back to Choose a tool, the
+     * PDF still there; from there Back goes Home.
+     */
+    @Test fun aSharedPdfOpensChooseAToolAndTheToolChosenTakesIt() {
+        val name = "Shared ${System.currentTimeMillis()}.pdf"
+        val first = launchSharing(shareIntent("application/pdf", inDownloads(name, "application/pdf", asset("alpha.pdf"))))
+        chooseATool()
+        find("the shared PDF") { it.says(name) }
+        val pdfVm = onMain { ViewModelProvider(first)[PdfToolsViewModel::class.java] }
+        assertEquals(3, onMain { pdfVm.inputs.value.single().pageCount })
+        val tools = listOf(
+            R.string.tool_merge, R.string.tool_split, R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate,
+            R.string.tool_edit, R.string.tool_sign, R.string.tool_page_numbers, R.string.tool_watermark,
+            R.string.tool_compress, R.string.tool_redact, R.string.tool_flatten,
+        )
+        for (tool in tools) findBelow("${app.getString(tool)} under Choose a tool") { it.says(app.getString(tool)) }
+        assertFalse("No converter", texts().contains(app.getString(R.string.tool_word)))
+
+        onMain { first.recreate() }
+        recreatedFrom(first)
+        chooseATool()
+        // Scrolled down before, it still is.
+        click(findAbove("Split PDF") { it.says(app.getString(R.string.tool_split)) })
+        find("Split PDF's choices") { it.says(app.getString(R.string.pdf_selected)) }
+        assertEquals(listOf(name), onMain { pdfVm.inputs.value.map { it.name } })
+        backKey()
+        chooseATool()
+        find("the shared PDF, still there") { it.says(name) }
+        backKey()
+        find("Home") { it.says(app.getString(R.string.settings)) }
+        waitUntil("the PDF to be put away") { onMain { pdfVm.inputs.value.isEmpty() } }
+    }
+
+    /** Several PDFs shared go to Merge PDF and the tools that work on several PDFs at once. */
+    @Test fun severalSharedPdfsOfferMergeAndTheToolsForSeveral() {
+        val stamp = System.currentTimeMillis()
+        val pdfs = arrayOf(inDownloads("First $stamp.pdf", "application/pdf", asset("alpha.pdf")), inDownloads("Second $stamp.pdf", "application/pdf", asset("beta.pdf")))
+        val activity = launchSharing(shareIntent("application/pdf", *pdfs))
+        chooseATool()
+        find("the second PDF") { it.says("Second $stamp.pdf") }
+        find("the hint") { it.says(app.getString(R.string.share_several_hint)) }
+        val others = listOf(R.string.tool_split, R.string.tool_reorganize, R.string.tool_rotate, R.string.tool_sign, R.string.tool_edit, R.string.tool_redact)
+            .map(app::getString)
+        for (tool in listOf(R.string.tool_merge, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_compress, R.string.tool_flatten)) {
+            findBelow(app.getString(tool)) { it.says(app.getString(tool)) }
+            assertTrue("Only the tools for several", texts().none { it in others })
+        }
+        click(find("Compress PDF") { it.says(app.getString(R.string.tool_compress)) })
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        assertEquals(listOf("First $stamp.pdf", "Second $stamp.pdf"), onMain { pdfVm.inputs.value.map { it.name } })
+        val compressBoth = app.resources.getQuantityString(R.plurals.pdf_compress_action_many, 2, 2)
+        findBelow("the button that compresses both") { it.says(compressBoth) }
+    }
+
+    /**
+     * A Word document shared opens Word to PDF with it, and a file shared with it that Usugami can't
+     * use is named.
+     */
+    @Test fun aSharedWordFileOpensWordToPdfAndAFileLeftOutIsNamed() {
+        val stamp = System.currentTimeMillis()
+        val report = inDownloads("Report $stamp.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", asset("report.docx"))
+        val notes = inDownloads("Notes $stamp.txt", "text/plain", "notes".toByteArray())
+        val activity = launchSharing(shareIntent("*/*", report, notes))
+        find("the message naming the file left out") { it.says(app.resources.getQuantityString(R.plurals.share_unsupported, 1, 1, "Notes $stamp.txt")) }
+        find("Word to PDF") { it.says(app.getString(R.string.tool_word)) }
+        find("the shared document") { it.says("Report $stamp.docx") }
+        actionButton(R.string.convert)
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        assertEquals(listOf("Report $stamp.docx"), onMain { pdfVm.documents.value.map { it.name } })
+    }
+
+    /** A PDF shared over a PDF not saved yet asks first; kept, the shared PDF opens once the tool is left. */
+    @Test fun filesSharedOverAnUnsavedPdfAskFirstAndWaitIfKept() {
+        val activity = launch()
+        val pdfVm = unsavedCompressResult(activity)
+        val name = "Shared ${System.currentTimeMillis()}.pdf"
+        shareTo(shareIntent("application/pdf", inDownloads(name, "application/pdf", asset("beta.pdf"))))
+        find("the question") { it.says(app.getString(R.string.share_discard_body)) }
+        click(find("the Keep button") { it.says(app.getString(R.string.keep)) })
+        waitUntil("the dialog to close") { nodes().none { it.says(app.getString(R.string.share_discard_body)) } }
+        find("the result, still showing") { it.says(app.getString(R.string.result_heading_one)) }
+        assertTrue("The PDF is kept", onMain { pdfVm.result.value != null })
+
+        backKey()
+        find("the tool") { it.says(app.getString(R.string.tool_compress)) }
+        assertEquals("The tool keeps its PDF", listOf("alpha.pdf"), onMain { pdfVm.inputs.value.map { it.name } })
+        backKey()
+        chooseATool()
+        find("the shared PDF") { it.says(name) }
+        assertEquals(listOf(name), onMain { pdfVm.inputs.value.map { it.name } })
+    }
+
+    /** A PDF whose pages are photos of noise, which takes a while to compress, the way a picker gives it. */
+    private fun slowPdf(): Uri {
+        val file = File(app.cacheDir, "output/test-picked/slow.pdf").apply { parentFile!!.mkdirs() }
+        val random = java.util.Random(7)
+        PDDocument().use { doc ->
+            repeat(16) {
+                val bitmap = Bitmap.createBitmap(IntArray(1200 * 1500) { Color.BLACK or random.nextInt(0x1000000) }, 1200, 1500, Bitmap.Config.ARGB_8888)
+                val page = PDPage(PDRectangle.A4)
+                doc.addPage(page)
+                PDPageContentStream(doc, page).use { it.drawImage(JPEGFactory.createFromImage(doc, bitmap, 0.95f), 50f, 70f, 495f, 650f) }
+                bitmap.recycle()
+            }
+            doc.save(file)
+        }
+        return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+    }
+
+    /** A PDF shared while a tool makes one waits for it; the PDF made isn't saved, so Usugami asks. */
+    @Test fun filesSharedWhileAPdfIsMadeWaitForIt() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        val pdfVm = openTool(R.string.tool_compress, activity)
+        onMain { pdfVm.addPdfs(listOf(slowPdf()), replace = true) }
+        waitUntil("the PDF to be added") { onMain { pdfVm.inputs.value.size } == 1 }
+        onMain { pdfVm.runCompress(PdfCompression.EXTREME, "slow") }
+        val name = "Shared ${System.currentTimeMillis()}.pdf"
+        shareTo(shareIntent("application/pdf", inDownloads(name, "application/pdf", asset("alpha.pdf"))))
+        waitUntil("the shared PDF to be copied in") { onMain { vm.sharedFiles.value.isNotEmpty() } }
+        assertTrue("The PDF is still being made", onMain { pdfVm.processing.value })
+        assertEquals("The tool keeps its PDF meanwhile", listOf("slow.pdf"), onMain { pdfVm.inputs.value.map { it.name } })
+
+        val deadline = SystemClock.uptimeMillis() + 120_000
+        while (onMain { pdfVm.processing.value }) {
+            check(SystemClock.uptimeMillis() < deadline) { "Timed out waiting for the PDF to be made" }
+            Thread.sleep(200)
+        }
+        find("the question, once the PDF is made") { it.says(app.getString(R.string.share_discard_body)) }
+        click(find("the Discard button") { it.says(app.getString(R.string.discard)) })
+        chooseATool()
+        find("the shared PDF") { it.says(name) }
+        assertEquals(listOf(name), onMain { pdfVm.inputs.value.map { it.name } })
+    }
+
+    /** A shared PDF with a password is asked for on Choose a tool, which shows its tools once it is open. */
+    @Test fun aSharedPdfWithAPasswordIsAskedForOnChooseATool() {
+        val name = "Statement ${System.currentTimeMillis()}.pdf"
+        launchSharing(shareIntent("application/pdf", inDownloads(name, "application/pdf", asset("protected.pdf"))))
+        find("the password dialog, naming the PDF") { it.says(app.getString(R.string.pdf_password_body, name)) }
+        type(find("the password field") { it.isEditable }, "test123")
+        click(actionButton(R.string.pdf_unlock))
+        chooseATool()
+        find("the shared PDF") { it.says(name) }
+        findBelow("Sign PDF") { it.says(app.getString(R.string.tool_sign)) }
     }
 
     private fun texts() = nodes().mapNotNull { it.text?.toString() }.toSet()

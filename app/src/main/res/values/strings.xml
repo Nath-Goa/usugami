@@ -120,6 +120,12 @@
     <string name="tool_discard_title">Discard your changes?</string>
     <string name="pdf_discard_shared_body">The images you shared are ready to convert, but this PDF isn\'t saved yet. Save it first if you want to keep it.</string>
     <string name="pdf_discard_shared_changes">The images you shared are ready to convert. Opening them discards your changes to this PDF.</string>
+    <string name="share_discard_body">The files you shared are ready to open, but this PDF isn\'t saved yet. Save it first if you want to keep it.</string>
+    <string name="share_discard_changes">The files you shared are ready to open. Opening them discards your changes to this PDF.</string>
+    <string name="share_waits">The files you shared will open once this is done.</string>
+    <!-- The screen that opens with PDFs shared to Usugami from another app, listing the tools that take them. -->
+    <string name="share_title">Choose a tool</string>
+    <string name="share_several_hint">Merge them, or work on each of them at once. For the other tools, keep one PDF.</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">Rotate PDF</string>
     <string name="pdf_page_numbers_action">Add page numbers</string>
@@ -569,6 +575,20 @@
     <plurals name="msg_import_no_space">
         <item quantity="one">Couldn\'t add %d image: there isn\'t enough free storage.</item>
         <item quantity="other">Couldn\'t add %d images: there isn\'t enough free storage.</item>
+    </plurals>
+    <!-- Files shared to Usugami that it can't use: %1$d counts them (never 0), %2$s lists their names. -->
+    <plurals name="share_unsupported">
+        <item quantity="one">Usugami can\'t open %2$s, so it was left out.</item>
+        <item quantity="other">Usugami can\'t open %1$d files, so they were left out: %2$s.</item>
+    </plurals>
+    <!-- Files shared to Usugami together with more files of another kind, which it took instead: %1$d counts them (never 0), %2$s lists their names. -->
+    <plurals name="share_other_kind">
+        <item quantity="one">%2$s was left out: Usugami opens files of one kind at a time.</item>
+        <item quantity="other">%1$d files were left out: %2$s. Usugami opens files of one kind at a time.</item>
+    </plurals>
+    <plurals name="msg_share_unreadable">
+        <item quantity="one">Couldn\'t read %d shared file.</item>
+        <item quantity="other">Couldn\'t read %d shared files.</item>
     </plurals>
     <string name="msg_saved_downloads">Saved to Downloads as %1$s</string>
     <plurals name="msg_saved_downloads_many">

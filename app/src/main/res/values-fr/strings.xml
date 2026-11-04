@@ -118,6 +118,11 @@
     <string name="tool_discard_title">Supprimer vos modifications ?</string>
     <string name="pdf_discard_shared_body">Les images que vous avez partagées sont prêtes à être converties, mais ce PDF n\'est pas encore enregistré. Enregistrez-le d\'abord si vous voulez le conserver.</string>
     <string name="pdf_discard_shared_changes">Les images que vous avez partagées sont prêtes à être converties. Les ouvrir supprime vos modifications de ce PDF.</string>
+    <string name="share_discard_body">Les fichiers que vous avez partagés sont prêts à être ouverts, mais ce PDF n\'est pas encore enregistré. Enregistrez-le d\'abord si vous voulez le conserver.</string>
+    <string name="share_discard_changes">Les fichiers que vous avez partagés sont prêts à être ouverts. Les ouvrir supprime vos modifications de ce PDF.</string>
+    <string name="share_waits">Les fichiers que vous avez partagés s\'ouvriront une fois ce travail terminé.</string>
+    <string name="share_title">Choisir un outil</string>
+    <string name="share_several_hint">Fusionnez-les, ou traitez-les tous en une fois. Pour les autres outils, gardez un seul PDF.</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">Faire pivoter le PDF</string>
     <string name="pdf_page_numbers_action">Numéroter les pages</string>
@@ -551,6 +556,21 @@
         <item quantity="one">Impossible d\'ajouter %d image : l\'espace de stockage disponible est insuffisant.</item>
         <item quantity="many">Impossible d\'ajouter %d images : l\'espace de stockage disponible est insuffisant.</item>
         <item quantity="other">Impossible d\'ajouter %d images : l\'espace de stockage disponible est insuffisant.</item>
+    </plurals>
+    <plurals name="share_unsupported" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Usugami ne peut pas ouvrir %2$s, qui a été laissé de côté.</item>
+        <item quantity="many">Usugami ne peut pas ouvrir ces %1$d fichiers, laissés de côté : %2$s.</item>
+        <item quantity="other">Usugami ne peut pas ouvrir ces %1$d fichiers, laissés de côté : %2$s.</item>
+    </plurals>
+    <plurals name="share_other_kind" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s a été laissé de côté : Usugami ouvre un seul type de fichier à la fois.</item>
+        <item quantity="many">%1$d fichiers ont été laissés de côté : %2$s. Usugami ouvre un seul type de fichier à la fois.</item>
+        <item quantity="other">%1$d fichiers ont été laissés de côté : %2$s. Usugami ouvre un seul type de fichier à la fois.</item>
+    </plurals>
+    <plurals name="msg_share_unreadable">
+        <item quantity="one">Impossible de lire %d fichier partagé.</item>
+        <item quantity="many">Impossible de lire %d fichiers partagés.</item>
+        <item quantity="other">Impossible de lire %d fichiers partagés.</item>
     </plurals>
     <string name="msg_saved_downloads">Enregistré dans Téléchargements sous le nom %1$s</string>
     <plurals name="msg_saved_downloads_many">

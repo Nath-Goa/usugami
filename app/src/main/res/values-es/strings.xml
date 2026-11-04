@@ -118,6 +118,11 @@
     <string name="tool_discard_title">¿Descartar tus cambios?</string>
     <string name="pdf_discard_shared_body">Las imágenes que compartiste están listas para convertir, pero este PDF aún no se ha guardado. Guárdalo primero si quieres conservarlo.</string>
     <string name="pdf_discard_shared_changes">Las imágenes que compartiste están listas para convertir. Abrirlas descarta tus cambios en este PDF.</string>
+    <string name="share_discard_body">Los archivos que compartiste están listos para abrirse, pero este PDF aún no se ha guardado. Guárdalo primero si quieres conservarlo.</string>
+    <string name="share_discard_changes">Los archivos que compartiste están listos para abrirse. Abrirlos descarta tus cambios en este PDF.</string>
+    <string name="share_waits">Los archivos que compartiste se abrirán cuando esto termine.</string>
+    <string name="share_title">Elige una herramienta</string>
+    <string name="share_several_hint">Únelos o trabaja con todos a la vez. Para las demás herramientas, deja un solo PDF.</string>
     <!-- Rotate, page numbers and watermark -->
     <string name="pdf_rotate_action">Girar PDF</string>
     <string name="pdf_page_numbers_action">Numerar páginas</string>
@@ -551,6 +556,21 @@
         <item quantity="one">No se pudo añadir %d imagen: no hay suficiente almacenamiento libre.</item>
         <item quantity="many">No se pudieron añadir %d imágenes: no hay suficiente almacenamiento libre.</item>
         <item quantity="other">No se pudieron añadir %d imágenes: no hay suficiente almacenamiento libre.</item>
+    </plurals>
+    <plurals name="share_unsupported">
+        <item quantity="one">Usugami no puede abrir %2$s, así que se dejó fuera.</item>
+        <item quantity="many">Usugami no puede abrir %1$d archivos, así que se dejaron fuera: %2$s.</item>
+        <item quantity="other">Usugami no puede abrir %1$d archivos, así que se dejaron fuera: %2$s.</item>
+    </plurals>
+    <plurals name="share_other_kind">
+        <item quantity="one">%2$s se dejó fuera: Usugami abre archivos de un solo tipo a la vez.</item>
+        <item quantity="many">Se dejaron fuera %1$d archivos: %2$s. Usugami abre archivos de un solo tipo a la vez.</item>
+        <item quantity="other">Se dejaron fuera %1$d archivos: %2$s. Usugami abre archivos de un solo tipo a la vez.</item>
+    </plurals>
+    <plurals name="msg_share_unreadable">
+        <item quantity="one">No se pudo leer %d archivo compartido.</item>
+        <item quantity="many">No se pudieron leer %d archivos compartidos.</item>
+        <item quantity="other">No se pudieron leer %d archivos compartidos.</item>
     </plurals>
     <string name="msg_saved_downloads">Guardado en Descargas como %1$s</string>
     <plurals name="msg_saved_downloads_many">

@@ -32,7 +32,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        // On recreation the shared images were already taken in (and are in the saved state).
+        // On recreation the shared files were already taken in (and are in the saved state).
         if (savedInstanceState == null) handleShare(intent)
         setContent {
             UsugamiTheme(Appearances.forTheme(this)) {
@@ -62,7 +62,11 @@ class MainActivity : ComponentActivity() {
         handleShare(intent)
     }
 
-    /** Images shared from a gallery or file manager are added to the current list. */
+    /**
+     * Files shared from a gallery, a file manager or another app: images are added to the current
+     * list, PDFs open Choose a tool, and Word, PowerPoint and EPUB files their converter (see
+     * [MainViewModel.share]).
+     */
     private fun handleShare(intent: Intent) {
         if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
         val uris = try {
@@ -79,7 +83,7 @@ class MainActivity : ComponentActivity() {
                 // An authority may carry a user ID ("0@authority") that the system strips.
                 uri.authority?.substringAfterLast('@') != "$packageName.files"
         }
-        viewModel.addImages(accepted, refused = uris.size - accepted.size)
+        viewModel.share(accepted, sharedAs = intent.type, refused = uris.size - accepted.size)
     }
 
     private fun sharedUris(intent: Intent): List<Uri>? = when (intent.action) {
@@ -92,7 +96,7 @@ class MainActivity : ComponentActivity() {
                 .orEmpty().filterIsInstance<Uri>()
         else -> null
     }?.ifEmpty {
-        // Some apps only put the images in ClipData.
+        // Some apps only put the files in ClipData.
         val clip = intent.clipData ?: return null
         (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
     }

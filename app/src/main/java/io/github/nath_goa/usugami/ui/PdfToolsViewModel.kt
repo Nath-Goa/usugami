@@ -29,6 +29,7 @@ import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.core.PictureItem
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.Redaction
+import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
@@ -48,6 +49,7 @@ import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.PdfWrongPassword
 import io.github.nath_goa.usugami.data.ResultZip
+import io.github.nath_goa.usugami.data.SharedFile
 import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.data.ToolJob
 import io.github.nath_goa.usugami.data.WatermarkColor
@@ -69,6 +71,7 @@ import io.github.nath_goa.usugami.data.office.OfficeProgress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -408,6 +411,76 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     _importing.value = false
                     // One file picked is told about as before, without its name.
                     for ((text, names) in refused) message(if (uris.size == 1) text else strings.getString(R.string.file_problem, names.joinToString(", "), text))
+                }
+            }
+        }
+    }
+
+    /**
+     * Takes [files], shared to Usugami and copied in already (see [MainViewModel.share]), after the
+     * files there: PDFs join [inputs] (those with a password wait for it, as picked ones do), Word,
+     * PowerPoint and EPUB files [documents]. They are all of one kind. Files that can't be used are
+     * left out, saying why; with several shared, naming them.
+     */
+    fun addShared(files: List<SharedFile>) {
+        if (files.isEmpty()) return
+        val officeKind = when (files[0].kind) {
+            SharedKind.WORD -> OfficeKind.WORD
+            SharedKind.POWERPOINT -> OfficeKind.POWERPOINT
+            SharedKind.EPUB -> OfficeKind.EPUB
+            else -> null
+        }
+        _importing.value = true
+        val generation = ++importGeneration
+        importJob = viewModelScope.launch {
+            fun abandoned() = generation != importGeneration
+            // Why each file left out was, and their names: those alike are named in one message.
+            val refused = LinkedHashMap<String, MutableList<String>>()
+            try {
+                for (shared in files) {
+                    if (abandoned()) break
+                    val id = nextId++
+                    val reason = try {
+                        if (officeKind == null) {
+                            val input = withContext(fileOps) { engine.adopt(shared.file, id, shared.name) }
+                            if (abandoned()) withContext(fileOps) { engine.delete(input) } else append(input)
+                        } else {
+                            val input = withContext(fileOps) { office.adopt(shared.file, id, officeKind, shared.name) }
+                            if (abandoned()) withContext(fileOps) { office.delete(input) } else setDocuments(documents.value + input)
+                        }
+                        null
+                    } catch (e: PdfPasswordRequired) {
+                        // Each locked PDF waits its turn in the password dialog. reset() deletes the copy of an abandoned one.
+                        if (!abandoned()) setLocked(locked.value + e.input)
+                        null
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: PdfCertificateEncrypted) {
+                        strings.getString(R.string.pdf_certificate_unsupported)
+                    } catch (e: OfficeFileProblem) {
+                        officeMessage(e, officeKind ?: OfficeKind.WORD)
+                    } catch (e: Exception) {
+                        when {
+                            e.isOutOfSpace() -> strings.getString(R.string.open_no_space)
+                            officeKind == null -> strings.getString(R.string.pdf_import_failed)
+                            else -> officeMessage(OfficeNotRecognized(), officeKind)
+                        }
+                    } catch (_: LinkageError) {
+                        // Never crash on a PDF that PDFBox can't handle.
+                        strings.getString(R.string.pdf_import_failed)
+                    } catch (_: OutOfMemoryError) {
+                        if (officeKind == null) strings.getString(R.string.pdf_import_failed) else officeMessage(OfficeNotRecognized(), officeKind)
+                    }
+                    if (reason != null) refused.getOrPut(reason) { ArrayList() } += shared.name
+                }
+            } finally {
+                // Those not taken in (the tool was put away meanwhile) are deleted, so that none is left
+                // in the cache. Those taken in were moved, and those that couldn't be used deleted.
+                withContext(NonCancellable + fileOps) { files.forEach { it.file.delete() } }
+                if (!abandoned()) {
+                    _importing.value = false
+                    // One file shared is told about as one picked is, without its name.
+                    for ((text, names) in refused) message(if (files.size == 1) text else strings.getString(R.string.file_problem, names.joinToString(", "), text))
                 }
             }
         }
@@ -1577,6 +1650,34 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             pictures.deleteAllExcept(emptyList())
             engine.clearOutput()
             office.clearWork()
+        }
+    }
+
+    /**
+     * Forgets what was done with the PDFs in the tool showing, keeping the PDFs themselves, for
+     * another tool to take them: when the tool goes back to Choose a tool. Its changes, its result and
+     * the names and choices it gave each PDF go; a PDF or picture still being added is abandoned.
+     */
+    fun clearToolWork() {
+        val importing = importJob?.isActive == true
+        importJob?.cancel()
+        importGeneration++
+        importJob = null
+        _importing.value = false
+        zipper.cancel()
+        _result.value = null
+        setPages(allPages())
+        handle[KEY_INSERT_AFTER] = null
+        handle[KEY_PICTURE_PAGE] = null
+        setBatch(BatchChoices(all = DEFAULT_BATCH_CHOICE).following(inputs.value.map { it.id }))
+        clearUndo()
+        val hadItems = history.items.value.isNotEmpty()
+        history.clear()
+        clearRedaction()
+        viewModelScope.launch(fileOps) {
+            engine.clearOutput()
+            // A PDF the abandoned import copied anyway goes with the others once the PDFs are put away.
+            if (importing || hadItems) pictures.deleteAllExcept(emptyList())
         }
     }
 

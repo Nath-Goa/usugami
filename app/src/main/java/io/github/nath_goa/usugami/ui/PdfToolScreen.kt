@@ -126,6 +126,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 fun PdfToolScreen(
     tool: PdfTool,
     vm: PdfToolsViewModel,
+    receiving: Boolean,
     snackbar: SnackbarHostState,
     onBack: () -> Unit,
     onRemove: () -> Unit,
@@ -139,7 +140,9 @@ fun PdfToolScreen(
     val locked by vm.locked.collectAsStateWithLifecycle()
     val unlocking by vm.unlocking.collectAsStateWithLifecycle()
     val wrongPassword by vm.wrongPassword.collectAsStateWithLifecycle()
-    val importing by vm.importing.collectAsStateWithLifecycle()
+    val adding by vm.importing.collectAsStateWithLifecycle()
+    // Files shared to Usugami that are still being copied in for the tool are being added too.
+    val importing = adding || receiving
     val processing by vm.processing.collectAsStateWithLifecycle()
     val signature by vm.signature.collectAsStateWithLifecycle()
     val documents by vm.documents.collectAsStateWithLifecycle()
@@ -639,7 +642,7 @@ private fun FileNameField(fileName: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-private fun PasswordDialog(
+internal fun PasswordDialog(
     input: PdfInput,
     wrongPassword: Boolean,
     unlocking: Boolean,

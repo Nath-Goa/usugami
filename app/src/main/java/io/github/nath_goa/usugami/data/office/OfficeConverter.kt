@@ -12,6 +12,7 @@ import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.moveCopy
 import kotlinx.parcelize.Parcelize
 import java.io.File
 import java.io.IOException
@@ -125,6 +126,24 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
         } catch (t: Throwable) {
             file.delete()
             // Only a crafted file nests deeper than the stack goes: it is refused like a damaged one.
+            if (t is StackOverflowError) throw OfficeNotRecognized()
+            throw t
+        }
+    }
+
+    /**
+     * Takes [file], a [kind] file shared to Usugami and copied in already (see ShareInbox), as
+     * [import] takes a picked one: it is moved in as file [id], named [name].
+     */
+    fun adopt(file: File, id: Long, kind: OfficeKind, name: String): OfficeInput {
+        val target = File(inputDir, "$id.${kind.extension}")
+        try {
+            moveCopy(file, target)
+            verify(target, kind)
+            return OfficeInput(id, target.path, name, kind)
+        } catch (t: Throwable) {
+            target.delete()
+            file.delete()
             if (t is StackOverflowError) throw OfficeNotRecognized()
             throw t
         }

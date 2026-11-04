@@ -89,6 +89,13 @@ private val EditTools = listOf(PdfTool.EDIT, PdfTool.SIGN, PdfTool.PAGE_NUMBERS,
 /** The tools under "Optimize and protect" on Home, in order. */
 private val OptimizeTools = listOf(PdfTool.COMPRESS, PdfTool.REDACT, PdfTool.FLATTEN)
 
+/** The tools that work on PDFs, under their headings, as Home shows them (see [ShareScreen]). */
+internal val PdfToolSections = listOf(
+    R.string.home_section_organize to OrganizeTools,
+    R.string.home_section_edit to EditTools,
+    R.string.home_section_optimize to OptimizeTools,
+)
+
 /** A tool's name: on its card on Home and at the top of its screen. */
 @get:StringRes
 internal val PdfTool.title: Int
@@ -112,7 +119,7 @@ internal val PdfTool.title: Int
 
 /** What a tool does, in a short line under its name on Home. */
 @get:StringRes
-private val PdfTool.detail: Int
+internal val PdfTool.detail: Int
     get() = when (this) {
         PdfTool.SPLIT -> R.string.tool_split_detail
         PdfTool.MERGE -> R.string.tool_merge_detail
@@ -131,7 +138,7 @@ private val PdfTool.detail: Int
         PdfTool.REDACT -> R.string.tool_redact_detail
     }
 
-private val PdfTool.icon: ImageVector
+internal val PdfTool.icon: ImageVector
     get() = when (this) {
         PdfTool.SPLIT -> Icons.Rounded.Splitscreen
         PdfTool.MERGE -> Icons.Rounded.Collections
@@ -332,7 +339,7 @@ private fun SearchResults(query: String, open: (HomeCard) -> Unit) {
 
 /** A small heading, which a screen reader can jump to, over a group of tool cards. */
 @Composable
-private fun ToolSection(@StringRes heading: Int, cards: @Composable ColumnScope.() -> Unit) {
+internal fun ToolSection(@StringRes heading: Int, cards: @Composable ColumnScope.() -> Unit) {
     Text(
         stringResource(heading),
         style = MaterialTheme.typography.titleSmall,
@@ -343,7 +350,7 @@ private fun ToolSection(@StringRes heading: Int, cards: @Composable ColumnScope.
 }
 
 @Composable
-private fun ToolCard(icon: ImageVector, @StringRes title: Int, @StringRes detail: Int, onClick: () -> Unit) {
+internal fun ToolCard(icon: ImageVector, @StringRes title: Int, @StringRes detail: Int, onClick: () -> Unit) {
     // The card sinks back slightly while it is held down, so the tap feels physical.
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()

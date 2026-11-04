@@ -85,6 +85,10 @@ works on Android 8.0 or newer. Menu names differ a little between phones.
    instead.
 6. **Optional:** turn **Allow from this source** off again for that app.
 
+Once it's installed, Usugami is also in other apps' **Share** menu: share images, PDFs, Word,
+PowerPoint or EPUB files to it from Files, Photos, a mail app or a chat, and they open in the right
+tool (see *Share to Usugami* under [Features](#features)).
+
 <details>
 <summary><b>Where is "Install unknown apps"? (Samsung and other phones)</b></summary>
 
@@ -139,7 +143,8 @@ old "PDFer".
 
 **Word to PDF**
 
-- Turns **.docx** documents into PDFs on your phone. Nothing is uploaded.
+- Turns **.docx** documents into PDFs on your phone. Nothing is uploaded. Pick them, or share them
+  to Usugami from another app.
 - Keeps the page size and margins, headings and other styles, bold, italic, underlined, colored and
   highlighted text, bulleted and numbered lists, tables (split across pages, with their header row
   repeated), pictures, page breaks, landscape pages, and headers and footers with page numbers.
@@ -152,7 +157,7 @@ old "PDFer".
 **PowerPoint to PDF**
 
 - Turns **.pptx** presentations into PDFs: one page per slide, in order, the size of the slides.
-  Hidden slides are left out.
+  Hidden slides are left out. Pick them, or share them to Usugami from another app.
 - Keeps backgrounds, text and bullets in the presentation's own styles, shapes, pictures and tables.
   Text too long for its box is shrunk to fit, as PowerPoint does.
 - Pictures are compressed, and only the letters the slides use of your phone's fonts go into the
@@ -164,7 +169,7 @@ old "PDFer".
 **EPUB to PDF**
 
 - Turns **.epub** e-books into PDFs on your phone, on **A5** pages (about the size of a paperback)
-  or **A4** for printing.
+  or **A4** for printing. Pick them, or share them to Usugami from another app.
 - The cover comes first, then the chapters in the book's reading order, each on a new page.
 - Keeps headings, paragraphs, bold, italic and underlined text, lists, quotes, simple tables and
   pictures, and the simple parts of the book's style: alignment, indents, spacing, font sizes and
@@ -311,6 +316,14 @@ old "PDFer".
   also give one a level of its own), a name of your own for each new PDF, and a PDF of each, made
   one after another with "PDF 2 of 5" and the file's name in the progress. If one can't be made,
   Usugami names it, says why, and still makes the others. One file works just as before.
+- **Share to Usugami** from another app (Files, a mail app, a chat): images open Images to PDF,
+  Word, PowerPoint and EPUB files their converter, and PDFs **Choose a tool**, which lists every PDF
+  tool for one PDF, and Merge PDF and the tools for several files for more. The tool you choose opens
+  with them in it, and goes back to Choose a tool when you leave it. They're copied in at once, so
+  they're still there if Android stops Usugami in the background.
+- Shared together, files of different kinds: Usugami takes the kind most of them are (PDFs first
+  when it's a tie) and names the files it left out, and those it can't open. If a tool has work you
+  haven't saved, Usugami asks first; while a PDF is being made, the shared files wait for it.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any

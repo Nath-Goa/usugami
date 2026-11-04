@@ -179,6 +179,28 @@ class PdfToolsEngine(private val context: Context) {
         }
     }
 
+    /**
+     * Takes [file], a PDF shared to Usugami and copied in already (see [ShareInbox]), as [import]
+     * takes a picked one: it is moved in as PDF [id], named [name].
+     */
+    fun adopt(file: File, id: Long, name: String): PdfInput {
+        val target = File(inputDir, "$id.pdf")
+        val inputInfo = PdfInput(id, target.path, name, 0)
+        viewFile(inputInfo).delete()
+        try {
+            moveCopy(file, target)
+            if (!hasPdfHeader(target)) throw IOException("This file is not a PDF")
+            return inspect(inputInfo, "")
+        } catch (e: InvalidPasswordException) {
+            // The copy is kept for the password dialog.
+            throw PdfPasswordRequired(inputInfo)
+        } catch (t: Throwable) {
+            target.delete()
+            file.delete()
+            throw t
+        }
+    }
+
     fun inspect(input: PdfInput, password: String): PdfInput =
         load(input.file, password).use { doc ->
             if (doc.numberOfPages == 0) throw IOException("This PDF has no pages")

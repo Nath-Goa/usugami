@@ -22,7 +22,7 @@ public, so please don't include personal details. To report a security problem p
 ## What Usugami can access
 
 - Only the images, PDFs, Word and PowerPoint files, and EPUB books you choose. You pick them with Android's
-  photo picker or file picker, or you share images to Usugami from another app. Android then gives Usugami access to those files
+  photo picker or file picker, or you share them to Usugami from another app. Android then gives Usugami access to those files
   only. Usugami cannot browse your photos or other files.
 - Usugami asks for no permissions: no storage, camera, location, contacts or microphone access.
 - Usugami has no internet permission, so Android does not let it connect to the internet, and it

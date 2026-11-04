@@ -19,6 +19,8 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.NaturalOrder
+import io.github.nath_goa.usugami.core.SharedFiles
+import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
@@ -37,11 +39,14 @@ import io.github.nath_goa.usugami.data.PdfOcr
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.ResultZip
 import io.github.nath_goa.usugami.data.SettingsStore
+import io.github.nath_goa.usugami.data.ShareInbox
+import io.github.nath_goa.usugami.data.SharedFile
 import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.data.ocrEngine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -167,9 +172,45 @@ class MainViewModel(private val app: Application, private val handle: SavedState
      */
     private var lastChoices: ConvertChoices? = null
 
+    /** Copies of the PDFs and documents shared to Usugami, until the tool they open in takes them. */
+    private val inbox = ShareInbox(app)
+
+    /** The work on [inbox]: shares are sorted and copied in one at a time, in the order they came. */
+    private val shareOps = Dispatchers.IO.limitedParallelism(1)
+
+    /** Held by the share being sorted and copied in; the next one waits for it (see [share]). */
+    private val shareLock = Mutex()
+
+    /** Bumped by [dropShares], so shares still being copied in stop and leave nothing behind. */
+    @Volatile private var shareGeneration = 0
+
+    private val _sharedFiles = MutableStateFlow(handle.get<ArrayList<SharedFile>>(KEY_SHARED).orEmpty())
+    /**
+     * PDFs, Word, PowerPoint and EPUB files shared to Usugami, copied in and waiting for the tool
+     * they open in to take them (see [takeSharedFiles]). Kept in the saved state.
+     */
+    val sharedFiles: StateFlow<List<SharedFile>> = _sharedFiles.asStateFlow()
+
+    private val _sharing = MutableStateFlow<SharedKind?>(null)
+    /** The kind of the shared files being copied in, while they are. */
+    val sharing: StateFlow<SharedKind?> = _sharing.asStateFlow()
+
     init {
         handle.setSavedStateProvider(KEY_ITEMS) { packItems(_items.value) }
         val keep = if (restored) items.value else emptyList()
+        val keepShared = _sharedFiles.value
+        viewModelScope.launch {
+            // Shared files left from an earlier session, or half copied, go; those waiting stay, unless
+            // the system cleared them from the cache while Usugami was away.
+            val missing = withContext(shareOps) {
+                inbox.deleteAllExcept(keepShared)
+                keepShared.filterNot { it.file.isFile }
+            }
+            if (missing.isNotEmpty()) {
+                setShared(_sharedFiles.value - missing.toSet())
+                pluralMessage(R.plurals.msg_files_cleared, missing.size)
+            }
+        }
         // The result that was showing when Android stopped Usugami in the background, if any.
         val shown = _result.value
         viewModelScope.launch {
@@ -238,6 +279,129 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 }
             }
         }
+    }
+
+    // ---- Files shared from other apps ----
+
+    /**
+     * Takes in the files at [uris], shared to Usugami from another app as [sharedAs] (the share's
+     * type), all of one kind (see [SharedFiles.chosen]): images go to the editor ([addImages]), PDFs,
+     * Word, PowerPoint and EPUB files are copied in at once (the share lets Usugami read them for a
+     * while only) and wait in [sharedFiles] for the tool they open in. The files of other kinds, and
+     * those Usugami can't use, are left out, naming them. [refused] counts files turned away before.
+     */
+    fun share(uris: List<Uri>, sharedAs: String?, refused: Int = 0) {
+        if (uris.isEmpty()) return addImages(emptyList(), refused)
+        val generation = shareGeneration
+        viewModelScope.launch {
+            // One share at a time, in the order they came: the files of one shared while another is
+            // being copied in go after them.
+            shareLock.withLock {
+                val described = withContext(shareOps) { uris.map(inbox::describe) }
+                // The share's own type tells what a file is only when its type and name don't.
+                val kinds = described.map { (type, name) -> SharedFiles.kindOf(type, name, sharedAs) }
+                val kind = SharedFiles.chosen(kinds)
+                val names = uris.indices.map { i -> described[i].second ?: fallbackName(uris[i], kinds[i]) }
+                leftOut(R.plurals.share_unsupported, names.filterIndexed { i, _ -> kinds[i] == SharedKind.OTHER })
+                leftOut(R.plurals.share_other_kind, names.filterIndexed { i, _ -> kinds[i] != SharedKind.OTHER && kinds[i] != kind })
+                val taken = uris.indices.filter { kinds[it] == kind }
+                when (kind) {
+                    null -> if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
+                    SharedKind.IMAGE -> addImages(taken.map { uris[it] }, refused)
+                    else -> {
+                        if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
+                        copyShared(generation, kind, taken.map { uris[it] to names[it] })
+                    }
+                }
+            }
+        }
+    }
+
+    /** Copies [files] (each one's address and name), shared files of [kind], into [sharedFiles]. */
+    private suspend fun copyShared(generation: Int, kind: SharedKind, files: List<Pair<Uri, String>>) {
+        fun dropped() = generation != shareGeneration
+        if (dropped()) return
+        _sharing.value = kind
+        val copies = ArrayList<SharedFile>()
+        var failed = 0
+        var noSpace = false
+        try {
+            for ((uri, name) in files) {
+                val id = nextId++
+                try {
+                    copies += withContext(shareOps) {
+                        inbox.copy(uri, id, name, kind) { if (dropped()) throw ShareDropped() }
+                    }
+                } catch (_: ShareDropped) {
+                    break
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    if (e.isOutOfSpace()) noSpace = true else failed++
+                }
+            }
+        } finally {
+            if (dropped()) {
+                withContext(NonCancellable + shareOps) { copies.forEach(inbox::delete) }
+            } else {
+                // Listed before the copying is said to be over, so they are never taken for gone.
+                setShared(_sharedFiles.value + copies)
+                if (failed > 0) pluralMessage(R.plurals.msg_share_unreadable, failed)
+                if (noSpace) message(R.string.open_no_space)
+                _sharing.value = null
+            }
+        }
+    }
+
+    /**
+     * The shared files waiting, for the tool they open in to take them. They are of one kind; files
+     * of another kind shared while they waited are left out (see [SharedFiles.chosen]), naming them.
+     */
+    fun takeSharedFiles(): List<SharedFile> {
+        val all = _sharedFiles.value
+        val kind = SharedFiles.chosen(all.map { it.kind }) ?: return emptyList()
+        val (taken, others) = all.partition { it.kind == kind }
+        setShared(emptyList())
+        if (others.isNotEmpty()) {
+            leftOut(R.plurals.share_other_kind, others.map { it.name })
+            viewModelScope.launch(shareOps) { others.forEach(inbox::delete) }
+        }
+        return taken
+    }
+
+    /** Forgets the shared files waiting or being copied in: the user left the screen they were opening in. */
+    fun dropShares() {
+        shareGeneration++
+        val dropped = _sharedFiles.value
+        setShared(emptyList())
+        _sharing.value = null
+        if (dropped.isNotEmpty()) viewModelScope.launch(shareOps) { dropped.forEach(inbox::delete) }
+    }
+
+    /**
+     * For tests: returns once the shares started so far are sorted and copied in, and the cleanup of
+     * leftovers a new view model starts is done.
+     */
+    @VisibleForTesting
+    internal suspend fun awaitShares() = shareLock.withLock { withContext(shareOps) {} }
+
+    private fun setShared(list: List<SharedFile>) {
+        _sharedFiles.value = list
+        handle[KEY_SHARED] = ArrayList(list)
+    }
+
+    /** Says the files [names] were left out of a share, [res] saying why. */
+    private fun leftOut(@PluralsRes res: Int, names: List<String>) {
+        if (names.isNotEmpty()) _messages.trySend(strings.getQuantityString(res, names.size, names.size, names.joinToString(", ")))
+    }
+
+    /** A name for a shared file whose app gives it none, to say which it is. */
+    private fun fallbackName(uri: Uri, kind: SharedKind): String = when (kind) {
+        SharedKind.PDF -> "Document.pdf"
+        SharedKind.WORD -> "Document.docx"
+        SharedKind.POWERPOINT -> "Presentation.pptx"
+        SharedKind.EPUB -> "Book.epub"
+        else -> uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "File"
     }
 
     // ---- Editing ----
@@ -653,13 +817,18 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // then in case another app is still reading a shared one.
         if (!finishing) return
         val all = items.value
-        Thread { all.forEach(store::delete) }.start()
+        val shared = _sharedFiles.value
+        Thread {
+            all.forEach(store::delete)
+            shared.forEach(inbox::delete)
+        }.start()
     }
 
     companion object {
         private const val KEY_ITEMS = "items"
         private const val KEY_SAVED = "saved"
         private const val KEY_RESULT_NAME = "result_name"
+        private const val KEY_SHARED = "shared_files"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,
@@ -676,3 +845,6 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         )
     }
 }
+
+/** The shared files being copied in were dropped (see [MainViewModel.dropShares]). */
+private class ShareDropped : Exception()

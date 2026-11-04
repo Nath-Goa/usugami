@@ -34,7 +34,10 @@ nukta and candrabindu), split at punctuation, each word typed having to begin a 
 name, description or hidden words, in any order, tools named by the word coming first, and hidden
 words in English, French, Spanish and Hindi (in Devanagari and Latin letters), and the words for
 working on several files at once ("batch", "plusieurs", "varios", "कई") finding only the tools that
-do. For
+do. For files shared to Usugami they cover what kind each is, from its type (any case, with
+parameters), else its name, else the type the share was sent as, types that say nothing passed over,
+and which kind a share of several kinds is taken as: the kind most files are, PDFs first in a tie.
+For
 Word and PowerPoint files they cover units and colors, telling .docx and .pptx files from old
 binary and password-protected ones, list numbers and symbol-font bullets, table column widths,
 where a paragraph breaks between pages, and how group shapes place their contents.
@@ -113,6 +116,15 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   each PDF of the result saved on its own, into Downloads (without a second copy) or into the
   document "Save as" made, also after the process was restarted while that screen was open
 - password-protected PDFs: opening with the password, then split, compress and rotate
+- files shared to Usugami: copied in at once and kept by name (the app's own copy gone), PDFs taken
+  in by a tool without being copied again and still there when the process is restarted, the kind
+  most of the files are taken and the others and those Usugami can't use named, a file without type
+  or extension taken as the share says, PDFs with a password asked for, files that can't be opened
+  named (one shared alone told about as one picked), files waiting kept when the process is
+  restarted (copies cleared from the cache dropped and said, leftovers deleted), files of another kind
+  shared while others waited left out and named, dropped files and a tool put away while taking them
+  in leaving nothing behind, another tool taking the PDFs without what the last one did, and which
+  tools one PDF and several PDFs go to
 - rotate: only the chosen pages turn, on top of the turn they already had, and nothing else changes
 - page numbers: each in the chosen corner of the page as shown (also on turned and cropped pages),
   none on skipped pages, checked both by text positions and by rendering the pages; several PDFs at
@@ -214,6 +226,13 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   "Save as" caught and answered, and Save to Downloads); Add watermark with one PDF as before, then
   with two (the watermark for both, previewed on the first, one PDF's own name, the result);
   Word to PDF with two files (each one's name, the button to add more, one button converting both);
+files shared to Usugami from Downloads, as another app shares them: one PDF opening Choose a tool with
+every PDF tool, kept through the activity being recreated, Split PDF chosen opening with it and going
+back to Choose a tool, and Back from there going Home; two PDFs offering only Merge PDF and the tools
+for several, Compress PDF chosen with both; a Word document opening Word to PDF and a text file shared
+with it named; a PDF shared over a result not saved asking first, and kept, opening once the tool is
+left; a PDF shared while a PDF is being made waiting for it, then asking, and discarded; and a PDF
+with a password asked for on Choose a tool;
   Home's search finding the seven tools that take several files by "several", "batch" and "many";
   Settings → Appearance starting on the phone's
   setting, then Dark and Light holding through the activity being recreated, Usugami being opened
@@ -268,6 +287,9 @@ On a phone or emulator, with the release APKs:
 - Home's search in each language with TalkBack on: type a few words, hear how many tools were
   found, clear it with the button and with Back.
 - Images to PDF from Photos, Files and a share from the gallery, with OCR on in each language.
+- From Files, share one PDF, two PDFs, a Word document and a PDF with images to Usugami: Choose a
+  tool, the converter, and the message naming what was left out; then share a PDF while a tool has
+  an unsaved result.
 - Split, merge in page mode, and compress, including a password-protected PDF.
 - Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
   page turned sideways; check the results in another PDF viewer.
