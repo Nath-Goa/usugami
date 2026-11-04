@@ -113,7 +113,9 @@ class CcittG4Test {
         }
         val page = bits(text.width, text.height) { x, y -> text.getRGB(x, y) and 0xFF < 128 }
         val encoded = assertRoundTrip(page)
-        assertTrue("${encoded.size} bytes for ${page.data.size}", encoded.size < page.data.size / 8)
+        // Far smaller than the raw bits. (The exact size depends on the fonts Java draws with, which
+        // differ between operating systems, so the real check is the next one.)
+        assertTrue("${encoded.size} bytes for ${page.data.size}", encoded.size < page.data.size / 5)
         // As small as Java's own T.6 coder makes it, give or take a few bytes.
         assertTrue("Ours ${encoded.size}, Java's ${javaG4(page)}", encoded.size <= javaG4(page))
 

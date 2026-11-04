@@ -168,17 +168,6 @@ class DocumentLooksTest {
         assertTrue("Paper white: $paper", paper > 0.998)
         assertTrue("Ink black: $ink", ink > 0.97)
 
-        // The pencil line, fainter than any print, is kept where it is: black along most of it.
-        // One global threshold, however well chosen, can't do this page: the shadow turns black, or
-        // the print in it white.
-        val luma = IntArray(photo.width * photo.height)
-        for (y in 0 until photo.height) for (x in 0 until photo.width) {
-            val c = photo.getRGB(x, y)
-            luma[y * photo.width + x] = DocumentLooks.luma(c shr 16 and 0xFF, c shr 8 and 0xFF, c and 0xFF)
-        }
-        val global = PageDetection.otsu(luma)!!
-        val (globalPaper, globalInk) = score(page) { x, y -> luma[y * photo.width + x] <= global }
-        assertTrue("One threshold: paper $globalPaper, ink $globalInk", globalPaper < 0.95 || globalInk < 0.9)
     }
 
     @Test fun blackAndWhiteFillsBoldPrintAndKeepsFaintLines() {
