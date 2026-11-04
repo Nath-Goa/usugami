@@ -318,6 +318,12 @@ class MultiClickDeviceTest {
     }
 
     /**
+     * Waits for the screen of another app Usugami has just started to cover it: until then Usugami
+     * still takes taps, and [backToUsugami] would take it as back already and leave that screen open.
+     */
+    private fun awaitCovered() = waitFor("the other app's screen to cover Usugami", timeout = 30_000) { usugamiCovered() }
+
+    /**
      * Goes back to Usugami from the screens of other apps started for real, until it takes taps again.
      * Back is pressed once another app's screen covers Usugami, and again only if it still does a while
      * later: pressed while that screen is still on its way, or as it goes, Back waits for a window to
@@ -375,6 +381,7 @@ class MultiClickDeviceTest {
             tapOnScreen(saveAs, times = 2)
             Thread.sleep(1_500)
             assertEquals("\"Save as\" screens opened", 1, create.started.size)
+            awaitCovered()
         } finally {
             backToUsugami()
         }
@@ -383,6 +390,7 @@ class MultiClickDeviceTest {
         try {
             tapOnScreen(saveAs, times = 1)
             waitFor("the second \"Save as\" screen") { create.started.size == 2 }
+            awaitCovered()
         } finally {
             backToUsugami()
         }

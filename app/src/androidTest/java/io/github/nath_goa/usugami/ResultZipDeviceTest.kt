@@ -35,7 +35,6 @@ import java.io.File
 import java.io.InputStream
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -197,17 +196,26 @@ class ResultZipDeviceTest {
             vm.saveZipTo(uriFor(document))
             vm.cancelZip()
         }
-        val read = Executors.newSingleThreadExecutor().submit(Callable { document.readBytes() })
+        val reader = Executors.newSingleThreadExecutor()
+        val read = reader.submit(Callable { document.readBytes() })
+        reader.shutdown()
         waitUntil("the ZIP file to stop") { vm.zipProgress.value == null }
-        // Cancelled before it started, it never opened the document: the test's reader is let go.
-        if (!read.isDone) {
+        // Stopped, it won't open the document any more. Cancelled before it started, it never did, and
+        // the test's reader waits for someone to write: it is let go by opening the document to write.
+        // That fails while nobody is reading it (ENXIO), both before the reader gets as far as opening
+        // it and once it is done, so it is tried until the reader is done. A document it did open, the
+        // reader reads to the end by itself, and it may have been deleted as it stopped (ENOENT).
+        val deadline = SystemClock.uptimeMillis() + 20_000
+        while (!read.isDone) {
+            check(SystemClock.uptimeMillis() < deadline) { "Timed out waiting for the test's reader to be let go" }
             try {
                 Os.close(Os.open(document.path, OsConstants.O_WRONLY or OsConstants.O_NONBLOCK, 0))
-            } catch (_: ErrnoException) {
-                // Its reader has gone already.
+            } catch (e: ErrnoException) {
+                if (e.errno != OsConstants.ENXIO && e.errno != OsConstants.ENOENT) throw e
             }
+            Thread.sleep(20)
         }
-        read.get(20, TimeUnit.SECONDS)
+        read.get()
         assertFalse("Nothing was saved", vm.saved.value)
         assertNull("No message", runBlocking { withTimeoutOrNull(1_000) { vm.messages.first() } })
         // The PDFs are still there to share or save.
