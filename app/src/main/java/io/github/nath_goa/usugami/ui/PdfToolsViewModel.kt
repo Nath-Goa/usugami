@@ -205,12 +205,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** True when the result was made from a PDF opened with a password: the new PDF has none. */
     private val _passwordRemoved = MutableStateFlow(handle[KEY_PASSWORD_REMOVED] ?: false)
     val passwordRemoved = _passwordRemoved.asStateFlow()
-    private val _messages = Channel<String>(Channel.BUFFERED)
     /**
      * Messages waiting to show or showing. The same one again meanwhile, as when a button is tapped
      * over and over, isn't put behind it: it would show again and again, long after the taps.
      */
     private val unshown: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    // A message lost on its way to the screen, as the screen goes (rotated, say) just as it is
+    // handed over, is no longer waiting either: the next one like it shows.
+    private val _messages = Channel<String>(Channel.BUFFERED, onUndeliveredElement = { unshown -= it })
     /** Messages to show, one at a time: each is done with when its collector asks for the next. */
     val messages: Flow<String> = flow {
         for (text in _messages) {
@@ -797,13 +799,21 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun selectEditItem(id: Long?) = history.select(id)
 
+    /**
+     * Edit PDF is saving: its items stay as they were when Save was tapped, which the PDF is made
+     * from. The screen is covered meanwhile, but not a dialog or menu opened by a tap in the same
+     * moment, or a finger still drawing or dragging: what they do would be left out of the PDF.
+     */
+    private val editSaving: Boolean get() = _processing.value
+
     fun newEditItemId(): Long = history.newId()
 
     /**
-     * Puts [item] on top of the others; it is chosen, unless it is a stroke just drawn. Refused, with
-     * a message, once the PDF has as much as the saved state can keep.
+     * Puts [item] on top of the others; it is chosen, unless it is a stroke just drawn. Refused while
+     * saving, and, with a message, once the PDF has as much as the saved state can keep.
      */
     fun addEditItem(item: PageItem): Boolean {
+        if (editSaving) return false
         val items = history.items.value
         val points = (item as? InkItem)?.points?.size?.div(2) ?: 0
         if (items.size >= MAX_EDIT_ITEMS || inkPoints(items) + points > MAX_INK_POINTS) {
@@ -824,13 +834,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun editFull() = message(strings.getString(R.string.edit_full))
 
     /** Puts [item] in place of the item with its id, as one change. */
-    fun changeEditItem(item: PageItem) = history.change(replaced(item))
+    fun changeEditItem(item: PageItem) {
+        if (!editSaving) history.change(replaced(item))
+    }
 
     /**
      * Moves the item with [id] by ([dx], [dy]) points from where it is now, kept on the page, as one
      * change: a second press of a move button goes on from the first, even before the screen shows it.
      */
     fun moveEditItem(id: Long, dx: Float, dy: Float, pageWidth: Float, pageHeight: Float) {
+        if (editSaving) return
         val item = history.items.value.firstOrNull { it.id == id } ?: return
         history.change(replaced(EditLayout.moved(item, dx, dy, pageWidth, pageHeight)))
     }
@@ -838,15 +851,18 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** A drag or a slider starts changing an item: its steps ([stepEditItem]) are one change for Undo. */
     fun beginEditChange() = history.begin()
 
-    fun stepEditItem(item: PageItem) = history.step(replaced(item))
+    fun stepEditItem(item: PageItem) {
+        if (!editSaving) history.step(replaced(item))
+    }
 
     /**
      * A step of a drag of the chosen item: from [was], as the drag's last step left it, to [item].
      * Once it is no longer [was], or no longer chosen (another finger changed its colour, undid the
-     * drag or chose another page), nothing changes, and false says the drag is over.
+     * drag or chose another page), or Save has been tapped, nothing changes, and false says the drag
+     * is over.
      */
     fun dragEditItem(was: PageItem, item: PageItem): Boolean {
-        if (history.selected.value != was.id || was !in history.items.value) return false
+        if (editSaving || history.selected.value != was.id || was !in history.items.value) return false
         history.step(replaced(item))
         return true
     }
@@ -856,15 +872,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun replaced(item: PageItem) = history.items.value.map { if (it.id == item.id) item else it }
 
     fun removeEditItem(id: Long) {
+        if (editSaving) return
         history.change(history.items.value.filterNot { it.id == id })
         history.select(null)
     }
 
     /** Takes back the latest change to the items; returns the page it was on. */
-    fun undoEdit(): Int? = history.undo()
+    fun undoEdit(): Int? = if (editSaving) null else history.undo()
 
     /** Makes the change Undo took back again; returns the page it is on. */
-    fun redoEdit(): Int? = history.redo()
+    fun redoEdit(): Int? = if (editSaving) null else history.redo()
 
     /**
      * The next picture picked goes on page [page] (zero-based). Kept in the saved state, since
@@ -1010,14 +1027,17 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /**
-     * Puts [box] in the place of box [index], which was [was] when the change began (a drag, say).
-     * If it isn't any more (another finger deleted it meanwhile, and the next box took its place),
-     * nothing changes: the box there now stays as it is.
+     * Puts [box] in the place of box [was], at [index] when the change began (a drag, say), wherever
+     * it is now: a box before it deleted meanwhile moves it up the list. Once [was] itself has gone,
+     * deleted or changed by another finger (a move or size button pressed during a drag), nothing
+     * changes: what the other finger did stays, as in Edit PDF, and the box now in its place isn't
+     * replaced.
      */
     fun changeRedactBox(index: Int, was: RedactBox, box: RedactBox) {
         val boxes = _redactBoxes.value
-        if (boxes.getOrNull(index) != was) return
-        setRedactBoxes(boxes.toMutableList().also { it[index] = Redaction.clamp(box) })
+        val at = Redaction.find(boxes, index, was)
+        if (at < 0) return
+        setRedactBoxes(boxes.toMutableList().also { it[at] = Redaction.clamp(box) })
     }
 
     /**

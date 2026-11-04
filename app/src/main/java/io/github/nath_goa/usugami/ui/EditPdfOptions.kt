@@ -146,6 +146,11 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
     var style by rememberSaveable { mutableStateOf(EditStyle()) }
     // Open with NEW_TEXT or the id of the text being changed.
     var textDialog by rememberSaveable { mutableStateOf<Long?>(null) }
+    // Once Save is tapped, nothing more goes on the pages: the PDF is made from them as they were.
+    // The screen is covered, but a dialog or menu isn't, so one opened by a tap in the same moment
+    // as Save closes.
+    val saving by vm.processing.collectAsStateWithLifecycle()
+    LaunchedEffect(saving) { if (saving) textDialog = null }
 
     // Every page's size as shown, exactly, from the PDF itself: items are placed in points on it.
     val sizes by produceState<List<Pair<Float, Float>>?>(null, input.path) { value = vm.shownPageSizes(input) }
@@ -173,6 +178,7 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
         mode = mode,
         enabled = known,
         importing = importing,
+        saving = saving,
         onText = {
             mode = EditMode.SELECT
             textDialog = NEW_TEXT
@@ -187,8 +193,11 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
             vm.addEditItem(EditLayout.clearOf(shape, onPage, pageWidth, pageHeight))
         },
         onPicture = {
-            mode = EditMode.SELECT
-            onPickPicture(page)
+            // Tapped just after Save, before the screen is covered, the picker doesn't open.
+            if (!vm.processing.value) {
+                mode = EditMode.SELECT
+                onPickPicture(page)
+            }
         },
     )
     Column {
@@ -265,7 +274,7 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
     if (editing != null && editing != NEW_TEXT && existing == null) {
         // The text went (undone, say) while the dialog was open.
         LaunchedEffect(Unit) { textDialog = null }
-    } else if (editing != null) {
+    } else if (editing != null && !saving) {
         EditTextDialog(
             initial = existing?.text.orEmpty(),
             title = if (existing == null) R.string.edit_text_add else R.string.edit_text_change,
@@ -293,6 +302,7 @@ private fun EditToolbar(
     mode: EditMode,
     enabled: Boolean,
     importing: Boolean,
+    saving: Boolean,
     onText: () -> Unit,
     onMode: (EditMode) -> Unit,
     onShape: (ShapeKind, Boolean) -> Unit,
@@ -305,8 +315,9 @@ private fun EditToolbar(
         EditToolButton(Icons.Rounded.BorderColor, stringResource(R.string.edit_highlight), active = mode == EditMode.HIGHLIGHTER, enabled = enabled, onClick = { onMode(EditMode.HIGHLIGHTER) }, modifier = tool)
         Box(tool) {
             var open by remember { mutableStateOf(false) }
+            LaunchedEffect(saving) { if (saving) open = false }
             EditToolButton(Icons.Rounded.Category, stringResource(R.string.edit_shape), active = null, enabled = enabled, onClick = { open = true }, modifier = Modifier.fillMaxWidth())
-            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            DropdownMenu(expanded = open && !saving, onDismissRequest = { open = false }) {
                 for ((kind, filled, label, icon) in listOf(
                     ShapeChoice(ShapeKind.RECTANGLE, false, R.string.edit_item_rectangle, Icons.Rounded.CropSquare),
                     ShapeChoice(ShapeKind.RECTANGLE, true, R.string.edit_item_filled_rectangle, Icons.Rounded.Square),

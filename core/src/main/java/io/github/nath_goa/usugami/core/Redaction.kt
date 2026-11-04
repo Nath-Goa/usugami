@@ -133,6 +133,14 @@ object Redaction {
         return best
     }
 
+    /**
+     * Where box [was], at [index] when it was touched, is in [boxes] now: still at [index], or moved
+     * up the list because a box before it was deleted meanwhile; -1 once it has been changed or
+     * deleted itself.
+     */
+    fun find(boxes: List<RedactBox>, index: Int, was: RedactBox): Int =
+        if (boxes.getOrNull(index) == was) index else boxes.indexOf(was)
+
     /** Whether [a] and [b] are the same box, give or take a rounding error. */
     fun same(a: RedactBox, b: RedactBox): Boolean = a.page == b.page &&
         abs(a.left - b.left) < 1e-4f && abs(a.top - b.top) < 1e-4f && abs(a.right - b.right) < 1e-4f && abs(a.bottom - b.bottom) < 1e-4f

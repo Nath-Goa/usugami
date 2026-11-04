@@ -29,25 +29,35 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipe
 import androidx.core.content.FileProvider
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import io.github.nath_goa.usugami.core.RedactBox
+import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.ShapeKind
 import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import java.io.File
+import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.EmptyCoroutineContext
@@ -142,12 +152,24 @@ class EditorsMultiClickDeviceTest {
         rule.waitForIdle()
     }
 
-    /** Stops file work (reading a page's size, saving) until the latch it returns is counted down. */
+    /** The one thread [vm]'s file work (reading a page's size, saving) is done on, in turn. */
+    private fun fileOps(vm: PdfToolsViewModel) =
+        PdfToolsViewModel::class.java.getDeclaredField("fileOps").apply { isAccessible = true }.get(vm) as CoroutineDispatcher
+
+    /** Stops file work until the latch it returns is counted down. */
     private fun holdFileOps(vm: PdfToolsViewModel): CountDownLatch {
-        val fileOps = PdfToolsViewModel::class.java.getDeclaredField("fileOps").apply { isAccessible = true }.get(vm) as CoroutineDispatcher
         val busy = CountDownLatch(1)
-        fileOps.dispatch(EmptyCoroutineContext, Runnable { busy.await(30, TimeUnit.SECONDS) })
+        fileOps(vm).dispatch(EmptyCoroutineContext, Runnable { busy.await(30, TimeUnit.SECONDS) })
         return busy
+    }
+
+    /** Waits for the file work asked for so far to be done, and the screen to catch up with it. */
+    private fun awaitFileOps(vm: PdfToolsViewModel) {
+        val done = CountDownLatch(1)
+        fileOps(vm).dispatch(EmptyCoroutineContext, Runnable { done.countDown() })
+        assertTrue("File work done", done.await(30, TimeUnit.SECONDS))
+        instrumentation.waitForIdleSync()
+        rule.waitForIdle()
     }
 
     // Redact PDF
@@ -191,6 +213,50 @@ class EditorsMultiClickDeviceTest {
         rule.onNode(hasContentDescription(app.resources.getQuantityString(R.plurals.redact_preview_description, 1, 1, 1))).performTouchInput { up(0) }
         rule.waitForIdle()
         assertEquals(listOf(b, c), vm.redactBoxes.value)
+    }
+
+    @Test fun redactBoxDraggedIsFoundWhereItIsNowAndGivesWayToItsButtons() {
+        val (vm, boxes) = redactWithThreeBoxes()
+        val (_, b, c) = boxes
+        fun preview(count: Int) = rule.onNode(hasContentDescription(app.resources.getQuantityString(R.plurals.redact_preview_description, count, 1, count)))
+        preview(2).performScrollTo()
+        val size = preview(2).fetchSemanticsNode().size
+        fun startDrag(box: RedactBox, count: Int) {
+            preview(count).performTouchInput {
+                down(0, Offset((box.left + box.right) / 2 * size.width, (box.top + box.bottom) / 2 * size.height))
+                moveBy(0, Offset(viewConfiguration.touchSlop + 8f, 0f))
+                moveBy(0, Offset(24f, 0f))
+            }
+            rule.waitForIdle()
+        }
+
+        // One finger drags C; meanwhile A, before it in the list, is chosen and deleted (with a
+        // screen reader's "next box", say). C still moves, and B stays as it is.
+        startDrag(c, 2)
+        assertEquals("Dragging C chooses it", 2, vm.redactSelected.value)
+        onMain {
+            vm.selectRedactBox(0)
+            vm.deleteChosenRedactBox()
+        }
+        rule.waitForIdle()
+        preview(1).performTouchInput { up(0) }
+        rule.waitForIdle()
+        val (left, moved) = vm.redactBoxes.value
+        assertEquals(b, left)
+        assertTrue("C moved right", moved.left > c.left + 0.01f)
+        assertEquals(c.top, moved.top, 1e-4f)
+        assertEquals(c.width, moved.width, 1e-4f)
+
+        // A button pressed with another finger mid-drag wins, as in Edit PDF: the drag is over.
+        startDrag(moved, 1)
+        rule.onNode(hasContentDescription(string(R.string.redact_wider)) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
+        rule.waitForIdle()
+        preview(1).performTouchInput {
+            moveBy(0, Offset(24f, 0f))
+            up(0)
+        }
+        rule.waitForIdle()
+        assertEquals(listOf(b, Redaction.clamp(Redaction.resized(moved, Redaction.STEP, 0f))), vm.redactBoxes.value)
     }
 
     // Edit PDF
@@ -249,6 +315,10 @@ class EditorsMultiClickDeviceTest {
         rule.onNode(hasContentDescription(string(R.string.undo))).performScrollTo().performClick()
         rule.waitUntil(5_000) { vm.canRedoEdit.value }
         val placed = vm.editItems.value.single()
+        // It is let go of, so the tap has something to do: choose it.
+        onMain { vm.selectEditItem(null) }
+        rule.waitForIdle()
+        assertNull(vm.editSelected.value)
         // A real finger's tap on the box, in the middle of the page, moves a pixel or two.
         rule.onNode(hasContentDescription(string(R.string.edit_preview_description, 1))).performScrollTo().performTouchInput {
             down(center)
@@ -257,9 +327,9 @@ class EditorsMultiClickDeviceTest {
             up()
         }
         rule.waitForIdle()
-        assertEquals(placed, vm.editItems.value.single())
+        assertEquals("The tap chooses it", placed.id, vm.editSelected.value)
+        assertEquals("and doesn't move it", placed, vm.editItems.value.single())
         assertTrue("A tap leaves Redo as it was", vm.canRedoEdit.value)
-        assertEquals(placed.id, vm.editSelected.value)
 
         // A drag still moves it all the way the finger went, as one change for Undo.
         val preview = rule.onNode(hasContentDescription(string(R.string.edit_preview_description, 1)))
@@ -298,6 +368,48 @@ class EditorsMultiClickDeviceTest {
         }
         rule.waitUntil(20_000) { vm.result.value != null }
         assertEquals(1, vm.editItems.value.size)
+    }
+
+    @Test fun editTextOrShapeTappedWithSaveDoesNotOpenOverTheSaving() {
+        val vm = editWithAlpha()
+        openShapeMenu()
+        rule.onNode(hasText(string(R.string.edit_item_rectangle)) and hasClickAction()).performClick()
+        rule.waitUntil(5_000) { vm.editItems.value.size == 1 }
+        val placed = vm.editItems.value
+        val save = hasText(string(R.string.pdf_edit_action)) and hasClickAction()
+        val text = hasText(string(R.string.edit_text)) and hasClickAction()
+        val shape = hasText(string(R.string.edit_shape)) and hasClickAction()
+        rule.onNode(text).performScrollTo()
+        for (tool in listOf(text, shape)) {
+            // The PDF is made from the pages as they are at Save: the text dialog or Shape menu,
+            // opened in the same moment, would add what it leaves out. They stay closed.
+            val busy = holdFileOps(vm)
+            try {
+                tapInOneFrame(tool, save)
+                assertTrue("Saving", vm.processing.value)
+                assertFalse("No text dialog", exists(hasSetTextAction() and hasAnyAncestor(isDialog())))
+                assertFalse("No Shape menu", exists(hasText(string(R.string.edit_item_ellipse)) and hasClickAction()))
+                onMain { vm.cancel() }
+            } finally {
+                busy.countDown()
+            }
+            rule.waitUntil(10_000) { !vm.processing.value }
+            rule.waitForIdle()
+            assertFalse("Nor once the saving stops", exists(hasSetTextAction() and hasAnyAncestor(isDialog())))
+            assertFalse(exists(hasText(string(R.string.edit_item_ellipse)) and hasClickAction()))
+        }
+        // Whatever the order of the taps, nothing more is added while saving.
+        val busy = holdFileOps(vm)
+        try {
+            onMain {
+                vm.runEdit("edited")
+                assertFalse(vm.addEditItem((placed.single() as ShapeItem).copy(id = vm.newEditItemId())))
+            }
+        } finally {
+            busy.countDown()
+        }
+        rule.waitUntil(20_000) { vm.result.value != null }
+        assertEquals(placed, vm.editItems.value)
     }
 
     // Page tools
@@ -365,33 +477,31 @@ class EditorsMultiClickDeviceTest {
         val add = hasText(string(R.string.reorganize_add)) and hasClickAction()
         val blank = hasText(string(R.string.reorganize_add_blank)) and hasClickAction()
         val save = hasText(string(R.string.pdf_reorganize_action)) and hasClickAction()
+        rule.onNode(save).assertIsEnabled()
         // The page's size is read with the other file work, which is busy (a large PDF's preview, say).
         val busy = holdFileOps(vm)
         try {
             rule.onNode(add).performScrollTo().performClick()
             waitFor(blank)
             tapInOneFrame(blank, blank)
-            // Nothing shows yet: asked for again, if the button lets it.
-            if (exists(add and isEnabled())) {
-                rule.onNode(add).performClick()
-                waitFor(blank)
-                rule.onNode(blank).performClick()
-                rule.waitForIdle()
+            assertTrue("Adding shows at once", vm.importing.value)
+            // Until the page is there, it can't be asked for again, and the PDF can't be saved without it.
+            rule.onNode(add).assertIsNotEnabled()
+            rule.onNode(save).assertIsNotEnabled()
+            // Asked for again some other way meanwhile, at the end, it adds no other page.
+            onMain {
+                vm.addBlankPage(null)
+                vm.addBlankPage(vm.pages.value.last())
             }
-            // And saved straight away.
-            rule.onNode(save).performClick()
-            rule.waitForIdle()
         } finally {
             busy.countDown()
         }
-        rule.waitUntil(10_000) { vm.pages.value.any { it.isBlank } }
-        rule.waitUntil(10_000) { !vm.importing.value && !vm.processing.value }
-        Thread.sleep(500)
+        awaitFileOps(vm)
+        rule.waitUntil(10_000) { !vm.importing.value }
         rule.waitForIdle()
-        assertEquals(1, vm.pages.value.count { it.isBlank })
-        assertEquals(4, vm.pages.value.size)
-        // A save asked for before the blank page came has it too.
-        if (vm.result.value == null) rule.onNode(save).performClick()
+        // The one blank page asked for first, after the chosen page.
+        assertEquals(listOf(false, true, false, false), vm.pages.value.map { it.isBlank })
+        rule.onNode(save).assertIsEnabled().performClick()
         rule.waitUntil(20_000) { vm.result.value != null }
         assertEquals(4, PDDocument.load(vm.result.value!!.single().file).use { it.numberOfPages })
     }
@@ -446,6 +556,34 @@ class EditorsMultiClickDeviceTest {
         // Tapped again later, it says so again.
         rule.onNode(split).performClick()
         waitFor(message)
+    }
+
+    @Test fun aMessageLostAsTheScreenGoesShowsTheNextTime() {
+        val vm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }
+        val screen = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+        try {
+            val shown = Collections.synchronizedList(mutableListOf<String>())
+            fun showMessages() = onMain { screen.launch { vm.messages.collect { shown += it } } }
+            val first = showMessages()
+            instrumentation.waitForIdleSync()
+            // A message is handed to the screen just as it goes (the phone turned, say), before it
+            // could show it.
+            onMain {
+                vm.editFull()
+                first.cancel()
+            }
+            instrumentation.waitForIdleSync()
+            assertTrue(shown.isEmpty())
+            // The next screen shows the next one like it.
+            showMessages()
+            instrumentation.waitForIdleSync()
+            onMain { vm.editFull() }
+            instrumentation.waitForIdleSync()
+            assertEquals(listOf(string(R.string.edit_full)), shown.toList())
+        } finally {
+            screen.cancel()
+            runBlocking { vm.awaitFileWork() }
+        }
     }
 
     // Edit PDF, continued

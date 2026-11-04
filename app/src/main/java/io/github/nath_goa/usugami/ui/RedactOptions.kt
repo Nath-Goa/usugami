@@ -231,8 +231,8 @@ private fun FindText(query: String, onQuery: (String) -> Unit, finding: Boolean,
 }
 
 /**
- * A box being drawn ([index] -1), or box [index] being moved or resized from what it [was], shown
- * as it goes and saved when the finger lifts.
+ * A box being drawn ([index] -1), or box [was] (at [index] when touched) being moved or resized,
+ * shown as it goes and saved when the finger lifts.
  */
 private class Draft(val index: Int, val was: RedactBox?, val box: RedactBox)
 
@@ -305,12 +305,14 @@ private fun BoxEditor(
                             val hit = if (handle) latestSelected else Redaction.hit(all, pageIndex, start.x, start.y, reach / w, reach / h)
                             // The page doesn't scroll the screen: drags on it draw.
                             down.consume()
-                            // The box touched may have gone meanwhile, deleted by another finger,
-                            // and another box taken its place: that one isn't chosen or changed.
-                            fun touched() = hit < 0 || latestBoxes.getOrNull(hit) == all[hit]
+                            // Where the box touched is now: another finger may have deleted it
+                            // meanwhile, and another box taken its place, which isn't chosen or
+                            // changed; or deleted a box before it, which moved it up the list.
+                            fun touched() = if (hit < 0) -1 else Redaction.find(latestBoxes, hit, all[hit])
                             val moved = awaitTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
                             if (moved == null) {
-                                if (touched()) onSelect(hit)
+                                val now = touched()
+                                if (hit < 0 || now >= 0) onSelect(now)
                                 return@awaitEachGesture
                             }
                             fun at(position: Offset) = Offset(position.x / w, position.y / h)
@@ -322,7 +324,7 @@ private fun BoxEditor(
                                     else -> Draft(-1, null, Redaction.between(pageIndex, start.x, start.y, p.x, p.y))
                                 }
                             }
-                            if (hit >= 0 && touched()) onSelect(hit)
+                            if (hit >= 0) touched().takeIf { it >= 0 }?.let(onSelect)
                             draft = shaped(moved.position)
                             try {
                                 val finished = drag(moved.id) { change ->
@@ -346,8 +348,11 @@ private fun BoxEditor(
                 if (ready && rendered != null) drawImage(rendered.image, dstSize = IntSize(size.width.toInt(), size.height.toInt()))
                 if (!ready) return@Canvas
                 val editing = draft
+                // The box being moved or resized shows where the finger has it, until another finger
+                // changes or deletes it: then the drag is over, and the box shows as it is now.
+                val dragged = editing?.was?.let { Redaction.find(boxes, editing.index, it) } ?: -1
                 for (index in onPage) {
-                    val box = if (editing?.index == index && editing.was == boxes[index]) editing.box else boxes[index]
+                    val box = if (editing != null && index == dragged) editing.box else boxes[index]
                     drawBox(box, chosen = index == chosen, frame)
                 }
                 if (editing != null && editing.was == null) drawBox(editing.box, chosen = true, frame)

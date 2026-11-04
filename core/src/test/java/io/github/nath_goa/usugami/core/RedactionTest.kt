@@ -109,6 +109,19 @@ class RedactionTest {
         assertEquals(2, Redaction.hit(boxes, 1, 0.45f, 0.41f, 0f, 0f))
     }
 
+    @Test fun aBoxTouchedIsFoundWhereItIsNow() {
+        val a = RedactBox(0, 0.1f, 0.1f, 0.2f, 0.2f)
+        val b = RedactBox(1, 0.1f, 0.1f, 0.2f, 0.2f)
+        val c = RedactBox(0, 0.5f, 0.5f, 0.6f, 0.6f)
+        assertEquals(2, Redaction.find(listOf(a, b, c), 2, c))
+        // A box before it deleted meanwhile: it moved up the list.
+        assertEquals(1, Redaction.find(listOf(b, c), 2, c))
+        // Itself deleted, or changed (moved by a button, say): it is gone, and the box now in its place isn't it.
+        assertEquals(-1, Redaction.find(listOf(a, b), 1, c))
+        assertEquals(-1, Redaction.find(listOf(a, b, Redaction.moved(c, 0.1f, 0f)), 2, c))
+        assertEquals(-1, Redaction.find(emptyList(), 0, a))
+    }
+
     @Test fun boxesSurviveBeingPackedIntoNumbers() {
         val boxes = listOf(RedactBox(0, 0.1f, 0.2f, 0.3f, 0.4f), RedactBox(41, 0f, 0.5f, 1f, 0.75f))
         assertEquals(boxes, Redaction.unpack(Redaction.pack(boxes)))
