@@ -482,6 +482,7 @@
         <item quantity="other">%d PDF डाउनलोड में सेव की गईं</item>
     </plurals>
     <string name="msg_saved">सेव किया गया</string>
+    <string name="msg_not_saved">सेव नहीं किया गया</string>
     <plurals name="msg_saved_folder">
         <item quantity="one">%d PDF फ़ोल्डर में सेव की गई</item>
         <item quantity="other">%d PDF फ़ोल्डर में सेव की गईं</item>

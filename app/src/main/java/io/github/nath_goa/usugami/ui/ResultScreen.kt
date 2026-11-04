@@ -91,7 +91,6 @@ class ResultActions(
     /** For several PDFs: one ZIP file of them, shared, or saved with the "Save as" screen. */
     val shareZip: () -> Unit,
     val saveZip: () -> Unit,
-    val cancelZip: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -228,16 +227,6 @@ fun ResultScreen(
         }
     }
 
-    // A small ZIP file is made in a moment: the dialog only shows for one that takes a while.
-    if (zipProgress != null) {
-        var show by remember { mutableStateOf(false) }
-        LaunchedEffect(Unit) {
-            delay(ZIP_DIALOG_DELAY_MS)
-            show = true
-        }
-        if (show) ZipProgressDialog(zipProgress, onCancel = actions.cancelZip)
-    }
-
     if (confirmStartOver) {
         AlertDialog(
             onDismissRequest = { confirmStartOver = false },
@@ -286,9 +275,27 @@ private fun ZipButton(enabled: Boolean, onShare: () -> Unit, onSave: () -> Unit)
     }
 }
 
+/**
+ * Making a ZIP file of a result's PDFs: how many of the PDFs are in, and Cancel, while [progress] is
+ * set. It shows over whichever screen shows, as a ZIP file being saved goes on when images shared
+ * meanwhile open the editor. A small ZIP file is made in a moment: the dialog only shows for one that
+ * takes a while.
+ */
+@Composable
+fun ZipProgressDialog(progress: ZipProgress?, onCancel: () -> Unit) {
+    if (progress != null) {
+        var show by remember { mutableStateOf(false) }
+        LaunchedEffect(Unit) {
+            delay(ZIP_DIALOG_DELAY_MS)
+            show = true
+        }
+        if (show) ZipDialog(progress, onCancel)
+    }
+}
+
 /** Making the ZIP file: how many of the PDFs are in, and Cancel. */
 @Composable
-private fun ZipProgressDialog(progress: ZipProgress, onCancel: () -> Unit) {
+private fun ZipDialog(progress: ZipProgress, onCancel: () -> Unit) {
     val fraction by animateFloatAsState(targetValue = progress.fraction, animationSpec = Motion.medium(), label = "zip progress")
     AlertDialog(
         onDismissRequest = {},

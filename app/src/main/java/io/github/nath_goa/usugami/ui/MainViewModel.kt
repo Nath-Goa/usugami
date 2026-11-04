@@ -129,6 +129,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private val saveTurn = Mutex()
     /** The result's copies in Downloads, once it has been saved there: saving it again copies only what has gone. */
     private var inDownloads: Pair<List<PdfFile>, List<DownloadsCopy>>? = null
+    /**
+     * The user put the last result away (Back, Start over, images shared), rather than the system
+     * clearing it: a document picked for it afterwards was picked after leaving it (see [notSaved]).
+     */
+    private var resultPutAway = false
 
     /** Non-null while the "text recognition isn't available" dialog is showing. */
     private val _ocrProblem = MutableStateFlow<OcrProblem?>(null)
@@ -191,7 +196,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             if (refused > 0) pluralMessage(R.plurals.msg_failed_import, refused)
             return
         }
-        _result.value = null
+        putAwayResult()
         // Shared images open the editor: a ZIP file to share the PDFs that showed is no longer wanted.
         // One being saved where the user chose goes on, as a save of the PDFs does.
         zipper.stopSharing()
@@ -377,6 +382,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     if (engine == null || language == null) files else addTextLayer(files, engine, language)
                 }
                 _saved.value = false
+                resultPutAway = false
                 resultName = fileName
                 _result.value = files
                 lastChoices = null
@@ -460,6 +466,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         if (_busySaving.value) return
         // A ZIP file of the result is no longer wanted once the result screen has gone.
         zipper.cancel()
+        putAwayResult()
+    }
+
+    /** The result showing goes, because the user left it (see [resultPutAway]). */
+    private fun putAwayResult() {
+        if (_result.value != null) resultPutAway = true
         _result.value = null
     }
 
@@ -467,7 +479,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // Not while the PDFs are being saved: their files would be deleted mid-save.
         if (_busySaving.value) return
         zipper.cancel()
-        _result.value = null
+        putAwayResult()
         clearAll()
         viewModelScope.launch(fileOps) { exporter.clearOutput() }
     }
@@ -517,10 +529,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     fun saveTo(uri: Uri) {
         val file = _result.value?.singleOrNull()
         if (file == null) {
-            // The system restarted Usugami while the screen was open, which cleared the PDF. Remove
-            // the empty document the screen made, and say so.
+            // The system restarted Usugami while the screen was open, which cleared the PDF, or the
+            // user left the result before the screen covered Usugami. Remove the empty document the
+            // screen made, and say so.
             viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
-            resultCleared(1)
+            if (resultPutAway) notSaved() else resultCleared(1)
             return
         }
         save {
@@ -532,7 +545,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** Saves every result into a folder picked with the system folder picker. */
     fun saveToFolder(tree: Uri) {
         // As in saveTo; the folder picker offered for several PDFs creates nothing itself.
-        val files = _result.value ?: return resultCleared(2)
+        val files = _result.value ?: return if (resultPutAway) notSaved() else resultCleared(2)
         save {
             saver.saveToFolder(files.map { it.file }, tree)
             strings.getQuantityString(R.plurals.msg_saved_folder, files.size, files.size)
@@ -556,9 +569,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     fun saveZipTo(uri: Uri) {
         val files = _result.value
         if (files == null) {
-            // As in saveTo: the system restarted Usugami while the screen was open.
+            // As in saveTo: the system restarted Usugami while the screen was open, or the user left.
             viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
-            resultCleared(2)
+            if (resultPutAway) notSaved() else resultCleared(2)
             return
         }
         if (zipper.busy) return zipBusy(uri)
@@ -572,6 +585,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
         message(R.string.zip_busy)
     }
+
+    /** A save screen gave a place to save a result the user had already put away: nothing is saved there. */
+    private fun notSaved() = message(R.string.msg_not_saved)
 
     fun cancelZip() = zipper.cancel()
 

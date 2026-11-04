@@ -519,6 +519,7 @@
         <item quantity="other">Saved %d PDFs to Downloads</item>
     </plurals>
     <string name="msg_saved">Saved</string>
+    <string name="msg_not_saved">Not saved</string>
     <plurals name="msg_saved_folder">
         <item quantity="one">Saved %d PDF to the folder</item>
         <item quantity="other">Saved %d PDFs to the folder</item>

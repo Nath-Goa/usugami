@@ -498,6 +498,7 @@
         <item quantity="other">%d PDF enregistrés dans Téléchargements</item>
     </plurals>
     <string name="msg_saved">Enregistré</string>
+    <string name="msg_not_saved">Non enregistré</string>
     <plurals name="msg_saved_folder">
         <item quantity="one">%d PDF enregistré dans le dossier</item>
         <item quantity="many">%d PDF enregistrés dans le dossier</item>

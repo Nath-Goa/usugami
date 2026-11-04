@@ -9,6 +9,7 @@ import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.ResultZip
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,7 +29,8 @@ import java.io.File
  * "Share or save as ZIP" on the result screen of a run that made several PDFs: one ZIP file of them,
  * with progress and cancelling. MainViewModel and PdfToolsViewModel each keep one for their results.
  * [dir] is where the ZIP for sharing is made, beside the PDFs; [resultCleared] is called when the
- * PDFs have gone from the cache.
+ * PDFs have gone from the cache. The ZIP file is written on [io], which a view model can share with
+ * its other file work, so that freeing the PDFs waits for a ZIP file of them being saved.
  */
 internal class ResultZipper(
     context: Context,
@@ -37,6 +39,7 @@ internal class ResultZipper(
     private val strings: () -> Resources,
     private val message: (String) -> Unit,
     private val resultCleared: (count: Int) -> Unit,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val zip = ResultZip(context, dir)
     private var job: Job? = null
@@ -102,7 +105,7 @@ internal class ResultZipper(
         job = scope.launch {
             val job = coroutineContext[Job]!!
             try {
-                done(withContext(Dispatchers.IO) { work { job.ensureActive() } })
+                done(withContext(io) { work { job.ensureActive() } })
             } catch (e: CancellationException) {
                 withContext(NonCancellable + Dispatchers.IO) { cancelled() }
                 throw e

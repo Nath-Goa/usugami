@@ -362,7 +362,6 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                     launch(R.string.msg_no_file_picker) { createZip.launch(vm.zipFileName()) }
                                 }
                             },
-                            cancelZip = vm::cancelZip,
                         ),
                         zipProgress = zipProgress,
                     )
@@ -395,7 +394,6 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                     launch(R.string.msg_no_file_picker) { createZip.launch(pdfVm.zipFileName()) }
                                 }
                             },
-                            cancelZip = pdfVm::cancelZip,
                         ),
                         zipProgress = pdfZipProgress,
                         note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else null,
@@ -478,6 +476,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     }
 
     progress?.let { ProgressDialog(it, cancelling, onCancel = vm::cancelConversion) }
+    // Over whichever screen shows: a ZIP file being saved goes on when images shared meanwhile open
+    // the editor, and Create waits for it there.
+    ZipProgressDialog(zipProgress, onCancel = vm::cancelZip)
+    ZipProgressDialog(pdfZipProgress, onCancel = pdfVm::cancelZip)
     ocrProblem?.let { OcrProblemDialog(it, onDismiss = vm::dismissOcrProblem) }
 
     if (confirmDiscard) {

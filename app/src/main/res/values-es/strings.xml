@@ -498,6 +498,7 @@
         <item quantity="other">Se guardaron %d PDF en Descargas</item>
     </plurals>
     <string name="msg_saved">Guardado</string>
+    <string name="msg_not_saved">No se ha guardado</string>
     <plurals name="msg_saved_folder">
         <item quantity="one">Se guardó %d PDF en la carpeta</item>
         <item quantity="many">Se guardaron %d PDF en la carpeta</item>

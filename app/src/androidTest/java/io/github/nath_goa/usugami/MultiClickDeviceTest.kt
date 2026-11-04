@@ -18,6 +18,7 @@ import android.provider.MediaStore
 import android.view.InputDevice
 import android.view.MotionEvent
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -48,12 +49,14 @@ import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.SettingsScreen
 import io.github.nath_goa.usugami.ui.SplitMode
 import io.github.nath_goa.usugami.ui.UsugamiTheme
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -61,7 +64,10 @@ import org.junit.Rule
 import org.junit.Test
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipInputStream
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.random.Random
 
 /**
@@ -178,6 +184,28 @@ class MultiClickDeviceTest {
         }
 
     private fun cancelled() = Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+
+    private var probes = 0
+
+    /**
+     * Returns once the answers [catching] gave the screens Usugami has started so far have reached
+     * it: they arrive in order, so a probe started after them, and answered too, gets its answer last.
+     */
+    private fun awaitAnswers() {
+        val answered = CountDownLatch(1)
+        val probe = "${app.packageName}.test.PROBE"
+        catching(probe)
+        val launcher = onMain {
+            activity!!.activityResultRegistry
+                .register("test-probe-${probes++}", ActivityResultContracts.StartActivityForResult()) { answered.countDown() }
+                .also { it.launch(Intent(probe)) }
+        }
+        try {
+            assertTrue("The answers reached Usugami", answered.await(10, TimeUnit.SECONDS))
+        } finally {
+            onMain { launcher.unregister() }
+        }
+    }
     private fun picked(vararg uris: Uri) = Instrumentation.ActivityResult(
         Activity.RESULT_OK,
         Intent().apply {
@@ -491,6 +519,146 @@ class MultiClickDeviceTest {
         assertEquals(listOf("first.pdf", "second.pdf"), zipEntries(document))
     }
 
+    /**
+     * A tool's ZIP file being saved goes on when images shared meanwhile open the editor, which frees
+     * the tool's files: they are freed once it is saved.
+     */
+    @Test fun aToolsZipFileBeingSavedIsntCancelledBySharedImages() {
+        launch()
+        val pdfVm = splitResult()
+        val names = pdfVm.result.value!!.map { it.name }
+        // The tool reset the moment the save starts, as the editor resets it once it has settled.
+        val (early, earlyUri) = newDocument("early.zip")
+        onMain {
+            pdfVm.saveZipTo(earlyUri)
+            pdfVm.reset()
+        }
+        waitFor("the ZIP file to be saved") { !pdfVm.saving.value }
+        runBlocking { pdfVm.awaitFileWork() }
+        assertEquals(names, zipEntries(early))
+        assertTrue("Said to be saved", pdfVm.saved.value)
+
+        // As it happens: the PDFs saved once, so images shared during a second save open the editor
+        // without asking, and the tool is reset once it shows.
+        addPdf(pdfVm)
+        onMain { pdfVm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha_split") }
+        waitFor("the PDFs") { pdfVm.result.value?.size == 3 }
+        compose.waitForIdle()
+        val (_, firstUri) = newDocument("first.zip")
+        onMain { pdfVm.saveZipTo(firstUri) }
+        waitFor("the first ZIP file") { pdfVm.saved.value && !pdfVm.saving.value }
+        val vm = mainVm()
+        val (document, uri) = newDocument("split.zip")
+        val shared = photo("shared.jpg")
+        onMain {
+            pdfVm.saveZipTo(uri)
+            vm.addImages(listOf(shared))
+        }
+        waitFor("the editor, and the tool reset") { vm.items.value.size == 1 && pdfVm.result.value == null }
+        waitFor("the ZIP file to be saved") { !pdfVm.saving.value }
+        runBlocking { pdfVm.awaitFileWork() }
+        assertEquals(names, zipEntries(document))
+    }
+
+    /**
+     * Images shared while a tool's ZIP file is being saved open the editor, and the ZIP file's
+     * progress and Cancel show over it, rather than Create waiting for it with no reason given. Once
+     * it is done, it holds the PDFs.
+     */
+    @Test fun aZipFileSavedBehindTheEditorShowsItsProgress() {
+        launch()
+        val pdfVm = splitResult()
+        val names = pdfVm.result.value!!.map { it.name }
+        // Saved once, so the shared images open the editor without asking.
+        val (_, firstUri) = newDocument("first.zip")
+        onMain { pdfVm.saveZipTo(firstUri) }
+        waitFor("the first ZIP file") { pdfVm.saved.value && !pdfVm.saving.value }
+        val vm = mainVm()
+        val (document, uri) = newDocument("held.zip")
+        val shared = photo("shared.jpg")
+        // The tool's file work is held up, so the ZIP file waits its turn while the editor opens.
+        val release = holdFileWork(pdfVm)
+        try {
+            onMain {
+                pdfVm.saveZipTo(uri)
+                vm.addImages(listOf(shared))
+            }
+            waitFor("the editor") { vm.items.value.size == 1 && vm.pendingImports.value == 0 }
+            waitForText(text(R.string.zip_making))
+            assertTrue("On the editor", compose.onAllNodes(hasText(text(R.string.convert)) and hasClickAction()).fetchSemanticsNodes().isNotEmpty())
+            assertTrue("Cancel shows", compose.onAllNodes(hasText(text(R.string.cancel)) and hasClickAction()).fetchSemanticsNodes().isNotEmpty())
+        } finally {
+            release()
+        }
+        waitFor("the ZIP file to be saved") { !pdfVm.saving.value }
+        runBlocking { pdfVm.awaitFileWork() }
+        waitFor("the progress to go") { compose.onAllNodes(hasText(text(R.string.zip_making))).fetchSemanticsNodes().isEmpty() }
+        assertEquals(names, zipEntries(document))
+    }
+
+    /** Holds up [vm]'s file work, which goes one task at a time, until the returned function is called. */
+    private fun holdFileWork(vm: PdfToolsViewModel): () -> Unit {
+        val fileOps = PdfToolsViewModel::class.java.getDeclaredField("fileOps").apply { isAccessible = true }.get(vm) as CoroutineDispatcher
+        val held = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        fileOps.dispatch(EmptyCoroutineContext, Runnable {
+            held.countDown()
+            release.await(30, TimeUnit.SECONDS)
+        })
+        assertTrue("File work held", held.await(10, TimeUnit.SECONDS))
+        return { release.countDown() }
+    }
+
+    /**
+     * A document picked in the "Save as" screen after leaving the result (Back before the screen
+     * covered Usugami) gets nothing. Usugami says it wasn't saved, not that the PDF was cleared.
+     */
+    @Test fun aDocumentPickedAfterLeavingTheResultIsntSaved() {
+        val shown = launch()
+        val vm = imagesResult("Left")
+        val (document, uri) = newDocument("left.pdf")
+        val (zip, zipUri) = newDocument("left.zip")
+        val create = catching(Intent.ACTION_CREATE_DOCUMENT, results = listOf(created(uri), created(zipUri)))
+        val saveAs = button(R.string.save_as).tap()
+        onMain {
+            saveAs()
+            shown.onBackPressedDispatcher.onBackPressed()
+        }
+        awaitAnswers()
+        assertEquals("\"Save as\" screens opened", 1, create.started.size)
+        val notSaved = text(R.string.msg_not_saved)
+        waitForText(notSaved)
+        assertNoText(app.resources.getQuantityString(R.plurals.msg_result_cleared, 1))
+        assertEquals("Nothing was written into the document", 0, document.length())
+        assertFalse(vm.saved.value)
+        assertNull(vm.result.value)
+        waitFor("the message to go") { compose.onAllNodes(hasText(notSaved)).fetchSemanticsNodes().isEmpty() }
+
+        // A tool's ZIP file, the same.
+        onMain { vm.startOver() }
+        compose.waitForIdle()
+        onMain { shown.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+        val pdfVm = splitResult()
+        button(R.string.zip_button).performScrollTo().performClick()
+        compose.waitForIdle()
+        val saveZip = button(R.string.zip_save).tap()
+        onMain {
+            saveZip()
+            shown.onBackPressedDispatcher.onBackPressed()
+        }
+        awaitAnswers()
+        assertEquals("\"Save as\" screens opened", 2, create.started.size)
+        waitForText(notSaved)
+        assertNoText(app.resources.getQuantityString(R.plurals.msg_result_cleared, 2))
+        assertEquals("Nothing was written into the ZIP file", 0, zip.length())
+        assertFalse(pdfVm.saved.value)
+        assertNull(pdfVm.result.value)
+    }
+
+    private fun assertNoText(text: String) =
+        assertTrue("\"$text\" on the screen", compose.onAllNodes(hasText(text)).fetchSemanticsNodes().isEmpty())
+
     // ---- Each tap does one thing ----
 
     /** Two taps on "Save to Downloads" at double-tap speed save one copy, not "Name (1).pdf" as well. */
@@ -683,7 +851,7 @@ class MultiClickDeviceTest {
     @Test fun aPdfPickedAfterLeavingTheToolIsIgnored() {
         val shown = launch()
         val pdfVm = openTool(R.string.tool_split_detail)
-        catching(Intent.ACTION_OPEN_DOCUMENT, results = listOf(picked(pdf("alpha.pdf"))))
+        val open = catching(Intent.ACTION_OPEN_DOCUMENT, results = listOf(picked(pdf("alpha.pdf"))))
         val pick = button(R.string.pick_pdf).tap()
         // Home doesn't settle (and free the tool's files) while the clock is stopped.
         compose.mainClock.autoAdvance = false
@@ -691,10 +859,11 @@ class MultiClickDeviceTest {
             pick()
             shown.onBackPressedDispatcher.onBackPressed()
         }
-        Thread.sleep(2_000)
+        awaitAnswers()
         val inputs = pdfVm.inputs.value.size
         val importing = pdfVm.importing.value
         compose.mainClock.autoAdvance = true
+        assertEquals("Pickers opened", 1, open.started.size)
         assertEquals("PDFs loaded behind Home", 0, inputs)
         assertFalse(importing)
     }

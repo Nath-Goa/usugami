@@ -195,6 +195,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var saves = 0
     /** The result's copies in Downloads, once it has been saved there: saving it again copies only what has gone. */
     private var inDownloads: Pair<List<PdfFile>, List<DownloadsCopy>>? = null
+    /**
+     * The user put the last result away (Back, Start over, leaving the tool), rather than the system
+     * clearing it: a document picked for it afterwards was picked after leaving it (see [notSaved]).
+     */
+    private var resultPutAway = false
     private val _saved = MutableStateFlow(handle[KEY_SAVED] ?: false)
     val saved = _saved.asStateFlow()
     /** True when the result was made from a PDF opened with a password: the new PDF has none. */
@@ -221,7 +226,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var resultName: String
         get() = handle[KEY_RESULT_NAME] ?: ""
         set(value) { handle[KEY_RESULT_NAME] = value }
-    private val zipper = ResultZipper(app, engine.zipDir, viewModelScope, { strings }, ::message, ::resultCleared)
+    // A ZIP file is written with the other file work, one at a time: freeing the result's PDFs (see
+    // reset) waits for a ZIP file of them being saved, as it does for a save of the PDFs.
+    private val zipper = ResultZipper(app, engine.zipDir, viewModelScope, { strings }, ::message, ::resultCleared, io = fileOps)
     /** How far the ZIP file of the result's PDFs has got, while it is being made. */
     val zipProgress = zipper.progress
     /** Share screens for ZIP files of the result's PDFs, once each is ready. */
@@ -1157,6 +1164,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 }
                 val files = withContext(fileOps) { block { job.ensureActive() } }
                 _saved.value = false
+                resultPutAway = false
                 _passwordRemoved.value = sources.any { it.password.isNotEmpty() }
                 resultName = name
                 _result.value = files
@@ -1199,6 +1207,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         if (_saving.value) return
         // A ZIP file of the result is no longer wanted once the result screen has gone.
         zipper.cancel()
+        putAwayResult()
+    }
+
+    /** The result showing goes, because the user left it (see [resultPutAway]). */
+    private fun putAwayResult() {
+        if (_result.value != null) resultPutAway = true
         _result.value = null
     }
 
@@ -1213,7 +1227,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         importJob = null
         _importing.value = false
         zipper.cancel()
-        _result.value = null
+        putAwayResult()
         clearInputs()
         viewModelScope.launch(fileOps) {
             engine.clearOutput()
@@ -1235,13 +1249,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         importJob?.cancel()
         unlockJob?.cancel()
         task?.cancel()
-        zipper.cancel()
+        // A ZIP file to share is no longer wanted. One being saved where the user chose goes on (images
+        // shared meanwhile open the editor, which resets the tool), as a save of the PDFs does: freeing
+        // the PDFs below waits for it.
+        zipper.stopSharing()
         // The abandoned import stops at its next chunk; the next tool can import straight away.
         importGeneration++
         importJob = null
         _importing.value = false
         _wrongPassword.value = false
-        _result.value = null
+        putAwayResult()
         setInputs(emptyList())
         setPages(emptyList())
         setLocked(emptyList())
@@ -1253,7 +1270,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         clearRedaction()
         // Every copy goes, including one still being imported or waiting for its password. File work
         // runs one task at a time, so this waits for a cancelled import or run to stop first, and for a
-        // save of the result to finish.
+        // save of the result (its PDFs or a ZIP file of them) to finish.
         viewModelScope.launch(fileOps) {
             engine.deleteAllExcept(emptyList())
             office.deleteAllExcept(null)
@@ -1324,10 +1341,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun saveTo(uri: Uri) {
         val file = _result.value?.singleOrNull()
         if (file == null) {
-            // The system restarted Usugami while the "Save as" screen was open, which cleared the PDF.
-            // Remove the empty document the screen made, and say so.
+            // The system restarted Usugami while the "Save as" screen was open, which cleared the PDF,
+            // or the user left the result before the screen covered Usugami. Remove the empty document
+            // the screen made, and say so.
             viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
-            resultCleared(1)
+            if (resultPutAway) notSaved() else resultCleared(1)
             return
         }
         save { saver.saveTo(file.file, uri); strings.getString(R.string.msg_saved) }
@@ -1335,9 +1353,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun saveToFolder(tree: Uri) {
         // As in saveTo; the folder picker offered for several PDFs creates nothing itself.
-        val files = _result.value ?: return resultCleared(2)
+        val files = _result.value ?: return if (resultPutAway) notSaved() else resultCleared(2)
         save { saver.saveToFolder(files.map { it.file }, tree); strings.getString(R.string.msg_saved) }
     }
+
+    /** A save screen gave a place to save a result the user had already put away: nothing is saved there. */
+    private fun notSaved() = message(strings.getString(R.string.msg_not_saved))
 
     private fun startSave() {
         saves++
@@ -1404,9 +1425,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun saveZipTo(uri: Uri) {
         val files = _result.value
         if (files == null) {
-            // As in saveTo: the system restarted Usugami while the screen was open.
+            // As in saveTo: the system restarted Usugami while the screen was open, or the user left.
             viewModelScope.launch(Dispatchers.IO) { saver.discardIfEmpty(uri) }
-            resultCleared(2)
+            if (resultPutAway) notSaved() else resultCleared(2)
             return
         }
         if (zipper.busy) {
