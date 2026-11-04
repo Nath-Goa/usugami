@@ -30,7 +30,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 
 | | **Usugami** (recommended) | **Usugami Lite** | **Usugami OCR** |
 |---|---|---|---|
-| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.6 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 14 MB: the recognition engine and models are inside |
+| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.8 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 14 MB: the recognition engine and models are inside |
 | Images, Word, PowerPoint and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app ([PaddleOCR](#how-usugami-ocr-reads-text) models). Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never | Never |
@@ -52,6 +52,19 @@ All three editions use the same package name and signing key, so you can switch 
 installing another edition's APK over the one you have. Your files and settings are kept. Every
 [release](https://github.com/Nath-Goa/usugami/releases) also has a `SHA256SUMS.txt` file for
 [checking your download](#verify-your-download).
+
+## What's new in 1.5.0
+
+- **Three editions:** Usugami, Usugami Lite (no Google code) and Usugami OCR (open-source text
+  recognition built in)
+- **Scan pages with your camera**, crop them straight, and make them black & white (tiny PDFs)
+- **Batch mode:** compress, watermark, number or flatten many PDFs at once, and convert many Word,
+  PowerPoint or EPUB files
+- **Share PDFs, Word, PowerPoint and EPUB files** straight to Usugami
+- **Text recognition reads your original photos**, so it's much more accurate
+- **100+ bug fixes**
+
+[Full changelog](CHANGELOG.md)
 
 ## Screenshots
 

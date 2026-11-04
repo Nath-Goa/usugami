@@ -6,6 +6,155 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-04
+
+### Added
+
+- **Three editions.** Usugami now comes as **Usugami** (Usugami.apk, recommended), **Usugami Lite**
+  (Usugami-lite.apk) and **Usugami OCR** (Usugami-ocr.apk). They share a package name and signing
+  key, so you can install any one over another and keep your files and settings. Settings → About
+  shows which one you have.
+  - **Usugami** works as before, with text recognition through Google Play services.
+  - **Usugami Lite** has every tool except text recognition, and no Google code at all.
+  - **Usugami OCR** has open-source text recognition built in: PaddleOCR's PP-OCRv5 models, run on
+    your phone by Tencent's ncnn. It reads English, French, Spanish and Hindi (Hindi mode also
+    reads English words), fully offline and with no Google code. It is about 14 MB.
+- **Scan with the camera.** **Take photo** in Images to PDF opens your phone's own camera app, page
+  after page (Take another, then Done); Usugami still asks for no permissions. Drag the four corners
+  onto the page's corners and it comes out straight, as if scanned; Usugami finds the page by itself
+  when it stands out from the table, a magnifier shows what is under your finger, and arrow buttons
+  and screen-reader actions move a corner a step at a time. Every page has a **Crop** button, for
+  gallery photos, files and shared images too, and can be cropped again from scratch.
+- **Looks for scanned pages**: **Original**, **Enhanced** (white paper, no lamp color or shadows,
+  darker print), **Grayscale** or **Black & white**, previewed as they will be in the PDF, for one
+  page or all. Black-and-white pages are stored one bit a pixel (CCITT Group 4, as scanners do),
+  so a page of print takes about 10 KB instead of 50 to 350 KB as a photo. Text recognition reads
+  cropped pages as cropped.
+- **Batch mode.** Compress PDF, Add page numbers, Add watermark and Flatten PDF work on many PDFs at
+  once, and Word, PowerPoint and EPUB to PDF convert many files at once, one PDF each. Pick several,
+  add or remove files as you go, and name each new PDF. **Compress PDF** sets the level for all PDFs
+  in one go or gives a PDF a level of its own. Files are made one after another with "PDF 2 of 5"
+  progress, Cancel stops them all, and a file that can't be made is named while the others are
+  still made. Home's search finds these tools with "batch", "many" or "several".
+- When a tool makes several PDFs (batch mode, or Split PDF in parts), each PDF on the result screen
+  has its own **Open**, **Share** and **Save** buttons and a "Saved" mark; **Save to Downloads** and
+  **Save to folder…** still save them all, each as its own file, never twice.
+- **Share PDFs, Word, PowerPoint and EPUB files to Usugami** from another app, as well as images.
+  PDFs open the new **Choose a tool** screen (every PDF tool for one PDF; Merge PDF and the batch
+  tools for several), and documents open their converter with the files added. Shared files are
+  copied in at once; files shared while a tool has unsaved work ask first, and ones shared while a
+  PDF is being made wait for it.
+
+### Changed
+
+- **Usugami OCR replaces Usugami Offline**, which used Google's closed-source ML Kit.
+  Usugami-offline.apk is no longer published: install Usugami-ocr.apk (or Usugami-lite.apk) over
+  it, and your files and settings stay. If Obtainium follows Usugami-offline.apk for you, add
+  Usugami OCR or Usugami Lite instead.
+- **Text recognition reads your original photos**, not the compressed copies inside the PDF, so
+  small print is found even at Extreme compression. In tests at Extreme, Usugami OCR's errors fell
+  from about 29% to under 4%, and Usugami's own recognition got better too. Long scrolling
+  screenshots are read at a readable size instead of being shrunk to a sliver first.
+- Usugami OCR reads pages photographed upside down or sideways the right way up, and keeps lines
+  in order on slanted photos and in columns.
+- At large font sizes and in long translations, titles, buttons, choices and labels shrink, wrap or
+  move to the next line instead of being cut off.
+- The open-source notices no longer say they apply to Usugami 1.2.0.
+
+### Fixed
+
+- **Split PDF**: each part now holds only its own pages. A part cut from pages with links,
+  comments or form fields could carry the rest of the PDF hidden inside it (other pages' text,
+  pictures and form values) and be as big as the original. Splitting into many parts also no
+  longer gets slower with every part.
+- **Delete pages, Reorganize PDF and Merge PDF**: pictures and tags (alternate text) of the pages
+  you remove no longer stay hidden in the file when pages share them, and every page keeps its page
+  label (such as "iv" or "245") instead of the labels shifting.
+- **Split PDF** messages say what to type for comma-separated custom ranges and backwards ranges
+  (8-3); tapping a preview no longer re-sorts the pages typed; Fixed chunks shows an example and
+  opens the number keyboard.
+- **Merge PDF** says a second PDF is needed when only one is added, follows the file order in page
+  mode, and no longer asks to discard changes when nothing changed.
+- **Compress PDF** now shrinks very large JPEG images (600-dpi scans, 50-megapixel photos) instead
+  of saying the PDF is already compact, uses less memory for the others, and keeps the original
+  when it would save less than 1% (no more "0% smaller").
+- **Password-protected PDFs** show their pages in Split's picker, Merge's page mode, Reorganize and
+  the PDF's card, instead of a placeholder icon.
+- PDFs with a few bytes before their start (a byte order mark or a blank line, as some websites
+  send) now open.
+- **Redact PDF** is more thorough: a page without boxes that still holds, out of sight, part of what
+  a box hides now becomes a picture too; a picture another page shows cropped no longer keeps what a
+  box hides; attached files, a digital signature's signer details and the names of links to
+  redacted pages are removed. Find text also searches comments, and finds D’Souza for D'Souza,
+  Straße for Strasse, Wałęsa for Walesa and numbers written with special hyphens or minus signs.
+  Form values Usugami couldn't draw are shown and found instead of looking empty.
+- **Flatten PDF** no longer blanks a filled-in field it can't draw (such as ₹ or Hindi in a form
+  made for English): the field keeps its look or stays fillable, and Usugami tells you. The tools'
+  previews show such fields as they really look.
+- **Edit PDF and Sign PDF**: what you add over a form field, comment or stamp now covers it, as the
+  preview shows. WebP photos are compressed like other photos (often several times smaller), Ultra
+  HDR photos no longer carry their hidden HDR data into the PDF, tapping an addition no longer
+  clears Redo, a pen stroke drawn as the page loads is no longer lost, and quick presses of an arrow
+  button each move one step.
+- **Word to PDF**: letterheads, logos and watermarks in headers and footers no longer push the text
+  off the page; rotated, flipped, grouped and hidden pictures and text boxes come out as in Word;
+  page numbers follow their format (i, ii, A, B) and odd/even-page sections; Greek letters, maths
+  symbols and check boxes from the Symbol and Wingdings fonts show as themselves; lists linked to a
+  list style keep their numbers; automatic text color turns white on dark shading; right-to-left
+  paragraphs, lists and tables are mirrored; phonetic guides keep their base text; and a document
+  whose whole body is kept in another format now says so instead of giving a blank PDF.
+- **PowerPoint to PDF**: elbow and curved connectors are drawn as lines with arrowheads; ink,
+  equations, 3-D models, Slide Zooms and embedded objects show as PowerPoint's own pictures of them;
+  slide numbers count hidden slides; dark backgrounds and layouts keep their colors; flipped groups
+  are mirrored; empty placeholders are left out; table borders follow the table style; right-to-left
+  paragraphs are aligned from the right; Symbol and Wingdings characters, link colors and text
+  anchored at the bottom or middle of a box come out as in PowerPoint.
+- **EPUB to PDF**: a picture, line break or rule hidden by a book's style sheet no longer cuts the
+  rest of its section out of the PDF; tables keep the space above them; inline pictures fit the
+  line; very long paragraphs convert much faster; formulas no longer print their TeX source;
+  bookmarks into tables and old-style anchors lead to the right page; fixed-layout pages stay on one
+  page; and running out of storage gives an error instead of a PDF with missing pages.
+- E-books, Word documents and presentations whose internal file names start with "/" now open on
+  Android 14 and newer, and very deeply nested Word and PowerPoint files convert instead of
+  crashing.
+  Pictures fitted with Crop > Fit keep their shape, and fonts like Century Gothic and Monotype
+  Corsiva get a similar font.
+- **Images to PDF**: with Fit page size, long scrolling screenshots keep their width instead of
+  becoming unreadable slivers, and images added while others are still being added go after them
+  instead of in between.
+- An unsaved result, even one with hundreds of PDFs, comes back after Android stops Usugami in the
+  background, and going to the background with thousands of images or pages no longer crashes.
+- Back, Start over and Create wait while PDFs are being saved, sharing images during a save no
+  longer deletes the PDFs being saved, and images shared while you kept a tool's PDF show once you
+  leave the tool.
+- When the phone's storage is full, adding images, PDFs, documents or pictures says so instead of
+  calling the file damaged, and phones without a file picker get a message instead of a crash.
+- Screen readers hear when a page has been turned in Images to PDF and Merge PDF.
+- **Fast and double taps** do each thing once. A double tap on Save as, Share, Open or a Pick or
+  Add button opens one screen instead of two (whose second pick was lost); Save to Downloads tapped
+  twice no longer saves a second copy; Reverse order, Edit PDF's text Done and Shape menu, and
+  Reorganize's Reset act once; and a quick second tap on a turn button turns the page again
+  instead of being lost.
+- **Redact PDF**: tapping Delete box twice quickly no longer also deletes another box, which could
+  be on another page and leave its area unredacted.
+- Two pages tapped together in Delete pages and Split PDF are both marked; a page turned and then
+  quickly moved or removed is moved or removed; and Add pages > Blank page asked twice no longer
+  adds extra pages later.
+- **Edit PDF and Sign PDF**: tapping an item only chooses it (a slightly moving finger no longer
+  nudges it or clears Redo), Save shows it is working right away so edits made meanwhile can't be
+  left out, and Clear on the signature pad also clears a stroke still being drawn.
+- A ZIP file being saved is no longer cancelled (and deleted) by Back, Start over or images shared
+  meanwhile, its progress shows over any screen, and a file chosen in Save as while another save
+  runs gets its PDF instead of staying empty.
+- Opening a tool again right after leaving it starts it fresh, a PDF picked after leaving its tool
+  no longer lands in another tool, the same message no longer repeats for seconds, and choosing
+  languages quickly applies your last choice.
+- Text recognition: a very small or very thin image no longer leaves every PDF made with it
+  without searchable text.
+- **Redact PDF on Android 17**: redacted pages, and the Redact and Edit PDF previews, are drawn
+  exactly as big as the page, so a box placed near the foot of a page no longer leaves a sliver of
+  what it hides showing.
+
 ## [1.4.1] - 2026-11-02
 
 ### Changed
@@ -244,7 +393,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/Nath-Goa/usugami/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/Nath-Goa/usugami/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/Nath-Goa/usugami/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/Nath-Goa/usugami/compare/v1.2.0...v1.3.0

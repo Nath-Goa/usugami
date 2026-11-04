@@ -1,8 +1,9 @@
 # Usugami Privacy Policy
 
-Effective date: 31 October 2026
+Effective date: 4 November 2026
 
-Usugami is an Android app that turns images into PDFs and splits, merges and compresses PDFs. It
+Usugami is an Android app that turns images, Word documents, PowerPoint presentations and EPUB
+e-books into PDFs, and splits, merges, reorganizes, compresses, edits, signs and redacts PDFs. It
 works on your phone. It has no ads, no analytics, no tracking, no accounts and no in-app
 purchases, and it does not collect, share or sell any data about you.
 
@@ -25,6 +26,9 @@ public, so please don't include personal details. To report a security problem p
   photo picker or file picker, or you share them to Usugami from another app. Android then gives Usugami access to those files
   only. Usugami cannot browse your photos or other files.
 - Usugami asks for no permissions: no storage, camera, location, contacts or microphone access.
+- **Take photo** opens your phone's own camera app, which saves just that one photo for Usugami.
+  Usugami never uses the camera itself, and the photo stays in Usugami's private working copies
+  until you make it into a PDF or remove it.
 - Usugami has no internet permission, so Android does not let it connect to the internet, and it
   cannot upload your files.
 - When you save a PDF, it goes where you choose: the Downloads folder or a folder you pick with
