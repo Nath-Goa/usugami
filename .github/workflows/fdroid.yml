@@ -192,7 +192,9 @@ jobs:
             exit 1
           fi
           sha256sum "$release" "$UNSIGNED_APK"
-          signer=$(apksigner verify --print-certs "$release" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          # One signer, however apksigner words its line ("Signer #1 ..." or, for v3 signatures,
+          # "Signer (minSdkVersion=...) ..."), as release.yml reads it.
+          signer=$(apksigner verify --print-certs "$release" | grep 'certificate SHA-256 digest' | awk '{print $NF}' | sort -u)
           case " $ALLOWED_SIGNERS " in
             *" $signer "*) echo "Signed with $signer, as the recipe allows" ;;
             *) echo "::error::The release APK is signed with '$signer', not one of the recipe's AllowedAPKSigningKeys"; exit 1 ;;
