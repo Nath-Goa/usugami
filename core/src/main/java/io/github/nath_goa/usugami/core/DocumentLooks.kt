@@ -92,7 +92,8 @@ object DocumentLooks {
 
     /**
      * [source] with the [PageLook.ENHANCED] look, handed to [target] a row at a time (opaque ARGB;
-     * the row is reused). [source] is read twice.
+     * the row is reused). [source] is read twice, and row y the second time before [target] gets row
+     * y, so [target] may write the rows back into [source].
      */
     fun enhance(source: PixelSource, target: (y: Int, row: IntArray) -> Unit, checkCancelled: () -> Unit = {}) {
         val width = source.width

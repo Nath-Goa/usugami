@@ -68,6 +68,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -90,6 +91,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
@@ -227,21 +229,26 @@ fun CropScreen(session: CropSession, item: ImageItem?, pageCount: Int, snackbar:
             val wide = maxWidth > maxHeight
             val controlsHeight = maxHeight / 2
             val hint: @Composable () -> Unit = {
-                val text = when {
-                    !usable -> stringResource(R.string.crop_not_a_page)
-                    session.foundPage -> stringResource(R.string.crop_found)
-                    else -> stringResource(R.string.crop_not_found)
+                val page = stringResource(if (session.foundPage) R.string.crop_found else R.string.crop_not_found)
+                val notAPage = stringResource(R.string.crop_not_a_page)
+                val align = if (wide) TextAlign.Start else TextAlign.Center
+                // As tall as the longer of its two texts, whichever shows: the image below stays
+                // where it is when they change places under a corner being dragged.
+                Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(
+                        if (usable) notAPage else page,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = align,
+                        modifier = Modifier.fillMaxWidth().alpha(0f).clearAndSetSemantics {},
+                    )
+                    Text(
+                        if (usable) page else notAPage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (usable) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                        textAlign = align,
+                        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+                    )
                 }
-                Text(
-                    text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (usable) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
-                    textAlign = if (wide) TextAlign.Start else TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .semantics { liveRegion = LiveRegionMode.Polite },
-                )
             }
             val area: @Composable (Modifier) -> Unit = { modifier ->
                 CropArea(
@@ -466,28 +473,34 @@ private fun CropArea(
         val imageHeight = imageWidth / aspect
         val frame = Rect(Offset((areaWidth - imageWidth) / 2, (areaHeight - imageHeight) / 2), Size(imageWidth, imageHeight))
         fun at(p: CropPoint) = Offset(frame.left + p.x * frame.width, frame.top + p.y * frame.height)
+        // Read as it is now by the gesture, which a change of layout doesn't stop: a corner being
+        // dragged stays under the finger.
+        val shownFrame by rememberUpdatedState(frame)
 
         Canvas(
             Modifier
                 .fillMaxSize()
                 .semantics { contentDescription = description }
-                .pointerInput(frame) {
+                .pointerInput(Unit) {
                     val reach = HANDLE_REACH.toPx()
+                    fun atNow(p: CropPoint) = shownFrame.let { Offset(it.left + p.x * it.width, it.top + p.y * it.height) }
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val quad = latest
-                        val index = (0..3).minBy { (at(quad[it]) - down.position).getDistance() }
-                        if ((at(quad[index]) - down.position).getDistance() > reach) return@awaitEachGesture
+                        val index = (0..3).minBy { (atNow(quad[it]) - down.position).getDistance() }
+                        if ((atNow(quad[index]) - down.position).getDistance() > reach) return@awaitEachGesture
                         down.consume()
                         choose(index)
-                        val start = at(quad[index])
+                        // Where the corner is from the finger.
+                        val grip = atNow(quad[index]) - down.position
                         dragging = index
                         finger = down.position
                         try {
                             drag(down.id) { change ->
-                                val p = start + (change.position - down.position)
+                                val p = change.position + grip
+                                val now = shownFrame
                                 finger = change.position
-                                move(index, CropPoint((p.x - frame.left) / frame.width, (p.y - frame.top) / frame.height))
+                                move(index, CropPoint((p.x - now.left) / now.width, (p.y - now.top) / now.height))
                                 change.consume()
                             }
                         } finally {

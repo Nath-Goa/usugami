@@ -264,6 +264,16 @@ class DocumentLooksTest {
         assertTrue("Stamp red: $red of $stamp", red > stamp * 0.9)
     }
 
+    @Test fun enhancedCanBeWrittenBackIntoThePhoto() {
+        // As a PDF's page is made, without a second picture as large: the same as made beside it.
+        val photo = photo(page(620))
+        val beside = BufferedImage(photo.width, photo.height, BufferedImage.TYPE_INT_RGB)
+        DocumentLooks.enhance(source(photo), { y, row -> beside.setRGB(0, y, row.size, 1, row, 0, row.size) })
+        DocumentLooks.enhance(source(photo), { y, row -> photo.setRGB(0, y, row.size, 1, row, 0, row.size) })
+        val differ = (0 until photo.height).sumOf { y -> (0 until photo.width).count { x -> beside.getRGB(x, y) != photo.getRGB(x, y) } }
+        assertEquals("Pixels that differ", 0, differ)
+    }
+
     @Test fun anEvenlyLitPageKeepsItsPaperAndPrint() {
         // No shadow, no lamp: nothing to undo, and the looks still agree with the page.
         val page = page(620)

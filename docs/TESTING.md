@@ -88,8 +88,9 @@ falling off across the page, a hard shadow, a warm lamp, and noise. Black and wh
 paper white (in the shadow too) and keeps the print black, fills bold print and the box, and keeps
 the pencil line, where one global threshold can't; grayscale and enhanced make the paper white and
 the ink dark, the lamp's tint goes everywhere, and the stamp stays red. They also check the paper
-found under a box, transparency, a blank page, tiny pictures, and the time a 12-megapixel photo
-takes. CCITT Group 4 compression is decoded by Java's own TIFF reader, for every run length of
+found under a box, transparency, a blank page, tiny pictures, enhanced written back into the photo
+as it is made (the same as beside it), and the time a 12-megapixel photo takes. CCITT Group 4
+compression is decoded by Java's own TIFF reader, for every run length of
 either colour, print, noise, stripes and widths that aren't whole bytes, and is as small as Java's
 own T.6 coder; the grey JPEG encoder's output is decoded by Java's JPEG reader at every size and
 quality, its Huffman tables are made for each picture (no code over 16 bits, none all ones), and
@@ -248,7 +249,9 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   screen on the page found, a corner moved with a screen reader's actions and another chosen like a
   radio button and moved with the arrow buttons, both kept through the activity being recreated,
   Take another cropping the photo and taking the next, the next one discarded, a page's Crop button
-  opening it again with Back instead, and the message on a phone without a camera app; the crop
+  opening it again with Back instead, and the message on a phone without a camera app; a corner
+  dragged with injected touches past the others and back, staying under the finger while the hint
+  says the corners make no page, with the image not moving; the crop
   screen's looks as radio buttons, Black & white kept through the activity being recreated and for
   the next photo taken, and Grayscale given to both pages with Apply to all pages, which each page
   then says to a screen reader; the
@@ -285,13 +288,18 @@ there showing the images;
   cropping again starts from the photo with the corners as they were and turned with the page,
   Whole image puts the photo back, and the pages cropped before are deleted; corners that make no
   page are refused and crossed ones put in order; a photo cancelled, not saved or discarded on the
-  crop screen leaves no file; and cropped pages and an open crop screen survive the saved state
+  crop screen leaves no file; cropped pages and an open crop screen survive the saved state; a crop
+  not finished when Android stops Usugami is made again from the saved state, a photo the camera app
+  hands back as Usugami starts again is kept, a page removed while it is cropped goes without a
+  message, and a page whose photo the system cleared from the cache stays, at start and when made
+  into a PDF
 - page looks, with a photo of a page in shadow: each look in the PDF as it needs (black and white a
   1-bit CCITT G4 image, grayscale a one-component JPEG) at the compression levels' sizes, drawn by
   Android's renderer and by PDFBox with the paper white and a black bar black; the size of an A4
   page in each look at each level (logged; black and white a fraction of the photo's); and through
   the view model, a look for one page or for every page, a page opening on its look, the next photo
-  starting with the look chosen last, and the looks kept through the saved state
+  starting with the look chosen last (not with one a gallery photo only kept), and the looks kept
+  through the saved state; and Enhanced made in the picture itself, the same as beside it
 - the OCR text layer, in the editions with text recognition: Devanagari and Latin text together,
   and text that follows tilted lines
 - text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,

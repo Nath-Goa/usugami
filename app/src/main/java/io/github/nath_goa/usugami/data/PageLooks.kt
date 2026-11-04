@@ -53,6 +53,18 @@ object PageLooks {
     }
 
     /**
+     * Gives the mutable [bitmap] the [PageLook.ENHANCED] look, in place: as [applied] makes it, without
+     * a second picture as large.
+     */
+    fun enhanceInPlace(bitmap: Bitmap, checkCancelled: () -> Unit = {}) {
+        require(bitmap.isMutable) { "The bitmap can't be changed" }
+        val width = bitmap.width
+        // Each row is read before it is written (see DocumentLooks.enhance).
+        DocumentLooks.enhance(pixels(bitmap), { y, pixels -> bitmap.setPixels(pixels, 0, width, 0, y, width, 1) }, checkCancelled)
+        bitmap.setHasAlpha(false)
+    }
+
+    /**
      * The page inside [quad] (corners on [bitmap], in a page's order) straightened onto a rectangle the
      * page's shape, at most [maxSide] pixels on its long side, as [PageCropper.crop] makes it; null
      * when the corners make no page.

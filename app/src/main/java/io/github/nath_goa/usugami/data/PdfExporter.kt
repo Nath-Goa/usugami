@@ -217,10 +217,25 @@ class PdfExporter(context: Context) {
     /**
      * The image shrunk by [scale] with its look (see [PageLooks]): black and white a bit a pixel
      * (CCITT G4, far smaller than a photo), grey as a JPEG with one component, enhanced as a colour
-     * JPEG, at the compression level's quality.
+     * JPEG, at the compression level's quality. A look takes more memory than the picture alone: if
+     * memory runs out, the page is made at half the size, as [decode] does, until it fits.
      */
     private fun withLook(item: ImageItem, scale: Double, options: Options): PageImage {
-        val bitmap = decode(item, scale)
+        var shrink = scale
+        var halvings = 0
+        while (true) {
+            try {
+                return lookAt(item, shrink, options)
+            } catch (e: OutOfMemoryError) {
+                if (++halvings > MAX_LOOK_HALVINGS) throw e
+                shrink /= 2
+            }
+        }
+    }
+
+    private fun lookAt(item: ImageItem, scale: Double, options: Options): PageImage {
+        // Changeable, so that Enhanced is made in it rather than in a second picture as large.
+        val bitmap = decode(item, scale, mutable = true)
         try {
             val quality = options.compression.jpegQuality
             return when (item.look) {
@@ -231,12 +246,8 @@ class PdfExporter(context: Context) {
                 }
                 PageLook.ORIGINAL -> error("No look to give")
                 PageLook.ENHANCED -> {
-                    val enhanced = PageLooks.applied(bitmap, PageLook.ENHANCED, options.checkCancelled)
-                    try {
-                        jpeg(enhanced, quality, item)
-                    } finally {
-                        enhanced.recycle()
-                    }
+                    PageLooks.enhanceInPlace(bitmap, options.checkCancelled)
+                    jpeg(bitmap, quality, item)
                 }
             }
         } finally {
@@ -247,9 +258,9 @@ class PdfExporter(context: Context) {
     /**
      * Decodes the image at [scale] of its stored size (orientation left as stored; the PDF applies
      * it). Decodes at the nearest larger power-of-two reduction, then resizes smoothly. If memory
-     * runs out, the image is halved again until it fits.
+     * runs out, the image is halved again until it fits. The bitmap can be changed when [mutable].
      */
-    private fun decode(item: ImageItem, scale: Double): Bitmap {
+    private fun decode(item: ImageItem, scale: Double, mutable: Boolean = false): Bitmap {
         var (targetW, targetH) = Compressor.scaledSize(item.width, item.height, scale)
         while (targetW.toLong() * targetH > MAX_PIXELS) {
             targetW = maxOf(1, targetW / 2)
@@ -262,6 +273,7 @@ class PdfExporter(context: Context) {
                 inSampleSize = sample
                 inPreferredConfig = Bitmap.Config.ARGB_8888
                 inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
+                inMutable = mutable
             }
             try {
                 val decoded = BitmapFactory.decodeFile(item.path, options) ?: throw ImageUnreadableException(item.name)
@@ -307,5 +319,7 @@ class PdfExporter(context: Context) {
     companion object {
         const val DEFAULT_NAME = "Usugami"
         private const val MAX_PIXELS = 40_000_000L
+        /** How many times a page with a look is halved, at most, when memory runs out. */
+        private const val MAX_LOOK_HALVINGS = 5
     }
 }

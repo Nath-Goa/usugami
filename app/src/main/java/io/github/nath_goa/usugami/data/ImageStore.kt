@@ -96,7 +96,27 @@ class ImageStore(context: Context) {
         item.original?.let { File(it.path).delete() }
     }
 
-    fun exists(item: ImageItem): Boolean = File(item.path).isFile && item.original.let { it == null || File(it.path).isFile }
+    /** Whether the image's copy (the page, for a cropped one) is still there. */
+    fun exists(item: ImageItem): Boolean = File(item.path).isFile
+
+    /**
+     * [item] as its files are now; null when its copy has gone. The system clears the oldest files
+     * first, so a cropped page can outlast the image it was cropped from: it then stays, cropped
+     * from as it is, and takes that image's file name, which a page never cropped has (see
+     * [fileFor]). Blocking: call from the file work's thread.
+     */
+    fun stillThere(item: ImageItem): ImageItem? {
+        val page = File(item.path)
+        if (!page.isFile) return null
+        val original = item.original ?: return item
+        if (File(original.path).isFile) return item
+        val file = fileFor(item.id, item.format)
+        return when {
+            page == file -> item.copy(original = null)
+            page.renameTo(file) -> item.copy(path = file.path, original = null)
+            else -> null
+        }
+    }
 
     /** Deletes every stored image except those in [keep] (and the images they were cropped from). */
     fun deleteAllExcept(keep: Collection<ImageItem>) {

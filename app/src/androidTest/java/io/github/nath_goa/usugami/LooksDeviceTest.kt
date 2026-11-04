@@ -23,11 +23,13 @@ import io.github.nath_goa.usugami.core.PageOrientation
 import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
+import io.github.nath_goa.usugami.data.PageLooks
 import io.github.nath_goa.usugami.data.PdfExporter
 import io.github.nath_goa.usugami.ui.MainViewModel
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -38,8 +40,9 @@ import kotlin.math.min
  * Page looks: a photographed page in shadow made into a PDF with each look, stored as the look needs
  * (black and white a bit a pixel with CCITT G4, grey as a one-component JPEG) at the compression
  * levels' resolutions, far smaller in black and white, and drawn right by Android's PDF renderer
- * and PDFBox's; and through the view model, a look chosen for a page or for every page, the next
- * photo starting with it, and the looks kept through the saved state.
+ * and PDFBox's, Enhanced made in the picture itself; and through the view model, a look chosen for a
+ * page or for every page, the next photo starting with it (not with a look a page only kept), and the
+ * looks kept through the saved state.
  */
 class LooksDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -217,5 +220,50 @@ class LooksDeviceTest {
 
         onMain { restored.clearAll() }
         runBlocking { restored.awaitFileWork() }
+    }
+
+    @Test fun aLookOnlyKeptLeavesTheNextPhotosLook() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        runBlocking { vm.awaitFileWork() }
+        onMain { vm.addImages(listOf(Uri.fromFile(PagePhotos.jpeg(PagePhotos.photo(), File(dir, "gallery.jpg"))))) }
+        waitUntil("the photo") { vm.items.value.size == 1 && vm.pendingImports.value == 0 }
+        val gallery = onMain { vm.items.value.single() }
+        fun takePhoto() {
+            val uri = onMain { vm.newCapture() }
+            app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            onMain { vm.photoTaken(true) }
+            waitUntil("the photo's crop screen") { vm.crop.value?.fromCamera == true }
+        }
+
+        // A page scanned in black and white.
+        takePhoto()
+        assertTrue(onMain { vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD), PageLook.BLACK_WHITE) })
+        // The photo from the gallery has its corners put right, its look left as it was.
+        onMain { vm.openCrop(gallery.id) }
+        waitUntil("its crop screen") { vm.crop.value?.itemId == gallery.id }
+        val session = onMain { vm.crop.value!! }
+        assertEquals(PageLook.ORIGINAL, session.look)
+        assertTrue(onMain { vm.finishCrop(session.shown(PagePhotos.QUAD), session.look) })
+        // The next page scanned starts in black and white, as the one before.
+        takePhoto()
+        assertEquals(PageLook.BLACK_WHITE, onMain { vm.crop.value!!.look })
+        onMain { vm.closeCrop() }
+
+        waitUntil("the pages to be cropped") { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 }
+        assertEquals(listOf(PageLook.ORIGINAL, PageLook.BLACK_WHITE), onMain { vm.items.value.map { it.look } })
+        onMain { vm.clearAll() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    @Test fun enhancedIsMadeInThePictureAsBesideIt() {
+        // As a PDF's page is made, without a second picture as large.
+        val photo = PagePhotos.photo()
+        val beside = PageLooks.applied(photo, PageLook.ENHANCED)
+        val inPlace = photo.copy(Bitmap.Config.ARGB_8888, true)
+        PageLooks.enhanceInPlace(inPlace)
+        assertFalse(inPlace.hasAlpha())
+        val expected = IntArray(photo.width * photo.height).also { beside.getPixels(it, 0, photo.width, 0, 0, photo.width, photo.height) }
+        val actual = IntArray(photo.width * photo.height).also { inPlace.getPixels(it, 0, photo.width, 0, 0, photo.width, photo.height) }
+        assertTrue(expected.contentEquals(actual))
     }
 }

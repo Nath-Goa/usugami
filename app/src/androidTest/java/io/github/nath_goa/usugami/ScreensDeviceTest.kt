@@ -1288,6 +1288,73 @@ class ScreensDeviceTest {
         runBlocking { vm.awaitFileWork() }
     }
 
+    @Test fun aCornerDraggedPastTheOthersStaysUnderTheFingerAndTheImageStill() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
+        withCamera(Camera(PagePhotos.photo())) {
+            click(button(R.string.add_from_camera))
+            find("the crop screen") { it.says(app.getString(R.string.crop_found)) }
+            val session = checkNotNull(onMain { vm.crop.value })
+            val image = app.getString(R.string.crop_image_description)
+            fun imageBounds() = Rect().also(find("the image") { it.says(image) }::getBoundsInScreen)
+            val left = app.getString(R.string.edit_move_left)
+            fun corner(name: Int) = Rect().also(find("a corner") { it.says(app.getString(name)) && it.action(left) != null }::getBoundsInScreen)
+            // Measured once the screen has slid in.
+            waitUntil("the crop screen to settle") {
+                val now = imageBounds()
+                Thread.sleep(300)
+                now == imageBounds()
+            }
+            val before = imageBounds()
+            val topLeft = corner(R.string.crop_corner_top_left)
+            val bottomRight = corner(R.string.crop_corner_bottom_right)
+            val x0 = topLeft.exactCenterX()
+            val y0 = topLeft.exactCenterY()
+            val start = SystemClock.uptimeMillis()
+            // In real time, a frame apart: Android holds back touches timed ahead of the frames.
+            fun touch(action: Int, x: Float, y: Float) {
+                val event = MotionEvent.obtain(start, SystemClock.uptimeMillis(), action, x, y, 0)
+                event.source = InputDevice.SOURCE_TOUCHSCREEN
+                assertTrue(automation.injectInputEvent(event, true))
+                event.recycle()
+                Thread.sleep(16)
+            }
+            fun moveTo(fromX: Float, fromY: Float, toX: Float, toY: Float) {
+                for (i in 1..15) touch(MotionEvent.ACTION_MOVE, fromX + (toX - fromX) * i / 15, fromY + (toY - fromY) * i / 15)
+                // Held still a moment, as a finger is before it lets go.
+                repeat(5) { touch(MotionEvent.ACTION_MOVE, toX, toY) }
+            }
+
+            // The top-left corner dragged across the page, past the others: they make no page, and
+            // the hint says so without moving the image.
+            val farX = x0 + (bottomRight.exactCenterX() - x0) * 0.8f
+            val farY = y0 + (bottomRight.exactCenterY() - y0) * 0.8f
+            touch(MotionEvent.ACTION_DOWN, x0, y0)
+            moveTo(x0, y0, farX, farY)
+            find("the hint that the corners make no page") { it.says(app.getString(R.string.crop_not_a_page)) }
+            assertEquals(before, imageBounds())
+            // Still under the finger, it comes back near where it was, and the corners make a page again.
+            moveTo(farX, farY, x0 + 40, y0 + 40)
+            touch(MotionEvent.ACTION_UP, x0 + 40, y0 + 40)
+            find("the hint that the page was found") { it.says(app.getString(R.string.crop_found)) }
+            assertEquals(before, imageBounds())
+
+            // Done crops the page with the corner where the finger let go of it.
+            click(actionButton(R.string.crop_done))
+            waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
+            val corner = onMain { vm.items.value.single() }.original!!.corners[CropQuad.TOP_LEFT]
+            val found = session.found
+            // The image's size on the screen, from the corners found.
+            val width = (bottomRight.exactCenterX() - x0) / (found[CropQuad.BOTTOM_RIGHT].x - found[CropQuad.TOP_LEFT].x)
+            val height = (bottomRight.exactCenterY() - y0) / (found[CropQuad.BOTTOM_RIGHT].y - found[CropQuad.TOP_LEFT].y)
+            assertEquals(found[CropQuad.TOP_LEFT].x + 40 / width, corner.x, 0.01f)
+            assertEquals(found[CropQuad.TOP_LEFT].y + 40 / height, corner.y, 0.01f)
+            onMain { vm.clearAll() }
+        }
+        runBlocking { vm.awaitFileWork() }
+    }
+
     @Test fun aPhoneWithoutACameraAppSaysSo() {
         val activity = launch()
         val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }

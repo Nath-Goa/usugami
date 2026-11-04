@@ -113,6 +113,15 @@ data class CropSession(
     fun upright(quad: CropQuad): CropQuad = quad.transformed(ImageTransform.rotation(rotation).inverse()).ordered()
 }
 
+/**
+ * Image [itemId]'s page being cropped inside [quad] (on the image it is cropped from, upright). Kept
+ * in the saved state until the page is made, so a crop Android stopped Usugami in the middle of is
+ * made again.
+ */
+@Parcelize
+@TypeParceler<CropQuad, CropQuadParceler>
+data class PendingCrop(val itemId: Long, val quad: CropQuad) : Parcelable
+
 class MainViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
     // Messages are written here, in the language the user picked (see AppLanguages.localized).
     private val strings: Resources get() = AppLanguages.localized(app).resources
@@ -177,6 +186,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var lastLook: PageLook
         get() = handle.get<PageLook>(KEY_LOOK) ?: PageLook.ORIGINAL
         set(value) { handle[KEY_LOOK] = value }
+
+    /**
+     * The pages being cropped, in the saved state from the moment their corners are chosen: the
+     * pages themselves change only once each is made, often after Android has stopped Usugami.
+     */
+    private var pendingCrops: List<PendingCrop>
+        get() = handle.get<ArrayList<PendingCrop>>(KEY_PENDING_CROPS).orEmpty()
+        set(value) { handle[KEY_PENDING_CROPS] = ArrayList(value) }
 
     /** Non-null while a PDF is being created. */
     private val _progress = MutableStateFlow<Progress?>(null)
@@ -302,18 +319,29 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
         // The result that was showing when Android stopped Usugami in the background, if any.
         val shown = _result.value
-        viewModelScope.launch {
-            val (missing, resultGone) = withContext(fileOps) {
+        // Read here: photoTaken() forgets it once the camera app is back, which may be before the
+        // cleanup below runs, and the photo would be deleted.
+        val keepCapture = capture
+        val cleanup = viewModelScope.launch {
+            val (found, resultGone) = withContext(fileOps) {
                 // Leftovers from an earlier session (or half-copied files) are removed.
                 store.deleteAllExcept(keep)
-                store.clearCaptures(keep = capture)
+                store.clearCaptures(keep = keepCapture)
                 val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
                 exporter.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
-                keep.filterNot(store::exists) to (stillThere == null)
+                keep.map(store::stillThere) to (stillThere == null)
             }
-            if (missing.isNotEmpty()) forgetMissing(missing)
+            takeIn(keep, found)
             if (shown != null && resultGone && _result.value === shown) resultCleared(shown.size)
+        }
+        // Pages Android stopped Usugami in the middle of cropping are cropped again, once the cleanup
+        // has left only the files in use.
+        val resumed = pendingCrops
+        pendingCrops = emptyList()
+        for (pending in resumed) {
+            val item = items.value.firstOrNull { it.id == pending.itemId } ?: continue
+            crop(item, item.source, pending.quad, after = cleanup)
         }
         viewModelScope.launch { _result.collect(keptResult::keep) }
         viewModelScope.launch { _saved.collect { handle[KEY_SAVED] = it } }
@@ -649,7 +677,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         openingCrop = true
         viewModelScope.launch {
             try {
-                val source = item.source
+                // The image a page was cropped from may have been cleared from the cache: the page is
+                // then cropped as it is.
+                val checked = withContext(fileOps) { store.stillThere(item) }
+                val source = takeIn(listOf(item), listOf(checked)).singleOrNull()?.source ?: return@launch
                 val found = withContext(Dispatchers.IO) {
                     try {
                         PageCropper.findPage(source)?.takeIf { it.confident }?.quad
@@ -700,7 +731,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         _crop.value = null
         // The look first, so the page cropped in the background keeps it.
         val chosen = look ?: picked.look
-        if (look != null) lastLook = look
+        // The next photo starts with the look chosen, not with one a page only kept.
+        if (look != null && (session.fromCamera || allPages || look != session.look)) lastLook = look
         if (allPages) setItems(items.value.map { it.copy(look = chosen) }) else if (chosen != picked.look) replaceItem(picked.copy(look = chosen))
         val item = picked.copy(look = chosen)
         when {
@@ -723,16 +755,25 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         if (session.fromCamera) remove(session.itemId)
     }
 
-    /** Makes [item]'s page from [source], straightened inside [quad], and puts it in place. */
-    private fun crop(item: ImageItem, source: OriginalImage, quad: CropQuad) {
+    /**
+     * Makes [item]'s page from [source], straightened inside [quad], and puts it in place, once [after]
+     * is done when given. In the saved state until then (see [pendingCrops]).
+     */
+    private fun crop(item: ImageItem, source: OriginalImage, quad: CropQuad, after: Job? = null) {
         val id = item.id
         val target = store.fileFor(nextId++, source.format)
         val generation = importGeneration
         _cropping.update { it + id }
         _pendingImports.update { it + 1 }
+        pendingCrops = pendingCrops.filterNot { it.itemId == id } + PendingCrop(id, quad)
+        // The page as it was when its corners were chosen, if it still is: not removed, nor its
+        // files changed.
+        fun stillAsChosen(): ImageItem? = items.value.firstOrNull { it.id == id }?.takeIf { it.path == item.path && it.source.path == source.path }
         viewModelScope.launch {
+            after?.join()
             val page = try {
-                withContext(cropOps) { PageCropper.crop(source, quad, target) }
+                // Not made for a page removed while it waited its turn.
+                withContext(cropOps) { if (stillAsChosen() == null) null else PageCropper.crop(source, quad, target) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -743,16 +784,18 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             } finally {
                 _cropping.update { it - id }
             }
+            pendingCrops = pendingCrops.filterNot { it.itemId == id }
             if (generation != importGeneration) {
                 // Discarded while it was being cropped.
                 viewModelScope.launch(fileOps) { target.delete() }
                 return@launch
             }
             _pendingImports.update { it - 1 }
-            val current = items.value.firstOrNull { it.id == id }
+            val current = stillAsChosen()
             when {
+                // Removed, or its copy cleared, meanwhile: there is nothing to say about it.
+                current == null -> viewModelScope.launch(fileOps) { target.delete() }
                 page == null -> message(R.string.crop_failed)
-                current == null || current.source.path != source.path -> viewModelScope.launch(fileOps) { target.delete() }
                 else -> {
                     replaceItem(
                         current.copy(
@@ -823,6 +866,31 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
     }
 
+    /**
+     * Takes in what [ImageStore.stillThere] found of [pages]' files ([found], in the same order): the
+     * pages whose copy has gone are dropped, saying so, and those that only lost the image they were
+     * cropped from stay, as they are now. Returns the pages still there.
+     */
+    private fun takeIn(pages: List<ImageItem>, found: List<ImageItem?>): List<ImageItem> {
+        val moved = pages.zip(found).filter { (was, now) -> now != null && now != was }
+        if (moved.isNotEmpty()) {
+            val paths = moved.associate { (was, now) -> was.id to (was.path to now!!.path) }
+            setItems(
+                items.value.map { item ->
+                    val (from, to) = paths[item.id] ?: return@map item
+                    if (item.path == from) item.copy(path = to, original = null) else item
+                },
+            )
+            moved.forEach { (was, now) ->
+                thumbnails.remove(was)
+                thumbnails.remove(now!!)
+            }
+        }
+        val missing = pages.filterIndexed { i, _ -> found[i] == null }
+        if (missing.isNotEmpty()) forgetMissing(missing)
+        return found.filterNotNull()
+    }
+
     /** Drops images whose copies the system has cleared from the cache, and says so. */
     private fun forgetMissing(missing: List<ImageItem>) {
         val ids = missing.mapTo(HashSet()) { it.id }
@@ -859,12 +927,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val layout = _layout.value
         _progress.value = Progress(0, snapshot.size)
         conversion = viewModelScope.launch {
+            // The pages as their files are now (see takeIn).
+            var pages = snapshot
             try {
-                val missing = withContext(Dispatchers.IO) { snapshot.filterNot(store::exists) }
-                if (missing.isNotEmpty()) {
-                    forgetMissing(missing)
-                    return@launch
-                }
+                pages = takeIn(snapshot, withContext(fileOps) { snapshot.map(store::stillThere) })
+                if (pages.size < snapshot.size) return@launch
                 val files = withContext(Dispatchers.IO) {
                     if (engine != null && language != null) {
                         // Before any PDF work, so a missing recognizer is reported straight away.
@@ -874,7 +941,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                         }
                         _progress.value = Progress(0, snapshot.size)
                     }
-                    val files = exporter.export(snapshot, layout, compression, merge || snapshot.size == 1, fileName, strings.getString(R.string.app_name)) { done ->
+                    val files = exporter.export(pages, layout, compression, merge || snapshot.size == 1, fileName, strings.getString(R.string.app_name)) { done ->
                         _progress.value = Progress(done, snapshot.size)
                     }
                     if (engine == null || language == null) files else addTextLayer(files, engine, language)
@@ -892,7 +959,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 _ocrProblem.value = e.problem
             } catch (e: ImageUnreadableException) {
                 // Its copy may have been cleared from the cache while the PDF was being made.
-                val missing = withContext(Dispatchers.IO) { snapshot.filterNot(store::exists) }
+                val missing = withContext(Dispatchers.IO) { pages.filterNot(store::exists) }
                 if (missing.isNotEmpty()) forgetMissing(missing)
                 else message(R.string.msg_convert_failed, strings.getString(R.string.msg_image_unreadable, e.imageName))
             } catch (e: IOException) {
@@ -1167,6 +1234,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_CROP = "crop"
         private const val KEY_CAPTURE = "capture"
         private const val KEY_LOOK = "look"
+        private const val KEY_PENDING_CROPS = "pending_crops"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,

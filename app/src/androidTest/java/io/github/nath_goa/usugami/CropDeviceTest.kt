@@ -9,14 +9,19 @@ import android.os.SystemClock
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.CropPoint
 import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.PageCrop
+import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageFormat
+import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.OriginalImage
 import io.github.nath_goa.usugami.data.PageCropper
 import io.github.nath_goa.usugami.ui.MainViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -33,7 +38,9 @@ import kotlin.math.hypot
  * Cropping a page out of a photo: the page found on it, straightened onto a rectangle (also from a
  * photo stored sideways with an EXIF orientation, and a PNG), and through the view model a photo
  * taken with the camera app added and cropped, cropped again from the original, put back whole,
- * discarded, kept through the saved state, and a photo not taken leaving nothing behind.
+ * discarded, kept through the saved state, and a photo not taken leaving nothing behind; a crop not
+ * finished when Android stops Usugami made again, a photo back as Usugami starts again kept, a page
+ * removed while it is cropped going quietly, and a page outlasting the image it was cropped from kept.
  */
 class CropDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -321,5 +328,123 @@ class CropDeviceTest {
         onMain { restored.clearAll() }
         runBlocking { restored.awaitFileWork() }
         assertFalse(File(cropped.original!!.path).exists())
+    }
+
+    /** A photo taken as the crop screen shows it. */
+    private fun takePhoto(vm: MainViewModel): ImageItem {
+        val uri = onMain { vm.newCapture() }
+        app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        onMain { vm.photoTaken(true) }
+        waitUntil("the crop screen") { vm.crop.value != null }
+        return onMain { vm.items.value.single { it.id == vm.crop.value!!.itemId } }
+    }
+
+    @Test fun aCropUnfinishedWhenAndroidStopsUsugamiIsMadeAgain() {
+        val handle = SavedStateHandle()
+        val vm = onMain { MainViewModel(app, handle) }
+        runBlocking { vm.awaitFileWork() }
+        val taken = takePhoto(vm)
+        // Take another: the page is made in the background, and Android saves Usugami's state as the
+        // camera app opens, before the page is ready. ("items" and "pending_crops" are MainViewModel's
+        // saved-state keys.)
+        val saved = onMain {
+            assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD), PageLook.GRAYSCALE))
+            assertNull(vm.items.value.single().original)
+            mapOf("items" to MainViewModel.packItems(vm.items.value), "pending_crops" to handle.get<Any>("pending_crops"))
+        }
+        waitUntil("the page to be made before Android stops Usugami") { vm.cropping.value.isEmpty() }
+
+        // Android starts Usugami again from what it saved: the photo, not cropped, is cropped again,
+        // and a PDF waits for it.
+        val (restored, cropping, pending) = onMain {
+            MainViewModel(app, SavedStateHandle(saved)).let { Triple(it, it.cropping.value, it.pendingImports.value) }
+        }
+        assertEquals(setOf(taken.id), cropping)
+        assertEquals(1, pending)
+        waitUntil("the page to be made again") { restored.cropping.value.isEmpty() && restored.pendingImports.value == 0 }
+        val page = onMain { restored.items.value.single() }
+        assertEquals(taken.path, page.original!!.path)
+        assertTrue(page.original!!.corners.isCloseTo(PagePhotos.QUAD))
+        assertEquals(PageLook.GRAYSCALE, page.look)
+        assertStraightPage(File(page.path), page.width, page.height)
+
+        onMain { restored.clearAll() }
+        runBlocking { restored.awaitFileWork() }
+        assertEquals(emptyList<String>(), File(app.cacheDir, "images").list().orEmpty().toList())
+    }
+
+    @Test fun aPhotoBackAsUsugamiStartsAgainIsKept() {
+        val handle = SavedStateHandle()
+        val vm = onMain { MainViewModel(app, handle) }
+        runBlocking { vm.awaitFileWork() }
+        val uri = onMain { vm.newCapture() }
+        app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        // Android stopped Usugami while the camera app was open; the photo comes back as Usugami
+        // starts again, before its cleanup has run. ("capture" is MainViewModel's saved-state key.)
+        val restored = onMain {
+            MainViewModel(app, SavedStateHandle(mapOf("capture" to handle.get<String>("capture")))).also { it.photoTaken(true) }
+        }
+        waitUntil("the photo's crop screen") { restored.crop.value != null }
+        assertEquals(1, onMain { restored.items.value.size })
+        onMain { restored.closeCrop() }
+        runBlocking { restored.awaitFileWork() }
+        assertTrue(captures().isEmpty())
+    }
+
+    @Test fun aPageRemovedWhileItIsCroppedGoesWithoutAWord() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        runBlocking { vm.awaitFileWork() }
+        val images = File(app.cacheDir, "images")
+        val before = images.list().orEmpty().toSet()
+        val taken = takePhoto(vm)
+        onMain {
+            assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD)))
+            vm.remove(taken.id)
+        }
+        waitUntil("the crop to end") { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 }
+        // No "couldn't crop the page" about a page that has gone.
+        assertNull(runBlocking { withTimeoutOrNull(500) { vm.messages.first() } })
+        runBlocking { vm.awaitFileWork() }
+        assertEquals(before, images.list().orEmpty().toSet())
+    }
+
+    @Test fun aPageOutlastingTheImageItWasCroppedFromIsKept() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        runBlocking { vm.awaitFileWork() }
+        takePhoto(vm)
+        onMain { vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD)) }
+        waitUntil("the page to be cropped") { vm.cropping.value.isEmpty() && vm.items.value.single().original != null }
+        val cropped = onMain { vm.items.value.single() }
+
+        // The system clears the oldest files in the cache first: the photo goes while Usugami is away,
+        // and the page stays, as it is, with the photo's file name.
+        assertTrue(File(cropped.original!!.path).delete())
+        val restored = onMain { MainViewModel(app, SavedStateHandle(mapOf("items" to MainViewModel.packItems(listOf(cropped))))) }
+        runBlocking { restored.awaitFileWork() }
+        val kept = onMain { restored.items.value.single() }
+        assertEquals(cropped.copy(path = cropped.original!!.path, original = null), kept)
+        assertTrue(File(kept.path).isFile)
+        assertFalse(File(cropped.path).exists())
+        // As it is now, it comes back the same.
+        val again = onMain { MainViewModel(app, SavedStateHandle(mapOf("items" to MainViewModel.packItems(listOf(kept))))) }
+        runBlocking { again.awaitFileWork() }
+        assertEquals(listOf(kept), onMain { again.items.value })
+
+        // Cropped again, from the page; when that image goes too, the PDF is still made of the page.
+        onMain { again.openCrop(kept.id) }
+        waitUntil("the crop screen") { again.crop.value != null }
+        assertTrue(onMain { again.finishCrop(again.crop.value!!.shown(CropQuad.inset(0.1f))) })
+        waitUntil("the page to be cropped again") { again.cropping.value.isEmpty() && again.items.value.single().original != null }
+        val recropped = onMain { again.items.value.single() }
+        assertEquals(kept.path, recropped.original!!.path)
+        assertTrue(File(kept.path).delete())
+        onMain { again.convert(merge = true, fileName = "kept", compression = Compression.RECOMMENDED) }
+        waitUntil("the PDF") { again.result.value != null }
+        assertEquals(1, onMain { again.result.value!!.single().pageCount })
+        assertEquals(recropped.copy(path = kept.path, original = null), onMain { again.items.value.single() })
+
+        onMain { again.startOver() }
+        runBlocking { again.awaitFileWork() }
+        assertFalse(File(kept.path).exists())
     }
 }
