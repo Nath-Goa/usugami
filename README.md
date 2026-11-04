@@ -62,7 +62,13 @@ source, checks that it gets exactly the APK published here, and then offers that
 the same key as the GitHub downloads. So you can switch between F-Droid, GitHub and Obtainium
 without reinstalling.
 
-## What's new in 1.5.0
+## What's new in 1.5.1
+
+- **Usugami Lite is now an app of its own**, so it installs next to Usugami and can go on
+  F-Droid. Had Lite 1.5.0? Install the new one, then uninstall the old one.
+- **On its way to F-Droid**, with reproducible builds signed with the same key as these downloads
+
+1.5.0, the big update before it:
 
 - **Three editions:** Usugami, Usugami Lite (no Google code) and Usugami OCR (open-source text
   recognition built in)

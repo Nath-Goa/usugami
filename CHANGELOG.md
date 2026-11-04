@@ -6,6 +6,19 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-11-04
+
+### Changed
+
+- **Usugami Lite is an app of its own** (package `io.github.nath_goa.usugami.lite`), so it can be
+  listed on F-Droid and installs next to Usugami. Had Lite 1.5.0? The new Lite installs as a separate
+  app: save anything you need from the old one (listed as "Usugami"), then uninstall it.
+- **Getting ready for F-Droid**: Usugami (with the open-source text recognition of Usugami OCR) and
+  Usugami Lite build reproducibly, so F-Droid can offer exactly the APKs published here, signed with
+  the same key, and you can switch between F-Droid, GitHub and Obtainium without reinstalling.
+- Usugami OCR's text-recognition library comes out byte for byte the same wherever it is built, and
+  is 17 KB smaller.
+
 ## [1.5.0] - 2026-11-04
 
 ### Added
@@ -393,7 +406,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/Nath-Goa/usugami/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/Nath-Goa/usugami/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/Nath-Goa/usugami/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/Nath-Goa/usugami/compare/v1.3.0...v1.4.0
