@@ -81,7 +81,7 @@ and its dependency lines.)
 What keeps the builds reproducible:
 
 - Pinned tools: the Gradle wrapper with its checksum (F-Droid runs the same Gradle version with its
-  own launcher, gradlew-fdroid), AGP and Kotlin versions, NDK 28.2.13676358 (`ndk: r28c` in the
+  own launcher, gradlew-fdroid), AGP and Kotlin versions, NDK 28.2.13676358 (`ndk: 28.2.13676358` in the
   recipes) and CMake 3.22.1.
 - The OCR engine (`ocr-native/src/main/cpp/CMakeLists.txt`): a fixed `NCNN_VERSION` instead of the
   build date; no debug info (`-g0`), because clang otherwise writes the absolute path of the source

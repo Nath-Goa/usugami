@@ -98,7 +98,7 @@ jobs:
           sudo apt-get install -y -qq --no-install-recommends openjdk-21-jdk-headless python3-venv libmagic1 > /dev/null
           echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
 
-      # fdroid build uses the recipe's NDK (r28c) only if it is installed; F-Droid's build server
+      # fdroid build uses the recipe's NDK (28.2.13676358, release r28c) only if it is installed; F-Droid's build server
       # installs it by itself. The recipe's prebuild installs CMake with sdkmanager.
       - name: Install the NDK
         run: |

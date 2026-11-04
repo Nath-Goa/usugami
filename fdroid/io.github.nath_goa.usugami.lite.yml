@@ -26,7 +26,7 @@ Builds:
       - app/src/androidTestStandard
       - app/src/ocr/assets/ocr
     prebuild: sed -i -e '/com\.google\.android\.gms/d' build.gradle.kts
-    ndk: r28c
+    ndk: 28.2.13676358
 
 AllowedAPKSigningKeys: 6f4f23ade03e636a7cc368168944d0ccfc8132ef34c50bc5a46b0ca4cbbdf4ed
 
