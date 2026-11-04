@@ -31,11 +31,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -48,51 +52,60 @@ import io.github.nath_goa.usugami.data.office.OfficeProgress
 /** The picked Word, PowerPoint or EPUB file: its name, kind and size, and a button to remove it. */
 @Composable
 internal fun DocumentInputCard(document: OfficeInput, onRemove: () -> Unit) {
-    val context = LocalContext.current
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Where the PDF tools show the first page: the file has no pages until it is converted.
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.size(width = 58.dp, height = 78.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        when (document.kind) {
-                            OfficeKind.WORD -> Icons.Rounded.Description
-                            OfficeKind.POWERPOINT -> Icons.Rounded.Slideshow
-                            OfficeKind.EPUB -> Icons.Rounded.AutoStories
-                        },
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(32.dp),
-                    )
-                }
-            }
+            DocumentIcon(document.kind, Modifier.size(width = 58.dp, height = 78.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(document.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    stringResource(
-                        R.string.result_details,
-                        stringResource(
-                            when (document.kind) {
-                                OfficeKind.WORD -> R.string.document_word
-                                OfficeKind.POWERPOINT -> R.string.document_powerpoint
-                                OfficeKind.EPUB -> R.string.document_epub
-                            },
-                        ),
-                        Formatter.formatShortFileSize(context, document.file.length()),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(documentDetails(document), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, document.name)) }
         }
     }
 }
+
+/** Where the PDF tools show a PDF's first page: a file to convert has no pages until it is converted. */
+@Composable
+internal fun DocumentIcon(kind: OfficeKind, modifier: Modifier) {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small, modifier = modifier) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                when (kind) {
+                    OfficeKind.WORD -> Icons.Rounded.Description
+                    OfficeKind.POWERPOINT -> Icons.Rounded.Slideshow
+                    OfficeKind.EPUB -> Icons.Rounded.AutoStories
+                },
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(32.dp),
+            )
+        }
+    }
+}
+
+/** [document]'s kind and size, such as "Word document · 25 kB". */
+@Composable
+private fun documentDetails(document: OfficeInput): String {
+    val context = LocalContext.current
+    // Read once: the copy doesn't change while it is listed.
+    val size = remember(document.path) { document.file.length() }
+    return stringResource(
+        R.string.result_details,
+        stringResource(
+            when (document.kind) {
+                OfficeKind.WORD -> R.string.document_word
+                OfficeKind.POWERPOINT -> R.string.document_powerpoint
+                OfficeKind.EPUB -> R.string.document_epub
+            },
+        ),
+        Formatter.formatShortFileSize(context, size),
+    )
+}
+
+/** [document] as a [BatchList] shows it: its name, kind and size. */
+@Composable
+internal fun documentBatchEntry(document: OfficeInput): BatchEntry = BatchEntry(document.id, document.name, documentDetails(document))
 
 /** What converts, and what changes, in a few words under the file. */
 @Composable
@@ -134,26 +147,50 @@ internal fun BookPageOptions(page: PageSize, onPage: (PageSize) -> Unit) {
 /**
  * Converting a Word, PowerPoint or EPUB file: the page being drawn (a Word document's page count
  * isn't known until the end), or the slide or chapter out of how many; then the PDF is compressed.
+ * Converting [many] files, it also says which of them is being converted ([batch]), and the bar
+ * shows how far they all have got.
  */
 @Composable
-internal fun OfficeProgressDialog(progress: OfficeProgress?, kind: OfficeKind, onCancel: () -> Unit) {
+internal fun OfficeProgressDialog(progress: OfficeProgress?, kind: OfficeKind, onCancel: () -> Unit, many: Boolean = false, batch: BatchProgress? = null) {
     val done = progress?.done ?: 0
     val total = progress?.takeIf { !it.compressing }?.total?.takeIf { it > 0 }
+    // How far the file being converted has got; with several, it counts for its share of them all.
+    val part = when {
+        total != null -> done.toFloat() / total
+        progress?.compressing == true -> 1f
+        else -> 0f
+    }
     val fraction by animateFloatAsState(
-        targetValue = if (total == null) 0f else done.toFloat() / total,
+        targetValue = if (many) batch?.let { (it.number - 1 + part) / it.total } ?: 0f else part,
         animationSpec = Motion.medium(),
         label = "conversion progress",
     )
     AlertDialog(
         onDismissRequest = {},
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-        title = { Text(stringResource(R.string.creating_pdf)) },
+        title = { Text(stringResource(if (many) R.string.creating_pdfs else R.string.creating_pdf)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (total == null) {
+                if (if (many) batch == null else total == null) {
                     LinearProgressIndicator(Modifier.fillMaxWidth())
                 } else {
                     LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                }
+                if (many && batch != null) {
+                    Column {
+                        // A screen reader says it as it moves on to the next file.
+                        Text(
+                            stringResource(R.string.batch_progress, batch.number, batch.total),
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                        )
+                        Text(
+                            batch.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 if (progress != null && !progress.compressing && done > 0) {
                     Text(

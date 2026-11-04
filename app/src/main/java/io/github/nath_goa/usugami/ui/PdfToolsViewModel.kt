@@ -35,6 +35,8 @@ import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.CompressJob
 import io.github.nath_goa.usugami.data.DownloadsCopy
 import io.github.nath_goa.usugami.data.NothingToFlatten
+import io.github.nath_goa.usugami.data.NothingToNumber
+import io.github.nath_goa.usugami.data.NumberingJob
 import io.github.nath_goa.usugami.data.PagePictures
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
 import io.github.nath_goa.usugami.data.PdfCompression
@@ -47,10 +49,12 @@ import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.PdfWrongPassword
 import io.github.nath_goa.usugami.data.ResultZip
 import io.github.nath_goa.usugami.data.Signature
+import io.github.nath_goa.usugami.data.ToolJob
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkFontMissing
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
+import io.github.nath_goa.usugami.data.office.ConvertJob
 import io.github.nath_goa.usugami.data.office.EpubProtected
 import io.github.nath_goa.usugami.data.office.OfficeConverter
 import io.github.nath_goa.usugami.data.office.OfficeEmbeddedContent
@@ -81,8 +85,9 @@ import java.util.concurrent.ConcurrentHashMap
  * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD,
  * POWERPOINT and EPUB, which turn one Word, PowerPoint or EPUB file into a PDF. REORGANIZE works on
  * one PDF and can take pages from others. EDIT puts text, drawings, shapes and pictures on a PDF's
- * pages. REDACT removes what is under its boxes for good. COMPRESS also works on several PDFs, one
- * after another, each into a PDF of its own (see [isBatch]).
+ * pages. REDACT removes what is under its boxes for good. COMPRESS, PAGE_NUMBERS, WATERMARK and
+ * FLATTEN also work on several PDFs, and WORD, POWERPOINT and EPUB on several files, one after
+ * another, each into a PDF of its own (see [isBatch]).
  */
 enum class PdfTool {
     SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB,
@@ -90,10 +95,15 @@ enum class PdfTool {
 }
 
 /**
- * Whether the tool takes several PDFs at once and makes a PDF of each, with a name and choices of
- * its own (see [PdfToolsViewModel.batch]). With one PDF it works as the other tools do.
+ * Whether the tool takes several PDFs (or, for Word, PowerPoint and EPUB to PDF, several files) at
+ * once and makes a PDF of each, with a name and choices of its own (see [PdfToolsViewModel.batch]).
+ * With one it works as the other tools do.
  */
-val PdfTool.isBatch: Boolean get() = this == PdfTool.COMPRESS
+val PdfTool.isBatch: Boolean
+    get() = when (this) {
+        PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.FLATTEN, PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> true
+        else -> false
+    }
 
 /** The kind of file a tool converts to PDF; null for the tools that work on PDFs. */
 val PdfTool.officeKind: OfficeKind?
@@ -141,13 +151,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      */
     val signature: StateFlow<Signature?> = handle.getStateFlow(KEY_SIGNATURE, null)
 
-    /** The Word, PowerPoint or EPUB file picked for Word, PowerPoint or EPUB to PDF. */
-    val document: StateFlow<OfficeInput?> = handle.getStateFlow(KEY_DOCUMENT, null)
+    /** The Word, PowerPoint or EPUB files picked for Word, PowerPoint or EPUB to PDF, in order. */
+    val documents: StateFlow<List<OfficeInput>> = handle.getStateFlow(KEY_DOCUMENTS, ArrayList<OfficeInput>())
 
     /**
-     * For a tool that works on several PDFs at once ([isBatch]): the name each one's PDF gets, and
-     * its own choice (Compress PDF's level, by [PdfCompression.ordinal]). They follow [inputs], and
-     * are kept in the saved state in a few bytes per PDF.
+     * For a tool that works on several PDFs or files at once ([isBatch]): the name each one's PDF
+     * gets, and its own choice (Compress PDF's level, by [PdfCompression.ordinal]). They follow
+     * [inputs] and [documents], and are kept in the saved state in a few bytes per file.
      */
     private val _batch = MutableStateFlow(restoredBatch())
     val batch: StateFlow<BatchChoices> = _batch.asStateFlow()
@@ -182,7 +192,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val _finding = MutableStateFlow(false)
     val finding = _finding.asStateFlow()
 
-    /** How far converting [document] has got, while it is being converted. */
+    /** How far converting the file in [documents] being converted has got. */
     private val _convertProgress = MutableStateFlow<OfficeProgress?>(null)
     val convertProgress = _convertProgress.asStateFlow()
 
@@ -272,7 +282,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** Share screens for ZIP files of the result's PDFs, once each is ready. */
     val zipShares = zipper.shares
 
-    private var nextId = maxOf(System.currentTimeMillis(), ((inputs.value + locked.value).maxOfOrNull { it.id } ?: 0) + 1)
+    private var nextId = maxOf(System.currentTimeMillis(), (((inputs.value + locked.value).map { it.id } + documents.value.map { it.id }).maxOrNull() ?: 0) + 1)
     private var task: Job? = null
     private var importJob: Job? = null
     private var viewJob: Job? = null
@@ -282,16 +292,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     init {
         val keep = if (restored) inputs.value + locked.value else emptyList()
-        val keepDocument = document.value
+        val keepDocuments = documents.value
         val keepPictures = history.items.value.filterIsInstance<PictureItem>().map { it.path }
         // The result that was showing when Android stopped Usugami in the background, if any.
         val shown = _result.value
         viewModelScope.launch {
             var resultGone = false
-            val (missing, documentMissing) = withContext(fileOps) {
+            val (missing, documentsMissing) = withContext(fileOps) {
                 // Leftovers from an earlier session, including PDFBox scratch files from a killed run.
                 engine.deleteAllExcept(keep)
-                office.deleteAllExcept(keepDocument)
+                office.deleteAllExcept(keepDocuments)
                 pictures.deleteAllExcept(keepPictures)
                 val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
                 resultGone = stillThere == null
@@ -299,11 +309,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 engine.clearScratch()
                 office.clearWork()
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
-                keep.filterNot { it.file.isFile } to (keepDocument != null && !keepDocument.file.isFile)
+                keep.filterNot { it.file.isFile } to keepDocuments.filterNot { it.file.isFile }
             }
             val picturesMissing = withContext(fileOps) { keepPictures.filterNot { File(it).isFile } }
             if (missing.isNotEmpty()) forgetInputs(missing)
-            if (documentMissing) forgetDocument()
+            if (documentsMissing.isNotEmpty()) forgetDocuments(documentsMissing)
             if (picturesMissing.isNotEmpty()) forgetPictures(picturesMissing)
             if (shown != null && resultGone && _result.value === shown) resultCleared(shown.size)
             // The views were cleared with the leftovers.
@@ -356,43 +366,77 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
 
-    /** Copies the Word, PowerPoint or EPUB file at [uri] in, in place of the one picked before. */
-    fun addDocument(uri: Uri, kind: OfficeKind) {
-        if (_processing.value || _importing.value) return
+    /**
+     * Copies the Word, PowerPoint or EPUB files at [uris] in, after those picked before. Files that
+     * can't be converted are left out, saying why; with several picked at once, naming them.
+     */
+    fun addDocuments(uris: List<Uri>, kind: OfficeKind) {
+        if (uris.isEmpty() || _processing.value || _importing.value) return
         _importing.value = true
         val generation = ++importGeneration
         importJob = viewModelScope.launch {
             val job = coroutineContext[Job]!!
             fun abandoned() = generation != importGeneration
-            fun failed(text: String) { if (!abandoned()) message(text) }
+            // Why each file left out was, and their names: those alike are named in one message.
+            val refused = LinkedHashMap<String, MutableList<String>>()
+            suspend fun failed(uri: Uri, text: String) {
+                if (abandoned()) return
+                val name = withContext(fileOps) { office.displayName(uri) } ?: "${kind.fallbackName}.${kind.extension}"
+                refused.getOrPut(text) { ArrayList() } += name
+            }
             try {
-                val input = withContext(fileOps) { office.import(uri, nextId++, kind) { job.ensureActive() } }
-                if (abandoned()) {
-                    withContext(fileOps) { office.delete(input) }
-                    return@launch
+                for (uri in uris) {
+                    try {
+                        val input = withContext(fileOps) { office.import(uri, nextId++, kind) { job.ensureActive() } }
+                        if (abandoned()) {
+                            withContext(fileOps) { office.delete(input) }
+                            return@launch
+                        }
+                        setDocuments(documents.value + input)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: OfficeFileProblem) {
+                        failed(uri, officeMessage(e, kind))
+                    } catch (e: Exception) {
+                        failed(uri, if (e.isOutOfSpace()) strings.getString(R.string.open_no_space) else officeMessage(OfficeNotRecognized(), kind))
+                    } catch (_: OutOfMemoryError) {
+                        failed(uri, officeMessage(OfficeNotRecognized(), kind))
+                    }
                 }
-                val old = document.value
-                handle[KEY_DOCUMENT] = input
-                if (old != null) viewModelScope.launch(fileOps) { office.delete(old) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: OfficeFileProblem) {
-                failed(officeMessage(e, kind))
-            } catch (e: Exception) {
-                failed(if (e.isOutOfSpace()) strings.getString(R.string.open_no_space) else officeMessage(OfficeNotRecognized(), kind))
-            } catch (_: OutOfMemoryError) {
-                failed(officeMessage(OfficeNotRecognized(), kind))
             } finally {
-                if (!abandoned()) _importing.value = false
+                if (!abandoned()) {
+                    _importing.value = false
+                    // One file picked is told about as before, without its name.
+                    for ((text, names) in refused) message(if (uris.size == 1) text else strings.getString(R.string.file_problem, names.joinToString(", "), text))
+                }
             }
         }
     }
 
-    /** Converts [document] to a PDF named [fileName]; a book is laid out on [bookPage] (A5 or A4). */
-    fun runConvert(fileName: String, bookPage: PageSize = PageSize.A5) {
-        val input = document.value ?: return
-        process(fileName, emptyList(), input) { check ->
-            listOf(office.convert(input, fileName, bookPage, check) { _convertProgress.value = it })
+    /** Puts away the Word, PowerPoint or EPUB file [id], and frees its copy. */
+    fun removeDocument(id: Long) {
+        val input = documents.value.firstOrNull { it.id == id } ?: return
+        setDocuments(documents.value - input)
+        viewModelScope.launch(fileOps) { office.delete(input) }
+    }
+
+    /**
+     * Converts every file in [documents] into a PDF of its own name ([outputName]), one after
+     * another; a book is laid out on [bookPage] (A5 or A4). One file is converted as it always was.
+     */
+    fun runConvertAll(bookPage: PageSize = PageSize.A5) {
+        val list = documents.value
+        if (list.size <= 1) {
+            val input = list.firstOrNull() ?: return
+            val fileName = outputName(input)
+            process(fileName, emptyList(), list) { check ->
+                listOf(office.convert(input, fileName, bookPage, check) { _convertProgress.value = it })
+            }
+            return
+        }
+        val jobs = list.map { ConvertJob(it, outputName(it)) }
+        processEach("Converted_PDFs", list.map { it.name }, emptyList(), list) { check, onNext ->
+            office.convertEach(jobs, bookPage, check, onNext) { _convertProgress.value = it }
         }
     }
 
@@ -412,10 +456,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         },
     )
 
-    /** The picked document's copy was cleared from the cache: drop it, and say so. */
-    private fun forgetDocument() {
-        handle[KEY_DOCUMENT] = null
-        pluralMessage(R.plurals.msg_files_cleared, 1)
+    /** The copies of [missing], files picked to convert, were cleared from the cache: drop them, and say so. */
+    private fun forgetDocuments(missing: List<OfficeInput>) {
+        val ids = missing.mapTo(HashSet()) { it.id }
+        setDocuments(documents.value.filterNot { it.id in ids })
+        pluralMessage(R.plurals.msg_files_cleared, ids.size)
+    }
+
+    private fun setDocuments(list: List<OfficeInput>) {
+        handle[KEY_DOCUMENTS] = ArrayList(list)
+        followBatch()
     }
 
     private var unlockJob: Job? = null
@@ -774,7 +824,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             return
         }
         val jobs = list.map { CompressJob(it, compressionOf(it), outputName(PdfTool.COMPRESS, it)) }
-        processEach("Compressed_PDFs", list) { check, onNext -> engine.compressEach(jobs, check, onNext) }
+        processEach("Compressed_PDFs", list.map { it.name }, list) { check, onNext -> engine.compressEach(jobs, check, onNext) }
     }
 
     /** The level [input] is to be compressed at: its own, or the one chosen for all. */
@@ -792,12 +842,18 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** The name [tool] gives the PDF it makes of [input]: the one typed, or its own. */
     fun outputName(tool: PdfTool, input: PdfInput): String = _batch.value.nameOf(input.id) ?: defaultName(tool, input)
 
+    /** The name the PDF made of [document] gets: the one typed, or the file's own (Report.docx becomes Report). */
+    fun outputName(document: OfficeInput): String = _batch.value.nameOf(document.id) ?: FileNames.baseName(document.name)
+
     private fun setBatch(choices: BatchChoices) {
         if (choices == _batch.value) return
         _batch.value = choices
         val packed = choices.pack()
         handle[KEY_BATCH] = bundleOf("ids" to packed.ids, "names" to packed.names, "choices" to packed.choices, "all" to packed.all)
     }
+
+    /** The names and choices follow the PDFs and the files to convert, whichever the tool has. */
+    private fun followBatch() = setBatch(_batch.value.following(inputs.value.map { it.id } + documents.value.map { it.id }))
 
     /** What [setBatch] kept, or none, with the level for all at Recommended. */
     private fun restoredBatch(): BatchChoices {
@@ -831,6 +887,31 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         process(fileName, listOf(input)) { check -> listOf(engine.addPageNumbers(input, numbered, position, size, fileName, check)) }
     }
 
+    /**
+     * Numbers every PDF the same way, each into a PDF of its own name ([outputName]), one after
+     * another. [skip] is read against the longest PDF, and a PDF with every page skipped is left out,
+     * saying so (see [PageNumbers.numberedEach]). One PDF is numbered as [runPageNumbers] does.
+     */
+    fun runPageNumbersAll(position: PageNumberPosition, size: PageNumberSize, skip: String) {
+        val list = inputs.value
+        if (list.size <= 1) {
+            list.firstOrNull()?.let { runPageNumbers(position, size, skip, outputName(PdfTool.PAGE_NUMBERS, it)) }
+            return
+        }
+        val numbered = try {
+            PageNumbers.numberedEach(skip, list.map { it.pageCount })
+        } catch (e: PageSelectionException) {
+            message(pageSelectionMessage(e))
+            return
+        }
+        if (numbered.all { it.isEmpty() }) {
+            message(strings.getString(R.string.page_numbers_all_skipped))
+            return
+        }
+        val jobs = list.mapIndexed { i, input -> NumberingJob(input, numbered[i], outputName(PdfTool.PAGE_NUMBERS, input)) }
+        processEach("Numbered_PDFs", list.map { it.name }, list) { check, onNext -> engine.addPageNumbersEach(jobs, position, size, check, onNext) }
+    }
+
     fun runWatermark(text: String, color: WatermarkColor, opacity: WatermarkOpacity, fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
         if (text.isBlank()) return
@@ -840,6 +921,25 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             return
         }
         process(fileName, listOf(input)) { check -> listOf(engine.addWatermark(input, text, color, opacity, fileName, check)) }
+    }
+
+    /**
+     * Puts the same watermark on every PDF, each into a PDF of its own name ([outputName]), one
+     * after another. One PDF gets it as [runWatermark] does.
+     */
+    fun runWatermarkAll(text: String, color: WatermarkColor, opacity: WatermarkOpacity) {
+        val list = inputs.value
+        if (list.size <= 1) {
+            list.firstOrNull()?.let { runWatermark(text, color, opacity, outputName(PdfTool.WATERMARK, it)) }
+            return
+        }
+        if (text.isBlank()) return
+        if (!WatermarkText.canDraw(text)) {
+            message(strings.getString(R.string.watermark_no_font))
+            return
+        }
+        val jobs = list.map { ToolJob(it, outputName(PdfTool.WATERMARK, it)) }
+        processEach("Watermarked_PDFs", list.map { it.name }, list) { check, onNext -> engine.addWatermarkEach(jobs, text, color, opacity, check, onNext) }
     }
 
     /** Saves the PDF without the pages in [text], typed like "2,5-7"; it must leave at least one page. */
@@ -875,6 +975,32 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             droppedXfa = result.droppedDynamicXfa
             keptFields = result.keptFields
             listOf(result.file)
+        }
+    }
+
+    /**
+     * Flattens every PDF, each into a PDF of its own name ([outputName]), one after another. One with
+     * nothing to flatten is left out, saying so, and what [runFlatten] says of one PDF is said of
+     * each, naming it. One PDF is flattened as [runFlatten] does.
+     */
+    fun runFlattenAll() {
+        val list = inputs.value
+        if (list.size <= 1) {
+            list.firstOrNull()?.let { runFlatten(outputName(PdfTool.FLATTEN, it)) }
+            return
+        }
+        val jobs = list.map { ToolJob(it, outputName(PdfTool.FLATTEN, it)) }
+        var notes = emptyList<String>()
+        processEach("Flattened_PDFs", list.map { it.name }, list, afterResult = { notes.forEach(::message) }) { check, onNext ->
+            val outcomes = engine.flattenEach(jobs, check, onNext)
+            notes = outcomes.withIndex().flatMap { (i, outcome) ->
+                val result = outcome.getOrNull() ?: return@flatMap emptyList()
+                listOfNotNull(
+                    strings.getString(R.string.flatten_xfa_dropped).takeIf { result.droppedDynamicXfa },
+                    strings.getQuantityString(R.plurals.flatten_fields_kept, result.keptFields, result.keptFields).takeIf { result.keptFields > 0 },
+                ).map { strings.getString(R.string.file_problem, list[i].name, it) }
+            }
+            outcomes.map { outcome -> outcome.map { it.file } }
         }
     }
 
@@ -1063,7 +1189,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             val job = coroutineContext[Job]!!
             try {
                 val view = withContext(fileOps) { if (input.file.isFile) engine.previewView(input) { job.ensureActive() } else null }
-                if (inputs.value.singleOrNull()?.id == input.id) _previewView.value = view
+                // Still the PDF previewed: the only one, or the first of those Add watermark has.
+                if (inputs.value.firstOrNull()?.id == input.id) _previewView.value = view
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1081,7 +1208,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      * [noSpace]: the storage was too full to write the view, rather than the PDF being unreadable.
      */
     private fun failedView(input: PdfInput, required: Boolean, noSpace: Boolean = false) {
-        if (inputs.value.singleOrNull()?.id != input.id) return
+        if (inputs.value.firstOrNull()?.id != input.id) return
         if (!required) return run { _previewView.value = input }
         message(strings.getString(if (noSpace) R.string.open_no_space else R.string.pdf_import_failed))
         removeInput(input.id)
@@ -1238,37 +1365,83 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /**
-     * Runs a tool on each of [sources] in turn, with [block] (see [PdfToolsEngine.each]), which tells
-     * which PDF starts: the progress shows it. A PDF that fails is named in a message once the others
-     * are made; with none made, there is no result. [name] is what the PDFs are called together, as a
-     * ZIP file of them is.
+     * Runs a tool on each of the files named [names] in turn (the PDFs [sources], or the files to
+     * convert [documents]), with [block] (see [PdfToolsEngine.each]), which tells which starts: the
+     * progress shows it. A file that fails is named in a message once the others are made, saying why
+     * (see [reportFailures]); with none made, there is no result. [name] is what the PDFs are called
+     * together, as a ZIP file of them is. [afterResult] runs once they are shown.
      */
-    private fun processEach(name: String, sources: List<PdfInput>, block: (check: () -> Unit, onNext: (Int) -> Unit) -> List<Result<PdfFile>>) {
-        var failed = emptyList<String>()
-        process(name, sources, afterResult = { if (failed.isNotEmpty()) batchFailedMessage(failed) }) { check ->
-            val outcomes = block(check) { i -> _batchProgress.value = BatchProgress(i + 1, sources.size, sources[i].name) }
-            failed = sources.filterIndexed { i, _ -> outcomes[i].isFailure }.map { it.name }
-            outcomes.mapNotNull { it.getOrNull() }.ifEmpty { throw BatchFailed(failed) }
+    private fun processEach(
+        name: String,
+        names: List<String>,
+        sources: List<PdfInput>,
+        documents: List<OfficeInput> = emptyList(),
+        afterResult: () -> Unit = {},
+        block: (check: () -> Unit, onNext: (Int) -> Unit) -> List<Result<PdfFile>>,
+    ) {
+        var failures = emptyList<Pair<String, Throwable>>()
+        val afterAll: (List<PdfFile>) -> Unit = {
+            reportFailures(failures)
+            afterResult()
+        }
+        process(name, sources, documents, afterAll) { check ->
+            val outcomes = block(check) { i ->
+                _convertProgress.value = null
+                _batchProgress.value = BatchProgress(i + 1, names.size, names[i])
+            }
+            failures = outcomes.withIndex().mapNotNull { (i, outcome) -> outcome.exceptionOrNull()?.let { names[i] to it } }
+            outcomes.mapNotNull { it.getOrNull() }.ifEmpty { throw BatchFailed(failures) }
         }
     }
 
-    private fun batchFailedMessage(names: List<String>) =
-        message(strings.getQuantityString(R.plurals.batch_failed, names.size, names.size, names.joinToString(", ")))
+    /**
+     * Says which files of several couldn't be made into PDFs, by name: those with nothing to do (no
+     * page left to number, nothing to flatten) together, those with a reason of their own each with
+     * it, and the rest together.
+     */
+    private fun reportFailures(failures: List<Pair<String, Throwable>>) {
+        val failed = ArrayList<String>()
+        val nothingToNumber = ArrayList<String>()
+        val nothingToFlatten = ArrayList<String>()
+        for ((name, e) in failures) {
+            when {
+                e is NothingToNumber -> nothingToNumber += name
+                e is NothingToFlatten && !e.dynamicXfa -> nothingToFlatten += name
+                else -> failureReason(e)?.let { message(strings.getString(R.string.file_problem, name, it)) } ?: failed.add(name)
+            }
+        }
+        fun named(@PluralsRes res: Int, names: List<String>) {
+            if (names.isNotEmpty()) message(strings.getQuantityString(res, names.size, names.size, names.joinToString(", ")))
+        }
+        named(R.plurals.batch_nothing_to_number, nothingToNumber)
+        named(R.plurals.batch_nothing_to_flatten, nothingToFlatten)
+        named(R.plurals.batch_failed, failed)
+    }
+
+    /** Why one of several files couldn't be made into a PDF, when there is more to say than that it failed. */
+    private fun failureReason(e: Throwable): String? = when (e) {
+        is OfficeFileProblem -> officeMessage(e, documents.value.firstOrNull()?.kind ?: OfficeKind.WORD)
+        is NothingToFlatten -> strings.getString(R.string.flatten_xfa_only)
+        is PdfCertificateEncrypted -> strings.getString(R.string.pdf_certificate_unsupported)
+        is WatermarkFontMissing -> strings.getString(R.string.watermark_no_font)
+        else -> null
+    }
 
     /**
-     * Runs [block], which reads [sources] (or the Word or PowerPoint file [document]) and makes PDFs
-     * named after [name]. Every tool writes PDFs without a password.
+     * Runs [block], which reads [sources] (or the Word, PowerPoint or EPUB files [documents]) and
+     * makes PDFs named after [name]. Every tool writes PDFs without a password.
      */
     private fun process(
         name: String,
         sources: List<PdfInput>,
-        document: OfficeInput? = null,
+        documents: List<OfficeInput> = emptyList(),
         afterResult: (List<PdfFile>) -> Unit = {},
         block: (() -> Unit) -> List<PdfFile>,
     ) {
         if (_processing.value || _importing.value) return
         _processing.value = true
         _convertProgress.value = null
+        val document = documents.firstOrNull()
         task = viewModelScope.launch {
             try {
                 val job = coroutineContext[Job]!!
@@ -1277,8 +1450,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     forgetInputs(missing)
                     return@launch
                 }
-                if (document != null && withContext(fileOps) { !document.file.isFile }) {
-                    forgetDocument()
+                val documentsMissing = withContext(fileOps) { documents.filterNot { it.file.isFile } }
+                if (documentsMissing.isNotEmpty()) {
+                    forgetDocuments(documentsMissing)
                     return@launch
                 }
                 val files = withContext(fileOps) { block { job.ensureActive() } }
@@ -1306,7 +1480,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             } catch (e: PicturesCleared) {
                 forgetPictures(e.paths)
             } catch (e: BatchFailed) {
-                batchFailedMessage(e.names)
+                reportFailures(e.failures)
             } catch (e: Exception) {
                 message(
                     if (e.isOutOfSpace()) strings.getString(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_space))
@@ -1386,7 +1560,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setInputs(emptyList())
         setPages(emptyList())
         setLocked(emptyList())
-        handle[KEY_DOCUMENT] = null
+        setDocuments(emptyList())
         handle[KEY_INSERT_AFTER] = null
         handle[KEY_PICTURE_PAGE] = null
         // The next tool starts with its own names and the level for all at Recommended.
@@ -1399,7 +1573,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         // save of the result (its PDFs or a ZIP file of them) to finish.
         viewModelScope.launch(fileOps) {
             engine.deleteAllExcept(emptyList())
-            office.deleteAllExcept(null)
+            office.deleteAllExcept(emptyList())
             pictures.deleteAllExcept(emptyList())
             engine.clearOutput()
             office.clearWork()
@@ -1416,11 +1590,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     private fun clearInputs() {
         val old = inputs.value + locked.value
-        val oldDocument = document.value
+        val oldDocuments = documents.value
         setInputs(emptyList())
         setPages(emptyList())
         setLocked(emptyList())
-        handle[KEY_DOCUMENT] = null
+        setDocuments(emptyList())
         handle[KEY_INSERT_AFTER] = null
         clearUndo()
         // What was added belongs to the PDF's pages.
@@ -1429,7 +1603,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         clearRedaction()
         _wrongPassword.value = false
         old.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
-        oldDocument?.let { viewModelScope.launch(fileOps) { office.delete(it) } }
+        oldDocuments.forEach { viewModelScope.launch(fileOps) { office.delete(it) } }
         if (hadItems) viewModelScope.launch(fileOps) { pictures.deleteAllExcept(emptyList()) }
     }
 
@@ -1620,7 +1794,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val base = input?.name?.let(FileNames::baseName) ?: "Usugami"
         return when (tool) {
             // A converted document keeps its name: Report.docx becomes Report.pdf.
-            PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> document.value?.name?.let(FileNames::baseName) ?: "Usugami"
+            PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> documents.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"
             PdfTool.SPLIT -> "${base}_split"
             PdfTool.COMPRESS -> "${base}_compressed"
             PdfTool.MERGE -> "Merged_PDF"
@@ -1638,7 +1812,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     private fun setInputs(list: List<PdfInput>) {
         handle[KEY_INPUTS] = ArrayList(list)
-        setBatch(_batch.value.following(list.map { it.id }))
+        followBatch()
         // The views of PDFs put away go with them (their files are deleted with the copies).
         if (_views.value.isNotEmpty()) _views.value = _views.value.filterKeys { id -> list.any { it.id == id } }
         for (id in viewJobs.keys.filter { id -> list.none { it.id == id } }) viewJobs.remove(id)?.cancel()
@@ -1695,10 +1869,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         // Not when the system merely destroyed the activity: the saved state still lists the copies.
         if (!finishing) return
         val old = inputs.value + locked.value
-        val oldDocument = document.value
+        val oldDocuments = documents.value
         Thread {
             old.forEach(engine::delete)
-            oldDocument?.let(office::delete)
+            oldDocuments.forEach(office::delete)
             pictures.deleteAllExcept(emptyList())
         }.start()
     }
@@ -1710,7 +1884,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_BLANK_SIZES = "pdf_blank_sizes"
         const val KEY_LOCKED = "pdf_locked"
         const val KEY_SIGNATURE = "signature"
-        const val KEY_DOCUMENT = "document"
+        const val KEY_DOCUMENTS = "documents"
         const val KEY_INSERT_AFTER = "insert_after"
         const val KEY_PICTURE_PAGE = "edit_picture_page"
         const val KEY_SAVED = "saved"
@@ -1741,5 +1915,5 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 /** Pictures put on Edit PDF's pages whose copies the system has cleared from the cache. */
 private class PicturesCleared(val paths: List<String>) : Exception()
 
-/** No PDF of a batch could be made: [names] are the PDFs that failed. */
-private class BatchFailed(val names: List<String>) : Exception()
+/** No PDF of a batch could be made: [failures] are the files that failed, by name, and why. */
+private class BatchFailed(val failures: List<Pair<String, Throwable>>) : Exception()

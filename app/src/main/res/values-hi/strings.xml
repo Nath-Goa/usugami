@@ -60,6 +60,16 @@
         <item quantity="one">%2$s को प्रोसेस नहीं किया जा सका। फ़ाइल और स्टोरेज में खाली जगह जांचें।</item>
         <item quantity="other">%1$d फ़ाइलें प्रोसेस नहीं की जा सकीं: %2$s। फ़ाइलें और स्टोरेज में खाली जगह जांचें।</item>
     </plurals>
+    <!-- A file's name, then what is wrong with it or what happened to it, as said of one file. %1$s may also list several names. -->
+    <string name="file_problem">%1$s: %2$s</string>
+    <plurals name="batch_nothing_to_number" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s में नंबर लगाने के लिए कोई पेज नहीं बचा, इसलिए उसे छोड़ दिया गया।</item>
+        <item quantity="other">%1$d PDF में नंबर लगाने के लिए कोई पेज नहीं बचा, इसलिए उन्हें छोड़ दिया गया: %2$s।</item>
+    </plurals>
+    <plurals name="batch_nothing_to_flatten" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s में फ़्लैटन करने के लिए कोई फ़ॉर्म फ़ील्ड या टिप्पणी नहीं है, इसलिए उसे छोड़ दिया गया।</item>
+        <item quantity="other">%1$d PDF में फ़्लैटन करने के लिए कोई फ़ॉर्म फ़ील्ड या टिप्पणी नहीं है, इसलिए उन्हें छोड़ दिया गया: %2$s।</item>
+    </plurals>
     <string name="pdf_file_mode">फ़ाइलें</string>
     <string name="pdf_page_mode">पेज</string>
     <string name="pdf_file_mode_hint">पूरी PDF फ़ाइलों को अपने मनचाहे क्रम में लगाएं।</string>
@@ -107,6 +117,14 @@
     <string name="pdf_rotate_action">PDF घुमाएं</string>
     <string name="pdf_page_numbers_action">पेज नंबर जोड़ें</string>
     <string name="pdf_watermark_action">वॉटरमार्क जोड़ें</string>
+    <plurals name="pdf_page_numbers_action_many">
+        <item quantity="one">%d PDF में पेज नंबर जोड़ें</item>
+        <item quantity="other">%d PDF में पेज नंबर जोड़ें</item>
+    </plurals>
+    <plurals name="pdf_watermark_action_many">
+        <item quantity="one">%d PDF में वॉटरमार्क जोड़ें</item>
+        <item quantity="other">%d PDF में वॉटरमार्क जोड़ें</item>
+    </plurals>
     <string name="rotate_all">सभी पेज</string>
     <string name="rotate_all_left">सभी पेज बाईं ओर घुमाएं</string>
     <string name="rotate_all_right">सभी पेज दाईं ओर घुमाएं</string>
@@ -129,6 +147,7 @@
     <string name="page_numbers_skip_hint" tools:ignore="TypographyDashes">ज़रूरी नहीं। उदाहरण के लिए: 1 या 1-2,5</string>
     <string name="page_numbers_note">हर पेज पर उसका अपना नंबर लगता है: पेज 1 छोड़ने पर भी पेज 2 पर नंबर 2 ही लगेगा।</string>
     <string name="page_numbers_all_skipped">कम से कम एक पेज पर नंबर लगने दें।</string>
+    <string name="page_numbers_for_all_hint">हर PDF पर एक ही तरह से नंबर लगेंगे। बिना नंबर वाले पेज हर उस PDF में छोड़े जाएंगे जिसमें वे हैं।</string>
     <string name="watermark_text">वॉटरमार्क का टेक्स्ट</string>
     <string name="watermark_text_hint">हर पेज के बीच में बड़े अक्षरों में लिखा जाएगा</string>
     <string name="watermark_color">रंग</string>
@@ -143,6 +162,7 @@
     <string name="opacity_opaque">अपारदर्शी</string>
     <string name="watermark_preview">झलक</string>
     <string name="watermark_preview_description">वॉटरमार्क के साथ पेज 1</string>
+    <string name="watermark_for_all_hint">हर PDF पर यही वॉटरमार्क लगेगा। झलक में पहली PDF दिखती है।</string>
     <string name="watermark_no_font">इस फ़ोन में इनमें से कुछ अक्षरों के लिए फ़ॉन्ट नहीं है। कोई दूसरा टेक्स्ट आज़माएं।</string>
     <!-- Sign PDF: a picture of a handwritten signature, never a certified digital one -->
     <string name="pdf_sign_action">PDF पर साइन करें</string>
@@ -211,8 +231,10 @@
     <string name="tool_word_detail">डॉक्यूमेंट (.docx) इसी फ़ोन पर PDF में बदलें</string>
     <string name="tool_powerpoint">PowerPoint से PDF</string>
     <string name="tool_powerpoint_detail">स्लाइड (.pptx), हर स्लाइड एक पेज</string>
-    <string name="pick_word">Word फ़ाइल चुनें</string>
-    <string name="pick_powerpoint">PowerPoint फ़ाइल चुनें</string>
+    <string name="pick_word">Word फ़ाइलें चुनें</string>
+    <string name="pick_powerpoint">PowerPoint फ़ाइलें चुनें</string>
+    <string name="add_word">Word फ़ाइलें जोड़ें</string>
+    <string name="add_powerpoint">PowerPoint फ़ाइलें जोड़ें</string>
     <string name="document_word">Word डॉक्यूमेंट</string>
     <string name="document_powerpoint">PowerPoint प्रेज़ेंटेशन</string>
     <string name="office_note_word">टेक्स्ट, हेडिंग, लिस्ट, टेबल और इमेज PDF में आ जाती हैं। डॉक्यूमेंट के फ़ॉन्ट की जगह आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं, इसलिए कुछ लाइनें अलग जगह पर टूट सकती हैं।</string>
@@ -252,6 +274,10 @@
     <string name="reorganize_page_blank">पेज %1$d, खाली</string>
     <string name="undo">पहले जैसा करें</string>
     <string name="pdf_flatten_action">PDF फ़्लैटन करें</string>
+    <plurals name="pdf_flatten_action_many">
+        <item quantity="one">%d PDF फ़्लैटन करें</item>
+        <item quantity="other">%d PDF फ़्लैटन करें</item>
+    </plurals>
     <string name="flatten_note">फ़ॉर्म फ़ील्ड, टिप्पणियां और ड्रॉइंग पेज का हिस्सा बन जाती हैं, इसलिए उन्हें बदला या भरा नहीं जा सकता। लिंक काम करते रहते हैं।</string>
     <string name="flatten_nothing">इस PDF में फ़्लैटन करने के लिए कोई फ़ॉर्म फ़ील्ड या टिप्पणी नहीं है।</string>
     <string name="flatten_xfa_only">इस PDF का फ़ॉर्म एक डायनैमिक XFA फ़ॉर्म है, जिसे Usugami फ़्लैटन नहीं कर सकता।</string>
@@ -301,7 +327,8 @@
     <string name="edit_page_edited">बदला गया</string>
     <string name="tool_epub">EPUB से PDF</string>
     <string name="tool_epub_detail">ई-बुक (.epub), पेजों में</string>
-    <string name="pick_epub">EPUB फ़ाइल चुनें</string>
+    <string name="pick_epub">EPUB फ़ाइलें चुनें</string>
+    <string name="add_epub">EPUB फ़ाइलें जोड़ें</string>
     <string name="document_epub">EPUB ई-बुक</string>
     <string name="office_note_epub">अध्याय, हेडिंग, टेक्स्ट की स्टाइल, लिस्ट, टेबल और इमेज PDF में आ जाती हैं, और विषय-सूची बुकमार्क बन जाती है। आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं।</string>
     <string name="book_page_note">A5 लगभग एक पेपरबैक किताब जितना होता है; A4 प्रिंट करने के लिए अच्छा है।</string>
@@ -370,6 +397,10 @@
     <string name="add_images">जोड़ें</string>
     <string name="add_more">और जोड़ें</string>
     <string name="convert">PDF में बदलें</string>
+    <plurals name="convert_many">
+        <item quantity="one">%d फ़ाइल PDF में बदलें</item>
+        <item quantity="other">%d फ़ाइलें PDF में बदलें</item>
+    </plurals>
     <string name="reorder_hint">क्रम बदलने के लिए किसी पेज को दबाकर रखें और खींचें</string>
     <string name="adding_images">इमेज जोड़ी जा रही हैं…</string>
     <string name="sort">क्रम से लगाएं</string>
@@ -429,6 +460,7 @@
 
     <!-- Progress -->
     <string name="creating_pdf">PDF बनाई और कंप्रेस की जा रही है…</string>
+    <string name="creating_pdfs">PDF फ़ाइलें बनाई और कंप्रेस की जा रही हैं…</string>
     <plurals name="progress_images">
         <item quantity="one">%2$d में से %1$d इमेज</item>
         <item quantity="other">%2$d में से %1$d इमेज</item>
@@ -553,4 +585,5 @@
     <string name="search_keywords_flatten">फ़ॉर्म, फ़ील्ड, टिप्पणी, लॉक, flatten, form</string>
     <string name="search_keywords_epub">ई-बुक, किताब, पुस्तक, epub, ebook, book</string>
     <string name="search_keywords_redact">छिपाएं, काला करें, गोपनीय, सेंसर, redact, hide, censor</string>
+    <string name="search_keywords_batch">एक साथ, कई, कई सारी, बहुत सारी, सभी, बैच, batch, many, several, multiple, bulk</string>
 </resources>

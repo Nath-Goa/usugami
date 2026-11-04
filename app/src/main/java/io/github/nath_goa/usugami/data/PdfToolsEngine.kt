@@ -84,6 +84,15 @@ enum class PdfCompression(val dpi: Int, val quality: Float) {
 /** One of several PDFs to compress at once: [input] at [level], into a PDF named [fileName]. */
 data class CompressJob(val input: PdfInput, val level: PdfCompression, val fileName: String)
 
+/** One of several PDFs a tool makes at once with the same choices: of [input], named [fileName]. */
+data class ToolJob(val input: PdfInput, val fileName: String)
+
+/** One of several PDFs to number at once: [pages] (zero-based) of [input] get theirs, into [fileName]. */
+data class NumberingJob(val input: PdfInput, val pages: List<Int>, val fileName: String)
+
+/** Every page of a PDF was to be left without a number, so there is nothing to number. */
+class NothingToNumber : IllegalArgumentException("Every page is skipped")
+
 class PdfPasswordRequired(val input: PdfInput) : IOException("Password required")
 
 /** The password given to [PdfToolsEngine.unlock] didn't open the PDF. */
@@ -406,6 +415,16 @@ class PdfToolsEngine(private val context: Context) {
         return FlattenResult(file, flattened?.dynamicXfa == true, flattened?.keptFields ?: 0)
     }
 
+    /** Flattens each of [jobs] in turn into a PDF of its own, as [flatten] does one. See [each]. */
+    fun flattenEach(jobs: List<ToolJob>, check: () -> Unit = {}, onNext: (Int) -> Unit = {}): List<Result<FlattenResult>> {
+        val names = FileNames.uniqueNames(jobs.map { it.fileName }, "Flattened")
+        return each(jobs.size, check, onNext) { i ->
+            var flattened: Flattening.Flattened? = null
+            val file = editInto(jobs[i].input, outputFile(names[i]), check) { doc -> flattened = Flattening.flatten(doc, check) }
+            FlattenResult(file, flattened?.dynamicXfa == true, flattened?.keptFields ?: 0)
+        }
+    }
+
     /**
      * Page [index] (zero-based) of [input] as shown: its crop box, turned by its rotation. Width
      * then height, in points; A4 if it can't be read.
@@ -432,8 +451,27 @@ class PdfToolsEngine(private val context: Context) {
         size: PageNumberSize,
         fileName: String,
         check: () -> Unit = {},
-    ): PdfFile = edit(input, fileName, "Numbered", check) { doc ->
-        require(pages.isNotEmpty())
+    ): PdfFile = edit(input, fileName, "Numbered", check) { doc -> drawPageNumbers(doc, pages, position, size, check) }
+
+    /**
+     * Numbers each of [jobs] in turn into a PDF of its own, as [addPageNumbers] does one; one whose
+     * pages are all skipped fails with [NothingToNumber]. See [each].
+     */
+    fun addPageNumbersEach(
+        jobs: List<NumberingJob>,
+        position: PageNumberPosition,
+        size: PageNumberSize,
+        check: () -> Unit = {},
+        onNext: (Int) -> Unit = {},
+    ): List<Result<PdfFile>> {
+        val names = FileNames.uniqueNames(jobs.map { it.fileName }, "Numbered")
+        return each(jobs.size, check, onNext) { i ->
+            editInto(jobs[i].input, outputFile(names[i]), check) { doc -> drawPageNumbers(doc, jobs[i].pages, position, size, check) }
+        }
+    }
+
+    private fun drawPageNumbers(doc: PDDocument, pages: List<Int>, position: PageNumberPosition, size: PageNumberSize, check: () -> Unit) {
+        if (pages.isEmpty()) throw NothingToNumber()
         val font = PDType1Font.HELVETICA
         // Digits are as tall as capitals.
         val digitHeight = (font.fontDescriptor?.capHeight?.takeIf { it > 0 } ?: 718f) / 1000 * size.points
@@ -474,30 +512,56 @@ class PdfToolsEngine(private val context: Context) {
         val stamp = WatermarkText.render(text.trim(), color.argb)
         // Kept open until the result is saved: the text's font is copied from it.
         return PDDocument.load(stamp).use { stampDoc ->
-            edit(input, fileName, "Watermarked", check) { doc ->
-                val form = LayerUtility(doc).importPageAsForm(stampDoc, 0)
-                // As a transparency group, the opacity below applies to the watermark as a whole, even
-                // if its own drawing sets an opacity.
-                form.cosObject.setItem(COSName.GROUP, COSDictionary().apply { setItem(COSName.S, COSName.TRANSPARENCY) })
-                val box = form.bBox
-                val state = PDExtendedGraphicsState().apply {
-                    nonStrokingAlphaConstant = opacity.alpha
-                    strokingAlphaConstant = opacity.alpha
-                }
-                for (page in doc.pages) {
-                    check()
-                    val frame = page.frame()
-                    val place = WatermarkLayout.place(frame.shownWidth, frame.shownHeight, box.width, box.height)
-                    PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
-                        content.transform(frame.toMatrix())
-                        content.setGraphicsStateParameters(state)
-                        content.transform(Matrix.getTranslateInstance(place.centerX, place.centerY))
-                        content.transform(Matrix.getRotateInstance(Math.toRadians(place.degrees.toDouble()), 0f, 0f))
-                        content.transform(Matrix.getScaleInstance(place.scale, place.scale))
-                        content.transform(Matrix.getTranslateInstance(-box.lowerLeftX - box.width / 2, -box.lowerLeftY - box.height / 2))
-                        content.drawForm(form)
-                    }
-                }
+            edit(input, fileName, "Watermarked", check) { doc -> drawWatermark(doc, stampDoc, opacity, check) }
+        }
+    }
+
+    /**
+     * Puts the same watermark on each of [jobs] in turn, into a PDF of its own, as [addWatermark]
+     * does on one. The text is drawn once for them all: if no font can draw it, it throws
+     * [WatermarkFontMissing] before any PDF is made. See [each].
+     */
+    fun addWatermarkEach(
+        jobs: List<ToolJob>,
+        text: String,
+        color: WatermarkColor,
+        opacity: WatermarkOpacity,
+        check: () -> Unit = {},
+        onNext: (Int) -> Unit = {},
+    ): List<Result<PdfFile>> {
+        val stamp = WatermarkText.render(text.trim(), color.argb)
+        val names = FileNames.uniqueNames(jobs.map { it.fileName }, "Watermarked")
+        // Kept open until the last PDF is saved: the text's font is copied from it into each.
+        return PDDocument.load(stamp).use { stampDoc ->
+            each(jobs.size, check, onNext) { i ->
+                editInto(jobs[i].input, outputFile(names[i]), check) { doc -> drawWatermark(doc, stampDoc, opacity, check) }
+            }
+        }
+    }
+
+    /** Draws [stampDoc]'s text large, diagonally across the middle of each of [doc]'s pages as shown. */
+    private fun drawWatermark(doc: PDDocument, stampDoc: PDDocument, opacity: WatermarkOpacity, check: () -> Unit) {
+        val form = LayerUtility(doc).importPageAsForm(stampDoc, 0)
+        // As a transparency group, the opacity below applies to the watermark as a whole, even
+        // if its own drawing sets an opacity.
+        form.cosObject.setItem(COSName.GROUP, COSDictionary().apply { setItem(COSName.S, COSName.TRANSPARENCY) })
+        val box = form.bBox
+        val state = PDExtendedGraphicsState().apply {
+            nonStrokingAlphaConstant = opacity.alpha
+            strokingAlphaConstant = opacity.alpha
+        }
+        for (page in doc.pages) {
+            check()
+            val frame = page.frame()
+            val place = WatermarkLayout.place(frame.shownWidth, frame.shownHeight, box.width, box.height)
+            PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
+                content.transform(frame.toMatrix())
+                content.setGraphicsStateParameters(state)
+                content.transform(Matrix.getTranslateInstance(place.centerX, place.centerY))
+                content.transform(Matrix.getRotateInstance(Math.toRadians(place.degrees.toDouble()), 0f, 0f))
+                content.transform(Matrix.getScaleInstance(place.scale, place.scale))
+                content.transform(Matrix.getTranslateInstance(-box.lowerLeftX - box.width / 2, -box.lowerLeftY - box.height / 2))
+                content.drawForm(form)
             }
         }
     }
@@ -622,7 +686,16 @@ class PdfToolsEngine(private val context: Context) {
     private fun edit(input: PdfInput, fileName: String, fallbackName: String, check: () -> Unit, block: (PDDocument) -> Unit): PdfFile {
         clearOutput()
         outputDir.mkdirs()
-        val target = File(outputDir, "${FileNames.sanitize(fileName, fallbackName)}.pdf")
+        try {
+            return editInto(input, outputFile(FileNames.sanitize(fileName, fallbackName)), check, block)
+        } catch (t: Throwable) {
+            clearOutput()
+            throw t
+        }
+    }
+
+    /** As [edit], into [target] beside the other PDFs made; nothing is left at [target] if it fails. */
+    private fun editInto(input: PdfInput, target: File, check: () -> Unit, block: (PDDocument) -> Unit): PdfFile {
         try {
             load(input.file, input.password).use { doc ->
                 block(doc)
@@ -632,10 +705,13 @@ class PdfToolsEngine(private val context: Context) {
                 return PdfFile(target, doc.numberOfPages, 0)
             }
         } catch (t: Throwable) {
-            clearOutput()
+            target.delete()
             throw t
         }
     }
+
+    /** Where a PDF named [name] (a name already cleaned) is made, in the output folder. */
+    internal fun outputFile(name: String): File = File(outputDir, "$name.pdf")
 
     private fun PageFrame.toMatrix(): Matrix = matrix.let { m -> Matrix(m[0], m[1], m[2], m[3], m[4], m[5]) }
 
@@ -658,15 +734,16 @@ class PdfToolsEngine(private val context: Context) {
      */
     fun compressEach(jobs: List<CompressJob>, check: () -> Unit = {}, onNext: (Int) -> Unit = {}): List<Result<PdfFile>> {
         val names = FileNames.uniqueNames(jobs.map { it.fileName }, "Compressed")
-        return each(jobs.size, check, onNext) { i -> compressTo(jobs[i].input, jobs[i].level, File(outputDir, "${names[i]}.pdf"), check) }
+        return each(jobs.size, check, onNext) { i -> compressTo(jobs[i].input, jobs[i].level, outputFile(names[i]), check) }
     }
 
     /**
      * Makes [count] PDFs one after another, in place of the PDFs made before: [make] makes number i
-     * into the output folder, after [onNext] is told it starts. One that fails is left out, its error
-     * in its place, and the others are still made. Cancelled through [check], it leaves none behind.
+     * into the output folder (see [outputFile]), after [onNext] is told it starts. One that fails is
+     * left out, its error in its place, and the others are still made. Cancelled through [check], it
+     * leaves none behind.
      */
-    fun each(count: Int, check: () -> Unit, onNext: (Int) -> Unit, make: (Int) -> PdfFile): List<Result<PdfFile>> {
+    fun <T> each(count: Int, check: () -> Unit, onNext: (Int) -> Unit, make: (Int) -> T): List<Result<T>> {
         clearOutput()
         outputDir.mkdirs()
         try {
@@ -697,7 +774,7 @@ class PdfToolsEngine(private val context: Context) {
      * copied as it is instead, and its [PdfFile.keptOriginal] says so. Nothing is left at [target]
      * if it fails.
      */
-    private fun compressTo(input: PdfInput, level: PdfCompression, target: File, check: () -> Unit): PdfFile {
+    internal fun compressTo(input: PdfInput, level: PdfCompression, target: File, check: () -> Unit): PdfFile {
         val candidate = File(outputDir, "candidate.tmp")
         try {
             load(input.file, input.password).use { doc ->

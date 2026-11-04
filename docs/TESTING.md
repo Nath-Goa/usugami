@@ -17,9 +17,11 @@ lossless PNG encoding, compression sizing, PDF syntax, the PDF writer, file name
 several PDFs made at once: cleaned, and told apart whatever their case), what Compress PDF keeps
 for each of several PDFs (a level for all of them, one PDF's own level kept until the next level
 for all, PDFs added and removed, and all of it packed for Android's saved state), page
-selections such as `1-3;5;7-9`, where page numbers, watermarks and signatures go on pages that
-are turned (`/Rotate`) or cropped, where a signature starts and how far it can grow, how big its
-image is, page lists written back as ranges (`2,5-7`), that deleting every page is refused, and
+selections such as `1-3;5;7-9`, pages to skip for several PDFs at once (read against the longest,
+skipped in each PDF that has them, a PDF with every page skipped left with none to number), where
+page numbers, watermarks and signatures go on pages that are turned (`/Rotate`) or cropped, where
+a signature starts and how far it can grow, how big its image is, page lists written back as
+ranges (`2,5-7`), that deleting every page is refused, and
 where a form field's or comment's appearance goes when Flatten PDF draws it into the page. For
 Edit PDF they cover how points on a page as shown map onto the page's own coordinates for every
 turn and crop, the pen's smooth curve and ellipses as cubic curves, arrow heads, moves that stop at
@@ -30,7 +32,9 @@ being saved and restored. For
 Home's search they cover words being matched whatever their case and accents (and the Devanagari
 nukta and candrabindu), split at punctuation, each word typed having to begin a word of the tool's
 name, description or hidden words, in any order, tools named by the word coming first, and hidden
-words in English, French, Spanish and Hindi (in Devanagari and Latin letters). For
+words in English, French, Spanish and Hindi (in Devanagari and Latin letters), and the words for
+working on several files at once ("batch", "plusieurs", "varios", "कई") finding only the tools that
+do. For
 Word and PowerPoint files they cover units and colors, telling .docx and .pptx files from old
 binary and password-protected ones, list numbers and symbol-font bullets, table column widths,
 where a paragraph breaks between pages, and how group shapes place their contents.
@@ -98,7 +102,9 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
 - flatten: field values and a ticked check box become part of the page (by text extraction and by
   rendering), a field left without an appearance drawn, a comment with no appearance of its own
   drawn, no fields or widgets left, links kept, a dynamic XFA form removed and the rest flattened,
-  nothing to flatten reported (an XFA-only form too), and cancelling leaving nothing behind
+  nothing to flatten reported (an XFA-only form too), and cancelling leaving nothing behind; several
+  PDFs at once, each under its own name, with what flattening each says, one with nothing to
+  flatten left out and named (and no result when none has anything), and cancelling leaving nothing
 - compress: all three levels, selectable text kept, never larger than the original; several PDFs
   at once, each at its own level and under its own name (two alike told apart), a PDF that can't
   get smaller kept byte for byte and said so, a damaged one named while the others are made (and
@@ -109,9 +115,15 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
 - password-protected PDFs: opening with the password, then split, compress and rotate
 - rotate: only the chosen pages turn, on top of the turn they already had, and nothing else changes
 - page numbers: each in the chosen corner of the page as shown (also on turned and cropped pages),
-  none on skipped pages, checked both by text positions and by rendering the pages
+  none on skipped pages, checked both by text positions and by rendering the pages; several PDFs at
+  once, each under its own name, pages to skip read against the longest and skipped in each PDF
+  that has them, a PDF with every page skipped left out and named, one that can't be read named
+  while the others are made, and cancelling leaving nothing
 - watermark: centered along the shown diagonal of every page, translucent or opaque, real text with
-  accents, Hindi shaped correctly, and text that no font on the phone can draw refused
+  accents, Hindi shaped correctly, and text that no font on the phone can draw refused; several PDFs
+  at once (one with a password among them), each under its own name, text no font can draw refused
+  before any is made, one that can't be read named while the others are made, and cancelling
+  leaving nothing
 - signature: the image lands exactly where the preview put it on upright, turned and cropped pages
   (checked by where the PDF draws it and by rendering the pages), starts in the lower right, has a
   transparent background, is trimmed to the ink at 300 dpi, adds little to the file, and leaves the
@@ -130,7 +142,11 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   headers and footers with page numbers, headings bold and larger, pictures where the document puts
   them and decoded no bigger than needed, slides in the presentation's order (not the files'),
   hidden slides left out, progress by page and slide, old .doc and .ppt files, password-protected
-  files, other files and XML with a DOCTYPE refused, and cancelling leaving nothing behind
+  files, other files and XML with a DOCTYPE refused, and cancelling leaving nothing behind; several
+  files at once, each into a PDF of its own name (two alike told apart), progress for each, an old
+  .doc file among those picked named with why it was left out, the files and their names kept when
+  the process is restarted, one that can't be converted named while the others are made, books
+  sharing the page size chosen, and cancelling leaving nothing behind
 - EPUB to PDF, with small EPUB 2 and EPUB 3 books the tests write: A5 and A4 pages, chapters in the
   reading order (not the manifest's), each on a new page, page breaks from the style sheet, HTML's
   named characters, lists and tables, hidden parts and scripts left out, headings larger and bold,
@@ -195,7 +211,11 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   file written), and no such button for a single PDF; Compress PDF with two PDFs: the level for
   all and one PDF's own level and name, kept through the activity being recreated, how much
   smaller each got or that its original was kept, and each PDF's own Open, Share and Save (with
-  "Save as" caught and answered, and Save to Downloads); Settings → Appearance starting on the phone's
+  "Save as" caught and answered, and Save to Downloads); Add watermark with one PDF as before, then
+  with two (the watermark for both, previewed on the first, one PDF's own name, the result);
+  Word to PDF with two files (each one's name, the button to add more, one button converting both);
+  Home's search finding the seven tools that take several files by "several", "batch" and "many";
+  Settings → Appearance starting on the phone's
   setting, then Dark and Light holding through the activity being recreated, Usugami being opened
   again and the first-launch language screen (each checked by the configuration, the colors the
   window draws and the status bar icons), both the way Android applies it from Android 12 and the

@@ -28,7 +28,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -177,22 +176,22 @@ class WorkingFilesDeviceTest {
         val kept = file("office-inputs/21.docx")
         val leftover = file("office-inputs/20.pptx")
         val work = file("office-work/part-1.pdf")
-        // "document" is PdfToolsViewModel's saved-state key for the Word or PowerPoint file.
-        fun restore(input: OfficeInput) = onMain { PdfToolsViewModel(app, SavedStateHandle(mapOf("document" to input))) }
+        // "documents" is PdfToolsViewModel's saved-state key for the Word, PowerPoint or EPUB files.
+        fun restore(input: OfficeInput) = onMain { PdfToolsViewModel(app, SavedStateHandle(mapOf("documents" to arrayListOf(input)))) }
 
         val vm = restore(OfficeInput(21, kept.path, "notes.docx", OfficeKind.WORD))
         waitUntil("an earlier session's files to be removed") { !leftover.exists() && !work.exists() }
         assertTrue(kept.isFile)
-        assertEquals(21L, vm.document.value?.id)
+        assertEquals(listOf(21L), vm.documents.value.map { it.id })
         // Leaving the tool frees the copy.
         onMain { vm.reset() }
         waitUntil("the copy to be deleted") { !kept.exists() }
-        assertNull(vm.document.value)
+        assertTrue(vm.documents.value.isEmpty())
 
         // The system cleared the cache while Usugami was away: the document is dropped, with a message.
         val gone = File(app.cacheDir, "office-inputs/22.docx").apply { delete() }
         val restored = restore(OfficeInput(22, gone.path, "gone.docx", OfficeKind.WORD))
-        waitUntil("the missing document to be dropped") { restored.document.value == null }
+        waitUntil("the missing document to be dropped") { restored.documents.value.isEmpty() }
         assertEquals(oneFileCleared, runBlocking { withTimeout(10_000) { restored.messages.first() } })
     }
 

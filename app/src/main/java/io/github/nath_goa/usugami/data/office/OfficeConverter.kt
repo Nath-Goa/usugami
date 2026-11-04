@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Parcelable
 import android.provider.OpenableColumns
+import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.OfficeContainer
 import io.github.nath_goa.usugami.core.OfficeFileType
 import io.github.nath_goa.usugami.core.PageSize
@@ -52,6 +53,9 @@ data class OfficeInput(val id: Long, val path: String, val name: String, val kin
     val file: File get() = File(path)
 }
 
+/** One of several files to convert at once: [input], into a PDF named [fileName]. */
+data class ConvertJob(val input: OfficeInput, val fileName: String)
+
 /** Why a file can't be converted, for a message in the user's language. */
 sealed class OfficeFileProblem(message: String) : IOException(message)
 
@@ -87,8 +91,9 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
         input.file.delete()
     }
 
-    fun deleteAllExcept(keep: OfficeInput?) {
-        inputDir.listFiles()?.forEach { if (it.name != keep?.file?.name) it.delete() }
+    fun deleteAllExcept(keep: Collection<OfficeInput>) {
+        val names = keep.mapTo(HashSet()) { it.file.name }
+        inputDir.listFiles()?.forEach { if (it.name !in names) it.delete() }
     }
 
     fun clearWork() {
@@ -184,6 +189,45 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
 
     /** As [convert], with a book laid out on [bookPage] (A5 or A4). Office files keep their own page size. */
     fun convert(input: OfficeInput, fileName: String, bookPage: PageSize, check: () -> Unit, progress: (OfficeProgress) -> Unit): PdfFile {
+        try {
+            return convertWith(input, bookPage, check, progress) { joined -> engine.compress(joined, PdfCompression.RECOMMENDED, fileName, check) }
+        } catch (t: Throwable) {
+            engine.clearOutput()
+            throw t
+        }
+    }
+
+    /**
+     * Converts each of [jobs] in turn into a PDF of its own, as [convert] does one, named as each asks
+     * (cleaned, and told apart when two ask for one name); books are laid out on [bookPage]. [onNext]
+     * is told which starts, and [progress] hears of its pages, slides or chapters. One that fails is
+     * left out, its error in its place (see [PdfToolsEngine.each]).
+     */
+    fun convertEach(
+        jobs: List<ConvertJob>,
+        bookPage: PageSize,
+        check: () -> Unit,
+        onNext: (Int) -> Unit,
+        progress: (OfficeProgress) -> Unit,
+    ): List<Result<PdfFile>> {
+        val names = FileNames.uniqueNames(jobs.map { it.fileName }, jobs.firstOrNull()?.input?.kind?.fallbackName ?: "Document")
+        return engine.each(jobs.size, check, onNext) { i ->
+            val target = engine.outputFile(names[i])
+            convertWith(jobs[i].input, bookPage, check, progress) { joined -> engine.compressTo(joined, PdfCompression.RECOMMENDED, target, check) }
+        }
+    }
+
+    /**
+     * Draws [input]'s pages, joins them and lets [finish] compress the joined PDF into the one it
+     * makes. Its working files go, whatever happens.
+     */
+    private fun convertWith(
+        input: OfficeInput,
+        bookPage: PageSize,
+        check: () -> Unit,
+        progress: (OfficeProgress) -> Unit,
+        finish: (PdfInput) -> PdfFile,
+    ): PdfFile {
         clearWork()
         workDir.mkdirs()
         try {
@@ -225,10 +269,9 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
                 EmbeddedFonts.shrink(doc, check)
                 bookInfo?.applyTo(doc)
             }
-            val compressed = engine.compress(PdfInput(input.id, joined.path, input.name, pages), PdfCompression.RECOMMENDED, fileName, check)
+            val compressed = finish(PdfInput(input.id, joined.path, input.name, pages))
             return PdfFile(compressed.file, pages, 0)
         } catch (t: Throwable) {
-            engine.clearOutput()
             // Only a crafted file nests deeper than the stack goes: it fails like a damaged one.
             if (t is StackOverflowError) throw IOException("Too deeply nested", t)
             throw t
@@ -237,7 +280,8 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
         }
     }
 
-    private fun displayName(uri: Uri): String? = try {
+    /** The name of the file at [uri], as the app it comes from gives it, or null. */
+    fun displayName(uri: Uri): String? = try {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
             if (c.moveToFirst() && !c.isNull(0)) c.getString(0).substringAfterLast('/').takeIf { it.isNotBlank() } else null
         }

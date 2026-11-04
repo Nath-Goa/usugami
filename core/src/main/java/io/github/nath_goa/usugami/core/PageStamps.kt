@@ -74,6 +74,18 @@ object PageNumbers {
         return (0 until pageCount).filterNot { it in skipped }
     }
 
+    /**
+     * The pages to number in each of several PDFs of [pageCounts] pages, all skipping the pages in
+     * [skip], as [numbered] does for one. The pages to skip are read against the longest PDF: "4" is
+     * fine while one of them has a page 4, and a shorter one has no page 4 to skip. A PDF with every
+     * page skipped has none to number. Throws [PageSelectionException] for input it can't use.
+     */
+    fun numberedEach(skip: String, pageCounts: List<Int>): List<List<Int>> {
+        require(pageCounts.isNotEmpty() && pageCounts.all { it > 0 })
+        val longest = numbered(skip, pageCounts.max())
+        return pageCounts.map { count -> longest.filter { it < count } }
+    }
+
     /** Distance from the shown page's edges to the number: half an inch, less on small pages. */
     fun margin(shownWidth: Float, shownHeight: Float): Float = min(36f, 0.06f * min(shownWidth, shownHeight))
 

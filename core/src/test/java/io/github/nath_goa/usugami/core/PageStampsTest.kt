@@ -72,6 +72,24 @@ class PageStampsTest {
         assertEquals(emptyList<Int>(), PageNumbers.numbered("1-4", 4))
     }
 
+    @Test fun severalPdfsSkipTheSamePagesWhereTheyHaveThem() {
+        assertEquals(listOf(listOf(0, 1, 2), listOf(0)), PageNumbers.numberedEach("", listOf(3, 1)))
+        // A cover skipped in each; the one-page PDF has nothing left to number.
+        assertEquals(listOf(listOf(1, 2, 3), listOf(1), emptyList()), PageNumbers.numberedEach("1", listOf(4, 2, 1)))
+        // Page 4 is only in the longest; the others have no page 4 to skip.
+        assertEquals(listOf(listOf(1, 2), listOf(1, 2, 4)), PageNumbers.numberedEach("1, 4", listOf(3, 5)))
+        assertEquals(listOf(emptyList<Int>(), listOf(3)), PageNumbers.numberedEach("1-3", listOf(2, 4)))
+    }
+
+    @Test fun badSkipInputForSeveralPdfsSaysWhyAgainstTheLongest() {
+        fun problem(text: String) = assertThrows(PageSelectionException::class.java) { PageNumbers.numberedEach(text, listOf(2, 4, 3)) }
+        assertEquals(PageSelectionException.Problem.FORMAT, problem("cover").problem)
+        val beyond = problem("5")
+        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, beyond.problem)
+        assertEquals("The longest PDF's pages", 4, beyond.pageCount)
+        assertThrows(IllegalArgumentException::class.java) { PageNumbers.numberedEach("1", emptyList()) }
+    }
+
     @Test fun badSkipInputSaysWhy() {
         fun problem(text: String) = assertThrows(PageSelectionException::class.java) { PageNumbers.numbered(text, 4) }.problem
         assertEquals(PageSelectionException.Problem.FORMAT, problem("cover"))

@@ -114,6 +114,42 @@ class ToolSearchTest {
         assertEquals(listOf("Imágenes a PDF", "Comprimir PDF"), find(spanish, "imagenes"))
     }
 
+    /**
+     * Home adds words for working on several files at once to the hidden words of the tools that do,
+     * such as Compress PDF, and not to the others, such as Merge PDF, which makes one PDF of several.
+     */
+    @Test fun wordsForSeveralFilesFindTheToolsThatTakeThemInEachLanguage() {
+        fun tools(merge: Tool, compress: Tool, batch: String) = listOf(merge, compress.copy(keywords = "${compress.keywords} $batch"))
+        val english = tools(
+            Tool("Merge PDF", "Combine files and arrange individual pages", "join, combine, append, put together"),
+            Tool("Compress PDF", "Shrink images, keep text sharp", "shrink, reduce size, smaller, optimize, file size, email"),
+            "batch, many, several, multiple, bulk, at once, all at once",
+        )
+        val french = tools(
+            Tool("Fusionner des PDF", "Combiner des fichiers et organiser les pages", "assembler, combiner, joindre, réunir, regrouper, fusion"),
+            Tool("Compresser un PDF", "Réduire les images, garder le texte net", "réduire, alléger, taille, plus petit, optimiser, poids, e-mail"),
+            "lot, lots, par lots, plusieurs, beaucoup, nombreux, multiples, en masse, à la fois, tous ensemble",
+        )
+        val spanish = tools(
+            Tool("Unir PDF", "Combina archivos y ordena páginas individuales", "juntar, combinar, fusionar, unir, agrupar, anexar"),
+            Tool("Comprimir PDF", "Reduce las imágenes y mantén el texto nítido", "reducir, achicar, tamaño, más pequeño, optimizar, peso, correo"),
+            "lote, lotes, por lotes, muchos, varios, múltiples, en bloque, a la vez, de una vez, todos juntos",
+        )
+        val hindi = tools(
+            Tool("PDF मर्ज करें", "फ़ाइलें मिलाएं और अलग-अलग पेज क्रम में लगाएं", "जोड़ें, मिलाएं, एक फ़ाइल, merge, combine, join"),
+            Tool("PDF कंप्रेस करें", "इमेज छोटी करें, टेक्स्ट साफ़ रखें", "छोटा करें, साइज़ घटाएं, कम करें, compress, shrink, reduce size"),
+            "एक साथ, कई, कई सारी, बहुत सारी, सभी, बैच, batch, many, several, multiple, bulk",
+        )
+        for ((tools, queries) in listOf(
+            english to listOf("batch", "Many", "several", "multiple", "all at once"),
+            french to listOf("lot", "par lots", "plusieurs", "beaucoup", "a la fois", "nombreux"),
+            spanish to listOf("lote", "muchos", "varios", "multiples", "a la vez", "de una vez"),
+            hindi to listOf("कई", "एक साथ", "बहुत सारी", "बैच", "batch", "several"),
+        )) {
+            for (query in queries) assertEquals("\"$query\"", listOf(tools[1].name), find(tools, query))
+        }
+    }
+
     @Test fun keywordsInHindiInDevanagariAndLatinLetters() {
         val hindi = listOf(
             Tool("PDF मर्ज करें", "फ़ाइलें मिलाएं और अलग-अलग पेज क्रम में लगाएं", "जोड़ें, मिलाएँ, एक फ़ाइल, merge, combine, join"),

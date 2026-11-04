@@ -12,7 +12,9 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
+import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.office.ConvertJob
 import io.github.nath_goa.usugami.data.office.OfficeConverter
 import io.github.nath_goa.usugami.data.office.OfficeEmbeddedContent
 import io.github.nath_goa.usugami.data.office.OfficeEncrypted
@@ -1129,6 +1131,48 @@ class OfficeConverterDeviceTest {
         // It converts fine afterwards.
         assertEquals(5, converter.convert(input, "after-cancel", {}, {}).pageCount)
         converter.delete(input)
+    }
+
+    /**
+     * Several files at once: each into a PDF of its own, named as asked (told apart), with progress
+     * for each; one that can't be converted fails on its own, and cancelling leaves nothing behind.
+     */
+    @Test fun convertEachMakesAPdfOfEachFile() {
+        val first = import(asset("report.docx"), OfficeKind.WORD)
+        val damaged = import(asset("report.docx"), OfficeKind.WORD).also { it.file.writeText("not a document any more") }
+        val second = import(asset("report.docx"), OfficeKind.WORD)
+        val output = File(context.cacheDir, "output/tools")
+        val started = ArrayList<Int>()
+        val drawn = ArrayList<Pair<Int, Int>>()
+        val jobs = listOf(ConvertJob(first, "Garden report"), ConvertJob(damaged, "Broken"), ConvertJob(second, "garden report"))
+        val outcomes = converter.convertEach(jobs, PageSize.A5, {}, { started += it }) { if (!it.compressing) drawn += started.last() to it.done }
+        assertEquals("Each file in turn", listOf(0, 1, 2), started)
+        assertTrue("The damaged file failed", outcomes[1].isFailure)
+        val (a, b) = listOf(0, 2).map { outcomes[it].getOrThrow() }
+        assertEquals(listOf("Garden report.pdf", "garden report (2).pdf"), listOf(a.name, b.name))
+        assertEquals("Only those made", setOf(a.name, b.name), output.list()!!.toSet())
+        for (pdf in listOf(a, b)) {
+            assertEquals(5, pdf.pageCount)
+            assertTrue(pageTexts(pdf.file).joinToString(" ").contains("Riverside Community Garden"))
+        }
+        assertEquals("Each file's pages are heard as it is drawn", (1..5).toList(), drawn.filter { it.first == 2 }.map { it.second }.distinct())
+        assertFalse("Working files removed", File(context.cacheDir, "office-work").exists())
+
+        // Cancelled once the second file's third page has started: none is left, the first's neither.
+        var cancelled = false
+        try {
+            converter.convertEach(
+                listOf(ConvertJob(first, "one"), ConvertJob(second, "two")),
+                PageSize.A5,
+                { if (cancelled) throw CancellationException("Cancelled") },
+                { started += it },
+            ) { if (started.size == 5 && it.done >= 3) cancelled = true }
+            fail("Not cancelled")
+        } catch (_: CancellationException) {
+        }
+        assertTrue("Nothing left behind", output.listFiles().isNullOrEmpty())
+        assertFalse("Working files removed", File(context.cacheDir, "office-work").exists())
+        listOf(first, damaged, second).forEach(converter::delete)
     }
 
     private companion object {

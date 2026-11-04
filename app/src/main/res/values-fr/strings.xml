@@ -61,6 +61,18 @@
         <item quantity="many">Impossible de traiter %1$d fichiers : %2$s. Vérifiez les fichiers et l\'espace de stockage disponible.</item>
         <item quantity="other">Impossible de traiter %1$d fichiers : %2$s. Vérifiez les fichiers et l\'espace de stockage disponible.</item>
     </plurals>
+    <!-- A file's name, then what is wrong with it or what happened to it, as said of one file. %1$s may also list several names. -->
+    <string name="file_problem">%1$s : %2$s</string>
+    <plurals name="batch_nothing_to_number" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Il ne reste aucune page à numéroter dans %2$s : ce PDF a été laissé de côté.</item>
+        <item quantity="many">Il ne reste aucune page à numéroter dans %1$d PDF, laissés de côté : %2$s.</item>
+        <item quantity="other">Il ne reste aucune page à numéroter dans %1$d PDF, laissés de côté : %2$s.</item>
+    </plurals>
+    <plurals name="batch_nothing_to_flatten" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s n\'a ni champs de formulaire ni commentaires à aplatir : ce PDF a été laissé de côté.</item>
+        <item quantity="many">%1$d PDF n\'ont ni champs de formulaire ni commentaires à aplatir et ont été laissés de côté : %2$s.</item>
+        <item quantity="other">%1$d PDF n\'ont ni champs de formulaire ni commentaires à aplatir et ont été laissés de côté : %2$s.</item>
+    </plurals>
     <string name="pdf_file_mode">Fichiers</string>
     <string name="pdf_page_mode">Pages</string>
     <string name="pdf_file_mode_hint">Placez les PDF entiers dans l\'ordre souhaité.</string>
@@ -110,6 +122,16 @@
     <string name="pdf_rotate_action">Faire pivoter le PDF</string>
     <string name="pdf_page_numbers_action">Numéroter les pages</string>
     <string name="pdf_watermark_action">Ajouter le filigrane</string>
+    <plurals name="pdf_page_numbers_action_many">
+        <item quantity="one">Numéroter les pages de %d PDF</item>
+        <item quantity="many">Numéroter les pages de %d PDF</item>
+        <item quantity="other">Numéroter les pages de %d PDF</item>
+    </plurals>
+    <plurals name="pdf_watermark_action_many">
+        <item quantity="one">Ajouter le filigrane à %d PDF</item>
+        <item quantity="many">Ajouter le filigrane à %d PDF</item>
+        <item quantity="other">Ajouter le filigrane à %d PDF</item>
+    </plurals>
     <string name="rotate_all">Toutes les pages</string>
     <string name="rotate_all_left">Faire pivoter toutes les pages vers la gauche</string>
     <string name="rotate_all_right">Faire pivoter toutes les pages vers la droite</string>
@@ -132,6 +154,7 @@
     <string name="page_numbers_skip_hint" tools:ignore="TypographyDashes">Facultatif. Par exemple : 1 ou 1-2,5</string>
     <string name="page_numbers_note">Chaque page garde son propre numéro : si la page 1 n\'en a pas, la page 2 porte le numéro 2.</string>
     <string name="page_numbers_all_skipped">Laissez au moins une page à numéroter.</string>
+    <string name="page_numbers_for_all_hint">Chaque PDF est numéroté de la même façon. Les pages sans numéro le restent dans chaque PDF qui les contient.</string>
     <string name="watermark_text">Texte du filigrane</string>
     <string name="watermark_text_hint">Écrit en grand au milieu de chaque page</string>
     <string name="watermark_color">Couleur</string>
@@ -146,6 +169,7 @@
     <string name="opacity_opaque">Opaque</string>
     <string name="watermark_preview">Aperçu</string>
     <string name="watermark_preview_description">Page 1 avec le filigrane</string>
+    <string name="watermark_for_all_hint">Chaque PDF reçoit ce filigrane. L\'aperçu montre le premier.</string>
     <string name="watermark_no_font">Ce téléphone n\'a pas de police pour certains de ces caractères. Essayez un autre texte.</string>
     <!-- Sign PDF: a picture of a handwritten signature, never a certified digital one -->
     <string name="pdf_sign_action">Signer le PDF</string>
@@ -217,8 +241,10 @@
     <string name="tool_word_detail">Documents (.docx), convertis sur ce téléphone</string>
     <string name="tool_powerpoint">PowerPoint en PDF</string>
     <string name="tool_powerpoint_detail">Diapositives (.pptx), une page chacune</string>
-    <string name="pick_word">Choisir un fichier Word</string>
-    <string name="pick_powerpoint">Choisir un fichier PowerPoint</string>
+    <string name="pick_word">Choisir des fichiers Word</string>
+    <string name="pick_powerpoint">Choisir des fichiers PowerPoint</string>
+    <string name="add_word">Ajouter des fichiers Word</string>
+    <string name="add_powerpoint">Ajouter des fichiers PowerPoint</string>
     <string name="document_word">Document Word</string>
     <string name="document_powerpoint">Présentation PowerPoint</string>
     <string name="office_note_word">Le texte, les titres, les listes, les tableaux et les images sont convertis. Les polices de votre téléphone remplacent celles du document : certaines lignes peuvent donc se couper ailleurs.</string>
@@ -259,6 +285,11 @@
     <string name="reorganize_page_blank">Page %1$d, blanche</string>
     <string name="undo">Annuler</string>
     <string name="pdf_flatten_action">Aplatir le PDF</string>
+    <plurals name="pdf_flatten_action_many">
+        <item quantity="one">Aplatir %d PDF</item>
+        <item quantity="many">Aplatir %d PDF</item>
+        <item quantity="other">Aplatir %d PDF</item>
+    </plurals>
     <string name="flatten_note">Les champs de formulaire, les commentaires et les dessins sont intégrés à la page : ils ne peuvent plus être modifiés ni remplis. Les liens continuent de fonctionner.</string>
     <string name="flatten_nothing">Ce PDF n\'a ni champs de formulaire ni commentaires à aplatir.</string>
     <string name="flatten_xfa_only">Le formulaire de ce PDF est un formulaire XFA dynamique, qu\'Usugami ne peut pas aplatir.</string>
@@ -309,7 +340,8 @@
     <string name="edit_page_edited">Modifiée</string>
     <string name="tool_epub">EPUB en PDF</string>
     <string name="tool_epub_detail">Livres numériques (.epub), mis en pages</string>
-    <string name="pick_epub">Choisir un fichier EPUB</string>
+    <string name="pick_epub">Choisir des fichiers EPUB</string>
+    <string name="add_epub">Ajouter des fichiers EPUB</string>
     <string name="document_epub">Livre numérique EPUB</string>
     <string name="office_note_epub">Les chapitres, les titres, les styles de texte, les listes, les tableaux et les images sont convertis, et la table des matières devient des signets. Les polices de votre téléphone sont utilisées.</string>
     <string name="book_page_note">Le format A5 est à peu près celui d\'un livre de poche ; le A4 convient mieux à l\'impression.</string>
@@ -378,6 +410,11 @@
     <string name="add_images">Ajouter</string>
     <string name="add_more">Ajouter d\'autres</string>
     <string name="convert">Convertir en PDF</string>
+    <plurals name="convert_many">
+        <item quantity="one">Convertir %d fichier en PDF</item>
+        <item quantity="many">Convertir %d fichiers en PDF</item>
+        <item quantity="other">Convertir %d fichiers en PDF</item>
+    </plurals>
     <string name="reorder_hint">Appuyez de manière prolongée sur une page et faites-la glisser pour changer l\'ordre</string>
     <string name="adding_images">Ajout des images…</string>
     <string name="sort">Trier</string>
@@ -439,6 +476,7 @@
 
     <!-- Progress -->
     <string name="creating_pdf">Création et compression du PDF…</string>
+    <string name="creating_pdfs">Création et compression des PDF…</string>
     <plurals name="progress_images">
         <item quantity="one">%1$d sur %2$d image</item>
         <item quantity="many">%1$d sur %2$d images</item>
@@ -575,4 +613,5 @@
     <string name="search_keywords_flatten">formulaire, champs, annotations, commentaires, verrouiller, figer</string>
     <string name="search_keywords_epub">epub, livre numérique, e-book, ebook, livre, roman, liseuse</string>
     <string name="search_keywords_redact">caviarder, noircir, masquer, cacher, censurer, anonymiser, confidentiel</string>
+    <string name="search_keywords_batch">lot, lots, par lots, plusieurs, beaucoup, nombreux, multiples, en masse, à la fois, tous ensemble</string>
 </resources>

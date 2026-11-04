@@ -995,11 +995,11 @@ class ScreensDeviceTest {
         assertFalse("Nothing to convert yet", clickable(button(R.string.convert)).isEnabled)
 
         // An old binary .doc is refused, saying what to do.
-        onMain { firstVm.addDocument(picked("minutes.doc", OLD_BINARY_HEADER + ByteArray(1024)), OfficeKind.WORD) }
+        onMain { firstVm.addDocuments(listOf(picked("minutes.doc", OLD_BINARY_HEADER + ByteArray(1024))), OfficeKind.WORD) }
         find("the message") { it.says(app.getString(R.string.office_legacy_word)) }
-        assertNull(onMain { firstVm.document.value })
+        assertTrue(onMain { firstVm.documents.value.isEmpty() })
 
-        onMain { firstVm.addDocument(pdf("report.docx", "Garden report.docx"), OfficeKind.WORD) }
+        onMain { firstVm.addDocuments(listOf(pdf("report.docx", "Garden report.docx")), OfficeKind.WORD) }
         find("the document's card") { it.says("Garden report.docx") }
         // Its remove button names it, and the PDF is named after it.
         find("the remove button") { it.says(app.getString(R.string.remove_file, "Garden report.docx")) }
@@ -1033,11 +1033,11 @@ class ScreensDeviceTest {
         find("the card to pick a file") { it.says(app.getString(R.string.pick_powerpoint)) }
 
         // A Word document isn't a presentation.
-        onMain { pdfVm.addDocument(pdf("report.docx"), OfficeKind.POWERPOINT) }
+        onMain { pdfVm.addDocuments(listOf(pdf("report.docx")), OfficeKind.POWERPOINT) }
         find("the message") { it.says(app.getString(R.string.office_not_powerpoint)) }
-        assertNull(onMain { pdfVm.document.value })
+        assertTrue(onMain { pdfVm.documents.value.isEmpty() })
 
-        onMain { pdfVm.addDocument(pdf("deck.pptx"), OfficeKind.POWERPOINT) }
+        onMain { pdfVm.addDocuments(listOf(pdf("deck.pptx")), OfficeKind.POWERPOINT) }
         find("the presentation's card") { it.says("deck.pptx") }
         find("what converts") { it.says(app.getString(R.string.office_note_powerpoint)) }
         click(actionButton(R.string.convert))
@@ -1072,13 +1072,13 @@ class ScreensDeviceTest {
         assertFalse("Nothing to convert yet", clickable(button(R.string.convert)).isEnabled)
 
         // A file that isn't a book (pickable when a provider calls it just binary data), and a book with DRM.
-        onMain { firstVm.addDocument(picked("notes.epub", "Not a book at all".toByteArray()), OfficeKind.EPUB) }
+        onMain { firstVm.addDocuments(listOf(picked("notes.epub", "Not a book at all".toByteArray())), OfficeKind.EPUB) }
         find("the message") { it.says(app.getString(R.string.epub_not_recognized)) }
-        onMain { firstVm.addDocument(picked("locked.epub", book(drm = true)), OfficeKind.EPUB) }
+        onMain { firstVm.addDocuments(listOf(picked("locked.epub", book(drm = true))), OfficeKind.EPUB) }
         find("the message") { it.says(app.getString(R.string.epub_protected)) }
-        assertNull(onMain { firstVm.document.value })
+        assertTrue(onMain { firstVm.documents.value.isEmpty() })
 
-        onMain { firstVm.addDocument(picked("Tiny Tales.epub", book()), OfficeKind.EPUB) }
+        onMain { firstVm.addDocuments(listOf(picked("Tiny Tales.epub", book())), OfficeKind.EPUB) }
         find("the book's card") { it.says("Tiny Tales.epub") }
         find("the remove button") { it.says(app.getString(R.string.remove_file, "Tiny Tales.epub")) }
         find("the file name") { it.isEditable && it.text?.toString() == "Tiny Tales" }
@@ -1514,6 +1514,86 @@ class ScreensDeviceTest {
             }
         } finally {
             downloads(stamp).forEach { app.contentResolver.delete(it.first, null, null) }
+        }
+    }
+
+    /**
+     * Add watermark with one PDF looks as before (its card, its name); with a second, the watermark
+     * goes for both, previewed on the first, and each PDF has a name of its own on the result.
+     */
+    @Test fun severalPdfsGetTheSameWatermarkEachUnderItsOwnName() {
+        val activity = launch()
+        val pdfVm = openTool(R.string.tool_watermark, activity)
+        find("the card to choose PDFs") { it.says(app.getString(R.string.pick_pdfs)) }
+        find("the hint that several can be chosen") { it.says(app.getString(R.string.pick_several_hint)) }
+        onMain { pdfVm.addPdfs(listOf(pdf("alpha.pdf")), replace = false) }
+        waitUntil("the PDF to be added") { onMain { pdfVm.inputs.value.size } == 1 }
+        find("the PDF's card") { it.says("alpha.pdf") }
+        findBelow("the file name") { it.isEditable && it.text?.toString() == "alpha_watermarked" }
+        assertTrue("No word of several PDFs", nodes().none { it.says(app.getString(R.string.watermark_for_all_hint)) })
+
+        onMain { pdfVm.addPdfs(listOf(pdf("beta.pdf")), replace = false) }
+        waitUntil("the PDFs to be added") { onMain { pdfVm.inputs.value.size } == 2 }
+        // Once the screen lists both: the watermark text is the first field, above the PDFs and their names.
+        findBelow("the hint that it goes on every PDF") { it.says(app.getString(R.string.watermark_for_all_hint)) }
+        type(findAbove("the watermark text") { it.isEditable && it.text?.endsWith("_watermarked") != true }, "Draft")
+        findBelow("the preview, of the first PDF") { it.says(app.getString(R.string.watermark_preview_description)) }
+        val beta = top(findBelow("beta's card") { it.says("beta.pdf") })
+        find("beta's remove button, named") { it.says(app.getString(R.string.remove_file, "beta.pdf")) }
+        val stamp = "Mark ${System.currentTimeMillis()}"
+        type(findBelow("beta's name") { it.isEditable && it.text?.toString() == "beta_watermarked" && top(it) > beta }, "$stamp beta")
+
+        val action = app.resources.getQuantityString(R.plurals.pdf_watermark_action_many, 2, 2)
+        // Read afresh: the accessibility cache may still hold the button's words for one PDF.
+        click(find("the enabled button") { it.refresh() && it.says(action) && ancestor(it) { node -> node.isClickable }?.isEnabled == true })
+        find("the result screen") { it.says(app.getString(R.string.result_heading_many)) }
+        val files = onMain { pdfVm.result.value!! }
+        assertEquals(listOf("alpha_watermarked.pdf", "$stamp beta.pdf"), files.map { it.name })
+        for (file in files) assertTrue(PDDocument.load(file.file).use { PDFTextStripper().getText(it) }.filterNot(Char::isWhitespace).contains("Draft"))
+        find("beta's own Save button") { it.says(app.getString(R.string.save_file, files[1].name)) }
+    }
+
+    /**
+     * Word to PDF with several files: each with the name its PDF gets and a button to add more, one
+     * button converting them all, and a PDF of each on the result screen.
+     */
+    @Test fun severalWordFilesAreConvertedEachIntoItsOwnPdf() {
+        val activity = launch()
+        val pdfVm = openTool(R.string.tool_word, activity)
+        find("the card to choose files") { it.says(app.getString(R.string.pick_word)) }
+        find("the hint that several can be chosen") { it.says(app.getString(R.string.pick_several_hint)) }
+        onMain { pdfVm.addDocuments(listOf(pdf("report.docx", "Garden report.docx"), pdf("report.docx", "Notes.docx")), OfficeKind.WORD) }
+        waitUntil("the files to be added") { onMain { pdfVm.documents.value.size } == 2 }
+        find("what converts") { it.says(app.getString(R.string.office_note_word)) }
+        val notes = top(findBelow("the notes' card") { it.says("Notes.docx") })
+        find("the notes' remove button, named") { it.says(app.getString(R.string.remove_file, "Notes.docx")) }
+        type(findBelow("the notes' name") { it.isEditable && it.text?.toString() == "Notes" && top(it) > notes }, "Meeting notes")
+        findBelow("the button to add more") { it.says(app.getString(R.string.add_word)) }
+
+        val convert = app.resources.getQuantityString(R.plurals.convert_many, 2, 2)
+        click(find("the enabled button") { it.says(convert) && ancestor(it) { node -> node.isClickable }?.isEnabled == true })
+        find("the result screen") { it.says(app.getString(R.string.result_heading_many)) }
+        val files = onMain { pdfVm.result.value!! }
+        assertEquals(listOf("Garden report.pdf", "Meeting notes.pdf"), files.map { it.name })
+        find("the notes' own Open button") { it.says(app.getString(R.string.open_file, "Meeting notes.pdf")) }
+    }
+
+    /** Home's search finds the tools that take several files at once by words such as "several". */
+    @Test fun homeSearchFindsTheToolsThatTakeSeveralFiles() {
+        val english = resourcesIn(AppLanguage.ENGLISH)
+        launch(language = AppLanguage.ENGLISH)
+        val several = listOf(
+            R.string.tool_word, R.string.tool_powerpoint, R.string.tool_epub, R.string.tool_page_numbers,
+            R.string.tool_watermark, R.string.tool_compress, R.string.tool_flatten,
+        ).map(english::getString)
+        val count = english.getQuantityString(R.plurals.home_search_results, several.size, several.size)
+        for (words in listOf("several", "Batch", "many")) {
+            type(searchField(), words)
+            // All seven, in Home's order (on a small screen, the first of them).
+            waitUntil("the tools found by \"$words\"") {
+                val shown = shownTools(english)
+                nodes().any { it.says(count) } && shown.isNotEmpty() && shown == several.take(shown.size)
+            }
         }
     }
 

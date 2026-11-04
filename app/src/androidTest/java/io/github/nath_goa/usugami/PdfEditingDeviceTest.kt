@@ -27,15 +27,19 @@ import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.PageNumbers
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.SignaturePlacement
+import io.github.nath_goa.usugami.data.NothingToNumber
+import io.github.nath_goa.usugami.data.NumberingJob
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.data.SignatureInk
+import io.github.nath_goa.usugami.data.ToolJob
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkFontMissing
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
+import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -315,6 +319,89 @@ class PdfEditingDeviceTest {
             fail("Text without a font should be refused")
         } catch (_: WatermarkFontMissing) {
         }
+    }
+
+    /**
+     * Several PDFs at once: numbers, then a watermark, on each, into a PDF of its own named as asked
+     * (names cleaned and told apart), just as one PDF gets them. One that can't be read, or whose
+     * pages are all skipped, fails on its own while the others are made; text no font can draw is
+     * refused before any PDF is made; cancelling leaves nothing behind.
+     */
+    @Test fun numbersAndWatermarksGoOnEachOfSeveralPdfs() {
+        val mixed = import(mixedPages("each_mixed.pdf"))
+        val alpha = import(asset("alpha.pdf"))
+        val damaged = import(asset("beta.pdf")).also { it.file.writeText("%PDF-1.4 nothing else") }
+        val output = File(context.cacheDir, "output/tools")
+        val started = ArrayList<Int>()
+
+        val numbered = engine.addPageNumbersEach(
+            listOf(
+                NumberingJob(mixed, PageNumbers.numbered("1", mixed.pageCount), "Numbered"),
+                NumberingJob(alpha, listOf(1, 2), "numbered.pdf"),
+                NumberingJob(damaged, listOf(0), "Broken"),
+                NumberingJob(alpha, emptyList(), "Every page skipped"),
+            ),
+            PageNumberPosition.BOTTOM_RIGHT,
+            PageNumberSize.MEDIUM,
+            onNext = { started += it },
+        )
+        assertEquals("Each PDF in turn", listOf(0, 1, 2, 3), started)
+        assertTrue("The damaged PDF failed", numbered[2].isFailure)
+        assertTrue("Nothing to number", numbered[3].exceptionOrNull() is NothingToNumber)
+        val (mixedNumbered, alphaNumbered) = numbered.take(2).map { save(it.getOrThrow().file, "each_${it.getOrThrow().name}") }
+        assertEquals(listOf("Numbered.pdf", "numbered (2).pdf"), numbered.take(2).map { it.getOrThrow().name })
+        assertEquals("Only those two made", setOf("Numbered.pdf", "numbered (2).pdf"), output.list()!!.toSet())
+        // As one PDF gets them: none on the skipped first page, the others their own number.
+        assertEquals(
+            listOf("CAPTIONA", "2CAPTIONB", "3CAPTIONC", "4CAPTIOND"),
+            glyphsByPage(mixedNumbered).map { page -> page.filterNot { it.unicode == " " }.sortedBy { it.unicode.first().isLetter() }.joinToString("") { it.unicode } },
+        )
+        val alphaDigits = glyphsByPage(alphaNumbered).map { page -> page.filter { it.unicode.single().isDigit() && it.x > 595 - 100 && it.y > 842 - 72 }.joinToString("") { it.unicode } }
+        assertEquals(listOf("", "2", "3"), alphaDigits)
+
+        started.clear()
+        val watermarked = engine.addWatermarkEach(
+            listOf(ToolJob(mixed, "Draft"), ToolJob(damaged, "Broken"), ToolJob(alpha, " draft ")),
+            "Brouillon é",
+            WatermarkColor.RED,
+            WatermarkOpacity.TRANSLUCENT,
+            onNext = { started += it },
+        )
+        assertEquals(listOf(0, 1, 2), started)
+        assertTrue(watermarked[1].isFailure)
+        val (mixedMarked, alphaMarked) = listOf(0, 2).map { watermarked[it].getOrThrow() }
+        assertEquals(listOf("Draft.pdf", "draft (2).pdf"), listOf(mixedMarked.name, alphaMarked.name))
+        assertEquals("The numbered PDFs made before have gone", setOf("Draft.pdf", "draft (2).pdf"), output.list()!!.toSet())
+        assertEquals(listOf("A", "B", "C", "D").joinToString("") { "CAPTION${it}Brouillon" + "é" }, text(mixedMarked.file))
+        assertEquals(3, Regex("Brouillon").findAll(text(alphaMarked.file)).count())
+        for (file in listOf(mixedMarked.file, alphaMarked.file)) {
+            val red = pixels(render(file, 0, 1f)) { tinted(it, WatermarkColor.RED) }
+            assertTrue("No watermark on ${file.name}", red.size > 2000)
+        }
+
+        // Text no font can draw: no PDF is made, and the ones made before are kept.
+        try {
+            engine.addWatermarkEach(listOf(ToolJob(alpha, "none")), "͸͹", WatermarkColor.GRAY, WatermarkOpacity.TRANSLUCENT)
+            fail("Text without a font should be refused")
+        } catch (_: WatermarkFontMissing) {
+        }
+        assertEquals(setOf("Draft.pdf", "draft (2).pdf"), output.list()!!.toSet())
+
+        // Cancelled during the second PDF: none is left, the first's neither.
+        try {
+            engine.addPageNumbersEach(
+                listOf(NumberingJob(alpha, listOf(0), "one"), NumberingJob(mixed, listOf(0, 1), "two")),
+                PageNumberPosition.TOP_LEFT,
+                PageNumberSize.SMALL,
+                check = { if (started.size > 4) throw CancellationException() },
+                onNext = { started += it },
+            )
+            fail("The numbers should have been stopped")
+        } catch (_: CancellationException) {
+        }
+        assertEquals(listOf(0, 1, 2, 0, 1), started)
+        assertTrue("Nothing left behind", output.listFiles().isNullOrEmpty())
+        listOf(mixed, alpha, damaged).forEach(engine::delete)
     }
 
     @Test fun cancellingLeavesNoOutput() {

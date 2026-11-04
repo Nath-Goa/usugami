@@ -25,8 +25,10 @@ import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.ToolJob
 import io.github.nath_goa.usugami.ui.PdfTool
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -672,6 +674,45 @@ class PageToolsDeviceTest {
             val form = doc.documentCatalog.acroForm
             assertTrue(form == null || (!form.hasXFA() && form.fields.isEmpty()))
         }
+    }
+
+    /**
+     * Several PDFs at once: each flattened into a PDF of its own, named as asked (told apart), with
+     * what flattening it says (fields kept, a dynamic XFA form dropped); one with nothing to flatten
+     * fails on its own, saying so, and cancelling leaves nothing behind.
+     */
+    @Test fun flattenEachFlattensEveryPdfOnItsOwn() {
+        val form = import(formPdf(made("each_form.pdf")))
+        val plain = import(asset("alpha.pdf"))
+        val xfa = import(formPdf(made("each_xfa.pdf"), name = "Ana Lima", xfa = true))
+        val amounts = import(unencodableFormPdf(made("each_amounts.pdf")))
+        val output = File(app.cacheDir, "output/tools")
+        val started = ArrayList<Int>()
+        val outcomes = engine.flattenEach(
+            listOf(ToolJob(form, "Form"), ToolJob(plain, "Plain"), ToolJob(xfa, "form"), ToolJob(amounts, "Amounts")),
+            onNext = { started += it },
+        )
+        assertEquals("Each PDF in turn", listOf(0, 1, 2, 3), started)
+        val nothing = outcomes[1].exceptionOrNull()
+        assertTrue("Nothing to flatten: $nothing", nothing is NothingToFlatten && !nothing.dynamicXfa)
+        val (flatForm, flatXfa, flatAmounts) = listOf(0, 2, 3).map { outcomes[it].getOrThrow() }
+        assertEquals(listOf("Form.pdf", "form (2).pdf", "Amounts.pdf"), listOf(flatForm, flatXfa, flatAmounts).map { it.file.name })
+        assertEquals("Only those made", setOf("Form.pdf", "form (2).pdf", "Amounts.pdf"), output.list()!!.toSet())
+        assertTrue(text(flatForm.file.file).contains("Jane Doe"))
+        assertFalse(flatForm.droppedDynamicXfa)
+        assertTrue(flatXfa.droppedDynamicXfa)
+        assertTrue(text(flatXfa.file.file).contains("Ana Lima"))
+        assertEquals(2, flatAmounts.keptFields)
+
+        // Cancelled during the second PDF: none is left, the first's neither.
+        try {
+            engine.flattenEach(listOf(ToolJob(form, "one"), ToolJob(xfa, "two")), check = { if (started.size > 5) throw CancellationException() }, onNext = { started += it })
+            fail("Flattening should have been stopped")
+        } catch (_: CancellationException) {
+        }
+        assertEquals(listOf(0, 1, 2, 3, 0, 1), started)
+        assertTrue("Nothing left behind", output.listFiles().isNullOrEmpty())
+        listOf(form, plain, xfa, amounts).forEach(engine::delete)
     }
 
     @Test fun cancellingFlattenLeavesNoOutput() {

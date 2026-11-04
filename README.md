@@ -146,6 +146,8 @@ old "PDFer".
 - The text stays real text, so you can search and select it in the PDF.
 - Pictures are compressed as in Compress PDF (Recommended), and only the letters the document uses
   of your phone's fonts go into the PDF, so it stays small.
+- **Several at once:** pick several documents, or add more later, for one PDF of each, each named
+  as you like.
 
 **PowerPoint to PDF**
 
@@ -157,6 +159,7 @@ old "PDFer".
   PDF, so it stays small.
 - Some things are simplified: see *What converts from Word and PowerPoint?* under
   [Questions and troubleshooting](#questions-and-troubleshooting).
+- **Several at once:** pick several presentations for one PDF of each, each named as you like.
 
 **EPUB to PDF**
 
@@ -172,6 +175,8 @@ old "PDFer".
   PDF, so it stays small.
 - Books with DRM (copy protection) can't be converted: see *What converts from an EPUB e-book?*
   under [Questions and troubleshooting](#questions-and-troubleshooting).
+- **Several at once:** pick several books for one PDF of each, all on the page size you choose, each
+  named as you like.
 
 **Split PDF**
 
@@ -223,6 +228,8 @@ old "PDFer".
   say) and that no app has drawn yet stays a field instead of losing its text, and Usugami tells you.
 - Links keep working.
 - If a PDF has nothing to flatten, Usugami tells you instead of saving a copy.
+- **Many PDFs at once:** each is flattened into a PDF of its own, named as you like. One with
+  nothing to flatten is left out, and Usugami names it.
 
 **Rotate PDF**
 
@@ -235,6 +242,9 @@ old "PDFer".
 - Skip pages, such as a cover (`1`) or `1-2,5`. Each page keeps its own number, so after a skipped
   cover the next page is numbered 2.
 - Numbers go where you see the bottom (or top) of the page, even on pages turned sideways.
+- **Many PDFs at once:** each is numbered the same way, into a PDF of its own named as you like.
+  Pages to skip are skipped in each PDF that has them; a PDF with every page skipped is left out,
+  and Usugami says so.
 
 **Add watermark**
 
@@ -243,6 +253,8 @@ old "PDFer".
   page with the watermark.
 - Works in any language your phone has fonts for, accents and Hindi included. The watermark is
   real text, not a picture.
+- **Many PDFs at once:** the same watermark goes on each (the preview shows the first), each into a
+  PDF of its own named as you like.
 
 **Edit PDF**
 
@@ -293,13 +305,18 @@ old "PDFer".
   protect**.
 - **Search** at the top of Home finds a tool as you type, by its name, what it does or a word you
   might use for it ("combine", "shrink", "scan"), in the app's language. Case and accents don't
-  matter.
+  matter. "Batch", "many" or "several" finds the tools that work on several files at once.
+- **Several files at once:** Compress PDF, Add page numbers, Add watermark, Flatten PDF, and Word,
+  PowerPoint and EPUB to PDF take several files: the same choices for all of them (Compress PDF can
+  also give one a level of its own), a name of your own for each new PDF, and a PDF of each, made
+  one after another with "PDF 2 of 5" and the file's name in the progress. If one can't be made,
+  Usugami names it, says why, and still makes the others. One file works just as before.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
   folder. When a PDF tool makes several PDFs, each one also has its own **Open**, **Share** and
   **Save**.
-- When a tool makes several PDFs (Split PDF in parts, Compress PDF with several PDFs, or one PDF
+- When a tool makes several PDFs (Split PDF in parts, a tool working on several files, or one PDF
   per image), **Share or save as ZIP** puts them all in one ZIP file, named after them, to share
   or save in one go.
 - Comes in **English**, **French**, **Spanish** and **Hindi**: pick one the first time you open

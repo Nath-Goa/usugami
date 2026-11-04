@@ -13,6 +13,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.activity.compose.BackHandler
+import androidx.annotation.PluralsRes
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -140,7 +142,7 @@ fun PdfToolScreen(
     val importing by vm.importing.collectAsStateWithLifecycle()
     val processing by vm.processing.collectAsStateWithLifecycle()
     val signature by vm.signature.collectAsStateWithLifecycle()
-    val document by vm.document.collectAsStateWithLifecycle()
+    val documents by vm.documents.collectAsStateWithLifecycle()
     val convertProgress by vm.convertProgress.collectAsStateWithLifecycle()
     val editItems by vm.editItems.collectAsStateWithLifecycle()
         val redactBoxes by vm.redactBoxes.collectAsStateWithLifecycle()
@@ -149,10 +151,10 @@ fun PdfToolScreen(
     val views by vm.views.collectAsStateWithLifecycle()
     val batch by vm.batch.collectAsStateWithLifecycle()
     val batchProgress by vm.batchProgress.collectAsStateWithLifecycle()
-    // A tool that also takes several PDFs ([isBatch]) lists them, each with its own name and choices.
-    val many = tool.isBatch && inputs.size > 1
-    // Word, PowerPoint and EPUB to PDF take one document instead of PDFs.
+    // Word, PowerPoint and EPUB to PDF take documents instead of PDFs.
     val officeKind = tool.officeKind
+    // A tool that also takes several PDFs or documents ([isBatch]) lists them, each with its own name and choices.
+    val many = tool.isBatch && (if (officeKind != null) documents.size else inputs.size) > 1
     var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
     var pageText by rememberSaveable(tool) { mutableStateOf("") }
     var combine by rememberSaveable(tool) { mutableStateOf(true) }
@@ -176,19 +178,19 @@ fun PdfToolScreen(
     var bookPage by rememberSaveable(tool) { mutableStateOf(PageSize.A5) }
     // Merge's name doesn't depend on which PDF comes first: sorting them keeps what was typed.
     val inputKey: Any? = when {
-        officeKind != null -> document?.id
+        officeKind != null -> documents.firstOrNull()?.id
         tool == PdfTool.MERGE -> inputs.isNotEmpty()
         else -> inputs.firstOrNull()?.id
     }
     var fileName by rememberSaveable(tool, inputKey) { mutableStateOf(vm.defaultName(tool)) }
     val ready = when (tool) {
-        PdfTool.SPLIT, PdfTool.PAGE_NUMBERS, PdfTool.FLATTEN -> inputs.size == 1
-        PdfTool.COMPRESS -> inputs.isNotEmpty()
+        PdfTool.SPLIT -> inputs.size == 1
+        PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.FLATTEN -> inputs.isNotEmpty()
         PdfTool.MERGE -> inputs.size >= 2 && (!pageMode || pages.isNotEmpty())
         PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
-        PdfTool.WATERMARK -> inputs.size == 1 && watermarkText.isNotBlank()
+        PdfTool.WATERMARK -> inputs.isNotEmpty() && watermarkText.isNotBlank()
         PdfTool.SIGN -> inputs.size == 1 && signature != null
-        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> document?.kind == officeKind
+        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> documents.isNotEmpty() && documents.all { it.kind == officeKind }
         PdfTool.DELETE_PAGES -> inputs.size == 1 && deleteText.isNotBlank()
         PdfTool.REORGANIZE -> reorganized
         PdfTool.EDIT -> inputs.size == 1 && editItems.any { it.page < inputs[0].pageCount }
@@ -211,8 +213,9 @@ fun PdfToolScreen(
         PdfTool.REDACT -> R.string.pdf_redact_action
     }
     // The pages are drawn from a copy without the password and with annotations drawn in, when the
-    // PDF has either: Android's renderer can't open the one and leaves the others out.
-    val single = inputs.singleOrNull()
+    // PDF has either: Android's renderer can't open the one and leaves the others out. Add watermark
+    // previews the first of several PDFs.
+    val single = if (tool == PdfTool.WATERMARK) inputs.firstOrNull() else inputs.singleOrNull()
     LaunchedEffect(tool, single?.id) {
         if (single != null && tool in PREVIEWED) vm.preparePreview(single, required = false)
     }
@@ -240,15 +243,16 @@ fun PdfToolScreen(
                             // Each PDF at its level, into a PDF of its name.
                             PdfTool.COMPRESS -> vm.runCompressAll()
                             PdfTool.ROTATE -> vm.runRotate(fileName)
-                            PdfTool.PAGE_NUMBERS -> vm.runPageNumbers(numberPosition, numberSize, skipText, fileName)
-                            PdfTool.WATERMARK -> vm.runWatermark(watermarkText, watermarkColor, watermarkOpacity, fileName)
+                            // These too, each PDF or document into a PDF of its name.
+                            PdfTool.PAGE_NUMBERS -> vm.runPageNumbersAll(numberPosition, numberSize, skipText)
+                            PdfTool.WATERMARK -> vm.runWatermarkAll(watermarkText, watermarkColor, watermarkOpacity)
                             PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
-                            PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvert(fileName)
+                            PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvertAll()
                             PdfTool.DELETE_PAGES -> vm.runDeletePages(deleteText, fileName)
                             PdfTool.REORGANIZE -> vm.runReorganize(fileName)
-                            PdfTool.FLATTEN -> vm.runFlatten(fileName)
+                            PdfTool.FLATTEN -> vm.runFlattenAll()
                             PdfTool.EDIT -> vm.runEdit(fileName)
-                            PdfTool.EPUB -> vm.runConvert(fileName, bookPage)
+                            PdfTool.EPUB -> vm.runConvertAll(bookPage)
                             PdfTool.REDACT -> vm.runRedact(fileName)
                         }
                     },
@@ -259,7 +263,8 @@ fun PdfToolScreen(
                         .windowInsetsPadding(WindowInsets.navigationBars)
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                 ) {
-                    Text(if (many) pluralStringResource(R.plurals.pdf_compress_action_many, inputs.size, inputs.size) else stringResource(action))
+                    val count = if (officeKind != null) documents.size else inputs.size
+                    Text(if (many) pluralStringResource(manyAction(tool), count, count) else stringResource(action))
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },
@@ -281,7 +286,7 @@ fun PdfToolScreen(
                     LinearProgressIndicator(Modifier.padding(bottom = 16.dp).fillMaxWidth())
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    if (if (officeKind != null) document == null else inputs.isEmpty()) {
+                    if (if (officeKind != null) documents.isEmpty() else inputs.isEmpty()) {
                         // Picking is off while PDFs are being added: a second pick then would be ignored.
                         OutlinedCard(onClick = if (tool == PdfTool.MERGE || tool.isBatch) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
                             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -291,10 +296,10 @@ fun PdfToolScreen(
                                     stringResource(
                                         when {
                                             tool == PdfTool.MERGE -> R.string.add_pdfs
-                                            tool.isBatch -> R.string.pick_pdfs
                                             tool == PdfTool.WORD -> R.string.pick_word
                                             tool == PdfTool.POWERPOINT -> R.string.pick_powerpoint
                                             tool == PdfTool.EPUB -> R.string.pick_epub
+                                            tool.isBatch -> R.string.pick_pdfs
                                             else -> R.string.pick_pdf
                                         },
                                     ),
@@ -311,10 +316,28 @@ fun PdfToolScreen(
                             }
                         }
                     } else if (officeKind != null) {
-                        document?.let { DocumentInputCard(it, onRemove = vm::startOver) }
-                        OfficeNote(officeKind)
-                        if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
-                        FileNameField(fileName, onChange = { fileName = it })
+                        val add = @Composable { OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(addDocuments(officeKind))) } }
+                        if (many) {
+                            // What goes for all of them comes first, then each with the name its PDF gets.
+                            OfficeNote(officeKind)
+                            if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
+                            BatchList(
+                                entries = documents.map { documentBatchEntry(it) },
+                                outputName = { id -> documents.firstOrNull { it.id == id }?.let(vm::outputName).orEmpty() },
+                                onOutputName = vm::setBatchName,
+                                onRemove = vm::removeDocument,
+                                thumbnail = { DocumentIcon(officeKind, Modifier.size(width = 44.dp, height = 58.dp)) },
+                            )
+                            add()
+                        } else {
+                            val document = documents[0]
+                            DocumentInputCard(document, onRemove = vm::startOver)
+                            // More can be added, to convert all of them at once.
+                            add()
+                            OfficeNote(officeKind)
+                            if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
+                            OutputNameField(document.id, vm.outputName(document), onChange = { vm.setBatchName(document.id, it) })
+                        }
                     } else {
                         if (tool == PdfTool.MERGE) {
                             MergeInputs(inputs, vm, pageMode, onPageMode = { pageMode = it })
@@ -328,7 +351,33 @@ fun PdfToolScreen(
                                 }
                             }
                         } else if (many) {
-                            CompressBatch(inputs, vm, batch, drawn, importing, pickMultiple)
+                            when (tool) {
+                                PdfTool.COMPRESS -> CompressBatch(inputs, vm, batch, drawn, importing, pickMultiple)
+                                // The same choices for every PDF come first, then each PDF with its name.
+                                PdfTool.PAGE_NUMBERS -> {
+                                    PageNumberOptions(
+                                        numberPosition, onPosition = { numberPosition = it },
+                                        numberSize, onSize = { numberSize = it },
+                                        skipText, onSkip = { skipText = it },
+                                    )
+                                    ForAllHint(R.string.page_numbers_for_all_hint)
+                                    PdfBatchList(tool, inputs, vm, drawn, importing, pickMultiple)
+                                }
+                                PdfTool.WATERMARK -> {
+                                    WatermarkOptions(
+                                        shown ?: inputs[0],
+                                        watermarkText, onText = { watermarkText = it },
+                                        watermarkColor, onColor = { watermarkColor = it },
+                                        watermarkOpacity, onOpacity = { watermarkOpacity = it },
+                                    )
+                                    ForAllHint(R.string.watermark_for_all_hint)
+                                    PdfBatchList(tool, inputs, vm, drawn, importing, pickMultiple)
+                                }
+                                else -> {
+                                    FlattenOptions()
+                                    PdfBatchList(tool, inputs, vm, drawn, importing, pickMultiple)
+                                }
+                            }
                         } else {
                             PdfInputCard(inputs[0], thumbnail = drawn(inputs[0]), onRemove = onRemove)
                             // More can be added, to work on all of them at once.
@@ -445,7 +494,7 @@ fun PdfToolScreen(
         }
         BackHandler {}
         if (showWorking && officeKind != null) {
-            OfficeProgressDialog(convertProgress, officeKind, onCancel = vm::cancel)
+            OfficeProgressDialog(convertProgress, officeKind, onCancel = vm::cancel, many = many, batch = batchProgress)
         } else if (showWorking) {
             AlertDialog(
                 onDismissRequest = {},
@@ -502,7 +551,6 @@ private fun CompressBatch(
     importing: Boolean,
     pickMultiple: () -> Unit,
 ) {
-    val byId = remember(inputs) { inputs.associateBy { it.id } }
     val common = batch.common?.let { PdfCompression.entries.getOrNull(it) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(stringResource(R.string.compression_for_all), style = MaterialTheme.typography.titleMedium)
@@ -514,20 +562,62 @@ private fun CompressBatch(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
+    PdfBatchList(PdfTool.COMPRESS, inputs, vm, drawn, importing, pickMultiple) { id ->
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.labelLarge)
+            CompressionLevels(batch.compressionOf(id), onLevel = { vm.setBatchChoice(id, it.ordinal) })
+        }
+    }
+}
+
+/**
+ * The PDFs [tool] works on, each with the name its PDF gets and what [options] puts above that (see
+ * [BatchList]), and a button to add more.
+ */
+@Composable
+private fun PdfBatchList(
+    tool: PdfTool,
+    inputs: List<PdfInput>,
+    vm: PdfToolsViewModel,
+    drawn: (PdfInput) -> PdfInput,
+    importing: Boolean,
+    pickMultiple: () -> Unit,
+    options: @Composable (Long) -> Unit = {},
+) {
+    val byId = remember(inputs) { inputs.associateBy { it.id } }
     BatchList(
         entries = inputs.map { pdfBatchEntry(it) },
-        outputName = { id -> byId[id]?.let { vm.outputName(PdfTool.COMPRESS, it) }.orEmpty() },
+        outputName = { id -> byId[id]?.let { vm.outputName(tool, it) }.orEmpty() },
         onOutputName = vm::setBatchName,
         onRemove = vm::removeInput,
         thumbnail = { id -> byId[id]?.let { PdfThumbnail(drawn(it), 0, Modifier.size(width = 44.dp, height = 58.dp)) } },
-        options = { id ->
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.labelLarge)
-                CompressionLevels(batch.compressionOf(id), onLevel = { vm.setBatchChoice(id, it.ordinal) })
-            }
-        },
+        options = options,
     )
     OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
+}
+
+/** A line under the choices a tool makes for several PDFs, saying they go for all of them. */
+@Composable
+private fun ForAllHint(@StringRes text: Int) {
+    Text(stringResource(text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** The run button's words when a tool works on several PDFs or documents: "Compress 3 PDFs", say. */
+@PluralsRes
+private fun manyAction(tool: PdfTool): Int = when (tool) {
+    PdfTool.PAGE_NUMBERS -> R.plurals.pdf_page_numbers_action_many
+    PdfTool.WATERMARK -> R.plurals.pdf_watermark_action_many
+    PdfTool.FLATTEN -> R.plurals.pdf_flatten_action_many
+    PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> R.plurals.convert_many
+    else -> R.plurals.pdf_compress_action_many
+}
+
+/** The button that adds more files of [kind] to convert. */
+@StringRes
+private fun addDocuments(kind: OfficeKind): Int = when (kind) {
+    OfficeKind.WORD -> R.string.add_word
+    OfficeKind.POWERPOINT -> R.string.add_powerpoint
+    OfficeKind.EPUB -> R.string.add_epub
 }
 
 /** How long a tool works before its progress dialog shows. */

@@ -61,6 +61,18 @@
         <item quantity="many">No se pudieron procesar %1$d archivos: %2$s. Revisa los archivos y el almacenamiento libre.</item>
         <item quantity="other">No se pudieron procesar %1$d archivos: %2$s. Revisa los archivos y el almacenamiento libre.</item>
     </plurals>
+    <!-- A file's name, then what is wrong with it or what happened to it, as said of one file. %1$s may also list several names. -->
+    <string name="file_problem">%1$s: %2$s</string>
+    <plurals name="batch_nothing_to_number">
+        <item quantity="one">No queda ninguna página que numerar en %2$s, así que se dejó fuera.</item>
+        <item quantity="many">No queda ninguna página que numerar en %1$d PDF, así que se dejaron fuera: %2$s.</item>
+        <item quantity="other">No queda ninguna página que numerar en %1$d PDF, así que se dejaron fuera: %2$s.</item>
+    </plurals>
+    <plurals name="batch_nothing_to_flatten">
+        <item quantity="one">%2$s no tiene campos de formulario ni comentarios que acoplar, así que se dejó fuera.</item>
+        <item quantity="many">%1$d PDF no tienen campos de formulario ni comentarios que acoplar, así que se dejaron fuera: %2$s.</item>
+        <item quantity="other">%1$d PDF no tienen campos de formulario ni comentarios que acoplar, así que se dejaron fuera: %2$s.</item>
+    </plurals>
     <string name="pdf_file_mode">Archivos</string>
     <string name="pdf_page_mode">Páginas</string>
     <string name="pdf_file_mode_hint">Coloca los PDF completos en el orden que quieras.</string>
@@ -110,6 +122,16 @@
     <string name="pdf_rotate_action">Girar PDF</string>
     <string name="pdf_page_numbers_action">Numerar páginas</string>
     <string name="pdf_watermark_action">Añadir marca de agua</string>
+    <plurals name="pdf_page_numbers_action_many">
+        <item quantity="one">Numerar las páginas de %d PDF</item>
+        <item quantity="many">Numerar las páginas de %d PDF</item>
+        <item quantity="other">Numerar las páginas de %d PDF</item>
+    </plurals>
+    <plurals name="pdf_watermark_action_many">
+        <item quantity="one">Añadir marca de agua a %d PDF</item>
+        <item quantity="many">Añadir marca de agua a %d PDF</item>
+        <item quantity="other">Añadir marca de agua a %d PDF</item>
+    </plurals>
     <string name="rotate_all">Todas las páginas</string>
     <string name="rotate_all_left">Girar todas las páginas a la izquierda</string>
     <string name="rotate_all_right">Girar todas las páginas a la derecha</string>
@@ -132,6 +154,7 @@
     <string name="page_numbers_skip_hint" tools:ignore="TypographyDashes">Opcional. Por ejemplo: 1 o 1-2,5</string>
     <string name="page_numbers_note">Cada página conserva su propio número: si la página 1 no lleva número, la página 2 lleva el 2.</string>
     <string name="page_numbers_all_skipped">Deja al menos una página con número.</string>
+    <string name="page_numbers_for_all_hint">Todos los PDF se numeran igual. Las páginas sin número se omiten en cada PDF que las tenga.</string>
     <string name="watermark_text">Texto de la marca de agua</string>
     <string name="watermark_text_hint">Se escribe en grande en el centro de cada página</string>
     <string name="watermark_color">Color</string>
@@ -146,6 +169,7 @@
     <string name="opacity_opaque">Opaca</string>
     <string name="watermark_preview">Vista previa</string>
     <string name="watermark_preview_description">Página 1 con la marca de agua</string>
+    <string name="watermark_for_all_hint">Todos los PDF llevarán esta marca de agua. La vista previa muestra el primero.</string>
     <string name="watermark_no_font">Este teléfono no tiene una fuente para algunos de estos caracteres. Prueba con otro texto.</string>
     <!-- Sign PDF: a picture of a handwritten signature, never a certified digital one -->
     <string name="pdf_sign_action">Firmar PDF</string>
@@ -217,8 +241,10 @@
     <string name="tool_word_detail">Documentos (.docx), convertidos en este teléfono</string>
     <string name="tool_powerpoint">PowerPoint a PDF</string>
     <string name="tool_powerpoint_detail">Diapositivas (.pptx), una página cada una</string>
-    <string name="pick_word">Elegir archivo de Word</string>
-    <string name="pick_powerpoint">Elegir archivo de PowerPoint</string>
+    <string name="pick_word">Elegir archivos de Word</string>
+    <string name="pick_powerpoint">Elegir archivos de PowerPoint</string>
+    <string name="add_word">Añadir archivos de Word</string>
+    <string name="add_powerpoint">Añadir archivos de PowerPoint</string>
     <string name="document_word">Documento de Word</string>
     <string name="document_powerpoint">Presentación de PowerPoint</string>
     <string name="office_note_word">Se convierten el texto, los títulos, las listas, las tablas y las imágenes. Las fuentes de tu teléfono sustituyen a las del documento, así que algunas líneas pueden cortarse en otro sitio.</string>
@@ -259,6 +285,11 @@
     <string name="reorganize_page_blank">Página %1$d, en blanco</string>
     <string name="undo">Deshacer</string>
     <string name="pdf_flatten_action">Acoplar PDF</string>
+    <plurals name="pdf_flatten_action_many">
+        <item quantity="one">Acoplar %d PDF</item>
+        <item quantity="many">Acoplar %d PDF</item>
+        <item quantity="other">Acoplar %d PDF</item>
+    </plurals>
     <string name="flatten_note">Los campos de formulario, los comentarios y los dibujos pasan a formar parte de la página, así que ya no se pueden cambiar ni rellenar. Los enlaces siguen funcionando.</string>
     <string name="flatten_nothing">Este PDF no tiene campos de formulario ni comentarios que acoplar.</string>
     <string name="flatten_xfa_only">El formulario de este PDF es un formulario XFA dinámico, que Usugami no puede acoplar.</string>
@@ -309,7 +340,8 @@
     <string name="edit_page_edited">Editada</string>
     <string name="tool_epub">EPUB a PDF</string>
     <string name="tool_epub_detail">Libros electrónicos (.epub), en páginas</string>
-    <string name="pick_epub">Elegir archivo EPUB</string>
+    <string name="pick_epub">Elegir archivos EPUB</string>
+    <string name="add_epub">Añadir archivos EPUB</string>
     <string name="document_epub">Libro electrónico EPUB</string>
     <string name="office_note_epub">Se convierten los capítulos, los títulos, los estilos de texto, las listas, las tablas y las imágenes, y el índice pasa a ser marcadores. Se usan las fuentes de tu teléfono.</string>
     <string name="book_page_note">A5 es más o menos el tamaño de un libro de bolsillo; A4 es mejor para imprimir.</string>
@@ -378,6 +410,11 @@
     <string name="add_images">Añadir</string>
     <string name="add_more">Añadir más</string>
     <string name="convert">Convertir a PDF</string>
+    <plurals name="convert_many">
+        <item quantity="one">Convertir %d archivo a PDF</item>
+        <item quantity="many">Convertir %d archivos a PDF</item>
+        <item quantity="other">Convertir %d archivos a PDF</item>
+    </plurals>
     <string name="reorder_hint">Mantén presionada una página y arrástrala para cambiar el orden</string>
     <string name="adding_images">Añadiendo imágenes…</string>
     <string name="sort">Ordenar</string>
@@ -439,6 +476,7 @@
 
     <!-- Progress -->
     <string name="creating_pdf">Creando y comprimiendo el PDF…</string>
+    <string name="creating_pdfs">Creando y comprimiendo los PDF…</string>
     <plurals name="progress_images">
         <item quantity="one">%1$d de %2$d imagen</item>
         <item quantity="many">%1$d de %2$d imágenes</item>
@@ -575,4 +613,5 @@
     <string name="search_keywords_flatten">formulario, campos, anotaciones, comentarios, bloquear, aplanar</string>
     <string name="search_keywords_epub">epub, libro electrónico, ebook, e-book, libro, novela</string>
     <string name="search_keywords_redact">censurar, tachar, ocultar, tapar, esconder, anonimizar, confidencial</string>
+    <string name="search_keywords_batch">lote, lotes, por lotes, muchos, varios, múltiples, en bloque, a la vez, de una vez, todos juntos</string>
 </resources>

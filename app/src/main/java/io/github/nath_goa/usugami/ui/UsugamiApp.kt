@@ -158,9 +158,9 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         if (uri != null && route == pickingFor) pdfVm.addPicture(uri)
     }
     // For Word, PowerPoint and EPUB to PDF: the tool showing says which kind of file it takes.
-    val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         val kind = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }?.officeKind
-        if (uri != null && kind != null && route == pickingFor) pdfVm.addDocument(uri, kind)
+        if (kind != null && route == pickingFor) pdfVm.addDocuments(uris, kind)
     }
     val createDocument = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(PdfSaver.PDF_MIME)) { uri ->
         if (uri != null) {
@@ -429,16 +429,17 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             onBack = leaveTool,
                             onRemove = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "remove" else pdfVm.startOver() },
                             pickSingle = {
+                                launch(R.string.msg_no_picker) {
+                                    pickingFor = current
+                                    pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
+                                }
+                            },
+                            // Word, PowerPoint and EPUB to PDF take several files of their kind.
+                            pickMultiple = {
                                 val kind = tool.officeKind
                                 launch(R.string.msg_no_picker) {
                                     pickingFor = current
-                                    if (kind != null) documentPicker.launch(kind.pickerTypes) else pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
-                                }
-                            },
-                            pickMultiple = {
-                                launch(R.string.msg_no_picker) {
-                                    pickingFor = current
-                                    pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME))
+                                    if (kind != null) documentPicker.launch(kind.pickerTypes) else pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME))
                                 }
                             },
                             pickAdd = {

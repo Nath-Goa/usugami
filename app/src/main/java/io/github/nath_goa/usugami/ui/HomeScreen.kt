@@ -305,7 +305,11 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
 private fun SearchResults(query: String, open: (HomeCard) -> Unit) {
     val cards = HomeSections.flatMap { it.cards }
     // Each card's name, then what it says it does and its hidden keywords, in the screens' language.
-    val texts = cards.associateWith { stringResource(it.title) to "${stringResource(it.detail)} ${stringResource(it.keywords)}" }
+    // The tools that take several files at once are also found by words such as "batch".
+    val batch = stringResource(R.string.search_keywords_batch)
+    val texts = cards.associateWith {
+        stringResource(it.title) to "${stringResource(it.detail)} ${stringResource(it.keywords)}${if (it.tool?.isBatch == true) " $batch" else ""}"
+    }
     val found = remember(query, texts) {
         ToolSearch.search(cards, query, name = { texts.getValue(it).first }, moreText = { texts.getValue(it).second })
     }
