@@ -72,6 +72,55 @@ class ImagePdfBuilderTest {
     }
 
     @Test
+    fun blackAndWhitePagesAreOneBitAndGreyPagesOneComponent() {
+        // A page of print (G4 wins) and one of noise (Flate wins), then a grey JPEG.
+        val rendered = java.awt.image.BufferedImage(400, 200, java.awt.image.BufferedImage.TYPE_BYTE_BINARY).apply {
+            val g = createGraphics()
+            g.color = java.awt.Color.WHITE
+            g.fillRect(0, 0, 400, 200)
+            g.color = java.awt.Color.BLACK
+            g.font = java.awt.Font(java.awt.Font.SERIF, java.awt.Font.PLAIN, 28)
+            // Lines that differ (Flate would find lines repeated).
+            listOf("Usugami makes PDFs", "of scanned pages,", "black and white", "in a few kilobytes", "with CCITT G4.")
+                .forEachIndexed { line, words -> g.drawString(words, 8 + line * 13, 34 + line * 36) }
+            g.dispose()
+        }
+        val print = BitImage(400, 200).apply {
+            data.fill(0xFF.toByte())
+            for (y in 0 until 200) for (x in 0 until 400) {
+                if (rendered.getRGB(x, y) and 0xFF < 128) data[y * rowBytes + x / 8] = (data[y * rowBytes + x / 8].toInt() and (0x80 ushr (x % 8)).inv()).toByte()
+            }
+        }
+        val random = java.util.Random(1)
+        val noise = BitImage(64, 64).apply { random.nextBytes(data) }
+        val gray = GrayImage(30, 20, ByteArray(600) { i -> (i % 30 * 8).toByte() })
+        val grayJpeg = GrayJpeg.encode(gray, 75)
+        val out = ByteArrayOutputStream()
+        val builder = ImagePdfBuilder(out, LayoutSettings(), "Scan", "Usugami")
+        builder.addPage(PageImage.Bilevel(print), 1, 0)
+        builder.addPage(PageImage.Bilevel(noise), 1, 90)
+        builder.addPage(PageImage.Jpeg(grayJpeg, Jpeg.parse(grayJpeg)), 1, 0)
+        builder.finish()
+        val text = String(out.toByteArray(), Charsets.ISO_8859_1)
+        assertTrue(
+            text.contains(
+                "/Type /XObject /Subtype /Image /Width 400 /Height 200 /BitsPerComponent 1 /ColorSpace /DeviceGray" +
+                    " /Filter /CCITTFaxDecode /DecodeParms << /K -1 /Columns 400 /Rows 200 >>",
+            ),
+        )
+        val g4 = CcittG4.encode(print)
+        assertTrue("G4 ${g4.size}, Flate ${RasterEncoder.flateBits(print).size}", g4.size < RasterEncoder.flateBits(print).size)
+        assertTrue(text.contains("/Length ${g4.size} >>\nstream\n" + String(g4, Charsets.ISO_8859_1) + "\nendstream"))
+        assertTrue(
+            text.contains(
+                "/Width 64 /Height 64 /BitsPerComponent 1 /ColorSpace /DeviceGray /Filter /FlateDecode" +
+                    " /DecodeParms << /Predictor 15 /Colors 1 /BitsPerComponent 1 /Columns 64 >>",
+            ),
+        )
+        assertTrue(text.contains("/Width 30 /Height 20 /BitsPerComponent 8 /ColorSpace /DeviceGray /Filter /DCTDecode"))
+    }
+
+    @Test
     fun unicodeTitle() {
         val text = String(build(title = "Reçu (été)"), Charsets.ISO_8859_1)
         assertTrue(text.contains("/Title <FEFF"))

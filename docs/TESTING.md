@@ -82,7 +82,18 @@ They also check the largest four-cornered shape on a convex hull (against trying
 corners), Otsu's threshold, and the corners: put in order round the page, turned with the page and
 back, on the photo as stored for every EXIF orientation, which shapes make a page, and the
 straightened page's size (shaped by its average edges, as large as its longest, at most 3000
-pixels).
+pixels). For the page looks they use synthetic photos of a printed page (print in several sizes, a
+bold heading, a black box, a faint pencil line, a red stamp) lit as a phone lights it: the light
+falling off across the page, a hard shadow, a warm lamp, and noise. Black and white turns the
+paper white (in the shadow too) and keeps the print black, fills bold print and the box, and keeps
+the pencil line, where one global threshold can't; grayscale and enhanced make the paper white and
+the ink dark, the lamp's tint goes everywhere, and the stamp stays red. They also check the paper
+found under a box, transparency, a blank page, tiny pictures, and the time a 12-megapixel photo
+takes. CCITT Group 4 compression is decoded by Java's own TIFF reader, for every run length of
+either colour, print, noise, stripes and widths that aren't whole bytes, and is as small as Java's
+own T.6 coder; the grey JPEG encoder's output is decoded by Java's JPEG reader at every size and
+quality, its Huffman tables are made for each picture (no code over 16 bits, none all ones), and
+the PDF writer stores black-and-white pages as CCITT G4 or Flate, whichever is smaller.
 
 ## 2. Device tests (Android)
 
@@ -237,7 +248,10 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   screen on the page found, a corner moved with a screen reader's actions and another chosen like a
   radio button and moved with the arrow buttons, both kept through the activity being recreated,
   Take another cropping the photo and taking the next, the next one discarded, a page's Crop button
-  opening it again with Back instead, and the message on a phone without a camera app; the
+  opening it again with Back instead, and the message on a phone without a camera app; the crop
+  screen's looks as radio buttons, Black & white kept through the activity being recreated and for
+  the next photo taken, and Grayscale given to both pages with Apply to all pages, which each page
+  then says to a screen reader; the
   result screen's "Share or save as ZIP" menu for a split and for one PDF per image, with the share
   screen and the "Save as" screen it starts caught and answered (the type, the name and the ZIP
   file written), and no such button for a single PDF; Compress PDF with two PDFs: the level for
@@ -272,6 +286,12 @@ there showing the images;
   Whole image puts the photo back, and the pages cropped before are deleted; corners that make no
   page are refused and crossed ones put in order; a photo cancelled, not saved or discarded on the
   crop screen leaves no file; and cropped pages and an open crop screen survive the saved state
+- page looks, with a photo of a page in shadow: each look in the PDF as it needs (black and white a
+  1-bit CCITT G4 image, grayscale a one-component JPEG) at the compression levels' sizes, drawn by
+  Android's renderer and by PDFBox with the paper white and a black bar black; the size of an A4
+  page in each look at each level (logged; black and white a fraction of the photo's); and through
+  the view model, a look for one page or for every page, a page opening on its look, the next photo
+  starting with the look chosen last, and the looks kept through the saved state
 - the OCR text layer, in the editions with text recognition: Devanagari and Latin text together,
   and text that follows tilted lines
 - text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,
@@ -282,7 +302,8 @@ there showing the images;
   read in the PDF's 100-dpi copy, is read from the photo as picked, and the text of a known word
   lies over that word on the page; and a photo of a page lying at a slant beside a sticky note,
   cropped to the page found on it: the page is read as cropped, so the note (read from the photo
-  itself) is left out, and the title's text lies over the title on the straightened page
+  itself) is left out, and the title's text lies over the title on the straightened page; and a
+  page in black and white still gets its text layer, and reads word for word as the PDF draws it
 - Usugami OCR's built-in text recognition (`app/src/androidTestOcr`): its native library loads (the
   test emulator has 16 KB memory pages), the English and Hindi test pages are read word for word into
   the text layer (the time per page is logged), a page upside down is read the right way up with
@@ -327,7 +348,8 @@ On a phone or emulator, with the release APKs:
   an unsaved result.
 - Take photo on a real phone: scan a few school pages one after another with Take another, drag a
   corner (the magnifier follows), crop a gallery photo and a page turned in the editor, crop a page
-  again and use Whole image; with TalkBack, move a corner with its actions.
+  again and use Whole image; with TalkBack, move a corner with its actions. Try each look on a page
+  in a shadow and under a warm lamp, apply one to all pages, and compare the PDF's size.
 - Split, merge in page mode, and compress, including a password-protected PDF.
 - Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
   page turned sideways; check the results in another PDF viewer.

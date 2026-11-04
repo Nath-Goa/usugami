@@ -26,6 +26,7 @@ import io.github.nath_goa.usugami.core.ImageTransform
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.NaturalOrder
 import io.github.nath_goa.usugami.core.PageCrop
+import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.SharedFiles
 import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.core.ZipProgress
@@ -91,7 +92,7 @@ data class ConvertChoices(val fileName: String, val ocrLanguage: OcrLanguage?)
  * corners start at [start]; Reset puts them on [found], the page the automatic search found
  * ([foundPage]), or else a little in from the image's edges. The corners are on the image as it shows
  * upright (see [shown] and [upright]). A photo just taken ([fromCamera]) goes if the screen is left
- * without cropping. [opened] tells one opening from the next.
+ * without cropping. [opened] tells one opening from the next. The page's look starts as [look].
  */
 @Parcelize
 @TypeParceler<CropQuad, CropQuadParceler>
@@ -103,6 +104,7 @@ data class CropSession(
     val found: CropQuad,
     val foundPage: Boolean,
     val opened: Long,
+    val look: PageLook = PageLook.ORIGINAL,
 ) : Parcelable {
     /** [quad] on the image as the screen shows it. */
     fun shown(quad: CropQuad): CropQuad = quad.transformed(ImageTransform.rotation(rotation)).ordered()
@@ -167,6 +169,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var capture: String?
         get() = handle[KEY_CAPTURE]
         set(value) { handle[KEY_CAPTURE] = value }
+
+    /**
+     * The look chosen last on the crop screen, which the next photo taken starts with: pages scanned
+     * one after another look alike.
+     */
+    private var lastLook: PageLook
+        get() = handle.get<PageLook>(KEY_LOOK) ?: PageLook.ORIGINAL
+        set(value) { handle[KEY_LOOK] = value }
 
     /** Non-null while a PDF is being created. */
     private val _progress = MutableStateFlow<Progress?>(null)
@@ -662,6 +672,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     found = reset,
                     foundPage = found != null,
                     opened = SystemClock.uptimeMillis(),
+                    look = if (fromCamera) lastLook else current.look,
                 )
             } finally {
                 openingCrop = false
@@ -670,22 +681,28 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     /**
-     * Crops the crop screen's page to [shown] (its corners as the screen shows the image) and closes
-     * the screen; the page is made in the background. The whole image puts the page back as it was
-     * picked or taken. Returns false, leaving the screen open, when the corners don't make a page.
+     * Crops the crop screen's page to [shown] (its corners as the screen shows the image), gives it
+     * [look] (and every page, with [allPages]) and closes the screen; the page is made in the
+     * background. The whole image puts the page back as it was picked or taken. Returns false,
+     * leaving the screen open, when the corners don't make a page.
      */
-    fun finishCrop(shown: CropQuad): Boolean {
+    fun finishCrop(shown: CropQuad, look: PageLook? = null, allPages: Boolean = false): Boolean {
         val session = _crop.value ?: return false
-        val item = items.value.firstOrNull { it.id == session.itemId }
-        if (item == null) {
+        val picked = items.value.firstOrNull { it.id == session.itemId }
+        if (picked == null) {
             _crop.value = null
             return false
         }
-        val source = item.source
+        val source = picked.source
         val quad = session.upright(shown)
         val whole = quad.isWhole()
         if (!whole && !quad.isUsable(source.uprightWidth, source.uprightHeight)) return false
         _crop.value = null
+        // The look first, so the page cropped in the background keeps it.
+        val chosen = look ?: picked.look
+        if (look != null) lastLook = look
+        if (allPages) setItems(items.value.map { it.copy(look = chosen) }) else if (chosen != picked.look) replaceItem(picked.copy(look = chosen))
+        val item = picked.copy(look = chosen)
         when {
             // Nothing changed.
             if (whole) item.original == null else item.original?.corners?.isCloseTo(quad) == true -> Unit
@@ -764,6 +781,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         if (ids.isEmpty() || sizes.size != 2 * ids.size || details.size != ids.size) return emptyList()
         val names = saved.getByteArray("names")?.decodeToString()?.split('/').orEmpty()
         val crops = restoredCrops(saved, ids)
+        val looks = saved.getByteArray("looks")?.takeIf { it.size == ids.size }
         return ids.indices.map { i ->
             val format = ImageFormat.entries[details[i] shr 16]
             val crop = crops[i]
@@ -777,6 +795,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 exifOrientation = details[i] shr 8 and 0xFF,
                 rotation = (details[i] and 0xFF) * 90,
                 original = crop?.second,
+                look = looks?.getOrNull(i)?.toInt()?.let { PageLook.entries.getOrNull(it) } ?: PageLook.ORIGINAL,
             )
         }
     }
@@ -1147,13 +1166,15 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_SHARES_UNDER_WAY = "shares_under_way"
         private const val KEY_CROP = "crop"
         private const val KEY_CAPTURE = "capture"
+        private const val KEY_LOOK = "look"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,
          * and a few thousand images were more than the saved state can hold, which crashed Usugami as
          * it went to the background. The copies' paths follow from their ids (see [ImageStore.fileFor]),
          * and names never contain "/" (they are what follows the last one). A cropped page's file has
-         * a number of its own, and the image it was cropped from has the page's id.
+         * a number of its own, and the image it was cropped from has the page's id. Each page's look
+         * is a byte.
          */
         @VisibleForTesting
         internal fun packItems(list: List<ImageItem>): Bundle {
@@ -1169,6 +1190,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 "cropSizes" to IntArray(2 * cropped.size) { if (it % 2 == 0) original(it / 2).width else original(it / 2).height },
                 "cropDetails" to IntArray(cropped.size) { original(it).run { format.ordinal shl 8 or exifOrientation } },
                 "cropCorners" to FloatArray(8 * cropped.size) { i -> original(i / 8).corners[i % 8 / 2].let { if (i % 2 == 0) it.x else it.y } },
+                "looks" to ByteArray(list.size) { list[it].look.ordinal.toByte() },
             )
         }
     }

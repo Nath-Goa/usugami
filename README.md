@@ -134,21 +134,29 @@ old "PDFer".
   by itself when it stands out from the table it lies on. **Reset** goes back to the page it found,
   **Whole image** keeps the whole picture, and the picture as added is kept, so a page can be
   cropped again from scratch.
+- A **look** for each page, chosen on the crop screen, which shows the page with it: **Original**,
+  **Enhanced** (the paper made white, the lamp's colour and shadows taken out, the print darker),
+  **Grayscale**, or **Black & white**, which keeps print crisp and turns the paper white, in a
+  shadow too. **Apply to all pages** gives every page the look, and photos taken one after another
+  start with the look chosen last. Black-and-white pages are stored one bit a pixel (CCITT Group 4,
+  as scanners store pages), so a page of print takes about 10 KB instead of the 50 to 350 KB of a
+  photo; grayscale pages are stored in grey.
 - Live page previews. Long-press and drag to **reorder**; **rotate**, **remove**, or **sort** by
   name or reverse the order.
 - Page size **Fit** (same as the image), **A4**, **US Letter**, **US Legal**, **A3** or **A5**;
   orientation Auto, Portrait or Landscape; no margin, a small one or a big one.
 - Make **one PDF** with every image, or **one PDF per image**.
 - **Always compressed:** each image is sized for the space it fills on the page and saved as JPEG
-  at **Less** (200 dpi), **Recommended** (150 dpi) or **Extreme** (100 dpi). If the original
-  image is smaller, the original is kept.
+  (black-and-white pages one bit a pixel) at **Less** (200 dpi), **Recommended** (150 dpi) or
+  **Extreme** (100 dpi). If the original image is smaller, the original is kept.
 - Phone photos come out the **right way up** (EXIF orientation).
 - **Private by default:** location (GPS), camera details and other hidden metadata, and the video
   part of "motion photos", are removed from the images.
 - Optional **searchable PDF** with text recognition (OCR) in **English**, **French**,
   **Spanish** or **Hindi**. Hindi mode also keeps any English text. Text is read from your
-  original images (cropped pages as cropped), not the compressed copies, so small print is found
-  even at Extreme. (In Usugami and Usugami OCR; Usugami Lite has no text recognition.)
+  original images (cropped pages as cropped, in colour whatever their look), not the compressed
+  copies, so small print is found even at Extreme. (In Usugami and Usugami OCR; Usugami Lite has
+  no text recognition.)
 
 **Word to PDF**
 
@@ -781,7 +789,8 @@ core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, p
                       Word and PowerPoint helpers (units, colors, list numbers), the EPUB
                       helpers (links, HTML characters, simple CSS), font subsetting,
                       Usugami OCR's post-processing (text boxes, reading order, decoding),
-                      and finding a page on a photo and where its corners go to crop it
+                      finding a page on a photo and where its corners go to crop it, and the
+                      page looks with their CCITT G4 and grey JPEG encoders
 ocr-native/           Usugami OCR's native library: ncnn built from source with a small JNI
                       bridge (only the ocr edition contains it)
 tools/                validate_pdfs.py (checks output with independent PDF tools),

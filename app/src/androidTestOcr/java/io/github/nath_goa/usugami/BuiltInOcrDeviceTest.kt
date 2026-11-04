@@ -124,6 +124,11 @@ class BuiltInOcrDeviceTest {
         CroppedPhotoOcrCheck.run(context, engine, File(dir, "cropped"))
     }
 
+    /** A page in black and white, a bit a pixel, still gets its text layer, and reads as the PDF draws it. */
+    @Test fun readsABlackAndWhitePage() = runBlocking {
+        BlackAndWhiteOcrCheck.run(context, engine, File(dir, "black-and-white"))
+    }
+
     /** The native bridge turns bad input into exceptions instead of crashing the app. */
     @Test fun nativeBridgeRejectsBadInput() {
         val net = NcnnNet.load(context.assets, "ocr/PP-OCRv5_mobile_det.ncnn.param", "ocr/PP-OCRv5_mobile_det.ncnn.bin", reuseMemory = true)

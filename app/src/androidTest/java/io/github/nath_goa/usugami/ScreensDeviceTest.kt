@@ -46,6 +46,7 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.InkItem
+import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.ShapeKind
@@ -1227,6 +1228,61 @@ class ScreensDeviceTest {
 
             // Usugami's editor has the page with the photo, and the camera's files have gone.
             assertTrue(File(app.cacheDir, "camera").list().isNullOrEmpty())
+            onMain { ViewModelProvider(activity)[MainViewModel::class.java].clearAll() }
+        }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    @Test fun aPagesLookIsChosenOnTheCropScreenForItOrEveryPage() {
+        val first = launch()
+        val vm = onMain { ViewModelProvider(first)[MainViewModel::class.java] }
+        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
+        val original = app.getString(R.string.look_original)
+        val blackAndWhite = app.getString(R.string.look_black_white)
+        val grayscale = app.getString(R.string.look_grayscale)
+        val allPages = app.getString(R.string.look_all_pages)
+        val camera = Camera(PagePhotos.photo())
+        withCamera(camera) {
+            click(button(R.string.add_from_camera))
+            find("the crop screen") { it.says(app.getString(R.string.crop_found)) }
+            val session = checkNotNull(onMain { vm.crop.value })
+            // The looks are one of four, like radio buttons, and the photo starts as it is. With no
+            // other page, there is nothing to apply the look to.
+            assertTrue(radio(original).chosen)
+            assertTrue(!radio(blackAndWhite).chosen)
+            assertTrue(nodes().none { it.says(allPages) })
+            click(radio(blackAndWhite))
+            waitUntil("black and white to be chosen") { radio(blackAndWhite).chosen && !radio(original).chosen }
+
+            // Kept when the activity is recreated, as on rotation.
+            onMain { first.recreate() }
+            val activity = recreatedFrom(first)
+            find("the crop screen, again") { it.says(app.getString(R.string.crop_found)) }
+            waitUntil("black and white, still chosen") { radio(blackAndWhite).chosen }
+
+            // Take another: the next photo starts in black and white too, and now there is a page to
+            // apply a look to as well. Grayscale, for both.
+            click(actionButton(R.string.crop_take_another))
+            waitUntil("the next photo's crop screen") { onMain { vm.crop.value?.let { it.itemId != session.itemId } == true } }
+            assertEquals(2, camera.taken)
+            find("the second crop screen") { it.says(app.getString(R.string.crop_found)) }
+            waitUntil("black and white, chosen for the next photo") { radio(blackAndWhite).chosen }
+            click(radio(grayscale))
+            val box = find("the \"$allPages\" check box") { it.says(allPages) }
+            val toggle = checkNotNull(ancestor(box) { it.isCheckable })
+            click(toggle)
+            waitUntil("the box to be ticked") { toggle.chosen }
+            // Pressed once the new screen has settled: while it slides in, its button can't be pressed yet.
+            waitUntil("Done to be pressed") {
+                nodes().firstOrNull { it.says(app.getString(R.string.crop_done)) }?.let { clickable(it).performAction(AccessibilityNodeInfo.ACTION_CLICK) } == true
+            }
+            find("the editor") { it.says(app.getString(R.string.convert)) }
+            waitUntil("both pages to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.size == 2 && vm.items.value.all { it.original != null } } }
+            assertEquals(listOf(PageLook.GRAYSCALE, PageLook.GRAYSCALE), onMain { vm.items.value.map { it.look } })
+            // Each page says its look to a screen reader.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                waitUntil("the pages to say their look") { nodes().count { it.stateDescription?.toString() == grayscale } == 2 }
+            }
             onMain { ViewModelProvider(activity)[MainViewModel::class.java].clearAll() }
         }
         runBlocking { vm.awaitFileWork() }

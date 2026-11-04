@@ -120,6 +120,11 @@ class OcrDeviceTest {
         CroppedPhotoOcrCheck.run(context, engine, File(context.filesDir, "ocr_cropped"))
     }
 
+    /** A page in black and white, a bit a pixel, still gets its text layer, and reads as the PDF draws it. */
+    @Test fun ocrOfABlackAndWhitePageReadsIt() = runBlocking {
+        BlackAndWhiteOcrCheck.run(context, engine, File(context.filesDir, "ocr_black_and_white"))
+    }
+
     /** A one-page PDF that holds [lines] only as a picture, like a scan. */
     private fun scannedText(lines: List<String>, file: File): File {
         val bitmap = Bitmap.createBitmap(1240, 1754, Bitmap.Config.ARGB_8888)

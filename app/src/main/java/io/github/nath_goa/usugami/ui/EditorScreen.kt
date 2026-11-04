@@ -110,6 +110,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.LayoutSettings
+import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
 import sh.calvin.reorderable.ReorderableItem
@@ -318,8 +319,11 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
                 val elevation by animateDpAsState(if (isDragging) 10.dp else 1.dp, label = "drag elevation")
                 val moveEarlier = stringResource(R.string.move_page_earlier, index + 1)
                 val moveLater = stringResource(R.string.move_page_later, index + 1)
-                // The page is only drawn turned: a screen reader hears it, also right after Rotate.
+                // The page is only drawn turned, and with its look: a screen reader hears both, also
+                // right after Rotate.
                 val turned = turnedLabel(item.rotation)?.let { stringResource(it) }
+                val look = if (item.look == PageLook.ORIGINAL) null else stringResource(lookName(item.look))
+                val state = listOfNotNull(turned, look).joinToString(", ").ifEmpty { null }
                 ElevatedCard(
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation),
                     modifier = Modifier
@@ -334,7 +338,7 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
                                 if (index > 0) add(CustomAccessibilityAction(moveEarlier) { actions.moveBy(item.id, -1); true })
                                 if (index < items.lastIndex) add(CustomAccessibilityAction(moveLater) { actions.moveBy(item.id, 1); true })
                             }
-                            if (turned != null) stateDescription = turned
+                            if (state != null) stateDescription = state
                         },
                 ) {
                     PageCardContent(index + 1, item, layout, thumbnails, actions, cropping = item.id in cropping)

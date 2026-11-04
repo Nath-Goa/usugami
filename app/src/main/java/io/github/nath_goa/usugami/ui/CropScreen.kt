@@ -1,5 +1,7 @@
 package io.github.nath_goa.usugami.ui
 
+import android.graphics.Bitmap
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -23,6 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
@@ -37,8 +41,11 @@ import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -73,7 +80,9 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
@@ -95,35 +104,48 @@ import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.CropPoint
 import io.github.nath_goa.usugami.core.CropQuad
+import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.PageCropper
+import io.github.nath_goa.usugami.data.PageLooks
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** What the crop screen's buttons do. [done] and [takeAnother] get the corners as the screen shows the image. */
+/**
+ * What the crop screen's buttons do. [done] and [takeAnother] get the corners as the screen shows the
+ * image, the page's look, and whether every page takes that look.
+ */
 class CropActions(
-    val done: (CropQuad) -> Unit,
-    val takeAnother: (CropQuad) -> Unit,
+    val done: (CropQuad, PageLook, Boolean) -> Unit,
+    val takeAnother: (CropQuad, PageLook, Boolean) -> Unit,
     val close: () -> Unit,
 )
 
 /**
  * Crop a page out of [item]: the image (turned as on its page) with four corners to drag onto the
  * page's corners, a magnifier under the finger while dragging, and buttons that move the chosen
- * corner a step at a time (a screen reader finds each corner, with the same moves as actions). Done
- * straightens the page inside the corners. For a photo just taken, Take another crops it and opens
- * the camera again, and leaving discards the photo.
+ * corner a step at a time (a screen reader finds each corner, with the same moves as actions), and
+ * the page's look, shown inside the corners as it will be. Done straightens the page inside the
+ * corners and gives it the look (every page in the editor, with Apply to all pages, which shows when
+ * there are others). For a photo just taken, Take another crops it and opens the camera again, and
+ * leaving discards the photo.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CropScreen(session: CropSession, item: ImageItem?, snackbar: SnackbarHostState, actions: CropActions) {
+fun CropScreen(session: CropSession, item: ImageItem?, pageCount: Int, snackbar: SnackbarHostState, actions: CropActions) {
     // The corners as the screen shows the image, kept through rotation and Android stopping Usugami.
     var corners by rememberSaveable(session.opened, stateSaver = QuadSaver) { mutableStateOf(session.shown(session.start)) }
     var chosen by rememberSaveable(session.opened) { mutableIntStateOf(CropQuad.TOP_LEFT) }
+    var look by rememberSaveable(session.opened) { mutableStateOf(session.look) }
+    var allPages by rememberSaveable(session.opened) { mutableStateOf(false) }
     val source = item?.source
     val sideways = session.rotation % 180 != 0
     // The image's size as the screen shows it.
@@ -132,10 +154,41 @@ fun CropScreen(session: CropSession, item: ImageItem?, snackbar: SnackbarHostSta
     val usable = corners.isWhole() || corners.ordered().isUsable(shownWidth, shownHeight)
     val window = LocalWindowInfo.current.containerSize
     val previewSide = min(PREVIEW_MAX, max(window.width, window.height))
-    val image by produceState<ImageBitmap?>(null, source?.path, session.rotation) {
+    val photo by produceState<Bitmap?>(null, source?.path, session.rotation) {
         val shown = source ?: return@produceState
         value = withContext(Dispatchers.IO) {
-            runCatching { PageCropper.upright(shown, session.rotation, previewSide)?.asImageBitmap() }.getOrNull()
+            runCatching { PageCropper.upright(shown, session.rotation, previewSide) }.getOrNull()
+        }
+    }
+    val image = remember(photo) { photo?.asImageBitmap() }
+    // The page with its look, as it will be: straightened out of the photo shown, given the look and
+    // drawn back inside the corners. Made again once the corners have stayed put for a moment; while
+    // they move, the photo shows inside them.
+    val lookPreview by produceState<LookPreview?>(null, photo, look, corners) {
+        val shown = photo
+        if (shown == null || look == PageLook.ORIGINAL) {
+            value = null
+            return@produceState
+        }
+        if (value?.let { it.look == look && it.corners == corners } == true) return@produceState
+        delay(LOOK_DELAY_MS)
+        val quad = corners
+        val job = coroutineContext.job
+        value = withContext(Dispatchers.Default) {
+            try {
+                val page = PageLooks.straightened(shown, quad.ordered(), LOOK_PREVIEW_MAX) ?: return@withContext null
+                try {
+                    LookPreview(look, quad, PageLooks.applied(page, look) { job.ensureActive() })
+                } finally {
+                    page.recycle()
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            } catch (e: OutOfMemoryError) {
+                null
+            }
         }
     }
 
@@ -193,6 +246,7 @@ fun CropScreen(session: CropSession, item: ImageItem?, snackbar: SnackbarHostSta
             val area: @Composable (Modifier) -> Unit = { modifier ->
                 CropArea(
                     image = image,
+                    lookPreview = lookPreview?.takeIf { it.corners == corners && it.look == look },
                     aspect = shownWidth.toFloat() / shownHeight,
                     corners = corners,
                     chosen = chosen,
@@ -207,35 +261,53 @@ fun CropScreen(session: CropSession, item: ImageItem?, snackbar: SnackbarHostSta
                 )
             }
             val controls: @Composable () -> Unit = {
+                LookChoices(
+                    look = look,
+                    onLook = { look = it },
+                    allPages = allPages.takeIf { pageCount > 1 },
+                    onAllPages = { allPages = it },
+                )
                 CropControls(
                     chosen = chosen,
-                    usable = usable,
-                    fromCamera = session.fromCamera,
                     onNudge = { dx, dy ->
                         nudge(chosen, dx, dy)
                         settle()
                     },
                     onReset = { corners = session.shown(session.found) },
                     onWhole = { corners = CropQuad.WHOLE },
-                    onDone = { if (usable) actions.done(corners) },
-                    onTakeAnother = { if (usable) actions.takeAnother(corners) },
+                )
+            }
+            val toAll = allPages && pageCount > 1
+            val buttons: @Composable () -> Unit = {
+                CropButtons(
+                    usable = usable,
+                    fromCamera = session.fromCamera,
+                    onDone = { if (usable) actions.done(corners, look, toAll) },
+                    onTakeAnother = { if (usable) actions.takeAnother(corners, look, toAll) },
                 )
             }
             if (wide) {
                 Row(Modifier.fillMaxSize()) {
                     area(Modifier.weight(1f).fillMaxHeight())
-                    Column(Modifier.width(320.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
-                        hint()
-                        controls()
+                    Column(Modifier.width(320.dp).fillMaxHeight().padding(bottom = 8.dp)) {
+                        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                            hint()
+                            controls()
+                        }
+                        buttons()
                     }
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
                     hint()
                     area(Modifier.weight(1f).fillMaxWidth())
-                    // The controls never take more than half the screen, however large the text.
-                    Column(Modifier.heightIn(max = controlsHeight).verticalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
-                        controls()
+                    // The controls never take more than half the screen, however large the text, and
+                    // Done stays in sight below them.
+                    Column(Modifier.heightIn(max = controlsHeight).padding(bottom = 8.dp)) {
+                        Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                            controls()
+                        }
+                        buttons()
                     }
                 }
             }
@@ -243,18 +315,67 @@ fun CropScreen(session: CropSession, item: ImageItem?, snackbar: SnackbarHostSta
     }
 }
 
-/** The buttons under the image: moving the chosen corner, Reset and Whole image, and Done. */
+/**
+ * The page's looks, one of four like radio buttons, and, when [allPages] isn't null, a check box
+ * that gives every page the look.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LookChoices(look: PageLook, onLook: (PageLook) -> Unit, allPages: Boolean?, onAllPages: (Boolean) -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(stringResource(R.string.look_title), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(end = 4.dp))
+        for (option in PageLook.entries) {
+            val selected = option == look
+            FilterChip(
+                selected = selected,
+                onClick = { onLook(option) },
+                label = { Text(stringResource(lookName(option))) },
+                leadingIcon = if (selected) {
+                    { Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                } else {
+                    null
+                },
+                // One of four, like a radio button.
+                modifier = Modifier.semantics { role = Role.RadioButton },
+            )
+        }
+    }
+    if (allPages != null) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .toggleable(value = allPages, role = Role.Checkbox, onValueChange = onAllPages)
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Checkbox(checked = allPages, onCheckedChange = null)
+            Spacer(Modifier.width(12.dp))
+            Text(stringResource(R.string.look_all_pages), style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
+
+/** A look's name. */
+@StringRes
+fun lookName(look: PageLook): Int = when (look) {
+    PageLook.ORIGINAL -> R.string.look_original
+    PageLook.ENHANCED -> R.string.look_enhanced
+    PageLook.GRAYSCALE -> R.string.look_grayscale
+    PageLook.BLACK_WHITE -> R.string.look_black_white
+}
+
+/** The controls under the image: moving the chosen corner, and Reset and Whole image. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun CropControls(
     chosen: Int,
-    usable: Boolean,
-    fromCamera: Boolean,
     onNudge: (dx: Int, dy: Int) -> Unit,
     onReset: () -> Unit,
     onWhole: () -> Unit,
-    onDone: () -> Unit,
-    onTakeAnother: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         // Which corner the arrows move; tapping a corner chooses it.
@@ -280,6 +401,11 @@ private fun CropControls(
             Text(stringResource(R.string.crop_whole))
         }
     }
+}
+
+/** Done, and Take another for a photo just taken. */
+@Composable
+private fun CropButtons(usable: Boolean, fromCamera: Boolean, onDone: () -> Unit, onTakeAnother: () -> Unit) {
     // The two buttons are as tall as each other when a long label takes two lines.
     Row(
         Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(horizontal = 16.dp, vertical = 4.dp),
@@ -308,6 +434,7 @@ private fun CropControls(
 @Composable
 private fun CropArea(
     image: ImageBitmap?,
+    lookPreview: LookPreview?,
     aspect: Float,
     corners: CropQuad,
     chosen: Int,
@@ -385,6 +512,22 @@ private fun CropArea(
                 moveTo(points[0].x, points[0].y)
                 for (i in 1..3) lineTo(points[i].x, points[i].y)
                 close()
+            }
+            // The page inside the corners as its look shows it.
+            if (lookPreview != null && image != null) {
+                val bitmap = lookPreview.page
+                val shownCorners = lookPreview.corners.ordered().corners.map(::at)
+                val matrix = android.graphics.Matrix()
+                val w = bitmap.width.toFloat()
+                val h = bitmap.height.toFloat()
+                val placed = matrix.setPolyToPoly(
+                    floatArrayOf(0f, 0f, w, 0f, w, h, 0f, h),
+                    0,
+                    FloatArray(8) { i -> shownCorners[i / 2].let { if (i % 2 == 0) it.x else it.y } },
+                    0,
+                    4,
+                )
+                if (placed) drawIntoCanvas { it.nativeCanvas.drawBitmap(bitmap, matrix, LOOK_PAINT) }
             }
             // What will be left out is dimmed.
             val outside = Path().apply {
@@ -502,6 +645,17 @@ private const val STEP = 0.004f
 
 /** The image is shown at most this many pixels on its long side. */
 private const val PREVIEW_MAX = 2048
+
+/** The page's look is shown made on a straightened copy at most this many pixels on its long side. */
+private const val LOOK_PREVIEW_MAX = 1200
+
+/** How long the corners stay put before the page's look is made again for them. */
+private const val LOOK_DELAY_MS = 150L
+
+private val LOOK_PAINT = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG)
+
+/** The page straightened out of the photo inside [corners] (as the screen shows the photo), with [look]. */
+private class LookPreview(val look: PageLook, val corners: CropQuad, val page: Bitmap)
 
 /** Keeps the corners as eight numbers. */
 private val QuadSaver = Saver<CropQuad, FloatArray>(

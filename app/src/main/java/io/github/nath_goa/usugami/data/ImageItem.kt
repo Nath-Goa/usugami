@@ -5,6 +5,7 @@ import android.os.Parcelable
 import io.github.nath_goa.usugami.core.CropPoint
 import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.ImageTransform
+import io.github.nath_goa.usugami.core.PageLook
 import kotlinx.parcelize.Parceler
 import kotlinx.parcelize.Parcelize
 import kotlinx.parcelize.TypeParceler
@@ -16,7 +17,7 @@ enum class ImageFormat(val extension: String) { JPEG("jpg"), PNG("png") }
  * [width]/[height] are the stored pixel size; [exifOrientation] says how the camera stored it;
  * [rotation] is the extra clockwise rotation (0, 90, 180, 270) chosen in the editor. A page cropped
  * from an image is the straightened page ([path], upright), and [original] is the image it was
- * cropped from.
+ * cropped from. [look] is how the page shows in the PDF; the image itself is left as it is.
  */
 @Parcelize
 data class ImageItem(
@@ -29,6 +30,7 @@ data class ImageItem(
     val exifOrientation: Int,
     val rotation: Int = 0,
     val original: OriginalImage? = null,
+    val look: PageLook = PageLook.ORIGINAL,
 ) : Parcelable {
 
     /** EXIF orientation only: how the image looks upright in a gallery. */

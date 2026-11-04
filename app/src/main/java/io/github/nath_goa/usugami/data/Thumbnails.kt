@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.util.LruCache
 import io.github.nath_goa.usugami.core.ImageTransform
+import io.github.nath_goa.usugami.core.PageLook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.max
@@ -12,7 +13,8 @@ import kotlin.math.min
 
 /**
  * Small upright previews (EXIF orientation applied, user rotation not) kept in memory, one per
- * image file: a page cropped again has a new file, and a new preview.
+ * image file and look: a page cropped again has a new file, and a new preview, and a page given
+ * another look is made from its plain preview.
  * The user's rotation is applied when drawing, so rotating never re-decodes anything.
  */
 class Thumbnails {
@@ -21,14 +23,26 @@ class Thumbnails {
     }
     private val decoding = Dispatchers.IO.limitedParallelism(3)
 
-    fun cached(item: ImageItem): Bitmap? = cache.get(item.path)
+    fun cached(item: ImageItem): Bitmap? = cache.get(key(item.path, item.look))
 
-    suspend fun load(item: ImageItem): Bitmap? = cache.get(item.path) ?: withContext(decoding) {
-        cache.get(item.path) ?: decode(item)?.also { cache.put(item.path, it) }
+    suspend fun load(item: ImageItem): Bitmap? = cache.get(key(item.path, item.look)) ?: withContext(decoding) {
+        val plain = cache.get(item.path) ?: decode(item)?.also { cache.put(item.path, it) }
+        if (plain == null || item.look == PageLook.ORIGINAL) return@withContext plain
+        cache.get(key(item.path, item.look)) ?: withLook(plain, item.look)?.also { cache.put(key(item.path, item.look), it) }
     }
 
     fun remove(item: ImageItem) {
-        cache.remove(item.path)
+        for (look in PageLook.entries) cache.remove(key(item.path, look))
+    }
+
+    private fun key(path: String, look: PageLook) = if (look == PageLook.ORIGINAL) path else "$path#${look.name}"
+
+    private fun withLook(plain: Bitmap, look: PageLook): Bitmap? = try {
+        PageLooks.applied(plain, look)
+    } catch (e: Exception) {
+        null
+    } catch (e: OutOfMemoryError) {
+        null
     }
 
     private fun decode(item: ImageItem): Bitmap? = try {

@@ -5,7 +5,7 @@
     <!-- Home and PDF tools -->
     <string name="home_subtitle">Tus archivos se quedan en este teléfono. Sin anuncios, sin cuenta y sin subir nada.</string>
     <string name="tool_images">Imágenes a PDF</string>
-    <string name="tool_images_detail">JPG y PNG a PDF, con reconocimiento de texto</string>
+    <string name="tool_images_detail">Escaneos con la cámara, JPG y PNG a PDF, con reconocimiento de texto</string>
     <string name="tool_split">Dividir PDF</string>
     <string name="tool_split_detail">Extrae páginas o divide en archivos pequeños</string>
     <string name="tool_merge">Unir PDF</string>
@@ -478,6 +478,12 @@
     <string name="crop_corner_bottom_right">Esquina inferior derecha</string>
     <string name="crop_corner_bottom_left">Esquina inferior izquierda</string>
     <string name="crop_failed">No se pudo recortar la página. Se dejó como estaba.</string>
+    <string name="look_title">Aspecto</string>
+    <string name="look_original">Original</string>
+    <string name="look_enhanced">Mejorado</string>
+    <string name="look_grayscale">Escala de grises</string>
+    <string name="look_black_white">Blanco y negro</string>
+    <string name="look_all_pages">Aplicar a todas las páginas</string>
 
     <!-- Options -->
     <string name="option_value">%1$s: %2$s</string>
@@ -659,7 +665,7 @@
         <item quantity="other">%d herramientas encontradas</item>
     </plurals>
     <string name="home_search_none">Ninguna herramienta coincide con \"%1$s\"</string>
-    <string name="search_keywords_images">foto, imagen, JPEG, escanear, escáner, cámara, galería, OCR</string>
+    <string name="search_keywords_images">foto, imagen, JPEG, escanear, escaneo, escáner, cámara, galería, documento, blanco y negro, OCR</string>
     <string name="search_keywords_word">doc, docx, documento, Office, convertir</string>
     <string name="search_keywords_powerpoint">ppt, pptx, diapositivas, presentación, Office, convertir</string>
     <string name="search_keywords_merge">juntar, combinar, fusionar, unir, agrupar, anexar</string>

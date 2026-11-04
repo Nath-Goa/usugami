@@ -24,6 +24,15 @@ sealed interface PageImage {
         override val width get() = pixels.width
         override val height get() = pixels.height
     }
+
+    /**
+     * Black and white, stored a bit a pixel: CCITT Group 4 (as fax machines and scanners store
+     * pages), or Flate when that is smaller (as for a speckled picture).
+     */
+    class Bilevel(val image: BitImage) : PageImage {
+        override val width get() = image.width
+        override val height get() = image.height
+    }
 }
 
 /**
@@ -120,7 +129,8 @@ class ImagePdfBuilder(
     }
 
     private fun writeImage(number: Int, image: PageImage, checkCancelled: () -> Unit) {
-        val common = "/Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} /BitsPerComponent 8"
+        val size = "/Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height}"
+        val common = "$size /BitsPerComponent 8"
         when (image) {
             is PageImage.Jpeg -> {
                 val colorSpace = if (image.info.components == 1) "/DeviceGray" else "/DeviceRGB"
@@ -136,6 +146,25 @@ class ImagePdfBuilder(
                     "$common /ColorSpace $colorSpace /Filter /FlateDecode" +
                         " /DecodeParms << /Predictor 15 /Colors $colors /BitsPerComponent 8 /Columns ${image.width} >>",
                 ) { out -> RasterEncoder.writeFlate(image.pixels, gray, out, checkCancelled) }
+            }
+            is PageImage.Bilevel -> {
+                val bilevel = "$size /BitsPerComponent 1 /ColorSpace /DeviceGray"
+                val g4 = CcittG4.encode(image.image, checkCancelled)
+                val flate = RasterEncoder.flateBits(image.image, checkCancelled)
+                if (g4.size <= flate.size) {
+                    // 0 is black, as in DeviceGray (/BlackIs1 false).
+                    writer.writeStream(
+                        number,
+                        "$bilevel /Filter /CCITTFaxDecode /DecodeParms << /K -1 /Columns ${image.width} /Rows ${image.height} >>",
+                        g4,
+                    )
+                } else {
+                    writer.writeStream(
+                        number,
+                        "$bilevel /Filter /FlateDecode /DecodeParms << /Predictor 15 /Colors 1 /BitsPerComponent 1 /Columns ${image.width} >>",
+                        flate,
+                    )
+                }
             }
         }
     }

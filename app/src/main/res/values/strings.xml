@@ -7,7 +7,7 @@
     <string name="home_title" translatable="false">Usugami</string>
     <string name="home_subtitle">Your files stay on this phone. No ads, account, or uploads.</string>
     <string name="tool_images">Images to PDF</string>
-    <string name="tool_images_detail">JPGs and PNGs to PDF, with text recognition</string>
+    <string name="tool_images_detail">Camera scans, JPGs and PNGs to PDF, with text recognition</string>
     <string name="tool_split">Split PDF</string>
     <string name="tool_split_detail">Extract pages or split into smaller files</string>
     <string name="tool_merge">Merge PDF</string>
@@ -501,6 +501,14 @@
     <string name="crop_corner_bottom_right">Bottom-right corner</string>
     <string name="crop_corner_bottom_left">Bottom-left corner</string>
     <string name="crop_failed">Couldn\'t crop the page. It was kept as it was.</string>
+    <!-- How the page looks in the PDF, chosen on the crop screen: a heading, then the four looks. -->
+    <string name="look_title">Look</string>
+    <string name="look_original">Original</string>
+    <!-- The paper made white and the print darker, in colour. -->
+    <string name="look_enhanced">Enhanced</string>
+    <string name="look_grayscale">Grayscale</string>
+    <string name="look_black_white">Black &amp; white</string>
+    <string name="look_all_pages">Apply to all pages</string>
 
     <!-- Options -->
     <!-- An option and its current value on the editor's chips, e.g. "Margin: Small". -->
@@ -678,7 +686,7 @@
     <string name="home_search_none">No tools match \"%1$s\"</string>
     <!-- Hidden words that also find a tool when searched for on Home, separated by commas. They are
          never shown: use the words people would type in this language for what the tool does. -->
-    <string name="search_keywords_images">photo, picture, JPEG, scan, camera, gallery, OCR</string>
+    <string name="search_keywords_images">photo, picture, JPEG, scan, scanner, camera, gallery, document, black and white, OCR</string>
     <string name="search_keywords_word">doc, docx, document, Office, convert</string>
     <string name="search_keywords_powerpoint">ppt, pptx, slides, presentation, Office, convert</string>
     <string name="search_keywords_merge">join, combine, append, put together</string>

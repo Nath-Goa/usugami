@@ -41,8 +41,8 @@ fun PagePreview(item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails,
         PageLayout.compute(item.shownWidth, item.shownHeight, layout)
     }
     var thumbnail by remember { mutableStateOf(thumbnails.cached(item)?.asImageBitmap()) }
-    // A page cropped again keeps showing its last picture until the new one is ready.
-    LaunchedEffect(item.path) {
+    // A page cropped again, or given another look, keeps showing its last picture until the new one is ready.
+    LaunchedEffect(item.path, item.look) {
         thumbnails.load(item)?.asImageBitmap()?.let { thumbnail = it }
     }
     // A thumbnail that has to be decoded fades in over the placeholder; a cached one shows at once.

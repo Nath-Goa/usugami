@@ -10,12 +10,14 @@ import android.graphics.Paint
 import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.GrayJpeg
 import io.github.nath_goa.usugami.core.ImagePdfBuilder
 import io.github.nath_goa.usugami.core.ImagePlacement
 import io.github.nath_goa.usugami.core.InvalidJpegException
 import io.github.nath_goa.usugami.core.Jpeg
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.PageImage
+import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.PixelSource
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -48,7 +50,9 @@ class ImageUnreadableException(val imageName: String) : Exception("Unreadable im
 /**
  * Builds PDFs from the picked images, always compressed: each image is shrunk to the
  * [Compression] level's resolution for the space it fills on the page and stored as JPEG,
- * unless keeping the original is smaller. Output lives in the cache (output/images) until the next export.
+ * unless keeping the original is smaller. A page with a look of its own ([ImageItem.look]) is given
+ * it at that size and stored as it needs: black and white a bit a pixel, grey as a grey JPEG.
+ * Output lives in the cache (output/images) until the next export.
  */
 class PdfExporter(context: Context) {
     private val outputDir = File(context.cacheDir, "output/images")
@@ -138,6 +142,7 @@ class PdfExporter(context: Context) {
         val file = File(item.path)
         if (!file.isFile) throw ImageUnreadableException(item.name)
         val scale = Compressor.scaleFor(item.shownWidth, item.shownHeight, options.layout, options.compression)
+        if (item.look != PageLook.ORIGINAL) return LoadedPage(withLook(item, scale, options))
         val compressed = compressToJpeg(item, scale, options.compression.jpegQuality)
         options.checkCancelled()
         return when (item.format) {
@@ -178,8 +183,7 @@ class PdfExporter(context: Context) {
 
     /**
      * Decodes the image shrunk by [scale], flattens any transparency onto white and encodes it as
-     * JPEG. An Ultra HDR photo decodes with its gain map, and encoding writes that back (an extra
-     * image plus XMP and MPF segments), so the result is stripped like an original.
+     * JPEG.
      */
     private fun compressToJpeg(item: ImageItem, scale: Double, quality: Int): PageImage.Jpeg {
         var bitmap = decode(item, scale)
@@ -193,10 +197,48 @@ class PdfExporter(context: Context) {
                 bitmap.recycle()
                 bitmap = flat
             }
-            val out = ByteArrayOutputStream()
-            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)) throw ImageUnreadableException(item.name)
-            val bytes = Jpeg.stripForEmbedding(out.toByteArray())
-            return PageImage.Jpeg(bytes, Jpeg.parse(bytes))
+            return jpeg(bitmap, quality, item)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * [bitmap] as JPEG. An Ultra HDR photo decodes with its gain map, and encoding writes that back
+     * (an extra image plus XMP and MPF segments), so the result is stripped like an original.
+     */
+    private fun jpeg(bitmap: Bitmap, quality: Int, item: ImageItem): PageImage.Jpeg {
+        val out = ByteArrayOutputStream()
+        if (!bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)) throw ImageUnreadableException(item.name)
+        val bytes = Jpeg.stripForEmbedding(out.toByteArray())
+        return PageImage.Jpeg(bytes, Jpeg.parse(bytes))
+    }
+
+    /**
+     * The image shrunk by [scale] with its look (see [PageLooks]): black and white a bit a pixel
+     * (CCITT G4, far smaller than a photo), grey as a JPEG with one component, enhanced as a colour
+     * JPEG, at the compression level's quality.
+     */
+    private fun withLook(item: ImageItem, scale: Double, options: Options): PageImage {
+        val bitmap = decode(item, scale)
+        try {
+            val quality = options.compression.jpegQuality
+            return when (item.look) {
+                PageLook.BLACK_WHITE -> PageImage.Bilevel(PageLooks.blackAndWhite(bitmap, options.checkCancelled))
+                PageLook.GRAYSCALE -> {
+                    val bytes = GrayJpeg.encode(PageLooks.gray(bitmap, options.checkCancelled), quality, options.checkCancelled)
+                    PageImage.Jpeg(bytes, Jpeg.parse(bytes))
+                }
+                PageLook.ORIGINAL -> error("No look to give")
+                PageLook.ENHANCED -> {
+                    val enhanced = PageLooks.applied(bitmap, PageLook.ENHANCED, options.checkCancelled)
+                    try {
+                        jpeg(enhanced, quality, item)
+                    } finally {
+                        enhanced.recycle()
+                    }
+                }
+            }
         } finally {
             bitmap.recycle()
         }

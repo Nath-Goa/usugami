@@ -493,11 +493,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         CropScreen(
                             session = session,
                             item = item,
+                            pageCount = items.size,
                             snackbar = screenSnackbar,
                             actions = CropActions(
-                                done = { vm.finishCrop(it) },
+                                done = { corners, look, allPages -> vm.finishCrop(corners, look, allPages) },
                                 // A second tap, once the first has closed the screen, opens no second camera.
-                                takeAnother = { if (vm.finishCrop(it)) takePhoto() },
+                                takeAnother = { corners, look, allPages -> if (vm.finishCrop(corners, look, allPages)) takePhoto() },
                                 close = vm::closeCrop,
                             ),
                         )

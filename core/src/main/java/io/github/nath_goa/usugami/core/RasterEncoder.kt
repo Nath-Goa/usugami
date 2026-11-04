@@ -79,6 +79,34 @@ object RasterEncoder {
     }
 
     /**
+     * The FlateDecode stream body for a black-and-white picture, its rows as they are (a bit a pixel)
+     * through the PNG filters. The matching image dictionary needs /DecodeParms << /Predictor 15
+     * /Colors 1 /BitsPerComponent 1 /Columns width >>.
+     */
+    fun flateBits(image: BitImage, checkCancelled: () -> Unit = {}): ByteArray {
+        val rowBytes = image.rowBytes
+        var previous = ByteArray(rowBytes)
+        val candidates = Array(5) { ByteArray(rowBytes) }
+        val out = java.io.ByteArrayOutputStream(maxOf(1024, image.data.size / 8))
+        val deflater = Deflater(Deflater.BEST_COMPRESSION)
+        try {
+            val stream = DeflaterOutputStream(out, deflater, 64 * 1024)
+            for (y in 0 until image.height) {
+                if (y and 63 == 0) checkCancelled()
+                val current = image.data.copyOfRange(y * rowBytes, (y + 1) * rowBytes)
+                val filter = filterRow(current, previous, 1, candidates)
+                stream.write(filter)
+                stream.write(candidates[filter], 0, rowBytes)
+                previous = current
+            }
+            stream.finish()
+        } finally {
+            deflater.end()
+        }
+        return out.toByteArray()
+    }
+
+    /**
      * Fills [candidates] with the row under each PNG filter (None, Sub, Up, Average, Paeth) and
      * returns the one with the smallest sum of absolute values (the libpng heuristic).
      */

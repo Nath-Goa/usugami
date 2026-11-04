@@ -5,7 +5,7 @@
     <!-- Home and PDF tools -->
     <string name="home_subtitle">Vos fichiers restent sur ce téléphone. Sans publicité, sans compte, sans envoi en ligne.</string>
     <string name="tool_images">Images en PDF</string>
-    <string name="tool_images_detail">JPG et PNG en PDF, avec reconnaissance de texte</string>
+    <string name="tool_images_detail">Scans à l\'appareil photo, JPG et PNG en PDF, avec reconnaissance de texte</string>
     <string name="tool_split">Diviser un PDF</string>
     <string name="tool_split_detail">Extraire des pages ou diviser en fichiers plus petits</string>
     <string name="tool_merge">Fusionner des PDF</string>
@@ -478,6 +478,12 @@
     <string name="crop_corner_bottom_right">Coin inférieur droit</string>
     <string name="crop_corner_bottom_left">Coin inférieur gauche</string>
     <string name="crop_failed">Impossible de recadrer la page. Elle a été gardée telle quelle.</string>
+    <string name="look_title">Aspect</string>
+    <string name="look_original">Original</string>
+    <string name="look_enhanced">Amélioré</string>
+    <string name="look_grayscale">Niveaux de gris</string>
+    <string name="look_black_white">Noir et blanc</string>
+    <string name="look_all_pages">Appliquer à toutes les pages</string>
 
     <!-- Options -->
     <string name="option_value">%1$s : %2$s</string>
@@ -659,7 +665,7 @@
         <item quantity="other">%d outils trouvés</item>
     </plurals>
     <string name="home_search_none">Aucun outil ne correspond à « %1$s »</string>
-    <string name="search_keywords_images">photo, image, JPEG, scanner, numériser, appareil photo, galerie, OCR</string>
+    <string name="search_keywords_images">photo, image, JPEG, scanner, scan, numériser, appareil photo, caméra, galerie, document, noir et blanc, OCR</string>
     <string name="search_keywords_word">doc, docx, document, Office, convertir, traitement de texte</string>
     <string name="search_keywords_powerpoint">ppt, pptx, diapositives, présentation, diaporama, Office, convertir</string>
     <string name="search_keywords_merge">assembler, combiner, joindre, réunir, regrouper, fusion</string>
