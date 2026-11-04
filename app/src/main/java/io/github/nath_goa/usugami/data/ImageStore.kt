@@ -119,14 +119,14 @@ class ImageStore(context: Context) {
     }
 
     /**
-     * [item], a page about to be cropped again from the image it was cropped from, as its files are
-     * now: as [stillThere] finds it, except that a page whose own file has gone while that image is
-     * still there goes back on that image, as a page never cropped, rather than being lost. Blocking:
-     * call from the file work's thread.
+     * [item], a cropped page whose own file has gone while the image it was cropped from is still
+     * there, put back on that image whole, as a page never cropped; null for any other page (see
+     * [stillThere] for those). A page about to be cropped again from that image needs nothing more.
+     * Blocking: call from the file work's thread.
      */
-    fun stillThereToCrop(item: ImageItem): ImageItem? {
-        val original = item.original
-        if (original == null || File(item.path).isFile || !File(original.path).isFile) return stillThere(item)
+    fun putBackWhole(item: ImageItem): ImageItem? {
+        val original = item.original ?: return null
+        if (File(item.path).isFile || !File(original.path).isFile) return null
         return item.copy(
             path = original.path,
             format = original.format,

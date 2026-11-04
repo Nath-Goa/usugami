@@ -55,6 +55,8 @@ import io.github.nath_goa.usugami.data.SharedFile
 import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.data.ocrEngine
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -342,26 +344,36 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // Pages Android stopped Usugami in the middle of cropping are cropped again (see below).
         val resumed = pendingCrops
         val croppedAgain = resumed.mapTo(HashSet()) { it.itemId }
-        val cleanup = viewModelScope.launch {
-            val (found, resultGone) = withContext(fileOps) {
+        // Those the cleanup put back whole on the image they are cropped from, once it is done.
+        val putBack = CompletableDeferred<Set<Long>>()
+        viewModelScope.launch {
+            val (found, resultGone, wholeAgain) = withContext(fileOps) {
                 // Leftovers from an earlier session (or half-copied files) are removed.
                 store.deleteAllExcept(keep)
                 store.clearCaptures(keep = keepCapture)
                 val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
                 exporter.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
-                // A page being cropped again is made from the image it is cropped from, which is all it needs.
-                keep.map { if (it.id in croppedAgain) store.stillThereToCrop(it) else store.stillThere(it) } to (stillThere == null)
+                // A page being cropped again is made from the image it is cropped from, which is all it
+                // needs once its own copy has gone.
+                val wholeAgain = HashSet<Long>()
+                val found = keep.map { item ->
+                    val whole = if (item.id in croppedAgain) store.putBackWhole(item) else null
+                    if (whole != null) wholeAgain += item.id
+                    whole ?: store.stillThere(item)
+                }
+                Triple(found, stillThere == null, wholeAgain)
             }
             takeIn(keep, found)
             if (shown != null && resultGone && _result.value === shown) resultCleared(shown.size)
+            putBack.complete(wholeAgain)
         }
         // Pages Android stopped Usugami in the middle of cropping are cropped again, once the cleanup
         // has left only the files in use.
         pendingCrops = emptyList()
         for (pending in resumed) {
             val item = items.value.firstOrNull { it.id == pending.itemId } ?: continue
-            crop(item, item.source, pending.quad, after = cleanup)
+            crop(item, item.source, pending.quad, after = putBack)
         }
         viewModelScope.launch { _result.collect(keptResult::keep) }
         viewModelScope.launch { _saved.collect { handle[KEY_SAVED] = it } }
@@ -791,10 +803,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     /**
-     * Makes [item]'s page from [source], straightened inside [quad], and puts it in place, once [after]
-     * is done when given. In the saved state until then (see [pendingCrops]).
+     * Makes [item]'s page from [source], straightened inside [quad], and puts it in place. In the saved
+     * state until then (see [pendingCrops]). [after], when given, is the cleanup as Usugami starts, which
+     * the crop waits for: done, it gives the pages it put back whole on the image they are cropped from.
      */
-    private fun crop(item: ImageItem, source: OriginalImage, quad: CropQuad, after: Job? = null) {
+    private fun crop(item: ImageItem, source: OriginalImage, quad: CropQuad, after: Deferred<Set<Long>>? = null) {
         val id = item.id
         val target = store.fileFor(nextId++, source.format)
         val generation = importGeneration
@@ -806,10 +819,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         var chosen = item
         fun stillAsChosen(): ImageItem? = items.value.firstOrNull { it.id == id }?.takeIf { it.path == chosen.path && it.source.path == source.path }
         viewModelScope.launch {
-            after?.join()
-            // Cropped again as Usugami starts: its cleanup may have put the page back on the image it
-            // is cropped from (see ImageStore.stillThereToCrop), which it is made from all the same.
-            if (after != null) items.value.firstOrNull { it.id == id }?.takeIf { it.source.path == source.path }?.let { chosen = it }
+            // Cropped again as Usugami starts: its cleanup may have put the page back whole on the image
+            // it is cropped from (see ImageStore.putBackWhole), which it is made from all the same. Not a
+            // page that outlasted that image, though, and took its file name (see ImageStore.stillThere):
+            // the page is no longer made from it, and stays as it is.
+            if (after != null && id in after.await()) items.value.firstOrNull { it.id == id }?.takeIf { it.source.path == source.path }?.let { chosen = it }
             val page = try {
                 // Not made for a page removed while it waited its turn.
                 withContext(cropOps) { if (stillAsChosen() == null) null else PageCropper.crop(source, quad, target) }
