@@ -1707,8 +1707,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         importGeneration++
         importJob = null
         _importing.value = false
-        zipper.cancel()
-        _result.value = null
+        // As in reset: a ZIP file to share is no longer wanted, one being saved goes on.
+        zipper.stopSharing()
+        putAwayResult()
         val forOne = tool != PdfTool.MERGE && !tool.isBatch && inputs.value.isNotEmpty()
         val added = if (forOne) inputs.value.drop(1) + locked.value else emptyList()
         if (added.isNotEmpty()) {
