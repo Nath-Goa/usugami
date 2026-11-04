@@ -410,3 +410,11 @@ mapping) or manifest entries, with `.github/scripts/check-mlkit-registrars.sh` t
 what ML Kit needs in Usugami, and with `.github/scripts/check-16kb-alignment.sh` that every native
 library is stored 16 KB aligned in the APK (`zipalign -c -P 16`) and that the 64-bit ones have
 16 KB-aligned segments (`llvm-readelf`), as phones with 16 KB memory pages need.
+
+The F-Droid workflow (`.github/workflows/fdroid.yml`) builds Usugami (the OCR edition) and Usugami
+Lite the way F-Droid does, with fdroidserver and the recipes in `.fdroid.yml` and
+`fdroid/io.github.nath_goa.usugami.lite.yml`: it runs F-Droid's scanner on the source and on the
+APKs, and for a release's commit checks with `apksigcopier compare` that the APKs it built are the
+release's APKs byte for byte, apart from the signature (reproducible builds). It runs for every
+release tag, and from the Actions tab for any branch, tag or commit. CONTRIBUTING.md explains how
+the builds stay reproducible.

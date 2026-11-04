@@ -1,0 +1,208 @@
+name: F-Droid
+
+# Builds Usugami and Usugami Lite the way F-Droid does, and checks that the builds are reproducible.
+#
+# For each app, fdroidserver's own "fdroid scanner" and "fdroid build" run on its recipe (.fdroid.yml
+# for Usugami, fdroid/io.github.nath_goa.usugami.lite.yml for Usugami Lite), copied into a folder laid
+# out like fdroiddata. As on F-Droid, they clone this repository at the commit, initialise the
+# submodules, apply the recipe (rm, prebuild), remove the signing config, scan the source, delete
+# the Gradle wrapper and build the unsigned APK with gradlew-fdroid (F-Droid's Gradle launcher,
+# which checks Gradle's checksum against F-Droid's transparency log). The APK is then scanned for
+# non-free code.
+#
+# When the commit is a release's (the tag v<versionName> points at it), the release's APK is
+# downloaded (the recipe's Binaries) and compared: apksigcopier copies its signature onto the APK
+# built here, and apksigner must accept the result, which it only does if the two are identical
+# apart from the signature. That is the check F-Droid makes before it publishes the developer-signed
+# APK. Its signer must also be the recipe's AllowedAPKSigningKeys. On a tag push the release
+# workflow is still running, so this waits for the release's APKs.
+#
+# Not exactly F-Droid's build server, and none of it goes into the APK: Ubuntu 24.04 instead of a
+# Debian trixie VM, Ubuntu's OpenJDK 21 instead of Debian's, "fdroid build" without the VM (the
+# recipes have no sudo commands), and Google's sdkmanager instead of F-Droid's for the NDK and
+# CMake. The recipe's version and commit are replaced by those of the commit being built, so any
+# commit can be checked, not only a release; nothing else in the recipe changes.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build
+        required: true
+        default: main
+  # Release tags; a pre-release tag (v1.6.0-rc.1) makes a draft, which has no public APKs.
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+']
+
+permissions: {}
+
+concurrency:
+  group: fdroid-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Usugami
+            appid: io.github.nath_goa.usugami
+            recipe: .fdroid.yml
+          - name: Usugami Lite
+            appid: io.github.nath_goa.usugami.lite
+            recipe: fdroid/io.github.nath_goa.usugami.lite.yml
+    env:
+      APPID: ${{ matrix.appid }}
+      RECIPE: ${{ matrix.recipe }}
+      FDROIDDATA: ${{ github.workspace }}/fdroiddata
+      # fdroidserver and apksigcopier from PyPI; gradlew-fdroid isn't on PyPI, so a pinned commit.
+      FDROIDSERVER_VERSION: 2.4.5
+      APKSIGCOPIER_VERSION: 1.1.1
+      GRADLEW_FDROID_COMMIT: ac23ffb5285c0c0961a677e310dd58ef90531057
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          path: source
+          fetch-depth: 0 # fdroid build clones this checkout; the tags tell whether it is a release
+          persist-credentials: false
+
+      - name: Version and commit
+        working-directory: source
+        run: |
+          set -euo pipefail
+          [ -f "$RECIPE" ] || { echo "::error::$RECIPE does not exist at this commit"; exit 1; }
+          commit=$(git rev-parse HEAD)
+          version_name=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n 1)
+          version_code=$(sed -n 's/^[[:space:]]*versionCode = \([0-9][0-9]*\).*/\1/p' app/build.gradle.kts | head -n 1)
+          [ -n "$version_name" ] && [ -n "$version_code" ] || { echo "::error::versionName or versionCode not found"; exit 1; }
+          release_commit=$(git rev-parse -q --verify "refs/tags/v$version_name^{commit}" || true)
+          echo "$APPID $version_name ($version_code) at $commit; tag v$version_name: ${release_commit:-none}"
+          {
+            echo "COMMIT=$commit"
+            echo "VERSION_NAME=$version_name"
+            echo "VERSION_CODE=$version_code"
+            echo "IS_RELEASE=$([ "$release_commit" = "$commit" ] && echo true || echo false)"
+          } >> "$GITHUB_ENV"
+
+      # F-Droid's build server has Debian's OpenJDK 21; this is Ubuntu's build of it.
+      # (python3-venv and libmagic1 are for fdroidserver.)
+      - name: Install OpenJDK 21
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends openjdk-21-jdk-headless python3-venv libmagic1 > /dev/null
+          echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
+
+      # fdroid build uses the recipe's NDK (r28c) only if it is installed; F-Droid's build server
+      # installs it by itself. The recipe's prebuild installs CMake with sdkmanager.
+      - name: Install the NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;28.2.13676358" > /dev/null
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Install fdroidserver, gradlew-fdroid and apksigcopier
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --disable-pip-version-check \
+            "fdroidserver==$FDROIDSERVER_VERSION" "apksigcopier==$APKSIGCOPIER_VERSION" \
+            "gradlew-fdroid @ git+https://gitlab.com/fdroid/gradlew-fdroid.git@$GRADLEW_FDROID_COMMIT"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+          # apksigner and dexdump, for fdroidserver and apksigcopier
+          ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1 >> "$GITHUB_PATH"
+
+      # The recipe as it would be in fdroiddata's metadata/, building this commit from this checkout.
+      - name: Set up the fdroiddata folder
+        run: |
+          set -euo pipefail
+          mkdir -p "$FDROIDDATA/metadata"
+          cat > "$FDROIDDATA/config.yml" <<EOF
+          sdk_path: $ANDROID_HOME
+          gradle: $RUNNER_TEMP/venv/bin/gradlew-fdroid
+          EOF
+          chmod 600 "$FDROIDDATA/config.yml"
+          "$RUNNER_TEMP/venv/bin/python" - "source/$RECIPE" "$FDROIDDATA/metadata/$APPID.yml" <<'EOF'
+          import os
+          import sys
+          from ruamel.yaml import YAML
+
+          yaml = YAML()
+          with open(sys.argv[1], encoding='utf-8') as f:
+              app = yaml.load(f)
+          build = app['Builds'][-1]
+          build['versionName'] = app['CurrentVersion'] = os.environ['VERSION_NAME']
+          build['versionCode'] = app['CurrentVersionCode'] = int(os.environ['VERSION_CODE'])
+          build['commit'] = os.environ['COMMIT']
+          app['Repo'] = os.path.join(os.environ['GITHUB_WORKSPACE'], 'source')
+          # The release APK is compared in its own step below, which can wait for it.
+          binaries = app.pop('Binaries').replace('%v', os.environ['VERSION_NAME'])
+          signers = app['AllowedAPKSigningKeys']
+          signers = [signers] if isinstance(signers, str) else list(signers)
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              env.write(f'RELEASE_APK_URL={binaries}\n')
+              env.write(f"ALLOWED_SIGNERS={' '.join(signers)}\n")
+          with open(sys.argv[2], 'w', encoding='utf-8') as f:
+              yaml.dump(app, f)
+          EOF
+          cat "$FDROIDDATA/metadata/$APPID.yml"
+
+      - name: Scan the source (fdroid scanner)
+        working-directory: ${{ env.FDROIDDATA }}
+        run: fdroid scanner --verbose --exit-code "$APPID"
+
+      - name: Build (fdroid build)
+        working-directory: ${{ env.FDROIDDATA }}
+        run: |
+          set -euo pipefail
+          fdroid build --verbose --stop --latest --no-tarball --scan-binary "$APPID"
+          apk="unsigned/${APPID}_${VERSION_CODE}.apk"
+          sha256sum "$apk"
+          echo "UNSIGNED_APK=$FDROIDDATA/$apk" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.appid }}-unsigned
+          path: ${{ env.UNSIGNED_APK }}
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Same as the release APK (apksigcopier compare)
+        run: |
+          set -euo pipefail
+          if [ "$IS_RELEASE" != true ]; then
+            echo "::notice::$COMMIT isn't tagged v$VERSION_NAME, so there is no release APK to compare with"
+            exit 0
+          fi
+          release="$RUNNER_TEMP/release.apk"
+          # A tag push starts the release workflow at the same time: wait for its APKs.
+          tries=1
+          if [ "$GITHUB_EVENT_NAME" = push ]; then tries=45; fi
+          for i in $(seq "$tries"); do
+            if curl -fsSL -o "$release" "$RELEASE_APK_URL"; then break; fi
+            rm -f "$release"
+            if [ "$i" -lt "$tries" ]; then sleep 60; fi
+          done
+          if [ ! -f "$release" ]; then
+            echo "::error::$RELEASE_APK_URL could not be downloaded"
+            exit 1
+          fi
+          sha256sum "$release" "$UNSIGNED_APK"
+          signer=$(apksigner verify --print-certs "$release" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          case " $ALLOWED_SIGNERS " in
+            *" $signer "*) echo "Signed with $signer, as the recipe allows" ;;
+            *) echo "::error::The release APK is signed with '$signer', not one of the recipe's AllowedAPKSigningKeys"; exit 1 ;;
+          esac
+          if apksigcopier compare --unsigned "$release" "$UNSIGNED_APK"; then
+            echo "Reproducible: the APK built from source is the release APK without its signature"
+          else
+            echo "::error::Not reproducible: the APK built here differs from $RELEASE_APK_URL"
+            unzip -lv "$release" > "$RUNNER_TEMP/release.txt"
+            unzip -lv "$UNSIGNED_APK" > "$RUNNER_TEMP/built.txt"
+            diff "$RUNNER_TEMP/release.txt" "$RUNNER_TEMP/built.txt" || true
+            exit 1
+          fi

@@ -1,0 +1,3 @@
+• Usugami Lite अब F-Droid पर है
+• यह अब एक अलग ऐप है (io.github.nath_goa.usugami.lite), जो Usugami के साथ इंस्टॉल हो सकता है। GitHub से Usugami Lite 1.5.0 लिया था? वह "Usugami" नाम से बना रहता है: अपनी PDF सेव करें, फिर उसे अनइंस्टॉल करें
+• रिप्रोड्यूसिबल बिल्ड: F-Droid का बिल्ड ठीक वही APK है जो GitHub पर डेवलपर के साइन के साथ है

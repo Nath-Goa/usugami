@@ -1,0 +1,50 @@
+Categories:
+  - OCR
+  - Writing
+License: GPL-3.0-or-later
+AuthorName: Nathan Kumtakar
+WebSite: https://github.com/Nath-Goa/usugami
+SourceCode: https://github.com/Nath-Goa/usugami
+IssueTracker: https://github.com/Nath-Goa/usugami/issues
+Changelog: https://github.com/Nath-Goa/usugami/blob/HEAD/CHANGELOG.md
+
+AutoName: Usugami Lite
+
+RepoType: git
+Repo: https://github.com/Nath-Goa/usugami.git
+Binaries: https://github.com/Nath-Goa/usugami/releases/download/v%v/Usugami-lite.apk
+
+Builds:
+  - versionName: 1.5.1
+    versionCode: 8
+    commit: v1.5.1
+    subdir: app
+    gradle:
+      - lite
+    rm:
+      - app/src/standard
+      - app/src/androidTestStandard
+      - app/src/ocr/assets/ocr
+    prebuild: sed -i -e '/com\.google\.android\.gms/d' build.gradle.kts
+    ndk: r28c
+
+AllowedAPKSigningKeys: 6f4f23ade03e636a7cc368168944d0ccfc8132ef34c50bc5a46b0ca4cbbdf4ed
+
+MaintainerNotes: |-
+  Usugami is built in three editions (product flavors). This is "lite": no text recognition, so
+  neither the ncnn submodule nor CMake is needed (Gradle still wants the NDK to configure the
+  ocr-native module, which only the "ocr" edition uses). The "standard" edition uses Google ML Kit
+  and is not built here: its sources and its two com.google.android.gms dependency lines are
+  removed, and so are the OCR edition's model files (data the Lite build doesn't use).
+  Usugami itself (the "ocr" edition) is io.github.nath_goa.usugami, built from the same repository
+  with the recipe in .fdroid.yml there. The store texts are in src/lite/fastlane; the graphics
+  they don't replace come from fastlane/ at the repository root.
+
+  Reproducible build: the release workflow (.github/workflows/release.yml) builds and signs
+  Usugami-lite.apk on GitHub Actions, and .github/workflows/fdroid.yml rebuilds it from this recipe
+  with fdroidserver and compares it with apksigcopier.
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+$
+CurrentVersion: 1.5.1
+CurrentVersionCode: 8

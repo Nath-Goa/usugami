@@ -1,0 +1,6 @@
+• Reconnaissance de texte open source intégrée (PaddleOCR et ncnn) : anglais, français, espagnol et hindi, hors ligne
+• Scannez des pages avec l'appareil photo, recadrez-les et passez-les en noir et blanc (PDF minuscules)
+• Par lots : compressez, numérotez, filigranez ou aplatissez plusieurs PDF, et convertissez plusieurs fichiers Word, PowerPoint ou EPUB
+• Partagez PDF, Word, PowerPoint et EPUB vers Usugami
+• OCR bien plus précise : elle lit vos photos d'origine
+• Plus de 100 corrections

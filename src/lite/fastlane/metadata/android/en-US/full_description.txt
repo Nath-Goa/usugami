@@ -1,0 +1,35 @@
+<i>Usugami Lite</i> turns photos, camera scans, Word documents, PowerPoint slides and EPUB e-books into PDFs, and has the tools you need for the PDFs you already have. It has every tool of <i>Usugami</i> (薄紙, Japanese for "thin paper") except text recognition, so it is even smaller. Everything happens on your phone: Usugami Lite has no internet permission, so nothing is ever uploaded.
+
+<b>Create PDFs</b>
+<ul>
+<li><b>Images to PDF:</b> JPG and PNG images from your gallery or files, or <b>scan pages with your camera</b>. Crop each page straight (Usugami finds its corners) and give it a look: original, enhanced, grayscale or black &amp; white, which takes about 10 KB a page. Choose the page size, orientation and margin, and make one PDF or one per image. Images are always compressed, and their location and other hidden metadata are removed.</li>
+<li><b>Word, PowerPoint and EPUB to PDF:</b> .docx, .pptx and .epub files converted on your phone, with their styles, tables and pictures, headers and footers, and the book's table of contents as bookmarks.</li>
+</ul>
+
+<b>PDF tools</b>
+<ul>
+<li>Split, merge, reorganize and rotate PDFs, and delete pages</li>
+<li>Compress PDFs (it never makes a PDF bigger)</li>
+<li>Edit PDFs: add text, drawings, highlights, shapes and pictures</li>
+<li>Sign with your handwritten signature</li>
+<li>Add page numbers or a watermark</li>
+<li>Flatten forms and comments</li>
+<li>Redact for real: what is under the black boxes is removed from the file, not just covered</li>
+<li>Open password-protected PDFs</li>
+</ul>
+
+<b>Batch mode:</b> compress, number, watermark or flatten many PDFs at once, or convert many Word, PowerPoint or EPUB files, each into a PDF of its own. Save or share the new PDFs one by one or as one ZIP file.
+
+<b>Share to Usugami Lite:</b> share images, PDFs, Word, PowerPoint or EPUB files from any app, and they open in the right tool.
+
+<b>Private by design</b>
+<ul>
+<li>No internet permission, and no permissions to grant</li>
+<li>No ads, no tracking, no account</li>
+<li>No Google code: Google Play services are not needed</li>
+<li>Free and open source (GPL-3.0-or-later)</li>
+</ul>
+
+In English, French, Spanish and Hindi, with light and dark themes. Needs Android 8.0 or newer.
+
+Want searchable scans? <i>Usugami</i> has the same tools plus open-source text recognition (OCR) in English, French, Spanish and Hindi. Usugami Lite is a separate app, so the two can be installed side by side.

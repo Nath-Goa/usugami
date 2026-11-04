@@ -1,0 +1,6 @@
+• Reconocimiento de texto de código abierto integrado (PaddleOCR y ncnn): inglés, francés, español e hindi, sin conexión
+• Escanea páginas con la cámara, recórtalas rectas y pásalas a blanco y negro (PDF diminutos)
+• Por lotes: comprime, numera, añade marca de agua o acopla varios PDF, y convierte varios archivos de Word, PowerPoint o EPUB
+• Comparte PDF, Word, PowerPoint y EPUB con Usugami
+• OCR mucho más preciso: lee tus fotos originales
+• Más de 100 correcciones

@@ -1,0 +1,3 @@
+• Usugami est maintenant sur F-Droid
+• Compilations reproductibles : F-Droid compile Usugami depuis le code source et obtient exactement l'APK publié sur GitHub, signé par le développeur, vous pouvez donc mettre à jour depuis l'un ou l'autre
+• Usugami Lite est désormais une application à part (io.github.nath_goa.usugami.lite), installable à côté d'Usugami

@@ -66,6 +66,75 @@ Shared code lives in `app/src/main` and should work in all three. Each edition p
 them apart. Release builds are only signed when a key is configured (see the README), so you don't
 need one to contribute. [docs/TESTING.md](docs/TESTING.md) explains the tests.
 
+## Reproducible builds and F-Droid
+
+F-Droid builds two of the editions from source: Usugami (the `ocr` flavor,
+`io.github.nath_goa.usugami`) with the recipe in [`.fdroid.yml`](.fdroid.yml), and Usugami Lite
+(`io.github.nath_goa.usugami.lite`) with [`fdroid/io.github.nath_goa.usugami.lite.yml`](fdroid/io.github.nath_goa.usugami.lite.yml).
+It compares what it builds with the release's `Usugami-ocr.apk` and `Usugami-lite.apk` and, if they
+are the same apart from the signature, publishes the release APKs, signed with the developer's key.
+So these two editions' release builds must be **reproducible**: one commit must give the same
+unsigned APK byte for byte, whoever builds it, on any machine and in any folder. (Usugami's
+`standard` flavor uses Google ML Kit, which F-Droid doesn't allow; the recipes remove its sources
+and its dependency lines.)
+
+What keeps the builds reproducible:
+
+- Pinned tools: the Gradle wrapper with its checksum (F-Droid runs the same Gradle version with its
+  own launcher, gradlew-fdroid), AGP and Kotlin versions, NDK 28.2.13676358 (`ndk: r28c` in the
+  recipes) and CMake 3.22.1.
+- The OCR engine (`ocr-native/src/main/cpp/CMakeLists.txt`): a fixed `NCNN_VERSION` instead of the
+  build date; no debug info (`-g0`), because clang otherwise writes the absolute path of the source
+  file of every OpenMP loop in ncnn into the library; and `-ffile-prefix-map` for the repository,
+  the build folder and the NDK, so no absolute path ends up in it.
+- Release APKs are signed by AGP itself (APK Signature Scheme v2 and v3, no v1), and there is no
+  dependency-metadata block (`dependenciesInfo`), so F-Droid's unsigned build with the release's
+  signature copied onto it is exactly the release APK.
+- The APK records the commit it was built from (`META-INF/version-control-info.textproto`), so it
+  only matches a build of the same commit: the release workflow builds the tagged commit, and so
+  does F-Droid.
+- Text files have LF line endings in every checkout (`.gitattributes`), so the license texts inside
+  the APK don't depend on the system.
+
+When you change the build, don't add anything that depends on when, where or by whom it runs: dates
+or times (`__DATE__`, `string(TIMESTAMP)`, a build time in `BuildConfig`), absolute paths, user or
+machine names, random values, or files listed in whatever order the file system returns them.
+Keep the native flags above, and keep signing in Gradle (re-signing or re-aligning the APK with
+apksigner after the build would change its layout). When you update the NDK or CMake, update the
+recipes too.
+
+To check it:
+
+- **Locally:** build the same commit in two clones in different folders and compare the APKs
+  (without a signing key, release builds come out unsigned):
+
+  ```sh
+  git clone --recurse-submodules https://github.com/Nath-Goa/usugami.git a
+  git clone --recurse-submodules https://github.com/Nath-Goa/usugami.git some/other/folder/b
+  (cd a && ./gradlew :app:assembleOcrRelease :app:assembleLiteRelease)
+  (cd some/other/folder/b && ./gradlew :app:assembleOcrRelease :app:assembleLiteRelease)
+  for f in ocr/release/app-ocr-release-unsigned.apk lite/release/app-lite-release-unsigned.apk; do
+    cmp "a/app/build/outputs/apk/$f" "some/other/folder/b/app/build/outputs/apk/$f" && echo "same: $f"
+  done
+  ```
+
+- **The F-Droid check:** on GitHub, Actions → **F-Droid** → **Run workflow**, with a branch, tag
+  or commit. It builds both apps with fdroidserver from their recipes, as F-Droid does, runs
+  F-Droid's scanner on the source and the APKs, and for a release's commit compares the APKs with
+  the release's using `apksigcopier compare`. It also runs by itself for each release tag, after
+  waiting for the release's APKs.
+- **Against a release by hand:** `pip install apksigcopier`, then, with `apksigner` from the
+  Android SDK build-tools on your `PATH`:
+  `apksigcopier compare --unsigned Usugami-ocr.apk app/build/outputs/apk/ocr/release/app-ocr-release-unsigned.apk`
+  (the same for `Usugami-lite.apk`), with a build of the release's tagged commit.
+
+F-Droid's store texts and graphics come from this repository: `fastlane/metadata/android/<locale>/`
+for Usugami, and `src/lite/fastlane/metadata/android/<locale>/` for Usugami Lite (its texts; the
+graphics it doesn't have come from Usugami's). Each release adds `changelogs/<versionCode>.txt`
+(500 characters at most) in every locale of both. F-Droid finds new versions by their `v` tags.
+To submit or update the apps, copy the two recipes into fdroiddata as
+`metadata/io.github.nath_goa.usugami.yml` and `metadata/io.github.nath_goa.usugami.lite.yml`.
+
 ## Pull requests
 
 - Keep each pull request to one change, and describe what it does and how you tested it.

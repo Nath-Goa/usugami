@@ -55,6 +55,13 @@ over the other; your files and settings are kept. Usugami Lite is an app of its 
 [release](https://github.com/Nath-Goa/usugami/releases) also has a `SHA256SUMS.txt` file for
 [checking your download](#verify-your-download).
 
+**F-Droid (coming soon):** Usugami (with the open-source text recognition of Usugami OCR) and
+Usugami Lite are on their way to [F-Droid](https://f-droid.org). Their builds are
+[reproducible](https://f-droid.org/docs/Reproducible_Builds/): F-Droid builds each app from this
+source, checks that it gets exactly the APK published here, and then offers that APK, signed with
+the same key as the GitHub downloads. So you can switch between F-Droid, GitHub and Obtainium
+without reinstalling.
+
 ## What's new in 1.5.0
 
 - **Three editions:** Usugami, Usugami Lite (no Google code) and Usugami OCR (open-source text
@@ -796,6 +803,11 @@ Release builds are shrunk and obfuscated by R8. Each release also has a `mapping
 with the three editions' R8 mapping files, for turning stack traces in crash reports back into
 readable code.
 
+Usugami OCR's and Usugami Lite's release builds are reproducible: the same commit gives the same
+APK byte for byte, wherever and by whoever it is built (apart from the signature). This is how
+F-Droid can ship the APKs signed by the developer; see *Reproducible builds and F-Droid* in
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
 </details>
 
 ## Project structure
@@ -826,8 +838,11 @@ tools/                validate_pdfs.py (checks output with independent PDF tools
                       (the made-up Word and PowerPoint test files), google_notices.py
 third_party/          ncnn (git submodule) and the license notices that Google ships in its
                       libraries
-docs/                 testing guide, badges, screenshots
-.github/              CI and release workflows
+docs/                 testing guide, badges, screenshots, icon
+fastlane/             Usugami's store texts and graphics for F-Droid (src/lite/fastlane: Usugami
+                      Lite's texts, which replace them for that app)
+.fdroid.yml           F-Droid's build recipe for Usugami (fdroid/: Usugami Lite's)
+.github/              CI, release and F-Droid check workflows
 ```
 
 The PDF tools use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);

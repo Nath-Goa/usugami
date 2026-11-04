@@ -1,0 +1,65 @@
+Categories:
+  - OCR
+  - Writing
+License: GPL-3.0-or-later
+AuthorName: Nathan Kumtakar
+WebSite: https://github.com/Nath-Goa/usugami
+SourceCode: https://github.com/Nath-Goa/usugami
+IssueTracker: https://github.com/Nath-Goa/usugami/issues
+Changelog: https://github.com/Nath-Goa/usugami/blob/HEAD/CHANGELOG.md
+
+AutoName: Usugami
+
+RepoType: git
+Repo: https://github.com/Nath-Goa/usugami.git
+Binaries: https://github.com/Nath-Goa/usugami/releases/download/v%v/Usugami-ocr.apk
+
+Builds:
+  - versionName: 1.5.1
+    versionCode: 8
+    commit: v1.5.1
+    subdir: app
+    submodules: true
+    gradle:
+      - ocr
+    rm:
+      - app/src/standard
+      - app/src/androidTestStandard
+      - third_party/ncnn/examples
+      - third_party/ncnn/glslang
+      - third_party/ncnn/python
+    prebuild:
+      - sdkmanager 'cmake;3.22.1'
+      - sed -i -e '/com\.google\.android\.gms/d' build.gradle.kts
+    scanignore:
+      - app/src/ocr/assets/ocr
+    ndk: r28c
+
+AllowedAPKSigningKeys: 6f4f23ade03e636a7cc368168944d0ccfc8132ef34c50bc5a46b0ca4cbbdf4ed
+
+MaintainerNotes: |-
+  Usugami is built in three editions (product flavors). F-Droid builds "ocr": open-source text
+  recognition with PaddleOCR's PP-OCRv5 models run by Tencent's ncnn, which is built from source
+  (the git submodule third_party/ncnn) by the ocr-native module with CMake and the NDK. The
+  "standard" edition uses Google ML Kit and is not built here: its sources and its two
+  com.google.android.gms dependency lines are removed. Usugami Lite (no text recognition) is
+  io.github.nath_goa.usugami.lite, built from the same repository.
+
+  scanignore: app/src/ocr/assets/ocr holds the PP-OCRv5 models (Apache-2.0) in ncnn's format:
+  weights (.bin) and network descriptions (.param). They are data, not code, and are reproducible:
+  tools/make_ocr_models.py downloads PaddlePaddle's official ONNX exports at pinned revisions,
+  checks their SHA-256, converts them with pnnx and checks the result against
+  tools/ocr-models.sha256.
+
+  rm: ncnn's examples (prebuilt SqueezeNet weights), its glslang (Vulkan) and Python bindings are
+  not used (NCNN_VULKAN, NCNN_PYTHON and NCNN_BUILD_EXAMPLES are off); the release build has none
+  of them either (it checks out ncnn without its own submodules).
+
+  Reproducible build: the release workflow (.github/workflows/release.yml) builds and signs
+  Usugami-ocr.apk on GitHub Actions, and .github/workflows/fdroid.yml rebuilds it from this recipe
+  with fdroidserver and compares it with apksigcopier.
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9]+\.[0-9]+\.[0-9]+$
+CurrentVersion: 1.5.1
+CurrentVersionCode: 8

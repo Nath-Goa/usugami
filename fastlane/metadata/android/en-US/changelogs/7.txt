@@ -1,0 +1,6 @@
+• Open-source text recognition built in (PaddleOCR and ncnn): English, French, Spanish and Hindi, fully offline
+• Scan pages with your camera, crop them straight and make them black & white (tiny PDFs)
+• Batch mode: compress, watermark, number or flatten many PDFs at once, and convert many Word, PowerPoint or EPUB files
+• Share PDFs, Word, PowerPoint and EPUB files to Usugami
+• Text recognition reads your original photos, so it is much more accurate
+• 100+ bug fixes

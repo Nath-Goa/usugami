@@ -1,0 +1,35 @@
+<i>Usugami Lite</i> convierte fotos, escaneos con la cámara, documentos de Word, presentaciones de PowerPoint y libros EPUB en PDF, y reúne las herramientas que necesitas para los PDF que ya tienes. Tiene todas las herramientas de <i>Usugami</i> (薄紙, «papel fino» en japonés) menos el reconocimiento de texto, así que es aún más ligera. Todo ocurre en tu teléfono: Usugami Lite no tiene permiso de acceso a Internet, así que nunca se sube nada.
+
+<b>Crear PDF</b>
+<ul>
+<li><b>Imágenes a PDF:</b> imágenes JPG y PNG de tu galería o tus archivos, o <b>escanea páginas con la cámara</b>. Recorta cada página bien recta (Usugami encuentra sus esquinas) y elige su aspecto: original, mejorado, escala de grises o blanco y negro, que ocupa unos 10 KB por página. Elige el tamaño de página, la orientación y el margen, y crea un solo PDF o uno por imagen. Las imágenes siempre se comprimen, y se eliminan su ubicación y otros metadatos ocultos.</li>
+<li><b>Word, PowerPoint y EPUB a PDF:</b> archivos .docx, .pptx y .epub convertidos en tu teléfono, con sus estilos, tablas e imágenes, encabezados y pies de página, y el índice del libro como marcadores.</li>
+</ul>
+
+<b>Herramientas PDF</b>
+<ul>
+<li>Dividir, unir, reorganizar y girar PDF, y eliminar páginas</li>
+<li>Comprimir PDF (nunca lo hace más grande)</li>
+<li>Editar PDF: añadir texto, dibujos, resaltados, formas e imágenes</li>
+<li>Firmar con tu firma manuscrita</li>
+<li>Numerar páginas o añadir una marca de agua</li>
+<li>Acoplar formularios y comentarios</li>
+<li>Censurar de verdad: lo que queda bajo los recuadros negros se elimina del archivo, no solo se tapa</li>
+<li>Abrir PDF protegidos con contraseña</li>
+</ul>
+
+<b>Modo por lotes:</b> comprime, numera, añade una marca de agua o acopla varios PDF a la vez, o convierte varios archivos de Word, PowerPoint o EPUB, cada uno en su propio PDF. Guarda o comparte los PDF nuevos uno por uno o en un solo archivo ZIP.
+
+<b>Compartir con Usugami Lite:</b> comparte imágenes, PDF o archivos de Word, PowerPoint o EPUB desde cualquier aplicación y se abren en la herramienta adecuada.
+
+<b>Privado por diseño</b>
+<ul>
+<li>Sin permiso de acceso a Internet y sin permisos que conceder</li>
+<li>Sin anuncios, sin seguimiento y sin cuenta</li>
+<li>Sin código de Google: no necesita los Servicios de Google Play</li>
+<li>Libre y de código abierto (GPL-3.0 o posterior)</li>
+</ul>
+
+En español, inglés, francés e hindi, con tema claro y oscuro. Requiere Android 8.0 o posterior.
+
+¿Quieres escaneos en los que buscar? <i>Usugami</i> tiene las mismas herramientas y, además, reconocimiento de texto (OCR) de código abierto en inglés, francés, español e hindi. Usugami Lite es una aplicación aparte, así que puedes tener las dos instaladas.
