@@ -41,6 +41,20 @@ class BatchChoicesTest {
     }
 
     @Test
+    fun aFileAddedStartsWithTheChoiceTheFilesKeptAllHave() {
+        // Each file set to 2 on its own: the screen shows 2 as the choice for all, and a file added gets it.
+        val each = start.withChoice(10, 2).withChoice(20, 2).withChoice(30, 2)
+        assertEquals(2, each.common)
+        val added = each.following(listOf(10, 20, 30, 40))
+        assertEquals(2, added.choiceOf(40))
+        assertEquals(2, added.common)
+        // One file set on its own and the others removed: the one left has the choice for all.
+        val left = start.withChoice(10, 0).following(listOf(10))
+        assertEquals(0, left.all)
+        assertEquals(0, left.following(listOf(10, 50)).choiceOf(50))
+    }
+
+    @Test
     fun followingKeepsWhatFilesHaveInTheNewOrderAndForgetsFilesRemoved() {
         val chosen = start.withName(30, "Thirty").withChoice(30, 0)
         val next = chosen.following(listOf(30, 10))

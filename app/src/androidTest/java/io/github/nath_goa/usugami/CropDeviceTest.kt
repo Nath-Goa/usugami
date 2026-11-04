@@ -170,7 +170,8 @@ class CropDeviceTest {
     }
 
     @Test fun aPhotoTakenIsAddedCroppedCroppedAgainAndPutBackWhole() {
-        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        val handle = SavedStateHandle()
+        val vm = onMain { MainViewModel(app, handle) }
         runBlocking { vm.awaitFileWork() }
         // The camera app saves the photo into the file Usugami gives it.
         val uri = onMain { vm.newCapture() }
@@ -223,6 +224,11 @@ class CropDeviceTest {
         val recropped = onMain { vm.items.value.single() }
         assertEquals(PagePhotos.QUAD[0].x + 0.02f, recropped.original!!.corners[CropQuad.TOP_LEFT].x, 1e-4f)
         assertEquals(90, recropped.rotation)
+        // The page cropped before goes once Android has saved a state that no longer names it (as it
+        // does when Usugami goes to the background), not before: see the test below.
+        runBlocking { vm.awaitFileWork() }
+        assertTrue("Kept while the state saved last may name it", File(cropped.path).isFile)
+        onMain { handle.savedStateProvider().saveState() }
         waitUntil("the page cropped before to be deleted") { !File(cropped.path).exists() }
 
         // The whole image puts the photo back as it was taken.
@@ -366,6 +372,44 @@ class CropDeviceTest {
         assertEquals(taken.path, page.original!!.path)
         assertTrue(page.original!!.corners.isCloseTo(PagePhotos.QUAD))
         assertEquals(PageLook.GRAYSCALE, page.look)
+        assertStraightPage(File(page.path), page.width, page.height)
+
+        onMain { restored.clearAll() }
+        runBlocking { restored.awaitFileWork() }
+        assertEquals(emptyList<String>(), File(app.cacheDir, "images").list().orEmpty().toList())
+    }
+
+    /**
+     * As above, for a page cropped again: the page cropped before stays until Android saves a state
+     * that no longer names it, so that Usugami started again from the state saved before the new crop
+     * was ready still has the page, and makes the crop again.
+     */
+    @Test fun aPageCroppedAgainUnfinishedWhenAndroidStopsUsugamiIsMadeAgain() {
+        val handle = SavedStateHandle()
+        val vm = onMain { MainViewModel(app, handle) }
+        runBlocking { vm.awaitFileWork() }
+        val taken = takePhoto(vm)
+        onMain { assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD))) }
+        waitUntil("the page to be made") { vm.cropping.value.isEmpty() }
+        val before = onMain { vm.items.value.single() }
+        onMain { vm.openCrop(taken.id) }
+        waitUntil("the crop screen again") { vm.crop.value != null }
+        // A corner moved a little; Android saves Usugami's state before the new page is ready.
+        val corner = PagePhotos.QUAD.corners[0]
+        val quad = PagePhotos.QUAD.with(0, corner.x + 0.002f, corner.y)
+        val saved = onMain {
+            assertTrue(vm.finishCrop(vm.crop.value!!.shown(quad)))
+            mapOf("items" to MainViewModel.packItems(vm.items.value), "pending_crops" to handle.get<Any>("pending_crops"))
+        }
+        waitUntil("the new page to be made before Android stops Usugami") { vm.cropping.value.isEmpty() }
+        assertNotEquals(before.path, onMain { vm.items.value.single().path })
+        assertTrue("The page cropped before is kept while a saved state names it", File(before.path).isFile)
+
+        val restored = onMain { MainViewModel(app, SavedStateHandle(saved)) }
+        waitUntil("the page to be made again") { restored.cropping.value.isEmpty() && restored.pendingImports.value == 0 }
+        val page = onMain { restored.items.value.single() }
+        assertEquals(taken.path, page.original!!.path)
+        assertTrue(page.original!!.corners.isCloseTo(quad))
         assertStraightPage(File(page.path), page.width, page.height)
 
         onMain { restored.clearAll() }

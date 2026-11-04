@@ -92,6 +92,12 @@ class BatchCompressDeviceTest {
         return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
     }
 
+    /** A file that isn't a PDF at all, picked as one. */
+    private fun broken(name: String): Uri {
+        val file = File(picked, name).apply { parentFile!!.mkdirs(); writeText("not a PDF") }
+        return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+    }
+
     /** In Usugami's language, which may not be English. */
     private val strings get() = AppLanguages.localized(app).resources
 
@@ -114,6 +120,15 @@ class BatchCompressDeviceTest {
             runBlocking { vm.awaitFileWork() }
         }
         picked.deleteRecursively()
+    }
+
+    /** PDFs picked together that can't be opened are named, in one message, rather than one "that PDF" for them all. */
+    @Test fun pdfsPickedTogetherThatCantBeOpenedAreNamed() {
+        val vm = newViewModel()
+        add(vm, pdf("alpha.pdf"), broken("first broken.pdf"), broken("second broken.pdf"))
+        assertEquals(listOf("alpha.pdf"), onMain { vm.inputs.value.map { it.name } })
+        val expected = strings.getString(R.string.file_problem, "first broken.pdf, second broken.pdf", strings.getString(R.string.pdf_import_failed_many))
+        assertEquals(expected, nextMessage(vm))
     }
 
     @Test fun levelsAndNamesFollowThePdfsAndSurviveTheProcessBeingRestarted() {
@@ -264,6 +279,39 @@ class BatchCompressDeviceTest {
         } finally {
             downloads(stamp).forEach { app.contentResolver.delete(it.first, null, null) }
             target.delete()
+        }
+    }
+
+    /**
+     * Save to Downloads that fails partway (here a PDF that can't be read; the storage running out, as
+     * it happens) keeps the PDFs it copied before: they are marked saved, and saving again doesn't
+     * copy them twice.
+     */
+    @Test fun aSaveToDownloadsThatFailsPartwayKeepsWhatItCopied() {
+        assumeTrue(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        val stamp = "Partway_${System.currentTimeMillis()}"
+        val folder = File(app.cacheDir, "output/tools").apply { mkdirs() }
+        val pdfs = listOf("a", "b", "c").map { File(folder, "${stamp}_$it.pdf").apply { writeText("%PDF-1.4 $it") } }
+        val handle = SavedStateHandle(mapOf(KeptResult.KEY to KeptResult.pack(pdfs.map { PdfFile(it, 1, 0) })))
+        val vm = newViewModel(handle)
+        runBlocking { vm.awaitFileWork() }
+        val files = onMain { vm.result.value!! }
+        try {
+            assertTrue(pdfs[1].setReadable(false, false))
+            onMain { vm.saveToDownloads() }
+            assertEquals(strings.getString(R.string.msg_save_failed), nextMessage(vm))
+            assertEquals("The PDF copied before the failure is saved", setOf(files[0].name), onMain { vm.savedFiles.value })
+            assertFalse(onMain { vm.saved.value })
+            assertEquals(listOf(files[0].name), downloads(stamp).map { it.second })
+
+            pdfs[1].setReadable(true, false)
+            onMain { vm.saveToDownloads() }
+            assertEquals(strings.getString(R.string.pdf_saved_downloads), nextMessage(vm))
+            assertTrue(onMain { vm.saved.value })
+            assertEquals("None copied twice", files.map { it.name }, downloads(stamp).map { it.second }.sorted())
+        } finally {
+            pdfs[1].setReadable(true, false)
+            downloads(stamp).forEach { app.contentResolver.delete(it.first, null, null) }
         }
     }
 

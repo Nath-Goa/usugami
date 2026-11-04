@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,10 +27,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
@@ -72,6 +74,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -151,40 +154,52 @@ fun ResultScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Column(
+        // The PDFs (a result can have thousands, one per page of a long PDF split) are in a lazy list,
+        // so only those on screen are laid out, and a save that turns their buttons off and on again
+        // redraws only those.
+        val bars = WindowInsets.navigationBars.asPaddingValues()
+        val direction = LocalLayoutDirection.current
+        // The name of the PDF whose Save menu is open: one for the whole screen, so the saved state
+        // doesn't grow with the PDFs.
+        val saveMenu = rememberSaveable { mutableStateOf<String?>(null) }
+        val wide = Modifier.widthIn(max = 480.dp).fillMaxWidth()
+        LazyColumn(
             Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+                .fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = bars.calculateStartPadding(direction) + 24.dp,
+                top = bars.calculateTopPadding() + 16.dp,
+                end = bars.calculateEndPadding(direction) + 24.dp,
+                bottom = bars.calculateBottomPadding() + 16.dp,
+            ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                Icons.Rounded.CheckCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .size(64.dp)
-                    .graphicsLayer {
-                        scaleX = checkScale
-                        scaleY = checkScale
-                    },
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                stringResource(if (single) R.string.result_heading_one else R.string.result_heading_many),
-                style = MaterialTheme.typography.headlineSmall,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(20.dp))
-
-            // The name of the PDF whose Save menu is open: one for the whole screen, so the saved state
-            // doesn't grow with the PDFs, of which there can be thousands.
-            val saveMenu = rememberSaveable { mutableStateOf<String?>(null) }
-            Column(Modifier.widthIn(max = 480.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                files.forEach { file ->
-                    val saveAs = actions.saveOneAs
+            item(key = "heading") {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .graphicsLayer {
+                                scaleX = checkScale
+                                scaleY = checkScale
+                            },
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        stringResource(if (single) R.string.result_heading_one else R.string.result_heading_many),
+                        style = MaterialTheme.typography.headlineSmall,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(20.dp))
+                }
+            }
+            itemsIndexed(files, key = { _, file -> file.file.path }) { index, file ->
+                val saveAs = actions.saveOneAs
+                Box(if (index > 0) wide.padding(top = 8.dp) else wide) {
                     if (!single && saveAs != null) {
                         OwnFileRow(
                             file,
@@ -202,63 +217,67 @@ fun ResultScreen(
                     }
                 }
             }
-            if (note != null) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
-            }
-
-            Spacer(Modifier.height(24.dp))
-            Column(Modifier.widthIn(max = 480.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (single) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        WideButton(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open), Modifier.weight(1f), primary = true, halfWidth = true) {
-                            actions.open(files[0])
-                        }
-                        WideButton(Icons.Rounded.Share, stringResource(R.string.share), Modifier.weight(1f), tonal = true, halfWidth = true, onClick = actions.share)
-                    }
-                } else {
-                    WideButton(Icons.Rounded.Share, stringResource(R.string.share_all), Modifier.fillMaxWidth(), primary = true, enabled = zipProgress == null, onClick = actions.share)
-                }
-                actions.saveToDownloads?.let { save ->
-                    WideButton(Icons.Rounded.Download, stringResource(R.string.save_to_downloads), Modifier.fillMaxWidth(), enabled = idle, onClick = save)
-                }
-                WideButton(
-                    Icons.Rounded.SaveAs,
-                    stringResource(if (single) R.string.save_as else R.string.save_all_to_folder),
-                    Modifier.fillMaxWidth(),
-                    enabled = idle,
-                    onClick = actions.saveAs,
-                )
-                if (!single) ZipButton(enabled = idle, onShare = actions.shareZip, onSave = actions.saveZip)
-            }
-
-            AnimatedVisibility(
-                visible = !saved,
-                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
-                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
-                label = "notSavedNote",
-            ) {
+            item(key = "actions") {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    if (note != null) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            note,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                    Column(wide, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (single) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                WideButton(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open), Modifier.weight(1f), primary = true, halfWidth = true) {
+                                    actions.open(files[0])
+                                }
+                                WideButton(Icons.Rounded.Share, stringResource(R.string.share), Modifier.weight(1f), tonal = true, halfWidth = true, onClick = actions.share)
+                            }
+                        } else {
+                            WideButton(Icons.Rounded.Share, stringResource(R.string.share_all), Modifier.fillMaxWidth(), primary = true, enabled = zipProgress == null, onClick = actions.share)
+                        }
+                        actions.saveToDownloads?.let { save ->
+                            WideButton(Icons.Rounded.Download, stringResource(R.string.save_to_downloads), Modifier.fillMaxWidth(), enabled = idle, onClick = save)
+                        }
+                        WideButton(
+                            Icons.Rounded.SaveAs,
+                            stringResource(if (single) R.string.save_as else R.string.save_all_to_folder),
+                            Modifier.fillMaxWidth(),
+                            enabled = idle,
+                            onClick = actions.saveAs,
+                        )
+                        if (!single) ZipButton(enabled = idle, onShare = actions.shareZip, onSave = actions.saveZip)
+                    }
+
+                    AnimatedVisibility(
+                        visible = !saved,
+                        enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                        exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                        label = "notSavedNote",
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                stringResource(R.string.not_saved_note),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
-                    Text(
-                        stringResource(R.string.not_saved_note),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
+                    // Not while saving: starting over deletes the PDFs being saved.
+                    TextButton(onClick = { if (saved) actions.startOver() else confirmStartOver = true }, enabled = !busy) {
+                        Icon(Icons.Rounded.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.start_over))
+                    }
                 }
-            }
-            Spacer(Modifier.height(16.dp))
-            // Not while saving: starting over deletes the PDFs being saved.
-            TextButton(onClick = { if (saved) actions.startOver() else confirmStartOver = true }, enabled = !busy) {
-                Icon(Icons.Rounded.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(R.string.start_over))
             }
         }
     }

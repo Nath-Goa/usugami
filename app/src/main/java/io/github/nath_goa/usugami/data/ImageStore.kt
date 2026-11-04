@@ -118,6 +118,25 @@ class ImageStore(context: Context) {
         }
     }
 
+    /**
+     * [item], a page about to be cropped again from the image it was cropped from, as its files are
+     * now: as [stillThere] finds it, except that a page whose own file has gone while that image is
+     * still there goes back on that image, as a page never cropped, rather than being lost. Blocking:
+     * call from the file work's thread.
+     */
+    fun stillThereToCrop(item: ImageItem): ImageItem? {
+        val original = item.original
+        if (original == null || File(item.path).isFile || !File(original.path).isFile) return stillThere(item)
+        return item.copy(
+            path = original.path,
+            format = original.format,
+            width = original.width,
+            height = original.height,
+            exifOrientation = original.exifOrientation,
+            original = null,
+        )
+    }
+
     /** Deletes every stored image except those in [keep] (and the images they were cropped from). */
     fun deleteAllExcept(keep: Collection<ImageItem>) {
         val keepPaths = HashSet<String>()

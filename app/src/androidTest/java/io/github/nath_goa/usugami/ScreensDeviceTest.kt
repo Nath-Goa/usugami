@@ -1694,6 +1694,52 @@ class ScreensDeviceTest {
         onMain { vm.clearAll() }
     }
 
+    /**
+     * A Word document shared over a PDF not saved yet, kept, opens Word to PDF once the tool is left;
+     * a PDF shared there then opens Choose a tool, rather than waiting for the PDF kept before.
+     */
+    @Test fun aPdfSharedOverAConverterOpenedForASharedDocumentOpens() {
+        val activity = launch()
+        unsavedCompressResult(activity)
+        val stamp = System.currentTimeMillis()
+        val word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        shareTo(shareIntent(word, inDownloads("Report $stamp.docx", word, asset("report.docx"))))
+        find("the question") { it.says(app.getString(R.string.share_discard_body)) }
+        click(find("the Keep button") { it.says(app.getString(R.string.keep)) })
+        waitUntil("the dialog to close") { nodes().none { it.says(app.getString(R.string.share_discard_body)) } }
+        backKey()
+        find("the tool") { it.says(app.getString(R.string.tool_compress)) }
+        backKey()
+        find("the shared document in Word to PDF") { it.says("Report $stamp.docx") }
+
+        val name = "Shared $stamp.pdf"
+        shareTo(shareIntent("application/pdf", inDownloads(name, "application/pdf", asset("alpha.pdf"))))
+        chooseATool()
+        find("the shared PDF") { it.says(name) }
+    }
+
+    /**
+     * Images shared while Word to PDF shows a Word document shared to Usugami wait in the editor,
+     * rather than put the document away; Back from there shows them.
+     */
+    @Test fun imagesSharedOverASharedDocumentWaitForIt() {
+        val stamp = System.currentTimeMillis()
+        val word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        val activity = launchSharing(shareIntent(word, inDownloads("Report $stamp.docx", word, asset("report.docx"))))
+        find("the shared document in Word to PDF") { it.says("Report $stamp.docx") }
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        onMain { vm.addImages(listOf(photo("shared.jpg"))) }
+        waitUntil("the image to be added") { onMain { vm.items.value.size } == 1 }
+        assertTrue("Word to PDF stays", settledTexts().contains(app.getString(R.string.tool_word)))
+        assertEquals(listOf("Report $stamp.docx"), onMain { pdfVm.documents.value.map { it.name } })
+
+        backKey()
+        waitUntil("Word to PDF to go") { nodes().none { it.says(app.getString(R.string.tool_word)) } }
+        find("the shared image in the editor") { it.says(app.getString(R.string.convert)) }
+        onMain { vm.clearAll() }
+    }
+
     private fun texts() = nodes().mapNotNull { it.text?.toString() }.toSet()
 
     /** The texts on screen once they stop changing, as they do when scrolling has finished. */

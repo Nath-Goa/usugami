@@ -2,6 +2,7 @@ package io.github.nath_goa.usugami
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
@@ -10,6 +11,9 @@ import android.os.SystemClock
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.OcrLanguage
@@ -130,6 +134,35 @@ class BuiltInOcrDeviceTest {
     }
 
     /** The native bridge turns bad input into exceptions instead of crashing the app. */
+    /**
+     * Every character the models' dictionaries can give has a glyph in the text layer's font, rather
+     * than becoming a space, and those beyond U+FFFF, which it can't have, are written in their
+     * compatibility form. The text layer is then saved with them, and searchable.
+     */
+    @Test fun everyCharacterTheModelsCanReadIsWritten() = runBlocking {
+        // Made first: it readies PDFBox's resources, which loading the font needs.
+        val ocr = PdfOcr(context)
+        val blank = File(dir, "blank.pdf")
+        PDDocument().use { doc ->
+            doc.addPage(PDPage(PDRectangle.A4))
+            doc.save(blank)
+        }
+        PDDocument.load(blank).use { doc ->
+            val font = context.assets.open("fonts/UsugamiOcr-Regular.ttf").use { PDType0Font.load(doc, it) }
+            for (dictionary in listOf("latin", "devanagari")) {
+                val characters = context.assets.open("ocr/${dictionary}_PP-OCRv5_mobile_rec.dict.txt").bufferedReader().use { it.readLines() }
+                    .flatMap { line -> line.codePoints().toArray().map { String(Character.toChars(it)) } }
+                    .filter { it.isNotBlank() }
+                val spaces = characters.filter { ocr.printable(font, it).isBlank() }
+                assertEquals("Written as spaces from the $dictionary dictionary", emptyList<String>(), spaces)
+            }
+        }
+        val text = "\u2460 Install \u2461 Open \u2300 12 mm \uD835\uDC62"
+        val output = ocr.embed(PdfFile(blank, 1, blank.length()), listOf(PdfOcr.Line(0, text, Rect(100, 100, 1000, 150), 1190, 1684)))
+        val extracted = PDDocument.load(output.file).use { PDFTextStripper().getText(it) }
+        assertTrue(extracted, extracted.contains("\u2460 Install \u2461 Open \u2300 12 mm u"))
+    }
+
     @Test fun nativeBridgeRejectsBadInput() {
         val net = NcnnNet.load(context.assets, "ocr/PP-OCRv5_mobile_det.ncnn.param", "ocr/PP-OCRv5_mobile_det.ncnn.bin", reuseMemory = true)
         val mean = floatArrayOf(0f, 0f, 0f)

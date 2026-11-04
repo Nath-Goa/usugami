@@ -131,6 +131,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     var confirmShare by rememberSaveable { mutableStateOf(false) }
     // The tool showing was opened from Choose a tool, which it goes back to.
     var toolFromShare by rememberSaveable { mutableStateOf(false) }
+    // The converter showing was opened for Word, PowerPoint or EPUB files shared to Usugami.
+    var docsFromShare by rememberSaveable { mutableStateOf(false) }
     // Said once that the files shared open when the PDF being made is done.
     var toldShareWaits by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(route) {
@@ -152,11 +154,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         // Leaving a tool discards its PDF, so ask first while one is being made, isn't saved yet, or
         // has work on it that would be lost.
         if (!arrived || route == "images" || stayOnPdf) return@LaunchedEffect
-        // Not while files shared to Usugami are waiting or being copied in, or are open on Choose a tool
-        // or a tool opened from it: they would go. The images wait in the editor, which Back from there
-        // leads to.
+        // Not while files shared to Usugami are waiting or being copied in, or are open on Choose a tool,
+        // a tool opened from it, or the converter documents shared opened (also while it still takes them
+        // in): they would go. The images wait in the editor, which Back from there leads to.
         val tool = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }
-        val sharedFilesOpen = route == "share" || tool != null && toolFromShare
+        val sharedDocumentsOpen = docsFromShare && (pdfVm.documents.value.isNotEmpty() || pdfVm.importing.value)
+        val sharedFilesOpen = route == "share" || tool != null && (toolFromShare || sharedDocumentsOpen)
         if (sharedFilesOpen || vm.sharedFiles.value.isNotEmpty() || vm.sharing.value != null) return@LaunchedEffect
         val unsavedPdf = pdfVm.processing.value ||
             (if (pdfVm.result.value != null) !pdfVm.saved.value else tool != null && pdfVm.hasUnsavedWork(tool))
@@ -269,7 +272,14 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             toolOpening++
         }
         toolFromShare = false
+        docsFromShare = target != "share"
         toldShareWaits = false
+        // What was asked about the last tool, and the choice to stay with its PDF, go with it: also when
+        // a converter opens, a tool's route, which doesn't clear them as other routes do.
+        stayOnPdf = false
+        confirmLeavePdf = false
+        discardWork = null
+        confirmShare = false
         route = target
     }
 
@@ -282,6 +292,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         val target = shareTarget()
         // Leaving the tool shared files are being copied in for, the user doesn't want them any more.
         if (target == route) vm.dropShares() else if (target != null) return openForShare(target)
+        docsFromShare = false
         val tool = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }
         route = when {
             toolFromShare && tool != null && (pdfVm.inputs.value.isNotEmpty() || pdfVm.locked.value.isNotEmpty()) -> {
@@ -323,7 +334,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                 if (stayOnPdf) return@LaunchedEffect
                 val unsaved = if (pdfVm.result.value != null) !pdfVm.saved.value else pdfVm.hasUnsavedWork(tool)
                 if (unsaved) {
-                    confirmShare = true
+                    // Asked once the files are copied in, not while they are only being copied: the
+                    // question says they are ready, and the copy may yet fail, which would leave
+                    // nothing to open for the PDF thrown away. This runs again when they are in.
+                    if (vm.sharedFiles.value.isNotEmpty()) confirmShare = true
                     return@LaunchedEffect
                 }
             }
@@ -392,6 +406,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             toolStates.removeState(toolStateKey(toolOpening))
                             toolOpening++
                             toolFromShare = false
+                            docsFromShare = false
                             route = tool.name.lowercase()
                         },
                         onSettings = { route = "settings" },
@@ -441,6 +456,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             toolStates.removeState(toolStateKey(toolOpening))
                             toolOpening++
                             toolFromShare = true
+                            docsFromShare = false
                             route = tool.name.lowercase()
                         },
                     )

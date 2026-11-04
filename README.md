@@ -342,7 +342,8 @@ old "PDFer".
 - Shared together, files of different kinds: Usugami takes the kind most of them are (PDFs first
   when it's a tie) and names the files it left out, and those it can't open. If a tool has work you
   haven't saved, Usugami asks first; while a PDF is being made, the shared files wait for it. Images
-  shared while Choose a tool or a tool opened from it shows wait in Images to PDF until you leave.
+  shared while Choose a tool, a tool opened from it, or the converter shared files opened shows wait
+  in Images to PDF until you leave.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any

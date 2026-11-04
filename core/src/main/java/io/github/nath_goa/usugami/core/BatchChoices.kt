@@ -5,9 +5,11 @@ package io.github.nath_goa.usugami.core
  * id: the name its PDF gets, or null while it is the tool's own (such as "Report_compressed"), and a
  * choice, such as a compression level, as its number among the tool's choices.
  *
- * [all] is the choice last made for every file at once. It is what files added later start with,
- * and what a file not listed has. A file whose choice is changed on its own afterwards keeps it,
- * until a choice is made for all of them again.
+ * [all] is the choice for every file at once. It is what files added later start with, and what a
+ * file not listed has. A file whose choice is changed on its own afterwards keeps it, until a choice
+ * is made for all of them again. Once the files listed all have the same choice again, however they
+ * came to (each changed on its own, or the others removed), that choice is the one for all, as the
+ * screen shows it: a file added then starts with it too.
  */
 data class BatchChoices(val files: List<BatchFile> = emptyList(), val all: Int = 0) {
 
@@ -26,12 +28,15 @@ data class BatchChoices(val files: List<BatchFile> = emptyList(), val all: Int =
 
     /**
      * The choices for the files [ids], in that order: the files kept have theirs, files new to the
-     * list start with the tool's name and [all], and files no longer listed are forgotten.
+     * list start with the tool's name and the choice the files kept all have (or [all] while they
+     * differ, or none is kept), and files no longer listed are forgotten.
      */
     fun following(ids: List<Long>): BatchChoices {
         val byId = files.associateBy { it.id }
-        val list = ids.distinct().map { id -> byId[id] ?: BatchFile(id, null, all) }
-        return if (list == files) this else copy(files = list)
+        val unique = ids.distinct()
+        val start = unique.mapNotNull { byId[it]?.choice }.distinct().singleOrNull() ?: all
+        val list = unique.map { id -> byId[id] ?: BatchFile(id, null, start) }
+        return if (list == files && start == all) this else BatchChoices(list, start)
     }
 
     /** Every file, and those added later, get [choice]. */

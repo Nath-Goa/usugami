@@ -987,7 +987,8 @@ class PdfToolsEngine(private val context: Context) {
         return (0..read - expected.size).any { at -> expected.indices.all { start[at + it] == expected[it] } }
     }
 
-    private fun displayName(uri: Uri): String? = try {
+    /** The name the file at [uri] is shown under, if its app gives one. */
+    internal fun displayName(uri: Uri): String? = try {
         context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
             if (c.moveToFirst() && !c.isNull(0)) c.getString(0).substringAfterLast('/').takeIf { it.isNotBlank() } else null
         }

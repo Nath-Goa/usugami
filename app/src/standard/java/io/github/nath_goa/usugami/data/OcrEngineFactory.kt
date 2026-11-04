@@ -2,7 +2,10 @@ package io.github.nath_goa.usugami.data
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Point
+import androidx.core.graphics.createBitmap
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.android.gms.common.api.ApiException
@@ -25,6 +28,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.max
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
@@ -138,9 +142,13 @@ private fun newRecognizer(language: OcrLanguage): TextRecognizer = when (languag
 
 private class MlKitRecognizer(private val recognizer: TextRecognizer) : OcrRecognizer {
     override suspend fun recognize(page: Bitmap): List<OcrLine> {
+        // ML Kit refuses an image under 32 pixels on a side (a thin strip, a small icon), which would
+        // leave every PDF made with it without text: it is read on white, made larger to the right and
+        // below, so that what it reads keeps its place on the image.
+        val image = if (page.width >= MIN_SIDE && page.height >= MIN_SIDE) page else padded(page)
         var recognition: Task<Text>? = null
         try {
-            recognition = recognizer.process(InputImage.fromBitmap(page, 0))
+            recognition = recognizer.process(InputImage.fromBitmap(image, 0))
             val text = try {
                 recognition.await()
             } catch (e: MlKitException) {
@@ -156,9 +164,24 @@ private class MlKitRecognizer(private val recognizer: TextRecognizer) : OcrRecog
             }
         } finally {
             // After a cancel, ML Kit may still be reading the bitmap; it is freed with it then.
-            if (recognition == null || recognition.isComplete) page.recycle()
+            if (recognition == null || recognition.isComplete) image.recycle()
         }
     }
 
+    /** [page] on white, at least [MIN_SIDE] pixels on each side; [page] is recycled. */
+    private fun padded(page: Bitmap): Bitmap = try {
+        createBitmap(max(MIN_SIDE, page.width), max(MIN_SIDE, page.height)).apply {
+            eraseColor(Color.WHITE)
+            Canvas(this).drawBitmap(page, 0f, 0f, null)
+        }
+    } finally {
+        page.recycle()
+    }
+
     override fun close() = recognizer.close()
+
+    private companion object {
+        /** The fewest pixels on a side ML Kit reads an image with. */
+        const val MIN_SIDE = 32
+    }
 }

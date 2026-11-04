@@ -137,7 +137,9 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   the process is restarted, one PDF compressed as before, cancelling leaving nothing behind, and
   each PDF of the result saved on its own, into Downloads (without a second copy) or into the
   document "Save as" made, also after the process was restarted while that screen was open, which
-  PDFs were saved kept as a flag for each
+  PDFs were saved kept as a flag for each; Save to Downloads failing partway keeping the PDFs it
+  copied (marked saved, and not copied twice when saved again); and PDFs picked together that can't
+  be opened named, in one message
 - password-protected PDFs: opening with the password, then split, compress and rotate
 - files shared to Usugami: copied in at once and kept by name (the app's own copy gone), PDFs taken
   in by a tool without being copied again and still there when the process is restarted, the kind
@@ -269,9 +271,11 @@ back to Choose a tool, and Back from there going Home; two PDFs offering only Me
 for several, Compress PDF chosen with both; a Word document opening Word to PDF and a text file shared
 with it named; a PDF shared over a result not saved asking first, and kept, opening once the tool is
 left; a PDF shared while a PDF is being made waiting for it, then asking, and discarded; a PDF
-with a password asked for on Choose a tool; and images shared over Choose a tool waiting in the
+with a password asked for on Choose a tool; images shared over Choose a tool waiting in the
 editor, Choose a tool keeping its PDF and the tool opened from it going back to it, then Back from
-there showing the images;
+there showing the images; images shared over Word to PDF opened for a shared document waiting for it
+too; and a Word document shared over a result kept, then a PDF shared once Word to PDF shows it,
+opening Choose a tool;
   Home's search finding the seven tools that take several files by "several", "batch" and "many";
   Settings → Appearance starting on the phone's
   setting, then Dark and Light holding through the activity being recreated, Usugami being opened
@@ -286,10 +290,12 @@ there showing the images;
   data or location left. Through the view model, a photo the camera app saves into the file Usugami
   gives it is added and the crop screen opens on the page found; Done crops it and keeps the photo,
   cropping again starts from the photo with the corners as they were and turned with the page,
-  Whole image puts the photo back, and the pages cropped before are deleted; corners that make no
+  Whole image puts the photo back, and the pages cropped before are deleted (a page cropped again
+  only once a saved state no longer names it); corners that make no
   page are refused and crossed ones put in order; a photo cancelled, not saved or discarded on the
   crop screen leaves no file; cropped pages and an open crop screen survive the saved state; a crop
-  not finished when Android stops Usugami is made again from the saved state, a photo the camera app
+  not finished when Android stops Usugami is made again from the saved state (also a page cropped
+  again, whose new crop was made before Android closed Usugami), a photo the camera app
   hands back as Usugami starts again is kept, a page removed while it is cropped goes without a
   message, and a page whose photo the system cleared from the cache stays, at start and when made
   into a PDF
@@ -303,8 +309,9 @@ there showing the images;
 - the OCR text layer, in the editions with text recognition: Devanagari and Latin text together,
   and text that follows tilted lines
 - text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,
-  French, Spanish and Hindi (French and Spanish accents kept), lines on a tilted page, and that a
-  failed or cancelled recognition leaves the PDFs untouched
+  French, Spanish and Hindi (French and Spanish accents kept), lines on a tilted page, that a
+  failed or cancelled recognition leaves the PDFs untouched, and that an image under 32 pixels on a
+  side is read rather than refused
 - in both editions with text recognition, a photo of a printed page (stored sideways with an EXIF
   orientation, then turned in the editor) made into a PDF at Extreme: its small print, too small to
   read in the PDF's 100-dpi copy, is read from the photo as picked, and the text of a known word
@@ -315,8 +322,10 @@ there showing the images;
 - Usugami OCR's built-in text recognition (`app/src/androidTestOcr`): its native library loads (the
   test emulator has 16 KB memory pages), the English and Hindi test pages are read word for word into
   the text layer (the time per page is logged), a page upside down is read the right way up with
-  its text layer turned to match, and the native bridge answers bad input (wrong sizes, a recycled
-  bitmap, a closed network, a missing model) with exceptions instead of crashing
+  its text layer turned to match, the native bridge answers bad input (wrong sizes, a recycled
+  bitmap, a closed network, a missing model) with exceptions instead of crashing, and every
+  character the models' dictionaries hold is written into the text layer (circled digits too),
+  rather than as a space
 - the editions: text recognition (an engine, the text layer's font, the OCR switch in the
   Convert sheet, and Home's words for Images to PDF in all four languages) in Usugami and Usugami
   OCR and nowhere in Usugami Lite, and the Google notices only in Usugami

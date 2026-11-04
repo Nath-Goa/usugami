@@ -336,7 +336,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             // reset() abandons an import by cancelling it, but a PDF already being read still finishes,
             // and its outcome reaches here. Then it belongs to a tool that has gone: say nothing.
             fun abandoned() = generation != importGeneration
-            fun failed(@StringRes reason: Int) { if (!abandoned()) message(strings.getString(reason)) }
+            // The PDFs left out, by name, and why: with several picked, the user is told which.
+            val refused = ArrayList<Pair<String, Said>>()
+            suspend fun failed(uri: Uri, why: Said) {
+                if (abandoned()) return
+                refused += (withContext(fileOps) { engine.displayName(uri) } ?: "Document.pdf") to why
+            }
             if (replace) clearInputs()
             try {
                 for (uri in uris) {
@@ -351,20 +356,24 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: PdfCertificateEncrypted) {
-                        failed(R.string.pdf_certificate_unsupported)
+                        failed(uri, said(R.string.pdf_certificate_unsupported, R.string.pdf_certificate_unsupported_many))
                     } catch (e: Exception) {
-                        failed(if (e.isOutOfSpace()) R.string.open_no_space else R.string.pdf_import_failed)
+                        failed(uri, if (e.isOutOfSpace()) said(R.string.open_no_space, R.string.open_no_space_many) else said(R.string.pdf_import_failed, R.string.pdf_import_failed_many))
                     } catch (_: LinkageError) {
                         // Never crash on a PDF that PDFBox can't handle.
-                        failed(R.string.pdf_import_failed)
+                        failed(uri, said(R.string.pdf_import_failed, R.string.pdf_import_failed_many))
                     } catch (_: OutOfMemoryError) {
                         // A PDF with a huge number of objects can exhaust the heap while it is read.
-                        failed(R.string.pdf_import_failed)
+                        failed(uri, said(R.string.pdf_import_failed, R.string.pdf_import_failed_many))
                     }
                 }
             } finally {
                 // After reset() a newer import may be running, and it owns the flag.
-                if (!abandoned()) _importing.value = false
+                if (!abandoned()) {
+                    _importing.value = false
+                    // One PDF picked is told about as before, without its name.
+                    if (uris.size == 1) refused.forEach { message(it.second.one) } else sayOf(refused)
+                }
             }
         }
     }
@@ -1783,11 +1792,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         if (!canSaveToDownloads) return
         // A second tap that lands before the button is turned off does nothing.
         if (_saving.value) return
-        save {
-            // Saved there already (a second tap, say, or each on its own), it only says so again.
+        // The PDFs copied so far: when a later one fails, these are saved all the same.
+        val done = ArrayList<PdfFile>()
+        save(partial = { done }) {
+            // Saved there already (a second tap, say, or each on its own), it only says so again. Each
+            // copy is kept as it is made, so that saving again after a failure doesn't copy it twice.
             val copies = downloadsCopies(files)
-            val made = saver.saveToDownloads(files.map { it.file }, earlier = files.map { copies[it.file.path] })
-            files.forEachIndexed { i, file -> copies[file.file.path] = made[i] }
+            saver.saveToDownloads(files.map { it.file }, earlier = files.map { copies[it.file.path] }) { i, copy ->
+                copies[files[i].file.path] = copy
+                done += files[i]
+            }
             strings.getString(R.string.pdf_saved_downloads)
         }
     }
@@ -1857,9 +1871,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /**
      * Runs [block], which saves [files] (the result's PDFs, or all of them when it is null), once the
      * saves asked for before it are done. A document picked while another save is under way gets its
-     * PDF too, rather than being left empty.
+     * PDF too, rather than being left empty. When [block] fails partway, [partial] gives the PDFs it
+     * saved before failing, which are marked saved all the same.
      */
-    private fun save(files: List<PdfFile>? = null, block: () -> String) {
+    private fun save(files: List<PdfFile>? = null, partial: () -> List<PdfFile> = { emptyList() }, block: () -> String) {
         startSave()
         val saving = _result.value
         val saved = files ?: saving.orEmpty()
@@ -1886,7 +1901,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 val files = _result.value
                 when {
                     // The save itself failed (the storage may be full), also when the result was put away meanwhile.
-                    pdfsThere -> message(strings.getString(R.string.msg_save_failed))
+                    pdfsThere -> {
+                        partial().takeIf { it.isNotEmpty() }?.let(::markSaved)
+                        message(strings.getString(R.string.msg_save_failed))
+                    }
                     files != null && files === saving -> resultCleared(files.size)
                     // Otherwise the result was put away and its PDFs have gone: cleared, which was said then.
                 }

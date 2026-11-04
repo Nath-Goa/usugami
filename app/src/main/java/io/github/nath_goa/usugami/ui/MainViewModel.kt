@@ -195,6 +195,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         get() = handle.get<ArrayList<PendingCrop>>(KEY_PENDING_CROPS).orEmpty()
         set(value) { handle[KEY_PENDING_CROPS] = ArrayList(value) }
 
+    /**
+     * Pages cropped again, replaced by their new crop, deleted once Android has saved a state that no
+     * longer names them. A crop is often made after Android has stopped Usugami and saved its state,
+     * which names the page as it was: if Android then closes Usugami, it starts again from that page,
+     * which must still be there. On the main thread only.
+     */
+    private val superseded = ArrayList<File>()
+
     /** Non-null while a PDF is being created. */
     private val _progress = MutableStateFlow<Progress?>(null)
     val progress: StateFlow<Progress?> = _progress.asStateFlow()
@@ -221,7 +229,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** Saves of the PDFs go one at a time, in the order they were asked for. */
     private val saveTurn = Mutex()
     /** The result's copies in Downloads, once it has been saved there: saving it again copies only what has gone. */
-    private var inDownloads: Pair<List<PdfFile>, List<DownloadsCopy>>? = null
+    private var inDownloads: Pair<List<PdfFile>, MutableList<DownloadsCopy?>>? = null
     /**
      * The user put the last result away (Back, Start over, images shared), rather than the system
      * clearing it: a document picked for it afterwards was picked after leaving it (see [notSaved]).
@@ -302,7 +310,16 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var shareInterrupted = (handle.remove<Int>(KEY_SHARES_UNDER_WAY) ?: 0) > 0
 
     init {
-        handle.setSavedStateProvider(KEY_ITEMS) { packItems(_items.value) }
+        handle.setSavedStateProvider(KEY_ITEMS) {
+            packItems(_items.value).also {
+                // This state names the pages as they are now: those they replaced can go.
+                if (superseded.isNotEmpty()) {
+                    val gone = superseded.toList()
+                    superseded.clear()
+                    viewModelScope.launch(fileOps) { gone.forEach(File::delete) }
+                }
+            }
+        }
         val keep = if (restored) items.value else emptyList()
         val keepShared = _sharedFiles.value
         viewModelScope.launch {
@@ -322,6 +339,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // Read here: photoTaken() forgets it once the camera app is back, which may be before the
         // cleanup below runs, and the photo would be deleted.
         val keepCapture = capture
+        // Pages Android stopped Usugami in the middle of cropping are cropped again (see below).
+        val resumed = pendingCrops
+        val croppedAgain = resumed.mapTo(HashSet()) { it.itemId }
         val cleanup = viewModelScope.launch {
             val (found, resultGone) = withContext(fileOps) {
                 // Leftovers from an earlier session (or half-copied files) are removed.
@@ -330,14 +350,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
                 exporter.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
-                keep.map(store::stillThere) to (stillThere == null)
+                // A page being cropped again is made from the image it is cropped from, which is all it needs.
+                keep.map { if (it.id in croppedAgain) store.stillThereToCrop(it) else store.stillThere(it) } to (stillThere == null)
             }
             takeIn(keep, found)
             if (shown != null && resultGone && _result.value === shown) resultCleared(shown.size)
         }
         // Pages Android stopped Usugami in the middle of cropping are cropped again, once the cleanup
         // has left only the files in use.
-        val resumed = pendingCrops
         pendingCrops = emptyList()
         for (pending in resumed) {
             val item = items.value.firstOrNull { it.id == pending.itemId } ?: continue
@@ -451,7 +471,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         _sharing.value = kind
         val copies = ArrayList<SharedFile>()
         var failed = 0
-        var noSpace = false
+        // The files there wasn't enough free storage to copy in, by name.
+        val noSpace = ArrayList<String>()
         try {
             for ((uri, name) in files) {
                 val id = nextId++
@@ -464,7 +485,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    if (e.isOutOfSpace()) noSpace = true else failed++
+                    if (e.isOutOfSpace()) noSpace += name else failed++
                 }
             }
         } finally {
@@ -474,7 +495,16 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 // Listed before the copying is said to be over, so they are never taken for gone.
                 setShared(_sharedFiles.value + copies)
                 if (failed > 0) pluralMessage(R.plurals.msg_share_unreadable, failed)
-                if (noSpace) message(R.string.open_no_space)
+                // One file shared is told about as before; of several, those left out are named.
+                when {
+                    noSpace.isEmpty() -> Unit
+                    files.size == 1 -> message(R.string.open_no_space)
+                    else -> message(
+                        R.string.file_problem,
+                        noSpace.joinToString(", "),
+                        strings.getString(if (noSpace.size == 1) R.string.open_no_space else R.string.open_no_space_many),
+                    )
+                }
                 _sharing.value = null
             }
         }
@@ -553,9 +583,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         importGeneration++
         _pendingImports.value = 0
         val all = items.value
+        val replaced = superseded.toList()
+        superseded.clear()
         setItems(emptyList())
         all.forEach(thumbnails::remove)
-        viewModelScope.launch(fileOps) { all.forEach(store::delete) }
+        viewModelScope.launch(fileOps) {
+            all.forEach(store::delete)
+            replaced.forEach(File::delete)
+        }
     }
 
     /** Moves the image [fromId] to where [toId] is (drag and drop). */
@@ -768,9 +803,13 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         pendingCrops = pendingCrops.filterNot { it.itemId == id } + PendingCrop(id, quad)
         // The page as it was when its corners were chosen, if it still is: not removed, nor its
         // files changed.
-        fun stillAsChosen(): ImageItem? = items.value.firstOrNull { it.id == id }?.takeIf { it.path == item.path && it.source.path == source.path }
+        var chosen = item
+        fun stillAsChosen(): ImageItem? = items.value.firstOrNull { it.id == id }?.takeIf { it.path == chosen.path && it.source.path == source.path }
         viewModelScope.launch {
             after?.join()
+            // Cropped again as Usugami starts: its cleanup may have put the page back on the image it
+            // is cropped from (see ImageStore.stillThereToCrop), which it is made from all the same.
+            if (after != null) items.value.firstOrNull { it.id == id }?.takeIf { it.source.path == source.path }?.let { chosen = it }
             val page = try {
                 // Not made for a page removed while it waited its turn.
                 withContext(cropOps) { if (stillAsChosen() == null) null else PageCropper.crop(source, quad, target) }
@@ -808,8 +847,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                         ),
                     )
                     thumbnails.remove(current)
-                    // The page as it was cropped before.
-                    if (current.original != null) viewModelScope.launch(fileOps) { File(current.path).delete() }
+                    // The page as it was cropped before, once no saved state names it.
+                    if (current.original != null) superseded += File(current.path)
                 }
             }
         }
@@ -874,11 +913,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private fun takeIn(pages: List<ImageItem>, found: List<ImageItem?>): List<ImageItem> {
         val moved = pages.zip(found).filter { (was, now) -> now != null && now != was }
         if (moved.isNotEmpty()) {
-            val paths = moved.associate { (was, now) -> was.id to (was.path to now!!.path) }
+            val paths = moved.associate { (was, now) -> was.id to (was.path to now!!) }
             setItems(
                 items.value.map { item ->
-                    val (from, to) = paths[item.id] ?: return@map item
-                    if (item.path == from) item.copy(path = to, original = null) else item
+                    val (from, now) = paths[item.id] ?: return@map item
+                    // Its file as found, which a page put back on the image it was cropped from takes
+                    // the size and orientation of.
+                    if (item.path != from) item
+                    else item.copy(path = now.path, format = now.format, width = now.width, height = now.height, exifOrientation = now.exifOrientation, original = null)
                 },
             )
             moved.forEach { (was, now) ->
@@ -1082,8 +1124,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         if (_busySaving.value) return
         save {
             // Saved there already (a second tap, say), it only says so again.
-            val copies = saver.saveToDownloads(files.map { it.file }, earlier = inDownloads?.takeIf { it.first === files }?.second)
-            inDownloads = files to copies
+            // Each copy is kept as it is made: when a later PDF fails, saving again doesn't copy the first ones twice.
+            val known = inDownloads?.takeIf { it.first === files }?.second
+                ?: MutableList<DownloadsCopy?>(files.size) { null }.also { inDownloads = files to it }
+            val copies = saver.saveToDownloads(files.map { it.file }, earlier = known.toList()) { i, copy -> known[i] = copy }
             val names = copies.map { it.name }
             if (names.size == 1) strings.getString(R.string.msg_saved_downloads, names[0])
             else strings.getQuantityString(R.plurals.msg_saved_downloads_many, names.size, names.size)
@@ -1219,9 +1263,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         if (!finishing) return
         val all = items.value
         val shared = _sharedFiles.value
+        val replaced = superseded.toList()
         Thread {
             all.forEach(store::delete)
             shared.forEach(inbox::delete)
+            replaced.forEach(File::delete)
         }.start()
     }
 

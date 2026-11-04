@@ -105,6 +105,21 @@ class OcrDeviceTest {
         }
     }
 
+    /**
+     * An image under 32 pixels on a side, which ML Kit refuses, is read padded rather than failing
+     * (which would leave every PDF made with it without text).
+     */
+    @Test fun aTinyImageIsReadRatherThanRefused() = runBlocking {
+        ensureOcrReady(OcrLanguage.ENGLISH)
+        engine.open(OcrLanguage.ENGLISH).use { recognizer ->
+            for ((width, height) in listOf(12 to 12, 800 to 10, 31 to 300)) {
+                val image = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
+                assertTrue("A blank ${width}x$height image has no text", recognizer.recognize(image).isEmpty())
+                assertTrue("Recycled once read", image.isRecycled)
+            }
+        }
+    }
+
     /** A photo made into a PDF at Extreme is read as picked, and its text goes over its lines. */
     @Test fun ocrOfPhotoReadsTheOriginal() = runBlocking {
         val dir = File(context.filesDir, "ocr_photo").apply { deleteRecursively(); mkdirs() }

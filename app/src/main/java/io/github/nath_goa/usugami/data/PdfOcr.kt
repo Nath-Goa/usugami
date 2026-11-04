@@ -28,6 +28,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.io.IOException
+import java.text.Normalizer
 import kotlin.math.atan2
 import kotlin.math.hypot
 import kotlin.math.max
@@ -224,19 +225,7 @@ class PdfOcr(private val context: Context) {
                 val box = page.mediaBox
                 PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { stream ->
                     for (line in pageLines) {
-                        val printable = buildString {
-                            var offset = 0
-                            while (offset < line.text.length) {
-                                val cp = line.text.codePointAt(offset)
-                                val character = String(Character.toChars(cp))
-                                // PDFBox throws IllegalArgumentException, not IOException, when the
-                                // font has no glyph for a character. Such characters become spaces.
-                                try { font.encode(character); append(character) }
-                                catch (_: IOException) { append(' ') }
-                                catch (_: IllegalArgumentException) { append(' ') }
-                                offset += Character.charCount(cp)
-                            }
-                        }
+                        val printable = printable(font, line.text)
                         if (printable.isBlank()) continue
                         // From image pixels (y down) to PDF points (y up): where the page draws that
                         // point of its image, or of the page as rendered.
@@ -269,6 +258,36 @@ class PdfOcr(private val context: Context) {
                 }
             }
             doc.save(target)
+        }
+    }
+
+    /**
+     * [text] as [font] can write it. A character it has no glyph for is written in its compatibility
+     * form (NFKC) when the font has that, such as "u" for a mathematical italic u (the font can't
+     * have characters beyond U+FFFF: see tools/make_ocr_font.py), or else as a space.
+     */
+    @VisibleForTesting
+    internal fun printable(font: PDType0Font, text: String): String = buildString {
+        // PDFBox throws IllegalArgumentException, not IOException, when the font has no glyph for a character.
+        fun writable(characters: String) = try {
+            font.encode(characters)
+            true
+        } catch (_: IOException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            false
+        }
+        var offset = 0
+        while (offset < text.length) {
+            val cp = text.codePointAt(offset)
+            val character = String(Character.toChars(cp))
+            if (writable(character)) {
+                append(character)
+            } else {
+                val compatible = Normalizer.normalize(character, Normalizer.Form.NFKC)
+                append(if (compatible != character && compatible.isNotBlank() && writable(compatible)) compatible else " ")
+            }
+            offset += Character.charCount(cp)
         }
     }
 
