@@ -6,6 +6,9 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.SystemClock
+import android.system.ErrnoException
+import android.system.Os
+import android.system.OsConstants
 import androidx.core.content.FileProvider
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.SavedStateHandle
@@ -30,6 +33,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.io.InputStream
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
@@ -182,12 +188,26 @@ class ResultZipDeviceTest {
         assertNull("Nothing is shared", runBlocking { withTimeoutOrNull(1_000) { vm.zipShares.first() } })
         assertTrue(File(app.cacheDir, "output/tools/zip").list().isNullOrEmpty())
 
-        val (_, uri) = newDocument("cancelled.zip")
+        // The document picked is a pipe: the ZIP file, if it gets as far as opening it, waits there
+        // until the test reads what comes through, so it is still being made when Cancel is pressed.
+        // A few small PDFs can be zipped into a file before saveZipTo returns.
+        val document = File(picked, "cancelled.zip").apply { parentFile!!.mkdirs(); delete() }
+        Os.mkfifo(document.path, "600".toInt(8))
         onMain {
-            vm.saveZipTo(uri)
+            vm.saveZipTo(uriFor(document))
             vm.cancelZip()
         }
+        val read = Executors.newSingleThreadExecutor().submit(Callable { document.readBytes() })
         waitUntil("the ZIP file to stop") { vm.zipProgress.value == null }
+        // Cancelled before it started, it never opened the document: the test's reader is let go.
+        if (!read.isDone) {
+            try {
+                Os.close(Os.open(document.path, OsConstants.O_WRONLY or OsConstants.O_NONBLOCK, 0))
+            } catch (_: ErrnoException) {
+                // Its reader has gone already.
+            }
+        }
+        read.get(20, TimeUnit.SECONDS)
         assertFalse("Nothing was saved", vm.saved.value)
         assertNull("No message", runBlocking { withTimeoutOrNull(1_000) { vm.messages.first() } })
         // The PDFs are still there to share or save.

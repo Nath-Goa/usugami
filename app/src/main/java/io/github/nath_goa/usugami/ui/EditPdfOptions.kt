@@ -156,8 +156,9 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
     val sizes by produceState<List<Pair<Float, Float>>?>(null, input.path) { value = vm.shownPageSizes(input) }
     // The page last drawn stays while the next one is drawn, instead of flashing blank.
     var rendered by remember(input.path) { mutableStateOf<RenderedPage?>(null) }
-    LaunchedEffect(input.path, page) {
-        rendered = withContext(Dispatchers.IO) { renderShownPage(input, page, 1400) }
+    // Drawn again, exactly that big, once the page's size is known: items go where they show on it.
+    LaunchedEffect(input.path, page, sizes) {
+        rendered = withContext(Dispatchers.IO) { renderShownPage(input, page, 1400, sizes?.getOrNull(page)) }
     }
     val size = sizes?.getOrNull(page) ?: rendered?.takeIf { it.index == page }?.let { it.width to it.height }
     // Until the page's size is known, an A4 page stands in, and nothing can be added.

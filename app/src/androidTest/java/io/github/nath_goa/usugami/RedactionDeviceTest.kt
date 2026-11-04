@@ -56,6 +56,7 @@ import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.Redaction
+import io.github.nath_goa.usugami.data.PageRendering
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
@@ -335,6 +336,23 @@ class RedactionDeviceTest {
             }
         }
 
+    /**
+     * Page [index] of [file] as shown, [shown] points big (from the PDF itself), on white, drawn
+     * exactly that big into [pixels] (see [PageRendering]): Android's own sizing, in whole points,
+     * stretches it from Android 17 by up to a point.
+     */
+    private fun renderExactly(file: File, index: Int, shown: Pair<Float, Float>, pixels: Pair<Int, Int>): Bitmap =
+        ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
+                renderer.openPage(index).use { page ->
+                    createBitmap(pixels.first, pixels.second).also {
+                        it.eraseColor(Color.WHITE)
+                        PageRendering.render(page, it, shown.first, shown.second)
+                    }
+                }
+            }
+        }
+
     private fun pixels(bitmap: Bitmap): IntArray = IntArray(bitmap.width * bitmap.height).also { bitmap.getPixels(it, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height) }
 
     /** Every pixel of [box] in [bitmap] is black (but for its rounded edges). */
@@ -524,6 +542,8 @@ class RedactionDeviceTest {
 
     @Test fun pagesKeepTheirSizeAndTurnAndTheBoxesAreBlackWherePlaced() {
         val (source, redacted, boxes) = redactSecrets("secrets_layout")
+        // Each redacted page's size as shown, in points, by page.
+        val shownSizes = HashMap<Int, Pair<Float, Float>>()
         PDDocument.load(source).use { before ->
             PDDocument.load(redacted).use { after ->
                 for (index in 0 until 4) {
@@ -539,6 +559,7 @@ class RedactionDeviceTest {
                     val images = imagesOn(page)
                     assertEquals(1, images.size)
                     val shown = page.cropBox.let { if (page.rotation % 180 != 0) it.height to it.width else it.width to it.height }
+                    shownSizes[index] = shown
                     assertEquals(Redaction.pixelSize(shown.first, shown.second).first, images[0].image.width)
                     assertNull("No annotations are left on page ${index + 1}", page.cosObject.getDictionaryObject(COSName.ANNOTS))
                     assertNull(page.cosObject.getDictionaryObject(COSName.getPDFName("Thumb")))
@@ -546,9 +567,11 @@ class RedactionDeviceTest {
                 }
             }
         }
-        // Each box is solid black where the preview showed it, on upright, turned and cropped pages.
+        // Each box is solid black where the preview showed it, on upright, turned and cropped pages:
+        // each page drawn exactly, as big as its picture, a pixel of it to a pixel.
         for (index in listOf(0, 1, 3)) {
-            val bitmap = render(redacted, index, 1.5f)
+            val shown = shownSizes.getValue(index)
+            val bitmap = renderExactly(redacted, index, shown, Redaction.pixelSize(shown.first, shown.second))
             for (box in boxes.filter { it.page == index }) assertTrue("Box $box on page ${index + 1} is black", allBlack(bitmap, box))
         }
         // What isn't boxed still shows, comments included: the green square on page 1 became part
@@ -737,6 +760,30 @@ class RedactionDeviceTest {
             val dark = (75 until 370).count { x -> (842 - y - 22 until 842 - y - 2).any { row -> Color.red(picture.getPixel(x, row)) < 100 } }
             assertTrue("The value at $y is in the picture ($dark columns)", dark > 20)
         }
+    }
+
+    /**
+     * A box placed exactly over a drawing hides all of it, also on a page whose size isn't whole
+     * points: Android gives a page's size in whole points, and from Android 17 a page drawn by that
+     * size is stretched, here by most of a point at its foot, out from under the box.
+     */
+    @Test fun aBoxHidesAllOfWhatItIsPlacedOver() {
+        val width = 300f
+        val height = 400.9f
+        val file = File(context.cacheDir, "fractional.pdf")
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle(width, height)).also(doc::addPage)
+            PDPageContentStream(doc, page).use { content ->
+                content.setNonStrokingColor(1f, 0f, 0f)
+                content.addRect(100f, 10f, 100f, 20f)
+                content.fill()
+            }
+            doc.save(file)
+        }
+        val box = Redaction.between(0, 100f / width, 1 - 30f / height, 200f / width, 1 - 10f / height)
+        val redacted = save(engine.redact(import(file), listOf(box), "fractional_redacted").file, "fractional_redacted.pdf")
+        val picture = PDDocument.load(redacted).use { doc -> imagesOn(doc.getPage(0)).single().image.image }
+        assertEquals("Red pixels left", 0, pixels(picture).count(::red))
     }
 
     @Test fun protectedPdfsAreRedactedWithoutTheirPassword() {

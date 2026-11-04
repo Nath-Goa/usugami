@@ -307,13 +307,33 @@ class MultiClickDeviceTest {
         generateSequence { zip.nextEntry }.map { it.name }.toList()
     }
 
-    /** Goes back to Usugami from the screens of other apps started for real. */
+    /** Whether Usugami is showing and takes taps: resumed, its window may still be coming back on screen until it has the focus. */
+    private fun usugamiTakesTaps() = onMain {
+        ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).any { it is MainActivity && it.hasWindowFocus() }
+    }
+
+    /** Whether another app's screen covers Usugami: it is stopped once that screen shows. */
+    private fun usugamiCovered() = onMain {
+        ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.STOPPED).any { it is MainActivity }
+    }
+
+    /**
+     * Goes back to Usugami from the screens of other apps started for real, until it takes taps again.
+     * Back is pressed once another app's screen covers Usugami, and again only if it still does a while
+     * later: pressed while that screen is still on its way, or as it goes, Back waits for a window to
+     * take it, which on a slow phone can be Usugami's, which it would take out of its result.
+     */
     private fun backToUsugami() {
         repeat(6) {
-            val resumed = onMain { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED) }
-            if (resumed.any { it is MainActivity }) return
+            waitFor("Usugami, or another app's screen over it", timeout = 30_000) { usugamiTakesTaps() || usugamiCovered() }
+            if (usugamiTakesTaps()) return
             instrumentation.uiAutomation.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
-            Thread.sleep(1_000)
+            // Gone, Usugami is back; still there a while later, it had another screen to go back from.
+            try {
+                waitFor("the other app's screen to go", timeout = 10_000) { !usugamiCovered() }
+            } catch (_: AssertionError) {
+                // Pressed again.
+            }
         }
         throw AssertionError("Usugami didn't come back")
     }

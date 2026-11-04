@@ -405,7 +405,8 @@ internal object Redactor {
         val bitmap = createBitmap(width, height)
         val image = try {
             bitmap.eraseColor(Color.WHITE)
-            renderer.openPage(index).use { it.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY) }
+            // Exactly as big as the page is, so the boxes, placed on the page itself, are over what they hide.
+            renderer.openPage(index).use { PageRendering.render(it, bitmap, frame.shownWidth, frame.shownHeight) }
             check()
             // Without smoothing, every pixel a box touches is fully black.
             val black = Paint().apply {

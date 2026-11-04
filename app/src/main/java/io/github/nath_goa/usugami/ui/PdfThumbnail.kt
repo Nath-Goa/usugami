@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import io.github.nath_goa.usugami.data.PageRendering
 import io.github.nath_goa.usugami.data.PdfInput
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -31,18 +32,21 @@ class RenderedPage(val index: Int, val image: ImageBitmap, val width: Float, val
 
 /**
  * Page [pageIndex] of [input] as it is shown (its crop box, turned by its rotation), on white, with
- * its longer side [longSide] pixels. Null if it can't be rendered. Reads the file: call it off the
- * main thread.
+ * its longer side [longSide] pixels. Given its [shown] size in points, as the PDF itself has it, the
+ * page is drawn exactly as big as that (see [PageRendering]), for a preview on which places are
+ * picked; without, Android's size for it, in whole points, will do. Null if it can't be rendered.
+ * Reads the file: call it off the main thread.
  */
-fun renderShownPage(input: PdfInput, pageIndex: Int, longSide: Int): RenderedPage? = try {
+fun renderShownPage(input: PdfInput, pageIndex: Int, longSide: Int, shown: Pair<Float, Float>? = null): RenderedPage? = try {
     ParcelFileDescriptor.open(input.file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
         PdfRenderer(fd).use { renderer ->
             renderer.openPage(pageIndex).use { page ->
-                val scale = longSide.toFloat() / maxOf(page.width, page.height)
-                val bitmap = Bitmap.createBitmap(maxOf(1, (page.width * scale).toInt()), maxOf(1, (page.height * scale).toInt()), Bitmap.Config.ARGB_8888)
+                val (width, height) = shown ?: (page.width.toFloat() to page.height.toFloat())
+                val scale = longSide / maxOf(width, height)
+                val bitmap = Bitmap.createBitmap(maxOf(1, (width * scale).toInt()), maxOf(1, (height * scale).toInt()), Bitmap.Config.ARGB_8888)
                 bitmap.eraseColor(Color.WHITE)
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                RenderedPage(pageIndex, bitmap.asImageBitmap(), page.width.toFloat(), page.height.toFloat())
+                if (shown != null) PageRendering.render(page, bitmap, width, height) else page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                RenderedPage(pageIndex, bitmap.asImageBitmap(), width, height)
             }
         }
     }

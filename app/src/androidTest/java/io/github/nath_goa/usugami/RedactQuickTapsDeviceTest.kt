@@ -73,12 +73,6 @@ class RedactQuickTapsDeviceTest {
 
     private fun AccessibilityNodeInfo.says(text: String) = this.text?.toString() == text || contentDescription?.toString() == text
 
-    private fun clickable(node: AccessibilityNodeInfo): AccessibilityNodeInfo {
-        var target: AccessibilityNodeInfo? = node
-        while (target != null && !target.isClickable) target = target.parent
-        return checkNotNull(target) { "Nothing to click at $node" }
-    }
-
     /** The screen's content, as Compose has it now (not as a screen reader last heard of it). On the main thread. */
     private fun screen(): ViewRootForTest {
         fun find(view: View): ViewRootForTest? = when (view) {
@@ -127,14 +121,16 @@ class RedactQuickTapsDeviceTest {
         val main = (instrumentation.startActivitySync(intent) as MainActivity).also { activity = it }
         val tool = app.getString(R.string.tool_redact)
         waitUntil("Home") { nodes().any { it.says(app.getString(R.string.settings)) } }
-        // Further down Home: scrolled to, as a screen reader would.
-        fun onHome() = nodes().firstOrNull { it.text?.contains(tool) == true }
+        // Further down Home: scrolled to, as a screen reader would, and looked for in what Compose has
+        // now. What a screen reader is told can lag a scroll behind, on a slow phone long enough for
+        // the card to be scrolled past unseen.
         repeat(10) {
-            if (onHome() != null) return@repeat
+            if (node(tool) != null) return@repeat
             nodes().firstOrNull { AccessibilityAction.ACTION_SCROLL_DOWN in it.actionList }?.performAction(AccessibilityAction.ACTION_SCROLL_DOWN.id)
             Thread.sleep(500)
         }
-        clickable(checkNotNull(onHome()) { "No $tool on Home" }).performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        checkNotNull(node(tool)) { "No $tool on Home" }
+        pressTogether(tool)
         waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.settings)) } }
         val vm = onMain { ViewModelProvider(main)[PdfToolsViewModel::class.java] }
         onMain { vm.addPdfs(listOf(pdf("alpha.pdf")), replace = true) }

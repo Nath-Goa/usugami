@@ -48,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -112,9 +113,12 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
     var rendered by remember(view?.path) { mutableStateOf<RenderedPage?>(null) }
     // A page Android can't draw: it can't be redacted either, so the preview says so.
     var failedPage by remember(view?.path) { mutableIntStateOf(-1) }
-    LaunchedEffect(view?.path, pageIndex) {
+    // Every page's size as shown, exactly, from the PDF itself: the page is drawn again exactly that
+    // big once it is known, as the redacted pages are, so a box covers on the screen what it hides.
+    val sizes by produceState<List<Pair<Float, Float>>?>(null, view?.path) { value = view?.let { vm.shownPageSizes(it) } }
+    LaunchedEffect(view?.path, pageIndex, sizes) {
         val source = view ?: return@LaunchedEffect
-        val drawn = withContext(Dispatchers.IO) { renderShownPage(source, pageIndex, 1400) }
+        val drawn = withContext(Dispatchers.IO) { renderShownPage(source, pageIndex, 1400, sizes?.getOrNull(pageIndex)) }
         if (drawn != null) rendered = drawn else failedPage = pageIndex
     }
     val current = rendered?.takeIf { it.index == pageIndex }

@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami
 import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
+import android.system.Os
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.AppLanguages
@@ -22,6 +23,9 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /** Saving a finished PDF into a document the user picked. */
 class SavingDeviceTest {
@@ -68,18 +72,27 @@ class SavingDeviceTest {
     /** Start over and Back wait while the PDF is being saved: they would delete or replace it mid-save. */
     @Test fun theResultStaysWhileItIsBeingSaved() {
         val pdf = File(app.cacheDir, "output/images/Saving.pdf").apply { parentFile!!.mkdirs(); writeText("%PDF-1.4 saving") }
-        val target = File(dir, "saving-target.pdf").apply { writeText("") }
+        // The document picked is a pipe: the save waits at it until the test reads what comes through,
+        // so it is under way when Start over and Back are pressed. A few bytes saved into a file can be
+        // saved before saveTo returns.
+        val target = File(dir, "saving-target.pdf").apply { delete() }
+        Os.mkfifo(target.path, "600".toInt(8))
         val vm = onMain { MainViewModel(app, showing(pdf)) }
         runBlocking { vm.awaitFileWork() }
 
-        onMain {
-            vm.saveTo(Uri.fromFile(target))
-            vm.startOver()
-            vm.backToEditing()
+        try {
+            onMain {
+                vm.saveTo(Uri.fromFile(target))
+                vm.startOver()
+                vm.backToEditing()
+            }
+            assertTrue("The result is still showing", onMain { vm.result.value != null })
+            val saved = Executors.newSingleThreadExecutor().submit(Callable { target.readText() })
+            assertEquals("%PDF-1.4 saving", saved.get(20, TimeUnit.SECONDS))
+            assertEquals(string(R.string.msg_saved), firstMessage(vm.messages))
+        } finally {
+            target.delete()
         }
-        assertTrue("The result is still showing", onMain { vm.result.value != null })
-        assertEquals(string(R.string.msg_saved), firstMessage(vm.messages))
-        assertEquals("%PDF-1.4 saving", target.readText())
 
         // Once saved, Start over goes ahead.
         onMain { vm.startOver() }

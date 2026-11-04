@@ -62,7 +62,14 @@ import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.SplitMode
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -404,7 +411,16 @@ class ScreensDeviceTest {
         }
     }
 
-    private fun backKey() = instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+    /**
+     * The Back key, once Usugami's window has the focus: a dialog can leave the screen before its
+     * window gives the focus back, and a key pressed in between goes to the closed window and is lost.
+     */
+    private fun backKey() {
+        waitUntil("Usugami to have the focus") {
+            onMain { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).any { it is MainActivity && it.hasWindowFocus() } }
+        }
+        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+    }
 
     private fun resumedMain(): MainActivity? =
         onMain { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED).singleOrNull() as? MainActivity }
@@ -524,9 +540,7 @@ class ScreensDeviceTest {
         waitUntil("the question to go") { nodes().none { it.says(app.getString(R.string.tool_discard_title)) } }
         assertEquals(listOf(0, 90, 0), onMain { pdfVm.pages.value.map { it.rotation } })
 
-        // The question can leave the screen before its window gives the focus back: a key pressed in
-        // between goes to the closed window and is lost.
-        waitUntil("Usugami to have the focus again") { onMain { activity.hasWindowFocus() } }
+        // Once the question has given the focus back (see [backKey]).
         backKey()
         click(find("Discard") { it.says(app.getString(R.string.discard)) })
         find("Home") { it.says(app.getString(R.string.settings)) }
@@ -1546,7 +1560,8 @@ class ScreensDeviceTest {
         assertEquals(listOf(name), onMain { pdfVm.inputs.value.map { it.name } })
         backKey()
         chooseATool()
-        find("the shared PDF, still there") { it.says(name) }
+        // Still scrolled to the tool: the PDF above may be out of view, by a little or a lot.
+        findAbove("the shared PDF, still there") { it.says(name) }
         backKey()
         find("Home") { it.says(app.getString(R.string.settings)) }
         waitUntil("the PDF to be put away") { onMain { pdfVm.inputs.value.isEmpty() } }
@@ -1581,8 +1596,12 @@ class ScreensDeviceTest {
         val stamp = System.currentTimeMillis()
         val report = inDownloads("Report $stamp.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", asset("report.docx"))
         val notes = inDownloads("Notes $stamp.txt", "text/plain", "notes".toByteArray())
-        val activity = launchSharing(shareIntent("*/*", report, notes))
+        // Looked for from the start: the message shows for a few seconds, which a slow phone can take
+        // to finish starting Usugami.
+        AppLanguages.skipChoice(app)
+        app.startActivity(shareIntent("*/*", report, notes).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
         find("the message naming the file left out") { it.says(app.resources.getQuantityString(R.plurals.share_unsupported, 1, 1, "Notes $stamp.txt")) }
+        val activity = checkNotNull(resumedMain()) { "Usugami isn't showing" }.also { this.activity = it }
         find("Word to PDF") { it.says(app.getString(R.string.tool_word)) }
         find("the shared document") { it.says("Report $stamp.docx") }
         actionButton(R.string.convert)
@@ -1635,11 +1654,31 @@ class ScreensDeviceTest {
         val pdfVm = openTool(R.string.tool_compress, activity)
         onMain { pdfVm.addPdfs(listOf(slowPdf()), replace = true) }
         waitUntil("the PDF to be added") { onMain { pdfVm.inputs.value.size } == 1 }
-        onMain { pdfVm.runCompress(PdfCompression.EXTREME, "slow") }
         val name = "Shared ${System.currentTimeMillis()}.pdf"
-        shareTo(shareIntent("application/pdf", inDownloads(name, "application/pdf", asset("alpha.pdf"))))
-        waitUntil("the shared PDF to be copied in") { onMain { vm.sharedFiles.value.isNotEmpty() } }
-        assertTrue("The PDF is still being made", onMain { pdfVm.processing.value })
+        val share = shareIntent("application/pdf", inDownloads(name, "application/pdf", asset("alpha.pdf")))
+        // Whether the PDF is still being made as Usugami starts taking the shared PDF in, read then, on
+        // the main thread: busy drawing while the PDF is made, it gets to a check made from here late.
+        val makingWhenTakenIn = CompletableDeferred<Boolean>()
+        val watch = onMain {
+            MainScope().launch(Dispatchers.Main.immediate, start = CoroutineStart.UNDISPATCHED) {
+                vm.sharing.first { it != null }
+                makingWhenTakenIn.complete(pdfVm.processing.value)
+            }
+        }
+        try {
+            // Shared just as the PDF starts to be made, as the system hands a share to Usugami showing:
+            // sent through the system instead, it can reach a slow phone's busy main thread after the
+            // PDF is made.
+            onMain {
+                pdfVm.runCompress(PdfCompression.EXTREME, "slow")
+                instrumentation.callActivityOnNewIntent(activity, share)
+            }
+            val making = runBlocking { withTimeout(10_000) { makingWhenTakenIn.await() } }
+            assertTrue("The PDF is still being made as the shared PDF is taken in", making)
+        } finally {
+            watch.cancel()
+        }
+        waitUntil("the shared PDF to be copied in") { onMain { vm.sharedFiles.value.isNotEmpty() || !pdfVm.processing.value } }
         assertEquals("The tool keeps its PDF meanwhile", listOf("slow.pdf"), onMain { pdfVm.inputs.value.map { it.name } })
 
         val deadline = SystemClock.uptimeMillis() + 120_000
@@ -1763,11 +1802,15 @@ class ScreensDeviceTest {
         find("the notices") { it.says(title) }
         waitUntil("About to slide away") { nodes().none { it.says(app.getString(R.string.about_privacy_policy)) } }
         val atTop = settledTexts()
-        // Each scroll moves by about a screen, animated.
+        // Each scroll moves by about a screen, animated. What a screen reader is told lags behind the
+        // screen, by a while on a slow phone, and two looks at it can find the same screen from before
+        // the scroll: each is read once the tree shows something new and its events have stopped.
         val forward = AccessibilityAction.ACTION_SCROLL_FORWARD
         repeat(3) {
+            val before = texts()
             assertTrue(find("the scrolling notices") { forward in it.actionList }.performAction(forward.id))
-            settledTexts()
+            waitUntil("the notices to scroll") { texts() != before }
+            automation.waitForIdle(500, 10_000)
         }
         val shown = settledTexts()
         assertTrue("The notices didn't scroll", title !in shown)

@@ -8,9 +8,11 @@ import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.font.PDCIDFontType2
 import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
+import com.tom_roush.pdfbox.pdmodel.font.PDType3Font
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.office.EmbeddedFonts
@@ -100,6 +102,25 @@ class EmbeddedFontsDeviceTest {
         files
     }
 
+    /**
+     * The fonts [file] draws as Type 3 fonts, each glyph a drawing of its own, by name: each glyph's
+     * drawing, decoded. From Android 17 the PDF writer embeds some fonts that way, rather than as
+     * TrueType font files.
+     */
+    private fun drawnFonts(file: File): Map<String, Map<String, String>> = PDDocument.load(file).use { doc ->
+        val fonts = HashMap<String, Map<String, String>>()
+        for (page in doc.pages) {
+            for (name in page.resources.fontNames) {
+                val font = page.resources.getFont(name) as? PDType3Font ?: continue
+                val glyphs = font.charProcs ?: continue
+                fonts[font.fontDescriptor?.fontName ?: name.name] = glyphs.keySet().associate { glyph ->
+                    glyph.name to (glyphs.getDictionaryObject(glyph) as COSStream).createInputStream().use { String(it.readBytes(), Charsets.ISO_8859_1) }
+                }
+            }
+        }
+        fonts
+    }
+
     @Test fun shrunkFontsLookAndReadTheSameAndTakeLittleRoom() {
         val original = File(work, "android.pdf").also(::androidPdf)
         val shrunk = File(work, "shrunk.pdf")
@@ -119,9 +140,16 @@ class EmbeddedFontsDeviceTest {
             assertTrue("Android embeds the serif font whole: $before", serif.all { before.getValue(it) > 100_000 })
             assertTrue("Shrunk to what is drawn: $before to $after", serif.all { after.getValue(it) * 3 < before.getValue(it) })
         }
-        // Hebrew is hinted by letters the shrinking doesn't know: that font stays whole.
-        val hebrew = before.keys.single { "Hebrew" in it }
-        assertEquals(before[hebrew], after[hebrew])
+        // Hebrew is hinted by letters the shrinking doesn't know: that font stays whole. From Android 17
+        // it is a Type 3 font, its glyphs drawings, rather than a font file: they stay as they were.
+        val hebrew = before.keys.singleOrNull { "Hebrew" in it }
+        if (hebrew != null) {
+            assertEquals(before[hebrew], after[hebrew])
+        } else {
+            val drawn = drawnFonts(original)
+            assertTrue("A Hebrew font: $before, ${drawn.keys}", drawn.keys.any { "Hebrew" in it })
+            assertEquals(drawn, drawnFonts(shrunk))
+        }
         if (whole) assertTrue("${shrunk.length()} bytes, from ${original.length()}", shrunk.length() * 3 < original.length())
         // Exactly the same pixels, page by page, small (where hinting shows most) and large.
         for (scale in 1..3) {
