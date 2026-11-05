@@ -1314,7 +1314,8 @@ internal class PptxConverter(
         // A column covered by a merged cell (hMerge) is counted once, with the cell spanning it.
         val spans = table.rows.maxOfOrNull { (_, cells) -> cells.filterNot { it.hMerge }.sumOf { it.span } } ?: return
         val columns = max(spans, table.grid.size)
-        val widths = TableColumns.widths(table.grid, columns, slideWidth * 4).map { it.units }
+        // Without usable widths in its grid, the columns share the table's frame.
+        val widths = TableColumns.widths(table.grid, columns, slideWidth * 4, rect.width).map { it.units }
         val starts = widths.runningFold(0f) { acc, w -> acc + w }
         val chain = listOfNotNull(scene.master?.textStyles?.get("other"), defaultText(template))
         val lastRow = table.rows.lastIndex
