@@ -299,6 +299,9 @@ internal class ParagraphBlock private constructor(
     /** Whether this part has the paragraph's first line, and its last. */
     private val isFirst: Boolean,
     private val isLast: Boolean,
+    /** Whether this part goes on from the paragraph's [pieces] before it, and on in those after it. */
+    private val afterPiece: Boolean = false,
+    private val beforePiece: Boolean = false,
 ) : Block {
     constructor(spec: ParagraphSpec) : this(spec, spec.text, spec.firstIndent, spec.label, false, true, true)
 
@@ -402,15 +405,48 @@ internal class ParagraphBlock private constructor(
 
     override fun split(space: Int, force: Boolean): Pair<Block, Block?>? {
         val bottoms = IntArray(lines) { layout.getLineBottom(it) }
-        val fit = PageBreaking.linesThatFit(bottoms, space, spec.avoidSingleLines, force)
+        val fit = PageBreaking.linesThatFit(bottoms, space, spec.avoidSingleLines, force, keepFirst = !afterPiece, keepLast = !beforePiece)
         if (fit == 0) return null
         if (fit >= lines) return this to null
         // The lines are laid out again on each side of the break. Lines fill greedily, so they break
         // just where they did.
         val cut = layout.getLineStart(fit)
-        val head = ParagraphBlock(spec, text.subSequence(0, cut), first, label, spec.align == Align.JUSTIFY, isFirst, false)
-        val tail = ParagraphBlock(spec, text.subSequence(cut, text.length), spec.indent, null, continues, false, isLast)
+        val head = ParagraphBlock(spec, text.subSequence(0, cut), first, label, spec.align == Align.JUSTIFY, isFirst, false, afterPiece = afterPiece)
+        val tail = ParagraphBlock(spec, text.subSequence(cut, text.length), spec.indent, null, continues, false, isLast, beforePiece = beforePiece)
         return head to tail
+    }
+
+    /**
+     * This paragraph cut between its lines into pieces of [size] characters or more, to be placed one
+     * after another. A paragraph many pages long takes minutes otherwise, as [split] lays out all that
+     * is left of it again at each page break. Lines fill greedily, so the pieces break into lines just
+     * where it does, and between pages just where it would.
+     */
+    fun pieces(size: Int = PIECE): List<ParagraphBlock> {
+        if (text.length < 2 * size) return listOf(this)
+        val starts = arrayListOf(0)
+        for (line in 1 until lines) {
+            val start = layout.getLineStart(line)
+            if (start - starts.last() >= size && text.length - start >= size) starts += start
+        }
+        if (starts.size == 1) return listOf(this)
+        return starts.indices.map { i ->
+            val firstPiece = i == 0
+            val lastPiece = i == starts.lastIndex
+            ParagraphBlock(
+                spec, text.subSequence(starts[i], if (lastPiece) text.length else starts[i + 1]),
+                if (firstPiece) first else spec.indent, if (firstPiece) label else null,
+                // A justified paragraph's lines are all justified but its last.
+                if (lastPiece) continues else spec.align == Align.JUSTIFY,
+                isFirst && firstPiece, isLast && lastPiece,
+                afterPiece = !firstPiece || afterPiece, beforePiece = !lastPiece || beforePiece,
+            )
+        }
+    }
+
+    private companion object {
+        /** About four pages of text. */
+        const val PIECE = 12_000
     }
 }
 

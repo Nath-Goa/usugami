@@ -535,14 +535,16 @@ object PageBreaking {
      * orphan control (when [avoidSingleLines]): a single first line isn't left alone at the bottom
      * of the page, and a single last line isn't carried alone to the next one. 0 means the whole
      * paragraph moves to the next page. With [force] (nothing else is on the page) at least one
-     * line stays, however tall.
+     * line stays, however tall. Lines that follow on from the paragraph's lines laid out before them
+     * ([keepFirst] false) or go on in lines laid out after them ([keepLast] false) are like any
+     * other lines there: a single one is left alone.
      */
-    fun linesThatFit(lineBottoms: IntArray, space: Int, avoidSingleLines: Boolean, force: Boolean): Int {
+    fun linesThatFit(lineBottoms: IntArray, space: Int, avoidSingleLines: Boolean, force: Boolean, keepFirst: Boolean = true, keepLast: Boolean = true): Int {
         val count = lineBottoms.size
         var fit = lineBottoms.count { it <= space }
         if (avoidSingleLines && fit in 1 until count) {
-            if (fit == count - 1) fit -= 1
-            if (fit == 1) fit = 0
+            if (keepLast && fit == count - 1) fit -= 1
+            if (keepFirst && fit == 1) fit = 0
         }
         return if (force) maxOf(fit, minOf(1, count)) else fit
     }

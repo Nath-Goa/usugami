@@ -730,6 +730,15 @@ class OfficeConverterDeviceTest {
         assertNotNull(tail)
     }
 
+    @Test fun aVeryLongParagraphGoesInPiecesLaidOutAsItIs() {
+        val text = RichText().apply { append("Many words in one long paragraph, with a line break now and then.\n".repeat(1000), TextStyle()) }.text
+        val block = ParagraphBlock(ParagraphSpec(text, TextStyle(), 2000))
+        val pieces = block.pieces()
+        assertTrue(pieces.size > 1)
+        assertEquals(text.toString(), pieces.joinToString("") { it.layout.text })
+        assertEquals(block.height.toFloat(), pieces.sumOf { it.height }.toFloat(), pieces.size.toFloat())
+    }
+
     @Test fun officeFontsBecomeThePhonesFontOfTheSameKind() {
         assertEquals("sans-serif", OfficeFonts.family("Century Gothic"))
         assertEquals("cursive", OfficeFonts.family("Monotype Corsiva"))

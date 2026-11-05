@@ -180,6 +180,9 @@ class OfficeFormatsTest {
         assertEquals(0, PageBreaking.linesThatFit(lines, 15, avoidSingleLines = true, force = false))
         // Three lines with room for two: one line would be stranded either way, so all move.
         assertEquals(0, PageBreaking.linesThatFit(intArrayOf(10, 20, 30), 25, avoidSingleLines = true, force = false))
+        // Unless they're lines in the middle of a paragraph laid out in parts.
+        assertEquals(2, PageBreaking.linesThatFit(intArrayOf(10, 20, 30), 25, avoidSingleLines = true, force = false, keepLast = false))
+        assertEquals(1, PageBreaking.linesThatFit(lines, 15, avoidSingleLines = true, force = false, keepFirst = false))
         // On an empty page something has to go, however tall.
         assertEquals(1, PageBreaking.linesThatFit(intArrayOf(900, 950), 800, avoidSingleLines = true, force = true))
         assertEquals(0, PageBreaking.linesThatFit(IntArray(0), 800, avoidSingleLines = true, force = true))

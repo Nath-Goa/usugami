@@ -779,17 +779,22 @@ internal class DocxConverter(
                     if (item.props.pageBreakBefore == true && !empty && canvas != null) newPage(natural = false)
                     for (f in item.floats.filterNot { it.overText }) place(Placed(floatBlock(f, textWidth, textHeight, left)))
                     val p = item.props
-                    place(
-                        Placed(
-                            paragraphBlock(item, textWidth.toInt(), pageNumber, textHeight, null),
-                            (spaceBefore(p)).units.toInt(),
-                            (spaceAfter(p)).units.toInt(),
-                            p.style ?: styles.defaultParagraphStyle,
-                            p.contextual == true,
-                            p.keepNext == true,
-                            item.floats.filter { it.overText },
-                        ),
-                    )
+                    // A very long paragraph goes in pieces, one after another, with its spacing around them all.
+                    val pieces = paragraphBlock(item, textWidth.toInt(), pageNumber, textHeight, null).pieces()
+                    for ((i, piece) in pieces.withIndex()) {
+                        val last = i == pieces.lastIndex
+                        place(
+                            Placed(
+                                piece,
+                                if (i == 0) spaceBefore(p).units.toInt() else 0,
+                                if (last) spaceAfter(p).units.toInt() else 0,
+                                p.style ?: styles.defaultParagraphStyle,
+                                p.contextual == true,
+                                p.keepNext == true && last,
+                                if (i == 0) item.floats.filter { it.overText } else emptyList(),
+                            ),
+                        )
+                    }
                 }
                 is DocTable -> place(Placed(tableBlock(item, textWidth, pageNumber, textHeight, null)))
                 PageBreak -> {
@@ -1069,7 +1074,10 @@ internal class DocxConverter(
                     if (f.overText && overlays != null) overlays += f
                     else placed += Spaced(floatBlock(f, width.toFloat(), maxHeight, 0f), 0, 0)
                 }
-                placed += Spaced(paragraphBlock(item, width, page, maxHeight, behind), spaceBefore(item.props).units.toInt(), spaceAfter(item.props).units.toInt())
+                val pieces = paragraphBlock(item, width, page, maxHeight, behind).pieces()
+                for ((i, piece) in pieces.withIndex()) {
+                    placed += Spaced(piece, if (i == 0) spaceBefore(item.props).units.toInt() else 0, if (i == pieces.lastIndex) spaceAfter(item.props).units.toInt() else 0)
+                }
             }
             is DocTable -> placed += Spaced(tableBlock(item, width.toFloat(), page, maxHeight, behind), 0, 0)
             else -> Unit
