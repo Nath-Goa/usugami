@@ -362,6 +362,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     } catch (_: LinkageError) {
                         // Never crash on a PDF that PDFBox can't handle.
                         failed(uri, said(R.string.pdf_import_failed, R.string.pdf_import_failed_many))
+                    } catch (_: StackOverflowError) {
+                        // Nor on one nested deeper than PDFBox goes (the engine fails it as damaged already).
+                        failed(uri, said(R.string.pdf_import_failed, R.string.pdf_import_failed_many))
                     } catch (_: OutOfMemoryError) {
                         // A PDF with a huge number of objects can exhaust the heap while it is read.
                         failed(uri, said(R.string.pdf_import_failed, R.string.pdf_import_failed_many))
@@ -480,6 +483,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     } catch (_: LinkageError) {
                         // Never crash on a PDF that PDFBox can't handle.
                         said(R.string.pdf_import_failed, R.string.pdf_import_failed_many)
+                    } catch (_: StackOverflowError) {
+                        // Nor on a file nested deeper than its reader goes.
+                        if (officeKind == null) said(R.string.pdf_import_failed, R.string.pdf_import_failed_many) else officeReason(OfficeNotRecognized(), officeKind)
                     } catch (_: OutOfMemoryError) {
                         if (officeKind == null) said(R.string.pdf_import_failed, R.string.pdf_import_failed_many) else officeReason(OfficeNotRecognized(), officeKind)
                     }
@@ -612,6 +618,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 if (stillAsked()) unlockFailed(pending, reason)
             } catch (_: LinkageError) {
                 if (stillAsked()) unlockFailed(pending, R.string.pdf_import_failed)
+            } catch (_: StackOverflowError) {
+                if (stillAsked()) unlockFailed(pending, R.string.pdf_import_failed)
             } catch (_: OutOfMemoryError) {
                 if (stillAsked()) unlockFailed(pending, R.string.pdf_import_failed)
             } finally {
@@ -669,6 +677,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 } catch (_: Exception) {
                     // Its pages are shown without thumbnails.
                 } catch (_: LinkageError) {
+                    // Likewise.
+                } catch (_: StackOverflowError) {
                     // Likewise.
                 } catch (_: OutOfMemoryError) {
                     // Likewise.
@@ -1316,6 +1326,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 failedView(input, required, e.isOutOfSpace())
             } catch (_: LinkageError) {
                 failedView(input, required)
+            } catch (_: StackOverflowError) {
+                failedView(input, required)
             } catch (_: OutOfMemoryError) {
                 failedView(input, required)
             }
@@ -1437,6 +1449,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             } catch (_: Exception) {
                 message(strings.getString(R.string.redact_find_failed))
             } catch (_: LinkageError) {
+                message(strings.getString(R.string.redact_find_failed))
+            } catch (_: StackOverflowError) {
                 message(strings.getString(R.string.redact_find_failed))
             } catch (_: OutOfMemoryError) {
                 message(strings.getString(R.string.redact_find_failed))
@@ -1609,6 +1623,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     else strings.getString(if (document != null) R.string.office_convert_failed else R.string.pdf_process_failed),
                 )
             } catch (_: LinkageError) {
+                message(strings.getString(if (document != null) R.string.office_convert_failed else R.string.pdf_process_failed))
+            } catch (_: StackOverflowError) {
+                // A PDF nested deeper than PDFBox goes when it copies or saves it.
                 message(strings.getString(if (document != null) R.string.office_convert_failed else R.string.pdf_process_failed))
             } finally {
                 _processing.value = false

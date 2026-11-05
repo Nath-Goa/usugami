@@ -304,6 +304,36 @@ class PdfToolsDeviceTest {
         assertFalse("The copy should be removed", File(context.cacheDir, "pdf-inputs/1006.pdf").exists())
     }
 
+    /**
+     * A PDF whose catalog holds arrays nested 300,000 deep, deeper than PDFBox can read (it calls
+     * itself for each): refused as a damaged PDF, not a crash.
+     */
+    @Test fun aPdfNestedTooDeeplyIsRefused() {
+        val depth = 300_000
+        val pdf = StringBuilder("%PDF-1.4\n")
+        val offsets = ArrayList<Int>()
+        for (body in listOf(
+            "<< /Type /Catalog /Pages 2 0 R /Deep ${"[".repeat(depth)}${"]".repeat(depth)} >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] >>",
+        )) {
+            offsets += pdf.length
+            pdf.append("${offsets.size} 0 obj\n$body\nendobj\n")
+        }
+        val xref = pdf.length
+        pdf.append("xref\n0 ${offsets.size + 1}\n0000000000 65535 f \n")
+        for (offset in offsets) pdf.append("%010d 00000 n \n".format(offset))
+        pdf.append("trailer\n<< /Size ${offsets.size + 1} /Root 1 0 R >>\nstartxref\n$xref\n%%EOF\n")
+        val file = File(context.cacheDir, "nested.pdf").apply { writeText(pdf.toString(), Charsets.ISO_8859_1) }
+        try {
+            engine.import(Uri.fromFile(file), 1013)
+            fail("A PDF nested this deep can't be read")
+        } catch (e: java.io.IOException) {
+            assertTrue("Refused for its nesting: $e", e.cause is StackOverflowError)
+        }
+        assertFalse("The copy should be removed", File(context.cacheDir, "pdf-inputs/1013.pdf").exists())
+    }
+
     /** Leaving a tool stops a slow import part way, and its partial copy goes. */
     @Test fun importCanBeStoppedPartWay() {
         class Stop : RuntimeException()

@@ -783,6 +783,9 @@ class PdfToolsEngine(private val context: Context) {
                     Result.failure(e)
                 } catch (e: LinkageError) {
                     Result.failure(e)
+                } catch (e: StackOverflowError) {
+                    // Nested deeper than PDFBox goes when it copies or saves: as a damaged PDF.
+                    Result.failure(IOException("Too deeply nested", e))
                 }
             }
         } catch (t: Throwable) {
@@ -930,7 +933,8 @@ class PdfToolsEngine(private val context: Context) {
     /**
      * Opens [file] with PDFBox. Certificate encryption (Adobe.PubSec) needs BouncyCastle, which isn't
      * bundled: PDFBox then throws an IOException, or would hit a missing class, so both become
-     * [PdfCertificateEncrypted].
+     * [PdfCertificateEncrypted]. A PDF nested deeper than PDFBox's reading goes (it reads arrays in
+     * arrays by calling itself, without a limit) fails as a damaged one does.
      */
     private fun load(file: File, password: String): PDDocument = try {
         PDDocument.load(file, password, memory())
@@ -942,6 +946,9 @@ class PdfToolsEngine(private val context: Context) {
         throw e
     } catch (e: LinkageError) {
         throw PdfCertificateEncrypted(e)
+    } catch (e: StackOverflowError) {
+        // Only a crafted file nests that deep.
+        throw IOException("Too deeply nested", e)
     }
 
     /**
