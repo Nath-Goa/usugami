@@ -228,4 +228,15 @@ class RedactionTest {
         val glyphs = listOf(GlyphBox(50f, 100f, 60f, 110f, true), GlyphBox(400f, 100f, 410f, 110f, true))
         assertEquals(2, Redaction.boxesFor(0, glyphs, 600f, 800f).size)
     }
+
+    @Test fun addressesAreAlsoReadWithTheirEscapesAsLetters() {
+        assertEquals(listOf("mailto:john.smith@example.org"), Redaction.addressForms("mailto:john.smith@example.org"))
+        assertTrue("https://example.org/team/Ana Silva" in Redaction.addressForms("https://example.org/team/Ana%20Silva"))
+        assertTrue("?who=José" in Redaction.addressForms("?who=Jos%C3%A9"))
+        assertTrue("שלום" in Redaction.addressForms("%D7%A9%D7%9C%D7%95%D7%9D"))
+        // "+" both as it is (an email address) and as a space (a web form's), and a % that starts no escape kept.
+        val forms = Redaction.addressForms("100%+sure?to=jane+doe%2Bwork%zz%4")
+        assertTrue(forms.toString(), "100%+sure?to=jane+doe+work%zz%4" in forms)
+        assertTrue(forms.toString(), "100% sure?to=jane doe+work%zz%4" in forms)
+    }
 }

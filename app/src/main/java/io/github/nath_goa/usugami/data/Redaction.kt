@@ -76,6 +76,10 @@ internal object Redactor {
     private const val HIDDEN = 1 shl 1
     private const val NO_VIEW = 1 shl 5
 
+    /** A Launch action's parameters for Windows, and the keys of a file specification that name its file. */
+    private val WIN = COSName.getPDFName("Win")
+    private val FILE_NAMES = listOf(COSName.F, COSName.UF, COSName.DOS, COSName.MAC, COSName.UNIX)
+
     /** The kinds of comment that mark what the page itself shows: text, or a place drawn around. */
     private val MARKUP = listOf("Highlight", "Underline", "StrikeOut", "Squiggly", "Ink", "Square", "Circle", "Polygon", "PolyLine", "Line", "Caret")
         .map(COSName::getPDFName).toSet()
@@ -155,8 +159,10 @@ internal object Redactor {
      * the same, and what it marks, which needn't hold the text, isn't blacked out. The pages in
      * [skip] have the text on them, so they lose their comments anyway.
      *
-     * So do links and buttons whose web or email address has [query], and form fields that hold it
-     * where no page shows it: as the value of a field hidden on its page, or as a field's tooltip.
+     * So do links and buttons whose web or email address, or the file they open, has [query] (also
+     * where the address has it only as %-escapes, as a name with a space does), and form fields
+     * that hold it where no page shows it: as the value of a field hidden on its page, or as a
+     * field's tooltip.
      * They too get the smallest box, so their pages become pictures and they go; a field's widgets
      * all do, on every page, so that the field goes with its value (see [removeLeaks]). The value
      * of a field the page shows is on the page, where it is found as its text.
@@ -231,15 +237,20 @@ internal object Redactor {
     }
 
     /**
-     * The web and email addresses (URI actions) [annotation] leads to: a link's, a button's, also
-     * when it is clicked, pressed or left (/AA), those that follow (/Next), and a link's former one
-     * (/PA).
+     * The web and email addresses (URI actions) and files [annotation] leads to, each also as a
+     * person reads it (see [Redaction.addressForms]): a link's, a button's, also when it is clicked,
+     * pressed or left (/AA, and a widget's field's own, when it is typed in or changes), those that
+     * follow (/Next), and a link's former one (/PA). The files are those that actions open, send a
+     * form to or launch (another PDF, a web address, an app with its parameters).
      */
     private fun addresses(annotation: COSDictionary): List<String> {
         val pending = ArrayDeque<COSBase?>()
         pending += annotation.getDictionaryObject(COSName.A)
         pending += annotation.getDictionaryObject(COSName.getPDFName("PA"))
-        (annotation.getDictionaryObject(COSName.AA) as? COSDictionary)?.let { triggers -> triggers.keySet().forEach { pending += triggers.getDictionaryObject(it) } }
+        val triggered = if (annotation.getCOSName(COSName.SUBTYPE) == COSName.WIDGET) fieldOf(annotation) else sequenceOf(annotation)
+        for (holder in triggered) {
+            (holder.getDictionaryObject(COSName.AA) as? COSDictionary)?.let { triggers -> triggers.keySet().forEach { pending += triggers.getDictionaryObject(it) } }
+        }
         val seen = identitySet<COSBase>()
         val found = ArrayList<String>()
         while (pending.isNotEmpty() && seen.size < 64) {
@@ -247,12 +258,25 @@ internal object Redactor {
                 is COSArray -> if (seen.add(action)) (0 until action.size()).forEach { pending += action.getObject(it) }
                 is COSDictionary -> if (seen.add(action)) {
                     action.getString(COSName.URI)?.let(found::add)
+                    // GoToR's other PDF, Launch's file, SubmitForm's address, and so on.
+                    fileNames(action.getDictionaryObject(COSName.F), found)
+                    // An app launched on Windows: its file, its folder and its parameters.
+                    (action.getDictionaryObject(WIN) as? COSDictionary)?.let { win -> listOf(COSName.F, COSName.D, COSName.P).mapNotNullTo(found) { win.getString(it) } }
                     pending += action.getDictionaryObject(COSName.NEXT)
                 }
                 else -> Unit
             }
         }
-        return found
+        return found.flatMap(Redaction::addressForms)
+    }
+
+    /** Adds to [into] the names a file specification gives: a string, or a dictionary's /F, /UF and older names for each system. */
+    private fun fileNames(spec: COSBase?, into: MutableList<String>) {
+        when (spec) {
+            is COSString -> into += spec.string
+            is COSDictionary -> FILE_NAMES.mapNotNullTo(into) { spec.getString(it) }
+            else -> Unit
+        }
     }
 
     /** A comment's rich text (/RC, XHTML), as plain text. */

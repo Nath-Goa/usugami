@@ -758,8 +758,8 @@ class RedactionDeviceTest {
     }
 
     /**
-     * What the file holds but no page shows: where a link leads, and the value of a hidden form
-     * field. Find text finds them, without blacking out what is under them, and they are gone
+     * What the file holds but no page shows: where a link leads (a name in it too, though only as
+     * escapes), and the value of a hidden form field. Find text finds them, without blacking out what is under them, and they are gone
      * from the redacted file.
      */
     @Test fun findTextFindsLinkAddressesAndHiddenFieldValues() {
@@ -770,6 +770,11 @@ class RedactionDeviceTest {
             first.annotations.add(PDAnnotationLink().apply {
                 rectangle = PDRectangle(72f, 695f, 80f, 20f)
                 action = PDActionURI().apply { uri = "mailto:john.smith@example.org" }
+            })
+            // A name with a space is in a web address only as an escape.
+            first.annotations.add(PDAnnotationLink().apply {
+                rectangle = PDRectangle(72f, 650f, 80f, 20f)
+                action = PDActionURI().apply { uri = "https://example.org/team/Ana%20Silva" }
             })
             val second = PDPage(PDRectangle.A4).also(doc::addPage)
             val form = PDAcroForm(doc)
@@ -790,8 +795,12 @@ class RedactionDeviceTest {
         val found = engine.findText(source, "smith")
         assertEquals(listOf(0, 1), found.map { it.single().page })
         for (box in found.flatten()) assertEquals(Redaction.MIN_SIZE, box.width, 1e-6f)
-        val redacted = save(engine.redact(source, found.flatten(), "addresses_redacted").file, "addresses_redacted.pdf")
-        PDDocument.load(redacted).use { doc -> assertTrue(everything(doc).none { it.contains("smith", ignoreCase = true) }) }
+        val escaped = engine.findText(source, "ana silva")
+        assertEquals(listOf(0), escaped.map { it.single().page })
+        val redacted = save(engine.redact(source, (found + escaped).flatten(), "addresses_redacted").file, "addresses_redacted.pdf")
+        PDDocument.load(redacted).use { doc ->
+            assertTrue(everything(doc).none { it.contains("smith", ignoreCase = true) || it.contains("silva", ignoreCase = true) })
+        }
     }
 
     /**

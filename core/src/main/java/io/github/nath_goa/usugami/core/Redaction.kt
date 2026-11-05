@@ -1,5 +1,6 @@
 package io.github.nath_goa.usugami.core
 
+import java.io.ByteArrayOutputStream
 import java.text.Normalizer
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -159,6 +160,53 @@ object Redaction {
     /** The boxes [pack] made [values] from. */
     fun unpack(values: FloatArray): List<RedactBox> = (0 until values.size / 5).map { i ->
         RedactBox(values[5 * i].roundToInt(), values[5 * i + 1], values[5 * i + 2], values[5 * i + 3], values[5 * i + 4])
+    }
+
+    /**
+     * [address] (where a link leads, or a file's name) as it is kept and as a person reads it: its
+     * %-escapes turned into the letters they stand for, with "+" left as it is and read as a space.
+     * A PDF keeps a web address in plain ASCII, so a name in it with a space or an accent is there
+     * only as escapes (Jane%20Smith, Jos%C3%A9). A % that starts no escape stays as it is.
+     */
+    fun addressForms(address: String): List<String> {
+        if ('%' !in address && '+' !in address) return listOf(address)
+        return listOf(address, unescaped(address, plusIsSpace = false), unescaped(address, plusIsSpace = true)).distinct()
+    }
+
+    private fun unescaped(address: String, plusIsSpace: Boolean): String {
+        val out = StringBuilder(address.length)
+        // The bytes of a run of escapes, which together are the UTF-8 of their letters.
+        val bytes = ByteArrayOutputStream()
+        fun letters() {
+            if (bytes.size() == 0) return
+            out.append(String(bytes.toByteArray(), Charsets.UTF_8))
+            bytes.reset()
+        }
+        var i = 0
+        while (i < address.length) {
+            val c = address[i]
+            if (c == '%' && i + 2 < address.length) {
+                val high = hexDigit(address[i + 1])
+                val low = hexDigit(address[i + 2])
+                if (high >= 0 && low >= 0) {
+                    bytes.write(high * 16 + low)
+                    i += 3
+                    continue
+                }
+            }
+            letters()
+            out.append(if (plusIsSpace && c == '+') ' ' else c)
+            i++
+        }
+        letters()
+        return out.toString()
+    }
+
+    private fun hexDigit(c: Char): Int = when (c) {
+        in '0'..'9' -> c - '0'
+        in 'a'..'f' -> c - 'a' + 10
+        in 'A'..'F' -> c - 'A' + 10
+        else -> -1
     }
 
     /**
