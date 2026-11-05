@@ -298,6 +298,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var task: Job? = null
     private var importJob: Job? = null
     private var viewJob: Job? = null
+    /** The id of the PDF [viewJob] makes the view of. */
+    private var viewJobInput: Long? = null
     private var findJob: Job? = null
     /** Changes when an import starts or is abandoned, so an abandoned one knows to stay quiet. */
     private var importGeneration = 0
@@ -1324,7 +1326,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      * tools then preview [input] itself.
      */
     fun preparePreview(input: PdfInput, required: Boolean = true) {
-        if (_previewView.value?.id == input.id || viewJob?.isActive == true) return
+        if (_previewView.value?.id == input.id) return
+        if (viewJob?.isActive == true) {
+            if (viewJobInput == input.id) return
+            // That of a PDF no longer previewed, as when Add watermark's PDFs are put in another
+            // order: it gives way to the new first one, which wouldn't get its view otherwise.
+            viewJob?.cancel()
+        }
+        viewJobInput = input.id
         viewJob = viewModelScope.launch {
             val job = coroutineContext[Job]!!
             try {
