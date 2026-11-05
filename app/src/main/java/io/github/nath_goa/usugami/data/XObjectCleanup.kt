@@ -18,10 +18,8 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDTransparencyGroup
-import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.util.Matrix
 import io.github.nath_goa.usugami.core.Areas
-import java.io.IOException
 import java.util.Collections
 import java.util.IdentityHashMap
 import kotlin.math.max
@@ -41,11 +39,9 @@ internal object XObjectCleanup {
 
         override fun processOperator(operator: Operator, operands: List<COSBase>) {
             if (operator.name == "Do") {
-                val name = operands.firstOrNull() as? COSName
-                val xobject = if (name != null) try { resources?.getXObject(name) } catch (_: IOException) { null } else null
-                if (xobject != null) {
-                    drawn += xobject.cosObject
-                    (xobject as? PDFormXObject)?.resources?.cosObject?.let(contexts::add)
+                drawnXObject(operands)?.let { xobject ->
+                    drawn += xobject
+                    if (xobject.getCOSName(COSName.SUBTYPE) == COSName.FORM) (xobject.getDictionaryObject(COSName.RESOURCES) as? COSDictionary)?.let(contexts::add)
                 }
             }
             super.processOperator(operator, operands)
@@ -83,14 +79,12 @@ internal object XObjectCleanup {
 
         override fun processOperator(operator: Operator, operands: List<COSBase>) {
             when (operator.name) {
-                "Do" -> {
-                    val name = operands.firstOrNull() as? COSName
-                    val xobject = if (name != null) try { resources?.getXObject(name) } catch (_: IOException) { null } else null
+                "Do" -> drawnXObject(operands)?.let { xobject ->
                     val ctm = graphicsState.currentTransformationMatrix
-                    when (xobject) {
-                        is PDImageXObject -> found += Placement(xobject.cosObject, ctm.values(), floatArrayOf(0f, 0f, 1f, 1f), clip)
-                        is PDFormXObject -> xobject.bBox?.let { box ->
-                            found += Placement(xobject.cosObject, xobject.matrix.multiply(ctm).values(), box.corners(), clip)
+                    when (xobject.getCOSName(COSName.SUBTYPE)) {
+                        COSName.IMAGE -> found += Placement(xobject, ctm.values(), floatArrayOf(0f, 0f, 1f, 1f), clip)
+                        COSName.FORM -> PDFormXObject(xobject).let { form ->
+                            form.bBox?.let { box -> found += Placement(xobject, form.matrix.multiply(ctm).values(), box.corners(), clip) }
                         }
                     }
                 }
@@ -155,6 +149,16 @@ internal object XObjectCleanup {
         private fun Matrix.values() = floatArrayOf(scaleX, shearY, shearX, scaleY, translateX, translateY)
 
         private fun PDRectangle.corners() = floatArrayOf(lowerLeftX, lowerLeftY, upperRightX, upperRightY)
+    }
+
+    /**
+     * The image or form a Do operator with [operands] draws, from the resources it is drawn with, as
+     * it is stored. PDFBox would read a JPEG 2000 image to make one of it, and fails without a
+     * decoder for them: such an image would seem not to be drawn, and be dropped or kept wrongly.
+     */
+    private fun PDFStreamEngine.drawnXObject(operands: List<COSBase>): COSStream? {
+        val name = operands.firstOrNull() as? COSName ?: return null
+        return resources?.cosObject?.getCOSDictionary(COSName.XOBJECT)?.getDictionaryObject(name) as? COSStream
     }
 
     /** Where [page]'s content draws each image and form (see [Placement]); null if its content can't be read. */

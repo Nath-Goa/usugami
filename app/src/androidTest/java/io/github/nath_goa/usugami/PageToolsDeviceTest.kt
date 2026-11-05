@@ -11,10 +11,14 @@ import android.os.SystemClock
 import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
@@ -287,6 +291,39 @@ class PageToolsDeviceTest {
             assertImages(parts[1].file, listOf(1, 2), "Split's second part")
             assertDrawn(parts[1].file, 2)
         }
+    }
+
+    /**
+     * A JPEG 2000 image, which Usugami can't decode, still counts as drawn by its page: the page's
+     * part of a split keeps it, though the pages share their resources, and the other part doesn't.
+     */
+    @Test fun splitKeepsJpeg2000Images() {
+        val file = made("split_jpx.pdf")
+        PDDocument().use { doc ->
+            // Not a real JPEG 2000 image: nothing reads it, as nothing in Usugami reads a real one.
+            val image = doc.document.createCOSStream().apply {
+                createRawOutputStream().use { it.write("NOT REALLY JPEG 2000".toByteArray()) }
+                setItem(COSName.TYPE, COSName.XOBJECT)
+                setItem(COSName.SUBTYPE, COSName.IMAGE)
+                setItem(COSName.FILTER, COSName.JPX_DECODE)
+                setInt(COSName.WIDTH, 16)
+                setInt(COSName.HEIGHT, 16)
+                // No /ColorSpace: a JPEG 2000 image may leave it to the image data.
+            }
+            val shared = PDResources().apply { cosObject.setItem(COSName.XOBJECT, COSDictionary().apply { setItem(COSName.getPDFName("Im0"), image) }) }
+            for (content in listOf("q 400 0 0 400 100 300 cm /Im0 Do Q", "")) {
+                val page = PDPage(PDRectangle.A4).also(doc::addPage)
+                page.resources = shared
+                page.setContents(PDStream(doc, content.byteInputStream()))
+            }
+            doc.save(file)
+        }
+        val parts = engine.split(import(file), listOf(listOf(0), listOf(1)), "jpx")
+        fun filterOfImage(part: File) = PDDocument.load(part).use { doc ->
+            (doc.getPage(0).resources.cosObject.getCOSDictionary(COSName.XOBJECT)?.getDictionaryObject(COSName.getPDFName("Im0")) as? COSStream)?.getCOSName(COSName.FILTER)
+        }
+        assertEquals("The page that draws it keeps it", COSName.JPX_DECODE, filterOfImage(parts[0].file))
+        assertNull("The other page leaves it out", filterOfImage(parts[1].file))
     }
 
     /** The tags of a deleted page's content go, with their alternate text; the others stay. */
