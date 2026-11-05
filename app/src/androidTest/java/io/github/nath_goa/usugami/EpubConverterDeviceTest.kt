@@ -473,6 +473,12 @@ class EpubConverterDeviceTest {
         }
     }
 
+    @Test fun aBlockAfterTextKeepsItsOwnPlaceForLinks() {
+        // Not the place of the words before it, which can be on the page before.
+        val entries = read("""<div>Lead-in words<h1 id="two">Chapter Two</h1></div>""")
+        assertEquals(listOf("two"), entries.single { (it.item as? BookPara)?.text?.toString() == "Chapter Two" }.ids)
+    }
+
     @Test fun objectsShowWhatTheyHoldInPlaceOfAnSvg() {
         val entries = read("""<p>Sales: <object data="chart.svg" type="image/svg+xml"><img src="chart.png" alt="Sales chart"/></object></p>""")
         assertTrue(texts(entries).toString(), texts(entries).any { "Sales chart" in it })

@@ -222,13 +222,17 @@ internal class XhtmlReader(
         if (tag in SKIPPED || display == "none" || p.attr("hidden") != null) return run { if (tag !in VOID) skip = 1 }
         // Older books mark places with <a name="...">, which links lead to as they do to an id.
         val anchors = listOfNotNull(id, p.attr("name")?.trim()?.takeIf { tag == "a" && it.isNotEmpty() && it != id })
-        if (anchors.isNotEmpty()) (if (para != null) paraIds else pendingIds) += anchors
-        if (tag == "svg") return run { svgDepth = 1 }
         val block = when (display) {
             "block", "list-item", "table", "flex", "grid" -> true
             "inline", "inline-block" -> false
             else -> tag in BLOCKS
         }
+        if (anchors.isNotEmpty()) {
+            // A block (or rule) starts below the paragraph being read: that one ends first, so its place isn't taken for the block's.
+            if (block || tag == "hr") flushPara()
+            (if (para != null) paraIds else pendingIds) += anchors
+        }
+        if (tag == "svg") return run { svgDepth = 1 }
         val inherited = inherit(tag, inheritedFrom, css, p, block)
         when (tag) {
             "img" -> {
