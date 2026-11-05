@@ -593,6 +593,7 @@
         <item quantity="other">शेयर की गई %d फ़ाइलें नहीं पढ़ी जा सकीं।</item>
     </plurals>
     <string name="msg_share_interrupted">आपकी शेयर की गई फ़ाइलें लेने से पहले ही Usugami बंद हो गया। कृपया उन्हें फिर से शेयर करें।</string>
+    <string name="msg_picks_interrupted">आपकी चुनी गई सभी इमेज जोड़ने से पहले ही Usugami बंद हो गया। कृपया जो इमेज छूट गईं, उन्हें फिर से जोड़ें।</string>
     <string name="msg_saved_downloads">डाउनलोड में %1$s के रूप में सेव किया गया</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">%d PDF डाउनलोड में सेव की गई</item>

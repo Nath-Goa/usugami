@@ -619,6 +619,7 @@
         <item quantity="other">No se pudieron leer %d archivos compartidos.</item>
     </plurals>
     <string name="msg_share_interrupted">Usugami se cerró antes de poder recibir los archivos que compartiste. Vuelve a compartirlos.</string>
+    <string name="msg_picks_interrupted">Usugami se cerró antes de añadir todas las imágenes que elegiste. Vuelve a añadir las que faltan.</string>
     <string name="msg_saved_downloads">Guardado en Descargas como %1$s</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">Se guardó %d PDF en Descargas</item>

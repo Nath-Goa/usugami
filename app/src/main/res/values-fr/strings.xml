@@ -619,6 +619,7 @@
         <item quantity="other">Impossible de lire %d fichiers partagés.</item>
     </plurals>
     <string name="msg_share_interrupted">Usugami a été fermé avant d\'avoir pu récupérer les fichiers que vous avez partagés. Veuillez les partager à nouveau.</string>
+    <string name="msg_picks_interrupted">Usugami a été fermé avant d\'avoir ajouté toutes les images que vous avez choisies. Veuillez ajouter à nouveau celles qui manquent.</string>
     <string name="msg_saved_downloads">Enregistré dans Téléchargements sous le nom %1$s</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">%d PDF enregistré dans Téléchargements</item>

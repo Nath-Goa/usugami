@@ -242,8 +242,9 @@ class ShareDeviceTest {
     }
 
     /**
-     * Files being copied in, or taken in by a tool, are marked in the saved state until they are in:
-     * when Android closes Usugami meanwhile, they are gone, and the restored view models say so, once.
+     * Files being copied in, or taken in by a tool, and images picked are marked in the saved state
+     * until they are in: when Android closes Usugami meanwhile, they are gone, and the restored view
+     * models say so, once.
      */
     @Test fun filesLostWhenAndroidClosesUsugamiAreToldAbout() {
         val handle = SavedStateHandle()
@@ -269,6 +270,9 @@ class ShareDeviceTest {
         val restoredTools = tools(SavedStateHandle(mapOf("taking_shared" to 1)))
         assertTrue(onMain { restoredTools.takeShareInterrupted() })
         assertFalse("Said once", onMain { restoredTools.takeShareInterrupted() })
+        // Images picked that weren't all added yet.
+        val restoredPicks = main(SavedStateHandle(mapOf("picks_under_way" to 2)))
+        assertEquals(strings.getString(R.string.msg_picks_interrupted), next(restoredPicks.messages))
     }
 
     @Test fun droppedFilesLeaveNothingBehind() {
