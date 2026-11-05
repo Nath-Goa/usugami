@@ -98,10 +98,21 @@ private const val TILE_ASPECT = 0.75f
 private val GridMaxHeight = 480.dp
 
 /** The pages [text] names, zero-based and in the order typed; none while it can't be read. */
-internal fun typedPages(text: String, pageCount: Int): List<Int> = try {
-    PdfPageSelection.selected(text, pageCount)
-} catch (_: Exception) {
+internal fun typedPages(text: String, pageCount: Int): List<Int> = tappedOnto(text, pageCount).orEmpty()
+
+/**
+ * The pages [text] names, for a page tapped to go in or out of them: null while it can't be read
+ * and isn't blank, as with a typo or a range half typed. The tap then leaves the text as it is
+ * rather than putting just that page in place of all that was typed.
+ */
+internal fun tappedOnto(text: String, pageCount: Int): List<Int>? = if (text.isBlank()) {
     emptyList()
+} else {
+    try {
+        PdfPageSelection.selected(text, pageCount)
+    } catch (_: Exception) {
+        null
+    }
 }
 
 /**
@@ -146,8 +157,8 @@ internal fun DeletePagesOptions(input: PdfInput, text: String, onText: (String) 
         items(input.pageCount, key = { it }) { index ->
             val isMarked = index in marked
             DeleteTile(input, index, isMarked) {
-                onTap { current ->
-                    val now = typedPages(current, input.pageCount).toSet()
+                onTap tap@{ current ->
+                    val now = tappedOnto(current, input.pageCount)?.toSet() ?: return@tap current
                     PdfPageSelection.format(if (index in now) now - index else now + index)
                 }
             }

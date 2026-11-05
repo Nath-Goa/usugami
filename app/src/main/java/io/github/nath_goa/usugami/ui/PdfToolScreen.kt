@@ -895,8 +895,8 @@ private fun SplitOptions(
                         // A page tapped goes at the end; the others keep their order, and ranges stay short.
                         // From the pages chosen now, not as last drawn: two tapped at once are both chosen.
                         onClick = {
-                            onTap { current ->
-                                val now = typedPages(current, input.pageCount)
+                            onTap tap@{ current ->
+                                val now = tappedOnto(current, input.pageCount) ?: return@tap current
                                 PdfPageSelection.formatInOrder(if (i in now) now - i else now + i)
                             }
                         },
