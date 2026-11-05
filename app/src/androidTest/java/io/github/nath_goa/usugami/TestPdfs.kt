@@ -236,8 +236,10 @@ fun formPdf(file: File, name: String = "Jane Doe", xfa: Boolean = false): File =
  * - a text field "amount" holding "₹ 5,000", with a white background (/MK) and the look it had
  *   before that value was set, saying "OLD AMOUNT", which such apps leave as it was
  * - a text field "name" holding "नाम", with no look at all
+ * - with [unplacedField], a text field "city" holding "Lisbon", which Helvetica can draw, whose
+ *   widget doesn't say which page it is on (no /P, which is optional)
  */
-fun unencodableFormPdf(file: File): File = file.also {
+fun unencodableFormPdf(file: File, unplacedField: Boolean = false): File = file.also {
     PDDocument().use { doc ->
         val page = PDPage(PDRectangle.A4)
         doc.addPage(page)
@@ -263,6 +265,7 @@ fun unencodableFormPdf(file: File): File = file.also {
         amount.cosObject.setString(COSName.V, "₹ 5,000")
         val name = textField(form, page, "name", PDRectangle(72f, 560f, 250f, 24f), null)
         name.cosObject.setString(COSName.V, "नाम")
+        if (unplacedField) textField(form, page, "city", PDRectangle(72f, 520f, 250f, 24f), "Lisbon").widgets.single().cosObject.removeItem(COSName.P)
         doc.save(file)
     }
 }

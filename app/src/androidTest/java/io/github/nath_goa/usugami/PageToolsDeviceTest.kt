@@ -682,6 +682,24 @@ class PageToolsDeviceTest {
         }
     }
 
+    /**
+     * Fields kept stay fields, widgets and all, though a field flattened has a widget that doesn't
+     * say which page it is on: PDFBox then looks for widgets on every page.
+     */
+    @Test fun fieldsKeptStayThoughAWidgetFlattenedNamesNoPage() {
+        val source = import(unencodableFormPdf(made("unplaced_form.pdf"), unplacedField = true))
+        val result = engine.flatten(source, "unplaced_flattened")
+        assertEquals(2, result.keptFields)
+        val flat = save(result.file.file, "unplaced_flattened.pdf")
+        assertTrue("The field PDFBox can draw is part of the page", text(flat).contains("Lisbon"))
+        PDDocument.load(flat).use { doc ->
+            assertEquals(setOf("amount", "name"), doc.documentCatalog.acroForm.fields.map { it.partialName }.toSet())
+            val widgets = doc.getPage(0).annotations.filterIsInstance<PDAnnotationWidget>()
+            assertEquals("The kept fields' widgets stay on the page", 2, widgets.size)
+            assertTrue("The amount keeps its look", widgets.single { it.cosObject.getString(COSName.T) == "amount" }.normalAppearanceStream != null)
+        }
+    }
+
     @Test fun nothingToFlattenIsSaid() {
         val plain = import(asset("alpha.pdf"))
         try {

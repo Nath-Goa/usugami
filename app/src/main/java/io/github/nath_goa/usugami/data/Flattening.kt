@@ -4,6 +4,7 @@ import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
@@ -78,7 +79,15 @@ internal object Flattening {
                     field.widgets.forEach { keptWidgets += it.cosObject }
                 }
                 check()
-                form.flatten(fields.filter { it.cosObject !in keep }, false)
+                // When a widget of the fields it flattens doesn't say which page it is on (its /P,
+                // which is optional), PDFBox flattens every widget on every page, the kept fields'
+                // too: they are off their pages meanwhile.
+                val away = takeOff(doc, keptWidgets)
+                try {
+                    form.flatten(fields.filter { it.cosObject !in keep }, false)
+                } finally {
+                    putBack(away, keptWidgets)
+                }
                 if (undrawn.isNotEmpty()) form.needAppearances = true
                 kept = undrawn.size
             }
@@ -144,6 +153,30 @@ internal object Flattening {
         widget.normalAppearanceStream?.bBox?.let { it.width > 0f && it.height > 0f } == true
 
     private fun identitySet(): MutableSet<COSDictionary> = Collections.newSetFromMap(IdentityHashMap())
+
+    /** Takes [widgets] off the pages they are on: returns those pages, each with its annotations as they were. */
+    private fun takeOff(doc: PDDocument, widgets: Set<COSDictionary>): List<Pair<COSDictionary, List<COSBase>>> {
+        if (widgets.isEmpty()) return emptyList()
+        val away = ArrayList<Pair<COSDictionary, List<COSBase>>>()
+        for (page in doc.pages) {
+            val annotations = page.cosObject.getCOSArray(COSName.ANNOTS) ?: continue
+            val items = annotations.toList()
+            if (items.none { it.dictionary() in widgets }) continue
+            away += page.cosObject to items
+            page.cosObject.setItem(COSName.ANNOTS, COSArray().apply { items.filter { it.dictionary() !in widgets }.forEach(::add) })
+        }
+        return away
+    }
+
+    /** Puts the widgets [takeOff] took off back on their pages, where they were among the annotations still there. */
+    private fun putBack(away: List<Pair<COSDictionary, List<COSBase>>>, widgets: Set<COSDictionary>) {
+        for ((page, items) in away) {
+            val left = identitySet().apply { page.getCOSArray(COSName.ANNOTS)?.forEach { item -> item.dictionary()?.let(::add) } }
+            page.setItem(COSName.ANNOTS, COSArray().apply { items.filter { it.dictionary().let { d -> d in widgets || d in left } }.forEach(::add) })
+        }
+    }
+
+    private fun COSBase.dictionary(): COSDictionary? = (if (this is COSObject) `object` else this) as? COSDictionary
 
     /**
      * A widget's appearance as it was, to [restore]: the widget's /AP entry, the appearance
