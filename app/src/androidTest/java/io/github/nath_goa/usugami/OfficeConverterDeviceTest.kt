@@ -1036,6 +1036,18 @@ class OfficeConverterDeviceTest {
         assertTrue(word(pdf, 2, "Merged").xDirAdj > 240f)
     }
 
+    @Test fun powerPointShapesCanTakeTheirGroupsFill() {
+        // The square is filled as its red group is (a:grpFill), not in its style's accent colour.
+        val style = """<p:style><a:lnRef idx="0"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef>
+            <a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></p:style>"""
+        val square = """<p:sp><p:nvSpPr><p:cNvPr id="3" name="Square"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+            <p:spPr>${xfrm(100, 100, 100, 100)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:grpFill/></p:spPr>$style</p:sp>"""
+        val group = """<p:grpSp><p:nvGrpSpPr><p:cNvPr id="2" name="Group"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+            <p:grpSpPr>${xfrm(100, 100, 100, 100)}${solid("FF0000")}</p:grpSpPr>$square</p:grpSp>"""
+        val pdf = convert(deck("group-fill.pptx", listOf(slide(group))), OfficeKind.POWERPOINT, "slide-group-fill")
+        assertTrue(isColor(render(pdf, 0, 2f), 2f, 150f, 150f, Color.RED))
+    }
+
     @Test fun powerPointNumberingGoesOnAfterAnEmptyParagraph() {
         fun item(text: String) = """<a:p><a:pPr marL="342900" indent="-342900"><a:buAutoNum type="arabicPeriod"/></a:pPr>${if (text.isEmpty()) "" else run(text, 18)}</a:p>"""
         val file = deck("numbered.pptx", listOf(slide(textBox(2, 40, 40, 400, 300, item("Apples"), item(""), item("Pears")))))

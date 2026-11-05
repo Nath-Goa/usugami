@@ -131,6 +131,8 @@ internal class PptxConverter(
         val custom: List<CustomPath>? = null,
         val adjust: Map<String, Long> = emptyMap(),
         val fill: Fill? = null,
+        /** a:grpFill: filled as the group it is in is (a group: as the group it is in, in turn). */
+        val groupFill: Boolean = false,
         val line: Outline? = null,
         val styleFill: Int? = null,
         val styleLine: Int? = null,
@@ -379,6 +381,7 @@ internal class PptxConverter(
         var custom: List<CustomPath>? = null
         val adjust = HashMap<String, Long>()
         var fill: Fill? = null
+        var groupFill = false
         var line: Outline? = null
         var styleFill: Int? = null
         var styleLine: Int? = null
@@ -407,6 +410,7 @@ internal class PptxConverter(
                         }
                         "custGeom" -> custom = readCustom(x)
                         "ln" -> line = ctx.outline(x)
+                        "grpFill" -> groupFill = true
                         else -> ctx.fill(x)?.let { fill = it }
                     }
                 }
@@ -432,6 +436,7 @@ internal class PptxConverter(
             name = name, caption = caption, hidden = hidden, ph = ph, xfrm = xfrm,
             geometry = geometry, custom = custom, adjust = adjust,
             fill = if (isPicture) picture else fill,
+            groupFill = groupFill && !isPicture,
             line = line, styleFill = styleFill, styleLine = styleLine, styleFont = styleFont,
             body = body, textRect = textRect,
         )
@@ -511,6 +516,8 @@ internal class PptxConverter(
         var hidden = false
         var xfrm: Xfrm? = null
         var child: Pair<Pair<Float, Float>, Pair<Float, Float>>? = null
+        var fill: Fill? = null
+        var groupFill = false
         val children = ArrayList<Shape>()
         x.children {
             when (x.name) {
@@ -521,9 +528,14 @@ internal class PptxConverter(
                     }
                 }
                 "grpSpPr" -> x.children {
-                    if (x.name == "xfrm") readXfrm(x).let {
-                        xfrm = it.first
-                        child = it.second
+                    when (x.name) {
+                        "xfrm" -> readXfrm(x).let {
+                            xfrm = it.first
+                            child = it.second
+                        }
+                        // The fill of shapes in the group that take the group's (a:grpFill).
+                        "grpFill" -> groupFill = true
+                        else -> ctx.fill(x)?.let { fill = it }
                     }
                 }
                 "AlternateContent" -> children += readAlternate(x, ctx)
@@ -532,7 +544,7 @@ internal class PptxConverter(
         }
         val rect = xfrm?.rect
         return Shape(
-            Kind.GROUP, name = name, hidden = hidden, xfrm = xfrm, children = children,
+            Kind.GROUP, name = name, hidden = hidden, xfrm = xfrm, children = children, fill = fill, groupFill = groupFill,
             childOffset = child?.first ?: (rect?.let { it.x to it.y } ?: (0f to 0f)),
             childExtent = child?.second ?: (rect?.let { it.width to it.height } ?: (0f to 0f)),
         )
@@ -1003,10 +1015,11 @@ internal class PptxConverter(
     }
 
     /**
-     * Draws [shape]. Always called through [guarded], which saves the canvas and restores it
-     * afterwards, so a shape can turn the canvas as it needs.
+     * Draws [shape], in a group placed by [group] and filled with [groupFill] (null outside groups).
+     * Always called through [guarded], which saves the canvas and restores it afterwards, so a shape
+     * can turn the canvas as it needs.
      */
-    private fun drawShape(canvas: Canvas, shape: Shape, scene: Scene, owner: Template, group: GroupFrame?) {
+    private fun drawShape(canvas: Canvas, shape: Shape, scene: Scene, owner: Template, group: GroupFrame?, groupFill: Fill? = null) {
         if (shape.hidden) return
         // An empty placeholder (only a slide's are drawn) doesn't show in PowerPoint's slide show
         // or its PDFs, whatever fill and outline it has: not even a space was typed in it.
@@ -1019,8 +1032,9 @@ internal class PptxConverter(
         when (shape.kind) {
             Kind.GROUP -> {
                 val inner = GroupFrame(rect, shape.childOffset, shape.childExtent, xfrm.flipH, xfrm.flipV)
+                val innerFill = if (shape.groupFill) groupFill else shape.fill
                 rotate(canvas, xfrm, rect)
-                for (child in shape.children) guarded(canvas) { drawShape(canvas, child, scene, owner, inner) }
+                for (child in shape.children) guarded(canvas) { drawShape(canvas, child, scene, owner, inner, innerFill) }
                 return
             }
             Kind.TABLE -> {
@@ -1039,7 +1053,8 @@ internal class PptxConverter(
         val source = if (shape.geometry != null || shape.custom != null) shape else parents.firstOrNull { it.geometry != null || it.custom != null }
         val geometry = source?.geometry ?: if (source == null && shape.kind != Kind.PICTURE) "rect" else null
         val adjust = source?.adjust ?: shape.adjust
-        val fill = shape.fill ?: parents.firstNotNullOfOrNull { it.fill } ?: shape.styleFill?.let { Fill.Solid(it) }
+        val fill = if (shape.groupFill) groupFill ?: Fill.None
+        else shape.fill ?: parents.firstNotNullOfOrNull { it.fill } ?: shape.styleFill?.let { Fill.Solid(it) }
         val line = (shape.line ?: parents.firstNotNullOfOrNull { it.line }).let { own ->
             when {
                 own == null -> shape.styleLine?.let { Outline(it, 0.75f, false) }
