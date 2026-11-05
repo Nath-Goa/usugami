@@ -126,7 +126,7 @@ class PdfToolsEngine(private val context: Context) {
     private fun memory() = MemoryUsageSetting.setupMixed(24L * 1024 * 1024).setTempDir(scratchDir.apply { mkdirs() })
 
     /** Deletes the PDFs made before, but [keep]: a result showing again after Android restarted Usugami. */
-    fun clearOutput(keep: Collection<File> = emptyList()) { outputDir.deleteAllBut(keep) }
+    fun clearOutput(keep: Collection<File> = emptyList()) { outputDir.deleteAllBut(keep, context) }
 
     /** Where a ZIP file of the results is made, beside them, so it goes when they do. */
     val zipDir get() = File(outputDir, "zip")

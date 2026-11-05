@@ -54,12 +54,12 @@ class ImageUnreadableException(val imageName: String) : Exception("Unreadable im
  * it at that size and stored as it needs: black and white a bit a pixel, grey as a grey JPEG.
  * Output lives in the cache (output/images) until the next export.
  */
-class PdfExporter(context: Context) {
+class PdfExporter(private val context: Context) {
     private val outputDir = File(context.cacheDir, "output/images")
 
     /** Deletes the PDFs made before, but [keep]: a result showing again after Android restarted Usugami. */
     fun clearOutput(keep: Collection<File> = emptyList()) {
-        outputDir.deleteAllBut(keep)
+        outputDir.deleteAllBut(keep, context)
     }
 
     /** Where a ZIP file of the PDFs is made, beside them, so it goes when they do. */
