@@ -24,6 +24,9 @@ import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitDestination
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.PdfInput
@@ -324,6 +327,30 @@ class PageToolsDeviceTest {
         }
         assertEquals("The page that draws it keeps it", COSName.JPX_DECODE, filterOfImage(parts[0].file))
         assertNull("The other page leaves it out", filterOfImage(parts[1].file))
+    }
+
+    /**
+     * A damaged outline whose bookmarks hold the first bookmark again, a loop, is read once
+     * through: deleting a page doesn't walk it without end.
+     */
+    @Test(timeout = 60_000) fun aLoopingOutlineDoesntHoldUpDeletingPages() {
+        val file = made("looping_outline.pdf")
+        PDDocument().use { doc ->
+            val pages = (0..1).map { PDPage(PDRectangle.A4).also(doc::addPage) }
+            val outline = PDDocumentOutline()
+            doc.documentCatalog.documentOutline = outline
+            val items = (0..3).map { index ->
+                PDOutlineItem().apply {
+                    title = "Chapter $index"
+                    destination = PDPageFitDestination().apply { page = pages[index % 2] }
+                    outline.addLast(this)
+                }
+            }
+            for (item in items) item.cosObject.setItem(COSName.FIRST, items[0].cosObject)
+            doc.save(file)
+        }
+        val deleted = engine.deletePages(import(file), listOf(1), "loop_deleted")
+        assertEquals(1, deleted.pageCount)
     }
 
     /** The tags of a deleted page's content go, with their alternate text; the others stay. */

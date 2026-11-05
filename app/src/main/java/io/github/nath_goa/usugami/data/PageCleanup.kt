@@ -31,7 +31,7 @@ internal object PageCleanup {
     fun dropRemovedPages(doc: PDDocument, removed: Collection<PDPage>, check: () -> Unit = {}) {
         val (gone, goneAnnotations) = goneObjects(doc, removed) ?: return
         pruneForm(doc, goneAnnotations)
-        pruneOutline(doc, gone)
+        pruneOutline(doc, gone, check)
         // Pictures they alone drew go too, though pages that stay may still list them.
         val drawn = identitySet<COSBase>()
         for (page in removed) {
@@ -164,20 +164,23 @@ internal object PageCleanup {
         }
     }
 
-    /** Bookmarks that lead only to removed pages go; their /Count is then put right. */
-    private fun pruneOutline(doc: PDDocument, gone: Set<COSDictionary>) {
+    /**
+     * Bookmarks that lead only to removed pages go; their /Count is then put right. Each bookmark is
+     * read once: in a damaged outline, the bookmarks under one can lead back to those above it.
+     */
+    private fun pruneOutline(doc: PDDocument, gone: Set<COSDictionary>, check: () -> Unit) {
         val root = doc.documentCatalog.cosObject.getDictionaryObject(COSName.OUTLINES) as? COSDictionary ?: return
-        pruneBookmarks(doc, root, gone, 0)
-        recount(root, isRoot = true, depth = 0)
+        pruneBookmarks(doc, root, gone, identitySet<COSDictionary>().apply { add(root) }, check, 0)
+        recount(root, isRoot = true, identitySet<COSDictionary>().apply { add(root) }, depth = 0)
     }
 
-    private fun pruneBookmarks(doc: PDDocument, parent: COSDictionary, gone: Set<COSDictionary>, depth: Int) {
+    private fun pruneBookmarks(doc: PDDocument, parent: COSDictionary, gone: Set<COSDictionary>, seen: MutableSet<COSDictionary>, check: () -> Unit, depth: Int) {
         if (depth > MAX_DEPTH) return
-        val seen = identitySet<COSDictionary>()
         var item = parent.getDictionaryObject(COSName.FIRST) as? COSDictionary
         while (item != null && seen.add(item)) {
+            check()
             val next = item.getDictionaryObject(COSName.NEXT) as? COSDictionary
-            pruneBookmarks(doc, item, gone, depth + 1)
+            pruneBookmarks(doc, item, gone, seen, check, depth + 1)
             val target = try {
                 PDOutlineItem(item).findDestinationPage(doc)?.cosObject
             } catch (_: IOException) {
@@ -208,12 +211,11 @@ internal object PageCleanup {
      * Sets [node]'s /Count from its remaining bookmarks: an open one counts those shown under it, a
      * closed one the negative of that; the root counts every bookmark shown.
      */
-    private fun recount(node: COSDictionary, isRoot: Boolean, depth: Int) {
+    private fun recount(node: COSDictionary, isRoot: Boolean, seen: MutableSet<COSDictionary>, depth: Int) {
         var shown = 0
-        val seen = identitySet<COSDictionary>()
         var item = node.getDictionaryObject(COSName.FIRST) as? COSDictionary
-        while (item != null && seen.add(item) && depth <= MAX_DEPTH) {
-            recount(item, isRoot = false, depth = depth + 1)
+        while (item != null && depth <= MAX_DEPTH && seen.add(item)) {
+            recount(item, isRoot = false, seen, depth = depth + 1)
             shown += 1 + maxOf(0, item.getInt(COSName.COUNT, 0))
             item = item.getDictionaryObject(COSName.NEXT) as? COSDictionary
         }
