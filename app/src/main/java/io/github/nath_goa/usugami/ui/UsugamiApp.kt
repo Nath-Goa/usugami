@@ -135,7 +135,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     var docsFromShare by rememberSaveable { mutableStateOf(false) }
     // Said once that the files shared open when the PDF being made is done.
     var toldShareWaits by rememberSaveable { mutableStateOf(false) }
+    // Back in the editor asks whether to discard its images. Files shared meanwhile open another
+    // screen, which the question doesn't belong to: it goes.
+    var confirmDiscard by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(route) {
+        if (route != "images") confirmDiscard = false
         if (!isPdfToolRoute(route)) {
             confirmLeavePdf = false
             stayOnPdf = false
@@ -280,6 +284,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         confirmLeavePdf = false
         discardWork = null
         confirmShare = false
+        confirmDiscard = false
         route = target
     }
 
@@ -351,7 +356,6 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     var homeQuery by rememberSaveable { mutableStateOf("") }
 
     var showConvertSheet by rememberSaveable { mutableStateOf(false) }
-    var confirmDiscard by rememberSaveable { mutableStateOf(false) }
 
     // Which screen is showing. The result screens sit one level deeper than their editors, which
     // sit one level deeper than home, and so do Settings ("settings"), About ("settings/about") and
@@ -688,7 +692,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     ZipProgressDialog(pdfZipProgress, onCancel = pdfVm::cancelZip)
     ocrProblem?.let { OcrProblemDialog(it, onDismiss = vm::dismissOcrProblem) }
 
-    if (confirmDiscard) {
+    if (confirmDiscard && route == "images") {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
             title = { Text(stringResource(R.string.discard_title)) },
