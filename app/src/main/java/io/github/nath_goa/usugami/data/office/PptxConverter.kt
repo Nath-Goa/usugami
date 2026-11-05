@@ -13,7 +13,6 @@ import io.github.nath_goa.usugami.core.OfficeUnits
 import io.github.nath_goa.usugami.core.SlideTableStyles
 import io.github.nath_goa.usugami.core.SymbolFonts
 import io.github.nath_goa.usugami.core.TableColumns
-import java.util.concurrent.CancellationException
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -570,9 +569,9 @@ internal class PptxConverter(
                                 x.name == "tbl" -> table = readTable(x, ctx)
                                 x.name == "chart" -> {
                                     chart = true
-                                    caption = caption ?: chartTitle(pkg.target(ctx.part, x.relId()))
+                                    caption = caption ?: orNull { chartTitle(pkg.target(ctx.part, x.relId())) }
                                 }
-                                x.name == "relIds" && "diagram" in uri -> drawing = smartArt(ctx, x.relId("dm"))
+                                x.name == "relIds" && "diagram" in uri -> drawing = orNull { smartArt(ctx, x.relId("dm")) }
                                 // An embedded object (an Excel sheet, an old equation...): the picture of it saved with it.
                                 x.name == "oleObj" -> preview = preview ?: olePreview(x, ctx)
                                 x.name == "AlternateContent" -> x.children {
@@ -871,14 +870,17 @@ internal class PptxConverter(
         val all = tableStyles.getOrPut(ctx.theme to ctx.colorMap) {
             val found = HashMap<String, TableStyle>()
             val main = pkg.mainPart() ?: "ppt/presentation.xml"
-            pkg.targetOfType(main, "/tableStyles")?.let { path ->
-                pkg.xml(path, check)?.use { x ->
-                    x.children {
-                        if (x.name != "tblStyle") return@children
-                        val styleId = x.attr("styleId") ?: return@children
-                        val parts = HashMap<String, TableStylePart>()
-                        x.children { parts[x.name] = readTableStylePart(x, Ctx(path, ctx.theme, ctx.colorMap)) }
-                        found[styleId] = TableStyle(parts)
+            // Damaged, the styles read before the damage are kept, and tables of other styles get PowerPoint's default look.
+            orNull {
+                pkg.targetOfType(main, "/tableStyles")?.let { path ->
+                    pkg.xml(path, check)?.use { x ->
+                        x.children {
+                            if (x.name != "tblStyle") return@children
+                            val styleId = x.attr("styleId") ?: return@children
+                            val parts = HashMap<String, TableStylePart>()
+                            x.children { parts[x.name] = readTableStylePart(x, Ctx(path, ctx.theme, ctx.colorMap)) }
+                            found[styleId] = TableStyle(parts)
+                        }
                     }
                 }
             }
@@ -949,19 +951,27 @@ internal class PptxConverter(
 
     /**
      * Draws one shape with [draw]. A shape that can't be drawn (such as one with values no slide
-     * could have) is left out, rather than the whole presentation failing.
+     * could have, or a damaged part or picture of its own) is left out, rather than the whole
+     * presentation failing.
      */
     private inline fun guarded(canvas: Canvas, draw: () -> Unit) {
         val saved = canvas.save()
         try {
             draw()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: RuntimeException) {
+        } catch (e: Exception) {
+            rethrowCancel(e)
             // Left out.
         } finally {
             canvas.restoreToCount(saved)
         }
+    }
+
+    /** What [read] reads from a part of a shape's own (a chart's, SmartArt's...), or null when that part is damaged. */
+    private inline fun <T> orNull(read: () -> T?): T? = try {
+        read()
+    } catch (e: Exception) {
+        rethrowCancel(e)
+        null
     }
 
     private class Scene(val slide: Template, val layout: Template?, val master: Template?, val number: Int)

@@ -1036,6 +1036,26 @@ class OfficeConverterDeviceTest {
         assertTrue(word(pdf, 2, "Merged").xDirAdj > 240f)
     }
 
+    @Test fun powerPointDamagedPartsLeaveOutOnlyWhatIsInThem() {
+        // A chart whose part is empty, and a table whose styles' part is: the rest of the slide still converts.
+        val chart = """<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="3" name="Chart"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>
+            <p:xfrm><a:off x="${40 * EMU}" y="${300 * EMU}"/><a:ext cx="${200 * EMU}" cy="${100 * EMU}"/></p:xfrm><a:graphic>
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="rId1"/>
+            </a:graphicData></a:graphic></p:graphicFrame>"""
+        val table = """<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="4" name="Table"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>
+            <p:xfrm><a:off x="${40 * EMU}" y="${120 * EMU}"/><a:ext cx="${200 * EMU}" cy="${40 * EMU}"/></p:xfrm><a:graphic>
+            <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/table"><a:tbl><a:tblPr><a:tableStyleId>{5C22544A-0000-0000-0000-000000000002}</a:tableStyleId></a:tblPr>
+            <a:tblGrid><a:gridCol w="${200 * EMU}"/></a:tblGrid><a:tr h="${40 * EMU}"><a:tc><a:txBody><a:bodyPr/><a:lstStyle/><a:p>${run("Cell words", 18)}</a:p></a:txBody><a:tcPr/></a:tc></a:tr>
+            </a:tbl></a:graphicData></a:graphic></p:graphicFrame>"""
+        val file = deck(
+            "damaged.pptx", listOf(slide(textBox(2, 40, 40, 300, 40, "<a:p>${run("Still here", 18)}</a:p>") + chart + table)),
+            slideRels = mapOf(0 to relationships("chart" to "../charts/chart1.xml")), more = listOf("tableStyles" to "tableStyles.xml"),
+            parts = mapOf("ppt/charts/chart1.xml" to "", "ppt/tableStyles.xml" to ""),
+        )
+        val text = pageTexts(convert(file, OfficeKind.POWERPOINT, "slide-damaged"))[0]
+        assertTrue(text, "Still here" in text && "Cell words" in text)
+    }
+
     @Test fun presentationWithOnlyHiddenSlidesIsRefused() {
         val input = import(presentation("hidden.pptx", onlyHidden = true), OfficeKind.POWERPOINT)
         try {
