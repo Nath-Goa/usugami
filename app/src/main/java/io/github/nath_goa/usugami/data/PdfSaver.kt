@@ -116,12 +116,21 @@ class PdfSaver(private val context: Context) {
         }
     }
 
+    /**
+     * Deletes the temporary files left behind when Android closed Usugami in the middle of a save
+     * (a whole ZIP file of results can be large); those of saves going on now stay.
+     */
+    fun clearLeftovers() {
+        synchronized(tempFiles) {
+            File(context.cacheDir, "saving").listFiles()?.forEach { if (it.absolutePath !in tempFiles) it.delete() }
+        }
+    }
+
     /** Runs [block] with a new, empty file in the cache, which is deleted again afterwards. */
     private inline fun <T> withTempFile(block: (File) -> T): T {
         val temp = synchronized(tempFiles) {
+            clearLeftovers()
             val dir = File(context.cacheDir, "saving")
-            // Left behind when Android closed Usugami in the middle of a save.
-            dir.listFiles()?.forEach { if (it.absolutePath !in tempFiles) it.delete() }
             dir.mkdirs()
             File.createTempFile("save", ".tmp", dir).also { tempFiles += it.absolutePath }
         }

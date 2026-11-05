@@ -333,7 +333,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var shareInterrupted = (handle.remove<Int>(KEY_SHARES_UNDER_WAY) ?: 0) > 0
 
     /**
-     * How many images picked are still to be added. Kept in the saved state, as [sharesUnderWay] is:
+     * How many images picked or shared are still to be added. Kept in the saved state, as [sharesUnderWay] is:
      * when Android closes Usugami meanwhile, those not added yet are gone, and the user is told.
      */
     private var picksUnderWay: Int
@@ -389,6 +389,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 store.clearCaptures(keep = listOfNotNull(keepCapture) + photos.map { it.path })
                 val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
                 exporter.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
+                saver.clearLeftovers()
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
                 // A page being cropped again is made from the image it is cropped from, which is all it
                 // needs once its own copy has gone.
@@ -422,15 +423,16 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     /** [refused] counts shared files that were turned away before import; they're reported as unreadable. */
     fun addImages(uris: List<Uri>, refused: Int = 0) {
-        importImages(uris, refused, picked = true)
+        importImages(uris, refused)
     }
 
     /**
      * Adds the images at [uris] after any still being added, and returns that work (null when there
-     * is none). Those [picked] are counted in [picksUnderWay] until each is added; a share of images
-     * is counted in [sharesUnderWay] until they all are.
+     * is none). Picked or shared, each is counted in [picksUnderWay] until it is added: when Android
+     * closes Usugami meanwhile, the user is told to add the missing ones again (sharing them all
+     * again would add twice those already in).
      */
-    private fun importImages(uris: List<Uri>, refused: Int, picked: Boolean): Job? {
+    private fun importImages(uris: List<Uri>, refused: Int): Job? {
         if (uris.isEmpty()) {
             if (refused > 0) pluralMessage(R.plurals.msg_failed_import, refused)
             return null
@@ -440,7 +442,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // One being saved where the user chose goes on, as a save of the PDFs does.
         zipper.stopSharing()
         _pendingImports.update { it + uris.size }
-        if (picked) picksUnderWay += uris.size
+        picksUnderWay += uris.size
         val generation = importGeneration
         return viewModelScope.launch {
             var unsupported = 0
@@ -467,7 +469,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                             ImageStore.ImportResult.NoSpace -> noSpace++
                         }
                         _pendingImports.update { it - 1 }
-                        if (picked) picksUnderWay--
+                        picksUnderWay--
                     }
                 }
             } finally {
@@ -497,11 +499,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
             return
         }
-        // Until the share's last step: counted down on the main thread as soon as its files are listed,
-        // or its images are in the editor.
+        // Until the share's last step: counted down on the main thread once its files are copied in, or
+        // its images are handed on (from then on they count in picksUnderWay until each is added).
         sharesUnderWay++
         viewModelScope.launch {
-            var images: Job? = null
             // One share at a time, in the order they came: the files of one shared while another is
             // being copied in go after them.
             shareLock.withLock {
@@ -515,15 +516,13 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 val taken = uris.indices.filter { kinds[it] == kind }
                 when (kind) {
                     null -> if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
-                    SharedKind.IMAGE -> images = importImages(taken.map { uris[it] }, refused, picked = false)
+                    SharedKind.IMAGE -> importImages(taken.map { uris[it] }, refused)
                     else -> {
                         if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
                         copyShared(kind, taken.map { uris[it] to names[it] })
                     }
                 }
             }
-            // Copied in after any images still being added: the next share is sorted meanwhile.
-            images?.join()
         }.invokeOnCompletion { sharesUnderWay-- }
     }
 
@@ -648,6 +647,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         importGeneration++
         _pendingImports.value = 0
         picksUnderWay = 0
+        // Photos waiting their turn are discarded too: a state saved now mustn't bring them back.
+        pendingPhotos = emptyList()
         val all = items.value
         val replaced = superseded.toList()
         superseded.clear()
