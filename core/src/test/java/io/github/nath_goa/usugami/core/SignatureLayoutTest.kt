@@ -84,6 +84,17 @@ class SignatureLayoutTest {
         assertEquals(tiny.endInclusive, tiny.start, 0.0001f)
     }
 
+    @Test fun aNarrowSignatureNeedNotBeAsTallAsThePage() {
+        // A single stroke down: as tall as an A4 page, it is only 24 points wide.
+        val aspect = 0.029f
+        val range = SignatureLayout.widthRange(595f, 842f, aspect)
+        assertEquals(842f * aspect / 595f, range.endInclusive, 0.0001f)
+        // At its smallest it is half an inch tall.
+        assertEquals(36f, range.start * 595f / aspect, 0.01f)
+        val placed = SignatureLayout.default(595f, 842f, aspect)
+        assertTrue(SignatureLayout.heightShare(placed.width, 595f, 842f, aspect) < 0.5f)
+    }
+
     @Test fun clampKeepsTheSignatureOnThePage() {
         for (page in listOf(a4, landscape, 300f to 300f, 100f to 40f)) {
             for (aspect in listOf(0.3f, 1f, 4f, 12f)) {

@@ -27,8 +27,11 @@ object SignatureLayout {
     /** The pen, in pad units: about 3 dp on a pad as wide as a phone. */
     const val PEN_WIDTH = 9f
 
-    /** The smallest a signature gets, in points: half an inch wide. */
-    const val MIN_WIDTH_POINTS = 36f
+    /**
+     * The smallest a signature gets, in points: half an inch on its longer side, so wide for one
+     * wider than it is tall, and tall for one taller than it is wide.
+     */
+    const val MIN_SIDE_POINTS = 36f
 
     /** A new signature is this share of the page's shorter side wide: 2.6 inches on A4… */
     const val DEFAULT_WIDTH = 0.32f
@@ -103,12 +106,14 @@ object SignatureLayout {
 
     /**
      * The widths a signature with [aspect] can have on a shown page [shownWidth] × [shownHeight]
-     * points big, as shares of that width: from half an inch up to as big as the page.
+     * points big, as shares of that width: from half an inch on its longer side up to as big as the
+     * page. A signature much taller than it is wide, such as a single stroke down, is then narrower
+     * than half an inch at its smallest, and can be made smaller than the page is tall.
      */
     fun widthRange(shownWidth: Float, shownHeight: Float, aspect: Float): ClosedFloatingPointRange<Float> {
         require(shownWidth > 0 && shownHeight > 0 && aspect > 0)
         val most = min(1f, shownHeight * aspect / shownWidth)
-        return min(MIN_WIDTH_POINTS / shownWidth, most)..most
+        return min(MIN_SIDE_POINTS * min(1f, aspect) / shownWidth, most)..most
     }
 
     /** The signature's height as a share of the shown page's height, when it is [width] of its width. */
