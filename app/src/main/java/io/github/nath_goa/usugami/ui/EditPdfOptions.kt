@@ -481,9 +481,9 @@ private fun EditProperties(
                     range = range,
                     onValue = { ifChosen { onStep(EditLayout.resized(item, it, pageWidth, pageHeight)) } },
                     onBegin = onBegin,
-                    onEnd = {
+                    onEnd = { size ->
                         onEnd()
-                        if (item is TextItem) ifChosen { onStyle(style.copy(textSize = item.size)) }
+                        if (item is TextItem) ifChosen { onStyle(style.copy(textSize = size ?: item.size)) }
                     },
                 )
                 val lineWidth = when (item) {
@@ -506,14 +506,15 @@ private fun EditProperties(
                             ifChosen { onStep(EditLayout.onPage(changed, pageWidth, pageHeight)) }
                         },
                         onBegin = onBegin,
-                        onEnd = {
+                        onEnd = { width ->
                             onEnd()
                             ifChosen {
+                                val chosen = width ?: lineWidth
                                 onStyle(
                                     when {
-                                        item is ShapeItem -> style.copy(shapeWidth = lineWidth)
-                                        highlighter -> style.copy(highlighterWidth = lineWidth)
-                                        else -> style.copy(penWidth = lineWidth)
+                                        item is ShapeItem -> style.copy(shapeWidth = chosen)
+                                        highlighter -> style.copy(highlighterWidth = chosen)
+                                        else -> style.copy(penWidth = chosen)
                                     },
                                 )
                             }
@@ -585,7 +586,11 @@ private fun EditProperties(
 
 private data class Nudge(val icon: ImageVector, @param:StringRes val label: Int, val dx: Float, val dy: Float)
 
-/** A slider with its name before it; a screen reader hears the name on the slider itself. */
+/**
+ * A slider with its name before it; a screen reader hears the name on the slider itself. [onEnd]
+ * gets the value the move last gave [onValue] (null if none): a screen reader's step ends in the
+ * same moment, before [value] and what it was read from are new.
+ */
 @Composable
 private fun LabeledSlider(
     label: String,
@@ -593,15 +598,16 @@ private fun LabeledSlider(
     range: ClosedFloatingPointRange<Float>,
     onValue: (Float) -> Unit,
     onBegin: () -> Unit,
-    onEnd: () -> Unit,
+    onEnd: (last: Float?) -> Unit,
 ) {
     var moving by remember { mutableStateOf(false) }
+    var last by remember { mutableStateOf<Float?>(null) }
     // Put away while a finger still holds it (another finger chose nothing, so the item's controls
     // went), it never hears the finger lift: its change ends with it, and the next one, such as a
     // drag, is a change of its own for Undo.
     val end by rememberUpdatedState(onEnd)
     DisposableEffect(Unit) {
-        onDispose { if (moving) end() }
+        onDispose { if (moving) end(last) }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         // A fixed width keeps the sliders lined up; a long name (a large font size) shrinks to fit it
@@ -622,11 +628,13 @@ private fun LabeledSlider(
                     moving = true
                     onBegin()
                 }
+                last = it
                 onValue(it)
             },
             onValueChangeFinished = {
                 moving = false
-                onEnd()
+                onEnd(last)
+                last = null
             },
             // A range of one value has nothing to choose.
             valueRange = if (range.endInclusive > range.start) range else range.start..range.start + 1f,
