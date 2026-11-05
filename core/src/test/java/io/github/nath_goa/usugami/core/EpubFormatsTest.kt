@@ -118,6 +118,8 @@ class EpubFormatsTest {
         assertFalse(SimpleCss.selector("h2")!!.matches(heading))
         assertFalse(SimpleCss.selector("h1.other")!!.matches(heading))
         assertTrue(SimpleCss.selector("*")!!.matches(para))
+        assertTrue(SimpleCss.selector(":root")!!.matches(node("html")))
+        assertFalse(SimpleCss.selector(":root")!!.matches(body))
         // Left out rather than misapplied.
         assertNull(SimpleCss.selector("p:first-child"))
         assertNull(SimpleCss.selector("a[href]"))

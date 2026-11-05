@@ -419,6 +419,8 @@ object SimpleCss {
     }
 
     private fun compound(token: String): CssCompound? {
+        // In an e-book, the root element is <html>.
+        if (token.equals(":root", ignoreCase = true)) return CssCompound("html", null, emptyList())
         val match = Regex("""^([a-zA-Z][a-zA-Z0-9-]*|\*)?((?:[.#][a-zA-Z_][a-zA-Z0-9_-]*)*)$""").find(token) ?: return null
         val tag = match.groupValues[1].lowercase().takeIf { it.isNotEmpty() && it != "*" }
         var id: String? = null
