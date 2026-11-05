@@ -24,6 +24,7 @@ import org.junit.Test
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.Callable
+import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -67,6 +68,23 @@ class SavingDeviceTest {
             pdf.setReadable(true, false)
         }
         assertEquals("The document isn't emptied before the PDF is opened", "old document", target.readText())
+    }
+
+    /** A ZIP file saved over an existing document and cancelled partway leaves the document as it was. */
+    @Test fun aCancelledSaveOverADocumentLeavesItAlone() {
+        val pdf = File(dir, "zipped.pdf").apply { writeText("%PDF-1.4") }
+        val target = File(dir, "existing.zip").apply { writeText("old document") }
+        try {
+            PdfSaver(app).writeTo(Uri.fromFile(target), listOf(pdf)) { out ->
+                out.write("half a ZIP file".toByteArray())
+                throw CancellationException("Cancel pressed")
+            }
+            fail("The cancelled save went on")
+        } catch (_: CancellationException) {
+            // Expected.
+        }
+        assertEquals("old document", target.readText())
+        assertTrue("Nothing is left in the cache", File(app.cacheDir, "saving").list().isNullOrEmpty())
     }
 
     /** Start over and Back wait while the PDF is being saved: they would delete or replace it mid-save. */

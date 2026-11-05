@@ -94,17 +94,42 @@ class PdfSaver(private val context: Context) {
     /**
      * Writes into a document the user created with the system "Save as" screen: [write] gets its
      * stream and makes the content from [files]. A new document is deleted again if that fails or is
-     * cancelled.
+     * cancelled. One the user chose to overwrite is made in the cache first and copied over only once
+     * it is complete, so a cancel or a failure while making it leaves the document as it was.
      */
     fun writeTo(target: Uri, files: List<File>, write: (OutputStream) -> Unit) {
         val created = sizeOf(target) == 0L
         try {
             // Checked first, so a document the user chose to overwrite isn't emptied for nothing.
             requireExists(files)
-            openForWriting(target).use(write)
+            if (created) {
+                openForWriting(target).use(write)
+            } else {
+                withTempFile { temp ->
+                    temp.outputStream().use(write)
+                    copy(temp, target)
+                }
+            }
         } catch (e: Exception) {
             if (created) delete(target)
             throw e
+        }
+    }
+
+    /** Runs [block] with a new, empty file in the cache, which is deleted again afterwards. */
+    private inline fun <T> withTempFile(block: (File) -> T): T {
+        val temp = synchronized(tempFiles) {
+            val dir = File(context.cacheDir, "saving")
+            // Left behind when Android closed Usugami in the middle of a save.
+            dir.listFiles()?.forEach { if (it.absolutePath !in tempFiles) it.delete() }
+            dir.mkdirs()
+            File.createTempFile("save", ".tmp", dir).also { tempFiles += it.absolutePath }
+        }
+        try {
+            return block(temp)
+        } finally {
+            temp.delete()
+            synchronized(tempFiles) { tempFiles -= temp.absolutePath }
         }
     }
 
@@ -198,6 +223,9 @@ class PdfSaver(private val context: Context) {
 
     companion object {
         const val PDF_MIME = "application/pdf"
+
+        /** The temporary files saves are using now, in every PdfSaver. */
+        private val tempFiles = HashSet<String>()
     }
 }
 
