@@ -54,12 +54,14 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -594,6 +596,13 @@ private fun LabeledSlider(
     onEnd: () -> Unit,
 ) {
     var moving by remember { mutableStateOf(false) }
+    // Put away while a finger still holds it (another finger chose nothing, so the item's controls
+    // went), it never hears the finger lift: its change ends with it, and the next one, such as a
+    // drag, is a change of its own for Undo.
+    val end by rememberUpdatedState(onEnd)
+    DisposableEffect(Unit) {
+        onDispose { if (moving) end() }
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         // A fixed width keeps the sliders lined up; a long name (a large font size) shrinks to fit it
         // rather than breaking mid-word.
