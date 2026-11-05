@@ -448,7 +448,8 @@ internal class XhtmlReader(
     private fun startBlock(node: CssNode, inherited: Inherited, css: Map<String, String>, tag: String, onEnd: (() -> Unit)? = null) {
         flushPara()
         val em = inherited.size
-        val nested = lists.isNotEmpty() && (tag == "ul" || tag == "ol")
+        // A list in a list has no space of its own around it. (The list starting is on the list of lists already.)
+        val nested = (tag == "ul" || tag == "ol") && lists.size > 1
         val ua = if (nested) 0f else UA_MARGINS[tag] ?: 0f
         val (top, bottom) = margins(css, em, ua * em, if (tag == "li") 0f else ua * em)
         if (CssValues.pageBreak(css["break-before"])) pageBreak()

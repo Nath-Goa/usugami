@@ -473,6 +473,14 @@ class EpubConverterDeviceTest {
         }
     }
 
+    @Test fun listsHaveSpaceAroundThemUnlessInAList() {
+        val entries = read("""<p>Before</p><ul><li>Item<ul><li>Inner</li></ul></li></ul><p>After</p>""", css = "p { margin: 0 }")
+        fun before(text: String) = entries.single { (it.item as? BookPara)?.text?.toString() == text }.before
+        assertEquals(5.5f, before("Item"), 0.01f)
+        assertEquals(5.5f, before("After"), 0.01f)
+        assertEquals(11f * 0.15f, before("Inner"), 0.01f)
+    }
+
     @Test fun aBlockAfterTextKeepsItsOwnPlaceForLinks() {
         // Not the place of the words before it, which can be on the page before.
         val entries = read("""<div>Lead-in words<h1 id="two">Chapter Two</h1></div>""")
