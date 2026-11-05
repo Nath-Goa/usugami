@@ -161,16 +161,11 @@ dependencies {
 
 /**
  * Drops asset files that a build never reads.
- * - PDFBox data files that Usugami's code paths never read. Of PDFBox's predefined CJK CMaps
- *   (1.3 MB packed), those of the encodings CJK fonts name most stay, with those they build on
- *   (usecmap): about 0.46 MB packed. PDFBox reads a font's named encoding whenever it reads text
- *   in that font (Redact's Find text, Flatten), and without it can't read the document's text at
- *   all. Left out are the UTF-16 encodings and rarer ones (GBKp, GBK2K, the old JIS and CNS
- *   ones: 0.41 MB), and each character collection's own CMaps (0.39 MB), with which PDFBox would
- *   turn the text of a CJK font that has no map to Unicode of its own (ToUnicode) into letters:
- *   such text is still not found.
- *   Identity-H, which the OCR text layer uses, stays. BidiMirroring.txt (7 KB) stays too:
- *   PDFTextStripper's static initializer crashes without it. Scripts.txt goes.
+ * - PDFBox data files that Usugami's code paths never read (about 1.2 MB). Predefined CJK CMaps
+ *   are only read when PDFBox parses existing CJK fonts (text extraction, rendering, form
+ *   appearances); Usugami only needs Identity-H for the OCR text layer. BidiMirroring.txt (7 KB)
+ *   stays: PDFTextStripper's static initializer crashes without it, and the device tests use
+ *   PDFTextStripper to check the OCR text layer.
  * - With [withoutOcrFont] (Usugami Lite, which has no text recognition), the OCR text layer's font.
  */
 abstract class PruneAssets : DefaultTask() {
@@ -187,48 +182,17 @@ abstract class PruneAssets : DefaultTask() {
     @get:Inject
     abstract val fs: FileSystemOperations
 
-    /**
-     * The predefined CMaps kept: Identity, Unicode (UCS-2) for each language, Shift-JIS (RKSJ), GB
-     * and GBK, Big Five (B5) and Korean (KSC, UHC); each written across (H) and down (V).
-     */
-    private val keptCmaps = listOf(
-        "Identity-[HV]",
-        "Uni(JIS|GB|CNS|KS)-UCS2(-HW)?-[HV]",
-        "[0-9A-Za-z]+-RKSJ-[HV]",
-        "(GB|GBpc|GBK)-EUC-[HV]",
-        "(B5pc|ETen-B5|ETenms-B5|HKscs-B5)-[HV]",
-        "(KSC|KSCpc)-EUC-[HV]",
-        "KSCms-UHC(-HW)?-[HV]",
-    ).map(::Regex)
-
     @TaskAction
     fun prune() {
         val dropOcrFont = withoutOcrFont.get()
-        val cmaps = "com/tom_roush/fontbox/resources/cmap/"
-        val kept = cmapsKept(input.get().asFile.resolve(cmaps))
         fs.sync {
             from(input)
             into(output)
-            exclude { it.path.startsWith(cmaps) && it.name !in kept }
+            exclude { it.path.startsWith("com/tom_roush/fontbox/resources/cmap/") && !it.name.startsWith("Identity-") }
             exclude("com/tom_roush/fontbox/resources/unicode/Scripts.txt")
             // fonts/LICENSE is the OCR font's license (SIL OFL).
             if (dropOcrFont) exclude("fonts/UsugamiOcr-Regular.ttf", "fonts/LICENSE")
         }
-    }
-
-    /** The CMaps in [dir] that [keptCmaps] names, and those they build on (usecmap), in turn. */
-    private fun cmapsKept(dir: java.io.File): Set<String> {
-        val kept = HashSet<String>()
-        val pending = ArrayDeque(dir.list().orEmpty().filter { name -> keptCmaps.any { it.matches(name) } })
-        if (pending.none { it == "Identity-H" }) throw GradleException("PDFBox's CMaps aren't in $dir")
-        while (pending.isNotEmpty()) {
-            val name = pending.removeLast()
-            if (!kept.add(name)) continue
-            val file = dir.resolve(name)
-            if (!file.isFile) throw GradleException("CMap $name, which a CMap kept uses, isn't among PDFBox's")
-            Regex("""/(\S+)\s+usecmap""").findAll(file.readText(Charsets.ISO_8859_1)).forEach { pending += it.groupValues[1] }
-        }
-        return kept
     }
 }
 
