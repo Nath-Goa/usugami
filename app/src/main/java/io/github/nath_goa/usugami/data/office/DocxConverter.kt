@@ -80,6 +80,13 @@ internal class DocxConverter(
         return pdf.pageCount
     }
 
+    /** Whether [item] has the page's number in it (a PAGE field), in its text or in a table cell's. */
+    private fun hasPageNumber(item: DocItem): Boolean = when (item) {
+        is DocPara -> item.inlines.any { it is PageNumberInline }
+        is DocTable -> item.rows.any { row -> row.cells.any { cell -> cell.content.any(::hasPageNumber) } }
+        else -> false
+    }
+
     /** Whether [item] puts anything on the page: text, a picture or a table. */
     private fun shows(item: DocItem): Boolean = when (item) {
         is DocPara -> item.floats.isNotEmpty() || item.inlines.any { it !is TextInline || it.text.isNotBlank() }
@@ -762,7 +769,10 @@ internal class DocxConverter(
         private val textHeight get() = (section.height - section.top - section.bottom).units
         private val pageNumber get() = PageNumber(shownNumber, section.pageFormat)
 
-        /** A block waiting to go on the page, with its spacing and what it keeps with. */
+        /**
+         * A block waiting to go on the page, with its spacing and what it keeps with. One with the page's
+         * number in it is laid out again by [renumbered] for the page it starts on, once that is known.
+         */
         private inner class Placed(
             val block: Block,
             val before: Int = 0,
@@ -771,6 +781,7 @@ internal class DocxConverter(
             val contextual: Boolean = false,
             val keepNext: Boolean = false,
             val overlays: List<Floating> = emptyList(),
+            val renumbered: ((PageNumber) -> Block)? = null,
         )
 
         fun add(item: DocItem) {
@@ -781,6 +792,7 @@ internal class DocxConverter(
                     val p = item.props
                     // A very long paragraph goes in pieces, one after another, with its spacing around them all.
                     val pieces = paragraphBlock(item, textWidth.toInt(), pageNumber, textHeight, null).pieces()
+                    val renumbered = if (pieces.size == 1 && hasPageNumber(item)) { page: PageNumber -> paragraphBlock(item, textWidth.toInt(), page, textHeight, null) } else null
                     for ((i, piece) in pieces.withIndex()) {
                         val last = i == pieces.lastIndex
                         place(
@@ -792,11 +804,17 @@ internal class DocxConverter(
                                 p.contextual == true,
                                 p.keepNext == true && last,
                                 if (i == 0) item.floats.filter { it.overText } else emptyList(),
+                                renumbered,
                             ),
                         )
                     }
                 }
-                is DocTable -> place(Placed(tableBlock(item, textWidth, pageNumber, textHeight, null)))
+                is DocTable -> place(
+                    Placed(
+                        tableBlock(item, textWidth, pageNumber, textHeight, null),
+                        renumbered = if (hasPageNumber(item)) { page -> tableBlock(item, textWidth, page, textHeight, null) } else null,
+                    ),
+                )
                 PageBreak -> {
                     flushPending()
                     ensurePage()
@@ -839,7 +857,7 @@ internal class DocxConverter(
             // more would put the text below the page.
             val firstLine = (item.block as? ParagraphBlock)?.firstLineHeight ?: item.block.height
             var gap = if (empty) (if (keepSpaceBefore) min(before, max(0, (bottom - y).toInt() - firstLine)) else 0) else before + after
-            var block = item.block
+            var block = item.renumbered?.invoke(pageNumber) ?: item.block
             var first = true
             while (true) {
                 val space = (bottom - y - gap).toInt()
@@ -852,6 +870,7 @@ internal class DocxConverter(
                 if (parts == null) {
                     newPage(natural = true)
                     gap = 0
+                    if (first) item.renumbered?.let { block = it(pageNumber) }
                     continue
                 }
                 draw(parts.first, item, gap, first)

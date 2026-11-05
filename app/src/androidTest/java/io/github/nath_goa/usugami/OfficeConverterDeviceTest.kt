@@ -586,6 +586,15 @@ class OfficeConverterDeviceTest {
         assertTrue(texts[4].contains("Chapter two"))
     }
 
+    @Test fun wordPageNumbersInTheTextAreTheirOwnPages() {
+        val field = """<w:fldSimple w:instr=" PAGE "><w:r><w:t>9</w:t></w:r></w:fldSimple>"""
+        val body = """<w:p><w:r><w:t xml:space="preserve">Opening page </w:t></w:r>$field</w:p><w:p><w:pPr><w:sectPr/></w:pPr></w:p>""" +
+            """<w:p><w:r><w:t xml:space="preserve">Restarted page </w:t></w:r>$field</w:p><w:sectPr><w:pgNumType w:start="5"/></w:sectPr>"""
+        val texts = pageTexts(convert(wordDocument(body, "body-page.docx"), OfficeKind.WORD, "word-body-page"))
+        assertTrue(texts[0], "Opening page 1" in texts[0])
+        assertTrue(texts[1], "Restarted page 5" in texts[1])
+    }
+
     @Test fun wordBodyKeptInAnotherFormatIsRefused() {
         // As some apps export to Word: the whole body is a web page inside the file.
         val docx = wordDocument(
