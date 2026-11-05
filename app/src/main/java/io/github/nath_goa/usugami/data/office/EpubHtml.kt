@@ -251,6 +251,13 @@ internal class XhtmlReader(
                 return
             }
             "wbr", "col", "input", "area", "source", "track", "embed", "param", "meta", "link", "base" -> return
+            // An object shows its picture when it is one Android can draw; else, as in a browser, what it
+            // holds in its place (the PNG or the words standing in for an SVG chart, say).
+            "object" -> p.attr("data")?.takeIf { data -> EpubPaths.resolve(path, data)?.first?.let(imageSize) != null }?.let { data ->
+                image(p, inherited, css, fromSvg = false, source = data)
+                skip = 1
+                return
+            }
             "q" -> {
                 appendText("\u201C", inherited)
                 frames += Frame(node, inherited, block = false) { appendText("\u201D", inherited) }
@@ -502,8 +509,9 @@ internal class XhtmlReader(
         }
     }
 
-    private fun image(p: XmlPullParser, inherited: Inherited, css: Map<String, String>, fromSvg: Boolean) {
-        val src = (if (fromSvg) p.attr("href") else p.attr("src") ?: p.attr("href")) ?: return
+    /** A picture: an img, an SVG image ([fromSvg]) or an object, whose [source] is given. */
+    private fun image(p: XmlPullParser, inherited: Inherited, css: Map<String, String>, fromSvg: Boolean, source: String? = null) {
+        val src = source ?: (if (fromSvg) p.attr("href") else p.attr("src") ?: p.attr("href")) ?: return
         val target = EpubPaths.resolve(path, src)?.first ?: return
         val pixels = imageSize(target)
         if (pixels == null) {
@@ -657,7 +665,7 @@ internal class XhtmlReader(
         /** Elements that are always empty. */
         val VOID = setOf("area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr")
         val SKIPPED = setOf(
-            "script", "noscript", "template", "iframe", "object", "video", "audio", "canvas", "button", "select", "textarea",
+            "script", "noscript", "template", "iframe", "video", "audio", "canvas", "button", "select", "textarea",
             "map", "rt", "rp", "datalist", "dialog", "colgroup", "title",
             // A formula's TeX or other source beside the MathML shown, and MathML in epub:switch, whose fallback is shown.
             "annotation", "annotation-xml", "case",

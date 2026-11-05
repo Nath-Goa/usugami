@@ -290,6 +290,15 @@ class EpubConverterDeviceTest {
         ).apply { putAll(files) }.mapKeys { (path, _) -> root + path },
     )
 
+    /** What a book's document of [body], styled with [css], is read into, its pictures all ones Android can't draw. */
+    private fun read(body: String, css: String = ""): List<BookEntry> = ArrayList<BookEntry>().also { read ->
+        XhtmlReader("ch.xhtml", 11f, 332f, { null }, { null }, OfficeImages({ null }, PagedPdf(work), {}), {}) { read += it }
+            .read(xhtml(body, head = if (css.isEmpty()) "" else "<style>$css</style>").byteInputStream())
+    }
+
+    /** The text of the paragraphs in [entries]. */
+    private fun texts(entries: List<BookEntry>) = entries.mapNotNull { (it.item as? BookPara)?.text?.toString() }
+
     // ---- What converts ----
 
     @Test fun pagesAreA5UnlessA4IsChosen() {
@@ -462,6 +471,11 @@ class EpubConverterDeviceTest {
         } catch (e: IOException) {
             assertEquals("No space left", e.message)
         }
+    }
+
+    @Test fun objectsShowWhatTheyHoldInPlaceOfAnSvg() {
+        val entries = read("""<p>Sales: <object data="chart.svg" type="image/svg+xml"><img src="chart.png" alt="Sales chart"/></object></p>""")
+        assertTrue(texts(entries).toString(), texts(entries).any { "Sales chart" in it })
     }
 
     @Test fun bookmarksComeFromTheTableOfContents() {
