@@ -5,6 +5,7 @@ import android.app.UiModeManager
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 
@@ -19,6 +20,7 @@ enum class Appearance { SYSTEM, LIGHT, DARK }
 object Appearances {
     private const val PREFS = "appearance"
     private const val KEY = "appearance"
+    private const val KEY_HANDED_OVER = "handed_over"
 
     /**
      * Whether Usugami applies the choice itself rather than the system: below Android 12. Tests
@@ -44,13 +46,7 @@ object Appearances {
         prefs(activity).edit(commit = true) { putString(KEY, appearance.name) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !appliedByUsugami) {
             // The system remembers it for Usugami, also across restarts.
-            activity.getSystemService(UiModeManager::class.java).setApplicationNightMode(
-                when (appearance) {
-                    Appearance.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
-                    Appearance.LIGHT -> UiModeManager.MODE_NIGHT_NO
-                    Appearance.DARK -> UiModeManager.MODE_NIGHT_YES
-                },
-            )
+            giveSystem(activity, appearance)
         } else {
             val phoneDark = isDark(activity.applicationContext.resources.configuration)
             val dark = when (appearance) {
@@ -60,6 +56,32 @@ object Appearances {
             }
             if (dark != isDark(activity.resources.configuration)) activity.recreate()
         }
+    }
+
+    /**
+     * From Android 12, Android keeps the appearance: one picked on an older version, which only
+     * Usugami stored, is handed to Android once, the first time Usugami starts on 12 or newer. The
+     * activity is then recreated in it. (Android has no other way to change it for Usugami, so what
+     * it has otherwise is what Usugami stored.)
+     */
+    fun handOver(activity: Activity) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || appliedByUsugami) return
+        val prefs = prefs(activity)
+        if (prefs.getBoolean(KEY_HANDED_OVER, false)) return
+        prefs.edit(commit = true) { putBoolean(KEY_HANDED_OVER, true) }
+        val appearance = current(activity)
+        if (appearance != Appearance.SYSTEM) giveSystem(activity, appearance)
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun giveSystem(context: Context, appearance: Appearance) {
+        context.getSystemService(UiModeManager::class.java).setApplicationNightMode(
+            when (appearance) {
+                Appearance.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
+                Appearance.LIGHT -> UiModeManager.MODE_NIGHT_NO
+                Appearance.DARK -> UiModeManager.MODE_NIGHT_YES
+            },
+        )
     }
 
     /**

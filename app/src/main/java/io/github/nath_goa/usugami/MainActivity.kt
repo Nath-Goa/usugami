@@ -32,8 +32,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        // A language picked before the phone was updated to Android 13 or newer.
+        // A language or appearance picked before the phone was updated to an Android version that
+        // keeps it for Usugami.
         AppLanguages.handOver(this)
+        Appearances.handOver(this)
         // On recreation the shared files were already taken in (and are in the saved state).
         if (savedInstanceState == null) handleShare(intent)
         setContent {
