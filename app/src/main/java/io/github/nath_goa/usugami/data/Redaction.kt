@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfRenderer
+import android.icu.lang.UCharacter
 import android.os.ParcelFileDescriptor
 import android.text.Html
 import androidx.core.graphics.createBitmap
@@ -40,6 +41,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.io.Writer
+import java.text.Bidi
 import java.util.Collections
 import java.util.IdentityHashMap
 import kotlin.math.abs
@@ -263,33 +265,61 @@ internal object Redactor {
         return Html.fromHtml(xhtml, Html.FROM_HTML_MODE_LEGACY).toString()
     }
 
-    /** Collects each page's glyphs as text extraction reads them, and boxes the matches when the page ends. */
+    /**
+     * Collects each page's glyphs as text extraction reads them, and boxes the matches when the page
+     * ends. Text extraction gives a line's glyphs from left to right, as they are drawn; Hebrew and
+     * Arabic read the other way, so their glyphs are put in the order they are read (see [readingOrder]).
+     */
     private class Finder(private val query: String, private val check: () -> Unit) : PDFTextStripper() {
         val matches = ArrayList<List<RedactBox>>()
         private var text = PageText.Builder()
         private val glyphs = ArrayList<TextPosition>()
 
+        /** The line being read, its glyphs left to right; null between two words. */
+        private val line = ArrayList<TextPosition?>()
+
         override fun startPage(page: PDPage) {
             check()
             text = PageText.Builder()
             glyphs.clear()
+            line.clear()
         }
 
         override fun writeString(text: String, textPositions: List<TextPosition>) {
-            for (glyph in textPositions) {
-                this.text.glyph(glyphs.size, glyph.unicode ?: "")
-                glyphs += glyph
-            }
+            line += textPositions
         }
 
-        override fun writeWordSeparator() = text.space()
-        override fun writeLineSeparator() = text.space()
-        override fun writeParagraphStart() = text.space()
-        override fun writeParagraphEnd() = text.space()
-        override fun startArticle(isLTR: Boolean) = text.space()
-        override fun endArticle() = text.space()
+        override fun writeWordSeparator() {
+            line += null
+        }
+
+        override fun writeLineSeparator() = space()
+        override fun writeParagraphStart() = space()
+        override fun writeParagraphEnd() = space()
+        override fun startArticle(isLTR: Boolean) = space()
+        override fun endArticle() = space()
+
+        /** A break between lines: the line read so far goes into the page's text first. */
+        private fun space() {
+            endLine()
+            text.space()
+        }
+
+        private fun endLine() {
+            for ((glyph, mirrored) in readingOrder(line)) {
+                if (glyph == null) {
+                    text.space()
+                    continue
+                }
+                val unicode = glyph.unicode ?: ""
+                text.glyph(glyphs.size, if (mirrored) mirror(unicode) else unicode)
+                glyphs += glyph
+            }
+            line.clear()
+        }
 
         override fun endPage(page: PDPage) {
+            endLine()
             val matches = text.build().find(query)
             if (matches.isEmpty()) return
             val frame = page.shownFrame()
@@ -298,6 +328,47 @@ internal object Redactor {
                 val shapes = match.mapNotNull { glyphBox(glyphs[it], frame) }
                 if (shapes.isNotEmpty()) this.matches += Redaction.boxesFor(index, shapes, frame.shownWidth, frame.shownHeight)
             }
+        }
+    }
+
+    /**
+     * [line]'s glyphs, given left to right as drawn (null between two words), in the order they are
+     * read, each with whether it is in right-to-left text and so drawn as the mirror image of what
+     * it says, as a bracket is. A line with no right-to-left letters stays as it is. Otherwise, as
+     * PDFBox reads a word, the text as drawn is put through the Unicode bidirectional algorithm,
+     * which, applied to text in the order it is drawn, turns it back into the order it is read; for
+     * the whole line, so that the words of a phrase are in order too. A glyph moves as a whole, so
+     * one that reads as several letters (a ligature) keeps them in order.
+     */
+    private fun readingOrder(line: List<TextPosition?>): List<Pair<TextPosition?, Boolean>> {
+        val drawn = StringBuilder()
+        val starts = IntArray(line.size)
+        for ((i, glyph) in line.withIndex()) {
+            starts[i] = drawn.length
+            // A word break is a space, and a glyph that reads as nothing an object (a neutral).
+            drawn.append(if (glyph == null) " " else glyph.unicode?.takeIf { it.isNotEmpty() } ?: OBJECT_CHARACTER)
+        }
+        // All one paragraph.
+        for (i in drawn.indices) if (Character.getDirectionality(drawn[i]) == Character.DIRECTIONALITY_PARAGRAPH_SEPARATOR) drawn[i] = ' '
+        val chars = drawn.toString().toCharArray()
+        if (!Bidi.requiresBidi(chars, 0, chars.size)) return line.map { it to false }
+        val bidi = Bidi(drawn.toString(), Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT)
+        val levels = ByteArray(line.size) { bidi.getLevelAt(starts[it]).toByte() }
+        val order = Array<Any>(line.size) { it }
+        Bidi.reorderVisually(levels, 0, order, 0, order.size)
+        return order.map { (it as Int).let { i -> line[i] to (levels[i].toInt() and 1 == 1) } }
+    }
+
+    /** U+FFFC, which stands for an object in text. */
+    private val OBJECT_CHARACTER = Char(0xFFFC).toString()
+
+    /** [text] with each character that has a mirror image (a bracket, say) turned into it. */
+    private fun mirror(text: String): String = buildString {
+        var i = 0
+        while (i < text.length) {
+            val c = text.codePointAt(i)
+            appendCodePoint(UCharacter.getMirror(c))
+            i += Character.charCount(c)
         }
     }
 

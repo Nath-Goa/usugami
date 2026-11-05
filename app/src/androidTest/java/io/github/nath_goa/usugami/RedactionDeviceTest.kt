@@ -31,6 +31,7 @@ import com.tom_roush.pdfbox.pdmodel.common.filespecification.PDEmbeddedFile
 import com.tom_roush.pdfbox.pdmodel.documentinterchange.logicalstructure.PDMarkInfo
 import com.tom_roush.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement
 import com.tom_roush.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureTreeRoot
+import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDColor
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
@@ -71,6 +72,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -720,6 +722,39 @@ class RedactionDeviceTest {
         assertEquals(Redaction.MIN_SIZE, mark.height, 1e-6f)
         val redacted = save(engine.redact(source, found.flatten(), "commented_redacted").file, "commented_redacted.pdf")
         PDDocument.load(redacted).use { doc -> assertTrue(everything(doc).none { it.contains("Smith") }) }
+    }
+
+    /**
+     * Hebrew, drawn from left to right as PDF makers draw it (a word's last letter first, and the
+     * second word left of the first), is found as it is typed, a phrase of two words too, with
+     * one box over both words.
+     */
+    @Test fun findTextFindsRightToLeftText() {
+        val font = File("/system/fonts").listFiles().orEmpty().filter { "Hebrew" in it.name && it.name.endsWith(".ttf") }.minByOrNull { it.name }
+        assumeTrue("A Hebrew font on the phone", font != null)
+        val file = File(context.cacheDir, "hebrew.pdf")
+        var end = 0f
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4).also(doc::addPage)
+            val hebrew = PDType0Font.load(doc, font!!)
+            PDPageContentStream(doc, page).use { content ->
+                var x = 72f
+                for (word in listOf("עולם", "שלום")) {
+                    content.beginText()
+                    content.setFont(hebrew, 20f)
+                    content.newLineAtOffset(x, 700f)
+                    content.showText(word.reversed())
+                    content.endText()
+                    end = x + hebrew.getStringWidth(word.reversed()) / 1000f * 20f
+                    x = end + 12f
+                }
+            }
+            doc.save(file)
+        }
+        val box = engine.findText(import(file), "שלום עולם").single().single()
+        assertEquals(0, box.page)
+        assertTrue("From the left word: $box", box.left * 595f < 73f)
+        assertTrue("To the right one: $box", box.right * 595f > end - 1f)
     }
 
     /**
