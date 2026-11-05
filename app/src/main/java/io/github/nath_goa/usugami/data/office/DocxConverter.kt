@@ -356,10 +356,23 @@ internal class DocxConverter(
         private fun run(x: OfficeXml, out: ParaBuilder) {
             var props = out.base
             var cached: TextStyle? = null
+            var cachedComplex: TextStyle? = null
             fun style() = cached ?: props.toStyle(theme).also { cached = it }
+            fun complexStyle() = cachedComplex ?: props.toComplexStyle(theme).also { cachedComplex = it }
             fun shown() = props.hidden != true && fields.none { !it.inResult || it.isPage }
+            // Whether the run's text so far ended in complex-script letters (null: none yet).
+            var complexBefore: Boolean? = null
             fun text(s: String) {
-                if (s.isNotEmpty() && shown()) out.add(TextInline(s, style()))
+                if (s.isEmpty() || !shown()) return
+                val complex = complexStyle()
+                when {
+                    // Most runs look the same in every script: in one piece, as ever.
+                    complex == style() -> out.add(TextInline(s, style()))
+                    props.allComplex -> out.add(TextInline(s, complex))
+                    else -> complexBefore = ComplexScript.split(s, complexBefore) { part, isComplex ->
+                        out.add(TextInline(part, if (isComplex) complex else style()))
+                    }
+                }
             }
 
             fun child() {
@@ -368,6 +381,7 @@ internal class DocxConverter(
                         val direct = RunProps.read(x, theme)
                         props = direct.over(styles.run(direct.style)).over(out.base)
                         cached = null
+                        cachedComplex = null
                     }
                     "t" -> text(x.text().replace('\n', ' ').replace('\r', ' '))
                     "tab", "ptab" -> text("\t")

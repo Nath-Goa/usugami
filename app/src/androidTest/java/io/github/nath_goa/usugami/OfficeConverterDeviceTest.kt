@@ -688,6 +688,16 @@ class OfficeConverterDeviceTest {
         near(72f, hebrew.minOf { it.xDirAdj })
     }
 
+    @Test fun wordComplexScriptTextHasItsOwnSize() {
+        // Hebrew takes w:szCs, the Latin letters beside it w:sz, as in Word.
+        val run = """<w:sz w:val="22"/><w:szCs w:val="32"/>"""
+        val pdf = convert(wordDocument(para("שלום world", run = run), "complex-script.docx"), OfficeKind.WORD, "word-complex-script")
+        val hebrew = glyphs(pdf, 1).filter { g -> g.unicode.any { it in 'א'..'ת' } }
+        assertTrue(hebrew.isNotEmpty())
+        hebrew.forEach { near(16f, size(it), 0.3f) }
+        near(11f, size(word(pdf, 1, "world")), 0.3f)
+    }
+
     // ---- The text engine Word, PowerPoint and EPUB share ----
 
     @Test fun aSuperscriptParagraphMarkLeavesItsTextWhereItIs() {

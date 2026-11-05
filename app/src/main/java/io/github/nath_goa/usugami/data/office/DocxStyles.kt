@@ -4,6 +4,7 @@ import android.graphics.Color
 import io.github.nath_goa.usugami.core.ListNumbering
 import io.github.nath_goa.usugami.core.OfficeColors
 import io.github.nath_goa.usugami.core.SymbolFonts
+import java.util.EnumSet
 
 /** Run (character) formatting from a Word file. Null means "not set here": it comes from further up. */
 internal data class RunProps(
@@ -22,13 +23,24 @@ internal data class RunProps(
     val spacing: Float? = null,
     /** The character style (w:rStyle), for direct formatting only. */
     val style: String? = null,
+    /** Complex-script text's size, bold and italic (w:szCs, w:bCs, w:iCs): see [ComplexScript]. */
+    val sizeCs: Float? = null,
+    val boldCs: Boolean? = null,
+    val italicCs: Boolean? = null,
+    /** Whether all of the run is complex-script text, whatever its letters (w:cs, or w:rtl). */
+    val complex: Boolean? = null,
+    val rtl: Boolean? = null,
 ) {
     /** These properties, with [base]'s where these aren't set. */
     fun over(base: RunProps?): RunProps = if (base == null) this else RunProps(
         font ?: base.font, size ?: base.size, bold ?: base.bold, italic ?: base.italic, underline ?: base.underline,
         strike ?: base.strike, color ?: base.color, background ?: base.background, baseline ?: base.baseline,
         caps ?: base.caps, smallCaps ?: base.smallCaps, hidden ?: base.hidden, spacing ?: base.spacing, style ?: base.style,
+        sizeCs ?: base.sizeCs, boldCs ?: base.boldCs, italicCs ?: base.italicCs, complex ?: base.complex, rtl ?: base.rtl,
     )
+
+    /** Whether Word formats all of the run as complex-script text. */
+    val allComplex: Boolean get() = complex == true || rtl == true
 
     fun toStyle(theme: OfficeTheme): TextStyle = TextStyle(
         font = theme.font(font) ?: theme.minorFont,
@@ -47,6 +59,16 @@ internal data class RunProps(
         autoColor = color == null,
     )
 
+    /**
+     * How complex-script text looks (see [ComplexScript]): with its own size, bold and italic, or, in
+     * a file that doesn't give them, the other text's.
+     */
+    fun toComplexStyle(theme: OfficeTheme): TextStyle = toStyle(theme).copy(
+        size = sizeCs ?: size ?: 10f,
+        bold = (boldCs ?: bold) == true,
+        italic = (italicCs ?: italic) == true,
+    )
+
     companion object {
         /** Reads w:rPr, the reader being at it. */
         fun read(x: OfficeXml, theme: OfficeTheme): RunProps {
@@ -63,6 +85,11 @@ internal data class RunProps(
                     "smallCaps" -> p.copy(smallCaps = x.flag())
                     "vanish" -> p.copy(hidden = x.flag())
                     "sz" -> x.intAttr("val")?.let { p.copy(size = it / 2f) } ?: p
+                    "szCs" -> x.intAttr("val")?.let { p.copy(sizeCs = it / 2f) } ?: p
+                    "bCs" -> p.copy(boldCs = x.flag())
+                    "iCs" -> p.copy(italicCs = x.flag())
+                    "cs" -> p.copy(complex = x.flag())
+                    "rtl" -> p.copy(rtl = x.flag())
                     "color" -> (OfficeColors.hex(x.attr("val")) ?: themeColor(x, theme))?.let { p.copy(color = it) } ?: p
                     "highlight" -> p.copy(background = OfficeColors.highlight(x.attr("val")) ?: p.background)
                     "shd" -> OfficeColors.hex(x.attr("fill"))?.let { p.copy(background = p.background ?: it) } ?: p
@@ -94,6 +121,56 @@ internal data class RunProps(
                 else -> color
             }
         }
+    }
+}
+
+/**
+ * The text Word formats as complex script, with a run's w:szCs, w:bCs and w:iCs (and all of a run
+ * marked w:cs or w:rtl): the letters of right-to-left scripts and of the scripts of South and
+ * South-East Asia. Spaces, digits, punctuation and combining marks go with the letters before them,
+ * or, at the start, after them.
+ */
+internal object ComplexScript {
+    private val SCRIPTS = EnumSet.of(
+        Character.UnicodeScript.HEBREW, Character.UnicodeScript.ARABIC, Character.UnicodeScript.SYRIAC,
+        Character.UnicodeScript.THAANA, Character.UnicodeScript.NKO, Character.UnicodeScript.SAMARITAN,
+        Character.UnicodeScript.MANDAIC, Character.UnicodeScript.DEVANAGARI, Character.UnicodeScript.BENGALI,
+        Character.UnicodeScript.GURMUKHI, Character.UnicodeScript.GUJARATI, Character.UnicodeScript.ORIYA,
+        Character.UnicodeScript.TAMIL, Character.UnicodeScript.TELUGU, Character.UnicodeScript.KANNADA,
+        Character.UnicodeScript.MALAYALAM, Character.UnicodeScript.SINHALA, Character.UnicodeScript.THAI,
+        Character.UnicodeScript.LAO, Character.UnicodeScript.TIBETAN, Character.UnicodeScript.MYANMAR,
+        Character.UnicodeScript.KHMER, Character.UnicodeScript.MONGOLIAN,
+    )
+
+    /** True for a complex-script letter, false for another, null for one that goes with its neighbours. */
+    private fun kind(codePoint: Int): Boolean? = when (val script = Character.UnicodeScript.of(codePoint)) {
+        Character.UnicodeScript.COMMON, Character.UnicodeScript.INHERITED, Character.UnicodeScript.UNKNOWN -> null
+        else -> script in SCRIPTS
+    }
+
+    /**
+     * Hands [part] the pieces of [text], each with whether it is complex script, and returns whether
+     * its last letters are (null when it has none). [before] is whether the run's text before it
+     * ended in complex-script letters, which spaces and such at its start go with.
+     */
+    fun split(text: String, before: Boolean?, part: (String, Boolean) -> Unit): Boolean? {
+        var current = before
+        var from = 0
+        var i = 0
+        while (i < text.length) {
+            val codePoint = text.codePointAt(i)
+            val kind = kind(codePoint)
+            if (kind != null && kind != current) {
+                if (current != null && i > from) {
+                    part(text.substring(from, i), current)
+                    from = i
+                }
+                current = kind
+            }
+            i += Character.charCount(codePoint)
+        }
+        if (from < text.length) part(text.substring(from), current ?: false)
+        return current
     }
 }
 
