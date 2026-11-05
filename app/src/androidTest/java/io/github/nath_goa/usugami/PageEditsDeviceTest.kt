@@ -503,6 +503,13 @@ class PageEditsDeviceTest {
         history.step(history.items.value)
         history.end()
         assertTrue(history.canRedo.value)
+        // Nor does a slider moved and brought back where it was.
+        history.begin()
+        history.step(listOf(box.moved(5f, 0f)))
+        history.step(listOf(box))
+        history.end()
+        assertTrue(history.canRedo.value)
+        assertTrue(history.canUndo.value)
         assertEquals(0, history.redo())
         assertEquals(listOf(box, stroke), history.items.value)
         // A new change can't be redone over.

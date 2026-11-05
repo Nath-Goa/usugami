@@ -33,6 +33,12 @@ internal class EditHistory(private val handle: SavedStateHandle) {
      */
     private var before: List<PageItem>? = null
 
+    /**
+     * Undo and Redo as they were when that change's first step went on Undo, which takes Redo away:
+     * a change that ends where it started gives them back.
+     */
+    private var stacksBefore: Pair<List<List<PageItem>>, List<List<PageItem>>>? = null
+
     private var nextId = (items.value.maxOfOrNull { it.id } ?: 0L) + 1
 
     fun newId(): Long = nextId++
@@ -60,19 +66,26 @@ internal class EditHistory(private val handle: SavedStateHandle) {
         if (!gesture) begin()
         val start = before
         if (start != null && list != items.value) {
+            stacksBefore = undoStack.toList() to redoStack.toList()
             push(start)
             before = null
         }
         set(list)
     }
 
-    /** The change [begin] started is over; one that ended where it started leaves nothing to undo. */
+    /**
+     * The change [begin] started is over; one that ended where it started leaves nothing to undo,
+     * and Undo and Redo as they were.
+     */
     fun end() {
         if (!gesture) return
-        val pushed = before == null
+        val stacks = stacksBefore
         stopGesture()
-        if (pushed && undoStack.lastOrNull() == items.value) {
-            undoStack.removeLast()
+        if (stacks != null && undoStack.lastOrNull() == items.value) {
+            undoStack.clear()
+            undoStack.addAll(stacks.first)
+            redoStack.clear()
+            redoStack.addAll(stacks.second)
             updateFlags()
         }
     }
@@ -80,6 +93,7 @@ internal class EditHistory(private val handle: SavedStateHandle) {
     private fun stopGesture() {
         gesture = false
         before = null
+        stacksBefore = null
     }
 
     /** Takes back the latest change. Returns the page it was on, or null when there is nothing to undo. */
