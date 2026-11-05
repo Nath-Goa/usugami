@@ -853,10 +853,13 @@ internal class DocxConverter(
                 if (item.contextual) before = 0
                 if (lastContextual) after = 0
             }
-            // At the top of a page, the space before is kept as far as the first line still fits under it:
-            // more would put the text below the page.
+            // At the top of a page, the space before is kept as far as the paragraph still fits under it
+            // (or, for one longer than the page, its first line): more would put the text below the page,
+            // or split a short paragraph that fits.
+            val room = (bottom - y).toInt()
             val firstLine = (item.block as? ParagraphBlock)?.firstLineHeight ?: item.block.height
-            var gap = if (empty) (if (keepSpaceBefore) min(before, max(0, (bottom - y).toInt() - firstLine)) else 0) else before + after
+            val kept = if (item.block.height <= room) item.block.height else firstLine
+            var gap = if (empty) (if (keepSpaceBefore) min(before, max(0, room - kept)) else 0) else before + after
             var block = item.renumbered?.invoke(pageNumber) ?: item.block
             var first = true
             while (true) {
