@@ -19,6 +19,11 @@ import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.PdfWrongPassword
+import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSInteger
+import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -265,6 +270,44 @@ class PdfToolsDeviceTest {
                 assertTrue("${width}x$height became ${image.width}x${image.height}", maxOf(image.width, image.height) <= 1754)
                 assertEquals(width.toFloat() / height, image.width.toFloat() / image.height, 0.01f)
             }
+        }
+    }
+
+    /**
+     * A JPEG in a spot color (a Separation: the tint of one ink, from none to full) is left as it
+     * is, even at the strongest level: read as gray, each tint would come out as its negative.
+     */
+    @Test fun compressLeavesSpotColorJpegsAlone() {
+        val bitmap = Bitmap.createBitmap(1600, 1200, Bitmap.Config.RGB_565)
+        Canvas(bitmap).drawPaint(Paint().apply { shader = LinearGradient(0f, 0f, 1600f, 1200f, Color.BLACK, Color.WHITE, Shader.TileMode.CLAMP) })
+        val jpeg = java.io.ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }.toByteArray()
+        bitmap.recycle()
+        val file = File(context.cacheDir, "spot.pdf")
+        fun numbers(vararg values: Int) = COSArray().apply { values.forEach { add(COSInteger.get(it.toLong())) } }
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4).also(doc::addPage)
+            val image = JPEGFactory.createFromByteArray(doc, jpeg)
+            image.cosObject.setItem(COSName.COLORSPACE, COSArray().apply {
+                add(COSName.SEPARATION)
+                add(COSName.getPDFName("Spot"))
+                add(COSName.DEVICEGRAY)
+                add(COSDictionary().apply {
+                    setInt(COSName.FUNCTION_TYPE, 2)
+                    setItem(COSName.DOMAIN, numbers(0, 1))
+                    setItem(COSName.C0, numbers(1))
+                    setItem(COSName.C1, numbers(0))
+                    setInt(COSName.N, 1)
+                })
+            })
+            PDPageContentStream(doc, page).use { it.drawImage(image, 0f, 0f, PDRectangle.A4.width, PDRectangle.A4.height) }
+            doc.save(file)
+        }
+        val compressed = engine.compress(engine.import(Uri.fromFile(file), 1014), PdfCompression.EXTREME, "spot").file
+        PDDocument.load(compressed).use { doc ->
+            val resources = doc.getPage(0).resources
+            val stream = resources.cosObject.getCOSDictionary(COSName.XOBJECT).getDictionaryObject(resources.xObjectNames.single()) as COSStream
+            assertEquals(COSName.SEPARATION, (stream.getDictionaryObject(COSName.COLORSPACE) as COSArray).getObject(0))
+            assertArrayEquals("The JPEG as it was", jpeg, stream.createRawInputStream().use { it.readBytes() })
         }
     }
 

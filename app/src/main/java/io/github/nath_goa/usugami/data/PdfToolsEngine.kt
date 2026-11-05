@@ -914,18 +914,19 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     /**
-     * PDFBox-Android decodes JPEG through BitmapFactory, but its raw decoder only understands
-     * 8-bit RGB and gray. It maps every other color space (CMYK, indexed, separation, Lab...) to
-     * RGB and returns scrambled pixels without an error, so those images are left unchanged.
+     * JPEGs are decoded by BitmapFactory, which reads them as gray or RGB, and PDFBox-Android's raw
+     * decoder only understands 8-bit RGB and gray. Every other color space (CMYK, indexed,
+     * separation, DeviceN, Lab...) comes out as wrong or scrambled pixels without an error (a spot
+     * color's tint read as gray turns into its negative), so those images are left unchanged.
      */
     private fun canDecodeFaithfully(obj: PDImageXObject): Boolean {
         if (obj.decode != null) return false
-        if (obj.suffix == "jpg") return true
-        if (obj.bitsPerComponent != 8) return false
+        // BitmapFactory reads a JPEG's own bit depth.
+        if (obj.suffix != "jpg" && obj.bitsPerComponent != 8) return false
         return when (val colorSpace = obj.cosObject.getDictionaryObject(COSName.COLORSPACE)) {
             COSName.DEVICERGB, COSName.DEVICEGRAY -> true
             is COSArray -> colorSpace.size() == 2 && colorSpace.getObject(0) == COSName.ICCBASED &&
-                (colorSpace.getObject(1) as? COSStream)?.getInt(COSName.N) == 3
+                (colorSpace.getObject(1) as? COSStream)?.getInt(COSName.N) in listOf(1, 3)
             else -> false
         }
     }
