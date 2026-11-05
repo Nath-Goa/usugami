@@ -515,6 +515,39 @@ class EpubConverterDeviceTest {
         }
     }
 
+    /**
+     * A first document of pictures that aren't the cover (a title page) gets the cover before it,
+     * and the cover page the book reads only when linked to isn't added at the end.
+     */
+    @Test fun theCoverGoesBeforeAFirstPageOfOtherPictures() {
+        val file = epub(
+            "title-page.epub",
+            mapOf(
+                "META-INF/container.xml" to container("book.opf"),
+                "book.opf" to """<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="id">
+                    <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Title page</dc:title><dc:identifier id="id">x</dc:identifier></metadata>
+                    <manifest><item id="c" href="c.png" media-type="image/png" properties="cover-image"/><item id="t" href="t.png" media-type="image/png"/>
+                    <item id="cover" href="cover.xhtml" media-type="application/xhtml+xml"/><item id="title" href="title.xhtml" media-type="application/xhtml+xml"/>
+                    <item id="ch" href="ch.xhtml" media-type="application/xhtml+xml"/></manifest>
+                    <spine><itemref idref="cover" linear="no"/><itemref idref="title"/><itemref idref="ch"/></spine></package>""",
+                "c.png" to png(600, 900, Color.rgb(120, 60, 140)),
+                "t.png" to png(600, 300, Color.rgb(200, 90, 40)),
+                "cover.xhtml" to xhtml("""<div><img src="c.png" alt="Cover"/></div>""", doctype = "<!DOCTYPE html>"),
+                "title.xhtml" to xhtml("""<div><img src="t.png" alt="Title"/></div>""", doctype = "<!DOCTYPE html>"),
+                "ch.xhtml" to xhtml("<p>Hello reader.</p>", doctype = "<!DOCTYPE html>"),
+            ),
+        )
+        PDDocument.load(convert(file, "epub-title-page")).use { doc ->
+            assertEquals(3, doc.numberOfPages)
+            // The cover fills the page's height; the wide title picture its width.
+            val cover = imagesOn(doc.getPage(0)).single()
+            near(595f, cover.corner(1f, 1f).y - cover.corner(0f, 0f).y, 2f)
+            val title = imagesOn(doc.getPage(1)).single()
+            near(210f, title.corner(1f, 1f).y - title.corner(0f, 0f).y, 2f)
+            assertTrue(PDFTextStripper().apply { startPage = 3; endPage = 3 }.getText(doc).contains("Hello reader"))
+        }
+    }
+
     @Test fun fixedLayoutBooksGetAPagePerDocument() {
         val page = { n: Int -> xhtml("""<div><img src="p$n.png" alt="Page $n"/></div>""", head = """<meta name="viewport" content="width=800, height=600"/>""", doctype = "<!DOCTYPE html>") }
         val file = epub(

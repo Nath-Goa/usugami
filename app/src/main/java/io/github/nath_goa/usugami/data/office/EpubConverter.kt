@@ -170,8 +170,9 @@ internal class EpubConverter(
                 fixedPage(content, reader.viewport)
             }
             first && picturesOnly -> {
-                // The cover page: its pictures fill the page.
-                if (showsCover()) coverDrawn = true
+                // The cover page: its pictures fill the page. Pictures that aren't the cover (a title
+                // page, say) get the cover before them, as a first document of text does.
+                coverFirst()
                 startDocument(document.path)
                 for (entry in content) (entry.item as BookImage).let { fullPage(it.path, it.width, it.height, entry.ids) }
             }
