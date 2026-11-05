@@ -8,9 +8,16 @@ object FileNames {
     private val ILLEGAL = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]")
 
     /**
+     * The names of Windows' devices, which it won't give a file, in any case and whatever follows a
+     * dot ("nul.pdf" and "Con.notes.pdf" too), so such a file can't be copied to a PC or unzipped there.
+     */
+    private val WINDOWS_DEVICE = Regex("^(CON|PRN|AUX|NUL|COM[0-9¹²³]|LPT[0-9¹²³])(?= *(\\.|$))", RegexOption.IGNORE_CASE)
+
+    /**
      * Turns user input into a safe PDF base name (no extension): characters that file systems or
      * Android's storage providers reject become '_', surrounding spaces and dots are trimmed,
-     * a trailing ".pdf" is dropped and the result is kept to a sensible length.
+     * a trailing ".pdf" is dropped and the result is kept to a sensible length. A name Windows
+     * keeps for a device gets '_' after it: "CON" becomes "CON_".
      */
     fun sanitize(input: String, fallback: String): String {
         // The end is trimmed before the extension check too, so "Report.pdf." loses its ".pdf" as well
@@ -18,7 +25,7 @@ object FileNames {
         if (name.endsWith(".pdf", ignoreCase = true)) name = name.dropLast(4)
         name = trimEnd(name).trimStart { it.isWhitespace() || it == '.' }
         name = trimEnd(truncateUtf8(name, MAX_UTF8_BYTES))
-        return name.ifEmpty { fallback }
+        return name.replace(WINDOWS_DEVICE, "$1_").ifEmpty { fallback }
     }
 
     /** The original file name without its extension, e.g. "IMG_1234.jpg" -> "IMG_1234". */

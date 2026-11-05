@@ -34,6 +34,16 @@ class FileNamesTest {
     }
 
     @Test
+    fun windowsDeviceNamesGetAnUnderscore() {
+        assertEquals("CON_", FileNames.sanitize("CON", "x"))
+        assertEquals("nul_", FileNames.sanitize("nul.pdf", "x"))
+        assertEquals("Aux_.notes", FileNames.sanitize("Aux.notes", "x"))
+        assertEquals("com1_", FileNames.sanitize("com1", "x"))
+        assertEquals("LPT9_ .old", FileNames.sanitize("LPT9 .old", "x"))
+        for (fine in listOf("Console", "COM10", "nullable", "CON-report", "My CON")) assertEquals(fine, FileNames.sanitize(fine, "x"))
+    }
+
+    @Test
     fun baseNameAndUnique() {
         assertEquals("IMG_1234", FileNames.baseName("IMG_1234.jpg"))
         assertEquals("archive.tar", FileNames.baseName("archive.tar.gz"))
