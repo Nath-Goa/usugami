@@ -6,6 +6,62 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-11-06
+
+### Fixed
+
+- **Merge PDF**: merging whole PDFs keeps each one's page numbers; one without labels before one
+  with them is numbered 1, 2, 3, in labels viewers can read.
+- **Redact PDF** also takes an image under a box out of the file when an annotation on another page
+  draws it out of sight.
+- **Sign PDF**: a signature much taller than it is wide, such as one stroke down, can be made
+  smaller than the page instead of filling its height; on Android 17 it lands exactly where the
+  preview shows it.
+- **Edit PDF**: a slider or drag brought back where it started no longer takes Redo away; a slider
+  whose item is let go while a finger still holds it no longer joins the next change into one Undo;
+  a size or thickness changed with a screen reader is also what the next text, stroke or shape gets.
+- **Split PDF**: the chosen pages belong to their PDF, so the next PDF picked starts with none chosen.
+- **Delete pages** and **Split PDF**: tapping a page while the typed pages can't be read keeps what
+  was typed.
+- **Add watermark** previews the new first PDF when the PDFs are reordered while a preview is being
+  made.
+- A long name is shortened between whole letters, so an accent, a vowel sign or part of an emoji
+  isn't cut off; a name Windows keeps for a device (CON, NUL, COM1…) gets an underscore, so the file
+  can be copied to a PC or unzipped there.
+- A JPEG with a JFIF header keeps the colours the gallery shows, even when it labels its colours R,
+  G and B; a picture more than 4800 times longer than wide gets a page viewers accept.
+- A photo just taken is no longer lost when the storage is almost full.
+- Saving to a folder again after a failed save copies only the missing PDFs, instead of adding
+  "Name (1).pdf" for the others.
+- Cancelling Create PDF while text is being read no longer leaves the PDFs in the cache.
+- An app a PDF was shared with can no longer read a later, different PDF with the same name.
+- "Discard images?" no longer stays over the screen that shared files open, where Discard threw them
+  away.
+- A language picked before the phone was updated to Android 13, or Light or Dark picked before it
+  was updated to Android 12, is kept.
+- Text recognition that Google Play services stops by itself is reported, instead of the PDF being
+  dropped without a word.
+- **Usugami OCR**: words on a very long line keep the space between them where the line is cut.
+- **Word to PDF**: a paragraph with more space before it than the page has stays on the page, and a
+  short one stays whole; tab stops on a paragraph add to its style's, and a stop it clears is left
+  out; a paragraph hundreds of pages long converts in seconds instead of minutes; a page number in
+  the body text shows its own page, not 0 or the previous section's; tables whose cells claim
+  millions of columns, or a negative number, convert instead of failing.
+- **PowerPoint to PDF**: a damaged chart, SmartArt, picture or table style leaves out just that
+  shape, not the whole presentation; a table saved without column widths fills its frame instead of
+  running four slides wide; numbered lists go on counting after an empty paragraph; colours set to
+  their inverse, grey or complementary colour are drawn that way, and shapes set to take their
+  group's fill are filled as the group is.
+- **Word and PowerPoint**: Strict Open XML files keep their line spacing, colour shades, gradients,
+  shrunk text, superscripts and picture crops.
+- **EPUB to PDF**: an `<object>` shows the picture or words it holds in its place; bookmarks to a
+  heading that follows text open on the heading's page; lists get space above and below (only nested
+  lists go without); text sized in rems of a smaller root font shows at its size, not 1.6 times too
+  big; a crafted style sheet no longer hangs the conversion; a picture written into the page itself
+  (a `data:` address) leaves its description in its place.
+- Usugami's own F-Droid repository shows each version's What's new and dates each version by its
+  release, and isn't published when a release APK is left out, such as one signed by another key.
+
 ## [1.5.2] - 2026-11-05
 
 ### Added

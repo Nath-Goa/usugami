@@ -1,0 +1,4 @@
+• Más de 40 correcciones tras una revisión completa de la app
+• Word, PowerPoint y EPUB se convierten mejor: Strict Open XML, archivos dañados, párrafos largos, números de página, tabulaciones, listas, colores, tamaños, imágenes y marcadores
+• Editar y Firmar: Deshacer/Rehacer y los controles deslizantes funcionan, y una firma estrecha se puede reducir
+• Una foto sobrevive a la falta de espacio, guardar de nuevo no duplica, y el idioma y el tema sobreviven a una actualización de Android

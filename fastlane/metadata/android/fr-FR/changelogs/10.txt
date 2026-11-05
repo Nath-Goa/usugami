@@ -1,0 +1,4 @@
+• Plus de 40 corrections après une revue complète de l'appli
+• Word, PowerPoint et EPUB sont mieux convertis : Strict Open XML, fichiers abîmés, longs paragraphes, numéros de page, tabulations, listes, couleurs, tailles, images et signets
+• Modifier et Signer : Annuler/Rétablir et les curseurs fonctionnent, et une signature étroite peut être réduite
+• Une photo survit au manque d'espace, réenregistrer ne crée plus de doublons, et la langue et le thème survivent à une mise à jour d'Android

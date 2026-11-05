@@ -64,19 +64,23 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.5.2
+## What's new in 1.5.3
 
-- **Get updates in F-Droid** from Usugami's own repository: [nathank.me/usugami](https://nathank.me/usugami/)
-- **Safer redaction**: Find text also finds text in links, hidden form fields and Hebrew or Arabic,
-  and removes it from the file
-- **Nothing lost when Android closes Usugami** while photos or images are still being added, and
-  cancelling a save over a file leaves it as it was
-- **Better conversions**: e-books open on their cover and keep right-to-left alignment; Word files
-  size Arabic, Hebrew and Hindi text as Word does
-- **More fixes**: Split keeps JPEG 2000 images, Compress keeps spot colors, and damaged PDFs no
-  longer close or hang Usugami
+- **40+ smaller fixes** from a full review of the app:
+  - **Word, PowerPoint and EPUB files** convert more faithfully: Strict Open XML and damaged files,
+    very long paragraphs, page numbers, tab stops, numbered lists, colours, font sizes, and e-book
+    pictures and bookmarks
+  - **Edit PDF and Sign PDF**: Undo/Redo and sliders behave, and a narrow signature can be made small
+  - **Photos, saving and settings**: a photo survives low storage, saving again after a failure
+    doesn't make duplicates, and your language and theme survive an Android update
+  - **Redact and Merge**: hidden copies of a redacted picture are removed, and merged PDFs keep their
+    page numbers
+- **Usugami's own F-Droid repository** shows What's new and real release dates
 
-1.5.0, the big update before it:
+1.5.2, the day before: safer redaction (links, hidden form fields, Hebrew and Arabic), nothing lost
+when Android closes Usugami, and Usugami's own [F-Droid repository](https://nathank.me/usugami/).
+
+1.5.0, the big update before them:
 
 - **Three editions:** Usugami, Usugami Lite (no Google code) and Usugami OCR (open-source text
   recognition built in)

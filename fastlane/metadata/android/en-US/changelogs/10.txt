@@ -1,0 +1,4 @@
+• 40+ fixes from a full review of the app
+• Word, PowerPoint and EPUB files convert more faithfully: Strict Open XML and damaged files, long paragraphs, page numbers, tabs, numbered lists, colours, font sizes, e-book pictures and bookmarks
+• Edit PDF and Sign PDF: Undo/Redo and sliders behave, and a narrow signature can be made small
+• A photo survives low storage, saving again doesn't make duplicates, and your language and theme survive an Android update
