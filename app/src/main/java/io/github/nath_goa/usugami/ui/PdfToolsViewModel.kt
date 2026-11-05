@@ -1277,6 +1277,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             null
         } catch (_: OutOfMemoryError) {
             null
+        } catch (_: StackOverflowError) {
+            null
         }
     }
 

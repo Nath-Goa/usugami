@@ -204,6 +204,13 @@ class PdfToolsEngine(private val context: Context) {
     fun inspect(input: PdfInput, password: String): PdfInput =
         load(input.file, password).use { doc ->
             if (doc.numberOfPages == 0) throw IOException("This PDF has no pages")
+            // Every page found once, as the tools find them: a page tree nested deeper than PDFBox
+            // goes (it calls itself for each level) fails here, as a damaged PDF does, not later.
+            try {
+                doc.pages.count()
+            } catch (e: StackOverflowError) {
+                throw tooDeep(e)
+            }
             input.copy(pageCount = doc.numberOfPages, password = password)
         }
 
@@ -459,6 +466,8 @@ class PdfToolsEngine(private val context: Context) {
     } catch (_: Exception) {
         PDRectangle.A4.width to PDRectangle.A4.height
     } catch (_: OutOfMemoryError) {
+        PDRectangle.A4.width to PDRectangle.A4.height
+    } catch (_: StackOverflowError) {
         PDRectangle.A4.width to PDRectangle.A4.height
     }
 
@@ -956,9 +965,11 @@ class PdfToolsEngine(private val context: Context) {
     } catch (e: LinkageError) {
         throw PdfCertificateEncrypted(e)
     } catch (e: StackOverflowError) {
-        // Only a crafted file nests that deep.
-        throw IOException("Too deeply nested", e)
+        throw tooDeep(e)
     }
+
+    /** A PDF nested deeper than PDFBox goes, as a damaged one: only a crafted file nests that deep. */
+    private fun tooDeep(e: StackOverflowError) = IOException("Too deeply nested", e)
 
     /**
      * Whether [file] names the certificate security handler. The encryption dictionary is never
