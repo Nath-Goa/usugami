@@ -394,6 +394,13 @@ class PageToolsDeviceTest {
         assertEquals(listOf("1", "2", "2", "3", "ii"), pageLabels(engine.merge(listOf(alpha, book), mixed, "merged").file))
         val added = listOf(PdfPageRef(book.id, 3), PdfPageRef(alpha.id, 1), PdfPageRef(alpha.id, 0), PdfPageRef(book.id, 0))
         assertEquals(listOf("1", "2", "3", "i"), pageLabels(engine.reorganize(book, listOf(alpha), added, "added").file))
+        // Joined whole, the one without labels first: its pages are 1, 2, 3, in labels from the first page on.
+        val joined = engine.merge(listOf(alpha, book), null, "joined").file
+        assertEquals(List(alpha.pageCount) { "${it + 1}" } + listOf("i", "ii", "iii", "1", "2", "3"), pageLabels(joined))
+        PDDocument.load(joined).use { doc ->
+            val nums = (doc.documentCatalog.cosObject.getDictionaryObject(COSName.PAGE_LABELS) as COSDictionary).getCOSArray(COSName.NUMS)
+            assertEquals(0, nums.getInt(0))
+        }
 
         // Labels that are just the pages' places follow the new places, as if there were none.
         val plain = import(labelledPages(made("plain.pdf"), plain = true))

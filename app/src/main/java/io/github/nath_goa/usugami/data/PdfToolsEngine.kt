@@ -273,15 +273,16 @@ class PdfToolsEngine(private val context: Context) {
             PDDocument(memory()).use { dest ->
                 val offsets = HashMap<Long, Int>()
                 val merger = PDFMergerUtility()
-                // Each PDF's own page labels, read before it is joined: joining numbers the pages
-                // of one without labels on from the PDF before it.
+                // Each PDF's own page labels, read before it is joined, and given back once the pages
+                // are in place: joining leaves them wrong, numbering the pages of one without labels
+                // on from the PDF before it, or leaving those before the first labels without any.
                 val labels = IdentityHashMap<COSDictionary, PageLabeling.Label>()
                 for (input in inputs) {
                     check()
                     val start = dest.numberOfPages
                     offsets[input.id] = start
                     load(input.file, input.password).use { source ->
-                        val own = if (pages != null) PageLabeling.of(source) else null
+                        val own = PageLabeling.of(source)
                         merger.appendDocument(dest, source)
                         if (own != null) labels += PageLabeling.byPage((start until dest.numberOfPages).map(dest::getPage), own)
                     }
@@ -300,8 +301,8 @@ class PdfToolsEngine(private val context: Context) {
                     }
                     // Bookmarks, links and form fields of the pages left out mustn't carry them into the file.
                     PageCleanup.dropRemovedPages(dest, originals, check)
-                    PageLabeling.restore(dest, labels)
                 }
+                PageLabeling.restore(dest, labels)
                 dest.save(target)
                 return PdfFile(target, dest.numberOfPages, 0)
             }
