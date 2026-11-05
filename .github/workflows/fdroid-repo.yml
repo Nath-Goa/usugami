@@ -1,0 +1,153 @@
+name: F-Droid repository
+
+# Publishes Usugami's own F-Droid repository at https://nathank.me/usugami/fdroid/repo (GitHub Pages
+# of this repository; nathank.me is the owner's Pages domain), with a page explaining how to add it at
+# https://nathank.me/usugami/.
+#
+# It serves the release APKs exactly as published on GitHub, signed by the developer: Usugami (the
+# ocr edition, Usugami-ocr.apk) and Usugami Lite (Usugami-lite.apk), from 1.5.1 on (before that, Lite
+# shared Usugami's package name). The standard edition, with Google ML Kit, is not served. Nothing is
+# built here: fdroidserver reads the APKs and the store texts (fastlane/, src/lite/fastlane/) and
+# makes the index, signed with the repository key (the "fdroid-repo" environment's secrets; it
+# only signs the index, not the apps). fdroid update also checks each APK against the recipes'
+# AllowedAPKSigningKeys, so an APK signed by anyone else is refused.
+#
+# Runs after each successful release, and by hand. Both run on main, which the "fdroid-repo" and
+# "github-pages" environments require.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: fdroid-repo
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Make the repository
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: fdroid-repo
+    permissions:
+      contents: read
+    env:
+      FDROIDSERVER_VERSION: 2.4.5
+      SEGNO_VERSION: 1.6.6
+      REPO_URL: https://nathank.me/usugami/fdroid/repo
+      # Releases from this version on are served (Lite has its own package name since 1.5.1).
+      FIRST_VERSION: 1.5.1
+      # How many releases are served; older ones drop out.
+      KEEP_RELEASES: 3
+      WORK: ${{ github.workspace }}/work
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          path: source
+          persist-credentials: false
+
+      - name: Install fdroidserver and segno
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends openjdk-21-jdk-headless python3-venv libmagic1 > /dev/null
+          echo "JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64" >> "$GITHUB_ENV"
+          echo "/usr/lib/jvm/java-21-openjdk-amd64/bin" >> "$GITHUB_PATH"
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet --disable-pip-version-check \
+            "fdroidserver==$FDROIDSERVER_VERSION" "segno==$SEGNO_VERSION"
+          echo "$RUNNER_TEMP/venv/bin" >> "$GITHUB_PATH"
+          # apksigner, for fdroidserver
+          ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1 >> "$GITHUB_PATH"
+
+      - name: Download the release APKs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/apks"
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" \
+            --jq '.[] | select((.draft or .prerelease) | not) | .tag_name' > "$RUNNER_TEMP/tags.txt"
+          python3 - "$RUNNER_TEMP/tags.txt" > "$RUNNER_TEMP/served.txt" <<'EOF'
+          import os, re, sys
+          def key(v): return tuple(int(x) for x in v.split("."))
+          first = key(os.environ["FIRST_VERSION"])
+          versions = [t[1:] for t in open(sys.argv[1]).read().split() if re.fullmatch(r"v\d+\.\d+\.\d+", t)]
+          served = sorted((v for v in versions if key(v) >= first), key=key, reverse=True)
+          print("\n".join(served[: int(os.environ["KEEP_RELEASES"])]))
+          EOF
+          [ -s "$RUNNER_TEMP/served.txt" ] || { echo "::error::No release from $FIRST_VERSION on"; exit 1; }
+          while read -r version; do
+            for edition in ocr lite; do
+              curl -fsSL -o "$RUNNER_TEMP/apks/usugami-$edition-$version.apk" \
+                "https://github.com/$GITHUB_REPOSITORY/releases/download/v$version/Usugami-$edition.apk"
+            done
+            echo "Serving $version"
+          done < "$RUNNER_TEMP/served.txt"
+
+      - name: Make and sign the index
+        env:
+          REPO_KEYSTORE_BASE64: ${{ secrets.USUGAMI_FDROID_REPO_KEYSTORE_BASE64 }}
+          REPO_KEYSTORE_PASSWORD: ${{ secrets.USUGAMI_FDROID_REPO_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [ -n "$REPO_KEYSTORE_BASE64" ] && [ -n "$REPO_KEYSTORE_PASSWORD" ] || { echo "::error::Repository key secrets are missing"; exit 1; }
+          python3 source/fdroid/make_repo.py source "$WORK" "$RUNNER_TEMP"/apks/*.apk
+          cd "$WORK"
+          fdroid update --use-date-from-apk
+          # The fingerprint of the key that signed the index, for the page and the check below.
+          fingerprint=$(keytool -list -v -keystore keystore.p12 -storepass "$REPO_KEYSTORE_PASSWORD" -alias usugami-fdroid-repo \
+            | sed -n 's/^.*SHA256: //p' | head -n 1 | tr -d ':')
+          signed=$(keytool -printcert -jarfile repo/entry.jar | sed -n 's/^.*SHA256: //p' | head -n 1 | tr -d ':')
+          [ -n "$fingerprint" ] && [ "$fingerprint" = "$signed" ] || { echo "::error::entry.jar isn't signed by the repository key"; exit 1; }
+          echo "FINGERPRINT=$fingerprint" >> "$GITHUB_ENV"
+          rm -f keystore.p12 config.yml
+
+      - name: Check the index
+        run: |
+          set -euo pipefail
+          python3 - "$WORK/repo/index-v2.json" <<'EOF'
+          import json, sys
+          index = json.load(open(sys.argv[1], encoding="utf-8"))
+          packages = index["packages"]
+          for appid in ("io.github.nath_goa.usugami", "io.github.nath_goa.usugami.lite"):
+              versions = packages.get(appid, {}).get("versions", {})
+              if not versions:
+                  sys.exit(f"::error::{appid} has no version in the index")
+              names = sorted(v["manifest"]["versionName"] for v in versions.values())
+              print(appid, names)
+          EOF
+
+      - name: Make the site
+        run: |
+          set -euo pipefail
+          mkdir -p site/fdroid
+          cp -r "$WORK/repo" site/fdroid/repo
+          sed -e "s|@FINGERPRINT@|$FINGERPRINT|g" -e "s|@REPO_URL@|$REPO_URL|g" source/fdroid/site/index.html > site/index.html
+          python3 -c "import segno, sys; segno.make(sys.argv[1], error='m').save('site/qr.svg', scale=4, border=2)" "$REPO_URL?fingerprint=$FINGERPRINT"
+          touch site/.nojekyll
+          du -sh site
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site
+
+  deploy:
+    name: Publish
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

@@ -55,12 +55,14 @@ over the other; your files and settings are kept. Usugami Lite is an app of its 
 [release](https://github.com/Nath-Goa/usugami/releases) also has a `SHA256SUMS.txt` file for
 [checking your download](#verify-your-download).
 
-**F-Droid (coming soon):** Usugami (with the open-source text recognition of Usugami OCR) and
-Usugami Lite are on their way to [F-Droid](https://f-droid.org). Their builds are
-[reproducible](https://f-droid.org/docs/Reproducible_Builds/): F-Droid builds each app from this
-source, checks that it gets exactly the APK published here, and then offers that APK, signed with
-the same key as the GitHub downloads. So you can switch between F-Droid, GitHub and Obtainium
-without reinstalling.
+**F-Droid:** add Usugami's own F-Droid repository, easiest from **[nathank.me/usugami](https://nathank.me/usugami/)**
+on your phone (one tap in F-Droid, Droid-ify or Neo Store), or by hand: address
+`https://nathank.me/usugami/fdroid/repo`, fingerprint
+`8D92FFB46DB5C052B334438D8E012974D3969A27EACFF4AEEE687B99A4760DA8`. It serves Usugami (with the
+open-source text recognition of Usugami OCR) and Usugami Lite: exactly the APKs published here,
+signed with the same key, so you can switch between F-Droid, GitHub and Obtainium without
+reinstalling. A listing in the main F-Droid repository is planned; the builds are
+[reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
 ## What's new in 1.5.1
 

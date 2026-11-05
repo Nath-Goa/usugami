@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Usugami on F-Droid</title>
+<meta name="description" content="Add Usugami's F-Droid repository: offline, ad-free PDF tools for Android, with automatic updates.">
+<link rel="icon" href="fdroid/repo/icons/icon.png">
+<style>
+  :root { --bg: #f6f1fc; --card: #ffffff; --ink: #2f2747; --soft: #5f5583; --accent: #4a3f6b; --line: #e3d9f3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #171717; --card: #232323; --ink: #ece8f5; --soft: #b6aed0; --accent: #cbbcf3; --line: #3a3a3a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+  header { display: flex; gap: 16px; align-items: center; }
+  header img { width: 72px; height: 72px; }
+  h1 { margin: 0; font-size: 1.9rem; }
+  .sub { margin: 2px 0 0; color: var(--soft); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 20px; margin-top: 20px; }
+  h2 { margin: 0 0 8px; font-size: 1.15rem; }
+  .button { display: inline-block; background: var(--accent); color: var(--bg); text-decoration: none; font-weight: 600; padding: 12px 20px; border-radius: 999px; margin: 8px 0; }
+  code { display: block; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; overflow-wrap: anywhere; font-size: .9rem; }
+  .qr { float: right; width: 168px; height: 168px; margin: 0 0 8px 16px; background: #fff; border-radius: 8px; padding: 6px; }
+  ol { padding-left: 20px; margin: 8px 0; }
+  .apps { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .app { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .app b { display: block; }
+  a { color: var(--accent); }
+  small { color: var(--soft); }
+  @media (max-width: 520px) { .qr { float: none; display: block; margin: 8px auto; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="fdroid/repo/icons/icon.png" alt="">
+    <div>
+      <h1>Usugami on F-Droid</h1>
+      <p class="sub">Offline, ad-free PDF tools for Android, with automatic updates in your F-Droid app.</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>Add the repository</h2>
+    <img class="qr" src="qr.svg" alt="QR code of the repository address">
+    <p>On your Android phone, with <a href="https://f-droid.org">F-Droid</a>, Droid-ify or Neo Store installed:</p>
+    <a class="button" href="fdroidrepos://nathank.me/usugami/fdroid/repo?fingerprint=@FINGERPRINT@">Add to F-Droid</a>
+    <p>Or in F-Droid, go to <b>Settings → Repositories → +</b> and enter, or scan the QR code:</p>
+    <code>@REPO_URL@</code>
+    <p>Repository fingerprint (F-Droid checks it, so you know the repository is the real one):</p>
+    <code>@FINGERPRINT@</code>
+    <p>Then search for <b>Usugami</b> and install the app you want. Updates arrive like for any other F-Droid app.</p>
+  </section>
+
+  <section class="card">
+    <h2>The apps</h2>
+    <div class="apps">
+      <div class="app"><b>Usugami</b>Every tool, with open-source text recognition built in for searchable PDFs (English, French, Spanish, Hindi). About 14 MB.</div>
+      <div class="app"><b>Usugami Lite</b>Every tool except text recognition. About 2.8 MB.</div>
+    </div>
+    <p>Both turn images, camera scans, Word, PowerPoint and EPUB files into PDFs, and split, merge, compress, edit, sign and redact PDFs on your phone. No internet permission, no other permissions, no ads, no tracking.</p>
+  </section>
+
+  <section class="card">
+    <h2>Same apps as on GitHub</h2>
+    <p>This repository serves exactly the APKs of the <a href="https://github.com/Nath-Goa/usugami/releases/latest">GitHub releases</a>, signed with the same key, so you can switch between F-Droid, GitHub and <a href="https://github.com/ImranR98/Obtainium">Obtainium</a> without reinstalling. The builds are reproducible from the <a href="https://github.com/Nath-Goa/usugami">source code</a>. A listing in the main F-Droid repository is planned.</p>
+    <small>Usugami is free software under the GPL-3.0-or-later.</small>
+  </section>
+</main>
+</body>
+</html>
