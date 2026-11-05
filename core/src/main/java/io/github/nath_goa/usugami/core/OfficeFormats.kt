@@ -515,6 +515,18 @@ object TableColumns {
     }
 }
 
+/**
+ * A Word paragraph's, list level's or style's own tab stops, in points: those it [set]s, and those it
+ * [cleared] (w:tab w:val="clear") of the stops it would inherit.
+ */
+data class TabStops(val set: List<Float>, val cleared: List<Float> = emptyList()) {
+    /** These over [base]'s (its style's, say): as in Word, the stops [base] has, but those cleared here, and these. */
+    fun over(base: TabStops?): TabStops = if (base == null) this else TabStops(
+        (base.set.filter { it !in cleared } + set).distinct().sorted(),
+        (cleared + base.cleared).filter { it !in set }.distinct(),
+    )
+}
+
 /** Where a paragraph of text is split between two pages. */
 object PageBreaking {
     /**

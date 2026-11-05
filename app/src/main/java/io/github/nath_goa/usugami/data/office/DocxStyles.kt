@@ -4,6 +4,7 @@ import android.graphics.Color
 import io.github.nath_goa.usugami.core.ListNumbering
 import io.github.nath_goa.usugami.core.OfficeColors
 import io.github.nath_goa.usugami.core.SymbolFonts
+import io.github.nath_goa.usugami.core.TabStops
 import java.util.EnumSet
 
 /** Run (character) formatting from a Word file. Null means "not set here": it comes from further up. */
@@ -193,7 +194,8 @@ internal data class ParaProps(
     val widowControl: Boolean? = null,
     val shading: Int? = null,
     val rtl: Boolean? = null,
-    val tabs: List<Float>? = null,
+    /** Its own tab stops, which add to those it inherits. */
+    val tabs: TabStops? = null,
     /** How the paragraph mark looks: what an empty paragraph's height comes from. */
     val mark: RunProps? = null,
     /** Borders above and below, with their distance from the text in points. */
@@ -204,7 +206,7 @@ internal data class ParaProps(
         style ?: base.style, align ?: base.align, before ?: base.before, after ?: base.after, line ?: base.line,
         left ?: base.left, right ?: base.right, firstLine ?: base.firstLine, numId ?: base.numId, level ?: base.level,
         keepNext ?: base.keepNext, pageBreakBefore ?: base.pageBreakBefore, contextual ?: base.contextual,
-        widowControl ?: base.widowControl, shading ?: base.shading, rtl ?: base.rtl, tabs ?: base.tabs, mark?.over(base.mark) ?: base.mark,
+        widowControl ?: base.widowControl, shading ?: base.shading, rtl ?: base.rtl, tabs?.over(base.tabs) ?: base.tabs, mark?.over(base.mark) ?: base.mark,
         borderTop ?: base.borderTop, borderBottom ?: base.borderBottom,
     )
 
@@ -269,8 +271,9 @@ internal data class ParaProps(
                     }
                     "tabs" -> {
                         val stops = ArrayList<Float>()
-                        x.children { if (x.name == "tab" && x.attr("val") != "clear") x.intAttr("pos")?.let { stops += it / 20f } }
-                        p.copy(tabs = stops.sorted())
+                        val cleared = ArrayList<Float>()
+                        x.children { if (x.name == "tab") x.intAttr("pos")?.let { (if (x.attr("val") == "clear") cleared else stops) += it / 20f } }
+                        p.copy(tabs = TabStops(stops.distinct().sorted(), cleared))
                     }
                     "rPr" -> p.copy(mark = RunProps.read(x, theme))
                     "sectPr" -> {

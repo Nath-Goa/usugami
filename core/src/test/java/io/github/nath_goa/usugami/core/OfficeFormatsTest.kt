@@ -20,6 +20,16 @@ class OfficeFormatsTest {
         assertEquals(mapOf("width" to "120pt", "height" to "4cm", "position" to "absolute"), OfficeUnits.cssStyle("position:absolute; WIDTH:120pt;height:4cm;"))
     }
 
+    @Test fun wordTabStopsAddToTheStyles() {
+        // A footer style's centre and right stops; the paragraph adds one and clears the centre one.
+        val style = TabStops(listOf(234f, 468f))
+        val own = TabStops(listOf(504f), cleared = listOf(234f))
+        assertEquals(listOf(468f, 504f), own.over(style).set)
+        assertEquals(listOf(234f, 468f, 504f), TabStops(listOf(504f)).over(style).set)
+        // Cleared further up, a stop set nearer still counts.
+        assertEquals(listOf(234f, 468f, 504f), TabStops(listOf(234f)).over(own).over(style).set)
+    }
+
     @Test fun percentagesAsOfficeAndStrictOpenXmlWriteThem() {
         assertEquals(90_000, OfficeUnits.percentage("90000"))
         assertEquals(90_000, OfficeUnits.percentage(" 90% "))

@@ -1124,7 +1124,7 @@ internal class DocxConverter(
         val left = (props.left ?: 0f).units
         val firstStart = left + (props.firstLine ?: 0f).units
         val defaultTab = 36f.units
-        val tabs = props.tabs.orEmpty().map { it.units }
+        val tabs = props.tabs?.set.orEmpty().map { it.units }
         var textStart = firstStart
         val label = p.label?.takeIf { it.isNotEmpty() }?.let { text ->
             val paint = p.labelStyle.paint()
