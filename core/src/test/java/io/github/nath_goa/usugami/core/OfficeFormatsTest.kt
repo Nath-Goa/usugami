@@ -143,6 +143,7 @@ class OfficeFormatsTest {
         assertEquals(0xFF8FAADC.toInt(), OfficeColors.modify(accent, listOf("lumMod" to 60_000, "lumOff" to 40_000)))
         assertEquals(0xFF808080.toInt(), OfficeColors.modify(0xFFFFFFFF.toInt(), listOf("shade" to 50_196)))
         assertEquals(0x80FF0000.toInt(), OfficeColors.modify(0xFFFF0000.toInt(), listOf("alpha" to 50_196)))
+        assertEquals(0xFF00FFFF.toInt(), OfficeColors.modify(0xFFFF0000.toInt(), listOf("comp" to 0)))
         assertTrue(OfficeColors.isDark(0xFF1F3864.toInt()))
         assertFalse(OfficeColors.isDark(0xFFFFF2CC.toInt()))
     }

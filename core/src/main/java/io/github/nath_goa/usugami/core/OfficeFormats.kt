@@ -411,7 +411,8 @@ object OfficeColors {
 
     /**
      * Applies DrawingML colour changes, in order: [modifiers] are element names (such as "lumMod",
-     * "tint", "alpha") with their values in thousandths of a percent (75000 is 75%).
+     * "tint", "alpha") with their values in thousandths of a percent (75000 is 75%); those that take
+     * no value ("inv", "gray", "comp") with any.
      */
     fun modify(argb: Int, modifiers: List<Pair<String, Int>>): Int {
         var a = (argb ushr 24 and 0xFF) / 255f
@@ -424,13 +425,15 @@ object OfficeColors {
                 "alpha" -> a = v
                 "alphaMod" -> a *= v
                 "alphaOff" -> a += v
-                "lumMod", "lumOff", "satMod", "satOff", "hueOff" -> {
+                "lumMod", "lumOff", "satMod", "satOff", "hueOff", "comp" -> {
                     val hsl = toHsl(r, g, b)
                     when (name) {
                         "lumMod" -> hsl[2] *= v
                         "lumOff" -> hsl[2] += v
                         "satMod" -> hsl[1] *= v
                         "satOff" -> hsl[1] += v
+                        // The complementary colour: across the colour wheel.
+                        "comp" -> hsl[0] = (hsl[0] + 0.5f).mod(1f)
                         else -> hsl[0] = (hsl[0] + raw / 60_000f / 360f).mod(1f)
                     }
                     hsl[1] = hsl[1].coerceIn(0f, 1f)

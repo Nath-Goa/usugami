@@ -90,9 +90,16 @@ internal fun readColor(x: OfficeXml, scheme: (String) -> Int?): Int? {
         else -> return null
     }
     val modifiers = ArrayList<Pair<String, Int>>()
-    x.children { x.percentAttr("val")?.let { modifiers += x.name to it } }
+    x.children {
+        val value = x.percentAttr("val")
+        if (value != null) modifiers += x.name to value
+        // The changes that take no value: the inverse, grey and complementary colours.
+        else if (x.name in VALUELESS_MODIFIERS) modifiers += x.name to 0
+    }
     return base?.let { OfficeColors.modify(it, modifiers) }
 }
+
+private val VALUELESS_MODIFIERS = setOf("inv", "gray", "comp")
 
 /** What fills a shape, a background or a table cell. */
 internal sealed class Fill {
