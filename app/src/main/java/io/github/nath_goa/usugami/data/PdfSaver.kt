@@ -142,20 +142,45 @@ class PdfSaver(private val context: Context) {
         }
     }
 
-    /** Creates a copy of each file inside a folder the user picked with the system folder picker. */
-    fun saveToFolder(files: List<File>, tree: Uri) {
+    /**
+     * Creates a copy of each file inside a folder the user picked with the system folder picker. A
+     * file [earlier] says (at its place, or null) was copied into that folder already, and still is,
+     * isn't copied again; [onCopied] is told of each copy as soon as it is there, as in
+     * [saveToDownloads]: when a later file fails, saving again into that folder mustn't add
+     * "Name (1).pdf" for those before it.
+     */
+    fun saveToFolder(
+        files: List<File>,
+        tree: Uri,
+        earlier: List<Uri?>? = null,
+        onCopied: (Int, Uri) -> Unit = { _, _ -> },
+    ) {
         requireExists(files)
         val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-        for (file in files) {
-            val target = DocumentsContract.createDocument(resolver, parent, PDF_MIME, file.name)
-                ?: throw IOException("Could not create ${file.name}")
-            try {
-                copy(file, target)
-            } catch (e: Exception) {
-                delete(target)
-                throw e
-            }
+        files.forEachIndexed { i, file ->
+            val target = earlier?.getOrNull(i)?.takeIf(::stillThere) ?: copyInto(parent, file)
+            onCopied(i, target)
         }
+    }
+
+    /** A new copy of [file] in the folder [parent]. */
+    private fun copyInto(parent: Uri, file: File): Uri {
+        val target = DocumentsContract.createDocument(resolver, parent, PDF_MIME, file.name)
+            ?: throw IOException("Could not create ${file.name}")
+        try {
+            copy(file, target)
+        } catch (e: Exception) {
+            delete(target)
+            throw e
+        }
+        return target
+    }
+
+    /** Whether the document [copy] is still there (the user may have deleted it). */
+    private fun stillThere(copy: Uri): Boolean = try {
+        resolver.query(copy, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { it.moveToFirst() } == true
+    } catch (_: Exception) {
+        false
     }
 
     /**

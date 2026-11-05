@@ -249,6 +249,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      * has gone. Used in file work only.
      */
     private var inDownloads: Pair<List<PdfFile>, MutableMap<String, DownloadsCopy>>? = null
+    /** The result's copies in the folder it was saved to last, by path, the same way. In file work only. */
+    private var inFolder: Triple<List<PdfFile>, Uri, MutableMap<String, Uri>>? = null
     /**
      * The user put the last result away (Back, Start over, leaving the tool), rather than the system
      * clearing it: a document picked for it afterwards was picked after leaving it (see [notSaved]).
@@ -1894,7 +1896,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun saveToFolder(tree: Uri) {
         // As in saveTo; the folder picker offered for several PDFs creates nothing itself.
         val files = _result.value ?: return if (resultPutAway) notSaved() else resultCleared(2)
-        save { saver.saveToFolder(files.map { it.file }, tree); strings.getString(R.string.msg_saved) }
+        save {
+            // As in saveToDownloads: saving again into that folder copies only what isn't there.
+            val copies = inFolder?.takeIf { it.first === files && it.second == tree }?.third
+                ?: HashMap<String, Uri>().also { inFolder = Triple(files, tree, it) }
+            saver.saveToFolder(files.map { it.file }, tree, earlier = files.map { copies[it.file.path] }) { i, copy ->
+                copies[files[i].file.path] = copy
+            }
+            strings.getString(R.string.msg_saved)
+        }
     }
 
     /** A save screen gave a place to save a result the user had already put away: nothing is saved there. */

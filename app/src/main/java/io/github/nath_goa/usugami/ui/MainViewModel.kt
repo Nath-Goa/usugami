@@ -253,6 +253,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private val saveTurn = Mutex()
     /** The result's copies in Downloads, once it has been saved there: saving it again copies only what has gone. */
     private var inDownloads: Pair<List<PdfFile>, MutableList<DownloadsCopy?>>? = null
+    /** The result's copies in the folder it was saved to last, the same way. */
+    private var inFolder: Triple<List<PdfFile>, Uri, MutableList<Uri?>>? = null
     /**
      * The user put the last result away (Back, Start over, images shared), rather than the system
      * clearing it: a document picked for it afterwards was picked after leaving it (see [notSaved]).
@@ -1241,7 +1243,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // As in saveTo; the folder picker offered for several PDFs creates nothing itself.
         val files = _result.value ?: return if (resultPutAway) notSaved() else resultCleared(2)
         save {
-            saver.saveToFolder(files.map { it.file }, tree)
+            // As in saveToDownloads: saving again into that folder copies only what isn't there.
+            val known = inFolder?.takeIf { it.first === files && it.second == tree }?.third
+                ?: MutableList<Uri?>(files.size) { null }.also { inFolder = Triple(files, tree, it) }
+            saver.saveToFolder(files.map { it.file }, tree, earlier = known.toList()) { i, copy -> known[i] = copy }
             strings.getQuantityString(R.plurals.msg_saved_folder, files.size, files.size)
         }
     }
