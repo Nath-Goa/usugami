@@ -122,16 +122,25 @@ jobs:
       - name: Check the index
         run: |
           set -euo pipefail
-          python3 - "$WORK/repo/index-v2.json" <<'EOF'
-          import json, sys
+          python3 - "$WORK/repo/index-v2.json" "$RUNNER_TEMP"/apks/*.apk <<'EOF'
+          import json, os, re, sys
           index = json.load(open(sys.argv[1], encoding="utf-8"))
           packages = index["packages"]
-          for appid in ("io.github.nath_goa.usugami", "io.github.nath_goa.usugami.lite"):
-              versions = packages.get(appid, {}).get("versions", {})
-              if not versions:
-                  sys.exit(f"::error::{appid} has no version in the index")
-              names = sorted(v["manifest"]["versionName"] for v in versions.values())
-              print(appid, names)
+          apps = {"ocr": "io.github.nath_goa.usugami", "lite": "io.github.nath_goa.usugami.lite"}
+          for appid in apps.values():
+              versions = packages.get(appid, {}).get("versions", {}).values()
+              print(appid, sorted(v["manifest"]["versionName"] for v in versions))
+          # Every APK downloaded is in the index, as a version of its app: fdroid update only warns
+          # about one it refuses (signed by another key, say), and leaves it out.
+          missing = []
+          for path in sys.argv[2:]:
+              name = os.path.basename(path)
+              edition, version = re.fullmatch(r"usugami-(ocr|lite)-(.+)\.apk", name).groups()
+              versions = packages.get(apps[edition], {}).get("versions", {}).values()
+              if not any(v["file"]["name"] == "/" + name and v["manifest"]["versionName"] == version for v in versions):
+                  missing.append(name)
+          if missing:
+              sys.exit("::error::Not in the index (see fdroid update's warnings): " + ", ".join(missing))
           EOF
 
       - name: Make the site
