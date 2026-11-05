@@ -1235,7 +1235,8 @@ internal class PptxConverter(
                     prefix + ListNumbering.format(counters[level], format) + suffix
                 }
                 else -> {
-                    counters[level] = 0
+                    // An empty paragraph in a numbered list shows no number, and the list goes on counting after it, as in PowerPoint.
+                    if (hasText || look.bullet !is Bullet.Number) counters[level] = 0
                     null
                 }
             }

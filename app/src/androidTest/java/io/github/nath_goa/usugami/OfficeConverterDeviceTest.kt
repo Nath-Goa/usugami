@@ -1036,6 +1036,13 @@ class OfficeConverterDeviceTest {
         assertTrue(word(pdf, 2, "Merged").xDirAdj > 240f)
     }
 
+    @Test fun powerPointNumberingGoesOnAfterAnEmptyParagraph() {
+        fun item(text: String) = """<a:p><a:pPr marL="342900" indent="-342900"><a:buAutoNum type="arabicPeriod"/></a:pPr>${if (text.isEmpty()) "" else run(text, 18)}</a:p>"""
+        val file = deck("numbered.pptx", listOf(slide(textBox(2, 40, 40, 400, 300, item("Apples"), item(""), item("Pears")))))
+        val text = pageTexts(convert(file, OfficeKind.POWERPOINT, "slide-numbered"))[0]
+        assertTrue(text, Regex("""1\.\s*Apples""").containsMatchIn(text) && Regex("""2\.\s*Pears""").containsMatchIn(text))
+    }
+
     @Test fun powerPointDamagedPartsLeaveOutOnlyWhatIsInThem() {
         // A chart whose part is empty, and a table whose styles' part is: the rest of the slide still converts.
         val chart = """<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id="3" name="Chart"/><p:cNvGraphicFramePr/><p:nvPr/></p:nvGraphicFramePr>
