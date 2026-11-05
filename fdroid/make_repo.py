@@ -9,6 +9,8 @@ SOURCE is a checkout of this repository, OUT an empty folder, and each APK a rel
 package is one of APPS. Writes OUT/config.yml (the signing secrets come from the environment),
 OUT/metadata/<app>.yml with each app's localized store texts and images, OUT/repo/ with the APKs and
 OUT/icon.png, the repository's icon (fdroid update copies it into repo/icons/).
+
+Run with fdroidserver's Python, whose code reads each APK's package and version.
 """
 import base64
 import os
@@ -16,6 +18,7 @@ import shutil
 import sys
 from pathlib import Path
 
+from fdroidserver.common import get_apk_id
 from ruamel.yaml import YAML
 
 REPO_URL = "https://nathank.me/usugami/fdroid/repo"
@@ -38,11 +41,22 @@ def main(source: Path, out: Path, apks: list[Path]) -> None:
     yaml = YAML()
     (out / "metadata").mkdir(parents=True)
     (out / "repo" / "icons").mkdir(parents=True)
+    served: dict[str, dict[int, str]] = {appid: {} for appid in APPS}
+    for apk in apks:
+        appid, version_code, version_name = get_apk_id(str(apk))
+        if appid not in served:
+            sys.exit(f"{apk}: {appid} isn't one of {', '.join(APPS)}")
+        served[appid][version_code] = version_name
     for appid, (recipe, store) in APPS.items():
         with open(source / recipe, encoding="utf-8") as f:
             full = yaml.load(f)
         # AllowedAPKSigningKeys stays: fdroid update then refuses an APK not signed by the developer.
         meta = {k: full[k] for k in KEEP if k in full}
+        # fdroid update gives a version in index-v2 its "What's new" (changelogs/<versionCode>.txt in
+        # the store texts) only through a Builds entry with its versionCode: one for each version
+        # served, with nothing about building it.
+        if served[appid]:
+            meta["Builds"] = [{"versionName": served[appid][c], "versionCode": c} for c in sorted(served[appid])]
         with open(out / "metadata" / f"{appid}.yml", "w", encoding="utf-8") as f:
             yaml.dump(meta, f)
         for folder in store:
