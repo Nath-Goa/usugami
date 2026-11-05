@@ -181,6 +181,16 @@ class EpubFormatsTest {
         assertEquals("1em", SimpleCss.declarations("margin: 1em; margin-top: 5px")["margin-bottom"])
     }
 
+    @Test(timeout = 10_000) fun craftedStyleSheetsAreReadQuickly() {
+        assertNull(CssValues.length("1".repeat(200_000) + "x", 11f, 11f))
+        assertNull(OfficeUnits.cssLength("1".repeat(200_000) + "x"))
+        // A comment that isn't closed runs to the end; spaces around a selector's parts are one space.
+        assertTrue(SimpleCss.parse("/*a".repeat(100_000) + " p { color: red }").isEmpty)
+        val sheet = SimpleCss.parse("div" + " ".repeat(200_000) + "> p { color: red } /* a note */ em { color: blue }")
+        assertEquals("red", CssSheet.cascade(CssNode("p", null, emptySet(), CssNode("div", null, emptySet(), null)), listOf(sheet), null)["color"])
+        assertEquals("blue", CssSheet.cascade(CssNode("em", null, emptySet(), null), listOf(sheet), null)["color"])
+    }
+
     @Test fun measuresCssLengths() {
         val base = 11f
         assertEquals(22f, CssValues.length("2em", 11f, base)!!, 0.001f)

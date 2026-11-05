@@ -310,7 +310,7 @@ class CssSheet(rules: List<CssRule>) {
 /** Just enough CSS for e-books: rules with simple selectors and their declarations. */
 object SimpleCss {
     fun parse(text: String): CssSheet {
-        val css = Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL).replace(text, " ")
+        val css = withoutComments(text)
         val rules = ArrayList<CssRule>()
         var i = 0
         var order = 0
@@ -341,6 +341,23 @@ object SimpleCss {
             }
         }
         return CssSheet(rules)
+    }
+
+    /** [text] with each comment as a space; one that isn't closed runs to the end. Read in one pass, however crafted. */
+    private fun withoutComments(text: String): String {
+        if (!text.contains("/*")) return text
+        val out = StringBuilder(text.length)
+        var i = 0
+        while (true) {
+            val start = text.indexOf("/*", i)
+            if (start < 0) {
+                out.append(text, i, text.length)
+                break
+            }
+            out.append(text, i, start).append(' ')
+            i = text.indexOf("*/", start + 2).takeIf { it >= 0 }?.plus(2) ?: break
+        }
+        return out.toString()
     }
 
     /**
@@ -382,7 +399,7 @@ object SimpleCss {
 
     /** A selector such as "div.poem > p", or null for one Usugami doesn't understand. */
     fun selector(text: String): CssSelector? {
-        val tokens = text.trim().replace(Regex("""\s*>\s*"""), " > ").split(Regex("""\s+""")).filter { it.isNotEmpty() }
+        val tokens = text.trim().replace(">", " > ").split(Regex("""\s+""")).filter { it.isNotEmpty() }
         if (tokens.isEmpty()) return null
         val parts = ArrayList<CssCompound>()
         val combinators = ArrayList<Char>()
@@ -422,7 +439,9 @@ object CssValues {
      * size. Absolute units scale with the book's font, as 16 px (12 pt) is to [base].
      */
     fun length(value: String?, em: Float, base: Float, percentOf: Float? = null, rem: Float = base): Float? {
-        val match = Regex("""^(-?\d*\.?\d+)\s*(em|rem|ex|px|pt|pc|in|cm|mm|%)?$""").find(value?.trim()?.lowercase() ?: return null) ?: return null
+        // No length is longer: a crafted one, thousands of digits long, would keep the pattern busy for minutes.
+        val text = value?.trim()?.lowercase()?.takeIf { it.length <= MAX_LENGTH } ?: return null
+        val match = Regex("""^(-?\d*\.?\d+)\s*(em|rem|ex|px|pt|pc|in|cm|mm|%)?$""").find(text) ?: return null
         val number = match.groupValues[1].toFloatOrNull() ?: return null
         val scale = base / 12f
         return when (match.groupValues[2]) {
@@ -514,4 +533,6 @@ object CssValues {
 
     /** Whether a page-break-before/after or break-before/after value asks for a new page. */
     fun pageBreak(value: String?): Boolean = value?.trim()?.lowercase() in setOf("always", "page", "left", "right", "recto", "verso")
+
+    private const val MAX_LENGTH = 64
 }

@@ -30,6 +30,8 @@ object OfficeUnits {
      * pixels at 96 dpi, as in CSS. Null when [text] isn't a length.
      */
     fun cssLength(text: String): Float? {
+        // No length is longer: a crafted one, thousands of digits long, would keep the pattern busy for minutes.
+        if (text.length > 64) return null
         val match = Regex("""^\s*(-?\d*\.?\d+)\s*(pt|in|cm|mm|px|pc|emu)?\s*$""").find(text.lowercase()) ?: return null
         val number = match.groupValues[1].toFloatOrNull() ?: return null
         return when (match.groupValues[2]) {
