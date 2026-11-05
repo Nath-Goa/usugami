@@ -36,6 +36,7 @@ object AppLanguages {
     private const val PREFS = "language"
     private const val KEY_CHOSEN = "chosen"
     private const val KEY_TAG = "tag"
+    private const val KEY_HANDED_OVER = "handed_over"
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -54,6 +55,22 @@ object AppLanguages {
         } else if (AppLanguage.shownIn(activity) != language) {
             activity.recreate()
         }
+    }
+
+    /**
+     * From Android 13, Android keeps the language: one the user picked on an older version, which only
+     * Usugami stored, is handed to Android once, the first time Usugami starts on 13 or newer, unless
+     * Android already has one for Usugami. The activity is then recreated in it.
+     */
+    fun handOver(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val prefs = prefs(context)
+        if (prefs.getBoolean(KEY_HANDED_OVER, false)) return
+        // Once: a language taken away later in the phone's settings stays away.
+        prefs.edit(commit = true) { putBoolean(KEY_HANDED_OVER, true) }
+        val tag = prefs.getString(KEY_TAG, null) ?: return
+        val locales = context.getSystemService(LocaleManager::class.java)
+        if (locales.applicationLocales.isEmpty) locales.applicationLocales = LocaleList.forLanguageTags(tag)
     }
 
     /**
