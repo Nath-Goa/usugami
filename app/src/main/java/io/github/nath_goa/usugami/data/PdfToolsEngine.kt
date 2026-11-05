@@ -671,12 +671,20 @@ class PdfToolsEngine(private val context: Context) {
     /**
      * Redacts [input]: each page with [boxes] becomes a picture of itself with the boxes solid
      * black, and what else could leak the hidden content is removed (see [Redactor]). [view] is its
-     * [previewView], if already made.
+     * [previewView], if already made. [searched] is what Find text looked for in it: the form
+     * fields that hold it go, though no page shows them (see [Redactor.redact]).
      */
-    fun redact(input: PdfInput, boxes: List<RedactBox>, fileName: String, view: PdfInput? = null, check: () -> Unit = {}): PdfFile {
+    fun redact(
+        input: PdfInput,
+        boxes: List<RedactBox>,
+        fileName: String,
+        view: PdfInput? = null,
+        searched: List<String> = emptyList(),
+        check: () -> Unit = {},
+    ): PdfFile {
         require(boxes.isNotEmpty())
         val view = view ?: previewView(input, check)
-        return edit(input, fileName, "Redacted", check) { doc -> Redactor.redact(doc, view.file, boxes, check) }
+        return edit(input, fileName, "Redacted", check) { doc -> Redactor.redact(doc, view.file, boxes, searched, check) }
     }
 
     /**

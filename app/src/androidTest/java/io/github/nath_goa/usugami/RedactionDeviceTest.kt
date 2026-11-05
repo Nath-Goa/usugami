@@ -52,6 +52,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.P
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDComboBox
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDSignatureField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
 import com.tom_roush.pdfbox.pdmodel.PDDestinationNameTreeNode
@@ -759,7 +760,8 @@ class RedactionDeviceTest {
 
     /**
      * What the file holds but no page shows: where a link leads (a name in it too, though only as
-     * escapes), and the value of a hidden form field. Find text finds them, without blacking out what is under them, and they are gone
+     * escapes), the value of a hidden form field, the choices of a hidden list, and a field on no
+     * page at all. Find text finds them, without blacking out what is under them, and they are gone
      * from the redacted file.
      */
     @Test fun findTextFindsLinkAddressesAndHiddenFieldValues() {
@@ -789,6 +791,22 @@ class RedactionDeviceTest {
                 second.annotations.add(this)
             }
             form.fields.add(field)
+            val office = PDComboBox(form).apply {
+                partialName = "office"
+                setOptions(listOf("a1", "b2"), listOf("Ana Silva", "Bo Chen"))
+                cosObject.setString(COSName.V, "b2")
+            }
+            office.widgets[0].apply {
+                rectangle = PDRectangle(72f, 500f, 200f, 20f)
+                isHidden = true
+                page = second
+                second.annotations.add(this)
+            }
+            form.fields.add(office)
+            form.fields.add(PDTextField(form).apply {
+                partialName = "former"
+                cosObject.setString(COSName.V, "Ana Silva")
+            })
             doc.save(file)
         }
         val source = import(file)
@@ -796,8 +814,10 @@ class RedactionDeviceTest {
         assertEquals(listOf(0, 1), found.map { it.single().page })
         for (box in found.flatten()) assertEquals(Redaction.MIN_SIZE, box.width, 1e-6f)
         val escaped = engine.findText(source, "ana silva")
-        assertEquals(listOf(0), escaped.map { it.single().page })
-        val redacted = save(engine.redact(source, (found + escaped).flatten(), "addresses_redacted").file, "addresses_redacted.pdf")
+        // The field on no page gets no box: Redact takes it out, told what was looked for.
+        assertEquals(listOf(0, 1), escaped.map { it.single().page })
+        val boxes = (found + escaped).flatten()
+        val redacted = save(engine.redact(source, boxes, "addresses_redacted", searched = listOf("smith", "ana silva")).file, "addresses_redacted.pdf")
         PDDocument.load(redacted).use { doc ->
             assertTrue(everything(doc).none { it.contains("smith", ignoreCase = true) || it.contains("silva", ignoreCase = true) })
         }

@@ -178,6 +178,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     val redactPage: StateFlow<Int> = handle.getStateFlow(KEY_REDACT_PAGE, 0)
     val redactSelected: StateFlow<Int> = handle.getStateFlow(KEY_REDACT_SELECTED, -1)
 
+    /**
+     * What Find text found in the PDF being redacted, as typed: Redact also takes out the form
+     * fields that hold it where no page shows them (see [PdfToolsEngine.redact]). Kept until the
+     * boxes are all cleared, or the PDF is put away, in the saved state too.
+     */
+    private var redactSearched: List<String>
+        get() = handle.get<ArrayList<String>>(KEY_REDACT_SEARCHED).orEmpty()
+        set(value) { handle[KEY_REDACT_SEARCHED] = ArrayList(value) }
+
     /** The PDF the tool draws its preview from (see [PdfToolsEngine.previewView]); null until it is ready. */
     private val _previewView = MutableStateFlow<PdfInput?>(null)
     val previewView = _previewView.asStateFlow()
@@ -1406,6 +1415,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun clearRedactBoxes() {
         setRedactBoxes(emptyList())
+        redactSearched = emptyList()
         handle[KEY_REDACT_SELECTED] = -1
     }
 
@@ -1438,6 +1448,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     boxes.size + new.size > Redaction.MAX_BOXES -> message(strings.getString(R.string.redact_find_too_many, Redaction.MAX_BOXES))
                     else -> {
                         setRedactBoxes(boxes + new)
+                        if (query !in redactSearched) redactSearched = redactSearched + query
                         // Shows a page with matches, unless the one showing has some.
                         val pages = found.mapTo(HashSet()) { it.page }
                         if (redactPage.value !in pages) showRedactPage(found.minOf { it.page }) else handle[KEY_REDACT_SELECTED] = -1
@@ -1466,7 +1477,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val boxes = _redactBoxes.value.filter { it.page in 0 until input.pageCount }
         if (boxes.isEmpty() || _finding.value) return
         val view = _previewView.value?.takeIf { it.id == input.id }
-        process(fileName, listOf(input)) { check -> listOf(engine.redact(input, boxes, fileName, view, check)) }
+        val searched = redactSearched
+        process(fileName, listOf(input)) { check -> listOf(engine.redact(input, boxes, fileName, view, searched, check)) }
     }
 
     private fun setRedactBoxes(boxes: List<RedactBox>) {
@@ -1483,6 +1495,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         _finding.value = false
         _previewView.value = null
         setRedactBoxes(emptyList())
+        redactSearched = emptyList()
         handle[KEY_REDACT_PAGE] = 0
         handle[KEY_REDACT_SELECTED] = -1
     }
@@ -2111,6 +2124,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_REDACT_BOXES = "redact_boxes"
         const val KEY_REDACT_PAGE = "redact_page"
         const val KEY_REDACT_SELECTED = "redact_selected"
+        const val KEY_REDACT_SEARCHED = "redact_searched"
     }
 }
 

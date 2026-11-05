@@ -161,17 +161,20 @@ internal object Redactor {
      *
      * So do links and buttons whose web or email address, or the file they open, has [query] (also
      * where the address has it only as %-escapes, as a name with a space does), and form fields
-     * that hold it where no page shows it: as the value of a field hidden on its page, or as a
-     * field's tooltip.
-     * They too get the smallest box, so their pages become pictures and they go; a field's widgets
-     * all do, on every page, so that the field goes with its value (see [removeLeaks]). The value
-     * of a field the page shows is on the page, where it is found as its text.
+     * that hold it where no page shows it (see [fieldsHolding]): its name, tooltip, default value or
+     * one of its choices, or the value of a field hidden on its page. They too get the smallest
+     * box, so their pages become pictures and they go; a field's widgets all do, on every page, so
+     * that the field goes with its value (see [removeLeaks]). The value of a field the page shows
+     * is on the page, where it is found as its text. A field none of whose widgets is on a page
+     * gets no box: [redact] takes it out, told what Find text looked for. Only when nothing else
+     * has [query] is a page boxed for it, the one its widget names or the first, so that there is
+     * something to redact.
      */
     fun findInComments(doc: PDDocument, query: String, skip: Set<Int>, check: () -> Unit): List<List<RedactBox>> {
         val wanted = PageText.normalize(query)
         if (wanted.isEmpty()) return emptyList()
         fun has(text: String) = PageText.normalize(text).contains(wanted, ignoreCase = true)
-        val holders = fieldsHolding(doc, ::has, check)
+        val holding = fieldsHolding(doc, ::has, check)
         val found = ArrayList<List<RedactBox>>()
         doc.pages.forEachIndexed { index, page ->
             if (index in skip) return@forEachIndexed
@@ -184,7 +187,7 @@ internal object Redactor {
                 val widget = subtype == COSName.WIDGET
                 val says = !widget && (listOf(COSName.CONTENTS, COSName.T, COSName.SUBJ).mapNotNull { annotation.getString(it) } + listOfNotNull(richText(annotation))).any(::has)
                 val leads = addresses(annotation).any(::has)
-                val holds = widget && fieldOf(annotation).any { it in holders }
+                val holds = widget && fieldOf(annotation).any { it in holding.fields }
                 if (!says && !leads && !holds) continue
                 // A pop-up's window may be anywhere: it is boxed where its comment is.
                 val placed = (annotation.getDictionaryObject(COSName.PARENT) as? COSDictionary)?.takeIf { subtype == COSName.getPDFName("Popup") } ?: annotation
@@ -198,30 +201,93 @@ internal object Redactor {
                 found += listOf(Redaction.clamp(if (small) box.copy(right = box.left, bottom = box.top) else box))
             }
         }
+        if (found.isEmpty() && skip.isEmpty()) holding.elsewhere.firstOrNull()?.let { page -> found += listOf(Redaction.clamp(RedactBox(page, 0f, 0f, 0f, 0f))) }
         return found
     }
 
     /**
-     * The form fields, and widgets, whose own text has [has] where no page shows it: the value of a
-     * field whose widget is hidden (/V, also of the fields above it, from which it may inherit),
-     * and any field's tooltip (/TU).
+     * The form fields whose own text has [has] where no page shows it, for their widgets on pages to
+     * be boxed ([Holding.fields]), and the pages to box for those none of whose widgets is on a page
+     * ([Holding.elsewhere]: the one a widget names, or the first). A field's names (/T, /TM),
+     * tooltip (/TU), default value (/DV) and choices (/Opt) never show; its value (/V, also of the
+     * fields above it, from which it may inherit) doesn't where its widget is hidden, nor at all
+     * when none of its widgets is on a page.
      */
-    private fun fieldsHolding(doc: PDDocument, has: (String) -> Boolean, check: () -> Unit): Set<COSDictionary> {
+    private fun fieldsHolding(doc: PDDocument, has: (String) -> Boolean, check: () -> Unit): Holding {
         val holders = identitySet<COSDictionary>()
-        for (page in doc.pages) {
+        val onPages = identitySet<COSDictionary>()
+        val pageOf = IdentityHashMap<COSDictionary, Int>()
+        doc.pages.forEachIndexed { index, page ->
             check()
-            val annotations = page.cosObject.getCOSArray(COSName.ANNOTS) ?: continue
+            pageOf[page.cosObject] = index
+            val annotations = page.cosObject.getCOSArray(COSName.ANNOTS) ?: return@forEachIndexed
             for (item in annotations) {
                 val widget = item.resolve() as? COSDictionary ?: continue
                 if (widget.getCOSName(COSName.SUBTYPE) != COSName.WIDGET) continue
+                onPages += widget
                 val hidden = widget.getInt(COSName.F, 0) and (HIDDEN or NO_VIEW) != 0
                 for (field in fieldOf(widget)) {
-                    val tooltip = field.getString(COSName.TU)
-                    if (tooltip != null && has(tooltip) || hidden && texts(field.getDictionaryObject(COSName.V)).any(has)) holders += field
+                    if (labels(field).any(has) || hidden && texts(field.getDictionaryObject(COSName.V)).any(has)) holders += field
                 }
             }
         }
-        return holders
+        val elsewhere = ArrayList<Int>()
+        val fields = doc.documentCatalog.cosObject.getCOSDictionary(COSName.ACRO_FORM)?.getCOSArray(COSName.FIELDS)
+        walkFields(fields, onPages) { field, page ->
+            if (fieldTexts(field).any(has)) elsewhere += page?.let(pageOf::get) ?: 0
+        }
+        return Holding(holders, elsewhere)
+    }
+
+    /** What [fieldsHolding] found. */
+    private class Holding(val fields: Set<COSDictionary>, val elsewhere: List<Int>)
+
+    /**
+     * Walks the form's fields under [kids] (and their widgets), calling [offPage] for each that has
+     * no widget among [onPages], with the page one of its widgets names (/P), if any. Returns
+     * whether any of them has a widget on a page, and otherwise the page one names.
+     */
+    private fun walkFields(
+        kids: COSArray?,
+        onPages: Set<COSDictionary>,
+        seen: MutableSet<COSDictionary> = identitySet(),
+        depth: Int = 0,
+        offPage: (COSDictionary, COSDictionary?) -> Unit,
+    ): Pair<Boolean, COSDictionary?> {
+        var shown = false
+        var named: COSDictionary? = null
+        if (kids == null || depth > 32) return shown to named
+        for (i in 0 until kids.size()) {
+            val field = kids.getObject(i) as? COSDictionary ?: continue
+            if (!seen.add(field)) continue
+            val (below, namedBelow) = walkFields(field.getCOSArray(COSName.KIDS), onPages, seen, depth + 1, offPage)
+            val onPage = below || field in onPages
+            val page = namedBelow ?: field.getDictionaryObject(COSName.P) as? COSDictionary
+            if (!onPage) offPage(field, page)
+            shown = shown || onPage
+            named = named ?: page
+        }
+        return shown to named
+    }
+
+    /** What a form field says of itself that no page shows: its names, tooltip, default value and choices. */
+    private fun labels(field: COSDictionary): List<String> =
+        listOf(COSName.T, COSName.TM, COSName.TU).mapNotNull { field.getString(it) } +
+            texts(field.getDictionaryObject(COSName.DV)) + options(field.getDictionaryObject(COSName.OPT))
+
+    /** All a form field holds as text: its [labels] and its value. */
+    private fun fieldTexts(field: COSDictionary): List<String> = labels(field) + texts(field.getDictionaryObject(COSName.V))
+
+    /** A choice field's choices (/Opt): each a text, or the value it gives and the text it shows. */
+    private fun options(choices: COSBase?): List<String> {
+        val array = choices as? COSArray ?: return emptyList()
+        return (0 until array.size()).flatMap { i ->
+            when (val choice = array.getObject(i)) {
+                is COSString -> listOf(choice.string)
+                is COSArray -> (0 until choice.size()).mapNotNull { (choice.getObject(it) as? COSString)?.string }
+                else -> emptyList()
+            }
+        }
     }
 
     /** [widget] and the form fields it belongs to, up to the top. */
@@ -455,9 +521,11 @@ internal object Redactor {
     /**
      * Replaces each page with [boxes] by a picture of it, drawn from [view] (the copy the preview
      * showed), with the boxes black, then removes what could leak the hidden content. Pages that
-     * would keep some of it out of sight become pictures too (see [keepingHidden]).
+     * would keep some of it out of sight become pictures too (see [keepingHidden]). [searched] is
+     * what Find text looked for: the form fields that hold it go too, once no page that stays shows
+     * them (see [dropFieldsHolding]).
      */
-    fun redact(doc: PDDocument, view: File, boxes: List<RedactBox>, check: () -> Unit) {
+    fun redact(doc: PDDocument, view: File, boxes: List<RedactBox>, searched: List<String>, check: () -> Unit) {
         val byPage = boxes.groupBy { it.page }
         require(byPage.isNotEmpty() && byPage.keys.all { it in 0 until doc.numberOfPages })
         // Pages that would keep out of sight what the boxes hide become pictures too, without boxes.
@@ -488,7 +556,7 @@ internal object Redactor {
         XObjectCleanup.emptyUnused(doc, drawnThere, (0 until doc.numberOfPages).filter { it !in pictured }.map(doc::getPage), check)
 
         check()
-        removeLeaks(doc, redactedPages, removedAnnotations)
+        removeLeaks(doc, redactedPages, removedAnnotations, searched)
     }
 
     /**
@@ -673,6 +741,7 @@ internal object Redactor {
      * - bookmarks, whose titles can name what was hidden, and the tags (structure tree) for screen
      *   readers, which keep copies of the text, alternate text and ActualText;
      * - form fields whose only places were on redacted pages, with their values, and XFA form data;
+     *   and those that hold what was [searched] for and that no page that stays shows;
      * - what digital signatures, which no longer match, say of their signers;
      * - named destinations that lead to redacted pages, whose names can repeat their headings;
      * - attached files, JavaScript, applications' private data (PieceInfo, where some apps keep a
@@ -680,7 +749,7 @@ internal object Redactor {
      * - the pop-ups of annotations that were removed, and what else on other pages points at them.
      * The pages without boxes otherwise stay as they were, links and form fields included.
      */
-    private fun removeLeaks(doc: PDDocument, redactedPages: Set<COSBase>, removedAnnotations: Set<COSBase>) {
+    private fun removeLeaks(doc: PDDocument, redactedPages: Set<COSBase>, removedAnnotations: Set<COSBase>, searched: List<String>) {
         doc.document.trailer.removeItem(COSName.INFO)
         val catalog = doc.documentCatalog.cosObject
         for (key in REMOVED_CATALOG_KEYS) catalog.removeItem(key)
@@ -715,7 +784,10 @@ internal object Redactor {
         catalog.getCOSDictionary(COSName.ACRO_FORM)?.let { form ->
             form.removeItem(COSName.XFA)
             val fields = form.getCOSArray(COSName.FIELDS)
-            if (fields != null) pruneFields(fields, removedAnnotations, identitySet())
+            if (fields != null) {
+                pruneFields(fields, removedAnnotations, identitySet())
+                dropFieldsHolding(doc, fields, searched)
+            }
             if (fields == null || fields.size() == 0) {
                 catalog.removeItem(COSName.ACRO_FORM)
             } else {
@@ -817,6 +889,24 @@ internal object Redactor {
             })
         }
         return (pairs == null || pairs.size() == 0) && (kids == null || kids.size() == 0)
+    }
+
+    /**
+     * Takes out of the form the fields under [kids] whose own text (see [fieldTexts]) has any of
+     * [searched], and that no page that stays has a widget of: those whose widgets were all on pages
+     * now pictures, and those with widgets on no page at all, which [pruneFields] leaves, as nothing
+     * removed them. Their values go with them. Fields left with none under them go too. Those a
+     * page that stays shows, the user left there.
+     */
+    private fun dropFieldsHolding(doc: PDDocument, kids: COSArray, searched: List<String>) {
+        val wanted = searched.map(PageText::normalize).filter { it.isNotEmpty() }
+        if (wanted.isEmpty()) return
+        fun has(text: String) = PageText.normalize(text).let { t -> wanted.any { t.contains(it, ignoreCase = true) } }
+        val onPages = identitySet<COSDictionary>()
+        for (page in doc.pages) page.cosObject.getCOSArray(COSName.ANNOTS)?.forEach { (it.resolve() as? COSDictionary)?.let(onPages::add) }
+        val doomed = identitySet<COSBase>()
+        walkFields(kids, onPages) { field, _ -> if (fieldTexts(field).any(::has)) doomed += field }
+        if (doomed.isNotEmpty()) pruneFields(kids, doomed, identitySet())
     }
 
     /** Removes widgets in [removed] from the form's field tree, and fields left with none. */
