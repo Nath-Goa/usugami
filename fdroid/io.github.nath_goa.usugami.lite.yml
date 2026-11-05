@@ -17,7 +17,7 @@ Binaries: https://github.com/Nath-Goa/usugami/releases/download/v%v/Usugami-lite
 Builds:
   - versionName: 1.5.1
     versionCode: 8
-    commit: v1.5.1
+    commit: aad238052e5bb85ee73b2f7fddba7255e066102d
     subdir: app
     gradle:
       - lite
