@@ -44,8 +44,12 @@ class JpegTest {
         assertFalse(base.copy(frameMarker = 0xC9).canEmbedDirectly) // arithmetic coding
         assertFalse(base.copy(frameMarker = 0xC3).canEmbedDirectly) // lossless
         assertFalse(base.copy(height = 0).canEmbedDirectly)          // height defined by DNL
-        assertTrue(base.copy(componentIds = listOf(82, 71, 66)).isPlainRgb)
-        assertFalse(base.copy(componentIds = listOf(82, 71, 66), hasAdobeMarker = true).isPlainRgb)
+        // Components labelled R, G, B hold plain RGB, unless a JFIF or an Adobe marker says otherwise:
+        // libjpeg, and so Android, reads a JFIF file as YCbCr whatever its labels.
+        assertTrue(base.hasJfifMarker) // ImageIO writes one
+        assertFalse(base.copy(componentIds = listOf(82, 71, 66)).isPlainRgb)
+        assertTrue(base.copy(componentIds = listOf(82, 71, 66), hasJfifMarker = false).isPlainRgb)
+        assertFalse(base.copy(componentIds = listOf(82, 71, 66), hasJfifMarker = false, hasAdobeMarker = true).isPlainRgb)
     }
 
     @Test

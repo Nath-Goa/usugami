@@ -10,6 +10,7 @@ data class JpegInfo(
     val frameMarker: Int,
     val componentIds: List<Int>,
     val hasAdobeMarker: Boolean,
+    val hasJfifMarker: Boolean = false,
 ) {
     /**
      * Whether PDF's DCTDecode filter can show this image exactly as stored: 8-bit Huffman coded
@@ -21,11 +22,12 @@ data class JpegInfo(
             width > 0 && height > 0
 
     /**
-     * A 3-component JPEG whose components are labelled 'R','G','B' and that has no Adobe marker
-     * holds plain RGB. PDF would otherwise assume YCbCr, so ColorTransform 0 must be given.
+     * A 3-component JPEG whose components are labelled 'R','G','B' and that has neither a JFIF nor
+     * an Adobe marker holds plain RGB. PDF would otherwise assume YCbCr, so ColorTransform 0 must be
+     * given. A JFIF file is YCbCr whatever its labels, as libjpeg (and so Android) decodes it.
      */
     val isPlainRgb: Boolean
-        get() = components == 3 && !hasAdobeMarker && componentIds == listOf('R'.code, 'G'.code, 'B'.code)
+        get() = components == 3 && !hasAdobeMarker && !hasJfifMarker && componentIds == listOf('R'.code, 'G'.code, 'B'.code)
 
     private companion object {
         val DIRECT_FRAMES = setOf(0xC0, 0xC1, 0xC2)
@@ -44,6 +46,7 @@ object Jpeg {
         if (bytes.size < 4 || bytes.u8(0) != 0xFF || bytes.u8(1) != 0xD8) throw InvalidJpegException("Not a JPEG file")
         var frame: JpegInfo? = null
         var adobe = false
+        var jfif = false
         forEachHeaderSegment(bytes) { marker, start, length ->
             val data = start + 4 // after FF xx LL LL
             val dataLength = length - 2
@@ -65,11 +68,13 @@ object Jpeg {
                     }
                 }
                 marker == APP14 && dataLength >= 5 && bytes.startsWithAscii(data, "Adobe") -> adobe = true
+                // As libjpeg reads it: the identifier and the rest of the header.
+                marker == APP0 && dataLength >= JFIF_LENGTH - 2 && bytes.startsWithAscii(data, "JFIF\u0000") -> jfif = true
             }
             true
         }
         val info = frame ?: throw InvalidJpegException("No frame header")
-        return info.copy(hasAdobeMarker = adobe)
+        return info.copy(hasAdobeMarker = adobe, hasJfifMarker = jfif)
     }
 
     /**
