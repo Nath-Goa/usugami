@@ -606,12 +606,15 @@ internal object Redactor {
                 for (part in inStreams[stream].orEmpty()) if (shows(part.area, null)) shown += part else kept += part
             }
             // A page whose content can't be read is left as it is.
-            val drawnHere = if (inXObjects.isNotEmpty() && XObjectCleanup.mayDraw(page, inXObjects.keys, reaches)) {
-                XObjectCleanup.placements(page)?.filter { it.xobject in inXObjects }.orEmpty()
-            } else {
-                emptyList()
+            val drawnHere = ArrayList<XObjectCleanup.Placement>()
+            if (inXObjects.isNotEmpty() && XObjectCleanup.mayDraw(page, inXObjects.keys, reaches)) {
+                XObjectCleanup.placements(page)?.filterTo(drawnHere) { it.xobject in inXObjects }
             }
-            for (xobject in drawnHere.mapTo(identitySet()) { it.xobject }) {
+            // Its annotations' appearances draw them too, where they show; and a hidden annotation, or
+            // a look not shown, keeps them out of sight as well, since they'd stay in the file for it.
+            val unseen = identitySet<COSBase>()
+            if (inXObjects.isNotEmpty()) drawnHere += XObjectCleanup.annotationPlacements(page, inXObjects.keys, unseen)
+            for (xobject in drawnHere.mapTo(identitySet()) { it.xobject }.also { it += unseen }) {
                 for (part in inXObjects.getValue(xobject)) {
                     val showing = drawnHere.any { it.xobject === xobject && shows(Areas.mapped(it.matrix, part.area), it.clip) }
                     if (showing) shown += part else kept += part

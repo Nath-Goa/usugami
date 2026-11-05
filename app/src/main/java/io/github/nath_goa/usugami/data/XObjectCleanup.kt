@@ -18,6 +18,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDTransparencyGroup
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotation
 import com.tom_roush.pdfbox.util.Matrix
 import io.github.nath_goa.usugami.core.Areas
 import java.util.Collections
@@ -57,9 +58,13 @@ internal object XObjectCleanup {
      */
     class Placement(val xobject: COSBase, val matrix: FloatArray, val extent: FloatArray, val clip: FloatArray?)
 
-    /** Finds where a page's content draws each image and form, those inside forms included. */
-    private class PlacedXObjects : PDFStreamEngine() {
+    /**
+     * Finds where a page's content draws each image and form, those inside forms included; with
+     * [annotationsOnly], only where its annotations' appearances do (see [place]).
+     */
+    private class PlacedXObjects(private val annotationsOnly: Boolean = false) : PDFStreamEngine() {
         val found = ArrayList<Placement>()
+        private var inAnnotation = false
         private var clip: FloatArray? = null
 
         /** [clip] as each q saved it, for its Q; those below [floor] belong to the content a form is drawn in. */
@@ -78,6 +83,7 @@ internal object XObjectCleanup {
         }
 
         override fun processOperator(operator: Operator, operands: List<COSBase>) {
+            if (annotationsOnly && !inAnnotation) return
             when (operator.name) {
                 "Do" -> drawnXObject(operands)?.let { xobject ->
                     val ctm = graphicsState.currentTransformationMatrix
@@ -128,11 +134,14 @@ internal object XObjectCleanup {
         override fun showTransparencyGroup(form: PDTransparencyGroup) = inside(form) { super.showTransparencyGroup(form) }
 
         private fun inside(form: PDFormXObject, draw: () -> Unit) {
+            within(form.bBox?.let { box -> Areas.mapped(form.matrix.multiply(graphicsState.currentTransformationMatrix).values(), box.corners()) }, draw)
+        }
+
+        /** Runs [draw] cut to [area] (in the page's coordinates; null for no cut), as a form's content is to its box. */
+        private fun within(area: FloatArray?, draw: () -> Unit) {
             val outer = clip
             val outerFloor = floor
-            form.bBox?.let { box ->
-                clip = cut(outer, Areas.mapped(form.matrix.multiply(graphicsState.currentTransformationMatrix).values(), box.corners()))
-            }
+            if (area != null) clip = cut(outer, area)
             floor = saved.size
             try {
                 draw()
@@ -144,6 +153,23 @@ internal object XObjectCleanup {
                 path = null
                 clips = false
             }
+        }
+
+        /**
+         * Where [annotation]'s appearance, as viewers show it in its current state, draws images and
+         * forms: PDFBox fits it to the annotation's rectangle and cuts it to that. Only once [processPage]
+         * has set the page up.
+         */
+        fun place(annotation: PDAnnotation): List<Placement> {
+            val rectangle = annotation.rectangle ?: return emptyList()
+            val start = found.size
+            inAnnotation = true
+            try {
+                within(rectangle.corners()) { showAnnotation(annotation) }
+            } finally {
+                inAnnotation = false
+            }
+            return found.subList(start, found.size).toList()
         }
 
         private fun Matrix.values() = floatArrayOf(scaleX, shearY, shearX, scaleY, translateX, translateY)
@@ -166,6 +192,43 @@ internal object XObjectCleanup {
         PlacedXObjects().apply { processPage(page) }.found
     } catch (_: Exception) {
         null
+    }
+
+    /**
+     * Where the appearances of [page]'s annotations draw any of [xobjects] (see [Placement]), as
+     * viewers show them: each in its current state, cut to its annotation's rectangle. What else of
+     * [xobjects] an annotation holds goes in [unseen], as kept out of sight: all it holds when it is
+     * hidden or not for the screen, what only its other looks (pressed, another state) draw, and
+     * all it holds when its appearance can't be read.
+     */
+    fun annotationPlacements(page: PDPage, xobjects: Set<COSBase>, unseen: MutableSet<COSBase>): List<Placement> {
+        val annotations = page.cosObject.getCOSArray(COSName.ANNOTS) ?: return emptyList()
+        val placed = ArrayList<Placement>()
+        // Set up for the page once, and only for a page with such an annotation.
+        var reader: PlacedXObjects? = null
+        for (item in annotations) {
+            val dictionary = item.resolve() as? COSDictionary ?: continue
+            val held = identitySet<COSBase>().also { collect(dictionary.getDictionaryObject(COSName.AP), it) }
+            held.retainAll(xobjects)
+            if (held.isEmpty()) continue
+            val shown = try {
+                val annotation = PDAnnotation.createAnnotation(dictionary)
+                if (annotation.isHidden || annotation.isNoView) {
+                    emptyList()
+                } else {
+                    val engine = reader ?: PlacedXObjects(annotationsOnly = true).also { it.processPage(page) }
+                    reader = engine
+                    engine.place(annotation).filter { it.xobject in xobjects }
+                }
+            } catch (_: Exception) {
+                // The next one is read afresh, not after an appearance cut short.
+                reader = null
+                emptyList()
+            }
+            placed += shown
+            for (xobject in held) if (shown.none { it.xobject === xobject }) unseen += xobject
+        }
+        return placed
     }
 
     /**

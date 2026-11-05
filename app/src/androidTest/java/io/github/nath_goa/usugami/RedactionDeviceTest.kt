@@ -41,6 +41,9 @@ import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionJavaScript
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationFileAttachment
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationRubberStamp
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationSquareCircle
@@ -676,16 +679,7 @@ class RedactionDeviceTest {
         PDDocument.load(redacted).use { doc ->
             assertTrue("The word is gone", everything(doc).none { it.contains("SECRET") })
             // No image left in the file, the pages' pictures included, has any of the red half.
-            val seen = Collections.newSetFromMap(IdentityHashMap<COSBase, Boolean>())
-            val pending = ArrayDeque<COSBase>().apply { add(doc.document.trailer) }
-            while (pending.isNotEmpty()) {
-                val item = pending.removeLast().let { if (it is COSObject) it.`object` else it } ?: continue
-                if (!seen.add(item)) continue
-                if (item is COSStream && item.getCOSName(COSName.SUBTYPE) == COSName.IMAGE) {
-                    assertFalse("An image keeps the red half", pixels(PDImageXObject(PDStream(item), null).image).any(::red))
-                }
-                if (item is COSDictionary) item.entrySet().forEach { pending += it.value } else if (item is COSArray) item.forEach { pending += it }
-            }
+            assertFalse("An image keeps the red half", anImageIsRed(doc))
             // Pages 2 and 4 are pictures of their blue half; page 5 keeps its own content.
             for (index in listOf(1, 3)) assertEquals(1, imagesOn(doc.getPage(index)).size)
             assertEquals("q 20 0 0 20 150 150 cm /Logo Do Q", doc.getPage(4).contents.use { String(it.readBytes()) })
@@ -694,6 +688,54 @@ class RedactionDeviceTest {
             val center = render(redacted, index).getPixel(100, 100)
             assertTrue("Page ${index + 1} still shows blue: ${Integer.toHexString(center)}", Color.blue(center) > 200 && Color.red(center) < 60)
         }
+    }
+
+    /** Whether any image in [doc], wherever it is kept, has a pixel of red. */
+    private fun anImageIsRed(doc: PDDocument): Boolean {
+        val seen = Collections.newSetFromMap(IdentityHashMap<COSBase, Boolean>())
+        val pending = ArrayDeque<COSBase>().apply { add(doc.document.trailer) }
+        while (pending.isNotEmpty()) {
+            val item = pending.removeLast().let { if (it is COSObject) it.`object` else it } ?: continue
+            if (!seen.add(item)) continue
+            if (item is COSStream && item.getCOSName(COSName.SUBTYPE) == COSName.IMAGE) {
+                if (pixels(PDImageXObject(PDStream(item), null).image).any(::red)) return true
+            }
+            if (item is COSDictionary) item.entrySet().forEach { pending += it.value } else if (item is COSArray) item.forEach { pending += it }
+        }
+        return false
+    }
+
+    /**
+     * A photo all under a box on page 1 that a hidden stamp on page 2 also draws, in its appearance:
+     * it would stay in the file for the stamp, out of sight, so page 2 becomes a picture too and
+     * the photo goes.
+     */
+    @Test fun anImageUnderABoxDoesNotStayForAHiddenStamp() {
+        val file = File(context.cacheDir, "stamped.pdf")
+        PDDocument().use { doc ->
+            val photo = image(doc, 4, 4, Color.RED)
+            fun withPhoto() = PDResources().apply { put(COSName.getPDFName("Photo"), photo) }
+            doc.addPage(PDPage(PDRectangle(200f, 200f)).apply {
+                resources = withPhoto()
+                setContents(PDStream(doc, "q 200 0 0 200 0 0 cm /Photo Do Q".byteInputStream()))
+            })
+            val look = PDAppearanceStream(doc).apply {
+                bBox = PDRectangle(50f, 50f)
+                resources = withPhoto()
+                cosObject.createOutputStream().use { it.write("q 50 0 0 50 0 0 cm /Photo Do Q".toByteArray()) }
+            }
+            doc.addPage(PDPage(PDRectangle(200f, 200f)).apply {
+                resources = PDResources()
+                annotations = listOf(PDAnnotationRubberStamp().apply {
+                    rectangle = PDRectangle(20f, 20f, 50f, 50f)
+                    isHidden = true
+                    appearance = PDAppearanceDictionary().apply { setNormalAppearance(look) }
+                })
+            })
+            doc.save(file)
+        }
+        val redacted = save(engine.redact(import(file), listOf(RedactBox(0, 0f, 0f, 1f, 1f)), "stamped_redacted").file, "stamped_redacted.pdf")
+        PDDocument.load(redacted).use { doc -> assertFalse("The photo stays in the file", anImageIsRed(doc)) }
     }
 
     /** A name found only in a comment's text gets a box on that comment's page, so the comment goes. */
