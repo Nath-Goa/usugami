@@ -165,9 +165,16 @@ internal fun EditPreview(
                                 val y = down.position.y * toPage
                                 val chosen = latestSelected
                                 val reach = 12.dp.toPx() * toPage
-                                val handle = chosen?.let { item ->
-                                    handleSpots(item, HANDLE_GAP.toPx() * toPage).firstOrNull { (_, at) -> hypot(at.first - x, at.second - y) <= 1.5f * reach }?.first
+                                val grabbed = chosen?.let { item ->
+                                    val corners = EditLayout.handles(item).toMap()
+                                    val near = handleSpots(item, HANDLE_GAP.toPx() * toPage).firstOrNull { (_, at) -> hypot(at.first - x, at.second - y) <= 1.5f * reach }?.first
+                                    near?.let { it to corners.getValue(it).let { (cx, cy) -> Offset(cx - x, cy - y) } }
                                 }
+                                val handle = grabbed?.first
+                                // Where the handle's corner is from the finger, in points: it moves as far
+                                // as the finger does, rather than jumping under it (text's and a drawing's
+                                // handle shows beside the corner, clear of the ink), as on the crop screen.
+                                val grip = grabbed?.second ?: Offset.Zero
                                 val hit = if (handle == null) EditLayout.pick(latestItems, x, y, reach, chosen?.id) else chosen
                                 if (hit == null) {
                                     // Off every item: a tap lets go of the chosen one, a swipe scrolls.
@@ -187,7 +194,7 @@ internal fun EditPreview(
                                 var last: PageItem = hit
                                 fun dragTo(position: Offset): Boolean {
                                     val moved = (position - down.position) * toPage
-                                    val next = if (handle != null) EditLayout.dragHandle(hit, handle, position.x * toPage, position.y * toPage, shownWidth, shownHeight)
+                                    val next = if (handle != null) EditLayout.dragHandle(hit, handle, position.x * toPage + grip.x, position.y * toPage + grip.y, shownWidth, shownHeight)
                                     else EditLayout.moved(hit, moved.x, moved.y, shownWidth, shownHeight)
                                     if (!dragStep(last, next)) return false
                                     last = next
