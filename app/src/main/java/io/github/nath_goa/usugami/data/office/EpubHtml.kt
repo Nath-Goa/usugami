@@ -536,10 +536,11 @@ internal class XhtmlReader(
     /** A picture: an img, an SVG image ([fromSvg]) or an object, whose [source] is given. */
     private fun image(p: XmlPullParser, inherited: Inherited, css: Map<String, String>, fromSvg: Boolean, source: String? = null) {
         val src = source ?: (if (fromSvg) p.attr("href") else p.attr("src") ?: p.attr("href")) ?: return
-        val target = EpubPaths.resolve(path, src)?.first ?: return
-        val pixels = imageSize(target)
-        if (pixels == null) {
-            // Not a picture Android can draw (an SVG, say): its description stands in, if it has one.
+        val target = EpubPaths.resolve(path, src)?.first
+        val pixels = target?.let(imageSize)
+        if (target == null || pixels == null) {
+            // Not a picture in the book that Android can draw (an SVG, or one written into the page as
+            // data: or kept on the web): its description stands in, if it has one.
             p.attr("alt")?.trim()?.takeIf { it.isNotEmpty() }?.let { appendText(" $it ", inherited.copy(italic = true)) }
             return
         }

@@ -493,6 +493,11 @@ class EpubConverterDeviceTest {
         assertEquals(listOf("two"), entries.single { (it.item as? BookPara)?.text?.toString() == "Chapter Two" }.ids)
     }
 
+    @Test fun aPictureWrittenIntoThePageLeavesItsDescription() {
+        val entries = read("""<p>Before <img src="data:image/png;base64,iVBORw0KGgo=" alt="A drawn chart"/></p>""")
+        assertTrue(texts(entries).toString(), texts(entries).any { "A drawn chart" in it })
+    }
+
     @Test fun objectsShowWhatTheyHoldInPlaceOfAnSvg() {
         val entries = read("""<p>Sales: <object data="chart.svg" type="image/svg+xml"><img src="chart.png" alt="Sales chart"/></object></p>""")
         assertTrue(texts(entries).toString(), texts(entries).any { "Sales chart" in it })
