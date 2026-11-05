@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or "how do I…?"
+    url: https://github.com/Nath-Goa/usugami/discussions/categories/q-a
+    about: Ask in Discussions. Issues are for bugs.
+  - name: Idea or feature request
+    url: https://github.com/Nath-Goa/usugami/discussions/categories/ideas
+    about: Share it in Discussions, where others can add to it and vote.
+  - name: Security problem
+    url: https://github.com/Nath-Goa/usugami/security/advisories/new
+    about: Report it privately, not in a public issue (see SECURITY.md).

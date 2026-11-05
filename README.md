@@ -517,6 +517,10 @@ Setting names can differ slightly between Obtainium versions.
 
 ## Questions and troubleshooting
 
+Can't find your answer below? Ask in [Discussions](https://github.com/Nath-Goa/usugami/discussions/categories/q-a)
+(questions and [ideas](https://github.com/Nath-Goa/usugami/discussions/categories/ideas) are welcome there), or
+[open an issue](https://github.com/Nath-Goa/usugami/issues) if something is broken.
+
 <details>
 <summary><b>"App not installed" or "the package conflicts with an existing package"</b></summary>
 
@@ -862,7 +866,8 @@ built-in PDF writer, so they need no extra library.
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Usugami
+Bug reports and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). Questions and ideas go
+to [Discussions](https://github.com/Nath-Goa/usugami/discussions). Usugami
 won't accept ads, tracking or network features. To report a security problem privately, see
 [SECURITY.md](SECURITY.md).
 
