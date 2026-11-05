@@ -158,8 +158,9 @@ fun PdfToolScreen(
     val officeKind = tool.officeKind
     // A tool that also takes several PDFs or documents ([isBatch]) lists them, each with its own name and choices.
     val many = tool.isBatch && (if (officeKind != null) documents.size else inputs.size) > 1
-    var splitMode by rememberSaveable(tool) { mutableStateOf(SplitMode.SELECTED) }
-    var pageText by rememberSaveable(tool) { mutableStateOf("") }
+    // Split's pages belong to the PDF they were chosen in, as Delete pages' do.
+    var splitMode by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf(SplitMode.SELECTED) }
+    var pageText by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf("") }
     var combine by rememberSaveable(tool) { mutableStateOf(true) }
     var pageMode by rememberSaveable(tool) { mutableStateOf(false) }
     var numberPosition by rememberSaveable(tool) { mutableStateOf(PageNumberPosition.BOTTOM_CENTER) }
