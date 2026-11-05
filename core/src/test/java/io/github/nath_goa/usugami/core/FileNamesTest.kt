@@ -29,6 +29,8 @@ class FileNamesTest {
         assertTrue(result.toByteArray().size <= 200)
         assertEquals(50, result.codePointCount(0, result.length))
         assertEquals(200, FileNames.sanitize("a".repeat(300), "x").length)
+        // Nor a letter from its accent: "é" written as an e and a combining accent is 3 bytes.
+        assertEquals("é".repeat(66), FileNames.sanitize("é".repeat(67), "x"))
     }
 
     @Test

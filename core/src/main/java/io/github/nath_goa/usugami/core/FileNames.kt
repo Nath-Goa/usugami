@@ -1,5 +1,8 @@
 package io.github.nath_goa.usugami.core
 
+import java.text.BreakIterator
+import java.util.Locale
+
 object FileNames {
     private const val MAX_UTF8_BYTES = 200 // leaves room for " (99).pdf" within the usual 255-byte limit
     private val ILLEGAL = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]")
@@ -45,14 +48,31 @@ object FileNames {
 
     private fun trimEnd(text: String) = text.trimEnd { it.isWhitespace() || it == '.' }
 
+    /**
+     * [text] cut to at most [maxBytes] bytes of UTF-8 between whole characters as people see them:
+     * a letter keeps its accents and vowel signs, and an emoji made of several (a family, a flag)
+     * stays whole or goes. Only a single such character too long for the limit is cut inside.
+     */
     private fun truncateUtf8(text: String, maxBytes: Int): String {
-        if (text.toByteArray(Charsets.UTF_8).size <= maxBytes) return text
-        val sb = StringBuilder()
+        if (utf8Size(text) <= maxBytes) return text
+        val characters = BreakIterator.getCharacterInstance(Locale.ROOT).apply { setText(text) }
+        var end = 0
         var bytes = 0
+        var next = characters.next()
+        while (next != BreakIterator.DONE) {
+            val size = utf8Size(text.substring(end, next))
+            if (bytes + size > maxBytes) break
+            bytes += size
+            end = next
+            next = characters.next()
+        }
+        if (end > 0) return text.substring(0, end)
+        // The first character alone is too long: whole code points of it, then.
+        val sb = StringBuilder()
         var i = 0
         while (i < text.length) {
             val cp = text.codePointAt(i)
-            val size = String(Character.toChars(cp)).toByteArray(Charsets.UTF_8).size
+            val size = utf8Size(String(Character.toChars(cp)))
             if (bytes + size > maxBytes) break
             sb.appendCodePoint(cp)
             bytes += size
@@ -60,6 +80,8 @@ object FileNames {
         }
         return sb.toString()
     }
+
+    private fun utf8Size(text: String) = text.toByteArray(Charsets.UTF_8).size
 }
 
 /** Orders names the way people expect: "IMG_2" before "IMG_10", ignoring case. */
