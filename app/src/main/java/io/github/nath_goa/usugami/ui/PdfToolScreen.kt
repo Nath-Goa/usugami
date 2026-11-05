@@ -418,6 +418,7 @@ fun PdfToolScreen(
                                 signPlacement, onPlacement = { signPlacement = it },
                                 // Read and written at once, so a second press before the screen redraws moves on from the first.
                                 onNudge = { move -> signPlacement = move(signPlacement) },
+                                pageSizes = vm::shownPageSizes,
                             )
                             PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> Unit
                             PdfTool.DELETE_PAGES -> DeletePagesOptions(

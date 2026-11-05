@@ -48,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
@@ -104,6 +105,7 @@ internal val SignaturePlacementSaver = Saver<SignaturePlacement?, FloatArray>(
  * [placement] null means the signature hasn't been moved: it then sits where
  * [SignatureLayout.default] puts it on whichever page is chosen. [onNudge] applies a move to the
  * placement as it is at that moment, which may be newer than the [placement] last shown.
+ * [pageSizes] reads every page's size as shown, exactly, from the PDF itself.
  */
 @Composable
 internal fun SignOptions(
@@ -115,6 +117,7 @@ internal fun SignOptions(
     placement: SignaturePlacement?,
     onPlacement: (SignaturePlacement) -> Unit,
     onNudge: (SignatureMove) -> Unit,
+    pageSizes: suspend (PdfInput) -> List<Pair<Float, Float>>?,
 ) {
     Text(stringResource(R.string.sign_signature), style = MaterialTheme.typography.titleMedium)
     Column {
@@ -134,7 +137,7 @@ internal fun SignOptions(
                         Text(stringResource(R.string.sign_page), style = MaterialTheme.typography.titleMedium)
                         PageStrip(input, page, onPage)
                     }
-                    SignaturePlacer(input, page, shown, placement, onPlacement, onNudge)
+                    SignaturePlacer(input, page, shown, placement, onPlacement, onNudge, pageSizes)
                 }
             }
         }
@@ -248,11 +251,15 @@ private fun SignaturePlacer(
     placement: SignaturePlacement?,
     onPlacement: (SignaturePlacement) -> Unit,
     onNudge: (SignatureMove) -> Unit,
+    pageSizes: suspend (PdfInput) -> List<Pair<Float, Float>>?,
 ) {
+    // Every page's size as shown, exactly, as the signed PDF has it: the page is drawn again exactly
+    // that big once it is known, as Redact PDF's preview is, so the signature lands where it shows.
+    val sizes by produceState<List<Pair<Float, Float>>?>(null, input.path) { value = pageSizes(input) }
     // The page last drawn stays while the next one is drawn, instead of flashing blank.
     var page by remember(input.path) { mutableStateOf<RenderedPage?>(null) }
-    LaunchedEffect(input.path, pageIndex) {
-        page = withContext(Dispatchers.IO) { renderShownPage(input, pageIndex, 1000) }
+    LaunchedEffect(input.path, pageIndex, sizes) {
+        page = withContext(Dispatchers.IO) { renderShownPage(input, pageIndex, 1000, sizes?.getOrNull(pageIndex)) }
     }
     // Until the page has been drawn, an A4 page stands in for it.
     val pageWidth = page?.width ?: 595f
