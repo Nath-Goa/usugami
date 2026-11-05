@@ -124,6 +124,14 @@ data class CropSession(
 @TypeParceler<CropQuad, CropQuadParceler>
 data class PendingCrop(val itemId: Long, val quad: CropQuad) : Parcelable
 
+/**
+ * A photo taken, in the camera app's file at [path], to be added as [name]. Kept in the saved state
+ * until it is added, so a photo Android closed Usugami before adding (it waits behind images still
+ * being added) is added when Usugami starts again.
+ */
+@Parcelize
+data class PendingPhoto(val path: String, val name: String) : Parcelable
+
 class MainViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
     // Messages are written here, in the language the user picked (see AppLanguages.localized).
     private val strings: Resources get() = AppLanguages.localized(app).resources
@@ -181,6 +189,18 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         get() = handle[KEY_CAPTURE]
         set(value) { handle[KEY_CAPTURE] = value }
 
+    /** The photos taken that are waiting to be added, in the saved state until each is (see [addPhoto]). */
+    private var pendingPhotos: List<PendingPhoto>
+        get() = handle.get<ArrayList<PendingPhoto>>(KEY_PENDING_PHOTOS).orEmpty()
+        set(value) { handle[KEY_PENDING_PHOTOS] = ArrayList(value) }
+
+    /**
+     * The files of the photos that the state Android saved last names as waiting: Usugami may start
+     * again from that state, so each one's file stays once it is added, until a state that no longer
+     * names it is saved. On the main thread only.
+     */
+    private val photosInSavedState = pendingPhotos.mapTo(HashSet()) { it.path }
+
     /**
      * The look chosen last on the crop screen, which the next photo taken starts with: pages scanned
      * one after another look alike.
@@ -201,7 +221,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
      * Pages cropped again, replaced by their new crop, deleted once Android has saved a state that no
      * longer names them. A crop is often made after Android has stopped Usugami and saved its state,
      * which names the page as it was: if Android then closes Usugami, it starts again from that page,
-     * which must still be there. On the main thread only.
+     * which must still be there. Photos added that such a state names as waiting are kept the same
+     * way (see [photosInSavedState]). On the main thread only.
      */
     private val superseded = ArrayList<File>()
 
@@ -314,6 +335,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     init {
         handle.setSavedStateProvider(KEY_ITEMS) {
             packItems(_items.value).also {
+                photosInSavedState.clear()
+                pendingPhotos.mapTo(photosInSavedState) { it.path }
                 // This state names the pages as they are now: those they replaced can go.
                 if (superseded.isNotEmpty()) {
                     val gone = superseded.toList()
@@ -341,6 +364,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // Read here: photoTaken() forgets it once the camera app is back, which may be before the
         // cleanup below runs, and the photo would be deleted.
         val keepCapture = capture
+        // Photos taken that weren't added yet when Android closed Usugami are added below.
+        val photos = pendingPhotos
         // Pages Android stopped Usugami in the middle of cropping are cropped again (see below).
         val resumed = pendingCrops
         val croppedAgain = resumed.mapTo(HashSet()) { it.itemId }
@@ -350,7 +375,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             val (found, resultGone, wholeAgain) = withContext(fileOps) {
                 // Leftovers from an earlier session (or half-copied files) are removed.
                 store.deleteAllExcept(keep)
-                store.clearCaptures(keep = keepCapture)
+                store.clearCaptures(keep = listOfNotNull(keepCapture) + photos.map { it.path })
                 val stillThere = shown?.takeIf { files -> files.all { it.file.isFile } }
                 exporter.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
@@ -375,6 +400,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             val item = items.value.firstOrNull { it.id == pending.itemId } ?: continue
             crop(item, item.source, pending.quad, after = putBack)
         }
+        // After the cleanup, which keeps their files, and before images added from now on.
+        photos.forEach(::addPhoto)
         viewModelScope.launch { _result.collect(keptResult::keep) }
         viewModelScope.launch { _saved.collect { handle[KEY_SAVED] = it } }
         viewModelScope.launch { _crop.collect { handle[KEY_CROP] = it } }
@@ -676,19 +703,32 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             viewModelScope.launch(fileOps) { file.delete() }
             return
         }
+        val name = "Scan_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT)) + ".jpg"
+        val photo = PendingPhoto(path, name)
+        // In the saved state from now until it is added: Android may close Usugami while it waits.
+        pendingPhotos = pendingPhotos + photo
+        addPhoto(photo)
+    }
+
+    /** Adds [photo] after any images still being added, and opens the crop screen for it. */
+    private fun addPhoto(photo: PendingPhoto) {
         _pendingImports.update { it + 1 }
         val generation = importGeneration
-        val name = "Scan_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT)) + ".jpg"
+        val file = File(photo.path)
         viewModelScope.launch {
             importLock.withLock {
                 val id = nextId++
                 val r = withContext(fileOps) {
-                    try {
-                        // Some camera apps return without saving the photo.
-                        if (generation != importGeneration || file.length() == 0L) null else store.import(Uri.fromFile(file), id, name)
-                    } finally {
-                        file.delete()
-                    }
+                    // Some camera apps return without saving the photo.
+                    if (generation != importGeneration || file.length() == 0L) null else store.import(Uri.fromFile(file), id, photo.name)
+                }
+                pendingPhotos = pendingPhotos - photo
+                // A photo added that the state saved last names as waiting is added from its file
+                // again if Usugami starts again from that state: the file goes with the next one.
+                if (r is ImageStore.ImportResult.Added && generation == importGeneration && photo.path in photosInSavedState) {
+                    superseded += file
+                } else {
+                    viewModelScope.launch(fileOps) { file.delete() }
                 }
                 if (generation != importGeneration) {
                     // Discarded while it was being added.
@@ -1295,6 +1335,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_CAPTURE = "capture"
         private const val KEY_LOOK = "look"
         private const val KEY_PENDING_CROPS = "pending_crops"
+        private const val KEY_PENDING_PHOTOS = "pending_photos"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,

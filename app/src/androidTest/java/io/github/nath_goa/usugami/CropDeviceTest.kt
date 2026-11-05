@@ -490,6 +490,36 @@ class CropDeviceTest {
         assertTrue(captures().isEmpty())
     }
 
+    /**
+     * A photo waiting its turn to be added when Android saved Usugami's state keeps its file until a
+     * later state no longer names it: Usugami started again from that state adds it.
+     */
+    @Test fun aPhotoWaitingWhenTheStateWasSavedIsAddedWhenUsugamiStartsAgain() {
+        val handle = SavedStateHandle()
+        val vm = onMain { MainViewModel(app, handle) }
+        runBlocking { vm.awaitFileWork() }
+        val uri = onMain { vm.newCapture() }
+        app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        val saved = onMain {
+            vm.photoTaken(true)
+            handle.savedStateProvider().saveState()
+            mapOf("items" to MainViewModel.packItems(emptyList()), "pending_photos" to handle.get<Any>("pending_photos"))
+        }
+        waitUntil("the photo's crop screen") { vm.crop.value != null }
+        runBlocking { vm.awaitFileWork() }
+        assertEquals("Kept while the state saved last names it", 1, captures().size)
+
+        // Android closes Usugami and starts it again from that state.
+        val restoredHandle = SavedStateHandle(saved)
+        val restored = onMain { MainViewModel(app, restoredHandle) }
+        waitUntil("the photo's crop screen") { restored.crop.value != null }
+        assertEquals(1, onMain { restored.items.value.size })
+        onMain { restoredHandle.savedStateProvider().saveState() }
+        waitUntil("the camera's file to go") { captures().isEmpty() }
+        onMain { restored.closeCrop() }
+        runBlocking { restored.awaitFileWork() }
+    }
+
     @Test fun aPageRemovedWhileItIsCroppedGoesWithoutAWord() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
         runBlocking { vm.awaitFileWork() }

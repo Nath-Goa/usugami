@@ -153,9 +153,12 @@ class ImageStore(context: Context) {
         return File(captureDir, "$id.jpg").apply { delete() }
     }
 
-    /** Deletes the photos the camera app saved that were never added, except [keep] (one it may still be saving). */
-    fun clearCaptures(keep: String? = null) {
-        captureDir.listFiles()?.forEach { if (it.path != keep) it.delete() }
+    /**
+     * Deletes the photos the camera app saved that were never added, except those at the paths
+     * [keep] (one it may still be saving, and those still to be added).
+     */
+    fun clearCaptures(keep: Collection<String> = emptyList()) {
+        captureDir.listFiles()?.forEach { if (it.path !in keep) it.delete() }
     }
 
     private fun displayName(uri: Uri): String? {
