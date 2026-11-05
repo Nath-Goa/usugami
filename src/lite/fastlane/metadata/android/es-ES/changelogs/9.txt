@@ -1,0 +1,4 @@
+• Censurar encuentra también el texto de enlaces, campos ocultos y hebreo o árabe, y lo quita del archivo
+• Las fotos e imágenes que se estaban añadiendo ya no se pierden cuando Android cierra Usugami Lite
+• Los EPUB se abren por su portada y mantienen la alineación de derecha a izquierda; en archivos de Word, el árabe, el hebreo y el hindi salen con su tamaño
+• Dividir conserva las imágenes JPEG 2000, Comprimir respeta las tintas planas y un PDF dañado ya no cierra ni bloquea Usugami Lite

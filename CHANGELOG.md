@@ -6,6 +6,50 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-11-05
+
+### Added
+
+- **Usugami's own F-Droid repository**: add [nathank.me/usugami](https://nathank.me/usugami/) to
+  F-Droid, Droid-ify or Neo Store to get Usugami (with the open-source text recognition of Usugami
+  OCR) and Usugami Lite with automatic updates. It serves exactly the APKs published here, signed
+  with the same key.
+
+### Fixed
+
+- **Redact PDF**: Find text now also finds text in link and email addresses (also when written with
+  escapes, like `Jos%C3%A9`), in the files links and buttons open, and in form fields' hidden values,
+  names, tooltips, choices and default values, even in fields no page shows, and takes it out of the
+  file.
+- **Redact PDF**: Find text now finds Hebrew and Arabic text typed as you would write it.
+- **Split PDF** no longer leaves blank pages where a page's picture is a JPEG 2000 image, and
+  Redact PDF and Delete pages see that such pages draw those images.
+- A PDF nested too deeply, in its contents or its pages (a damaged or crafted file), is refused as
+  unreadable when it is added instead of closing Usugami.
+- **Flatten PDF**: fields it can't draw stay fillable even when another field's widget doesn't say
+  which page it is on.
+- **Compress PDF** leaves spot-color, CMYK and Lab JPEG images as they are instead of changing their
+  colors.
+- **Delete pages**, **Reorganize PDF** and **Merge PDF** no longer hang on a PDF whose bookmarks
+  loop, and can be cancelled there.
+- Photos taken while other images are still being added are no longer lost when Android closes
+  Usugami in the background.
+- Images still being added when Android closes Usugami are no longer lost without a word: Usugami
+  says to share or add them again.
+- **Edit PDF**: resizing text or a drawing by its handle no longer makes it jump bigger as the drag
+  starts, or refuse to shrink.
+- **EPUB to PDF**: books whose first page is a picture other than the cover open on their cover, and
+  the cover is no longer added again at the end.
+- **EPUB to PDF**: in right-to-left books, text set to align right or left stays on that side, and
+  list bullets and indents are on the right.
+- **Word to PDF**: Arabic, Hebrew, Hindi and other complex-script text gets the size, bold and
+  italic Word gives it.
+- Cancelling a ZIP file saved over an existing file, or running out of space while saving it,
+  leaves that file as it was.
+- A name ending in ".pdf." no longer saves as "Name.pdf.pdf".
+- Usugami's F-Droid repository shows Usugami's icon instead of a QR code, and Usugami Lite is no
+  longer listed under OCR.
+
 ## [1.5.1] - 2026-11-04
 
 ### Changed

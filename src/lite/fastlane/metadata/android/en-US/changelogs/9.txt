@@ -1,0 +1,4 @@
+• Redact PDF also finds text in links, hidden form fields and Hebrew or Arabic, and removes it from the file
+• Photos and images still being added are no longer lost when Android closes Usugami Lite
+• E-books open on their cover and keep right-to-left alignment; Word files size Arabic, Hebrew and Hindi text as Word does
+• Split keeps JPEG 2000 images, Compress keeps spot colors, and a damaged PDF no longer closes or hangs Usugami Lite

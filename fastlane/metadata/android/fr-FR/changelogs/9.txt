@@ -1,0 +1,4 @@
+• Caviarder trouve aussi le texte des liens, des champs masqués et l'hébreu ou l'arabe, et le retire du fichier
+• Les photos et images en cours d'ajout ne sont plus perdues quand Android ferme Usugami
+• Les EPUB s'ouvrent sur leur couverture et gardent l'alignement de droite à gauche ; l'arabe, l'hébreu et l'hindi des fichiers Word ont la bonne taille
+• Diviser garde les images JPEG 2000, Compresser garde les tons directs, et un PDF endommagé ne ferme ni ne bloque plus Usugami

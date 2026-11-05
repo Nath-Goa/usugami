@@ -64,11 +64,17 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.5.1
+## What's new in 1.5.2
 
-- **Usugami Lite is now an app of its own**, so it installs next to Usugami and can go on
-  F-Droid. Had Lite 1.5.0? Install the new one, then uninstall the old one.
-- **On its way to F-Droid**, with reproducible builds signed with the same key as these downloads
+- **Get updates in F-Droid** from Usugami's own repository: [nathank.me/usugami](https://nathank.me/usugami/)
+- **Safer redaction**: Find text also finds text in links, hidden form fields and Hebrew or Arabic,
+  and removes it from the file
+- **Nothing lost when Android closes Usugami** while photos or images are still being added, and
+  cancelling a save over a file leaves it as it was
+- **Better conversions**: e-books open on their cover and keep right-to-left alignment; Word files
+  size Arabic, Hebrew and Hindi text as Word does
+- **More fixes**: Split keeps JPEG 2000 images, Compress keeps spot colors, and damaged PDFs no
+  longer close or hang Usugami
 
 1.5.0, the big update before it:
 
