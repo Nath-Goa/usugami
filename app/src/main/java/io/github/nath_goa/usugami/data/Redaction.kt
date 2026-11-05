@@ -70,6 +70,10 @@ internal object Redactor {
     /** How far, in points, something may reach past the edge of a page and still count as shown on it. */
     private const val SLACK = 1f
 
+    /** Annotation flags (/F): hidden, and not shown on the screen (though perhaps printed). */
+    private const val HIDDEN = 1 shl 1
+    private const val NO_VIEW = 1 shl 5
+
     /** The kinds of comment that mark what the page itself shows: text, or a place drawn around. */
     private val MARKUP = listOf("Highlight", "Underline", "StrikeOut", "Squiggly", "Ink", "Square", "Circle", "Polygon", "PolyLine", "Line", "Caret")
         .map(COSName::getPDFName).toSet()
@@ -147,12 +151,19 @@ internal object Redactor {
      * becomes a picture and the comment goes. A comment that marks the page's own content (a
      * highlight, a drawing) gets the smallest box, at its corner: the page becomes a picture all
      * the same, and what it marks, which needn't hold the text, isn't blacked out. The pages in
-     * [skip] have the text on them, so they lose their comments anyway. Form fields aren't looked
-     * at: their values are on the page.
+     * [skip] have the text on them, so they lose their comments anyway.
+     *
+     * So do links and buttons whose web or email address has [query], and form fields that hold it
+     * where no page shows it: as the value of a field hidden on its page, or as a field's tooltip.
+     * They too get the smallest box, so their pages become pictures and they go; a field's widgets
+     * all do, on every page, so that the field goes with its value (see [removeLeaks]). The value
+     * of a field the page shows is on the page, where it is found as its text.
      */
     fun findInComments(doc: PDDocument, query: String, skip: Set<Int>, check: () -> Unit): List<List<RedactBox>> {
         val wanted = PageText.normalize(query)
         if (wanted.isEmpty()) return emptyList()
+        fun has(text: String) = PageText.normalize(text).contains(wanted, ignoreCase = true)
+        val holders = fieldsHolding(doc, ::has, check)
         val found = ArrayList<List<RedactBox>>()
         doc.pages.forEachIndexed { index, page ->
             if (index in skip) return@forEachIndexed
@@ -162,18 +173,81 @@ internal object Redactor {
             for (item in annotations) {
                 val annotation = item.resolve() as? COSDictionary ?: continue
                 val subtype = annotation.getCOSName(COSName.SUBTYPE)
-                if (subtype == COSName.WIDGET) continue
-                val said = listOf(COSName.CONTENTS, COSName.T, COSName.SUBJ).mapNotNull { annotation.getString(it) } + listOfNotNull(richText(annotation))
-                if (said.none { PageText.normalize(it).contains(wanted, ignoreCase = true) }) continue
+                val widget = subtype == COSName.WIDGET
+                val says = !widget && (listOf(COSName.CONTENTS, COSName.T, COSName.SUBJ).mapNotNull { annotation.getString(it) } + listOfNotNull(richText(annotation))).any(::has)
+                val leads = addresses(annotation).any(::has)
+                val holds = widget && fieldOf(annotation).any { it in holders }
+                if (!says && !leads && !holds) continue
                 // A pop-up's window may be anywhere: it is boxed where its comment is.
                 val placed = (annotation.getDictionaryObject(COSName.PARENT) as? COSDictionary)?.takeIf { subtype == COSName.getPDFName("Popup") } ?: annotation
                 val rect = placed.getCOSArray(COSName.RECT)?.toFloatArray()?.takeIf { it.size == 4 } ?: FloatArray(4)
                 val (x0, y0) = frame.toShown(rect[0], rect[1])
                 val (x1, y1) = frame.toShown(rect[2], rect[3])
                 val box = Redaction.between(index, x0 / frame.shownWidth, 1 - y0 / frame.shownHeight, x1 / frame.shownWidth, 1 - y1 / frame.shownHeight)
-                val marks = placed.getCOSName(COSName.SUBTYPE) in MARKUP
+                // What the page shows there needn't hold the text: it isn't blacked out.
+                val small = !says || placed.getCOSName(COSName.SUBTYPE) in MARKUP
                 // Off the page, it is boxed at the nearest edge, so the page is still redacted.
-                found += listOf(Redaction.clamp(if (marks) box.copy(right = box.left, bottom = box.top) else box))
+                found += listOf(Redaction.clamp(if (small) box.copy(right = box.left, bottom = box.top) else box))
+            }
+        }
+        return found
+    }
+
+    /**
+     * The form fields, and widgets, whose own text has [has] where no page shows it: the value of a
+     * field whose widget is hidden (/V, also of the fields above it, from which it may inherit),
+     * and any field's tooltip (/TU).
+     */
+    private fun fieldsHolding(doc: PDDocument, has: (String) -> Boolean, check: () -> Unit): Set<COSDictionary> {
+        val holders = identitySet<COSDictionary>()
+        for (page in doc.pages) {
+            check()
+            val annotations = page.cosObject.getCOSArray(COSName.ANNOTS) ?: continue
+            for (item in annotations) {
+                val widget = item.resolve() as? COSDictionary ?: continue
+                if (widget.getCOSName(COSName.SUBTYPE) != COSName.WIDGET) continue
+                val hidden = widget.getInt(COSName.F, 0) and (HIDDEN or NO_VIEW) != 0
+                for (field in fieldOf(widget)) {
+                    val tooltip = field.getString(COSName.TU)
+                    if (tooltip != null && has(tooltip) || hidden && texts(field.getDictionaryObject(COSName.V)).any(has)) holders += field
+                }
+            }
+        }
+        return holders
+    }
+
+    /** [widget] and the form fields it belongs to, up to the top. */
+    private fun fieldOf(widget: COSDictionary): Sequence<COSDictionary> =
+        generateSequence(widget) { it.getDictionaryObject(COSName.PARENT) as? COSDictionary }.take(32)
+
+    /** A field's value as text: a text, a choice (a name) or the choices of a list. */
+    private fun texts(value: COSBase?): List<String> = when (value) {
+        is COSString -> listOf(value.string)
+        is COSName -> listOf(value.name)
+        is COSArray -> (0 until value.size()).flatMap { texts(value.getObject(it).takeIf { item -> item !is COSArray }) }
+        else -> emptyList()
+    }
+
+    /**
+     * The web and email addresses (URI actions) [annotation] leads to: a link's, a button's, also
+     * when it is clicked, pressed or left (/AA), those that follow (/Next), and a link's former one
+     * (/PA).
+     */
+    private fun addresses(annotation: COSDictionary): List<String> {
+        val pending = ArrayDeque<COSBase?>()
+        pending += annotation.getDictionaryObject(COSName.A)
+        pending += annotation.getDictionaryObject(COSName.getPDFName("PA"))
+        (annotation.getDictionaryObject(COSName.AA) as? COSDictionary)?.let { triggers -> triggers.keySet().forEach { pending += triggers.getDictionaryObject(it) } }
+        val seen = identitySet<COSBase>()
+        val found = ArrayList<String>()
+        while (pending.isNotEmpty() && seen.size < 64) {
+            when (val action = pending.removeLast()) {
+                is COSArray -> if (seen.add(action)) (0 until action.size()).forEach { pending += action.getObject(it) }
+                is COSDictionary -> if (seen.add(action)) {
+                    action.getString(COSName.URI)?.let(found::add)
+                    pending += action.getDictionaryObject(COSName.NEXT)
+                }
+                else -> Unit
             }
         }
         return found

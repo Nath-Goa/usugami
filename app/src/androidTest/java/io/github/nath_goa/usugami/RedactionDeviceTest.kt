@@ -38,7 +38,9 @@ import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionJavaScript
+import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationFileAttachment
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationSquareCircle
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationText
@@ -718,6 +720,43 @@ class RedactionDeviceTest {
         assertEquals(Redaction.MIN_SIZE, mark.height, 1e-6f)
         val redacted = save(engine.redact(source, found.flatten(), "commented_redacted").file, "commented_redacted.pdf")
         PDDocument.load(redacted).use { doc -> assertTrue(everything(doc).none { it.contains("Smith") }) }
+    }
+
+    /**
+     * What the file holds but no page shows: where a link leads, and the value of a hidden form
+     * field. Find text finds them, without blacking out what is under them, and they are gone
+     * from the redacted file.
+     */
+    @Test fun findTextFindsLinkAddressesAndHiddenFieldValues() {
+        val file = File(context.cacheDir, "addresses.pdf")
+        PDDocument().use { doc ->
+            val first = PDPage(PDRectangle.A4).also(doc::addPage)
+            PDPageContentStream(doc, first).use { content -> write(content, "Email me", 72f, 700f) }
+            first.annotations.add(PDAnnotationLink().apply {
+                rectangle = PDRectangle(72f, 695f, 80f, 20f)
+                action = PDActionURI().apply { uri = "mailto:john.smith@example.org" }
+            })
+            val second = PDPage(PDRectangle.A4).also(doc::addPage)
+            val form = PDAcroForm(doc)
+            doc.documentCatalog.acroForm = form
+            val field = PDTextField(form)
+            field.partialName = "contact"
+            field.cosObject.setString(COSName.V, "John Smith")
+            field.widgets[0].apply {
+                rectangle = PDRectangle(72f, 600f, 200f, 20f)
+                isHidden = true
+                page = second
+                second.annotations.add(this)
+            }
+            form.fields.add(field)
+            doc.save(file)
+        }
+        val source = import(file)
+        val found = engine.findText(source, "smith")
+        assertEquals(listOf(0, 1), found.map { it.single().page })
+        for (box in found.flatten()) assertEquals(Redaction.MIN_SIZE, box.width, 1e-6f)
+        val redacted = save(engine.redact(source, found.flatten(), "addresses_redacted").file, "addresses_redacted.pdf")
+        PDDocument.load(redacted).use { doc -> assertTrue(everything(doc).none { it.contains("smith", ignoreCase = true) }) }
     }
 
     /**
