@@ -418,16 +418,16 @@ object SimpleCss {
 object CssValues {
     /**
      * A length such as "1.5em", "12px" or "5%". [em] is the element's font size, [base] the book's,
-     * [percentOf] what 100% is (null when percentages don't apply). Absolute units scale with the
-     * book's font, as 16 px (12 pt) is to [base].
+     * [percentOf] what 100% is (null when percentages don't apply), [rem] the root element's font
+     * size. Absolute units scale with the book's font, as 16 px (12 pt) is to [base].
      */
-    fun length(value: String?, em: Float, base: Float, percentOf: Float? = null): Float? {
+    fun length(value: String?, em: Float, base: Float, percentOf: Float? = null, rem: Float = base): Float? {
         val match = Regex("""^(-?\d*\.?\d+)\s*(em|rem|ex|px|pt|pc|in|cm|mm|%)?$""").find(value?.trim()?.lowercase() ?: return null) ?: return null
         val number = match.groupValues[1].toFloatOrNull() ?: return null
         val scale = base / 12f
         return when (match.groupValues[2]) {
             "em" -> number * em
-            "rem" -> number * base
+            "rem" -> number * rem
             "ex" -> number * em * 0.5f
             "px" -> number * 0.75f * scale
             "pt" -> number * scale
@@ -440,10 +440,23 @@ object CssValues {
         }
     }
 
-    /** A font-size: relative to [parent], keywords and absolute sizes relative to [base]; kept between 0.6 and 3 times [base]. */
-    fun fontSize(value: String?, parent: Float, base: Float): Float? {
+    /**
+     * A font-size: relative to [parent], keywords and absolute sizes relative to [base], rem to [rem];
+     * kept between 0.6 and 3 times [base].
+     */
+    fun fontSize(value: String?, parent: Float, base: Float, rem: Float = base): Float? =
+        anyFontSize(value, parent, base, rem)?.coerceIn(base * 0.6f, base * 3f)
+
+    /**
+     * The font size rem lengths are of: the root (html) element's [value], as [fontSize] reads it, but
+     * not kept as close to [base], as books often set it small (62.5%, or 10px) to write sizes in rems
+     * of ten pixels.
+     */
+    fun rootSize(value: String?, base: Float): Float? = anyFontSize(value, base, base, base)?.coerceIn(base * 0.1f, base * 10f)
+
+    private fun anyFontSize(value: String?, parent: Float, base: Float, rem: Float): Float? {
         val v = value?.trim()?.lowercase() ?: return null
-        val size = when (v) {
+        return when (v) {
             "xx-small" -> base * 0.6f
             "x-small" -> base * 0.75f
             "small" -> base * 0.89f
@@ -453,9 +466,8 @@ object CssValues {
             "xx-large" -> base * 2f
             "smaller" -> parent * 0.83f
             "larger" -> parent * 1.2f
-            else -> length(v, parent, base, parent)
-        } ?: return null
-        return size.coerceIn(base * 0.6f, base * 3f)
+            else -> length(v, parent, base, parent, rem)
+        }
     }
 
     /** Whether a font-weight is bold; null when it doesn't say. */

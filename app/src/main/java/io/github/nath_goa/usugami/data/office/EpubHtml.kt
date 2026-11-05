@@ -124,6 +124,10 @@ internal class XhtmlReader(
     private val frames = ArrayList<Frame>()
     private val sheets = ArrayList<CssSheet>()
 
+    /** The html element's font size, which rem lengths are of, and its style attribute. */
+    private var rem = base
+    private var rootStyle: String? = null
+
     // Parts of the document that are skipped or read differently, by how deep in them the reader is.
     private var skip = 0
     private var headDepth = 0
@@ -210,12 +214,14 @@ internal class XhtmlReader(
             if (tag == "image") image(p, current, emptyMap(), fromSvg = true)
             return
         }
+        if (tag == "body") restyleRoot()
         val parent = frames.lastOrNull()
         val inheritedFrom = current
         val id = p.attr("id")?.trim()?.takeIf { it.isNotEmpty() }
         val classes = p.attr("class")?.split(' ', '\t', '\n')?.filter { it.isNotEmpty() }?.toSet().orEmpty()
         val node = CssNode(tag, id, classes, parent?.node)
         val inline = p.attr("style")
+        if (tag == "html") rootStyle = inline
         val css = if (sheets.isEmpty() && inline.isNullOrBlank()) emptyMap() else CssSheet.cascade(node, sheets, inline)
         val display = css["display"]?.lowercase()
         // An empty element (a hidden picture, say) has no inside to skip: it is just left out.
@@ -333,6 +339,19 @@ internal class XhtmlReader(
         if (svgDepth > 0) return run { svgDepth-- }
         if (name in VOID) return
         frames.removeLastOrNull()?.end?.invoke()
+    }
+
+    /**
+     * The html element's font size, read again once the head's style sheets are (it starts before
+     * them): the body's sizes, in rems or not, are of it.
+     */
+    private fun restyleRoot() {
+        val i = frames.indexOfFirst { it.node.tag == "html" }
+        if (i < 0) return
+        val frame = frames[i]
+        val size = CssSheet.cascade(frame.node, sheets, rootStyle)["font-size"]
+        rem = CssValues.rootSize(size, base) ?: return
+        CssValues.fontSize(size, base, base)?.let { frames[i] = Frame(frame.node, frame.inherited.copy(size = it), frame.block, frame.end) }
     }
 
     private fun head(tag: String, p: XmlPullParser) {
@@ -467,8 +486,8 @@ internal class XhtmlReader(
         var t = top
         var b = bottom
         // The margin shorthand comes as its sides (SimpleCss), so the cascade decides each.
-        CssValues.length(css["margin-top"], em, base)?.let { t = it }
-        CssValues.length(css["margin-bottom"], em, base)?.let { b = it }
+        CssValues.length(css["margin-top"], em, base, rem = rem)?.let { t = it }
+        CssValues.length(css["margin-bottom"], em, base, rem = rem)?.let { b = it }
         // Negative margins and huge ones (some books push a title down with a third of a page) are tamed.
         return t.coerceIn(0f, base * 8f) to b.coerceIn(0f, base * 8f)
     }
@@ -533,8 +552,8 @@ internal class XhtmlReader(
             val cssWidth = css["width"] ?: p.attr("width")?.trim()?.let { if (it.isNotEmpty() && it.all(Char::isDigit)) "${it}px" else it }
             val cssHeight = css["height"] ?: p.attr("height")?.trim()?.let { if (it.isNotEmpty() && it.all(Char::isDigit)) "${it}px" else it }
             val percent = cssWidth?.trim()?.takeIf { it.endsWith("%") }?.removeSuffix("%")?.trim()?.toFloatOrNull()
-            val w = cssWidth?.let { CssValues.length(it, inherited.size, base) }?.takeIf { it > 0f }
-            val h = cssHeight?.takeIf { !it.trim().endsWith("%") }?.let { CssValues.length(it, inherited.size, base) }?.takeIf { it > 0f }
+            val w = cssWidth?.let { CssValues.length(it, inherited.size, base, rem = rem) }?.takeIf { it > 0f }
+            val h = cssHeight?.takeIf { !it.trim().endsWith("%") }?.let { CssValues.length(it, inherited.size, base, rem = rem) }?.takeIf { it > 0f }
             when {
                 percent != null && percent > 0f -> share = (percent / 100f).coerceIn(0.05f, 1f)
                 w != null -> {
@@ -569,7 +588,7 @@ internal class XhtmlReader(
 
     private fun inherit(tag: String, parent: Inherited, css: Map<String, String>, p: XmlPullParser, block: Boolean): Inherited {
         var size = parent.size * (UA_SIZES[tag] ?: 1f)
-        CssValues.fontSize(css["font-size"], parent.size, base)?.let { size = it }
+        CssValues.fontSize(css["font-size"], parent.size, base, rem)?.let { size = it }
         var bold = parent.bold || tag in BOLD
         CssValues.bold(css["font-weight"])?.let { bold = it }
         var italic = parent.italic || tag in ITALIC
@@ -617,7 +636,7 @@ internal class XhtmlReader(
             }
         }
         var textIndent = parent.textIndent
-        CssValues.length(css["text-indent"], size, base, textWidth)?.let { textIndent = it.coerceIn(-textWidth / 3, textWidth / 3) }
+        CssValues.length(css["text-indent"], size, base, textWidth, rem)?.let { textIndent = it.coerceIn(-textWidth / 3, textWidth / 3) }
         var left = parent.left
         var right = parent.right
         var start = parent.start
@@ -630,8 +649,8 @@ internal class XhtmlReader(
                 right += indent
                 end += indent
             }
-            CssValues.length(css["margin-left"], size, base, textWidth)?.let { if (it > 0f) left += it }
-            CssValues.length(css["margin-right"], size, base, textWidth)?.let { if (it > 0f) right += it }
+            CssValues.length(css["margin-left"], size, base, textWidth, rem)?.let { if (it > 0f) left += it }
+            CssValues.length(css["margin-right"], size, base, textWidth, rem)?.let { if (it > 0f) right += it }
             // Always room for the text: no more than half the width in indents.
             val most = textWidth * 0.5f
             if (left + right > most) {

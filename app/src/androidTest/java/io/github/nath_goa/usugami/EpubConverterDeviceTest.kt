@@ -473,6 +473,12 @@ class EpubConverterDeviceTest {
         }
     }
 
+    @Test fun remsAreOfTheRootFontSize() {
+        // Rems of ten pixels, as many books set them: 1.6rem is the book's own size.
+        val entries = read("<p>Words</p>", css = "html { font-size: 62.5% } body { font-size: 1.6rem }")
+        assertEquals(11f, (entries.single().item as BookPara).base.size, 0.01f)
+    }
+
     @Test fun listsHaveSpaceAroundThemUnlessInAList() {
         val entries = read("""<p>Before</p><ul><li>Item<ul><li>Inner</li></ul></li></ul><p>After</p>""", css = "p { margin: 0 }")
         fun before(text: String) = entries.single { (it.item as? BookPara)?.text?.toString() == text }.before

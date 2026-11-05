@@ -193,6 +193,9 @@ class EpubFormatsTest {
         assertEquals(22f, CssValues.fontSize("200%", 11f, base)!!, 0.001f)
         assertEquals(base * 1.5f, CssValues.fontSize("x-large", 20f, base)!!, 0.001f)
         assertEquals(base * 3f, CssValues.fontSize("100px", 11f, base)!!, 0.001f)
+        // A root font size of 62.5%, for rems of ten pixels.
+        val rem = CssValues.rootSize("62.5%", base)!!
+        assertEquals(base, CssValues.fontSize("1.6rem", 20f, base, rem)!!, 0.001f)
         assertEquals(true, CssValues.bold("700"))
         assertEquals(false, CssValues.bold("normal"))
         assertNull(CssValues.bold("inherit"))
