@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.text.TextDirectionHeuristics
 import androidx.core.graphics.withSave
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageXYZDestination
@@ -444,26 +445,38 @@ internal class EpubConverter(
 
     private fun paragraph(item: BookPara, width: Int): ParagraphBlock {
         val s = item.style
-        val left = s.left.units
+        // Right to left as the book says, or as its first letter reads, which is how the layout takes it.
+        val rtl = s.rtl || TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(item.text, 0, item.text.length)
+        // Indents on the side the paragraph starts and ends on. One that reads right to left starts on
+        // the right: its list and quote indents, its first line's indent and its label go there (see
+        // ParagraphSpec.mirrored), while margins stay on their side.
+        val start = (if (rtl) s.right - s.end + s.start else s.left).units
+        val end = (if (rtl) s.left - s.start + s.end else s.right).units.toInt()
         val label = item.label?.let { (text, style) ->
             val paint = style.paint()
-            val x = left - paint.measureText(text) - style.size.units * 0.45f
+            val x = start - paint.measureText(text) - style.size.units * 0.45f
             Label(text, style, max(0f, x).toInt())
         }
-        val firstIndent = max(0f, left + s.textIndent.units).toInt()
-        val rightIndent = s.right.units.toInt()
+        val firstIndent = max(0f, start + s.textIndent.units).toInt()
+        // Left and right are the other way round from the start and end of a paragraph that reads right to left.
+        val align = if (!rtl || !s.physical) s.align else when (s.align) {
+            Align.START -> Align.END
+            Align.END -> Align.START
+            else -> s.align
+        }
         return ParagraphBlock(
             ParagraphSpec(
                 // A picture in a line of text is never wider than the line, as e-book readers show it.
-                text = fitPictures(item.text, width - max(firstIndent, left.toInt()) - rightIndent),
+                text = fitPictures(item.text, width - max(firstIndent, start.toInt()) - end),
                 base = item.base,
                 width = width,
-                align = item.style.align,
+                align = align,
                 firstIndent = firstIndent,
-                indent = left.toInt(),
-                rightIndent = rightIndent,
+                indent = start.toInt(),
+                rightIndent = end,
                 label = label,
                 rtl = s.rtl,
+                mirrored = rtl,
             ),
         )
     }

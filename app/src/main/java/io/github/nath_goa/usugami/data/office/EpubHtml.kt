@@ -11,8 +11,23 @@ import org.xmlpull.v1.XmlPullParser
 import java.io.InputStream
 import kotlin.math.max
 
-/** Where a block of a book goes across the page, from its HTML and CSS. Indents in points. */
-internal class BlockStyle(val align: Align, val left: Float, val right: Float, val textIndent: Float, val rtl: Boolean)
+/**
+ * Where a block of a book goes across the page, from its HTML and CSS. Indents in points: [left] and
+ * [right] hold [start] and [end], the indents of lists and block quotes, which go on the side a
+ * paragraph starts and ends on (right and left for one that reads right to left). [align]'s START
+ * and END are the left and right when [physical] (CSS's text-align: left and right), the paragraph's
+ * own start and end otherwise.
+ */
+internal class BlockStyle(
+    val align: Align,
+    val left: Float,
+    val right: Float,
+    val textIndent: Float,
+    val rtl: Boolean,
+    val physical: Boolean = false,
+    val start: Float = 0f,
+    val end: Float = 0f,
+)
 
 /** What a book's page is made of, as read from its XHTML. */
 internal sealed interface BookItem
@@ -84,9 +99,14 @@ internal class XhtmlReader(
         val baseline: Int = 0,
         val highlight: Boolean = false,
         val align: Align = Align.START,
+        /** Whether [align] is CSS's left or right: see [BlockStyle.physical]. */
+        val physical: Boolean = false,
         val textIndent: Float = 0f,
         val left: Float = 0f,
         val right: Float = 0f,
+        /** The parts of [left] and [right] that go on a paragraph's start and end side: see [BlockStyle]. */
+        val start: Float = 0f,
+        val end: Float = 0f,
         val pre: Boolean = false,
         val rtl: Boolean = false,
         val heading: Int = 0,
@@ -412,7 +432,7 @@ internal class XhtmlReader(
     }
 
     private fun blockStyle(style: Inherited, indent: Boolean = true) =
-        BlockStyle(style.align, style.left, style.right, if (indent) style.textIndent else 0f, style.rtl)
+        BlockStyle(style.align, style.left, style.right, if (indent) style.textIndent else 0f, style.rtl, style.physical, style.start, style.end)
 
     private fun startBlock(node: CssNode, inherited: Inherited, css: Map<String, String>, tag: String, onEnd: (() -> Unit)? = null) {
         flushPara()
@@ -474,7 +494,7 @@ internal class XhtmlReader(
         val span = (p.attr("colspan")?.trim()?.toIntOrNull() ?: 1).coerceIn(1, 64)
         val rowSpan = (p.attr("rowspan")?.trim()?.toIntOrNull() ?: 1).coerceIn(1, 1000)
         // A cell's text is indented from the cell, not from the page.
-        frames += Frame(node, inherited.copy(left = 0f, right = 0f, textIndent = 0f), block = true) {
+        frames += Frame(node, inherited.copy(left = 0f, right = 0f, start = 0f, end = 0f, textIndent = 0f), block = true) {
             flushPara()
             sinks.removeAt(sinks.lastIndex)
             space = 0f
@@ -567,6 +587,7 @@ internal class XhtmlReader(
             "baseline" -> baseline = 0
         }
         var align = if (tag in CENTERED) Align.CENTER else parent.align
+        var physical = parent.physical && tag !in CENTERED
         (css["text-align"] ?: p.attr("align"))?.trim()?.lowercase()?.let {
             align = when (it) {
                 "center", "middle" -> Align.CENTER
@@ -575,15 +596,27 @@ internal class XhtmlReader(
                 "left", "start" -> Align.START
                 else -> align
             }
+            // Left and right stay where they are in a paragraph that reads right to left; start and end don't.
+            physical = when (it) {
+                "left", "right" -> true
+                "center", "middle", "justify", "start", "end" -> false
+                else -> physical
+            }
         }
         var textIndent = parent.textIndent
         CssValues.length(css["text-indent"], size, base, textWidth)?.let { textIndent = it.coerceIn(-textWidth / 3, textWidth / 3) }
         var left = parent.left
         var right = parent.right
+        var start = parent.start
+        var end = parent.end
         if (block) {
             val indent = (UA_INDENTS[tag] ?: 0f) * size
             left += indent
-            if (tag == "blockquote") right += indent
+            start += indent
+            if (tag == "blockquote") {
+                right += indent
+                end += indent
+            }
             CssValues.length(css["margin-left"], size, base, textWidth)?.let { if (it > 0f) left += it }
             CssValues.length(css["margin-right"], size, base, textWidth)?.let { if (it > 0f) right += it }
             // Always room for the text: no more than half the width in indents.
@@ -592,6 +625,8 @@ internal class XhtmlReader(
                 val shrink = most / (left + right)
                 left *= shrink
                 right *= shrink
+                start *= shrink
+                end *= shrink
             }
         }
         var pre = parent.pre || tag in PRE
@@ -607,7 +642,8 @@ internal class XhtmlReader(
         val heading = tag.takeIf { it.length == 2 && it[0] == 'h' && it[1] in '1'..'6' }?.let { it[1] - '0' } ?: parent.heading
         return parent.copy(
             font = font, size = size, bold = bold, italic = italic, underline = underline, strike = strike, baseline = baseline,
-            highlight = parent.highlight || tag == "mark", align = align, textIndent = textIndent, left = left, right = right,
+            highlight = parent.highlight || tag == "mark", align = align, physical = physical, textIndent = textIndent,
+            left = left, right = right, start = start, end = end,
             pre = pre, rtl = rtl, heading = heading,
         )
     }
@@ -648,7 +684,7 @@ internal class XhtmlReader(
             "blockquote" to 0.6f, "ul" to 0.5f, "ol" to 0.5f, "dl" to 0.5f, "li" to 0.15f, "pre" to 0.5f, "figure" to 0.6f,
             "address" to 0.5f, "fieldset" to 0.5f,
         )
-        /** Indents from the left (and for block quotes, the right), in em. */
+        /** Indents on the start side (for block quotes, both sides), in em: see [BlockStyle]. */
         val UA_INDENTS = mapOf("blockquote" to 1.5f, "ul" to 1.8f, "ol" to 1.8f, "dd" to 1.8f, "figure" to 0f)
     }
 }

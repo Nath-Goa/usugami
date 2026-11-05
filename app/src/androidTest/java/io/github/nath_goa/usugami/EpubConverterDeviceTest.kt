@@ -95,6 +95,22 @@ class EpubConverterDeviceTest {
         all[starts.indexOfFirst { it >= at }]
     }
 
+    /** The left and right ends of each line of text on page [number] (1-based), top to bottom. */
+    private fun lineEnds(file: File, number: Int): List<Pair<Float, Float>> = PDDocument.load(file).use { doc ->
+        val glyphs = ArrayList<TextPosition>()
+        object : PDFTextStripper() {
+            override fun processTextPosition(text: TextPosition) {
+                if (text.unicode.isNotBlank()) glyphs += text
+            }
+        }.apply { startPage = number; endPage = number }.getText(doc)
+        val lines = ArrayList<MutableList<TextPosition>>()
+        for (glyph in glyphs.sortedBy { it.yDirAdj }) {
+            val line = lines.lastOrNull()?.takeIf { abs(it[0].yDirAdj - glyph.yDirAdj) < 3f } ?: ArrayList<TextPosition>().also { lines += it }
+            line += glyph
+        }
+        lines.map { line -> line.minOf { it.xDirAdj } to line.maxOf { it.xDirAdj + it.widthDirAdj } }
+    }
+
     private fun near(expected: Float, actual: Float, tolerance: Float = 1.5f) =
         assertTrue("expected $expected, got $actual", abs(expected - actual) <= tolerance)
 
@@ -546,6 +562,24 @@ class EpubConverterDeviceTest {
             near(210f, title.corner(1f, 1f).y - title.corner(0f, 0f).y, 2f)
             assertTrue(PDFTextStripper().apply { startPage = 3; endPage = 3 }.getText(doc).contains("Hello reader"))
         }
+    }
+
+    /**
+     * In a paragraph that reads right to left, text-align: right and left stay on their side, and a
+     * list's bullet and indent go on the right, where the paragraph starts. Left to right, as before.
+     */
+    @Test fun rightToLeftParagraphsKeepLeftAndRightAndStartOnTheRight() {
+        val body = """<p dir="rtl" class="r">Right side</p><p dir="rtl" class="l">Left side</p>
+            <ul dir="rtl"><li>Item one</li></ul><p class="r">Plain right</p><ul><li>Item two</li></ul>"""
+        val pdf = convert(oneChapter("rtl.epub", body, css = ".r { text-align: right } .l { text-align: left }"), "epub-rtl")
+        // A5's text runs from 44 to 376 points across.
+        val lines = lineEnds(pdf, 1)
+        assertEquals(5, lines.size)
+        near(376f, lines[0].second, 2f)
+        near(44f, lines[1].first, 2f)
+        assertTrue("${lines[2]}", lines[2].first > 210f && lines[2].second < 372f)
+        near(376f, lines[3].second, 2f)
+        assertTrue("${lines[4]}", lines[4].first < 100f)
     }
 
     @Test fun fixedLayoutBooksGetAPagePerDocument() {
