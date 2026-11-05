@@ -66,6 +66,8 @@ object PageLayout {
     /**
      * One pixel becomes one point. The margin scales with the image so a "small" border looks
      * the same on a 500 px image as on a 4000 px one (relative to an A4 page's short side).
+     * An image more than 4800 times longer than wide can't fill a page within both limits: it gets
+     * the longest page there can be, as wide as the smallest, with the image centred across it.
      */
     private fun fit(w: Double, h: Double, margin: Margin): PageGeometry {
         val m = margin.points / PageSize.A4.shortSide * min(w, h)
@@ -75,7 +77,16 @@ object PageLayout {
         if (min(pageW, pageH) * scale < MIN_PAGE_SIDE) {
             scale = min(MIN_PAGE_SIDE / min(pageW, pageH), MAX_PAGE_SIDE / max(pageW, pageH))
         }
-        return PageGeometry(pageW * scale, pageH * scale, m * scale, m * scale, w * scale, h * scale)
+        val width = max(pageW * scale, MIN_PAGE_SIDE)
+        val height = max(pageH * scale, MIN_PAGE_SIDE)
+        return PageGeometry(
+            width,
+            height,
+            m * scale + (width - pageW * scale) / 2,
+            m * scale + (height - pageH * scale) / 2,
+            w * scale,
+            h * scale,
+        )
     }
 
     /** Fits the image inside the margins of a fixed paper size, keeping its aspect ratio, centred. */

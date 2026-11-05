@@ -72,6 +72,13 @@ class PageLayoutTest {
         assertEquals(3.0, tiny.pageWidth, eps)
         assertEquals(6.0, tiny.pageHeight, eps)
 
+        // A strip too long for both limits gets the longest page, as wide as the smallest, the strip centred across it.
+        val strip = PageLayout.compute(20000, 3, LayoutSettings(PageSize.FIT, margin = Margin.NONE))
+        assertEquals(PageLayout.MAX_PAGE_SIDE, strip.pageWidth, eps)
+        assertEquals(PageLayout.MIN_PAGE_SIDE, strip.pageHeight, eps)
+        assertEquals(2.16, strip.imageHeight, eps)
+        assertEquals((3 - 2.16) / 2, strip.imageY, eps)
+
         val withMargin = PageLayout.compute(20000, 20000, LayoutSettings(PageSize.FIT, margin = Margin.BIG))
         assertTrue(withMargin.pageWidth <= PageLayout.MAX_PAGE_SIDE + eps)
         assertEquals(withMargin.pageWidth - 2 * withMargin.imageX, withMargin.imageWidth, 1e-6)
