@@ -1058,6 +1058,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         conversion = viewModelScope.launch {
             // The pages as their files are now (see takeIn).
             var pages = snapshot
+            // The PDFs made so far, which a cancel deletes: they aren't the result yet.
+            var made = emptyList<PdfFile>()
             try {
                 pages = takeIn(snapshot, withContext(fileOps) { snapshot.map(store::stillThere) })
                 if (pages.size < snapshot.size) return@launch
@@ -1073,7 +1075,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     val files = exporter.export(pages, layout, compression, merge || snapshot.size == 1, fileName, strings.getString(R.string.app_name)) { done ->
                         _progress.value = Progress(done, snapshot.size)
                     }
-                    if (engine == null || language == null) files else addTextLayer(files, engine, language)
+                    made = files
+                    if (engine == null || language == null) files else addTextLayer(files, engine, language).also { made = it }
                 }
                 _saved.value = false
                 resultPutAway = false
@@ -1081,6 +1084,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 _result.value = files
                 lastChoices = null
             } catch (e: CancellationException) {
+                // Cancelled while their text was being read, or just as they were done.
+                val unwanted = made
+                if (unwanted.isNotEmpty()) viewModelScope.launch(fileOps) { unwanted.forEach { it.file.delete() } }
                 throw e
             } catch (e: OcrUnavailableException) {
                 if (e.problem == OcrProblem.FAILED_TO_START) Log.e("Usugami", "Text recognition couldn't start", e)
