@@ -490,9 +490,14 @@ object EditLayout {
                 start.copy(x = left, y = top, width = width, height = height)
             }
             is TextItem, is InkItem -> {
-                // Grows from the top-left corner of what it covers.
+                // Grows from the top-left corner of what it covers, by how far the handle moved along
+                // the box's diagonal: dragging left shrinks even a one-line text, and a little drift
+                // across a flat stroke barely changes its size.
                 val bounds = start.bounds
-                val factor = max((px - bounds.x) / bounds.width, (py - bounds.y) / bounds.height)
+                val diagonal = bounds.width * bounds.width + bounds.height * bounds.height
+                val factor = if (diagonal > 0f) {
+                    ((px - bounds.x) * bounds.width + (py - bounds.y) * bounds.height) / diagonal
+                } else 1f
                 val most = min((pageWidth - bounds.x) / bounds.width, (pageHeight - bounds.y) / bounds.height)
                 val least = when (start) {
                     is TextItem -> MIN_TEXT / start.size

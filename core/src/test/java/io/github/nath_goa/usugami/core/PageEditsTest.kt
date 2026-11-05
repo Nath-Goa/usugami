@@ -212,12 +212,17 @@ class PageEditsTest {
         val handle = EditLayout.handles(text).single()
         assertEquals(Handle.BOTTOM_RIGHT, handle.first)
         assertPoint("handle", 125f to 212f, handle.second)
-        // Dragged to make the box 1.5 times as wide.
-        val grown = EditLayout.dragHandle(text, Handle.BOTTOM_RIGHT, 137.5f, 212f, 400f, 600f) as TextItem
+        // Dragged along the diagonal to make the box 1.5 times as big.
+        val grown = EditLayout.dragHandle(text, Handle.BOTTOM_RIGHT, 137.5f, 218f, 400f, 600f) as TextItem
         assertEquals(15f, grown.size, 0.001f)
         assertEquals(100f, grown.x, 0.001f)
         val shrunk = EditLayout.dragHandle(text, Handle.BOTTOM_RIGHT, 100f, 200f, 400f, 600f) as TextItem
         assertEquals(EditLayout.MIN_TEXT, shrunk.size, 0.001f)
+        // Straight left shrinks a one-line text too, and a little drift down barely grows it.
+        val left = EditLayout.dragHandle(text, Handle.BOTTOM_RIGHT, 117.5f, 212f, 400f, 600f) as TextItem
+        assertEquals(10f * (17.5f * 25f + 12f * 12f) / (25f * 25f + 12f * 12f), left.size, 0.001f)
+        val drift = EditLayout.dragHandle(text, Handle.BOTTOM_RIGHT, 125f, 214f, 400f, 600f) as TextItem
+        assertEquals(10f * (25f * 25f + 14f * 12f) / (25f * 25f + 12f * 12f), drift.size, 0.001f)
     }
 
     @Test fun sizeSliderScalesAboutTheMiddle() {
