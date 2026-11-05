@@ -41,14 +41,8 @@ class ImageStore(context: Context) {
             val format = resolver.openInputStream(uri)?.use { raw ->
                 val input = raw.buffered(64 * 1024)
                 input.mark(16)
-                val header = ByteArray(8)
-                val read = readFully(input, header)
+                val format = formatOf(input) ?: return ImportResult.Unsupported
                 input.reset()
-                val format = when {
-                    read >= 3 && Jpeg.isJpeg(header) -> ImageFormat.JPEG
-                    read == 8 && header.contentEquals(PNG_SIGNATURE) -> ImageFormat.PNG
-                    else -> return ImportResult.Unsupported
-                }
                 tmp.outputStream().use { input.copyTo(it, 64 * 1024) }
                 format
             } ?: return ImportResult.Failed
@@ -56,24 +50,7 @@ class ImageStore(context: Context) {
             val file = fileFor(id, format)
             if (!tmp.renameTo(file)) throw IOException("rename failed")
             stored = file
-
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(file.path, bounds)
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-                file.delete()
-                return ImportResult.Failed
-            }
-            return ImportResult.Added(
-                ImageItem(
-                    id = id,
-                    path = file.path,
-                    name = itemName,
-                    format = format,
-                    width = bounds.outWidth,
-                    height = bounds.outHeight,
-                    exifOrientation = readOrientation(file),
-                ),
-            )
+            return checked(file, id, itemName, format)
         } catch (e: Exception) {
             // SecurityException (access revoked), IOException (provider or storage failure), ...
             stored?.delete()
@@ -85,6 +62,68 @@ class ImageStore(context: Context) {
         } finally {
             tmp.delete()
         }
+    }
+
+    /**
+     * Adds the photo the camera app saved in [file] as image [id], named [name]. It is moved in, which
+     * needs no free storage, unless [keepFile]: it is then copied, and moved only when there is no
+     * room for a copy. Blocking: call from a background thread.
+     */
+    fun addPhoto(file: File, id: Long, name: String, keepFile: Boolean): ImportResult {
+        val copied = if (keepFile) import(Uri.fromFile(file), id, name) else null
+        if (copied != null && copied != ImportResult.NoSpace) return copied
+        return moveIn(file, id, name) ?: copied ?: import(Uri.fromFile(file), id, name)
+    }
+
+    /** [file] moved in as image [id]; null when it can't be moved (it is then still there). */
+    private fun moveIn(file: File, id: Long, name: String): ImportResult? {
+        dir.mkdirs()
+        var stored: File? = null
+        try {
+            val format = file.inputStream().use { formatOf(it) } ?: return ImportResult.Unsupported
+            val target = fileFor(id, format)
+            if (!file.renameTo(target)) return null
+            stored = target
+            return checked(target, id, name, format)
+        } catch (e: Exception) {
+            stored?.delete()
+            return ImportResult.Failed
+        } catch (e: OutOfMemoryError) {
+            stored?.delete()
+            return ImportResult.Failed
+        }
+    }
+
+    /** The format [input] starts with, read from its first bytes; null when it isn't a JPEG or a PNG. */
+    private fun formatOf(input: InputStream): ImageFormat? {
+        val header = ByteArray(8)
+        val read = readFully(input, header)
+        return when {
+            read >= 3 && Jpeg.isJpeg(header) -> ImageFormat.JPEG
+            read == 8 && header.contentEquals(PNG_SIGNATURE) -> ImageFormat.PNG
+            else -> null
+        }
+    }
+
+    /** The image now in the store at [file]; Failed, and the file deleted, when it can't be read. */
+    private fun checked(file: File, id: Long, name: String, format: ImageFormat): ImportResult {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            file.delete()
+            return ImportResult.Failed
+        }
+        return ImportResult.Added(
+            ImageItem(
+                id = id,
+                path = file.path,
+                name = name,
+                format = format,
+                width = bounds.outWidth,
+                height = bounds.outHeight,
+                exifOrientation = readOrientation(file),
+            ),
+        )
     }
 
     /** Where the copy of image [id] is kept. */

@@ -746,9 +746,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         viewModelScope.launch {
             importLock.withLock {
                 val id = nextId++
+                // Moved in, which needs no free storage, unless the state saved last names it as
+                // waiting: Usugami may start again from that state, which adds it from its file.
+                val keepFile = photo.path in photosInSavedState
                 val r = withContext(fileOps) {
                     // Some camera apps return without saving the photo.
-                    if (generation != importGeneration || file.length() == 0L) null else store.import(Uri.fromFile(file), id, photo.name)
+                    if (generation != importGeneration || file.length() == 0L) null else store.addPhoto(file, id, photo.name, keepFile)
                 }
                 pendingPhotos = pendingPhotos - photo
                 // A photo added that the state saved last names as waiting is added from its file

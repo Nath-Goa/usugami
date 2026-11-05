@@ -276,4 +276,18 @@ class WorkingFilesDeviceTest {
         assertEquals(1, item.exifOrientation)
         File(item.path).delete()
     }
+
+    @Test fun aPhotoTakenIsMovedInUnlessTheSavedStateStillNeedsItsFile() {
+        val store = ImageStore(app)
+        val moved = File(photo("moved.jpg").path!!)
+        val added = (store.addPhoto(moved, 22, "Scan.jpg", keepFile = false) as ImageStore.ImportResult.Added).item
+        assertFalse("Moved, which needs no free storage", moved.exists())
+        assertTrue(File(added.path).isFile)
+        assertEquals(40, added.width)
+        val kept = File(photo("kept.jpg").path!!)
+        val copied = (store.addPhoto(kept, 23, "Scan.jpg", keepFile = true) as ImageStore.ImportResult.Added).item
+        assertTrue("Copied: Usugami may start again from a state that adds it from its file", kept.isFile)
+        listOf(added, copied).forEach(store::delete)
+        kept.delete()
+    }
 }
