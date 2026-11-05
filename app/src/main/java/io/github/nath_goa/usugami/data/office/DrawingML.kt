@@ -83,14 +83,14 @@ internal fun readColor(x: OfficeXml, scheme: (String) -> Int?): Int? {
         "sysClr" -> OfficeColors.hex(x.attr("lastClr")) ?: if (x.attr("val") == "window") 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
         "prstClr" -> OfficeColors.preset(x.attr("val"))
         "scrgbClr" -> {
-            fun c(name: String) = ((x.intAttr(name) ?: 0) / 100_000f * 255).toInt().coerceIn(0, 255)
+            fun c(name: String) = ((x.percentAttr(name) ?: 0) / 100_000f * 255).toInt().coerceIn(0, 255)
             (0xFF shl 24) or (c("r") shl 16) or (c("g") shl 8) or c("b")
         }
         "hslClr" -> OfficeColors.modify(0xFF808080.toInt(), listOf())
         else -> return null
     }
     val modifiers = ArrayList<Pair<String, Int>>()
-    x.children { x.intAttr("val")?.let { modifiers += x.name to it } }
+    x.children { x.percentAttr("val")?.let { modifiers += x.name to it } }
     return base?.let { OfficeColors.modify(it, modifiers) }
 }
 
@@ -144,7 +144,7 @@ internal fun readFill(x: OfficeXml, pkg: OfficePackage, part: String, scheme: (S
         x.children {
             when (x.name) {
                 "gsLst" -> x.children {
-                    val pos = (x.intAttr("pos") ?: 0) / 100_000f
+                    val pos = (x.percentAttr("pos") ?: 0) / 100_000f
                     x.children { readColor(x, scheme)?.let { stops += pos to it } }
                 }
                 "lin" -> angle = (x.intAttr("ang") ?: 0) / 60_000f
@@ -161,8 +161,8 @@ internal fun readFill(x: OfficeXml, pkg: OfficePackage, part: String, scheme: (S
             when (x.name) {
                 "blip" -> path = pkg.target(part, x.relId("embed"))
                 "srcRect" -> crop = floatArrayOf(
-                    (x.intAttr("l") ?: 0) / 100_000f, (x.intAttr("t") ?: 0) / 100_000f,
-                    (x.intAttr("r") ?: 0) / 100_000f, (x.intAttr("b") ?: 0) / 100_000f,
+                    (x.percentAttr("l") ?: 0) / 100_000f, (x.percentAttr("t") ?: 0) / 100_000f,
+                    (x.percentAttr("r") ?: 0) / 100_000f, (x.percentAttr("b") ?: 0) / 100_000f,
                 ).takeIf { c -> c.any { it != 0f } }
                 "tile" -> tile = true
             }

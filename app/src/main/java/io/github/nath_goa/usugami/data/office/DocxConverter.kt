@@ -460,8 +460,8 @@ internal class DocxConverter(
                                 "cNvPr" -> shapeHidden = x.flag("hidden", missing = false)
                                 "blip" -> if (path == null) path = pkg.target(part, x.relId("embed"))
                                 "srcRect" -> if (crop == null) crop = floatArrayOf(
-                                    (x.intAttr("l") ?: 0) / 100_000f, (x.intAttr("t") ?: 0) / 100_000f,
-                                    (x.intAttr("r") ?: 0) / 100_000f, (x.intAttr("b") ?: 0) / 100_000f,
+                                    (x.percentAttr("l") ?: 0) / 100_000f, (x.percentAttr("t") ?: 0) / 100_000f,
+                                    (x.percentAttr("r") ?: 0) / 100_000f, (x.percentAttr("b") ?: 0) / 100_000f,
                                 )
                                 "xfrm" -> if (frame == null) frame = shapeFrame(x)
                                 "txbxContent" -> blocks(x, null) { out.boxes += it }

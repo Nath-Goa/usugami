@@ -707,8 +707,8 @@ internal class PptxConverter(
                 "noAutofit" -> autofit = 0
                 "normAutofit" -> {
                     autofit = 1
-                    fontScale = x.intAttr("fontScale")?.let { it / 100_000f }
-                    reduction = x.intAttr("lnSpcReduction")?.let { it / 100_000f }
+                    fontScale = x.percentAttr("fontScale")?.let { it / 100_000f }
+                    reduction = x.percentAttr("lnSpcReduction")?.let { it / 100_000f }
                 }
                 "spAutoFit" -> autofit = 2
             }
@@ -758,7 +758,7 @@ internal class PptxConverter(
             x.children {
                 when (x.name) {
                     "spcPts" -> gap = Gap((x.intAttr("val") ?: 0) / 100f, null)
-                    "spcPct" -> gap = Gap(null, (x.intAttr("val") ?: 0) / 100_000f)
+                    "spcPct" -> gap = Gap(null, (x.percentAttr("val") ?: 0) / 100_000f)
                 }
             }
             return gap
@@ -773,7 +773,7 @@ internal class PptxConverter(
                 "buAutoNum" -> look.copy(bullet = Bullet.Number(x.attr("type") ?: "arabicPeriod", x.intAttr("startAt") ?: 1))
                 "buBlip" -> look.copy(bullet = Bullet.Char("\u2022"))
                 "buFont" -> look.copy(bulletFont = x.attr("typeface"))
-                "buSzPct" -> look.copy(bulletSize = (x.intAttr("val") ?: 100_000) / 100_000f)
+                "buSzPct" -> look.copy(bulletSize = (x.percentAttr("val") ?: 100_000) / 100_000f)
                 "buClr" -> {
                     var color: Int? = null
                     x.children { color = ctx.color(x) ?: color }
@@ -793,7 +793,7 @@ internal class PptxConverter(
             italic = x.attr("i")?.let { x.flag("i") },
             underline = x.attr("u")?.let { it != "none" },
             strike = x.attr("strike")?.let { it != "noStrike" },
-            baseline = x.intAttr("baseline")?.let { if (it > 0) 1 else if (it < 0) -1 else 0 },
+            baseline = x.percentAttr("baseline")?.let { if (it > 0) 1 else if (it < 0) -1 else 0 },
             caps = x.attr("cap")?.let { it == "all" || it == "small" },
             spacing = x.intAttr("spc")?.let { it / 100f },
         )

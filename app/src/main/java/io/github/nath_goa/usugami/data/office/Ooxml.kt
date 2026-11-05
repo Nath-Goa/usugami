@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami.data.office
 import android.os.Build
 import android.util.Xml
 import dalvik.system.ZipPathValidator
+import io.github.nath_goa.usugami.core.OfficeUnits
 import org.xmlpull.v1.XmlPullParser
 import java.io.Closeable
 import java.io.File
@@ -166,6 +167,9 @@ internal class OfficeXml private constructor(private val parser: XmlPullParser, 
 
     fun intAttr(local: String): Int? = attr(local)?.trim()?.let { it.toIntOrNull() ?: it.toDoubleOrNull()?.toInt() }
     fun longAttr(local: String): Long? = attr(local)?.trim()?.let { it.toLongOrNull() ?: it.toDoubleOrNull()?.toLong() }
+
+    /** A percentage attribute in thousandths of a percent, also as Strict Open XML writes it ("90%"): see [OfficeUnits.percentage]. */
+    fun percentAttr(local: String): Int? = OfficeUnits.percentage(attr(local))
 
     /**
      * An on/off property such as w:b: on unless its value says otherwise. Missing from the element

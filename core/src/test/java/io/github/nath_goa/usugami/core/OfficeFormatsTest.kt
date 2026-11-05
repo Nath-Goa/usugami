@@ -20,6 +20,14 @@ class OfficeFormatsTest {
         assertEquals(mapOf("width" to "120pt", "height" to "4cm", "position" to "absolute"), OfficeUnits.cssStyle("position:absolute; WIDTH:120pt;height:4cm;"))
     }
 
+    @Test fun percentagesAsOfficeAndStrictOpenXmlWriteThem() {
+        assertEquals(90_000, OfficeUnits.percentage("90000"))
+        assertEquals(90_000, OfficeUnits.percentage(" 90% "))
+        assertEquals(-5_500, OfficeUnits.percentage("-5.5%"))
+        assertNull(OfficeUnits.percentage("NaN%"))
+        assertNull(OfficeUnits.percentage("lots"))
+    }
+
     @Test fun recognizesZipsAndCompoundFiles() {
         assertEquals(OfficeContainer.ZIP, OfficeFileType.container(byteArrayOf(0x50, 0x4B, 0x03, 0x04, 0x14, 0, 0, 0)))
         val compound = byteArrayOf(0xD0.toByte(), 0xCF.toByte(), 0x11, 0xE0.toByte(), 0xA1.toByte(), 0xB1.toByte(), 0x1A, 0xE1.toByte())

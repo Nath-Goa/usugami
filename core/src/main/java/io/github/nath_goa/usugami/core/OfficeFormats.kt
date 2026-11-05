@@ -16,6 +16,16 @@ object OfficeUnits {
     fun halfPoints(value: Int): Float = value / 2f
 
     /**
+     * A DrawingML percentage in thousandths of a percent (90000 is 90%): as Office writes it, or as
+     * Strict Open XML writes it ("90%"). Null when [text] is neither.
+     */
+    fun percentage(text: String?): Int? {
+        val t = text?.trim() ?: return null
+        if (t.endsWith("%")) return t.dropLast(1).trim().toDoubleOrNull()?.takeIf { it.isFinite() }?.let { (it * 1000).roundToInt() }
+        return t.toIntOrNull() ?: t.toDoubleOrNull()?.toInt()
+    }
+
+    /**
      * A length from a VML style such as "width:120pt" or "1.5in", in points. Bare numbers are
      * pixels at 96 dpi, as in CSS. Null when [text] isn't a length.
      */
