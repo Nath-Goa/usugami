@@ -10,10 +10,11 @@ object FileNames {
      * a trailing ".pdf" is dropped and the result is kept to a sensible length.
      */
     fun sanitize(input: String, fallback: String): String {
-        var name = input.trim().replace(ILLEGAL, "_")
+        // The end is trimmed before the extension check too, so "Report.pdf." loses its ".pdf" as well
+        var name = trimEnd(input.trim().replace(ILLEGAL, "_"))
         if (name.endsWith(".pdf", ignoreCase = true)) name = name.dropLast(4)
-        name = name.trim().trim('.').trim()
-        name = truncateUtf8(name, MAX_UTF8_BYTES).trimEnd().trimEnd('.')
+        name = trimEnd(name).trimStart { it.isWhitespace() || it == '.' }
+        name = trimEnd(truncateUtf8(name, MAX_UTF8_BYTES))
         return name.ifEmpty { fallback }
     }
 
@@ -41,6 +42,8 @@ object FileNames {
         val taken = HashSet<String>()
         return wanted.map { name -> unique(sanitize(name, fallback), taken).also { taken += it } }
     }
+
+    private fun trimEnd(text: String) = text.trimEnd { it.isWhitespace() || it == '.' }
 
     private fun truncateUtf8(text: String, maxBytes: Int): String {
         if (text.toByteArray(Charsets.UTF_8).size <= maxBytes) return text

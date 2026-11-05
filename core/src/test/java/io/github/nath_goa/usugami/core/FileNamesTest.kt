@@ -18,6 +18,8 @@ class FileNamesTest {
         assertEquals("x", FileNames.sanitize(".pdf", "x"))
         assertEquals("Reçu été 📷", FileNames.sanitize("Reçu été 📷", "x"))
         assertEquals("name", FileNames.sanitize("name. ", "x"))
+        assertEquals("Report", FileNames.sanitize("Report.pdf.", "x"))
+        assertEquals("Report", FileNames.sanitize("Report.pdf . ", "x"))
     }
 
     @Test
