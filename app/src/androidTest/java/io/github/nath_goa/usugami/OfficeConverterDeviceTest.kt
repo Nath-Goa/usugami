@@ -698,6 +698,13 @@ class OfficeConverterDeviceTest {
         near(11f, size(word(pdf, 1, "world")), 0.3f)
     }
 
+    @Test fun wordSpaceBeforeTallerThanThePageLeavesTheTextOnIt() {
+        // A cover title pushed down by 700 points, more than a Letter page has for text: it ends up at the foot of the page, not below it.
+        val pdf = convert(wordDocument(para("Cover title", """<w:spacing w:before="14000"/>"""), "space-before.docx"), OfficeKind.WORD, "word-space-before")
+        val title = word(pdf, 1, "Cover")
+        assertTrue("${title.yDirAdj}", title.yDirAdj in 600f..721f)
+    }
+
     // ---- The text engine Word, PowerPoint and EPUB share ----
 
     @Test fun aSuperscriptParagraphMarkLeavesItsTextWhereItIs() {

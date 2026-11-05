@@ -312,6 +312,9 @@ internal class ParagraphBlock private constructor(
     /** The baseline of the first line, from the top. */
     val firstBaseline: Int get() = layout.getLineBaseline(0)
 
+    /** How tall the first line is. */
+    val firstLineHeight: Int get() = if (lines > 0) layout.getLineBottom(0) else 0
+
     /** The widest line, in units: for text that isn't wrapped. */
     val contentWidth: Float get() = (0 until lines).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
 
