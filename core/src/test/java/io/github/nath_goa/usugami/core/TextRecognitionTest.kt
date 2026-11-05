@@ -69,4 +69,13 @@ class TextRecognitionTest {
         ink[150] = 0
         assertEquals(TextRecognition.Cut(150, false), TextRecognition.cuts(ink, 200, 6).first())
     }
+
+    @Test fun aSpaceBetweenWordsCrossingTheEdgeOfWhereACutCanGoIsMeasuredWhole() {
+        // Cuts go in columns 100..199. The space, columns 96..107, has only 8 of its 12 there.
+        val before = IntArray(300) { if (it in 96..107) 0 else 5 }
+        assertEquals(TextRecognition.Cut(103, true), TextRecognition.cuts(before, maxWidth = 200, spaceWidth = 12).first())
+        // Columns 192..203: 8 there, 4 after.
+        val after = IntArray(300) { if (it in 192..203) 0 else 5 }
+        assertEquals(TextRecognition.Cut(195, true), TextRecognition.cuts(after, maxWidth = 200, spaceWidth = 12).first())
+    }
 }

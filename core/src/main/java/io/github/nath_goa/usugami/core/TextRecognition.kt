@@ -46,7 +46,8 @@ object TextRecognition {
      * at most [maxWidth] columns. [ink] is how much ink each column has. Each cut is made in the
      * widest run of empty columns in the second half of the allowed width (the space between two
      * words, most likely), or failing that in the column with the least ink. A run at least
-     * [spaceWidth] wide counts as a space between words, so the pieces' texts are joined with a space.
+     * [spaceWidth] wide counts as a space between words, so the pieces' texts are joined with a space:
+     * measured whole, also where it goes on beyond those columns.
      */
     fun cuts(ink: IntArray, maxWidth: Int, spaceWidth: Int): List<Cut> {
         require(maxWidth >= 2) { "maxWidth too small" }
@@ -57,6 +58,7 @@ object TextRecognition {
             val to = start + maxWidth // exclusive: the next piece starts at most here
             var bestRun = 0
             var bestCut = -1
+            var bestEnd = -1
             var run = 0
             for (x in from until to) {
                 run = if (ink[x] == 0) run + 1 else 0
@@ -64,10 +66,16 @@ object TextRecognition {
                 if (run >= bestRun && run > 0) {
                     bestRun = run
                     bestCut = x - run / 2
+                    bestEnd = x
                 }
             }
             val cut = if (bestRun > 0) {
-                Cut(bestCut.coerceIn(from, to - 1).coerceAtLeast(start + 1), bestRun >= spaceWidth)
+                // The whole run: a space between words may begin before from, or end after to.
+                var first = bestEnd - bestRun + 1
+                while (first > start && ink[first - 1] == 0) first--
+                var last = bestEnd
+                while (last + 1 < ink.size && ink[last + 1] == 0) last++
+                Cut(bestCut.coerceIn(from, to - 1).coerceAtLeast(start + 1), last - first + 1 >= spaceWidth)
             } else {
                 var least = from
                 for (x in from until to) if (ink[x] < ink[least]) least = x
