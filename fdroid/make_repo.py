@@ -8,7 +8,7 @@ The apps are the release APKs, as published on GitHub (signed by the developer);
 SOURCE is a checkout of this repository, OUT an empty folder, and each APK a release APK whose
 package is one of APPS. Writes OUT/config.yml (the signing secrets come from the environment),
 OUT/metadata/<app>.yml with each app's localized store texts and images, OUT/repo/ with the APKs and
-OUT/repo/icons/icon.png.
+OUT/icon.png, the repository's icon (fdroid update copies it into repo/icons/).
 """
 import base64
 import os
@@ -51,7 +51,9 @@ def main(source: Path, out: Path, apks: list[Path]) -> None:
                 shutil.copytree(src, out / "metadata" / appid, dirs_exist_ok=True)
     for apk in apks:
         shutil.copy2(apk, out / "repo" / apk.name)
-    shutil.copy2(source / "fastlane/metadata/android/en-US/images/icon.png", out / "repo/icons/icon.png")
+    # fdroid update looks for repo_icon in the folder it runs in and copies it into repo/icons/; when
+    # it isn't there, it writes a QR code of the address over repo/icons/icon.png instead.
+    shutil.copy2(source / "fastlane/metadata/android/en-US/images/icon.png", out / "icon.png")
 
     keystore = out / "keystore.p12"
     keystore.write_bytes(base64.b64decode(os.environ["REPO_KEYSTORE_BASE64"]))
