@@ -707,6 +707,14 @@ class OfficeConverterDeviceTest {
         near(11f, size(word(pdf, 1, "world")), 0.3f)
     }
 
+    @Test fun wordTablesSpanningCountlessOrNegativeColumnsStillConvert() {
+        val grid = """<w:tblGrid><w:gridCol w:w="3000"/></w:tblGrid>"""
+        val body = """<w:tbl>$grid<w:tr><w:tc><w:tcPr><w:gridSpan w:val="20000000"/></w:tcPr>${para("Wide cell")}</w:tc></w:tr></w:tbl>""" + para("Between") +
+            """<w:tbl>$grid<w:tr><w:trPr><w:gridBefore w:val="-3"/></w:trPr><w:tc>${para("Shifted cell")}</w:tc></w:tr></w:tbl>"""
+        val text = pageTexts(convert(wordDocument(body, "spans.docx"), OfficeKind.WORD, "word-spans"))[0]
+        assertTrue(text, "Wide cell" in text && "Shifted cell" in text)
+    }
+
     @Test fun wordSpaceBeforeTallerThanThePageLeavesTheTextOnIt() {
         // A cover title pushed down by 700 points, more than a Letter page has for text: it ends up at the foot of the page, not below it.
         val pdf = convert(wordDocument(para("Cover title", """<w:spacing w:before="14000"/>"""), "space-before.docx"), OfficeKind.WORD, "word-space-before")

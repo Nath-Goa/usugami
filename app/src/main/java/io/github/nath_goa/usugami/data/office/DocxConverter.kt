@@ -677,7 +677,7 @@ internal class DocxConverter(
             x.children {
                 when (x.name) {
                     "tblPr" -> props = TableProps.read(x)
-                    "tblGrid" -> x.children { if (x.name == "gridCol") grid += (x.intAttr("w") ?: 0) / 20f }
+                    "tblGrid" -> x.children { if (x.name == "gridCol" && grid.size < MAX_COLUMNS) grid += (x.intAttr("w") ?: 0) / 20f }
                     "tr" -> rows += row(x, tableStyle())
                     "sdt", "customXml" -> rowsIn()
                 }
@@ -708,7 +708,7 @@ internal class DocxConverter(
                                 exact = x.attr("hRule") == "exact"
                             }
                             "tblHeader" -> header = x.flag()
-                            "gridBefore" -> gridBefore = x.intAttr("val") ?: 0
+                            "gridBefore" -> gridBefore = (x.intAttr("val") ?: 0).coerceIn(0, MAX_COLUMNS)
                         }
                     }
                     "tc" -> cells += cell(x, tableStyle)
@@ -729,7 +729,7 @@ internal class DocxConverter(
             x.children {
                 if (x.name == "tcPr") x.children {
                     when (x.name) {
-                        "gridSpan" -> span = (x.intAttr("val") ?: 1).coerceAtLeast(1)
+                        "gridSpan" -> span = (x.intAttr("val") ?: 1).coerceIn(1, MAX_COLUMNS)
                         "vMerge" -> vMerge = x.attr("val") ?: "continue"
                         "shd" -> fill = OfficeColors.hex(x.attr("fill"))
                         "tcBorders" -> borders = Borders.read(x)
@@ -1198,7 +1198,7 @@ internal class DocxConverter(
         val props = t.props.over(styles.table(styleId))
         val borders = props.borders ?: Borders()
         val margins = List(4) { props.margins?.get(it) ?: if (it % 2 == 0) 5.4f else 0f }
-        val columns = t.rows.maxOf { row -> row.gridBefore + row.cells.sumOf { it.span } }
+        val columns = t.rows.maxOf { row -> (row.gridBefore + row.cells.sumOf { it.span.toLong() }).coerceAtMost(MAX_COLUMNS.toLong()).toInt() }
         val availablePt = available / U
         val preferred = props.width?.let { if (props.widthShare) it * availablePt else it }
         // A little wider than the text is fine: Word lets tables reach into the margin.
@@ -1215,7 +1215,7 @@ internal class DocxConverter(
         // Which grid columns each row's cells start at, to find cells merged with the one below.
         val cellColumns = t.rows.map { row ->
             var col = row.gridBefore
-            row.cells.map { cell -> col.also { col += cell.span } }
+            row.cells.map { cell -> col.also { col = (col + cell.span).coerceAtMost(MAX_COLUMNS) } }
         }
         fun mergedBelow(r: Int, col: Int): Boolean {
             val next = t.rows.getOrNull(r + 1) ?: return false
@@ -1261,6 +1261,9 @@ internal class DocxConverter(
     }
 
     private companion object {
+        /** Far more columns than Word lets a table have (63): only a crafted file has more. */
+        const val MAX_COLUMNS = 1000
+
         /** US Letter with one-inch margins: Word's own default. */
         val DEFAULT_SECTION = Section(612f, 792f, 72f, 72f, 72f, 72f, 36f, 36f, "nextPage", emptyMap(), emptyMap(), false, null, ListNumbering.Format.DECIMAL)
     }

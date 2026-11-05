@@ -651,14 +651,14 @@ internal class PptxConverter(
                     for (flag in listOf("firstRow", "lastRow", "firstCol", "lastCol", "bandRow", "bandCol")) if (x.flag(flag, missing = false)) flags += flag
                     x.children { if (x.name == "tableStyleId") styleId = x.text().trim() }
                 }
-                "tblGrid" -> x.children { if (x.name == "gridCol") grid += OfficeUnits.emu(x.longAttr("w") ?: 0L) }
+                "tblGrid" -> x.children { if (x.name == "gridCol" && grid.size < MAX_COLUMNS) grid += OfficeUnits.emu(x.longAttr("w") ?: 0L) }
                 "tr" -> {
                     val height = OfficeUnits.emu(x.longAttr("h") ?: 0L)
                     val cells = ArrayList<SlideCell>()
                     x.children {
                         if (x.name != "tc") return@children
-                        val span = (x.intAttr("gridSpan") ?: 1).coerceAtLeast(1)
-                        val rowSpan = (x.intAttr("rowSpan") ?: 1).coerceAtLeast(1)
+                        val span = (x.intAttr("gridSpan") ?: 1).coerceIn(1, MAX_COLUMNS)
+                        val rowSpan = (x.intAttr("rowSpan") ?: 1).coerceIn(1, MAX_ROWS)
                         val hMerge = x.flag("hMerge", missing = false)
                         val vMerge = x.flag("vMerge", missing = false)
                         var body: TextBody? = null
@@ -1329,7 +1329,7 @@ internal class PptxConverter(
         val style = tableStyle(table.styleId, ctx) ?: table.styleId?.let { defaultTableStyle(ctx) }
         // A column covered by a merged cell (hMerge) is counted once, with the cell spanning it.
         val spans = table.rows.maxOfOrNull { (_, cells) -> cells.filterNot { it.hMerge }.sumOf { it.span } } ?: return
-        val columns = max(spans, table.grid.size)
+        val columns = max(spans, table.grid.size).coerceAtMost(MAX_COLUMNS)
         // Without usable widths in its grid, the columns share the table's frame.
         val widths = TableColumns.widths(table.grid, columns, slideWidth * 4, rect.width).map { it.units }
         val starts = widths.runningFold(0f) { acc, w -> acc + w }
@@ -1425,6 +1425,10 @@ internal class PptxConverter(
     }
 
     private companion object {
+        /** Far more columns and rows than PowerPoint lets a table have (75 each): only a crafted file has more. */
+        const val MAX_COLUMNS = 1000
+        const val MAX_ROWS = 1000
+
         /** For a slide without a master: Office's default theme and colour map. */
         val NO_MASTER = Template(emptyList(), null, true, OfficeTheme.DEFAULT, emptyMap(), emptyMap())
     }
