@@ -12,6 +12,9 @@ It was called PDFer before version 1.2.0.
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 [![CI](https://github.com/Nath-Goa/usugami/actions/workflows/ci.yml/badge.svg)](https://github.com/Nath-Goa/usugami/actions/workflows/ci.yml)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
+[![Usugami downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami.apk?logo=github&label=downloads)](https://github.com/Nath-Goa/usugami/releases)
+[![Usugami Lite downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-lite.apk?logo=github&label=downloads)](https://github.com/Nath-Goa/usugami/releases)
+[![Usugami OCR downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-ocr.apk?logo=github&label=downloads)](https://github.com/Nath-Goa/usugami/releases)
 
 ⭐ **Like Usugami?** Please star the repository. It's free
 and helps other people find the app.
