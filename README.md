@@ -12,9 +12,6 @@ It was called PDFer before version 1.2.0.
 [![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 [![CI](https://github.com/Nath-Goa/usugami/actions/workflows/ci.yml/badge.svg)](https://github.com/Nath-Goa/usugami/actions/workflows/ci.yml)
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
-[![Usugami downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami.apk?logo=github&label=downloads)](https://github.com/Nath-Goa/usugami/releases)
-[![Usugami Lite downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-lite.apk?logo=github&label=downloads)](https://github.com/Nath-Goa/usugami/releases)
-[![Usugami OCR downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-ocr.apk?logo=github&label=downloads)](https://github.com/Nath-Goa/usugami/releases)
 
 ⭐ **Like Usugami?** Please star the repository. It's free
 and helps other people find the app.
@@ -34,6 +31,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 | | **Usugami** (recommended) | **Usugami Lite** | **Usugami OCR** |
 |---|---|---|---|
 | Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.8 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 14 MB: the recognition engine and models are inside |
+| Downloads | [![Usugami downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) | [![Usugami Lite downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-lite.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) | [![Usugami OCR downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-ocr.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) |
 | Images, Word, PowerPoint and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app ([PaddleOCR](#how-usugami-ocr-reads-text) models). Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never | Never |
