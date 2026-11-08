@@ -152,6 +152,33 @@ class RedactionTest {
         assertTrue(text.find("nothing").isEmpty())
     }
 
+    /** As text extraction reads a heading set in spaced capitals: a gap between each two letters, a space between the words. */
+    @Test fun letterSpacedTextIsFound() {
+        val text = PageText.Builder().apply {
+            "JANE".forEachIndexed { i, c ->
+                if (i > 0) gap()
+                glyph(i, c.toString())
+            }
+            space()
+            "DOE".forEachIndexed { i, c ->
+                if (i > 0) gap()
+                glyph(4 + i, c.toString())
+            }
+            // Words drawn apart without spaces between them, as some PDFs are.
+            gap()
+            for ((i, c) in "a".withIndex()) glyph(7 + i, c.toString())
+            gap()
+            for ((i, c) in "natural".withIndex()) glyph(8 + i, c.toString())
+        }.build()
+        assertEquals("J A N E D O E a natural", text.text)
+        assertEquals(listOf((0..6).toList()), text.find("Jane Doe"))
+        assertEquals(listOf((0..3).toList()), text.find("jane"))
+        // A gap beside a whole word is a space between words, as before.
+        assertTrue(text.find("anatural").isEmpty())
+        assertTrue(text.find("Ana").isEmpty())
+        assertEquals(listOf((7..14).toList()), text.find("a natural"))
+    }
+
     @Test fun matchesDoNotOverlap() {
         val text = pageText("aaaa")
         assertEquals(listOf(listOf(0, 1), listOf(2, 3)), text.find("aa"))

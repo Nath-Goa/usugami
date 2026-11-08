@@ -249,16 +249,25 @@ object Redaction {
 /**
  * A page's text, for Find text: each character knows the glyph it came from. Letters are compared
  * ignoring case and accents (é finds e), and every gap between words or lines is a single space,
- * so a phrase is found across a line break.
+ * so a phrase is found across a line break. Letter-spaced text, such as a name in a heading set in
+ * S P A C E D capitals, is read with a gap between each two letters: a match may cross those gaps
+ * (see [Builder.gap]).
  */
-class PageText private constructor(val text: String, private val owners: IntArray) {
+class PageText private constructor(val text: String, private val owners: IntArray, private val inWord: BooleanArray) {
     class Builder {
         private val text = StringBuilder()
         private var owners = IntArray(256)
 
-        private fun append(c: Char, owner: Int) {
-            if (text.length == owners.size) owners = owners.copyOf(owners.size * 2)
+        /** For each space, whether it is only a [gap]. */
+        private var gaps = BooleanArray(256)
+
+        private fun append(c: Char, owner: Int, gap: Boolean = false) {
+            if (text.length == owners.size) {
+                owners = owners.copyOf(owners.size * 2)
+                gaps = gaps.copyOf(owners.size)
+            }
             owners[text.length] = owner
+            gaps[text.length] = gap
             text.append(c)
         }
 
@@ -269,10 +278,34 @@ class PageText private constructor(val text: String, private val owners: IntArra
 
         /** A break between words or lines. */
         fun space() {
-            if (text.isNotEmpty() && text.last() != ' ') append(' ', -1)
+            if (text.isEmpty()) return
+            if (text.last() == ' ') gaps[text.length - 1] = false else append(' ', -1)
         }
 
-        fun build(): PageText = PageText(text.toString(), owners.copyOf(text.length))
+        /**
+         * A gap between two glyphs where the PDF has no space: a break between words, or the
+         * spacing between the letters of letter-spaced text. Between two lone letters it may be
+         * either, so a match may cross it; elsewhere it is a space.
+         */
+        fun gap() {
+            if (text.isNotEmpty() && text.last() != ' ') append(' ', -1, gap = true)
+        }
+
+        fun build(): PageText {
+            val length = text.length
+            val owners = owners.copyOf(length)
+            // A word that is a single glyph (one that reads as several letters too) between two spaces.
+            fun lone(from: Int, step: Int): Boolean {
+                var k = from
+                while (k in 0 until length && text[k] != ' ') {
+                    if (owners[k] != owners[from]) return false
+                    k += step
+                }
+                return k != from
+            }
+            val inWord = BooleanArray(length) { k -> gaps[k] && lone(k - 1, -1) && lone(k + 1, 1) }
+            return PageText(text.toString(), owners, inWord)
+        }
     }
 
     /** For each place [query] is found, in order, the glyphs it covers, in reading order. */
@@ -281,17 +314,32 @@ class PageText private constructor(val text: String, private val owners: IntArra
         if (wanted.isEmpty()) return emptyList()
         val found = ArrayList<List<Int>>()
         var i = 0
-        while (i + wanted.length <= text.length) {
-            if (text.regionMatches(i, wanted, 0, wanted.length, ignoreCase = true)) {
-                val glyphs = LinkedHashSet<Int>()
-                for (k in i until i + wanted.length) if (owners[k] >= 0) glyphs += owners[k]
-                if (glyphs.isNotEmpty()) found += glyphs.toList()
-                i += wanted.length
-            } else {
+        while (i < text.length) {
+            val end = matchAt(i, wanted)
+            if (end < 0) {
                 i++
+                continue
             }
+            val glyphs = LinkedHashSet<Int>()
+            for (k in i until end) if (owners[k] >= 0) glyphs += owners[k]
+            if (glyphs.isNotEmpty()) found += glyphs.toList()
+            i = end
         }
         return found
+    }
+
+    /**
+     * Where a match of [wanted] that starts at [start] ends, exclusive, or -1 if there is none. A
+     * gap between two lone letters (see [Builder.gap]) may come between two of its letters.
+     */
+    private fun matchAt(start: Int, wanted: String): Int {
+        var k = start
+        for ((j, c) in wanted.withIndex()) {
+            if (j > 0 && c != ' ') while (k < text.length && inWord[k]) k++
+            if (k == text.length || !text[k].equals(c, ignoreCase = true)) return -1
+            k++
+        }
+        return k
     }
 
     companion object {
