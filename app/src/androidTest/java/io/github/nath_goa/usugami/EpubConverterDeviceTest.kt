@@ -13,6 +13,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOut
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.core.PageSize
+import io.github.nath_goa.usugami.core.SimpleCss
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.office.BookEntry
 import io.github.nath_goa.usugami.data.office.BookPara
@@ -477,6 +478,22 @@ class EpubConverterDeviceTest {
         // Rems of ten pixels, as many books set them: 1.6rem is the book's own size.
         val entries = read("<p>Words</p>", css = "html { font-size: 62.5% } body { font-size: 1.6rem }")
         assertEquals(11f, (entries.single().item as BookPara).base.size, 0.01f)
+    }
+
+    @Test fun booksWrittenDownThePageKeepTheWidthWithoutTheirAlternateLook() {
+        // A Japanese book in columns read from the right, offering a horizontal look besides: the space it
+        // leaves after its columns (on the left) goes below the text, and the look it doesn't use stays unused.
+        val sheets = mapOf(
+            "vertical.css" to SimpleCss.parse("html { -epub-writing-mode: vertical-rl } p { margin: 0 } .main { margin-left: 2em }"),
+            "horizontal.css" to SimpleCss.parse(".main p { display: none }"),
+        )
+        val head = """<link rel="alternate stylesheet" href="horizontal.css"/><link rel="stylesheet" href="vertical.css"/>"""
+        val entries = ArrayList<BookEntry>()
+        XhtmlReader("ch.xhtml", 11f, 332f, { sheets[it] }, { null }, OfficeImages({ null }, PagedPdf(work), {}), {}) { entries += it }
+            .read(xhtml("""<div class="main"><p>山路を登りながら</p></div><p>After</p>""", head).byteInputStream())
+        fun entry(text: String) = entries.single { (it.item as? BookPara)?.text?.toString() == text }
+        assertEquals(0f, (entry("山路を登りながら").item as BookPara).style.left, 0.01f)
+        assertEquals(22f, entry("After").before, 0.01f)
     }
 
     @Test fun listsHaveSpaceAroundThemUnlessInAList() {

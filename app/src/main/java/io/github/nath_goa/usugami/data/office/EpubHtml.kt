@@ -124,6 +124,9 @@ internal class XhtmlReader(
     private val frames = ArrayList<Frame>()
     private val sheets = ArrayList<CssSheet>()
 
+    /** How the document's lines run, as its root or body says (see [CssValues.acrossFromVertical]); null when neither says. */
+    private var writingMode: String? = null
+
     /** The html element's font size, which rem lengths are of, and its style attribute. */
     private var rem = base
     private var rootStyle: String? = null
@@ -222,7 +225,10 @@ internal class XhtmlReader(
         val node = CssNode(tag, id, classes, parent?.node)
         val inline = p.attr("style")
         if (tag == "html") rootStyle = inline
-        val css = if (sheets.isEmpty() && inline.isNullOrBlank()) emptyMap() else CssSheet.cascade(node, sheets, inline)
+        val cascaded = if (sheets.isEmpty() && inline.isNullOrBlank()) emptyMap() else CssSheet.cascade(node, sheets, inline)
+        // A book written in columns down the page says so on its root or body; its margins are then turned to suit lines across it.
+        if (tag == "html" || tag == "body") CssValues.writingMode(cascaded)?.let { writingMode = it }
+        val css = CssValues.acrossFromVertical(cascaded, writingMode)
         val display = css["display"]?.lowercase()
         // An empty element (a hidden picture, say) has no inside to skip: it is just left out.
         if (tag in SKIPPED || display == "none" || p.attr("hidden") != null) return run { if (tag !in VOID) skip = 1 }
@@ -342,21 +348,24 @@ internal class XhtmlReader(
     }
 
     /**
-     * The html element's font size, read again once the head's style sheets are (it starts before
-     * them): the body's sizes, in rems or not, are of it.
+     * The html element's font size and writing mode, read again once the head's style sheets are (it
+     * starts before them): the body's sizes, in rems or not, are of it, and its margins follow the mode.
      */
     private fun restyleRoot() {
         val i = frames.indexOfFirst { it.node.tag == "html" }
         if (i < 0) return
         val frame = frames[i]
-        val size = CssSheet.cascade(frame.node, sheets, rootStyle)["font-size"]
+        val css = CssSheet.cascade(frame.node, sheets, rootStyle)
+        CssValues.writingMode(css)?.let { writingMode = it }
+        val size = css["font-size"]
         rem = CssValues.rootSize(size, base) ?: return
         CssValues.fontSize(size, base, base)?.let { frames[i] = Frame(frame.node, frame.inherited.copy(size = it), frame.block, frame.end) }
     }
 
     private fun head(tag: String, p: XmlPullParser) {
         when (tag) {
-            "link" -> if (p.attr("rel")?.lowercase()?.split(' ')?.contains("stylesheet") == true) {
+            // An alternate style sheet (a book's horizontal look besides its vertical one, say) is only for readers to pick.
+            "link" -> if (p.attr("rel")?.lowercase()?.split(' ')?.let { "stylesheet" in it && "alternate" !in it } == true) {
                 val target = p.attr("href")?.let { EpubPaths.resolve(path, it) }?.first
                 target?.let(sheet)?.let { if (!it.isEmpty) sheets += it }
             }

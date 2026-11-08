@@ -229,4 +229,15 @@ class EpubFormatsTest {
         assertTrue(CssValues.pageBreak("page"))
         assertFalse(CssValues.pageBreak("avoid"))
     }
+
+    @Test fun marginsOfVerticalBooksSuitLinesAcrossThePage() {
+        val sheet = SimpleCss.parse("html { -epub-writing-mode: vertical-rl } .main_text { margin-left: 12em } h2 { margin: 2em 3em 0 1em }")
+        val mode = CssValues.writingMode(CssSheet.cascade(CssNode("html", null, emptySet(), null), listOf(sheet), null))
+        assertEquals("vertical-rl", mode)
+        // Space left after the columns (on the left) goes below the text, not beside it.
+        assertEquals(mapOf("margin-bottom" to "12em"), CssValues.acrossFromVertical(mapOf("margin-left" to "12em"), mode))
+        val h2 = CssValues.acrossFromVertical(CssSheet.cascade(CssNode("h2", null, emptySet(), null), listOf(sheet), null), mode)
+        assertEquals(mapOf("margin-left" to "2em", "margin-top" to "3em", "margin-right" to "0", "margin-bottom" to "1em"), h2)
+        assertEquals(mapOf("margin-left" to "12em"), CssValues.acrossFromVertical(mapOf("margin-left" to "12em"), "horizontal-tb"))
+    }
 }

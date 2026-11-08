@@ -572,5 +572,32 @@ object CssValues {
     /** Whether a page-break-before/after or break-before/after value asks for a new page. */
     fun pageBreak(value: String?): Boolean = value?.trim()?.lowercase() in setOf("always", "page", "left", "right", "recto", "verso")
 
+    /** The writing mode [css] sets, under any of the names books give it, such as "vertical-rl"; null when it sets none. */
+    fun writingMode(css: Map<String, String>): String? =
+        (css["writing-mode"] ?: css["-epub-writing-mode"] ?: css["-webkit-writing-mode"])?.trim()?.lowercase()
+
+    /**
+     * [css] written for lines running down the page in [mode] (as Japanese and Chinese books often
+     * are), for lines running across it, as Usugami lays every book out: the margins before and after
+     * the lines (right and left, the other way round from the left) become those above and below them,
+     * and those at their start and end (top and bottom) those on the left and right. Other modes'
+     * CSS is left as it is.
+     */
+    fun acrossFromVertical(css: Map<String, String>, mode: String?): Map<String, String> {
+        val fromRight = when (mode) {
+            "vertical-rl", "tb-rl", "tb" -> true
+            "vertical-lr", "tb-lr" -> false
+            else -> return css
+        }
+        if (css.keys.none { it.startsWith("margin-") }) return css
+        val out = HashMap(css)
+        listOf("top", "right", "bottom", "left").forEach { out.remove("margin-$it") }
+        css["margin-top"]?.let { out["margin-left"] = it }
+        css["margin-bottom"]?.let { out["margin-right"] = it }
+        css[if (fromRight) "margin-right" else "margin-left"]?.let { out["margin-top"] = it }
+        css[if (fromRight) "margin-left" else "margin-right"]?.let { out["margin-bottom"] = it }
+        return out
+    }
+
     private const val MAX_LENGTH = 64
 }
