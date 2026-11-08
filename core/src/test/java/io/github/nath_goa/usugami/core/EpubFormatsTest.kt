@@ -79,6 +79,14 @@ class EpubFormatsTest {
         assertEquals("", HtmlText.collapse(" \n ", afterSpace = true))
     }
 
+    @Test fun lineBreaksBetweenChineseOrJapaneseCharactersLeaveNoSpace() {
+        assertEquals("引取り手のない死人を、この門へ", HtmlText.collapse("引取り手の\nない死人を、\r\n  この門へ", afterSpace = false))
+        // A space typed between them stays, and a break next to other letters is a space, as in Korean.
+        assertEquals("鴉 は", HtmlText.collapse("鴉 は", afterSpace = false))
+        assertEquals("日本 Japan", HtmlText.collapse("日本\nJapan", afterSpace = false))
+        assertEquals("한국어 문장", HtmlText.collapse("한국어\n문장", afterSpace = false))
+    }
+
     @Test fun readsViewportsAndListStyles() {
         assertEquals(1200 to 800, HtmlText.viewport("width=1200, height=800"))
         assertEquals(600 to 900, HtmlText.viewport("height=900;width=600.5"))

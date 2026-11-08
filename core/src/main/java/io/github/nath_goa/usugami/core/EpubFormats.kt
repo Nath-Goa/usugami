@@ -168,22 +168,58 @@ object XmlPrefix {
 object HtmlText {
     /**
      * [text] with each run of white space as one space, and leading white space dropped when the
-     * text so far ends in a space ([afterSpace]). No-break spaces stay.
+     * text so far ends in a space ([afterSpace]). No-break spaces stay. A line break between two
+     * Chinese or Japanese characters goes, as CSS has it: those languages don't put spaces between
+     * words, and their books often break a paragraph's lines in the file.
      */
     fun collapse(text: String, afterSpace: Boolean): String {
         val out = StringBuilder(text.length)
         var space = afterSpace
-        for (c in text) {
-            if (c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\u000C') {
+        var i = 0
+        while (i < text.length) {
+            if (!isSpace(text[i])) {
+                out.append(text[i++])
+                space = false
+                continue
+            }
+            val start = i
+            var lineBreak = false
+            while (i < text.length && isSpace(text[i])) {
+                if (text[i] == '\n' || text[i] == '\r') lineBreak = true
+                i++
+            }
+            val joined = lineBreak && start > 0 && i < text.length && isWide(text.codePointBefore(start)) && isWide(text.codePointAt(i))
+            if (!joined) {
                 if (!space) out.append(' ')
                 space = true
-            } else {
-                out.append(c)
-                space = false
             }
         }
         return out.toString()
     }
+
+    private fun isSpace(c: Char) = c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\u000C'
+
+    /** Whether [code] is a wide Chinese or Japanese character or punctuation mark (Korean is written with spaces). */
+    private fun isWide(code: Int): Boolean {
+        val script = Character.UnicodeScript.of(code)
+        if (script == Character.UnicodeScript.HANGUL) return false
+        if (script == Character.UnicodeScript.HAN || script == Character.UnicodeScript.HIRAGANA ||
+            script == Character.UnicodeScript.KATAKANA || script == Character.UnicodeScript.BOPOMOFO
+        ) {
+            return true
+        }
+        return Character.UnicodeBlock.of(code) in WIDE_BLOCKS
+    }
+
+    /** Blocks of wide punctuation and marks that Chinese and Japanese share, such as 。 and ー. */
+    private val WIDE_BLOCKS = setOf(
+        Character.UnicodeBlock.CJK_SYMBOLS_AND_PUNCTUATION,
+        Character.UnicodeBlock.HIRAGANA,
+        Character.UnicodeBlock.KATAKANA,
+        Character.UnicodeBlock.CJK_COMPATIBILITY_FORMS,
+        Character.UnicodeBlock.VERTICAL_FORMS,
+        Character.UnicodeBlock.HALFWIDTH_AND_FULLWIDTH_FORMS,
+    )
 
     /** A fixed-layout page's size from its viewport, such as "width=1200, height=1600". */
     fun viewport(content: String?): Pair<Int, Int>? {
