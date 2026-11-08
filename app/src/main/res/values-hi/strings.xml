@@ -674,6 +674,7 @@
     <string name="msg_out_of_space">स्टोरेज में काफ़ी खाली जगह नहीं है</string>
     <string name="msg_unknown_error">कोई अनचाही गड़बड़ी हुई</string>
     <string name="msg_no_pdf_app">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो PDF खोल सके।</string>
+    <string name="msg_no_zip_app">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो ZIP फ़ाइलें खोल सके।</string>
     <string name="msg_no_share_app">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो PDF शेयर कर सके।</string>
     <string name="msg_no_file_picker">इस फ़ोन पर सेव करने के लिए फ़ाइल चुनने वाला कोई ऐप नहीं है।</string>
     <string name="msg_no_picker">इस फ़ोन पर फ़ाइल चुनने वाला कोई ऐप नहीं है।</string>
@@ -686,6 +687,19 @@
         <item quantity="one">PDF को अस्थायी स्टोरेज से हटा दिया गया। कृपया इसे फिर से बनाएं।</item>
         <item quantity="other">PDF फ़ाइलों को अस्थायी स्टोरेज से हटा दिया गया। कृपया उन्हें फिर से बनाएं।</item>
     </plurals>
+
+    <!-- Recent files: the files saved with Usugami, newest first, on Home under Scan document and on a screen of their own, to open or share again. -->
+    <string name="recent_title">हाल की फ़ाइलें</string>
+    <string name="recent_see_all">सभी देखें</string>
+    <!-- Takes a file off the list. The file itself isn't deleted. -->
+    <string name="recent_remove">लिस्ट से हटाएं</string>
+    <string name="recent_clear">लिस्ट खाली करें</string>
+    <string name="recent_clear_title">लिस्ट खाली करें?</string>
+    <string name="recent_clear_body">फ़ाइलें वहीं रहेंगी जहां आपने उन्हें सेव किया था। सिर्फ़ यह लिस्ट खाली होगी।</string>
+    <string name="recent_empty">आप जो फ़ाइलें सेव करेंगे, वे यहां दिखेंगी, ताकि आप उन्हें फिर से खोल और शेयर कर सकें।</string>
+    <!-- A listed file Usugami can no longer reach: its access to the file has ended, or the place it is in (an SD card, say) is out of reach. %1$s is the file's name. -->
+    <string name="recent_lost_title">यह फ़ाइल नहीं खुल सकती</string>
+    <string name="recent_lost_body">Usugami अब %1$s को नहीं खोल सकता। अगर फ़ाइल अब भी मौजूद है, तो आप उसे अपने फ़ोन के Files ऐप से ढूंढ सकते हैं।</string>
 
     <!-- Searching for a tool on Home -->
     <string name="home_search_hint">टूल खोजें</string>

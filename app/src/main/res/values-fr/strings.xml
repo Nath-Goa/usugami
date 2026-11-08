@@ -702,6 +702,7 @@
     <string name="msg_out_of_space">espace de stockage insuffisant</string>
     <string name="msg_unknown_error">une erreur inattendue s\'est produite</string>
     <string name="msg_no_pdf_app">Aucune application sur ce téléphone ne peut ouvrir les PDF.</string>
+    <string name="msg_no_zip_app">Aucune application sur ce téléphone ne peut ouvrir les fichiers ZIP.</string>
     <string name="msg_no_share_app">Aucune application sur ce téléphone ne peut partager les PDF.</string>
     <string name="msg_no_file_picker">Ce téléphone ne dispose d\'aucun sélecteur de fichiers permettant d\'enregistrer.</string>
     <string name="msg_no_picker">Ce téléphone ne dispose d\'aucun sélecteur de fichiers.</string>
@@ -716,6 +717,19 @@
         <item quantity="many">Les PDF ont été effacés de l\'espace de stockage temporaire. Veuillez les créer à nouveau.</item>
         <item quantity="other">Les PDF ont été effacés de l\'espace de stockage temporaire. Veuillez les créer à nouveau.</item>
     </plurals>
+
+    <!-- Recent files: the files saved with Usugami, newest first, on Home under Scan document and on a screen of their own, to open or share again. -->
+    <string name="recent_title">Fichiers récents</string>
+    <string name="recent_see_all">Tout afficher</string>
+    <!-- Takes a file off the list. The file itself isn't deleted. -->
+    <string name="recent_remove">Retirer de la liste</string>
+    <string name="recent_clear">Vider la liste</string>
+    <string name="recent_clear_title">Vider la liste ?</string>
+    <string name="recent_clear_body">Les fichiers restent là où vous les avez enregistrés. Seule cette liste est vidée.</string>
+    <string name="recent_empty">Les fichiers que vous enregistrez apparaissent ici : vous pourrez les rouvrir et les partager.</string>
+    <!-- A listed file Usugami can no longer reach: its access to the file has ended, or the place it is in (an SD card, say) is out of reach. %1$s is the file's name. -->
+    <string name="recent_lost_title">Impossible d\'ouvrir ce fichier</string>
+    <string name="recent_lost_body">Usugami ne peut plus ouvrir %1$s. Si le fichier existe toujours, vous pouvez le retrouver avec l\'application Fichiers de votre téléphone.</string>
 
     <!-- Searching for a tool on Home -->
     <string name="home_search_hint">Rechercher un outil</string>

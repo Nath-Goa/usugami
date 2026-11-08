@@ -702,6 +702,7 @@
     <string name="msg_out_of_space">no hay suficiente almacenamiento libre</string>
     <string name="msg_unknown_error">se produjo un error inesperado</string>
     <string name="msg_no_pdf_app">Ninguna aplicación de este teléfono puede abrir archivos PDF.</string>
+    <string name="msg_no_zip_app">Ninguna aplicación de este teléfono puede abrir archivos ZIP.</string>
     <string name="msg_no_share_app">Ninguna aplicación de este teléfono puede compartir archivos PDF.</string>
     <string name="msg_no_file_picker">Este teléfono no tiene un selector de archivos con el que guardar.</string>
     <string name="msg_no_picker">Este teléfono no tiene un selector de archivos.</string>
@@ -716,6 +717,19 @@
         <item quantity="many">Los PDF se borraron del almacenamiento temporal. Vuelve a crearlos.</item>
         <item quantity="other">Los PDF se borraron del almacenamiento temporal. Vuelve a crearlos.</item>
     </plurals>
+
+    <!-- Recent files: the files saved with Usugami, newest first, on Home under Scan document and on a screen of their own, to open or share again. -->
+    <string name="recent_title">Archivos recientes</string>
+    <string name="recent_see_all">Ver todos</string>
+    <!-- Takes a file off the list. The file itself isn't deleted. -->
+    <string name="recent_remove">Quitar de la lista</string>
+    <string name="recent_clear">Vaciar lista</string>
+    <string name="recent_clear_title">¿Vaciar la lista?</string>
+    <string name="recent_clear_body">Los archivos se quedan donde los guardaste. Solo se vacía esta lista.</string>
+    <string name="recent_empty">Los archivos que guardes aparecen aquí para que puedas volver a abrirlos y compartirlos.</string>
+    <!-- A listed file Usugami can no longer reach: its access to the file has ended, or the place it is in (an SD card, say) is out of reach. %1$s is the file's name. -->
+    <string name="recent_lost_title">No se puede abrir este archivo</string>
+    <string name="recent_lost_body">Usugami ya no puede abrir %1$s. Si el archivo aún existe, puedes encontrarlo con la app Archivos de tu teléfono.</string>
 
     <!-- Searching for a tool on Home -->
     <string name="home_search_hint">Buscar herramientas</string>
