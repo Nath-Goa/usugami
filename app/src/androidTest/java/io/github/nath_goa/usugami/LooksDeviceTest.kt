@@ -41,9 +41,10 @@ import kotlin.math.min
  * Page looks: a photographed page in shadow made into a PDF with each look, stored as the look needs
  * (black and white a bit a pixel with CCITT G4, grey as a one-component JPEG) at the compression
  * levels' resolutions, far smaller in black and white, and drawn right by Android's PDF renderer
- * and PDFBox's, Enhanced made in the picture itself; and through the view model, a look chosen for a
- * page or for every page, the next photo starting with it (not with a look a page only kept), and the
- * looks kept through the saved state.
+ * and PDFBox's, with brightness and contrast reaching the page, and the colour looks made in the
+ * picture itself; and through the view model, a look chosen for a page or for every page, the next
+ * photo starting with it (not with a look a page only kept), and the looks kept through the saved
+ * state.
  */
 class LooksDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -70,11 +71,19 @@ class LooksDeviceTest {
         }
     }
 
-    /** [photo] with [look], as a PDF of one A4 page at [compression], copied out of the exporter's folder. */
-    private fun export(photo: File, width: Int, height: Int, look: PageLook, compression: Compression): File {
-        val item = ImageItem(1, photo.path, photo.name, ImageFormat.JPEG, width, height, 1, look = look)
+    /** [photo] with [look] and [adjustments], as a PDF of one A4 page at [compression], copied out of the exporter's folder. */
+    private fun export(
+        photo: File,
+        width: Int,
+        height: Int,
+        look: PageLook,
+        compression: Compression,
+        adjustments: LookAdjustments = LookAdjustments.NONE,
+    ): File {
+        val item = ImageItem(1, photo.path, photo.name, ImageFormat.JPEG, width, height, 1, look = look, adjustments = adjustments)
         val made = runBlocking { PdfExporter(app).export(listOf(item), a4, compression, true, "Scan", "Usugami") {} }.single().file
-        return made.copyTo(File(dir, "${look.name}-${compression.name}.pdf"), overwrite = true)
+        val adjusted = if (adjustments.isNone) "" else "-${adjustments.brightness}-${adjustments.contrast}"
+        return made.copyTo(File(dir, "${look.name}$adjusted-${compression.name}.pdf"), overwrite = true)
     }
 
     /** Page 1 of [file], [width] pixels wide, by Android's renderer, on white. */
@@ -105,9 +114,9 @@ class LooksDeviceTest {
             PDDocument.load(pdf).use { doc ->
                 val image = imagesOn(doc.getPage(0)).single().image
                 val filter = image.cosObject.getDictionaryObject(COSName.FILTER)
-                val expected = when (look) {
-                    PageLook.BLACK_WHITE -> Triple(COSName.CCITTFAX_DECODE, "DeviceGray", 1)
-                    PageLook.GRAYSCALE -> Triple(COSName.DCT_DECODE, "DeviceGray", 8)
+                val expected = when {
+                    look.isBilevel -> Triple(COSName.CCITTFAX_DECODE, "DeviceGray", 1)
+                    look == PageLook.GRAYSCALE -> Triple(COSName.DCT_DECODE, "DeviceGray", 8)
                     else -> Triple(COSName.DCT_DECODE, "DeviceRGB", 8)
                 }
                 assertEquals("$look", expected, Triple(filter, image.colorSpace.name, image.bitsPerComponent))
@@ -120,15 +129,28 @@ class LooksDeviceTest {
                 val litPaper = ShadedPages.share(page, ShadedPages.LIT_PAPER) { luma(it) >= 225 }
                 val bar = ShadedPages.share(page, ShadedPages.BAR) { luma(it) < 70 }
                 Log.i("UsugamiTest", "$what: paper white ${"%.4f".format(shadedPaper)} in the shadow, ${"%.4f".format(litPaper)} in the light; bar black ${"%.4f".format(bar)}")
-                assertTrue("$what: bar $bar", bar > 0.98)
+                if (look == PageLook.INK_SAVER) {
+                    // Ink saver leaves the bar hollow: white inside its outline.
+                    val inside = ShadedPages.share(page, ShadedPages.BAR, 0.01f) { luma(it) >= 225 }
+                    assertTrue("$what: inside the bar $inside", inside > 0.98)
+                } else {
+                    assertTrue("$what: bar $bar", bar > 0.98)
+                }
                 if (look == PageLook.ORIGINAL) {
                     // The photo as taken: the paper in the shadow is grey.
                     assertTrue("$what: $shadedPaper", shadedPaper < 0.01)
                     continue
                 }
+                if (look == PageLook.LIGHTEN) {
+                    // Lighter than the photo's (about 110 in the shadow, 175 in the light), the shadow softened, not taken out.
+                    val shaded = ShadedPages.share(page, ShadedPages.SHADED_PAPER) { luma(it) in 170..224 }
+                    val lit = ShadedPages.share(page, ShadedPages.LIT_PAPER) { luma(it) >= 210 }
+                    assertTrue("$what: paper in the shadow $shaded, in the light $lit", shaded > 0.99 && lit > 0.995)
+                    continue
+                }
                 assertTrue("$what: paper in the shadow $shadedPaper", shadedPaper > 0.995)
                 assertTrue("$what: paper in the light $litPaper", litPaper > 0.995)
-                if (look != PageLook.ENHANCED) {
+                if (!look.isColour) {
                     // Grey: every pixel drawn has red, green and blue alike.
                     val gray = ShadedPages.share(page, android.graphics.RectF(0f, 0f, 1f, 1f), 0f) {
                         max(Color.red(it), max(Color.green(it), Color.blue(it))) - min(Color.red(it), min(Color.green(it), Color.blue(it))) <= 2
@@ -137,6 +159,11 @@ class LooksDeviceTest {
                 }
             }
         }
+        // Contrast all the way down fades the ink: the bar grey, the paper still white.
+        val faded = androidRender(export(photo, 1240, height, PageLook.ENHANCED, Compression.RECOMMENDED, LookAdjustments(contrast = -LookAdjustments.MAX)), 1240)
+        val bar = ShadedPages.share(faded, ShadedPages.BAR) { luma(it) < 70 }
+        val paper = ShadedPages.share(faded, ShadedPages.LIT_PAPER) { luma(it) >= 225 }
+        assertTrue("Faded: bar black $bar, paper white $paper", bar < 0.05 && paper > 0.995)
     }
 
     @Test fun blackAndWhitePagesAreFarSmallerAtEveryLevel() {
@@ -256,15 +283,18 @@ class LooksDeviceTest {
         runBlocking { vm.awaitFileWork() }
     }
 
-    @Test fun enhancedIsMadeInThePictureAsBesideIt() {
+    @Test fun eachColourLookIsMadeInThePictureAsBesideIt() {
         // As a PDF's page is made, without a second picture as large.
         val photo = PagePhotos.photo()
-        val beside = PageLooks.applied(photo, PageLook.ENHANCED)
-        val inPlace = photo.copy(Bitmap.Config.ARGB_8888, true)
-        PageLooks.colourInPlace(inPlace, PageLook.ENHANCED, LookAdjustments.NONE)
-        assertFalse(inPlace.hasAlpha())
-        val expected = IntArray(photo.width * photo.height).also { beside.getPixels(it, 0, photo.width, 0, 0, photo.width, photo.height) }
-        val actual = IntArray(photo.width * photo.height).also { inPlace.getPixels(it, 0, photo.width, 0, 0, photo.width, photo.height) }
-        assertTrue(expected.contentEquals(actual))
+        val adjustments = LookAdjustments(brightness = 20, contrast = 30)
+        for (look in PageLook.entries.filter { it.isColour }) {
+            val beside = PageLooks.applied(photo, look, adjustments)
+            val inPlace = photo.copy(Bitmap.Config.ARGB_8888, true)
+            PageLooks.colourInPlace(inPlace, look, adjustments)
+            assertFalse(inPlace.hasAlpha())
+            val expected = IntArray(photo.width * photo.height).also { beside.getPixels(it, 0, photo.width, 0, 0, photo.width, photo.height) }
+            val actual = IntArray(photo.width * photo.height).also { inPlace.getPixels(it, 0, photo.width, 0, 0, photo.width, photo.height) }
+            assertTrue("$look", expected.contentEquals(actual))
+        }
     }
 }

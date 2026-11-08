@@ -6,6 +6,7 @@ import org.junit.Test
 import java.awt.BasicStroke
 import java.awt.Color
 import java.awt.Font
+import java.awt.Rectangle
 import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.File
@@ -14,18 +15,19 @@ import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
  * The page looks on synthetic photos of a printed page: the page drawn (print in several sizes, a
  * bold heading, a black box, a faint pencil line, a red stamp), then lit as a phone photo lights it
  * (falling off across the page, a hard shadow, a warm lamp) with noise. Each pixel is compared with
- * the page as drawn.
+ * the page as drawn. Nothing depends on how a font is drawn, which differs between systems.
  */
 class DocumentLooksTest {
 
-    /** The page as printed: what each look should get back to. */
-    private class Page(val image: BufferedImage) {
+    /** The page as printed: what each look should get back to; [box] is where the black box is. */
+    private class Page(val image: BufferedImage, val box: Rectangle) {
         val width get() = image.width
         val height get() = image.height
         private val luma = IntArray(width * height).also { out ->
@@ -74,7 +76,8 @@ class DocumentLooksTest {
             }
         }
         // A solid box, as a photo or a filled table cell would be.
-        g.fillRect((90 * unit).toInt(), (y + 20 * unit).toInt(), (240 * unit).toInt(), (160 * unit).toInt())
+        val box = Rectangle((90 * unit).toInt(), (y + 20 * unit).toInt(), (240 * unit).toInt(), (160 * unit).toInt())
+        g.fill(box)
         // A faint pencil line.
         g.color = Color(165, 165, 160)
         g.stroke = BasicStroke(3 * unit)
@@ -91,7 +94,7 @@ class DocumentLooksTest {
             y += 45 * unit
         }
         g.dispose()
-        return Page(image)
+        return Page(image, box)
     }
 
     /**
@@ -123,6 +126,67 @@ class DocumentLooksTest {
     }
 
     private fun source(image: BufferedImage) = TestImages.BufferedImageSource(image)
+
+    /** [photo] with a colour [look], beside it. */
+    private fun colour(photo: BufferedImage, look: PageLook, adjustments: LookAdjustments = LookAdjustments.NONE) =
+        BufferedImage(photo.width, photo.height, BufferedImage.TYPE_INT_RGB).also { out ->
+            DocumentLooks.colour(source(photo), look, adjustments, { y, row -> out.setRGB(0, y, row.size, 1, row, 0, row.size) })
+        }
+
+    /** [photo] with any [look], as a picture. */
+    private fun made(photo: BufferedImage, look: PageLook, adjustments: LookAdjustments = LookAdjustments.NONE): BufferedImage = when {
+        look.isColour -> colour(photo, look, adjustments)
+        look == PageLook.GRAYSCALE -> DocumentLooks.grayscale(source(photo), adjustments).toBuffered()
+        else -> DocumentLooks.blackAndWhite(source(photo), look, adjustments).toBuffered()
+    }
+
+    private fun luma(c: Int) = DocumentLooks.luma(c shr 16 and 0xFF, c shr 8 and 0xFF, c and 0xFF)
+
+    /** How widely [image]'s brightness spreads: its standard deviation. */
+    private fun spread(image: BufferedImage): Double {
+        val mean = meanLuma(image)
+        var sum = 0.0
+        for (y in 0 until image.height) for (x in 0 until image.width) sum += (luma(image.getRGB(x, y)) - mean).let { it * it }
+        return sqrt(sum / (image.width * image.height))
+    }
+
+    /** The mean brightness of [image] where [where] holds. */
+    private fun meanLuma(image: BufferedImage, where: (Int, Int) -> Boolean = { _, _ -> true }): Double {
+        var sum = 0L
+        var count = 0
+        for (y in 0 until image.height) for (x in 0 until image.width) {
+            if (where(x, y)) {
+                sum += luma(image.getRGB(x, y))
+                count++
+            }
+        }
+        return sum.toDouble() / count
+    }
+
+    private fun BitImage.blackCount() = (0 until height).sumOf { y -> (0 until width).count { x -> isBlack(x, y) } }
+
+    /** Where the red stamp is printed. */
+    private fun Page.isStamp(x: Int, y: Int) = image.getRGB(x, y).let { (it shr 16 and 0xFF) > 180 && (it shr 8 and 0xFF) < 60 }
+
+    /** The hue (in degrees) and saturation (0 to 1) of [image]'s mean colour where [page]'s stamp is. */
+    private fun stampColour(page: Page, image: BufferedImage): Pair<Double, Double> {
+        val sum = LongArray(3)
+        var count = 0
+        for (y in 0 until page.height) for (x in 0 until page.width) {
+            if (page.isStamp(x, y)) {
+                val c = image.getRGB(x, y)
+                sum[0] += (c shr 16 and 0xFF).toLong()
+                sum[1] += (c shr 8 and 0xFF).toLong()
+                sum[2] += (c and 0xFF).toLong()
+                count++
+            }
+        }
+        val hsb = Color.RGBtoHSB((sum[0] / count).toInt(), (sum[1] / count).toInt(), (sum[2] / count).toInt(), null)
+        return hsb[0] * 360.0 to hsb[1].toDouble()
+    }
+
+    /** How far apart two hues are, in degrees. */
+    private fun hueDistance(a: Double, b: Double) = abs(a - b).let { min(it, 360 - it) }
 
     /** Saves [image] for a look by eye, when the environment variable USUGAMI_LOOKS names a folder. */
     private fun save(name: String, image: BufferedImage) {
@@ -253,14 +317,154 @@ class DocumentLooksTest {
         assertTrue("Stamp red: $red of $stamp", red > stamp * 0.9)
     }
 
-    @Test fun enhancedCanBeWrittenBackIntoThePhoto() {
+    @Test fun lightenBrightensThePhotoButKeepsItsLook() {
+        val page = page()
+        val photo = photo(page)
+        val lighten = colour(photo, PageLook.LIGHTEN)
+        save("lighten", lighten)
+        assertTrue("Brighter: ${meanLuma(lighten)}, the photo ${meanLuma(photo)}", meanLuma(lighten) > meanLuma(photo) + 30)
+        // The paper lighter, but not made white as Enhanced makes it.
+        val paper = { x: Int, y: Int -> page.isPaper(x, y) }
+        val enhancedPaper = meanLuma(colour(photo, PageLook.ENHANCED), paper)
+        assertTrue("Paper ${meanLuma(lighten, paper)}, Enhanced's $enhancedPaper", meanLuma(lighten, paper) < enhancedPaper - 8)
+        // The shadow over the left of the page's middle softened, not taken out: its paper against the
+        // paper just right of it.
+        val middle = (page.height * 0.35).toInt()..(page.height * 0.65).toInt()
+        fun shade(image: BufferedImage) = meanLuma(image) { x, y -> paper(x, y) && x < page.width * 0.3 && y in middle } /
+            meanLuma(image) { x, y -> paper(x, y) && x > page.width * 0.4 && x < page.width * 0.6 && y in middle }
+        assertTrue("Shadow ${shade(lighten)}, in the photo ${shade(photo)}", shade(lighten) > shade(photo) + 0.1 && shade(lighten) < 0.95)
+        // The ink not deepened, and the stamp still the photo's red.
+        val ink = { x: Int, y: Int -> page.luma(x, y) < 60 }
+        assertTrue("Ink ${meanLuma(lighten, ink)}, in the photo ${meanLuma(photo, ink)}", meanLuma(lighten, ink) >= meanLuma(photo, ink))
+        val (hue, saturation) = stampColour(page, lighten)
+        assertTrue("Stamp hue $hue, saturation $saturation", hueDistance(hue, stampColour(page, page.image).first) < 10 && saturation > 0.6)
+    }
+
+    @Test fun superEnhancedGoesFurtherThanEnhanced() {
+        val page = page()
+        val photo = photo(page)
+        val enhanced = colour(photo, PageLook.ENHANCED)
+        val superEnhanced = colour(photo, PageLook.SUPER_ENHANCED)
+        save("super-enhanced", superEnhanced)
+        fun whitePaper(image: BufferedImage): Int {
+            var white = 0
+            for (y in 0 until page.height) for (x in 0 until page.width) {
+                val c = image.getRGB(x, y)
+                if (page.isPaper(x, y) && min(c shr 16 and 0xFF, min(c shr 8 and 0xFF, c and 0xFF)) >= 250) white++
+            }
+            return white
+        }
+        assertTrue("White paper ${whitePaper(superEnhanced)}, Enhanced's ${whitePaper(enhanced)}", whitePaper(superEnhanced) >= whitePaper(enhanced))
+        val ink = { x: Int, y: Int -> page.luma(x, y) < 60 }
+        assertTrue("Ink ${meanLuma(superEnhanced, ink)}, Enhanced's ${meanLuma(enhanced, ink)}", meanLuma(superEnhanced, ink) <= meanLuma(enhanced, ink))
+        val (hue, saturation) = stampColour(page, superEnhanced)
+        val (enhancedHue, enhancedSaturation) = stampColour(page, enhanced)
+        assertTrue("Stamp saturation $saturation, Enhanced's $enhancedSaturation", saturation > enhancedSaturation + 0.02)
+        assertTrue("Stamp hue $hue, Enhanced's $enhancedHue", hueDistance(hue, enhancedHue) < 10)
+
+        // Sharpened: a grey square's edge comes out darker than its middle, which no curve could make,
+        // and the step onto it from the paper steeper.
+        val square = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
+        for (y in 0 until 400) for (x in 0 until 400) square.setRGB(x, y, if (x in 188 until 212 && y in 188 until 212) 0x6E6E6E else 0xEBEBEB)
+        val plain = colour(square, PageLook.ENHANCED)
+        val sharp = colour(square, PageLook.SUPER_ENHANCED)
+        fun at(image: BufferedImage, x: Int) = luma(image.getRGB(x, 200))
+        assertEquals("Enhanced", at(plain, 200), at(plain, 188))
+        assertTrue("Edge ${at(sharp, 188)}, middle ${at(sharp, 200)}", at(sharp, 188) < at(sharp, 200) - 5)
+        assertTrue("Step ${at(sharp, 187) - at(sharp, 188)}, Enhanced's ${at(plain, 187) - at(plain, 188)}", at(sharp, 187) - at(sharp, 188) > at(plain, 187) - at(plain, 188))
+    }
+
+    @Test fun inkSaverLeavesLargeDarkAreasHollow() {
+        val page = page()
+        val photo = photo(page)
+        val plain = DocumentLooks.blackAndWhite(source(photo))
+        val saver = DocumentLooks.blackAndWhite(source(photo), PageLook.INK_SAVER)
+        save("ink-saver", saver.toBuffered())
+        // Everything but the box is as black and white has it: the print, the bold heading, the pencil.
+        val box = page.box
+        val around = Rectangle(box.x - 2, box.y - 2, box.width + 4, box.height + 4)
+        var differ = 0
+        for (y in 0 until page.height) for (x in 0 until page.width) {
+            if (!around.contains(x, y) && plain.isBlack(x, y) != saver.isBlack(x, y)) differ++
+        }
+        assertEquals("Pixels that differ outside the box", 0, differ)
+        // The box keeps an outline a few pixels wide, and is white inside.
+        var outline = 0
+        var inside = 0
+        for (y in box.y until box.y + box.height) for (x in box.x until box.x + box.width) {
+            val depth = min(min(x - box.x, box.x + box.width - 1 - x), min(y - box.y, box.y + box.height - 1 - y))
+            if (depth in 1..2 && !saver.isBlack(x, y)) outline++
+            if (depth >= 8 && saver.isBlack(x, y)) inside++
+        }
+        assertEquals("White in the outline", 0, outline)
+        assertEquals("Black inside", 0, inside)
+        val hollowed = (box.width - 16) * (box.height - 16)
+        assertTrue("Black ${saver.blackCount()}, without ink saving ${plain.blackCount()}", saver.blackCount() < plain.blackCount() - hollowed)
+    }
+
+    @Test fun theToneCurvesNeverTurnBackAndKeepWhite() {
+        assertTrue(DocumentLooks.tones(LookAdjustments(0, 0)).withIndex().all { (i, v) -> i == v })
+        for (brightness in -100..100 step 20) for (contrast in -100..100 step 20) {
+            val tones = DocumentLooks.tones(LookAdjustments(brightness, contrast))
+            assertTrue("$brightness, $contrast", (1..255).all { tones[it] >= tones[it - 1] })
+            assertEquals("$brightness, $contrast", 255, tones[255])
+            if (contrast >= 0) assertEquals("$brightness, $contrast", 0, tones[0])
+        }
+    }
+
+    @Test fun brightnessAndContrastChangeEveryLook() {
+        val page = page(620)
+        val photo = photo(page)
+        // With neither, every look is exactly as it is made without them.
+        for (look in PageLook.entries) {
+            assertTrue("$look", TestImages.pixelsOf(made(photo, look, LookAdjustments(0, 0))).contentEquals(TestImages.pixelsOf(made(photo, look))))
+        }
+        // Brightness lightens or darkens the print and what is round it; contrast spreads the levels
+        // further apart or closer together.
+        val print = { x: Int, y: Int -> page.luma(x, y) < 200 }
+        for (look in PageLook.entries.filter { !it.isBilevel }) {
+            val darker = meanLuma(made(photo, look, LookAdjustments(brightness = -60)), print)
+            val plain = meanLuma(made(photo, look), print)
+            val lighter = meanLuma(made(photo, look, LookAdjustments(brightness = 60)), print)
+            assertTrue("$look: $darker, $plain, $lighter", darker < plain - 5 && plain + 5 < lighter)
+            val flatter = spread(made(photo, look, LookAdjustments(contrast = -60)))
+            val spread = spread(made(photo, look))
+            val punchier = spread(made(photo, look, LookAdjustments(contrast = 60)))
+            assertTrue("$look: $flatter, $spread, $punchier", flatter < spread - 2 && spread < punchier)
+        }
+        // Black and white: lighter leaves fewer pixels black, darker more; more contrast makes the
+        // print bolder.
+        for (look in PageLook.entries.filter { it.isBilevel }) {
+            val counts = listOf(-60, 0, 60).map { DocumentLooks.blackAndWhite(source(photo), look, LookAdjustments(brightness = it)).blackCount() }
+            assertTrue("$look: $counts", counts[0] > counts[1] && counts[1] > counts[2])
+            val less = DocumentLooks.blackAndWhite(source(photo), look, LookAdjustments(contrast = -60)).blackCount()
+            val more = DocumentLooks.blackAndWhite(source(photo), look, LookAdjustments(contrast = 60)).blackCount()
+            assertTrue("$look: $less, ${counts[1]}, $more", less < counts[1] && counts[1] < more)
+        }
+    }
+
+    @Test fun originalIsThePhotoOnWhite() {
+        val image = TestImages.pattern(37, 23, BufferedImage.TYPE_INT_ARGB)
+        for (y in 0 until 23) for (x in 0 until 37) image.setRGB(x, y, (image.getRGB(x, y) and 0xFFFFFF) or ((x * 7) shl 24))
+        val made = colour(image, PageLook.ORIGINAL)
+        for (y in 0 until 23) for (x in 0 until 37) {
+            val c = image.getRGB(x, y)
+            val alpha = c ushr 24
+            fun onWhite(v: Int) = (v * alpha + 255 * (255 - alpha) + 127) / 255
+            val expected = (onWhite(c shr 16 and 0xFF) shl 16) or (onWhite(c shr 8 and 0xFF) shl 8) or onWhite(c and 0xFF)
+            assertEquals("$x, $y", expected, made.getRGB(x, y) and 0xFFFFFF)
+        }
+    }
+
+    @Test fun eachColourLookCanBeWrittenBackIntoThePhoto() {
         // As a PDF's page is made, without a second picture as large: the same as made beside it.
-        val photo = photo(page(620))
-        val beside = BufferedImage(photo.width, photo.height, BufferedImage.TYPE_INT_RGB)
-        DocumentLooks.enhance(source(photo), { y, row -> beside.setRGB(0, y, row.size, 1, row, 0, row.size) })
-        DocumentLooks.enhance(source(photo), { y, row -> photo.setRGB(0, y, row.size, 1, row, 0, row.size) })
-        val differ = (0 until photo.height).sumOf { y -> (0 until photo.width).count { x -> beside.getRGB(x, y) != photo.getRGB(x, y) } }
-        assertEquals("Pixels that differ", 0, differ)
+        for (look in PageLook.entries.filter { it.isColour }) for (adjustments in listOf(LookAdjustments.NONE, LookAdjustments(30, 40))) {
+            val photo = photo(page(620))
+            val beside = colour(photo, look, adjustments)
+            DocumentLooks.colour(source(photo), look, adjustments, { y, row -> photo.setRGB(0, y, row.size, 1, row, 0, row.size) })
+            val differ = (0 until photo.height).sumOf { y -> (0 until photo.width).count { x -> beside.getRGB(x, y) != photo.getRGB(x, y) } }
+            assertEquals("$look, $adjustments: pixels that differ", 0, differ)
+        }
     }
 
     @Test fun anEvenlyLitPageKeepsItsPaperAndPrint() {
@@ -283,9 +487,11 @@ class DocumentLooksTest {
             g.fillRect(0, 0, 300, 200)
             g.dispose()
         }
-        val bits = DocumentLooks.blackAndWhite(source(blank))
-        for (y in 0 until 200) for (x in 0 until 300) assertTrue(!bits.isBlack(x, y))
-        assertTrue(DocumentLooks.grayscale(source(blank)).pixels.all { it == 255.toByte() })
+        for (look in PageLook.entries) {
+            val made = TestImages.pixelsOf(made(blank, look))
+            assertTrue("$look", made.all { it == made[0] })
+            if (look != PageLook.ORIGINAL && look != PageLook.LIGHTEN) assertEquals("$look", 0xFFFFFFFF.toInt(), made[0])
+        }
 
         // A single pixel (which can't tell print from paper), lines, and widths that aren't whole bytes.
         assertEquals(1, DocumentLooks.blackAndWhite(source(BufferedImage(1, 1, BufferedImage.TYPE_INT_RGB))).data.size)
@@ -297,10 +503,13 @@ class DocumentLooksTest {
             for (y in 0 until h) for (x in 0 until w) assertEquals("$w x $h at $x, $y", (x + y) % 5 == 0, b.isBlack(x, y))
             // The bits past a row's end are white.
             if (w % 8 != 0) for (y in 0 until h) assertEquals(0, (b.data[y * b.rowBytes + b.rowBytes - 1].toInt().inv() and ((1 shl (8 - w % 8)) - 1)))
-            assertEquals(w * h, DocumentLooks.grayscale(source(image)).pixels.size)
-            var rows = 0
-            DocumentLooks.enhance(source(image), { _, row -> assertEquals(w, row.size); rows++ })
-            assertEquals(h, rows)
+            assertTrue(b.data.contentEquals(DocumentLooks.blackAndWhite(source(image), PageLook.INK_SAVER).data))
+            assertEquals(w * h, DocumentLooks.grayscale(source(image), LookAdjustments(20, 20)).pixels.size)
+            for (look in PageLook.entries.filter { it.isColour }) {
+                var rows = 0
+                DocumentLooks.colour(source(image), look, LookAdjustments(20, 20), { y, row -> assertEquals(rows, y); assertEquals(w, row.size); rows++ })
+                assertEquals("$look", h, rows)
+            }
         }
     }
 
@@ -315,6 +524,13 @@ class DocumentLooksTest {
         assertTrue(bits.isBlack(100, 50))
         assertTrue(!bits.isBlack(10, 10))
         assertEquals(255, DocumentLooks.grayscale(source(image))[10, 10])
+        // Ink saver keeps the bar's edge; the colour looks see white paper round it.
+        val saver = DocumentLooks.blackAndWhite(source(image), PageLook.INK_SAVER)
+        assertTrue(saver.isBlack(100, 40) && !saver.isBlack(10, 10))
+        for (look in PageLook.entries.filter { it.isColour }) {
+            val made = colour(image, look)
+            assertTrue("$look", luma(made.getRGB(10, 10)) >= 245 && luma(made.getRGB(100, 50)) < 40)
+        }
     }
 
     @Test fun thePaperIsFoundUnderPrintAndBoxes() {
@@ -350,15 +566,19 @@ class DocumentLooksTest {
         g.color = Color.DARK_GRAY
         g.font = Font(Font.SERIF, Font.PLAIN, 60)
         for (line in 0 until 40) g.drawString("A line of print on a large photo, number $line", 100, 100 + line * 70)
+        // A dark box, for ink saver to leave hollow.
+        g.fillRect(2600, 400, 1000, 800)
         g.dispose()
         val source = source(image)
         repeat(2) { DocumentLooks.blackAndWhite(source) } // warm-up
-        val times = PageLook.entries.drop(1).associateWith { look ->
+        // Each look with brightness and contrast, which cost a little more.
+        val adjustments = LookAdjustments(10, 10)
+        val times = PageLook.entries.associateWith { look ->
             val start = System.nanoTime()
-            when (look) {
-                PageLook.ENHANCED -> DocumentLooks.enhance(source, { _, _ -> })
-                PageLook.GRAYSCALE -> DocumentLooks.grayscale(source)
-                else -> DocumentLooks.blackAndWhite(source)
+            when {
+                look.isColour -> DocumentLooks.colour(source, look, adjustments, { _, _ -> })
+                look == PageLook.GRAYSCALE -> DocumentLooks.grayscale(source, adjustments)
+                else -> DocumentLooks.blackAndWhite(source, look, adjustments)
             }
             (System.nanoTime() - start) / 1_000_000
         }
