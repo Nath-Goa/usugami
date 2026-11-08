@@ -390,7 +390,8 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, modi
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.DocumentScanner, contentDescription = null, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.width(16.dp))
-                Column {
+                // One item for a screen reader, a heading as the tools' sections have, before the buttons.
+                Column(Modifier.semantics(mergeDescendants = true) { heading() }) {
                     Text(stringResource(R.string.scan_title), style = MaterialTheme.typography.titleLarge)
                     Text(stringResource(R.string.scan_detail), style = MaterialTheme.typography.bodyMedium)
                 }

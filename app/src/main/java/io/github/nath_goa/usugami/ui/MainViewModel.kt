@@ -203,7 +203,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     val cropping: StateFlow<Set<Long>> = _cropping.asStateFlow()
 
     /** Set while the crop screen is being opened (the page looked for), so a second tap does nothing. */
-    private var openingCrop = false
+    private val _openingCrop = MutableStateFlow(false)
+    val openingCrop: StateFlow<Boolean> = _openingCrop.asStateFlow()
 
     /**
      * The images picked with Home's Upload images that are still to go through the crop screen, while
@@ -216,13 +217,29 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** Counts the scans started: the images of one that has ended are added as any others are. */
     private var scans = 0
 
+    /** Counts the batches of images picked or shared, in the order they came (see [allPagesChoice]). */
+    private var importBatches = 0
+
+    /**
+     * What Apply to all pages gave every page last. The images of the batches that were still being
+     * added then take it too, as each is added: they are pages of the PDF as much as those already in.
+     */
+    private var allPagesChoice: AllPagesChoice? = null
+
+    private val _cameraOpen = MutableStateFlow(handle.get<String>(KEY_CAPTURE) != null)
+    /** Whether the camera app is open for a photo (see [newCapture]). */
+    val cameraOpen: StateFlow<Boolean> = _cameraOpen.asStateFlow()
+
     /**
      * The file the camera app saves the next photo in, while it is open. In the saved state: Android
      * often stops Usugami while the camera app is open.
      */
     private var capture: String?
         get() = handle[KEY_CAPTURE]
-        set(value) { handle[KEY_CAPTURE] = value }
+        set(value) {
+            handle[KEY_CAPTURE] = value
+            _cameraOpen.value = value != null
+        }
 
     /** The photos taken that are waiting to be added, in the saved state until each is (see [addPhoto]). */
     private var pendingPhotos: List<PendingPhoto>
@@ -238,7 +255,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     /**
      * The look chosen last on the crop screen, which the next photo taken (or image of a scan) starts
-     * with: pages scanned one after another look alike. The first is Enhanced, as a scanner's pages are.
+     * with: pages scanned one after another look alike. A new scan (from Home, or once every page has
+     * gone) starts on Enhanced, as a scanner's pages are.
      */
     private var lastLook: PageLook
         get() = handle.get<PageLook>(KEY_LOOK) ?: PageLook.ENHANCED
@@ -468,10 +486,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     /**
      * Adds the images picked with Home's Upload images, and takes each through the crop screen in
-     * turn, the first as soon as it is added (see [ScanQueue]).
+     * turn, the first as soon as it is added (see [ScanQueue]): a new scan (see [newScan]).
      */
     fun scanImages(uris: List<Uri>) {
         if (uris.isEmpty()) return
+        newScan()
         val scan = ++scans
         _scan.value = ScanQueue(coming = uris.size)
         importImages(uris, refused = 0) { added ->
@@ -481,6 +500,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 advanceScan()
             }
         }
+    }
+
+    /**
+     * A scan from Home starts a new document, whose first page starts on Enhanced again (see
+     * [lastLook]), as one does once every page has gone.
+     */
+    fun newScan() {
+        handle.remove<PageLook>(KEY_LOOK)
     }
 
     /**
@@ -495,6 +522,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             if (refused > 0) pluralMessage(R.plurals.msg_failed_import, refused)
             return null
         }
+        val batch = ++importBatches
         putAwayResult()
         // Shared images open the editor: a ZIP file to share the PDFs that showed is no longer wanted.
         // One being saved where the user chose goes on, as a save of the PDFs does.
@@ -520,15 +548,19 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                             if (r is ImageStore.ImportResult.Added) viewModelScope.launch(fileOps) { store.delete(r.item) }
                             return@launch
                         }
+                        var added: ImageItem? = null
                         when (r) {
-                            is ImageStore.ImportResult.Added -> setItems(items.value + r.item)
+                            is ImageStore.ImportResult.Added -> {
+                                added = withAllPagesChoice(r.item, batch)
+                                setItems(items.value + added)
+                            }
                             ImageStore.ImportResult.Unsupported -> unsupported++
                             ImageStore.ImportResult.Failed -> failed++
                             ImageStore.ImportResult.NoSpace -> noSpace++
                         }
                         _pendingImports.update { it - 1 }
                         picksUnderWay--
-                        each((r as? ImageStore.ImportResult.Added)?.item)
+                        each(added)
                     }
                 }
             } finally {
@@ -540,6 +572,15 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 }
             }
         }
+    }
+
+    /**
+     * [item], just added from batch [batch], with the look and adjustments Apply to all pages gave
+     * every page while the batch was being added, if it did (see [allPagesChoice]).
+     */
+    private fun withAllPagesChoice(item: ImageItem, batch: Int): ImageItem {
+        val choice = allPagesChoice?.takeIf { batch <= it.through } ?: return item
+        return item.copy(look = choice.look, adjustments = choice.adjustments)
     }
 
     // ---- Files shared from other apps ----
@@ -709,6 +750,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // Photos waiting their turn are discarded too: a state saved now mustn't bring them back.
         pendingPhotos = emptyList()
         _scan.value = null
+        // What comes next starts a new document.
+        newScan()
         val all = items.value
         val replaced = superseded.toList()
         superseded.clear()
@@ -759,6 +802,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private fun setItems(list: List<ImageItem>) {
         _items.value = list
         if (list.isEmpty()) lastChoices = null
+        // A scan's images that have gone are left out of it at once, so that it counts its images
+        // and finishes on its last as it is now.
+        _scan.value?.let { scan ->
+            val ids = list.mapTo(HashSet()) { it.id }
+            if (!ids.containsAll(scan.waiting)) _scan.value = scan.copy(waiting = scan.waiting.filter { it in ids })
+        }
         // The crop screen's image has gone (removed, or its copy cleared): there is nothing to crop. A
         // scan goes on with its next image.
         _crop.value?.let { session ->
@@ -862,8 +911,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
      */
     private fun openCrop(item: ImageItem, fromCamera: Boolean, queued: Boolean = false) {
         // A second tap while the page is looked for, or with the screen open, does nothing.
-        if (openingCrop || _crop.value != null || _progress.value != null) return
-        openingCrop = true
+        if (_openingCrop.value || _crop.value != null || _progress.value != null) return
+        _openingCrop.value = true
         viewModelScope.launch {
             try {
                 // The image a page was cropped from may have been cleared from the cache: the page is
@@ -899,7 +948,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     queued = queued,
                 )
             } finally {
-                openingCrop = false
+                _openingCrop.value = false
                 if (queued && _crop.value == null) {
                     _scan.update { scan -> scan?.copy(waiting = scan.waiting - item.id) }
                     advanceScan()
@@ -922,7 +971,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             return
         }
         _scan.value = left
-        if (_crop.value != null || openingCrop) return
+        if (_crop.value != null || _openingCrop.value) return
         val next = left.waiting.firstOrNull() ?: return
         openCrop(items.value.first { it.id == next }, fromCamera = false, queued = true)
     }
@@ -959,7 +1008,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val adjusted = adjustments ?: picked.adjustments
         // The next photo starts with the look chosen, not with one a page only kept.
         if (look != null && (session.fromCamera || session.queued || allPages || look != session.look)) lastLook = look
-        if (allPages) setItems(items.value.map { it.copy(look = chosen, adjustments = adjusted) })
+        if (allPages) {
+            setItems(items.value.map { it.copy(look = chosen, adjustments = adjusted) })
+            // And the images still being added, such as the rest of a scan, as each comes.
+            allPagesChoice = AllPagesChoice(chosen, adjusted, through = importBatches)
+        }
         val item = picked.copy(look = chosen, adjustments = adjusted, rotation = turn)
         if (item != picked) replaceItem(item)
         when {
@@ -990,6 +1043,13 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         _crop.value = null
         if (session.fromCamera) remove(session.itemId)
     }
+
+    /**
+     * Whether a page is on its way: the camera app open, images or a photo being added or a page
+     * being cropped, the crop screen showing or being opened, or a scan going on.
+     */
+    fun pageUnderWay(): Boolean =
+        _cameraOpen.value || _pendingImports.value > 0 || _openingCrop.value || _crop.value != null || _scan.value != null
 
     /**
      * Makes [item]'s page from [source], straightened inside [quad], and puts it in place. In the saved
@@ -1541,3 +1601,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
 /** The shared files being copied in were dropped (see [MainViewModel.dropShares]). */
 private class ShareDropped : Exception()
+
+/**
+ * The [look] and [adjustments] Apply to all pages gave every page, which reach the images of the
+ * batches picked or shared up to batch [through] that were still being added.
+ */
+private class AllPagesChoice(val look: PageLook, val adjustments: LookAdjustments, val through: Int)

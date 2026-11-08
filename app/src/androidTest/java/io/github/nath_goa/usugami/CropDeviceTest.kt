@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.net.Uri
 import android.os.SystemClock
+import android.system.Os
 import androidx.exifinterface.media.ExifInterface
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
@@ -34,6 +35,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.io.FileOutputStream
+import kotlin.concurrent.thread
 import kotlin.math.abs
 import kotlin.math.hypot
 
@@ -45,9 +48,9 @@ import kotlin.math.hypot
  * finished when Android stops Usugami made again (from the photo when the page cropped before has
  * gone, and not at all when the photo has), a photo back as Usugami starts again kept, a page removed
  * while it is cropped going quietly, and a page outlasting the image it was cropped from kept; the
- * turn, look and adjustments chosen reaching the page (or every page), and a scan of uploaded images
- * taking each in turn, leaving out one removed, stopping when closed and going on after Android
- * stops Usugami.
+ * turn, look and adjustments chosen reaching the page (or every page, also those still being added),
+ * and a scan of uploaded images taking each in turn, leaving out one removed, stopping when closed and
+ * going on after Android stops Usugami.
  */
 class CropDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -586,7 +589,7 @@ class CropDeviceTest {
     /**
      * The turn, look and adjustments chosen on the crop screen reach the page, cropped where the page
      * is however the screen turned it. Opened again, a page starts as it is; a new photo starts with
-     * the look chosen last (Enhanced, at first) and no adjustments.
+     * the look chosen last (Enhanced, at first) and no adjustments, and a new scan on Enhanced again.
      */
     @Test fun theTurnLookAndAdjustmentsChosenReachThePage() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
@@ -618,6 +621,13 @@ class CropDeviceTest {
         val next = onMain { vm.crop.value!! }
         assertEquals(PageLook.SUPER_ENHANCED, next.look)
         assertEquals(LookAdjustments.NONE, next.adjustments)
+        // A new scan from Home starts on Enhanced again.
+        onMain {
+            vm.closeCrop()
+            vm.newScan()
+        }
+        takePhoto(vm)
+        assertEquals(PageLook.ENHANCED, onMain { vm.crop.value!!.look })
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
@@ -638,6 +648,37 @@ class CropDeviceTest {
             listOf(first.copy(look = PageLook.BLACK_WHITE, adjustments = adjustments, rotation = 180), second.copy(look = PageLook.BLACK_WHITE, adjustments = adjustments)),
             onMain { vm.items.value },
         )
+        onMain { vm.clearAll() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    /**
+     * Apply to all pages chosen on a scan's first image reaches an image still being added: it comes in
+     * with that look and those adjustments, and its crop screen opens with them.
+     */
+    @Test fun applyToAllReachesTheImagesStillBeingAdded() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        runBlocking { vm.awaitFileWork() }
+        val first = Uri.fromFile(PagePhotos.jpeg(PagePhotos.photo(), File(dir, "first.jpg")))
+        val photo = PagePhotos.jpeg(PagePhotos.photo(), File(dir, "photo.jpg")).readBytes()
+        // The second image is read from a pipe: it is being added until the test writes it in.
+        val late = File(dir, "late.jpg").also { Os.mkfifo(it.path, "600".toInt(8)) }
+        val letIn = thread(start = false, isDaemon = true) { FileOutputStream(late).use { it.write(photo) } }
+        try {
+            onMain { vm.scanImages(listOf(first, Uri.fromFile(late))) }
+            waitUntil("the first image's crop screen") { vm.crop.value != null }
+            assertEquals(1, onMain { vm.scan.value!!.coming })
+            val adjustments = LookAdjustments(brightness = 30)
+            assertTrue(onMain { vm.finishCrop(CropQuad.WHOLE, PageLook.BLACK_WHITE, allPages = true, adjustments = adjustments) })
+            letIn.start()
+            waitUntil("the second image's crop screen") { vm.crop.value != null }
+            val second = onMain { vm.crop.value!! }
+            assertEquals(PageLook.BLACK_WHITE to adjustments, second.look to second.adjustments)
+            assertEquals(listOf(PageLook.BLACK_WHITE to adjustments, PageLook.BLACK_WHITE to adjustments), onMain { vm.items.value.map { it.look to it.adjustments } })
+        } finally {
+            // Also when the test failed first, so the image being added doesn't wait for ever.
+            if (letIn.state == Thread.State.NEW) letIn.start()
+        }
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
@@ -667,6 +708,8 @@ class CropDeviceTest {
         val second = onMain { vm.crop.value!! }
         assertEquals(PageLook.GRAYSCALE, second.look)
         onMain { vm.remove(ids[2]) }
+        // Counted out at once, while the second still shows.
+        assertEquals(2 to 4, onMain { vm.scan.value!!.run { place to total } })
         // Next, and stopped at once, while the fourth is being opened: it isn't.
         val scan = onMain {
             assertTrue(vm.finishCrop(second.shown(PagePhotos.QUAD), second.look))

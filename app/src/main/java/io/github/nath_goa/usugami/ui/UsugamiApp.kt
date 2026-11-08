@@ -70,6 +70,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val compression by vm.compression.collectAsStateWithLifecycle()
     val pendingImports by vm.pendingImports.collectAsStateWithLifecycle()
     val crop by vm.crop.collectAsStateWithLifecycle()
+    val openingCrop by vm.openingCrop.collectAsStateWithLifecycle()
+    val cameraOpen by vm.cameraOpen.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
     val cropping by vm.cropping.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
@@ -173,29 +175,31 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { vm.addImages(it) }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.addImages(it) }
-    // The editor was opened by Home's Scan document: when its scan leaves no page (the camera closed
-    // without a photo, or the photo discarded), it goes back to Home rather than to an empty editor.
+    // The editor was opened by Home's Scan document, whose scan is still going on.
     var scanFromHome by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(route) { if (route != "images") scanFromHome = false }
-
-    /** Back to Home after a scan from Home that left no page, with nothing still being added. */
-    fun homeIfNothingScanned() {
-        if (scanFromHome && route == "images" && vm.items.value.isEmpty() && vm.pendingImports.value == 0 && vm.crop.value == null) route = "home"
+    // Once nothing more is on its way, the scan from Home is over. With no page (the camera closed
+    // without a photo, the photo discarded, or nothing picked could be added) it goes back to Home
+    // rather than to an empty editor; with pages, the editor is as it always is from then on. The view
+    // model is asked as it is now: its flows reach the screen one at a time.
+    LaunchedEffect(scanFromHome, route, items.isEmpty(), pendingImports, openingCrop, crop, scan, cameraOpen) {
+        if (!scanFromHome || route != "images" || vm.pageUnderWay()) return@LaunchedEffect
+        if (vm.items.value.isEmpty()) route = "home" else scanFromHome = false
     }
     // Scan document's Upload images: the images picked are added, and cropped one after another.
     // Nothing picked leaves Home as it was.
     val scanPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
         if (uris.isNotEmpty()) {
             vm.scanImages(uris)
-            if (route == "home") route = "images"
+            if (route == "home") {
+                route = "images"
+                scanFromHome = true
+            }
         }
     }
     // The phone's own camera app takes the photos, into a file Usugami gives it: Usugami needs no
     // camera permission. Also when Android closed Usugami while it was open, this comes back.
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
-        vm.photoTaken(taken)
-        if (!taken) homeIfNothingScanned()
-    }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture(), vm::photoTaken)
     // The PDF tool whose picker is open. What is picked goes to that tool while it shows, and not to
     // Home or another tool when the user left before the picker covered Usugami.
     var pickingFor by rememberSaveable { mutableStateOf<String?>(null) }
@@ -433,6 +437,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         // The camera opens over the editor, where its photo is added.
                         onScanPhoto = {
                             if (takePhoto()) {
+                                vm.newScan()
                                 route = "images"
                                 scanFromHome = true
                             }
@@ -557,10 +562,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             done = { vm.finishCrop(it.corners, it.look, it.allPages, it.adjustments, it.rotation) },
                             // A second tap, once the first has closed the screen, opens no second camera.
                             takeAnother = { if (vm.finishCrop(it.corners, it.look, it.allPages, it.adjustments, it.rotation)) takePhoto() },
-                            close = {
-                                vm.closeCrop()
-                                homeIfNothingScanned()
-                            },
+                            close = vm::closeCrop,
                         ),
                     )
                 }

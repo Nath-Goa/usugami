@@ -531,6 +531,8 @@
     <string name="filter_reset_contrast">Reset contrast</string>
     <!-- Under the title while several uploaded images are cropped one after another, e.g. "Page 2 of 5". -->
     <string name="scan_place">Page %1$d of %2$d</string>
+    <!-- What a screen reader says as each image of such a scan comes in: the step's name (Crop page, or Filters), then which image it is, e.g. "Crop page, Page 2 of 5". -->
+    <string name="scan_pane_title">%1$s, %2$s</string>
     <!-- How the page looks in the PDF, chosen on the filters step: a heading over the looks. -->
     <string name="look_title">Look</string>
     <string name="look_original">Original</string>

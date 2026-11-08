@@ -350,6 +350,11 @@ class ScreensDeviceTest {
 
     @Test fun homeGroupsTheToolsUnderHeadings() {
         launch()
+        // Scan document, above them, is one too: its title with what it says, read as one.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val scan = find("Scan document") { it.says(app.getString(R.string.scan_title)) }
+            assertNotNull("A screen reader can jump to Scan document", ancestor(scan) { it.isHeading })
+        }
         val headings = listOf(R.string.home_section_create, R.string.home_section_organize, R.string.home_section_edit, R.string.home_section_optimize)
         val sections = listOf(
             listOf(R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_epub),
@@ -1154,9 +1159,13 @@ class ScreensDeviceTest {
     /**
      * Stands in for the camera app: catches the photo Usugami asks for, "takes" [photo] into the file
      * it was given and returns, or with [noCamera], fails as on a phone without a camera app. Without
-     * a [photo], it is closed without taking one.
+     * a [photo], it is closed without taking one, or with [saysTaken], says it took one but saves nothing.
      */
-    private inner class Camera(private val photo: Bitmap?, private val noCamera: Boolean = false) : Instrumentation.ActivityMonitor() {
+    private inner class Camera(
+        private val photo: Bitmap?,
+        private val noCamera: Boolean = false,
+        private val saysTaken: Boolean = false,
+    ) : Instrumentation.ActivityMonitor() {
         @Volatile var opened = 0
         @Volatile var taken = 0
 
@@ -1164,7 +1173,7 @@ class ScreensDeviceTest {
             if (intent.action != MediaStore.ACTION_IMAGE_CAPTURE) return null
             if (noCamera) throw ActivityNotFoundException()
             opened++
-            if (photo == null) return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
+            if (photo == null) return Instrumentation.ActivityResult(if (saysTaken) Activity.RESULT_OK else Activity.RESULT_CANCELED, null)
             val output = IntentCompat.getParcelableExtra(intent, MediaStore.EXTRA_OUTPUT, Uri::class.java)!!
             assertTrue("The camera app may write the file", (intent.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0)
             app.contentResolver.openOutputStream(output)!!.use { photo.compress(Bitmap.CompressFormat.JPEG, 92, it) }
@@ -1530,35 +1539,52 @@ class ScreensDeviceTest {
     }
 
     /**
-     * Scan document's Take photo opens the camera at once, over the editor; closed without a photo,
-     * it goes back to Home, not to an empty editor.
+     * Scan document's Take photo opens the camera at once, over the editor. A scan from Home that
+     * leaves no page goes back to Home, not to an empty editor: the camera closed without a photo, or
+     * saying it took one it never saved, and an image picked that can't be read. Once a page is kept,
+     * the editor stays, also when that page is removed.
      */
-    @Test fun scanningFromHomeWithTheCameraClosedGoesBackHome() {
+    @Test fun aScanFromHomeThatLeavesNoPageGoesBackHome() {
         val activity = launch()
         val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
-        val camera = Camera(null)
-        withCamera(camera) {
-            click(button(R.string.add_from_camera))
-            waitUntil("the camera to open") { camera.opened == 1 }
-            // The camera's file goes once Usugami knows it was closed.
-            waitUntil("the camera's file to go") { File(app.cacheDir, "camera").list().isNullOrEmpty() }
-        }
         val onHome = { nodes().any { it.says(app.getString(R.string.scan_title)) } && nodes().none { it.says(app.getString(R.string.empty_title)) } }
-        waitUntil("Home") { onHome() }
+        fun stillHome() {
+            waitUntil("Home") { onHome() }
+            Thread.sleep(1_000)
+            assertTrue("Still Home, not the editor", onHome())
+            assertTrue(onMain { vm.items.value.isEmpty() })
+        }
+        for (camera in listOf(Camera(null), Camera(null, saysTaken = true))) {
+            withCamera(camera) {
+                click(button(R.string.add_from_camera))
+                waitUntil("the camera to open") { camera.opened == 1 }
+                // The camera's file goes once Usugami knows it was closed.
+                waitUntil("the camera's file to go") { File(app.cacheDir, "camera").list().isNullOrEmpty() }
+            }
+            stillHome()
+        }
+        // Only the start of a JPEG.
+        val broken = File(app.cacheDir, "test-photos/broken.jpg").apply {
+            parentFile!!.mkdirs()
+            writeBytes(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()) + ByteArray(2_000))
+        }
+        pickToScan(listOf(Uri.fromFile(broken)))
+        stillHome()
+
+        withCamera(Camera(PagePhotos.photo())) {
+            click(button(R.string.add_from_camera))
+            press(R.string.crop_next)
+            press(R.string.crop_done)
+        }
+        waitUntil("the page to be cropped") { onMain { vm.items.value.size == 1 && vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 } }
+        onMain { vm.remove(vm.items.value.single().id) }
+        find("the empty editor") { it.says(app.getString(R.string.empty_title)) }
         Thread.sleep(1_000)
-        assertTrue("Still Home, not the editor", onHome())
-        assertTrue(onMain { vm.items.value.isEmpty() })
+        assertFalse("Still the editor, not Home", onHome())
     }
 
-    /**
-     * Scan document's Upload images: the images picked go through both steps one after another, the
-     * count under the title, Next until the last, which has Done. Closed part way, the screen leaves
-     * the rest as they were added, in the editor.
-     */
-    @Test fun uploadedImagesAreCroppedOneAfterAnotherAndTheRestKeptWhenClosed() {
-        val activity = launch()
-        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
-        val uris = (1..3).map { Uri.fromFile(PagePhotos.jpeg(PagePhotos.photo(), File(app.cacheDir, "test-photos/scan$it.jpg"))) }
+    /** Picks the images at [uris] with Scan document's Upload images, the picker standing in. */
+    private fun pickToScan(uris: List<Uri>) {
         val picked = Instrumentation.ActivityResult(
             Activity.RESULT_OK,
             Intent().apply {
@@ -1578,6 +1604,17 @@ class ScreensDeviceTest {
         } finally {
             instrumentation.removeMonitor(picker)
         }
+    }
+
+    /**
+     * Scan document's Upload images: the images picked go through both steps one after another, the
+     * count under the title (and in the name a screen reader hears), Next until the last, which has
+     * Done. Closed part way, the screen leaves the rest as they were added, in the editor.
+     */
+    @Test fun uploadedImagesAreCroppedOneAfterAnotherAndTheRestKeptWhenClosed() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        pickToScan((1..3).map { Uri.fromFile(PagePhotos.jpeg(PagePhotos.photo(), File(app.cacheDir, "test-photos/scan$it.jpg"))) })
 
         find("the first image's crop step") { it.says(app.getString(R.string.scan_place, 1, 3)) }
         waitUntil("the images to be added") { onMain { vm.items.value.size == 3 && vm.pendingImports.value == 0 } }
@@ -1585,6 +1622,10 @@ class ScreensDeviceTest {
         for (i in 0..1) {
             waitUntil("image ${i + 1}'s crop screen") { onMain { vm.crop.value?.itemId == ids[i] } }
             find("its place") { it.says(app.getString(R.string.scan_place, i + 1, 3)) }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val pane = app.getString(R.string.scan_pane_title, app.getString(R.string.crop_title), app.getString(R.string.scan_place, i + 1, 3))
+                waitUntil("its step to be named with its place") { nodes().any { it.paneTitle?.toString() == pane } }
+            }
             press(R.string.crop_next)
             find("its filters step") { it.says(app.getString(R.string.filter_title)) }
             press(R.string.crop_next)

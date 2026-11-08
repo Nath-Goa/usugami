@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -89,6 +88,7 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
@@ -106,6 +106,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -188,11 +189,13 @@ fun CropScreen(
             if (shown == null) {
                 ScanWaiting(freezeWhen(!live, scan), live, messages, actions.close)
             } else {
+                val shownScan = freezeWhen(!live, scan)?.takeIf { shown.queued }
                 CropSteps(
                     session = shown,
                     item = items.firstOrNull { it.id == shown.itemId },
-                    pageCount = items.size,
-                    scan = freezeWhen(!live, scan)?.takeIf { shown.queued },
+                    // The images of the scan still being added are pages too: Apply to all pages reaches them.
+                    pageCount = items.size + (shownScan?.coming ?: 0),
+                    scan = shownScan,
                     live = live,
                     settled = settled,
                     snackbar = messages,
@@ -250,9 +253,11 @@ private fun CropSteps(
         val stepLive = transition.targetState == EnterExitState.Visible
         val here = settled && stepLive && transition.currentState == EnterExitState.Visible
         val title = stringResource(if (filters) R.string.filter_title else R.string.crop_title)
+        // Which image of a scan this is goes with the name, so the next image is heard coming in.
+        val pane = if (scan == null) title else stringResource(R.string.scan_pane_title, title, stringResource(R.string.scan_place, scan.place, scan.total))
         // Each step is a pane, which a screen reader names once it has come in. While it fades in, a
         // screen reader leaves it out, and only a change, such as this, makes it look again.
-        Inert(!stepLive, Modifier.semantics { if (here) paneTitle = title }) {
+        Inert(!stepLive, Modifier.semantics { if (here) paneTitle = pane }) {
             Scaffold(
                 topBar = {
                     TopAppBar(
@@ -597,22 +602,49 @@ internal class StepButton(
     val onClick: () -> Unit,
 )
 
-/** A step's buttons at its foot: [main], filled, and before it [other], if any. */
+/**
+ * A step's buttons at its foot: [main], filled, and before it [other], if any. Two are side by side,
+ * as tall as each other, while each label there breaks only between its words; otherwise (large text
+ * on a narrow column) one above the other, [main] last, each as wide as the column.
+ */
 @Composable
 internal fun StepButtons(main: StepButton, other: StepButton? = null) {
-    // The two buttons are as tall as each other when a long label takes two lines.
-    Row(
-        Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        val fill = Modifier.weight(1f).fillMaxHeight()
-        if (other != null) {
-            OutlinedButton(onClick = other.onClick, enabled = other.enabled, modifier = fill, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+    val padding = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+    val mainButton = @Composable {
+        Button(onClick = main.onClick, enabled = main.enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+            StepButtonContent(main)
+        }
+    }
+    if (other == null) {
+        Box(padding, propagateMinConstraints = true) { mainButton() }
+        return
+    }
+    Layout(
+        content = {
+            OutlinedButton(onClick = other.onClick, enabled = other.enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
                 StepButtonContent(other)
             }
-        }
-        Button(onClick = main.onClick, enabled = main.enabled, modifier = fill, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-            StepButtonContent(main)
+            mainButton()
+        },
+        modifier = padding,
+    ) { buttons, constraints ->
+        val width = constraints.maxWidth
+        val half = (width - 12.dp.roundToPx()) / 2
+        // A button is as narrow as it gets without breaking a word when its label's longest word fits.
+        if (buttons.all { it.minIntrinsicWidth(Constraints.Infinity) <= half }) {
+            val height = buttons.maxOf { it.maxIntrinsicHeight(half) }
+            val placed = buttons.map { it.measure(Constraints.fixed(half, height)) }
+            layout(width, height) {
+                placed[0].placeRelative(0, 0)
+                placed[1].placeRelative(width - half, 0)
+            }
+        } else {
+            val placed = buttons.map { it.measure(Constraints(minWidth = width, maxWidth = width)) }
+            val gap = 8.dp.roundToPx()
+            layout(width, placed[0].height + gap + placed[1].height) {
+                placed[0].placeRelative(0, 0)
+                placed[1].placeRelative(0, placed[0].height + gap)
+            }
         }
     }
 }
