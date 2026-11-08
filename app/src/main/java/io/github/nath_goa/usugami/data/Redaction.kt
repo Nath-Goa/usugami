@@ -131,7 +131,8 @@ internal object Redactor {
      * The text is read twice: in the order the PDF draws it, which keeps a column's lines together
      * so a phrase is found across a line break, and sorted by position along each direction, which
      * reads text that runs up or down the page as shown. Matches found both ways count once. Text
-     * set with wide spacing between its letters is found too (see [PageText]).
+     * set with wide spacing between its letters, and words broken after a hyphen at the end of a
+     * line, are found too (see [PageText]).
      */
     fun find(doc: PDDocument, query: String, check: () -> Unit): List<List<RedactBox>> {
         if (PageText.normalize(query).isEmpty()) return emptyList()
@@ -393,7 +394,7 @@ internal object Redactor {
         /** A break between lines: the line read so far goes into the page's text first. */
         private fun space() {
             endLine()
-            text.space()
+            text.lineBreak()
         }
 
         private fun endLine() {

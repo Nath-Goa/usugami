@@ -179,6 +179,34 @@ class RedactionTest {
         assertEquals(listOf((7..14).toList()), text.find("a natural"))
     }
 
+    /** As text extraction reads words broken after a hyphen at the end of a line: a line break follows the hyphen. */
+    @Test fun wordsBrokenAfterAHyphenAreFound() {
+        val text = PageText.Builder().apply {
+            var glyph = 0
+            fun word(word: String) = word.forEach { glyph(glyph++, it.toString()) }
+            word("jane.smith-")
+            lineBreak()
+            // A line's break and a paragraph's, in a row.
+            lineBreak()
+            word("jones@example.com")
+            space()
+            // A word hyphenated with a soft hyphen, which reads as nothing.
+            word("confi")
+            glyph(glyph++, "­")
+            lineBreak()
+            word("dential")
+            lineBreak()
+            word("end")
+        }.build()
+        assertEquals("jane.smith- jones@example.com confi dential end", text.text)
+        assertEquals(listOf((0..27).toList()), text.find("Jane.Smith-Jones@example.com"))
+        assertEquals(1, text.find("smith jones").size)
+        assertEquals(listOf((28..32).toList() + (34..40).toList()), text.find("confidential"))
+        // A line break after a whole word is a space, as before.
+        assertTrue(text.find("dentialend").isEmpty())
+        assertEquals(1, text.find("dential end").size)
+    }
+
     @Test fun matchesDoNotOverlap() {
         val text = pageText("aaaa")
         assertEquals(listOf(listOf(0, 1), listOf(2, 3)), text.find("aa"))
