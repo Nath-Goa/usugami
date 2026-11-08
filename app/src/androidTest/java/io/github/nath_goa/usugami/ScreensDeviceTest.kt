@@ -59,6 +59,7 @@ import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.Appearances
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.CropSession
@@ -140,7 +141,12 @@ class ScreensDeviceTest {
         if (AppLanguages.reset(app)) Thread.sleep(1_000)
     }
 
-    @Before fun setUp() = forgetLanguage()
+    @Before fun setUp() {
+        forgetLanguage()
+        // Files saved by the tests before would show in Recent files on Home, and leave it while a test
+        // reads Home as each deleted file is noticed, moving everything under it.
+        RecentFiles.of(app).run { clear(); runBlocking { awaitWrites() } }
+    }
 
     @After fun tearDown() {
         activity?.let { onMain { it.finish() } }
