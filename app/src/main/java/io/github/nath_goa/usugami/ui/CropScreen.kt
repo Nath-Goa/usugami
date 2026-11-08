@@ -157,7 +157,8 @@ class CropActions(
  * right in the bar turn the image, the corners with it. Back on the second step goes back to the
  * first, with the corners kept. A photo just taken can be finished with Take another, and leaving
  * discards it; the images of a scan ([scan]) come one after another, and while the next is awaited
- * the screen says so. What the steps chose is kept through rotation and Android stopping Usugami.
+ * the screen says so. What the steps chose is kept through rotation, Android stopping Usugami, and a
+ * tool opened over the screen for files shared to Usugami (UsugamiApp keeps it then).
  * [active] is false while the screen animates away: it then takes no Back. [arrived] is true once it
  * has come in.
  */

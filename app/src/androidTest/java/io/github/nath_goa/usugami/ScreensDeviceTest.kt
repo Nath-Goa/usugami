@@ -1634,6 +1634,52 @@ class ScreensDeviceTest {
         assertTrue(onMain { vm.items.value.isEmpty() })
     }
 
+    /**
+     * A document shared to Usugami while a page is on the crop screen's filters step opens its
+     * converter, and Back from there returns to that step with the corner moved and the look chosen,
+     * also after the activity was recreated in the converter.
+     */
+    @Test fun aPageLeftForASharedDocumentKeepsItsCornersAndLook() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        withCamera(Camera(PagePhotos.photo())) {
+            click(button(R.string.add_from_camera))
+            find("the crop screen") { it.says(app.getString(R.string.crop_found)) }
+        }
+        val session = checkNotNull(onMain { vm.crop.value })
+        val left = app.getString(R.string.edit_move_left)
+        repeat(5) {
+            val corner = find("the top-left corner") { it.says(app.getString(R.string.crop_corner_top_left)) && it.action(left) != null }
+            assertTrue(corner.performAction(corner.action(left)!!.id))
+        }
+        press(R.string.crop_next)
+        find("the filters step") { it.says(app.getString(R.string.filter_title)) }
+        waitUntil("Enhanced to be chosen") { look(R.string.look_enhanced).chosen }
+        click(look(R.string.look_black_white))
+        waitUntil("black and white to be chosen") { look(R.string.look_black_white).chosen }
+
+        val stamp = System.currentTimeMillis()
+        val word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        shareTo(shareIntent(word, inDownloads("Report $stamp.docx", word, asset("report.docx"))))
+        find("the shared document in Word to PDF") { it.says("Report $stamp.docx") }
+        // Also when the activity is recreated meanwhile, as on rotation.
+        onMain { activity.recreate() }
+        recreatedFrom(activity)
+        find("the shared document, again") { it.says("Report $stamp.docx") }
+        backKey()
+        find("the filters step, again") { it.says(app.getString(R.string.filter_title)) }
+        waitUntil("black and white, still chosen") { look(R.string.look_black_white).chosen }
+        press(R.string.crop_done)
+        waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
+        val page = onMain { vm.items.value.single() }
+        assertEquals(PageLook.BLACK_WHITE, page.look)
+        // Each step is 0.4% of the photo's long side.
+        val step = 0.004f * PagePhotos.PHOTO_HEIGHT / PagePhotos.PHOTO_WIDTH
+        assertEquals(session.found[CropQuad.TOP_LEFT].x - 5 * step, page.original!!.corners[CropQuad.TOP_LEFT].x, 1e-3f)
+        onMain { vm.clearAll() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
     /** Picks the images at [uris] with Scan document's Upload images, the picker standing in. */
     private fun pickToScan(uris: List<Uri>) {
         val picked = Instrumentation.ActivityResult(
