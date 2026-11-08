@@ -28,6 +28,16 @@ object FileNames {
         return name.replace(WINDOWS_DEVICE, "$1_").ifEmpty { fallback }
     }
 
+    /**
+     * [base] made safe ([sanitize], with [fallback] for a blank one) and followed by [suffix], such
+     * as "Report_redacted". When the two are too long together, [base] is cut rather than [suffix],
+     * which tells the file from the one it was made from.
+     */
+    fun withSuffix(base: String, suffix: String, fallback: String): String {
+        val room = MAX_UTF8_BYTES - utf8Size(suffix)
+        return sanitize(trimEnd(truncateUtf8(sanitize(base, fallback), room)) + suffix, fallback)
+    }
+
     /** The original file name without its extension, e.g. "IMG_1234.jpg" -> "IMG_1234". */
     fun baseName(fileName: String): String {
         val dot = fileName.lastIndexOf('.')

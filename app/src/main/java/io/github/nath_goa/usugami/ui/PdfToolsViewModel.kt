@@ -2052,21 +2052,23 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** The name [tool]'s PDF gets unless another is typed, after [input] (by default the first PDF). */
     fun defaultName(tool: PdfTool, input: PdfInput? = inputs.value.firstOrNull()): String {
         val base = input?.name?.let(FileNames::baseName) ?: "Usugami"
+        // A long name is cut, not the ending that tells this PDF from the one it was made from.
+        fun named(suffix: String) = FileNames.withSuffix(base, suffix, "Usugami")
         return when (tool) {
             // A converted document keeps its name: Report.docx becomes Report.pdf.
             PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> documents.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"
-            PdfTool.SPLIT -> "${base}_split"
-            PdfTool.COMPRESS -> "${base}_compressed"
+            PdfTool.SPLIT -> named("_split")
+            PdfTool.COMPRESS -> named("_compressed")
             PdfTool.MERGE -> "Merged_PDF"
-            PdfTool.ROTATE -> "${base}_rotated"
-            PdfTool.PAGE_NUMBERS -> "${base}_numbered"
-            PdfTool.WATERMARK -> "${base}_watermarked"
-            PdfTool.SIGN -> "${base}_signed"
-            PdfTool.DELETE_PAGES -> "${base}_pages_deleted"
-            PdfTool.REORGANIZE -> "${base}_reorganized"
-            PdfTool.FLATTEN -> "${base}_flattened"
-            PdfTool.EDIT -> "${base}_edited"
-            PdfTool.REDACT -> "${base}_redacted"
+            PdfTool.ROTATE -> named("_rotated")
+            PdfTool.PAGE_NUMBERS -> named("_numbered")
+            PdfTool.WATERMARK -> named("_watermarked")
+            PdfTool.SIGN -> named("_signed")
+            PdfTool.DELETE_PAGES -> named("_pages_deleted")
+            PdfTool.REORGANIZE -> named("_reorganized")
+            PdfTool.FLATTEN -> named("_flattened")
+            PdfTool.EDIT -> named("_edited")
+            PdfTool.REDACT -> named("_redacted")
         }
     }
 

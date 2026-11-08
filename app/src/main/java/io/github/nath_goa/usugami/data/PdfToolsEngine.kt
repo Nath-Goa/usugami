@@ -256,7 +256,8 @@ class PdfToolsEngine(private val context: Context) {
                     check()
                     require(pages.all { it in sourcePages.indices })
                     val suffix = if (groups.size == 1) "" else "_${index + 1}_${pages.first() + 1}-${pages.last() + 1}"
-                    val name = FileNames.unique(FileNames.sanitize(base + suffix, "Split"), taken)
+                    // Cut from a long name, not from the pages the part has.
+                    val name = FileNames.unique(FileNames.withSuffix(base, suffix, "Split"), taken)
                     taken += name
                     val target = File(outputDir, "$name.pdf")
                     PDDocument(memory()).use { dest ->
