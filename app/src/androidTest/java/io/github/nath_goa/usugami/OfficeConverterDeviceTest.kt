@@ -606,6 +606,19 @@ class OfficeConverterDeviceTest {
         assertEquals(listOf("Right", "Left", "Right"), pageTexts(pdf).map { Regex("""(\S+)-hand header""").find(it)?.groupValues?.get(1) })
     }
 
+    @Test fun wordRightAndCentreTabStopsPlaceTheTextAfterThem() {
+        // Word's Header style: a centre stop in the middle of the text and a right stop at its right margin.
+        val tabs = """<w:tabs><w:tab w:val="center" w:pos="4680"/><w:tab w:val="right" w:pos="9360"/></w:tabs>"""
+        val header = """<w:p><w:pPr>$tabs</w:pPr><w:r><w:t>Report</w:t><w:tab/><w:t>Middle</w:t><w:tab/><w:t xml:space="preserve">Page 1</w:t></w:r></w:p>"""
+        val pdf = convert(wordDocument(header, "tabs.docx"), OfficeKind.WORD, "word-tab-stops")
+        val all = glyphs(pdf, 1)
+        assertEquals("All on one line", 1, all.map { it.yDirAdj.toInt() }.distinct().size)
+        val at = all.joinToString("") { it.unicode }.indexOf("Middle")
+        val middle = all.subList(at, at + 6)
+        near(72f + 234f, (middle.first().xDirAdj + middle.last().xDirAdj + middle.last().widthDirAdj) / 2, 2f)
+        near(72f + 468f, all.last().xDirAdj + all.last().widthDirAdj, 2f)
+    }
+
     @Test fun wordPageNumbersInTheTextAreTheirOwnPages() {
         val field = """<w:fldSimple w:instr=" PAGE "><w:r><w:t>9</w:t></w:r></w:fldSimple>"""
         val body = """<w:p><w:r><w:t xml:space="preserve">Opening page </w:t></w:r>$field</w:p><w:p><w:pPr><w:sectPr/></w:pPr></w:p>""" +

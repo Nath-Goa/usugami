@@ -30,6 +30,19 @@ class OfficeFormatsTest {
         assertEquals(listOf(234f, 468f, 504f), TabStops(listOf(234f)).over(own).over(style).set)
     }
 
+    @Test fun textAfterTabsEndsAtRightStopsAndCentresOnCentreOnes() {
+        // Word's header style: "Title", a 40-point "Draft" centred at 234, a 30-point "Page 1" against 468.
+        val header = TabStops(listOf(234f, 468f), aligned = mapOf(234f to TabAlign.CENTER, 468f to TabAlign.RIGHT))
+        assertEquals(listOf(214f, 438f), header.positions(0f, listOf(50f, 40f, 30f), 36f))
+        // A left stop, then default stops past the last one; text too wide for its right stop goes on after the text before.
+        assertEquals(listOf(100f, 180f), TabStops(listOf(100f)).positions(0f, listOf(10f, 70f, 5f), 36f))
+        assertEquals(listOf(201f), TabStops(listOf(250f), aligned = mapOf(250f to TabAlign.RIGHT)).positions(0f, listOf(200f, 80f), 36f))
+        // In other units: these stops' points ten times over.
+        assertEquals(listOf(4380f), TabStops(listOf(468f), aligned = mapOf(468f to TabAlign.RIGHT)).positions(0f, listOf(500f, 300f), 360f, 10f))
+        // A paragraph's own stops over its style's keep each stop's kind, and a cleared one loses it.
+        assertEquals(mapOf(468f to TabAlign.RIGHT), TabStops(listOf(500f), cleared = listOf(234f)).over(header).aligned)
+    }
+
     @Test fun percentagesAsOfficeAndStrictOpenXmlWriteThem() {
         assertEquals(90_000, OfficeUnits.percentage("90000"))
         assertEquals(90_000, OfficeUnits.percentage(" 90% "))

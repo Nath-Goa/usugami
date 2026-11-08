@@ -2,6 +2,8 @@ package io.github.nath_goa.usugami.core
 
 import java.io.InputStream
 import kotlin.math.abs
+import kotlin.math.floor
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -519,15 +521,46 @@ object TableColumns {
 
 /**
  * A Word paragraph's, list level's or style's own tab stops, in points: those it [set]s, and those it
- * [cleared] (w:tab w:val="clear") of the stops it would inherit.
+ * [cleared] (w:tab w:val="clear") of the stops it would inherit. Those of the set stops that are
+ * right or centre stops are [aligned]; the others are left stops.
  */
-data class TabStops(val set: List<Float>, val cleared: List<Float> = emptyList()) {
+data class TabStops(val set: List<Float>, val cleared: List<Float> = emptyList(), val aligned: Map<Float, TabAlign> = emptyMap()) {
     /** These over [base]'s (its style's, say): as in Word, the stops [base] has, but those cleared here, and these. */
     fun over(base: TabStops?): TabStops = if (base == null) this else TabStops(
         (base.set.filter { it !in cleared } + set).distinct().sorted(),
         (cleared + base.cleared).filter { it !in set }.distinct(),
+        base.aligned.filterKeys { it !in cleared && it !in set } + aligned,
     )
+
+    /**
+     * Where each tab of a line takes the text after it, as Word puts it: at a left stop, ending at a
+     * right one, centred on a centre one, and past the stops at the next of every [defaultTab]. [start]
+     * is where the line's text starts and [widths] the width of each piece of text between its tabs
+     * (the first before any); [scale] turns these stops' points into the same units. Each place is
+     * past the text before it, so tabs given these as plain left stops land just there.
+     */
+    fun positions(start: Float, widths: List<Float>, defaultTab: Float, scale: Float = 1f): List<Float> {
+        val out = ArrayList<Float>()
+        var x = start + (widths.firstOrNull() ?: 0f)
+        for (width in widths.drop(1)) {
+            val stop = set.firstOrNull { it * scale > x + 1f }
+            val at = if (stop == null) {
+                (floor(x / defaultTab) + 1) * defaultTab
+            } else {
+                when (aligned[stop]) {
+                    TabAlign.RIGHT -> stop * scale - width
+                    TabAlign.CENTER -> stop * scale - width / 2
+                    null -> stop * scale
+                }
+            }
+            x = max(at, x + 1f).also { out += it } + width
+        }
+        return out
+    }
 }
+
+/** A Word tab stop that the text after the tab ends at ([RIGHT]) or is centred on ([CENTER]), rather than starts at. */
+enum class TabAlign { RIGHT, CENTER }
 
 /** Where a paragraph of text is split between two pages. */
 object PageBreaking {

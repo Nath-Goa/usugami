@@ -4,6 +4,7 @@ import android.graphics.Color
 import io.github.nath_goa.usugami.core.ListNumbering
 import io.github.nath_goa.usugami.core.OfficeColors
 import io.github.nath_goa.usugami.core.SymbolFonts
+import io.github.nath_goa.usugami.core.TabAlign
 import io.github.nath_goa.usugami.core.TabStops
 import java.util.EnumSet
 
@@ -272,8 +273,19 @@ internal data class ParaProps(
                     "tabs" -> {
                         val stops = ArrayList<Float>()
                         val cleared = ArrayList<Float>()
-                        x.children { if (x.name == "tab") x.intAttr("pos")?.let { (if (x.attr("val") == "clear") cleared else stops) += it / 20f } }
-                        p.copy(tabs = TabStops(stops.distinct().sorted(), cleared))
+                        val aligned = HashMap<Float, TabAlign>()
+                        x.children {
+                            if (x.name == "tab") x.intAttr("pos")?.let { pos ->
+                                val at = pos / 20f
+                                when (x.attr("val")) {
+                                    "clear" -> cleared += at
+                                    "right", "end" -> stops += at.also { aligned[it] = TabAlign.RIGHT }
+                                    "center" -> stops += at.also { aligned[it] = TabAlign.CENTER }
+                                    else -> stops += at
+                                }
+                            }
+                        }
+                        p.copy(tabs = TabStops(stops.distinct().sorted(), cleared, aligned))
                     }
                     "rPr" -> p.copy(mark = RunProps.read(x, theme))
                     "sectPr" -> {

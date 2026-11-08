@@ -4,6 +4,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.text.Layout
+import android.text.TextPaint
 import androidx.core.graphics.withRotation
 import androidx.core.graphics.withScale
 import io.github.nath_goa.usugami.core.GroupFrame
@@ -36,8 +38,9 @@ import kotlin.math.roundToInt
  * What is simplified: fonts become the phone's (sans-serif, serif or monospace), so lines can break
  * in other places than in Word. Text doesn't wrap around floating pictures: they go on lines of
  * their own, or over the text when Word puts them in front of or behind it. Text boxes' text
- * follows the paragraph they're anchored to. Columns become a single column, right and centre tab
- * stops are left tab stops, and charts, SmartArt and drawings Android can't decode (such as EMF and
+ * follows the paragraph they're anchored to. Columns become a single column; right and centre tab
+ * stops act as such only in paragraphs of one line (headers, footers, contents lines), and as left
+ * ones in longer paragraphs; charts, SmartArt and drawings Android can't decode (such as EMF and
  * WMF) become light grey boxes. Footnotes, endnotes, comments and deleted text are left out.
  */
 internal class DocxConverter(
@@ -1172,7 +1175,7 @@ internal class DocxConverter(
         val left = (props.left ?: 0f).units
         val firstStart = left + (props.firstLine ?: 0f).units
         val defaultTab = 36f.units
-        val tabs = props.tabs?.set.orEmpty().map { it.units }
+        var tabs = props.tabs?.set.orEmpty().map { it.units }
         var textStart = firstStart
         val label = p.label?.takeIf { it.isNotEmpty() }?.let { text ->
             val paint = p.labelStyle.paint()
@@ -1185,6 +1188,7 @@ internal class DocxConverter(
             }
             Label(text, p.labelStyle.copy(color = p.labelStyle.colorOn(shade)), firstStart.toInt())
         }
+        alignedTabs(rich.text, props, textStart, width - (props.right ?: 0f).units, p.mark)?.let { tabs = it }
         return ParagraphBlock(
             ParagraphSpec(
                 text = rich.text,
@@ -1210,6 +1214,28 @@ internal class DocxConverter(
                 ruleBelow = rule(props.borderBottom),
             ),
         )
+    }
+
+    /**
+     * The tab stops that put a one-line paragraph's [text], starting [start] units in, where Word's
+     * right and centre stops put it, as plain left stops (Android's lines have only those): a header's
+     * page number against the margin, say. Null when the paragraph has none of those stops, or more
+     * than a line that ends by [end].
+     */
+    private fun alignedTabs(text: CharSequence, props: ParaProps, start: Float, end: Float, style: TextStyle): List<Float>? {
+        val stops = props.tabs?.takeIf { it.aligned.isNotEmpty() } ?: return null
+        // A centred or right-aligned line moves as a whole: its stops are left as they are.
+        if (props.rtl == true || props.align == Align.CENTER || props.align == Align.END || '\t' !in text || '\n' in text) return null
+        val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).also { style.applyTo(it) }
+        val widths = ArrayList<Float>()
+        var from = 0
+        for (i in 0..text.length) {
+            if (i < text.length && text[i] != '\t') continue
+            widths += Layout.getDesiredWidth(text, from, i, paint)
+            from = i + 1
+        }
+        val positions = stops.positions(start, widths, 36f.units, 1f.units)
+        return positions.takeIf { it.last() + widths.last() <= end + 1f }
     }
 
     /** [t] laid out in [available] units, on [behind] (the shading under it, if any). */
