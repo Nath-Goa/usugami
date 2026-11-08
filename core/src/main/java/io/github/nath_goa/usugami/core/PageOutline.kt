@@ -49,7 +49,7 @@ object PageDetection {
      * size, in the order a page's corners have.
      */
     fun find(luma: ByteArray, width: Int, height: Int): PageOutline? {
-        require(width > 0 && height > 0 && luma.size == width * height) { "Bad image size" }
+        require(width > 0 && height > 0 && luma.size.toLong() == width.toLong() * height) { "Bad image size" }
         return find(shrink(luma, width, height))
     }
 
@@ -59,7 +59,7 @@ object PageDetection {
      * its colour.
      */
     fun find(argb: IntArray, width: Int, height: Int): PageOutline? {
-        require(width > 0 && height > 0 && argb.size == width * height) { "Bad image size" }
+        require(width > 0 && height > 0 && argb.size.toLong() == width.toLong() * height) { "Bad image size" }
         return find(shrink(argb, width, height))
     }
 
@@ -172,11 +172,18 @@ object PageDetection {
             val middle = a.point(a.along(w / 2f, h / 2f))
             if (abs(b.nx * middle.x + b.ny * middle.y - b.rho) >= minGap) pairs += intArrayOf(i, j)
         }
+        // Straight edges every way (a pile of sticks, a wire basket) make many pairs, and the shapes
+        // tried grow as the square of their number: then only the pairs whose edges run longest
+        // unbroken, as a page's sides do, are tried.
+        val tried = if (pairs.size <= MAX_PAIRS) pairs else {
+            pairs.indices.sortedByDescending { lines[pairs[it][0]].longestRun + lines[pairs[it][1]].longestRun }
+                .take(MAX_PAIRS).sorted().map { pairs[it] }
+        }
         val best = ArrayList<Pair<Double, IntArray>>()
         val corners = arrayOfNulls<OcrPoint>(4)
-        for (p in pairs.indices) for (q in p + 1 until pairs.size) {
-            val (i, j) = pairs[p]
-            val (k, l) = pairs[q]
+        for (p in tried.indices) for (q in p + 1 until tried.size) {
+            val (i, j) = tried[p]
+            val (k, l) = tried[q]
             // Clockwise or not, the sides in order round the shape: i, k, j, l.
             corners[0] = meets[l * n + i] ?: continue
             corners[1] = meets[i * n + k] ?: continue
@@ -1039,6 +1046,8 @@ object PageDetection {
     private const val SIN_CORNER = 0.64f
     /** and opposite sides are at least this share of the image's short side apart. */
     private const val MIN_GAP = 0.15
+    /** At most so many pairs of opposite sides are tried (a busy photo has a few hundred). */
+    private const val MAX_PAIRS = 1000
     /** A page's corner may be this many pixels off the image. */
     private const val OFF_IMAGE = 3f
     /** So many of the best-scored outlines are fitted and weighed. */

@@ -335,6 +335,44 @@ class PageOutlineTest {
         assertTrue("$outline", outline != null && outline.confident)
     }
 
+    @Test fun theSearchStaysQuickWithStraightEdgesEveryWay() {
+        // The most work the search can have: long sticks every way, so that nearly any four of their
+        // lines could be a page's sides. It takes at most a few times as long as on a plain page.
+        val size = 800
+        val random = Random(2)
+        val sticks = ByteArray(size * size) { 224.toByte() }
+        repeat(180) {
+            val angle = random.nextDouble(0.0, Math.PI)
+            val cx = random.nextDouble(0.0, size.toDouble())
+            val cy = random.nextDouble(0.0, size.toDouble())
+            // 240 pixels long, 3 wide.
+            for (step in -240..240) for (across in -1..1) {
+                val x = (cx + step * 0.5 * cos(angle) - across * sin(angle)).roundToInt()
+                val y = (cy + step * 0.5 * sin(angle) + across * cos(angle)).roundToInt()
+                if (x in 0 until size && y in 0 until size) sticks[y * size + x] = 40
+            }
+        }
+        val page = Photo(size, size, corners(0.2f, 0.15f, 0.8f, 0.15f, 0.8f, 0.85f, 0.2f, 0.85f)).luma()
+        // The quickest of a few runs, once the JVM has compiled the search.
+        fun millis(luma: ByteArray): Long {
+            PageDetection.find(luma, size, size)
+            return (1..3).minOf {
+                val start = System.nanoTime()
+                PageDetection.find(luma, size, size)
+                (System.nanoTime() - start) / 1_000_000
+            }
+        }
+        val plain = millis(page)
+        val busy = millis(sticks)
+        assertTrue("$busy ms, a plain page $plain ms", busy <= 3 * max(plain, 10))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun aSizeTooLargeToCountIsRefused() {
+        // 65536 × 65537 pixels are 65536 when counted in 32 bits.
+        PageDetection.find(IntArray(65536), 65536, 65537)
+    }
+
     @Test fun aKeyboardIsNotAPage() {
         // Rows of small dark keys on a light desk.
         val keys = { x: Double, y: Double ->
