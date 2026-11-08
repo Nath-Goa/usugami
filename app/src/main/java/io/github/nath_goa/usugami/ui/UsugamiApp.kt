@@ -620,8 +620,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             sort = vm::sort,
                             clearAll = vm::clearAll,
                             // Not while a PDF is being made: a tap that lands just after Create would open the
-                            // sheet again over the progress.
-                            convert = { if (vm.progress.value == null) showConvertSheet = true },
+                            // sheet again over the progress. Nor while a page's crop screen is opening, as it
+                            // does for a photo just taken: it would open under the sheet, and Create would make
+                            // the PDF with that screen still open.
+                            convert = { if (vm.progress.value == null && !vm.openingCrop.value) showConvertSheet = true },
                         ),
                         onBack = leave,
                         cropping = cropping,
