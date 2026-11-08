@@ -181,7 +181,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.addImages(it) }
     // The editor was opened by Home's Scan document, whose scan is still going on.
     var scanFromHome by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(route) { if (route != "images") scanFromHome = false }
+    LaunchedEffect(route) {
+        // Files shared to Usugami meanwhile open their tool, or Choose a tool, over the scan, and Back
+        // from there comes back to it: it is still the scan from Home.
+        val sharedOver = (route == "share" || isPdfToolRoute(route)) && vm.scanUnderWay()
+        if (route != "images" && !sharedOver) scanFromHome = false
+    }
     // Once the camera and the crop screen have closed, the scan from Home is over. With a page in the
     // editor, the editor is as it always is from then on, also when the user removes that page while
     // it is still being cropped. With no page, once nothing is still being added, it goes back to Home

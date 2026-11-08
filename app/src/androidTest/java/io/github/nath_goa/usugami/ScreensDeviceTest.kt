@@ -1605,6 +1605,29 @@ class ScreensDeviceTest {
         assertFalse("Still the editor, not Home", onHome())
     }
 
+    /**
+     * A document shared to Usugami while a scan from Home is on the crop screen opens its converter,
+     * and Back from there returns to the scan, still from Home: its photo discarded, Home shows again.
+     */
+    @Test fun aScanFromHomeLeftForASharedDocumentStillGoesBackHome() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        withCamera(Camera(PagePhotos.photo())) {
+            click(button(R.string.add_from_camera))
+            find("the crop screen") { it.says(app.getString(R.string.crop_found)) }
+        }
+        val stamp = System.currentTimeMillis()
+        val word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        shareTo(shareIntent(word, inDownloads("Report $stamp.docx", word, asset("report.docx"))))
+        find("the shared document in Word to PDF") { it.says("Report $stamp.docx") }
+        backKey()
+        find("the scan's crop screen, again") { it.says(app.getString(R.string.crop_found)) }
+        press(R.string.crop_discard)
+        waitUntil("Home") { nodes().any { it.says(app.getString(R.string.scan_title)) } }
+        assertTrue(nodes().none { it.says(app.getString(R.string.empty_title)) })
+        assertTrue(onMain { vm.items.value.isEmpty() })
+    }
+
     /** Picks the images at [uris] with Scan document's Upload images, the picker standing in. */
     private fun pickToScan(uris: List<Uri>) {
         val picked = Instrumentation.ActivityResult(
