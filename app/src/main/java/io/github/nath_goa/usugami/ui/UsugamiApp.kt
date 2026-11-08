@@ -47,6 +47,7 @@ import io.github.nath_goa.usugami.core.ZipArchive
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Appearance
+import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
@@ -609,7 +610,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                     photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                 }
                             },
-                            addFromFiles = { launch(R.string.msg_no_picker) { filePicker.launch(arrayOf("image/jpeg", "image/png")) } },
+                            addFromFiles = { launch(R.string.msg_no_picker) { filePicker.launch(ImageStore.pickableTypes) } },
                             takePhoto = ::takePhoto,
                             changeLayout = vm::setLayout,
                             rotate = vm::rotate,

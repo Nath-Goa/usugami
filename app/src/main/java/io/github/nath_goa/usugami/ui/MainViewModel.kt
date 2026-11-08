@@ -574,13 +574,21 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             } finally {
                 // Nothing to report about images the user has discarded.
                 if (generation == importGeneration) {
-                    if (unsupported > 0) pluralMessage(R.plurals.msg_skipped_unsupported, unsupported)
+                    if (unsupported > 0) pluralMessage(unsupportedMessage, unsupported)
                     if (failed > 0) pluralMessage(R.plurals.msg_failed_import, failed)
                     if (noSpace > 0) pluralMessage(R.plurals.msg_import_no_space, noSpace)
                 }
             }
         }
     }
+
+    /** The message for images skipped as of a type Usugami can't read, naming those this Android version reads. */
+    private val unsupportedMessage: Int
+        get() = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> R.plurals.msg_skipped_unsupported
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P -> R.plurals.msg_skipped_unsupported_no_avif
+            else -> R.plurals.msg_skipped_unsupported_no_heic
+        }
 
     /**
      * [item], just added from batch [batch], with the look and adjustments Apply to all pages gave

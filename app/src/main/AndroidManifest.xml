@@ -36,8 +36,16 @@
                 <action android:name="android.intent.action.SEND" />
                 <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
+                <!-- Android 8 can't read HEIC, nor Android 11 and earlier AVIF: Images to PDF then says so. -->
                 <data android:mimeType="image/jpeg" />
                 <data android:mimeType="image/png" />
+                <data android:mimeType="image/heic" />
+                <data android:mimeType="image/heif" />
+                <data android:mimeType="image/avif" />
+                <data android:mimeType="image/webp" />
+                <data android:mimeType="image/bmp" />
+                <data android:mimeType="image/x-ms-bmp" />
+                <data android:mimeType="image/gif" />
             </intent-filter>
             <!-- PDFs open Choose a tool. Only these exact types: Usugami isn't offered for every file. -->
             <intent-filter>

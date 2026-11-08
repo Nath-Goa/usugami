@@ -10,7 +10,7 @@
     <string name="home_title" translatable="false">Usugami</string>
     <string name="home_subtitle">Your files stay on this phone. No ads, account, or uploads.</string>
     <string name="tool_images">Images to PDF</string>
-    <string name="tool_images_detail">Camera scans, JPGs and PNGs to PDF, with text recognition</string>
+    <string name="tool_images_detail">Camera scans and images to PDF, with text recognition</string>
     <!-- The large card at the top of Home: take photos of a paper document, or pick images of one, then crop and clean up each page. -->
     <string name="scan_title">Scan document</string>
     <string name="scan_detail">Take photos or upload images, then crop and clean them up</string>
@@ -486,7 +486,7 @@
 
     <!-- Editor -->
     <string name="editor_title">Images to PDF</string>
-    <string name="empty_title">Turn JPG and PNG images into a PDF</string>
+    <string name="empty_title">Turn images into a PDF</string>
     <string name="empty_body">Pick your images, put them in order and convert. Everything happens on this phone. Nothing is uploaded.</string>
     <string name="empty_share_hint">Tip: you can also share images to Usugami from your gallery.</string>
     <string name="add_from_photos">Photos</string>
@@ -683,9 +683,20 @@
     <string name="ok">OK</string>
 
     <!-- Messages -->
+    <!-- The images Android 12 and later can read. -->
     <plurals name="msg_skipped_unsupported">
-        <item quantity="one">Skipped %d file: only JPG and PNG images are supported.</item>
-        <item quantity="other">Skipped %d files: only JPG and PNG images are supported.</item>
+        <item quantity="one">Skipped %d file: only JPG, PNG, HEIC, AVIF, WebP, BMP and GIF images are supported.</item>
+        <item quantity="other">Skipped %d files: only JPG, PNG, HEIC, AVIF, WebP, BMP and GIF images are supported.</item>
+    </plurals>
+    <!-- Android 9 to 11 can't read AVIF images. -->
+    <plurals name="msg_skipped_unsupported_no_avif">
+        <item quantity="one">Skipped %d file: only JPG, PNG, HEIC, WebP, BMP and GIF images are supported on this Android version.</item>
+        <item quantity="other">Skipped %d files: only JPG, PNG, HEIC, WebP, BMP and GIF images are supported on this Android version.</item>
+    </plurals>
+    <!-- Android 8 can't read HEIC or AVIF images. -->
+    <plurals name="msg_skipped_unsupported_no_heic">
+        <item quantity="one">Skipped %d file: only JPG, PNG, WebP, BMP and GIF images are supported on this Android version.</item>
+        <item quantity="other">Skipped %d files: only JPG, PNG, WebP, BMP and GIF images are supported on this Android version.</item>
     </plurals>
     <plurals name="msg_failed_import">
         <item quantity="one">Couldn\'t read %d image.</item>
@@ -772,7 +783,7 @@
     <string name="home_search_none">No tools match \"%1$s\"</string>
     <!-- Hidden words that also find a tool when searched for on Home, separated by commas. They are
          never shown: use the words people would type in this language for what the tool does. -->
-    <string name="search_keywords_images">photo, picture, JPEG, scan, scanner, camera, gallery, document, black and white, OCR</string>
+    <string name="search_keywords_images">photo, picture, JPEG, JPG, PNG, HEIC, WebP, scan, scanner, camera, gallery, document, black and white, OCR</string>
     <string name="search_keywords_scan">scan, scanner, CamScanner, camera, photo, document, paper, receipt, crop, enhance, filter, brightness, contrast, black and white</string>
     <string name="search_keywords_word">doc, docx, document, Office, convert</string>
     <string name="search_keywords_powerpoint">ppt, pptx, slides, presentation, Office, convert</string>
