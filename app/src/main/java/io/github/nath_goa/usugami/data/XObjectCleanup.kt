@@ -27,26 +27,45 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Images and forms (XObjects) that only pages which have gone drew. Pages often share one list of
- * resources (many PDF makers put every image in it), so such an image would otherwise stay in the
- * file through the pages that are left. Used when pages are redacted, deleted or left out.
+ * Images and forms (XObjects), patterns and soft masks that only pages which have gone drew. Pages
+ * often share one list of resources (many PDF makers put every image in it), so such an image would
+ * otherwise stay in the file through the pages that are left. Used when pages are redacted, deleted
+ * or left out.
  */
 internal object XObjectCleanup {
-    /** Finds the images and forms a page's content draws, those inside forms included. */
+    /**
+     * Finds the images and forms a page's content draws, those inside forms included, and the
+     * patterns it paints with and the soft masks of the graphics states it sets, with all they hold:
+     * those draw content of their own, text too.
+     */
     private class DrawnXObjects(private val drawn: MutableSet<COSBase>, private val contexts: MutableSet<COSBase>) : PDFStreamEngine() {
+        /** The patterns and graphics states already followed: a page may set the same one thousands of times. */
+        private val followed = identitySet<COSBase>()
+
         init {
             addOperator(DrawObject())
         }
 
         override fun processOperator(operator: Operator, operands: List<COSBase>) {
-            if (operator.name == "Do") {
-                drawnXObject(operands)?.let { xobject ->
+            when (operator.name) {
+                "Do" -> drawnXObject(operands)?.let { xobject ->
                     drawn += xobject
                     if (xobject.getCOSName(COSName.SUBTYPE) == COSName.FORM) (xobject.getDictionaryObject(COSName.RESOURCES) as? COSDictionary)?.let(contexts::add)
                 }
+                // A pattern is named last, after any colour it is painted in.
+                "scn", "SCN" -> follow(resource(COSName.PATTERN, operands.lastOrNull()))
+                "gs" -> follow(resource(COSName.EXT_G_STATE, operands.firstOrNull()))
             }
             super.processOperator(operator, operands)
         }
+
+        private fun follow(resource: COSBase?) {
+            if (resource != null && followed.add(resource)) collect(resource, drawn)
+        }
+
+        /** The resource of the kind [kind] that [name] names, among those the content is drawn with. */
+        private fun resource(kind: COSName, name: COSBase?): COSBase? =
+            (name as? COSName)?.let { resources?.cosObject?.getCOSDictionary(kind)?.getDictionaryObject(it) }
     }
 
     /**
@@ -242,8 +261,9 @@ internal object XObjectCleanup {
     }
 
     /**
-     * Adds to [into] the images and forms [page] draws. If its content can't be read, everything its
-     * resources list counts, so nothing it might have drawn is missed.
+     * Adds to [into] the images, forms, patterns and soft masks [page] draws (see [DrawnXObjects]).
+     * If its content can't be read, everything its resources list counts, so nothing it might have
+     * drawn is missed.
      */
     fun drawnBy(page: PDPage, into: MutableSet<COSBase>) {
         val found = identitySet<COSBase>()
@@ -279,8 +299,8 @@ internal object XObjectCleanup {
     }
 
     /**
-     * Adds to [into] every image and form [page] might draw: what its content draws, and, to be safe,
-     * all those reachable from its patterns, fonts, graphics states, shadings and annotation
+     * Adds to [into] every image, form and pattern [page] might draw: what its content draws and
+     * paints with, and, to be safe, all those reachable from its fonts, shadings and annotation
      * appearances, which aren't followed in detail. If its content can't be read, everything its
      * resources list counts. Without [readContent], only its annotations' appearances are looked at.
      */
@@ -293,7 +313,7 @@ internal object XObjectCleanup {
                 DrawnXObjects(into, contexts).processPage(page)
                 for (context in contexts) {
                     val resources = context as? COSDictionary ?: continue
-                    for (key in listOf(COSName.PATTERN, COSName.FONT, COSName.EXT_G_STATE, COSName.SHADING, COSName.PROPERTIES)) {
+                    for (key in listOf(COSName.FONT, COSName.SHADING, COSName.PROPERTIES)) {
                         collect(resources.getDictionaryObject(key), into)
                     }
                 }
@@ -306,7 +326,7 @@ internal object XObjectCleanup {
         }
     }
 
-    /** Adds to [into] every image and form stream reachable from [start], not following links up to pages. */
+    /** Adds to [into] every image, form and (tiling) pattern stream reachable from [start], not following links up to pages. */
     private fun collect(start: COSBase?, into: MutableSet<COSBase>) {
         val seen = identitySet<COSBase>()
         val pending = ArrayDeque<COSBase>()
@@ -318,7 +338,7 @@ internal object XObjectCleanup {
                 is COSDictionary -> {
                     if (item is COSStream) {
                         val subtype = item.getCOSName(COSName.SUBTYPE)
-                        if (subtype == COSName.IMAGE || subtype == COSName.FORM) into += item
+                        if (subtype == COSName.IMAGE || subtype == COSName.FORM || item.containsKey(COSName.PATTERN_TYPE)) into += item
                     }
                     for ((key, value) in item.entrySet()) {
                         if (key == COSName.PARENT || key == COSName.P) continue
@@ -330,10 +350,16 @@ internal object XObjectCleanup {
         }
     }
 
-    /** Empties an image or form that only pages which have gone drew: a white pixel, or nothing to draw. */
+    /** Empties an image, form or pattern that only pages which have gone drew: a white pixel, or nothing to draw. */
     private fun empty(stream: COSStream) {
         val image = stream.getCOSName(COSName.SUBTYPE) == COSName.IMAGE
-        val keep = if (image) setOf(COSName.TYPE, COSName.SUBTYPE) else setOf(COSName.TYPE, COSName.SUBTYPE, COSName.BBOX, COSName.MATRIX, COSName.FORMTYPE)
+        val keep = when {
+            image -> setOf(COSName.TYPE, COSName.SUBTYPE)
+            stream.containsKey(COSName.PATTERN_TYPE) -> setOf(
+                COSName.TYPE, COSName.PATTERN_TYPE, COSName.PAINT_TYPE, COSName.TILING_TYPE, COSName.BBOX, COSName.X_STEP, COSName.Y_STEP, COSName.MATRIX,
+            )
+            else -> setOf(COSName.TYPE, COSName.SUBTYPE, COSName.BBOX, COSName.MATRIX, COSName.FORMTYPE)
+        }
         for (key in stream.keySet().toList()) if (key !in keep) stream.removeItem(key)
         if (image) {
             stream.setInt(COSName.WIDTH, 1)

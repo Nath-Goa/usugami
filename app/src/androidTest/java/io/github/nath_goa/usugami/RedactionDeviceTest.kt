@@ -12,6 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
@@ -736,6 +737,55 @@ class RedactionDeviceTest {
         }
         val redacted = save(engine.redact(import(file), listOf(RedactBox(0, 0f, 0f, 1f, 1f)), "stamped_redacted").file, "stamped_redacted.pdf")
         PDDocument.load(redacted).use { doc -> assertFalse("The photo stays in the file", anImageIsRed(doc)) }
+    }
+
+    /**
+     * Two pages share the resources of their page tree. Only the redacted page paints with a pattern
+     * and sets a soft mask, both of which write the word SECRET: they go, though the page that stays
+     * lists them too.
+     */
+    @Test fun sharedPatternsAndSoftMasksOfARedactedPageGo() {
+        val file = File(context.cacheDir, "shared_patterns.pdf")
+        PDDocument().use { doc ->
+            val fonts = COSDictionary().apply { setItem(COSName.getPDFName("F1"), PDType1Font.HELVETICA) }
+            fun stream(content: String, vararg entries: Pair<COSName, COSBase>) = doc.document.createCOSStream().apply {
+                for ((key, value) in entries) setItem(key, value)
+                setItem(COSName.RESOURCES, COSDictionary().apply { setItem(COSName.FONT, fonts) })
+                createOutputStream().use { it.write(content.toByteArray()) }
+            }
+            val pattern = stream(
+                "BT /F1 12 Tf 2 10 Td (SECRET) Tj ET",
+                COSName.TYPE to COSName.PATTERN, COSName.PATTERN_TYPE to COSInteger.ONE, COSName.PAINT_TYPE to COSInteger.ONE,
+                COSName.TILING_TYPE to COSInteger.ONE, COSName.BBOX to PDRectangle(120f, 30f).cosArray,
+                COSName.X_STEP to COSInteger.get(120), COSName.Y_STEP to COSInteger.get(30),
+            )
+            val mask = stream(
+                "BT /F1 30 Tf 60 300 Td (SECRET) Tj ET",
+                COSName.TYPE to COSName.XOBJECT, COSName.SUBTYPE to COSName.FORM, COSName.BBOX to PDRectangle.A4.cosArray,
+                COSName.GROUP to COSDictionary().apply { setItem(COSName.S, COSName.TRANSPARENCY) },
+            )
+            val state = COSDictionary().apply {
+                setItem(COSName.SMASK, COSDictionary().apply {
+                    setItem(COSName.S, COSName.LUMINOSITY)
+                    setItem(COSName.G, mask)
+                })
+            }
+            doc.pages.cosObject.setItem(COSName.RESOURCES, COSDictionary().apply {
+                setItem(COSName.FONT, fonts)
+                setItem(COSName.PATTERN, COSDictionary().apply { setItem(COSName.getPDFName("P1"), pattern) })
+                setItem(COSName.EXT_G_STATE, COSDictionary().apply { setItem(COSName.getPDFName("G1"), state) })
+            })
+            for (content in listOf("q /Pattern cs /P1 scn 50 600 360 120 re f Q q /G1 gs 0 g 50 200 400 200 re f Q", "BT /F1 14 Tf 50 700 Td (Public) Tj ET")) {
+                doc.addPage(PDPage(PDRectangle.A4).apply { setContents(PDStream(doc, content.byteInputStream())) })
+            }
+            doc.save(file)
+        }
+        PDDocument.load(file).use { doc -> assertEquals(2, everything(doc).count { it.contains("SECRET") }) }
+        val redacted = save(engine.redact(import(file), listOf(RedactBox(0, 0.05f, 0.05f, 0.95f, 0.95f)), "shared_patterns_redacted").file, "shared_patterns_redacted.pdf")
+        PDDocument.load(redacted).use { doc ->
+            assertTrue("Still in the file", everything(doc).none { it.contains("SECRET") })
+            assertTrue(PDFTextStripper().getText(doc).contains("Public"))
+        }
     }
 
     /** A name found only in a comment's text gets a box on that comment's page, so the comment goes. */
