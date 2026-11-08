@@ -17,11 +17,12 @@ import kotlinx.parcelize.Parcelize
 import java.io.File
 import java.io.IOException
 
-/** The kinds of document Usugami converts: two Office formats, and EPUB e-books. */
+/** The kinds of document Usugami converts: three Office formats, and EPUB e-books. New kinds go last, keeping the others' places. */
 enum class OfficeKind(val extension: String, val fallbackName: String) {
     WORD("docx", "Document"),
     POWERPOINT("pptx", "Presentation"),
     EPUB("epub", "Book"),
+    EXCEL("xlsx", "Spreadsheet"),
     ;
 
     /**
@@ -45,10 +46,18 @@ enum class OfficeKind(val extension: String, val fallbackName: String) {
             // Some file providers don't know EPUB and call it just "binary data": those files can be
             // picked too, and the content says whether they are e-books.
             EPUB -> arrayOf("application/epub+zip", "application/octet-stream")
+            // Workbooks with macros convert too: the cells' values do, and the macros are left alone.
+            EXCEL -> arrayOf(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+                "application/vnd.ms-excel.sheet.macroEnabled.12",
+                "application/vnd.ms-excel.template.macroEnabled.12",
+                "application/vnd.ms-excel",
+            )
         }
 }
 
-/** A picked Word, PowerPoint or EPUB file, copied into the cache. */
+/** A picked Word, PowerPoint, Excel or EPUB file, copied into the cache. */
 @Parcelize
 data class OfficeInput(val id: Long, val path: String, val name: String, val kind: OfficeKind) : Parcelable {
     val file: File get() = File(path)
@@ -60,17 +69,23 @@ data class ConvertJob(val input: OfficeInput, val fileName: String)
 /** Why a file can't be converted, for a message in the user's language. */
 sealed class OfficeFileProblem(message: String) : IOException(message)
 
-/** An old binary .doc or .ppt file. */
+/** An old binary .doc, .ppt or .xls file. */
 class OfficeLegacyFormat : OfficeFileProblem("Old binary Office format")
 
-/** A .docx or .pptx file protected with a password: Office encrypts the whole file. */
+/** A .docx, .pptx or .xlsx file protected with a password: Office encrypts the whole file. */
 class OfficeEncrypted : OfficeFileProblem("Password-protected Office file")
 
-/** Not a Word document or PowerPoint presentation (or not the kind asked for), or damaged. */
-class OfficeNotRecognized : OfficeFileProblem("Not a Word or PowerPoint file")
+/** Not a Word document, PowerPoint presentation or Excel workbook (or not the kind asked for), or damaged. */
+class OfficeNotRecognized : OfficeFileProblem("Not an Office file of the kind asked for")
 
-/** A presentation with no slides, or only hidden ones; a book with nothing in its reading order. */
-class OfficeNothingToConvert : OfficeFileProblem("No slides to convert")
+/**
+ * A presentation with no slides, or only hidden ones; a book with nothing in its reading order; a
+ * workbook with nothing on its visible sheets.
+ */
+class OfficeNothingToConvert : OfficeFileProblem("Nothing to convert")
+
+/** A workbook that would make more pages, or hold more text, than a phone can lay out. */
+class OfficeTooLarge : OfficeFileProblem("Too large to convert")
 
 /** A Word document whose text is all kept in another format inside it (a web page or an RTF file), which isn't read. */
 class OfficeEmbeddedContent : OfficeFileProblem("Text kept in another format")
@@ -79,10 +94,11 @@ class OfficeEmbeddedContent : OfficeFileProblem("Text kept in another format")
 data class OfficeProgress(val done: Int, val total: Int?, val compressing: Boolean = false)
 
 /**
- * Word, PowerPoint and EPUB to PDF, entirely on the phone: [DocxConverter], [PptxConverter] and
- * [EpubConverter] read the file's XML and draw its pages with Android's PDF backend, then the PDF
- * goes through Compress PDF (Recommended), which stores the pictures as JPEG, as that backend can't.
- * Copies of picked files and working files live in the cache, like the PDF tools' copies.
+ * Word, PowerPoint, Excel and EPUB to PDF, entirely on the phone: [DocxConverter], [PptxConverter],
+ * [XlsxConverter] and [EpubConverter] read the file's XML and draw its pages with Android's PDF
+ * backend, then the PDF goes through Compress PDF (Recommended), which stores the pictures as JPEG,
+ * as that backend can't. Copies of picked files and working files live in the cache, like the PDF
+ * tools' copies.
  */
 class OfficeConverter(private val context: Context, private val engine: PdfToolsEngine) {
     private val inputDir = File(context.cacheDir, "office-inputs")
@@ -174,6 +190,7 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
                             when (kind) {
                                 OfficeKind.WORD -> x.name == "document" && x.ns == Ns.WORD
                                 OfficeKind.POWERPOINT -> x.name == "presentation" && x.ns == Ns.SLIDE
+                                OfficeKind.EXCEL -> x.name == "workbook" && x.ns == Ns.SHEET
                                 OfficeKind.EPUB -> false
                             }
                         } ?: false
@@ -207,9 +224,13 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
         convert(input, fileName, PageSize.A5, check, progress)
 
     /** As [convert], with a book laid out on [bookPage] (A5 or A4). Office files keep their own page size. */
-    fun convert(input: OfficeInput, fileName: String, bookPage: PageSize, check: () -> Unit, progress: (OfficeProgress) -> Unit): PdfFile {
+    fun convert(input: OfficeInput, fileName: String, bookPage: PageSize, check: () -> Unit, progress: (OfficeProgress) -> Unit): PdfFile =
+        convert(input, fileName, bookPage, SheetOptions(), check, progress)
+
+    /** As [convert], with a workbook's sheets put on pages as [sheets] says. */
+    fun convert(input: OfficeInput, fileName: String, bookPage: PageSize, sheets: SheetOptions, check: () -> Unit, progress: (OfficeProgress) -> Unit): PdfFile {
         try {
-            return convertWith(input, bookPage, check, progress) { joined -> engine.compress(joined, PdfCompression.RECOMMENDED, fileName, check) }
+            return convertWith(input, bookPage, sheets, check, progress) { joined -> engine.compress(joined, PdfCompression.RECOMMENDED, fileName, check) }
         } catch (t: Throwable) {
             engine.clearOutput()
             throw t
@@ -228,11 +249,21 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
         check: () -> Unit,
         onNext: (Int) -> Unit,
         progress: (OfficeProgress) -> Unit,
+    ): List<Result<PdfFile>> = convertEach(jobs, bookPage, SheetOptions(), check, onNext, progress)
+
+    /** As [convertEach], with workbooks' sheets put on pages as [sheets] says. */
+    fun convertEach(
+        jobs: List<ConvertJob>,
+        bookPage: PageSize,
+        sheets: SheetOptions,
+        check: () -> Unit,
+        onNext: (Int) -> Unit,
+        progress: (OfficeProgress) -> Unit,
     ): List<Result<PdfFile>> {
         val names = FileNames.uniqueNames(jobs.map { it.fileName }, jobs.firstOrNull()?.input?.kind?.fallbackName ?: "Document")
         return engine.each(jobs.size, check, onNext) { i ->
             val target = engine.outputFile(names[i])
-            convertWith(jobs[i].input, bookPage, check, progress) { joined -> engine.compressTo(joined, PdfCompression.RECOMMENDED, target, check) }
+            convertWith(jobs[i].input, bookPage, sheets, check, progress) { joined -> engine.compressTo(joined, PdfCompression.RECOMMENDED, target, check) }
         }
     }
 
@@ -243,6 +274,7 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
     private fun convertWith(
         input: OfficeInput,
         bookPage: PageSize,
+        sheets: SheetOptions,
         check: () -> Unit,
         progress: (OfficeProgress) -> Unit,
         finish: (PdfInput) -> PdfFile,
@@ -272,6 +304,7 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
                             pages = when (input.kind) {
                                 OfficeKind.WORD -> DocxConverter(pkg, pdf, images, check) { progress(OfficeProgress(it, null)) }.convert()
                                 OfficeKind.POWERPOINT -> PptxConverter(pkg, pdf, images, check) { slide, total -> progress(OfficeProgress(slide, total)) }.convert()
+                                OfficeKind.EXCEL -> XlsxConverter(pkg, pdf, images, sheets, input.name, check) { page, total -> progress(OfficeProgress(page, total)) }.convert()
                                 OfficeKind.EPUB -> 0
                             }
                             pdf.finish()

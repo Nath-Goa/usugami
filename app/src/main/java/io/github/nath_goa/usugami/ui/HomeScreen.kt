@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
+import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -95,7 +96,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ToolSearch
 
 /** The tools under "Create PDF" on Home, after Images to PDF, in order. */
-private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB)
+private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB)
 
 /** The tools under "Organize" on Home, in order: those that change which pages there are and how they lie. */
 private val OrganizeTools = listOf(PdfTool.MERGE, PdfTool.SPLIT, PdfTool.REORGANIZE, PdfTool.DELETE_PAGES, PdfTool.ROTATE)
@@ -126,6 +127,7 @@ internal val PdfTool.title: Int
         PdfTool.SIGN -> R.string.tool_sign
         PdfTool.WORD -> R.string.tool_word
         PdfTool.POWERPOINT -> R.string.tool_powerpoint
+        PdfTool.EXCEL -> R.string.tool_excel
         PdfTool.DELETE_PAGES -> R.string.tool_delete_pages
         PdfTool.REORGANIZE -> R.string.tool_reorganize
         PdfTool.FLATTEN -> R.string.tool_flatten
@@ -147,6 +149,7 @@ internal val PdfTool.detail: Int
         PdfTool.SIGN -> R.string.tool_sign_detail
         PdfTool.WORD -> R.string.tool_word_detail
         PdfTool.POWERPOINT -> R.string.tool_powerpoint_detail
+        PdfTool.EXCEL -> R.string.tool_excel_detail
         PdfTool.DELETE_PAGES -> R.string.tool_delete_pages_detail
         PdfTool.REORGANIZE -> R.string.tool_reorganize_detail
         PdfTool.FLATTEN -> R.string.tool_flatten_detail
@@ -166,6 +169,7 @@ internal val PdfTool.icon: ImageVector
         PdfTool.SIGN -> Icons.Rounded.Draw
         PdfTool.WORD -> Icons.Rounded.Description
         PdfTool.POWERPOINT -> Icons.Rounded.Slideshow
+        PdfTool.EXCEL -> Icons.Rounded.TableChart
         PdfTool.DELETE_PAGES -> Icons.Rounded.Delete
         PdfTool.REORGANIZE -> Icons.Rounded.GridView
         PdfTool.FLATTEN -> Icons.Rounded.Layers
@@ -187,6 +191,7 @@ private val PdfTool.keywords: Int
         PdfTool.SIGN -> R.string.search_keywords_sign
         PdfTool.WORD -> R.string.search_keywords_word
         PdfTool.POWERPOINT -> R.string.search_keywords_powerpoint
+        PdfTool.EXCEL -> R.string.search_keywords_excel
         PdfTool.DELETE_PAGES -> R.string.search_keywords_delete_pages
         PdfTool.REORGANIZE -> R.string.search_keywords_reorganize
         PdfTool.FLATTEN -> R.string.search_keywords_flatten

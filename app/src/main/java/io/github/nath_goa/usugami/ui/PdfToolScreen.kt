@@ -116,6 +116,7 @@ import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.office.OfficeKind
+import io.github.nath_goa.usugami.data.office.SheetOptions
 import kotlinx.coroutines.delay
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -153,7 +154,7 @@ fun PdfToolScreen(
     val views by vm.views.collectAsStateWithLifecycle()
     val batch by vm.batch.collectAsStateWithLifecycle()
     val batchProgress by vm.batchProgress.collectAsStateWithLifecycle()
-    // Word, PowerPoint and EPUB to PDF take documents instead of PDFs.
+    // Word, PowerPoint, Excel and EPUB to PDF take documents instead of PDFs.
     val officeKind = tool.officeKind
     // A tool that also takes several PDFs or documents ([isBatch]) lists them, each with its own name and choices.
     val many = tool.isBatch && (if (officeKind != null) documents.size else inputs.size) > 1
@@ -179,6 +180,18 @@ fun PdfToolScreen(
     val originalPages = remember(inputs.firstOrNull()) { vm.originalPages() }
     val reorganized = tool == PdfTool.REORGANIZE && inputs.isNotEmpty() && pages.isNotEmpty() && pages != originalPages
     var bookPage by rememberSaveable(tool) { mutableStateOf(PageSize.A5) }
+    // Excel to PDF's choices, kept apart so each is saved as it is.
+    var sheetPaper by rememberSaveable(tool) { mutableStateOf<PageSize?>(null) }
+    var sheetLandscape by rememberSaveable(tool) { mutableStateOf<Boolean?>(null) }
+    var sheetFitWidth by rememberSaveable(tool) { mutableStateOf(true) }
+    var sheetGridlines by rememberSaveable(tool) { mutableStateOf(true) }
+    val sheetOptions = SheetOptions(sheetPaper, sheetLandscape, sheetFitWidth, sheetGridlines)
+    val onSheetOptions = { options: SheetOptions ->
+        sheetPaper = options.paper
+        sheetLandscape = options.landscape
+        sheetFitWidth = options.fitWidth
+        sheetGridlines = options.gridlines
+    }
     // Merge's name doesn't depend on which PDF comes first: sorting them keeps what was typed.
     val inputKey: Any? = when {
         officeKind != null -> documents.firstOrNull()?.id
@@ -193,7 +206,7 @@ fun PdfToolScreen(
         PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
         PdfTool.WATERMARK -> inputs.isNotEmpty() && watermarkText.isNotBlank()
         PdfTool.SIGN -> inputs.size == 1 && signature != null
-        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> documents.isNotEmpty() && documents.all { it.kind == officeKind }
+        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> documents.isNotEmpty() && documents.all { it.kind == officeKind }
         PdfTool.DELETE_PAGES -> inputs.size == 1 && deleteText.isNotBlank()
         PdfTool.REORGANIZE -> reorganized
         PdfTool.EDIT -> inputs.size == 1 && editItems.any { it.page < inputs[0].pageCount }
@@ -208,7 +221,7 @@ fun PdfToolScreen(
         PdfTool.PAGE_NUMBERS -> R.string.pdf_page_numbers_action
         PdfTool.WATERMARK -> R.string.pdf_watermark_action
         PdfTool.SIGN -> R.string.pdf_sign_action
-        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> R.string.convert
+        PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> R.string.convert
         PdfTool.DELETE_PAGES -> R.string.pdf_delete_pages_action
         PdfTool.REORGANIZE -> R.string.pdf_reorganize_action
         PdfTool.FLATTEN -> R.string.pdf_flatten_action
@@ -256,6 +269,7 @@ fun PdfToolScreen(
                             PdfTool.FLATTEN -> vm.runFlattenAll()
                             PdfTool.EDIT -> vm.runEdit(fileName)
                             PdfTool.EPUB -> vm.runConvertAll(bookPage)
+                            PdfTool.EXCEL -> vm.runConvertAll(sheets = sheetOptions)
                             PdfTool.REDACT -> vm.runRedact(fileName)
                         }
                     },
@@ -301,6 +315,7 @@ fun PdfToolScreen(
                                             tool == PdfTool.MERGE -> R.string.add_pdfs
                                             tool == PdfTool.WORD -> R.string.pick_word
                                             tool == PdfTool.POWERPOINT -> R.string.pick_powerpoint
+                                            tool == PdfTool.EXCEL -> R.string.pick_excel
                                             tool == PdfTool.EPUB -> R.string.pick_epub
                                             tool.isBatch -> R.string.pick_pdfs
                                             else -> R.string.pick_pdf
@@ -324,6 +339,7 @@ fun PdfToolScreen(
                             // What goes for all of them comes first, then each with the name its PDF gets.
                             OfficeNote(officeKind)
                             if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
+                            if (officeKind == OfficeKind.EXCEL) SheetPageOptions(sheetOptions, onSheetOptions)
                             BatchList(
                                 entries = documents.map { documentBatchEntry(it) },
                                 outputName = { id -> documents.firstOrNull { it.id == id }?.let(vm::outputName).orEmpty() },
@@ -339,6 +355,7 @@ fun PdfToolScreen(
                             add()
                             OfficeNote(officeKind)
                             if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
+                            if (officeKind == OfficeKind.EXCEL) SheetPageOptions(sheetOptions, onSheetOptions)
                             OutputNameField(document.id, vm.outputName(document), onChange = { vm.setBatchName(document.id, it) })
                         }
                     } else {
@@ -419,7 +436,7 @@ fun PdfToolScreen(
                                 onNudge = { move -> signPlacement = move(signPlacement) },
                                 pageSizes = vm::shownPageSizes,
                             )
-                            PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> Unit
+                            PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> Unit
                             PdfTool.DELETE_PAGES -> DeletePagesOptions(
                                 shown ?: inputs[0],
                                 deleteText, onText = { deleteText = it },
@@ -612,7 +629,7 @@ private fun manyAction(tool: PdfTool): Int = when (tool) {
     PdfTool.PAGE_NUMBERS -> R.plurals.pdf_page_numbers_action_many
     PdfTool.WATERMARK -> R.plurals.pdf_watermark_action_many
     PdfTool.FLATTEN -> R.plurals.pdf_flatten_action_many
-    PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> R.plurals.convert_many
+    PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> R.plurals.convert_many
     else -> R.plurals.pdf_compress_action_many
 }
 
@@ -621,6 +638,7 @@ private fun manyAction(tool: PdfTool): Int = when (tool) {
 private fun addDocuments(kind: OfficeKind): Int = when (kind) {
     OfficeKind.WORD -> R.string.add_word
     OfficeKind.POWERPOINT -> R.string.add_powerpoint
+    OfficeKind.EXCEL -> R.string.add_excel
     OfficeKind.EPUB -> R.string.add_epub
 }
 

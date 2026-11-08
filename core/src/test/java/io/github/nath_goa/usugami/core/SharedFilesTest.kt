@@ -1,6 +1,7 @@
 package io.github.nath_goa.usugami.core
 
 import io.github.nath_goa.usugami.core.SharedKind.EPUB
+import io.github.nath_goa.usugami.core.SharedKind.EXCEL
 import io.github.nath_goa.usugami.core.SharedKind.IMAGE
 import io.github.nath_goa.usugami.core.SharedKind.OTHER
 import io.github.nath_goa.usugami.core.SharedKind.PDF
@@ -24,6 +25,8 @@ class SharedFilesTest {
         assertEquals(POWERPOINT, SharedFiles.kindOf("application/vnd.openxmlformats-officedocument.presentationml.presentation", null))
         assertEquals(POWERPOINT, SharedFiles.kindOf("application/vnd.ms-powerpoint", null))
         assertEquals(EPUB, SharedFiles.kindOf("application/epub+zip", null))
+        assertEquals(EXCEL, SharedFiles.kindOf("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", null))
+        assertEquals(EXCEL, SharedFiles.kindOf("application/vnd.ms-excel", null))
         assertEquals(OTHER, SharedFiles.kindOf("text/plain", null))
         assertEquals(OTHER, SharedFiles.kindOf(null, null))
     }
@@ -43,6 +46,8 @@ class SharedFilesTest {
         assertEquals(PDF, SharedFiles.kindOf(null, "scan.final.pdf"))
         assertEquals(IMAGE, SharedFiles.kindOf(null, "IMG_1234.JPG"))
         assertEquals(WORD, SharedFiles.kindOf(null, "old.doc"))
+        assertEquals(EXCEL, SharedFiles.kindOf("application/octet-stream", "Budget.XLSX"))
+        assertEquals(EXCEL, SharedFiles.kindOf(null, "old.xls"))
         assertEquals(OTHER, SharedFiles.kindOf(null, "notes.txt"))
         assertEquals(OTHER, SharedFiles.kindOf(null, "README"))
         // The file's own type comes first: a PDF named like a picture is a PDF.
@@ -76,6 +81,7 @@ class SharedFilesTest {
         assertEquals(IMAGE, SharedFiles.chosen(listOf(EPUB, IMAGE)))
         assertEquals(WORD, SharedFiles.chosen(listOf(POWERPOINT, WORD, EPUB)))
         assertEquals(POWERPOINT, SharedFiles.chosen(listOf(EPUB, POWERPOINT)))
+        assertEquals(EPUB, SharedFiles.chosen(listOf(EXCEL, EPUB)))
     }
 
     @Test

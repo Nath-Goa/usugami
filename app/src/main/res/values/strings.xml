@@ -291,6 +291,31 @@
         <item quantity="one">%1$d of %2$d slide</item>
         <item quantity="other">%1$d of %2$d slides</item>
     </plurals>
+    <!-- Excel to PDF. Excel is the name of Microsoft's app, kept as it is; .xlsx and .xls are file
+         extensions. A workbook is an Excel file; a sheet is one of its tabs. -->
+    <string name="tool_excel">Excel to PDF</string>
+    <string name="tool_excel_detail">Spreadsheets (.xlsx), sheet by sheet</string>
+    <string name="pick_excel">Choose Excel files</string>
+    <string name="add_excel">Add Excel files</string>
+    <string name="document_excel">Excel workbook</string>
+    <string name="office_note_excel">Each sheet starts a new page, as Excel prints it; hidden sheets are left out. Your phone\'s fonts stand in for the workbook\'s, and charts are left out.</string>
+    <string name="office_legacy_excel">This is an old Excel file (.xls). Save it as .xlsx in Excel or another app, then try again.</string>
+    <string name="office_legacy_excel_many">These are old Excel files (.xls). Save them as .xlsx in Excel or another app, then try again.</string>
+    <string name="office_encrypted_excel">This file is protected with a password. Remove the password in Excel, save the file, then try again.</string>
+    <string name="office_encrypted_excel_many">These files are protected with a password. Remove the password in Excel, save the files, then try again.</string>
+    <string name="office_not_excel">This isn\'t an Excel workbook (.xlsx), or it\'s damaged.</string>
+    <string name="office_not_excel_many">These aren\'t Excel workbooks (.xlsx), or they\'re damaged.</string>
+    <string name="office_no_sheets">This workbook has nothing to convert. Hidden sheets are left out.</string>
+    <string name="office_no_sheets_many">These workbooks have nothing to convert. Hidden sheets are left out.</string>
+    <string name="office_too_large">This workbook is too big to convert on a phone. Set a print area for the part you need in Excel or another app, then try again.</string>
+    <string name="office_too_large_many">These workbooks are too big to convert on a phone. Set a print area for the part you need in Excel or another app, then try again.</string>
+    <!-- Excel to PDF's choices. "As in the file" keeps the paper size or orientation each sheet was set to print on. -->
+    <string name="sheet_as_file">As in the file</string>
+    <string name="sheet_fit_width">Fit columns to page width</string>
+    <string name="sheet_fit_width_on">Wide sheets shrink so all their columns fit across the page.</string>
+    <string name="sheet_fit_width_off">Columns that don\'t fit go on more pages, as Excel prints them.</string>
+    <string name="sheet_gridlines">Gridlines</string>
+    <string name="sheet_gridlines_detail">Light gray lines between cells, on sheets that show them. The sheet\'s own borders always show.</string>
     <!-- Delete pages, Reorganize PDF and Flatten PDF. "Flatten" makes form fields and comments part of the page. -->
     <string name="tool_delete_pages">Delete pages</string>
     <string name="tool_delete_pages_detail">Remove the pages you don\'t need</string>
@@ -464,7 +489,7 @@
     <string name="add_images">Add images</string>
     <string name="add_more">Add more</string>
     <string name="convert">Convert to PDF</string>
-    <!-- Word, PowerPoint or EPUB to PDF with several files (never fewer than 2). -->
+    <!-- Word, PowerPoint, Excel or EPUB to PDF with several files (never fewer than 2). -->
     <plurals name="convert_many">
         <item quantity="one">Convert %d file to PDF</item>
         <item quantity="other">Convert %d files to PDF</item>
@@ -729,6 +754,8 @@
     <string name="search_keywords_scan">scan, scanner, CamScanner, camera, photo, document, paper, receipt, crop, enhance, filter, brightness, contrast, black and white</string>
     <string name="search_keywords_word">doc, docx, document, Office, convert</string>
     <string name="search_keywords_powerpoint">ppt, pptx, slides, presentation, Office, convert</string>
+    <!-- For the Excel to PDF card, which joins Home in this release. -->
+    <string name="search_keywords_excel">xls, xlsx, spreadsheet, sheet, table, workbook, cells, Office, Google Sheets, convert</string>
     <string name="search_keywords_merge">join, combine, append, put together</string>
     <string name="search_keywords_split">separate, cut, divide, extract, break up</string>
     <string name="search_keywords_reorganize">reorder, rearrange, order, sort, move, insert, blank page</string>

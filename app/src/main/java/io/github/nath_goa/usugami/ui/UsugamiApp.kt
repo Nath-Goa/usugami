@@ -868,13 +868,14 @@ private class ScreenOpener {
 
 /**
  * Where files shared to Usugami of [kind] open: Choose a tool ("share") for PDFs, their converter for
- * Word, PowerPoint and EPUB files. Null for none, and for images, which go to the editor.
+ * Word, PowerPoint, Excel and EPUB files. Null for none, and for images, which go to the editor.
  */
 private fun sharedRoute(kind: SharedKind?): String? = when (kind) {
     SharedKind.PDF -> "share"
     SharedKind.WORD -> PdfTool.WORD.name.lowercase()
     SharedKind.POWERPOINT -> PdfTool.POWERPOINT.name.lowercase()
     SharedKind.EPUB -> PdfTool.EPUB.name.lowercase()
+    SharedKind.EXCEL -> PdfTool.EXCEL.name.lowercase()
     else -> null
 }
 

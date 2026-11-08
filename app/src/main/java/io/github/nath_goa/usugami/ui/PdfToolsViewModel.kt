@@ -68,6 +68,8 @@ import io.github.nath_goa.usugami.data.office.OfficeLegacyFormat
 import io.github.nath_goa.usugami.data.office.OfficeNotRecognized
 import io.github.nath_goa.usugami.data.office.OfficeNothingToConvert
 import io.github.nath_goa.usugami.data.office.OfficeProgress
+import io.github.nath_goa.usugami.data.office.OfficeTooLarge
+import io.github.nath_goa.usugami.data.office.SheetOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -86,25 +88,25 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD,
- * POWERPOINT and EPUB, which turn one Word, PowerPoint or EPUB file into a PDF. REORGANIZE works on
- * one PDF and can take pages from others. EDIT puts text, drawings, shapes and pictures on a PDF's
- * pages. REDACT removes what is under its boxes for good. COMPRESS, PAGE_NUMBERS, WATERMARK and
- * FLATTEN also work on several PDFs, and WORD, POWERPOINT and EPUB on several files, one after
- * another, each into a PDF of its own (see [isBatch]).
+ * POWERPOINT, EXCEL and EPUB, which turn one Word, PowerPoint, Excel or EPUB file into a PDF.
+ * REORGANIZE works on one PDF and can take pages from others. EDIT puts text, drawings, shapes and
+ * pictures on a PDF's pages. REDACT removes what is under its boxes for good. COMPRESS, PAGE_NUMBERS,
+ * WATERMARK and FLATTEN also work on several PDFs, and WORD, POWERPOINT, EXCEL and EPUB on several
+ * files, one after another, each into a PDF of its own (see [isBatch]).
  */
 enum class PdfTool {
     SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB,
-    DELETE_PAGES, REORGANIZE, FLATTEN, EDIT, REDACT,
+    DELETE_PAGES, REORGANIZE, FLATTEN, EDIT, REDACT, EXCEL,
 }
 
 /**
- * Whether the tool takes several PDFs (or, for Word, PowerPoint and EPUB to PDF, several files) at
+ * Whether the tool takes several PDFs (or, for Word, PowerPoint, Excel and EPUB to PDF, several files) at
  * once and makes a PDF of each, with a name and choices of its own (see [PdfToolsViewModel.batch]).
  * With one it works as the other tools do.
  */
 val PdfTool.isBatch: Boolean
     get() = when (this) {
-        PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.FLATTEN, PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> true
+        PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK, PdfTool.FLATTEN, PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> true
         else -> false
     }
 
@@ -113,6 +115,7 @@ val PdfTool.officeKind: OfficeKind?
     get() = when (this) {
         PdfTool.WORD -> OfficeKind.WORD
         PdfTool.POWERPOINT -> OfficeKind.POWERPOINT
+        PdfTool.EXCEL -> OfficeKind.EXCEL
         PdfTool.EPUB -> OfficeKind.EPUB
         else -> null
     }
@@ -154,7 +157,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      */
     val signature: StateFlow<Signature?> = handle.getStateFlow(KEY_SIGNATURE, null)
 
-    /** The Word, PowerPoint or EPUB files picked for Word, PowerPoint or EPUB to PDF, in order. */
+    /** The Word, PowerPoint, Excel or EPUB files picked for Word, PowerPoint, Excel or EPUB to PDF, in order. */
     val documents: StateFlow<List<OfficeInput>> = handle.getStateFlow(KEY_DOCUMENTS, ArrayList<OfficeInput>())
 
     /**
@@ -395,7 +398,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /**
-     * Copies the Word, PowerPoint or EPUB files at [uris] in, after those picked before. Files that
+     * Copies the Word, PowerPoint, Excel or EPUB files at [uris] in, after those picked before. Files that
      * can't be converted are left out, saying why; with several picked at once, naming them.
      */
     fun addDocuments(uris: List<Uri>, kind: OfficeKind) {
@@ -444,7 +447,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /**
      * Takes [files], shared to Usugami and copied in already (see [MainViewModel.share]), after the
      * files there: PDFs join [inputs] (those with a password wait for it, as picked ones do), Word,
-     * PowerPoint and EPUB files [documents]. They are all of one kind. Files that can't be used are
+     * PowerPoint, Excel and EPUB files [documents]. They are all of one kind. Files that can't be used are
      * left out, saying why; with several shared, naming them.
      */
     fun addShared(files: List<SharedFile>) {
@@ -453,6 +456,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             SharedKind.WORD -> OfficeKind.WORD
             SharedKind.POWERPOINT -> OfficeKind.POWERPOINT
             SharedKind.EPUB -> OfficeKind.EPUB
+            SharedKind.EXCEL -> OfficeKind.EXCEL
             else -> null
         }
         _importing.value = true
@@ -527,7 +531,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      */
     fun takeShareInterrupted(): Boolean = shareInterrupted.also { shareInterrupted = false }
 
-    /** Puts away the Word, PowerPoint or EPUB file [id], and frees its copy. */
+    /** Puts away the Word, PowerPoint, Excel or EPUB file [id], and frees its copy. */
     fun removeDocument(id: Long) {
         val input = documents.value.firstOrNull { it.id == id } ?: return
         setDocuments(documents.value - input)
@@ -536,41 +540,50 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     /**
      * Converts every file in [documents] into a PDF of its own name ([outputName]), one after
-     * another; a book is laid out on [bookPage] (A5 or A4). One file is converted as it always was.
+     * another; a book is laid out on [bookPage] (A5 or A4), a workbook's sheets put on pages as
+     * [sheets] says. One file is converted as it always was.
      */
-    fun runConvertAll(bookPage: PageSize = PageSize.A5) {
+    fun runConvertAll(bookPage: PageSize = PageSize.A5, sheets: SheetOptions = SheetOptions()) {
         val list = documents.value
         if (list.size <= 1) {
             val input = list.firstOrNull() ?: return
             val fileName = outputName(input)
             process(fileName, emptyList(), list) { check ->
-                listOf(office.convert(input, fileName, bookPage, check) { _convertProgress.value = it })
+                listOf(office.convert(input, fileName, bookPage, sheets, check) { _convertProgress.value = it })
             }
             return
         }
         val jobs = list.map { ConvertJob(it, outputName(it)) }
         processEach("Converted_PDFs", list.map { it.name }, emptyList(), list) { check, onNext ->
-            office.convertEach(jobs, bookPage, check, onNext) { _convertProgress.value = it }
+            office.convertEach(jobs, bookPage, sheets, check, onNext) { _convertProgress.value = it }
         }
     }
 
-    /** Why a Word, PowerPoint or EPUB file can't be converted, in the user's language. */
+    /** Why a Word, PowerPoint, Excel or EPUB file can't be converted, in the user's language. */
     private fun officeMessage(e: OfficeFileProblem, kind: OfficeKind): String = officeReason(e, kind).one
 
-    /** Why Word, PowerPoint or EPUB files can't be converted, said of one and of several (see [Said]). */
+    /** Why Word, PowerPoint, Excel or EPUB files can't be converted, said of one and of several (see [Said]). */
     private fun officeReason(e: OfficeFileProblem, kind: OfficeKind): Said = when (e) {
-        is OfficeLegacyFormat ->
-            if (kind == OfficeKind.WORD) said(R.string.office_legacy_word, R.string.office_legacy_word_many)
-            else said(R.string.office_legacy_powerpoint, R.string.office_legacy_powerpoint_many)
-        is OfficeEncrypted -> said(R.string.office_encrypted, R.string.office_encrypted_many)
+        is OfficeLegacyFormat -> when (kind) {
+            OfficeKind.WORD -> said(R.string.office_legacy_word, R.string.office_legacy_word_many)
+            OfficeKind.EXCEL -> said(R.string.office_legacy_excel, R.string.office_legacy_excel_many)
+            else -> said(R.string.office_legacy_powerpoint, R.string.office_legacy_powerpoint_many)
+        }
+        is OfficeEncrypted ->
+            if (kind == OfficeKind.EXCEL) said(R.string.office_encrypted_excel, R.string.office_encrypted_excel_many)
+            else said(R.string.office_encrypted, R.string.office_encrypted_many)
         is EpubProtected -> said(R.string.epub_protected, R.string.epub_protected_many)
-        is OfficeNothingToConvert ->
-            if (kind == OfficeKind.EPUB) said(R.string.epub_empty, R.string.epub_empty_many)
-            else said(R.string.office_no_slides, R.string.office_no_slides_many)
+        is OfficeNothingToConvert -> when (kind) {
+            OfficeKind.EPUB -> said(R.string.epub_empty, R.string.epub_empty_many)
+            OfficeKind.EXCEL -> said(R.string.office_no_sheets, R.string.office_no_sheets_many)
+            else -> said(R.string.office_no_slides, R.string.office_no_slides_many)
+        }
         is OfficeEmbeddedContent -> said(R.string.office_embedded_content, R.string.office_embedded_content_many)
+        is OfficeTooLarge -> said(R.string.office_too_large, R.string.office_too_large_many)
         is OfficeNotRecognized -> when (kind) {
             OfficeKind.WORD -> said(R.string.office_not_word, R.string.office_not_word_many)
             OfficeKind.POWERPOINT -> said(R.string.office_not_powerpoint, R.string.office_not_powerpoint_many)
+            OfficeKind.EXCEL -> said(R.string.office_not_excel, R.string.office_not_excel_many)
             OfficeKind.EPUB -> said(R.string.epub_not_recognized, R.string.epub_not_recognized_many)
         }
     }
@@ -2029,7 +2042,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val base = input?.name?.let(FileNames::baseName) ?: "Usugami"
         return when (tool) {
             // A converted document keeps its name: Report.docx becomes Report.pdf.
-            PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EPUB -> documents.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"
+            PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> documents.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"
             PdfTool.SPLIT -> "${base}_split"
             PdfTool.COMPRESS -> "${base}_compressed"
             PdfTool.MERGE -> "Merged_PDF"

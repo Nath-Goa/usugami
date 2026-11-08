@@ -364,7 +364,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     private val _sharedFiles = MutableStateFlow(handle.get<ArrayList<SharedFile>>(KEY_SHARED).orEmpty())
     /**
-     * PDFs, Word, PowerPoint and EPUB files shared to Usugami, copied in and waiting for the tool
+     * PDFs, Word, PowerPoint, Excel and EPUB files shared to Usugami, copied in and waiting for the tool
      * they open in to take them (see [takeSharedFiles]). Kept in the saved state.
      */
     val sharedFiles: StateFlow<List<SharedFile>> = _sharedFiles.asStateFlow()
@@ -588,7 +588,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /**
      * Takes in the files at [uris], shared to Usugami from another app as [sharedAs] (the share's
      * type), all of one kind (see [SharedFiles.chosen]): images go to the editor ([addImages]), PDFs,
-     * Word, PowerPoint and EPUB files are copied in at once (the share lets Usugami read them for a
+     * Word, PowerPoint, Excel and EPUB files are copied in at once (the share lets Usugami read them for a
      * while only) and wait in [sharedFiles] for the tool they open in. The files of other kinds, and
      * those Usugami can't use, are left out, naming them. [refused] counts files turned away before.
      */
@@ -728,6 +728,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         SharedKind.WORD -> "Document.docx"
         SharedKind.POWERPOINT -> "Presentation.pptx"
         SharedKind.EPUB -> "Book.epub"
+        SharedKind.EXCEL -> "Spreadsheet.xlsx"
         else -> uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "File"
     }
 

@@ -37,7 +37,7 @@ private val rootedNamesAllowed: Unit by lazy {
 }
 
 /**
- * An Office Open XML file (.docx, .pptx): a zip of XML parts, linked by relationships. Only read,
+ * An Office Open XML file (.docx, .pptx, .xlsx): a zip of XML parts, linked by relationships. Only read,
  * never extracted, so odd names inside the zip can't reach the file system.
  */
 internal class OfficePackage(file: File) : Closeable {
@@ -88,7 +88,7 @@ internal class OfficePackage(file: File) : Closeable {
     fun targetOfType(part: String, typeSuffix: String): String? =
         relationships(part).values.firstOrNull { !it.external && it.type.endsWith(typeSuffix) }?.target
 
-    /** The document's main part ("word/document.xml", "ppt/presentation.xml"), from the package relationships. */
+    /** The document's main part ("word/document.xml", "ppt/presentation.xml", "xl/workbook.xml"), from the package relationships. */
     fun mainPart(): String? = relationships("").values.firstOrNull { !it.external && it.type.endsWith("/officeDocument") }?.target
 
     override fun close() = zip.close()
@@ -137,7 +137,7 @@ internal fun <T> withReadingStack(block: () -> T): T {
 private const val READING_STACK = 8L * 1024 * 1024
 
 /** Which vocabulary an element comes from. Element names repeat between them (w:p, a:p, p:sp...). */
-internal enum class Ns { WORD, DRAWING, SLIDE, WORD_DRAWING, PICTURE, COMPATIBILITY, MATH, VML, OTHER }
+internal enum class Ns { WORD, DRAWING, SLIDE, WORD_DRAWING, PICTURE, COMPATIBILITY, MATH, VML, SHEET, OTHER }
 
 /**
  * A streaming reader for one XML part. Namespaces are resolved, so elements are matched by their
@@ -291,6 +291,7 @@ internal class OfficeXml private constructor(private val parser: XmlPullParser, 
                     uri.endsWith("/markup-compatibility/2006") -> Ns.COMPATIBILITY
                     uri.endsWith("/officeDocument/2006/math") || uri.endsWith("/ooxml/officeDocument/math") -> Ns.MATH
                     uri == "urn:schemas-microsoft-com:vml" -> Ns.VML
+                    uri.endsWith("/spreadsheetml/2006/main") || uri.endsWith("/ooxml/spreadsheetml/main") -> Ns.SHEET
                     else -> Ns.OTHER
                 }
             }

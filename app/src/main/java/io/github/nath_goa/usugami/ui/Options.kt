@@ -69,8 +69,9 @@ fun OptionsRow(layout: LayoutSettings, onChange: (LayoutSettings) -> Unit, modif
     }
 }
 
+/** A chip showing [label] and the [value] chosen, which opens a menu of [options] to choose from. */
 @Composable
-private fun <T> OptionChip(
+internal fun <T> OptionChip(
     label: String,
     value: String,
     options: List<T>,

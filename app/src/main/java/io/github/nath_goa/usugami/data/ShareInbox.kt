@@ -9,7 +9,7 @@ import kotlinx.parcelize.Parcelize
 import java.io.File
 import java.io.IOException
 
-/** A PDF, Word, PowerPoint or EPUB file shared to Usugami, copied in and waiting for the tool it opens in. */
+/** A PDF, Word, PowerPoint, Excel or EPUB file shared to Usugami, copied in and waiting for the tool it opens in. */
 @Parcelize
 data class SharedFile(val id: Long, val path: String, val name: String, val kind: SharedKind) : Parcelable {
     val file: File get() = File(path)

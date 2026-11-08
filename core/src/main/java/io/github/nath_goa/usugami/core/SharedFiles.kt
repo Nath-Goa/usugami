@@ -4,7 +4,7 @@ package io.github.nath_goa.usugami.core
  * What a file shared to Usugami from another app is, as far as Usugami goes: which of its tools
  * takes it. [OTHER] is a file none of them takes.
  */
-enum class SharedKind { PDF, IMAGE, WORD, POWERPOINT, EPUB, OTHER }
+enum class SharedKind { PDF, IMAGE, WORD, POWERPOINT, EPUB, EXCEL, OTHER }
 
 /**
  * Sorting the files shared to Usugami together. A file manager shares whatever was selected, so a
@@ -24,8 +24,8 @@ object SharedFiles {
 
     /**
      * The kind a share of files of [kinds] is taken as: the kind most of them are, and when as many
-     * are of two kinds, PDFs before images, and images before Word, PowerPoint and EPUB files, in
-     * that order. Null when none is of a kind Usugami takes.
+     * are of two kinds, PDFs before images, and images before Word, PowerPoint, EPUB and Excel
+     * files, in that order. Null when none is of a kind Usugami takes.
      */
     fun chosen(kinds: List<SharedKind>): SharedKind? =
         kinds.filter { it != SharedKind.OTHER }
@@ -42,6 +42,7 @@ object SharedFiles {
             t in WORD_TYPES -> SharedKind.WORD
             t in POWERPOINT_TYPES -> SharedKind.POWERPOINT
             t == "application/epub+zip" -> SharedKind.EPUB
+            t in EXCEL_TYPES -> SharedKind.EXCEL
             else -> null
         }
     }
@@ -55,6 +56,7 @@ object SharedFiles {
             "docx", "docm", "dotx", "dotm", "doc" -> SharedKind.WORD
             "pptx", "pptm", "ppsx", "ppsm", "potx", "ppt", "pps" -> SharedKind.POWERPOINT
             "epub" -> SharedKind.EPUB
+            "xlsx", "xlsm", "xltx", "xltm", "xls" -> SharedKind.EXCEL
             else -> null
         }
     }
@@ -75,5 +77,13 @@ object SharedFiles {
         "application/vnd.ms-powerpoint.presentation.macroenabled.12",
         "application/vnd.ms-powerpoint.slideshow.macroenabled.12",
         "application/vnd.ms-powerpoint",
+    )
+
+    private val EXCEL_TYPES = setOf(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.template",
+        "application/vnd.ms-excel.sheet.macroenabled.12",
+        "application/vnd.ms-excel.template.macroenabled.12",
+        "application/vnd.ms-excel",
     )
 }
