@@ -6,6 +6,11 @@
     <string name="home_subtitle">Tus archivos se quedan en este teléfono. Sin anuncios, sin cuenta y sin subir nada.</string>
     <string name="tool_images">Imágenes a PDF</string>
     <string name="tool_images_detail">Escaneos con la cámara, JPG y PNG a PDF, con reconocimiento de texto</string>
+    <!-- The large card at the top of Home: take photos of a paper document, or pick images of one, then crop and clean up each page. -->
+    <string name="scan_title">Escanear documento</string>
+    <string name="scan_detail">Toma fotos o importa imágenes y luego recórtalas y mejóralas</string>
+    <!-- Picks images from the phone's gallery: nothing leaves the phone. -->
+    <string name="scan_upload">Importar imágenes</string>
     <string name="tool_split">Dividir PDF</string>
     <string name="tool_split_detail">Extrae páginas o divide en archivos pequeños</string>
     <string name="tool_merge">Unir PDF</string>
@@ -477,12 +482,40 @@
     <string name="crop_corner_top_right">Esquina superior derecha</string>
     <string name="crop_corner_bottom_right">Esquina inferior derecha</string>
     <string name="crop_corner_bottom_left">Esquina inferior izquierda</string>
+    <!-- Handles in the middle of each side of the page's outline: dragging one moves that whole side. -->
+    <string name="crop_side_top">Borde superior</string>
+    <string name="crop_side_right">Borde derecho</string>
+    <string name="crop_side_bottom">Borde inferior</string>
+    <string name="crop_side_left">Borde izquierdo</string>
+    <!-- Turn the image (and the page's outline on it) a quarter turn. -->
+    <string name="crop_rotate_left">Girar a la izquierda</string>
+    <string name="crop_rotate_right">Girar a la derecha</string>
+    <!-- Goes on from cropping the page to choosing its look; during a scan of several images, also on to the next image. -->
+    <string name="crop_next">Siguiente</string>
+    <!-- The crop screen's close button while several uploaded images are cropped one after another: the images not cropped yet stay as they are. -->
+    <string name="crop_stop">Dejar de recortar</string>
     <string name="crop_failed">No se pudo recortar la página. Se dejó como estaba.</string>
+    <!-- The second step of cropping a page: its look, brightness and contrast. -->
+    <string name="filter_title">Filtros</string>
+    <string name="filter_preview_description">La página, tal como quedará en el PDF</string>
+    <string name="filter_brightness">Brillo</string>
+    <string name="filter_contrast">Contraste</string>
+    <!-- Puts the slider back in the middle, at 0. -->
+    <string name="filter_reset_brightness">Restablecer el brillo</string>
+    <string name="filter_reset_contrast">Restablecer el contraste</string>
+    <!-- Under the title while several uploaded images are cropped one after another, e.g. "Page 2 of 5". -->
+    <string name="scan_place">Página %1$d de %2$d</string>
     <string name="look_title">Aspecto</string>
     <string name="look_original">Original</string>
     <string name="look_enhanced">Mejorado</string>
     <string name="look_grayscale">Escala de grises</string>
     <string name="look_black_white">Blanco y negro</string>
+    <!-- Brighter, with shadows softened and the colours kept close to the photo's. -->
+    <string name="look_lighten">Aclarado</string>
+    <!-- The strongest clean-up: whiter paper, richer colours, darker and crisper print. -->
+    <string name="look_super_enhanced">Muy mejorado</string>
+    <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
+    <string name="look_ink_saver">Ahorro de tinta</string>
     <string name="look_all_pages">Aplicar a todas las páginas</string>
 
     <!-- Options -->
@@ -667,6 +700,7 @@
     </plurals>
     <string name="home_search_none">Ninguna herramienta coincide con \"%1$s\"</string>
     <string name="search_keywords_images">foto, imagen, JPEG, escanear, escaneo, escáner, cámara, galería, documento, blanco y negro, OCR</string>
+    <string name="search_keywords_scan">escanear, escaneo, escáner, CamScanner, cámara, foto, documento, papel, hoja, recibo, ticket, factura, recortar, mejorar, filtro, brillo, contraste, blanco y negro</string>
     <string name="search_keywords_word">doc, docx, documento, Office, convertir</string>
     <string name="search_keywords_powerpoint">ppt, pptx, diapositivas, presentación, Office, convertir</string>
     <string name="search_keywords_merge">juntar, combinar, fusionar, unir, agrupar, anexar</string>

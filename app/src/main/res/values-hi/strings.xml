@@ -6,6 +6,11 @@
     <string name="home_subtitle">आपकी फ़ाइलें इसी फ़ोन पर रहती हैं। न विज्ञापन, न खाता, न अपलोड।</string>
     <string name="tool_images">इमेज से PDF</string>
     <string name="tool_images_detail">कैमरे से स्कैन, JPG और PNG इमेज से PDF, टेक्स्ट पहचान के साथ</string>
+    <!-- The large card at the top of Home: take photos of a paper document, or pick images of one, then crop and clean up each page. -->
+    <string name="scan_title">डॉक्यूमेंट स्कैन करें</string>
+    <string name="scan_detail">फ़ोटो लें या इमेज चुनें, फिर उन्हें क्रॉप और साफ़ करें</string>
+    <!-- Picks images from the phone's gallery: nothing leaves the phone. -->
+    <string name="scan_upload">इमेज चुनें</string>
     <string name="tool_split">PDF स्प्लिट करें</string>
     <string name="tool_split_detail">पेज निकालें या छोटी फ़ाइलों में बांटें</string>
     <string name="tool_merge">PDF मर्ज करें</string>
@@ -462,12 +467,40 @@
     <string name="crop_corner_top_right">ऊपर दायां कोना</string>
     <string name="crop_corner_bottom_right">नीचे दायां कोना</string>
     <string name="crop_corner_bottom_left">नीचे बायां कोना</string>
+    <!-- Handles in the middle of each side of the page's outline: dragging one moves that whole side. -->
+    <string name="crop_side_top">ऊपरी किनारा</string>
+    <string name="crop_side_right">दायां किनारा</string>
+    <string name="crop_side_bottom">निचला किनारा</string>
+    <string name="crop_side_left">बायां किनारा</string>
+    <!-- Turn the image (and the page's outline on it) a quarter turn. -->
+    <string name="crop_rotate_left">बाईं ओर घुमाएं</string>
+    <string name="crop_rotate_right">दाईं ओर घुमाएं</string>
+    <!-- Goes on from cropping the page to choosing its look; during a scan of several images, also on to the next image. -->
+    <string name="crop_next">आगे बढ़ें</string>
+    <!-- The crop screen's close button while several uploaded images are cropped one after another: the images not cropped yet stay as they are. -->
+    <string name="crop_stop">क्रॉप करना बंद करें</string>
     <string name="crop_failed">पेज क्रॉप नहीं हो सका। उसे पहले जैसा ही रखा गया है।</string>
+    <!-- The second step of cropping a page: its look, brightness and contrast. -->
+    <string name="filter_title">फ़िल्टर</string>
+    <string name="filter_preview_description">पेज, जैसा वह PDF में दिखेगा</string>
+    <string name="filter_brightness">ब्राइटनेस</string>
+    <string name="filter_contrast">कंट्रास्ट</string>
+    <!-- Puts the slider back in the middle, at 0. -->
+    <string name="filter_reset_brightness">ब्राइटनेस रीसेट करें</string>
+    <string name="filter_reset_contrast">कंट्रास्ट रीसेट करें</string>
+    <!-- Under the title while several uploaded images are cropped one after another, e.g. "Page 2 of 5". -->
+    <string name="scan_place">%2$d में से पेज %1$d</string>
     <string name="look_title">रूप</string>
     <string name="look_original">मूल</string>
     <string name="look_enhanced">बेहतर</string>
     <string name="look_grayscale">ग्रेस्केल</string>
     <string name="look_black_white">ब्लैक एंड व्हाइट</string>
+    <!-- Brighter, with shadows softened and the colours kept close to the photo's. -->
+    <string name="look_lighten">उजला</string>
+    <!-- The strongest clean-up: whiter paper, richer colours, darker and crisper print. -->
+    <string name="look_super_enhanced">और बेहतर</string>
+    <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
+    <string name="look_ink_saver">स्याही बचत</string>
     <string name="look_all_pages">सभी पेजों पर लागू करें</string>
 
     <!-- Options -->
@@ -636,6 +669,7 @@
     </plurals>
     <string name="home_search_none">\"%1$s\" से मेल खाता कोई टूल नहीं मिला</string>
     <string name="search_keywords_images">फ़ोटो, तस्वीर, स्कैन, स्कैनर, कैमरा, गैलरी, डॉक्यूमेंट, ब्लैक एंड व्हाइट, photo, image, scan, scanner, camera, JPEG, OCR</string>
+    <string name="search_keywords_scan">स्कैन, स्कैनर, कैमरा, फ़ोटो, डॉक्यूमेंट, दस्तावेज़, कागज़, रसीद, बिल, क्रॉप, फ़िल्टर, ब्राइटनेस, चमक, कंट्रास्ट, ब्लैक एंड व्हाइट, scan, scanner, CamScanner, camera, photo, document, receipt, crop, enhance, filter, brightness, contrast</string>
     <string name="search_keywords_word">डॉक्यूमेंट, दस्तावेज़, doc, docx, document, Office</string>
     <string name="search_keywords_powerpoint">स्लाइड, प्रेज़ेंटेशन, ppt, pptx, slides, presentation</string>
     <string name="search_keywords_merge">जोड़ें, मिलाएं, एक फ़ाइल, merge, combine, join</string>
