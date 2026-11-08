@@ -725,6 +725,7 @@
     <string name="msg_out_of_space">not enough free storage</string>
     <string name="msg_unknown_error">an unexpected error occurred</string>
     <string name="msg_no_pdf_app">No app on this phone can open PDFs.</string>
+    <string name="msg_no_zip_app">No app on this phone can open ZIP files.</string>
     <string name="msg_no_share_app">No app on this phone can share PDFs.</string>
     <string name="msg_no_file_picker">This phone has no file picker to save with.</string>
     <string name="msg_no_picker">This phone has no app to pick files with.</string>
@@ -738,6 +739,19 @@
         <item quantity="one">The PDF was cleared from temporary storage. Please create it again.</item>
         <item quantity="other">The PDFs were cleared from temporary storage. Please create them again.</item>
     </plurals>
+
+    <!-- Recent files: the files saved with Usugami, newest first, on Home under Scan document and on a screen of their own, to open or share again. -->
+    <string name="recent_title">Recent files</string>
+    <string name="recent_see_all">See all</string>
+    <!-- Takes a file off the list. The file itself isn't deleted. -->
+    <string name="recent_remove">Remove from list</string>
+    <string name="recent_clear">Clear list</string>
+    <string name="recent_clear_title">Clear the list?</string>
+    <string name="recent_clear_body">The files stay where you saved them. Only this list is cleared.</string>
+    <string name="recent_empty">Files you save show here, so you can open and share them again.</string>
+    <!-- A listed file Usugami can no longer reach: its access to the file has ended. %1$s is the file's name. -->
+    <string name="recent_lost_title">Can\'t open this file</string>
+    <string name="recent_lost_body">Usugami can no longer open %1$s. You can still find it with your phone\'s Files app.</string>
 
     <!-- Searching for a tool on Home -->
     <string name="home_search_hint">Search tools</string>

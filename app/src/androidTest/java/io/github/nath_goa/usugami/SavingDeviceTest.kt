@@ -75,7 +75,7 @@ class SavingDeviceTest {
         val pdf = File(dir, "zipped.pdf").apply { writeText("%PDF-1.4") }
         val target = File(dir, "existing.zip").apply { writeText("old document") }
         try {
-            PdfSaver(app).writeTo(Uri.fromFile(target), listOf(pdf)) { out ->
+            PdfSaver(app).writeTo(Uri.fromFile(target), listOf(pdf), "application/zip") { out ->
                 out.write("half a ZIP file".toByteArray())
                 throw CancellationException("Cancel pressed")
             }

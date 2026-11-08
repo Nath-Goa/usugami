@@ -48,6 +48,10 @@ public, so please don't include personal details. To report a security problem p
   the tool, and only end up in the PDF you save. Pictures you add are working copies, as above.
 - Settings: your last choices (such as page size, margins and compression level), stored
   privately on your phone.
+- Recent files: the name, type, size and place of the last 50 files you saved with Usugami, and
+  when you saved them, stored privately on your phone so you can open and share them again from
+  Home. For a file saved with "Save as" or into a folder you picked, Usugami keeps Android's
+  permission to read it while it is on the list, and gives that permission back when it leaves.
 - Usugami excludes its data from Android's cloud backup and device-to-device transfer.
 
 Nothing is stored anywhere else. Usugami has no servers.
@@ -110,6 +114,8 @@ Usugami does not collect personal information from anyone, including children.
 ## Keeping and deleting your data
 
 - Working copies are deleted automatically (see above).
+- To take a file off the Recent files list, or clear the list, use the Recent files screen (See
+  all on Home). The files themselves stay where you saved them.
 - To delete everything Usugami stores on your phone, go to Settings > Apps > Usugami > Storage and
   tap "Clear storage", or uninstall Usugami.
 - PDFs you saved to Downloads or another folder are your files. They stay until you delete them,

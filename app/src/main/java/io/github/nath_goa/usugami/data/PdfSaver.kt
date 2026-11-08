@@ -19,24 +19,39 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.OutputStream
 
-/** Saving finished PDFs (and ZIP files of them) to shared storage and handing them to other apps. */
+/** Saving finished PDFs (and ZIP files of them) to shared storage, where Recent files lists them, and handing them to other apps. */
 class PdfSaver(private val context: Context) {
     private val resolver = context.contentResolver
+
+    /** Where each file saved is listed, so it can be found again from Home. */
+    private val recent by lazy { RecentFiles.of(context) }
 
     /**
      * Copies [files] into the public Downloads folder and returns the copies. A file [earlier] says
      * (at its place, or null) was copied there already, and still is, isn't copied again: saving a
      * result a second time (a second tap, say) doesn't add "Name (1).pdf". [onCopied] is told of each
      * copy as soon as it is there, by the file's place: when a later file fails (the storage is full,
-     * say), those copied before it stay in Downloads, and saving again mustn't copy them twice.
+     * say), those copied before it stay in Downloads, and saving again mustn't copy them twice. Each
+     * copy goes on the Recent files list, also those made before a failure.
      */
     @RequiresApi(Build.VERSION_CODES.Q)
     fun saveToDownloads(
         files: List<File>,
         earlier: List<DownloadsCopy?>? = null,
         onCopied: (Int, DownloadsCopy) -> Unit = { _, _ -> },
-    ): List<DownloadsCopy> = files.mapIndexed { i, file ->
-        (earlier?.getOrNull(i)?.let(::stillInDownloads) ?: saveToDownloads(file)).also { onCopied(i, it) }
+    ): List<DownloadsCopy> {
+        val saved = ArrayList<SavedFile>()
+        try {
+            return files.mapIndexed { i, file ->
+                (earlier?.getOrNull(i)?.let(::stillInDownloads) ?: saveToDownloads(file)).also {
+                    // Usugami can always read what it put into Downloads: there is no access to keep.
+                    saved += SavedFile(it.uri, PDF_MIME, grant = null, it.name, file.length())
+                    onCopied(i, it)
+                }
+            }
+        } finally {
+            recent.add(saved)
+        }
     }
 
     /** Copies [file] into the public Downloads folder. */
@@ -89,15 +104,16 @@ class PdfSaver(private val context: Context) {
             if (created) delete(target)
             throw e
         }
+        recent.add(listOf(SavedFile(target, PDF_MIME, grant = target, file.name, file.length())))
     }
 
     /**
      * Writes into a document the user created with the system "Save as" screen: [write] gets its
-     * stream and makes the content from [files]. A new document is deleted again if that fails or is
-     * cancelled. One the user chose to overwrite is made in the cache first and copied over only once
-     * it is complete, so a cancel or a failure while making it leaves the document as it was.
+     * stream and makes the content, of [type], from [files]. A new document is deleted again if that
+     * fails or is cancelled. One the user chose to overwrite is made in the cache first and copied over
+     * only once it is complete, so a cancel or a failure while making it leaves the document as it was.
      */
-    fun writeTo(target: Uri, files: List<File>, write: (OutputStream) -> Unit) {
+    fun writeTo(target: Uri, files: List<File>, type: String, write: (OutputStream) -> Unit) {
         val created = sizeOf(target) == 0L
         try {
             // Checked first, so a document the user chose to overwrite isn't emptied for nothing.
@@ -114,6 +130,7 @@ class PdfSaver(private val context: Context) {
             if (created) delete(target)
             throw e
         }
+        recent.add(listOf(SavedFile(target, type, grant = target, name = null, size = null)))
     }
 
     /**
@@ -157,9 +174,16 @@ class PdfSaver(private val context: Context) {
     ) {
         requireExists(files)
         val parent = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-        files.forEachIndexed { i, file ->
-            val target = earlier?.getOrNull(i)?.takeIf(::stillThere) ?: copyInto(parent, file)
-            onCopied(i, target)
+        // Each copy goes on the Recent files list, reached through the folder, also those made before a failure.
+        val saved = ArrayList<SavedFile>()
+        try {
+            files.forEachIndexed { i, file ->
+                val target = earlier?.getOrNull(i)?.takeIf(::stillThere) ?: copyInto(parent, file)
+                saved += SavedFile(target, PDF_MIME, grant = tree, file.name, file.length())
+                onCopied(i, target)
+            }
+        } finally {
+            recent.add(saved)
         }
     }
 
@@ -192,23 +216,28 @@ class PdfSaver(private val context: Context) {
     }
 
     /** Hands [files] (PDFs, or one ZIP file with [type] application/zip) to an app the user picks. */
-    fun shareIntent(files: List<File>, type: String = PDF_MIME): Intent {
-        val uris = files.map(::contentUri)
+    fun shareIntent(files: List<File>, type: String = PDF_MIME): Intent = shareIntent(files.map(::contentUri), files[0].name, type)
+
+    /** Hands the files at [uris], of [type], to an app the user picks; [label] names the first. */
+    fun shareIntent(uris: List<Uri>, label: String, type: String): Intent {
         val intent = if (uris.size == 1) {
             Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
         } else {
             Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, ArrayList(uris))
         }
         intent.type = type
-        intent.clipData = ClipData.newRawUri(files[0].name, uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
+        intent.clipData = ClipData.newRawUri(label, uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         // Not to Usugami itself, which takes PDFs shared to it: it doesn't read its own files for another app.
         return Intent.createChooser(intent, null)
             .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(context, MainActivity::class.java)))
     }
 
-    fun viewIntent(file: File): Intent = Intent(Intent.ACTION_VIEW)
-        .setDataAndType(contentUri(file), PDF_MIME)
+    fun viewIntent(file: File): Intent = viewIntent(contentUri(file), PDF_MIME)
+
+    /** Opens the file at [uri], of [type], in an app the user picks. */
+    fun viewIntent(uri: Uri, type: String): Intent = Intent(Intent.ACTION_VIEW)
+        .setDataAndType(uri, type)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
     private fun contentUri(file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)

@@ -32,7 +32,7 @@ class ResultZip(context: Context, private val dir: File) {
 
     /** Writes the ZIP file straight into a document the user created with the system "Save as" screen. */
     fun saveTo(files: List<File>, target: Uri, check: () -> Unit, onProgress: (ZipProgress) -> Unit) {
-        saver.writeTo(target, files) { ZipArchive.write(files, it, check, onProgress) }
+        saver.writeTo(target, files, ZipArchive.MIME) { ZipArchive.write(files, it, check, onProgress) }
     }
 
     fun shareIntent(zip: File): Intent = saver.shareIntent(listOf(zip), ZipArchive.MIME)

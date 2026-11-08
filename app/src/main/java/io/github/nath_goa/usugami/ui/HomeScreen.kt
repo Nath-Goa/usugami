@@ -70,11 +70,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -93,6 +97,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.ToolSearch
 
 /** The tools under "Create PDF" on Home, after Images to PDF, in order. */
@@ -230,9 +235,10 @@ private val HomeSections = listOf(
 
 /**
  * Home: Scan document at the top, whose two buttons take a photo ([onScanPhoto]) or pick images
- * ([onScanUpload]) to make pages of, then the tools in their sections, and a search field between
- * them. While something is typed, what it finds (Scan document too) shows in one list instead,
- * without the sections, and Scan document leaves the top.
+ * ([onScanUpload]) to make pages of, then the files saved last ([recentFiles], if any), then the tools
+ * in their sections, and a search field above them. While something is typed, what it finds (Scan
+ * document too) shows in one list instead, without the sections, and Scan document and the files
+ * leave the top.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -242,6 +248,9 @@ fun HomeScreen(
     onQueryChange: (String) -> Unit,
     onScanPhoto: () -> Unit,
     onScanUpload: () -> Unit,
+    recentFiles: List<RecentFile>,
+    recentActions: RecentFileActions,
+    onAllRecentFiles: () -> Unit,
     onImages: () -> Unit,
     onTool: (PdfTool) -> Unit,
     onSettings: () -> Unit,
@@ -287,6 +296,15 @@ fun HomeScreen(
             ) {
                 ScanDocumentCard(onScanPhoto, onScanUpload, Modifier.padding(top = 16.dp))
             }
+            AnimatedVisibility(
+                visible = query.isBlank() && recentFiles.isNotEmpty(),
+                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                label = "recent files",
+            ) {
+                // The last file removed fades out as it was.
+                RecentFilesSection(freezeWhen(recentFiles.isEmpty(), recentFiles), recentActions, onAllRecentFiles)
+            }
             SearchField(query, onQueryChange, Modifier.padding(top = 16.dp))
             Crossfade(targetState = query.isNotBlank(), animationSpec = Motion.short(), label = "homeSearch") { searching ->
                 if (searching) {
@@ -307,6 +325,37 @@ fun HomeScreen(
         }
     }
 }
+
+/**
+ * The files saved last, newest first, under a heading with See all, which opens the Recent files
+ * screen with every file on the list.
+ */
+@Composable
+private fun RecentFilesSection(files: List<RecentFile>, actions: RecentFileActions, onSeeAll: () -> Unit) {
+    // The file whose menu is open, kept when the activity is recreated.
+    val menu = rememberSaveable { mutableStateOf<String?>(null) }
+    Column {
+        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.recent_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() },
+            )
+            TextButton(onClick = onSeeAll) { Text(stringResource(R.string.recent_see_all)) }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (file in files.take(HOME_RECENT_FILES)) {
+                key(file.uri) { RecentFileRow(file, menu, actions) }
+            }
+        }
+    }
+}
+
+/** How many of the files saved last Home shows. */
+private const val HOME_RECENT_FILES = 3
 
 /** A rounded search field, like Material's search bar. The keyboard's search key just closes the keyboard. */
 @Composable

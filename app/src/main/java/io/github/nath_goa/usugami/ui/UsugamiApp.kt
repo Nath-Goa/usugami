@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.SharedFiles
 import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.core.ZipArchive
@@ -48,6 +49,7 @@ import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.PdfSaver
+import io.github.nath_goa.usugami.data.RecentFiles
 import kotlinx.coroutines.flow.merge
 
 @Composable
@@ -93,6 +95,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val pdfInputs by pdfVm.inputs.collectAsStateWithLifecycle()
     val pdfLocked by pdfVm.locked.collectAsStateWithLifecycle()
     val pdfImporting by pdfVm.importing.collectAsStateWithLifecycle()
+    val recent = remember(context) { RecentFiles.of(context) }
+    val recentFiles by recent.files.collectAsStateWithLifecycle()
 
     var route by rememberSaveable { mutableStateOf(if (vm.items.value.isNotEmpty()) "images" else "home") }
 
@@ -253,6 +257,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> opener.covered()
                 Lifecycle.Event.ON_RESUME -> opener.back()
+                // Files may be deleted, moved or renamed while Usugami is away.
+                Lifecycle.Event.ON_STOP -> recent.checkAgain()
                 else -> Unit
             }
         }
@@ -275,6 +281,34 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     }
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
+
+    // The listed file Usugami found it can no longer open, whose dialog shows.
+    var lostFile by rememberSaveable { mutableStateOf<String?>(null) }
+
+    /**
+     * Starts another app's screen for a listed file with [intent], as [launch] does. When Usugami's
+     * access to the file has ended, the system refuses to pass it on: a dialog says so instead.
+     */
+    fun launchRecent(file: RecentFile, @StringRes noApp: Int, intent: () -> Intent) {
+        if (file.uri in recent.unreachable.value) {
+            lostFile = file.uri
+            return
+        }
+        launch(noApp) {
+            try {
+                context.startActivity(intent())
+            } catch (_: SecurityException) {
+                opener.notOpened()
+                lostFile = file.uri
+            }
+        }
+    }
+
+    val recentActions = RecentFileActions(
+        open = { file -> launchRecent(file, if (file.type == ZipArchive.MIME) R.string.msg_no_zip_app else R.string.msg_no_pdf_app) { recent.viewIntent(file) } },
+        share = { file -> launchRecent(file, R.string.msg_no_share_app) { recent.shareIntent(file) } },
+        remove = recent::remove,
+    )
 
     /**
      * Opens the camera app to take a photo for a page; it is added and cropped when it comes back.
@@ -390,13 +424,14 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     var showConvertSheet by rememberSaveable { mutableStateOf(false) }
 
     // Which screen is showing. The result screens sit one level deeper than their editors, which
-    // sit one level deeper than home, and so do Settings ("settings"), About ("settings/about") and
-    // the texts About opens ("settings/about/privacy"); that depth decides the slide direction.
+    // sit one level deeper than home, and so do Recent files ("recent"), Settings ("settings"), About
+    // ("settings/about") and the texts About opens ("settings/about/privacy"); that depth decides the
+    // slide direction.
     // A tool opened from Choose a tool ("share") sits one level deeper than it. The crop screen sits
     // beside the editor's result; a scan of images picked keeps it showing while its next image is
     // awaited.
     val screen = when {
-        route == "home" || route.startsWith("settings") || route == "share" -> route
+        route == "home" || route.startsWith("settings") || route == "share" || route == "recent" -> route
         route == "images" -> when {
             result != null -> "images/result"
             crop != null || scan != null -> "images/crop"
@@ -420,6 +455,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         val active = transition.targetState == EnterExitState.Visible
         val screenSnackbar = if (active) snackbar else idleSnackbar
         Box(if (active) Modifier else Modifier.clearAndSetSemantics {}) {
+            if (current == "home" || current == "recent") {
+                // The files listed are looked over while they show, once each time Usugami comes back.
+                LaunchedEffect(recent, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { recent.check() } }
+            }
             if (current == "home" || current.startsWith("images")) {
                 // Once a PDF tool's screens have gone (the user went home, or shared images opened the
                 // editor), nothing of that tool can be shown again: opening a tool starts afresh. Its
@@ -449,6 +488,9 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                 scanPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                             }
                         },
+                        recentFiles = recentFiles,
+                        recentActions = recentActions,
+                        onAllRecentFiles = { route = "recent" },
                         onImages = { route = "images" },
                         onTool = { tool ->
                             pdfVm.reset()
@@ -460,6 +502,16 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             route = tool.name.lowercase()
                         },
                         onSettings = { route = "settings" },
+                    )
+                }
+                current == "recent" -> {
+                    BackHandler(enabled = active) { route = "home" }
+                    RecentFilesScreen(
+                        files = recentFiles,
+                        snackbar = screenSnackbar,
+                        actions = recentActions,
+                        onClear = recent::clear,
+                        onBack = { route = "home" },
                     )
                 }
                 current == "settings" -> {
@@ -736,6 +788,26 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     ZipProgressDialog(pdfZipProgress, onCancel = pdfVm::cancelZip)
     ocrProblem?.let { OcrProblemDialog(it, onDismiss = vm::dismissOcrProblem) }
 
+    // The dialog belongs to the list: it goes when another screen opens (images shared meanwhile, say),
+    // and when the file has left the list.
+    LaunchedEffect(route, recentFiles) {
+        if ((route != "home" && route != "recent") || recentFiles.none { it.uri == lostFile }) lostFile = null
+    }
+    recentFiles.firstOrNull { it.uri == lostFile }?.let { file ->
+        AlertDialog(
+            onDismissRequest = { lostFile = null },
+            title = { Text(stringResource(R.string.recent_lost_title)) },
+            text = { Text(stringResource(R.string.recent_lost_body, file.name)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    lostFile = null
+                    recent.remove(file)
+                }) { Text(stringResource(R.string.recent_remove)) }
+            },
+            dismissButton = { TextButton(onClick = { lostFile = null }) { Text(stringResource(R.string.keep)) } },
+        )
+    }
+
     if (confirmDiscard && route == "images") {
         AlertDialog(
             onDismissRequest = { confirmDiscard = false },
@@ -883,7 +955,7 @@ private fun sharedRoute(kind: SharedKind?): String? = when (kind) {
 private fun isPdfToolRoute(route: String): Boolean = PdfTool.entries.any { it.name.equals(route, ignoreCase = true) }
 
 /**
- * How deep a screen is: home 0, a tool's editor, Choose a tool or Settings 1, a result, a tool opened
- * from Choose a tool or About 2, a text About opens 3.
+ * How deep a screen is: home 0, a tool's editor, Choose a tool, Recent files or Settings 1, a result,
+ * a tool opened from Choose a tool or About 2, a text About opens 3.
  */
 private fun screenDepth(screen: String): Int = if (screen == "home") 0 else 1 + screen.count { it == '/' }
