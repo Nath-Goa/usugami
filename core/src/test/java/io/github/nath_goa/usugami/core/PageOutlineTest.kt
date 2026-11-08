@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.lang.management.ManagementFactory
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -387,13 +388,18 @@ class PageOutlineTest {
             }
         }
         val page = Photo(size, size, corners(0.2f, 0.15f, 0.8f, 0.15f, 0.8f, 0.85f, 0.2f, 0.85f)).luma()
-        // The quickest of a few runs, once the JVM has compiled the search.
+        // The quickest of a few runs, once the JVM has compiled the search, counted in this thread's
+        // processor time where the JVM can: on a busy build machine the clock also counts the time
+        // other work takes the processor away, which once made a quick search look three times as slow.
+        val threads = ManagementFactory.getThreadMXBean()
+        val cpu = threads.isCurrentThreadCpuTimeSupported
+        fun now() = if (cpu) threads.currentThreadCpuTime else System.nanoTime()
         fun millis(luma: ByteArray): Long {
             PageDetection.find(luma, size, size)
-            return (1..3).minOf {
-                val start = System.nanoTime()
+            return (1..5).minOf {
+                val start = now()
                 PageDetection.find(luma, size, size)
-                (System.nanoTime() - start) / 1_000_000
+                (now() - start) / 1_000_000
             }
         }
         val plain = millis(page)
