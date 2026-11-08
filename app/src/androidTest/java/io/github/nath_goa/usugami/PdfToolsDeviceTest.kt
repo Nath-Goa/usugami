@@ -10,6 +10,8 @@ import android.graphics.Rect
 import android.graphics.Shader
 import android.net.Uri
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nath_goa.usugami.core.PageNumberPosition
+import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.data.CompressJob
 import io.github.nath_goa.usugami.data.PdfCertificateEncrypted
 import io.github.nath_goa.usugami.data.PdfCompression
@@ -331,6 +333,23 @@ class PdfToolsDeviceTest {
             assertEquals("This file is not a PDF", e.message)
         }
         assertFalse("The copy should be removed", File(context.cacheDir, "pdf-inputs/1012.pdf").exists())
+    }
+
+    /**
+     * A damaged PDF whose page tree says it has five pages when it has three: it has the three
+     * viewers show, and a tool that finds its pages by number works on them.
+     */
+    @Test fun aPageCountTheFileGetsWrongIsCountedAgain() {
+        val damaged = File(context.cacheDir, "wrong_count.pdf")
+        PDDocument().use { doc ->
+            repeat(3) { doc.addPage(PDPage(PDRectangle.A4)) }
+            doc.pages.cosObject.setInt(COSName.COUNT, 5)
+            doc.save(damaged)
+        }
+        val input = engine.import(Uri.fromFile(damaged), 1014)
+        assertEquals(3, input.pageCount)
+        val numbered = engine.addPageNumbers(input, listOf(0, 1, 2), PageNumberPosition.BOTTOM_RIGHT, PageNumberSize.SMALL, "wrong_count")
+        assertEquals(3, PDDocument.load(numbered.file).use { it.numberOfPages })
     }
 
     /**

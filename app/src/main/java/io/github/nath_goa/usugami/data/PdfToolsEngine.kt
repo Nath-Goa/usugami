@@ -953,10 +953,18 @@ class PdfToolsEngine(private val context: Context) {
      * Opens [file] with PDFBox. Certificate encryption (Adobe.PubSec) needs BouncyCastle, which isn't
      * bundled: PDFBox then throws an IOException, or would hit a missing class, so both become
      * [PdfCertificateEncrypted]. A PDF nested deeper than PDFBox's reading goes (it reads arrays in
-     * arrays by calling itself, without a limit) fails as a damaged one does.
+     * arrays by calling itself, without a limit) fails as a damaged one does. A page count the file
+     * gets wrong is counted again (see [repairPageCount]).
      */
     private fun load(file: File, password: String): PDDocument = try {
-        PDDocument.load(file, password, memory())
+        PDDocument.load(file, password, memory()).also { doc ->
+            try {
+                repairPageCount(doc)
+            } catch (t: Throwable) {
+                doc.close()
+                throw t
+            }
+        }
     } catch (e: InvalidPasswordException) {
         throw e
     } catch (e: Exception) {
@@ -967,6 +975,37 @@ class PdfToolsEngine(private val context: Context) {
         throw PdfCertificateEncrypted(e)
     } catch (e: StackOverflowError) {
         throw tooDeep(e)
+    }
+
+    /**
+     * A damaged PDF can say it has more pages than it has, or fewer. Viewers count the pages
+     * themselves, but PDFBox finds a page by the counts, so a tool would fail on a page that isn't
+     * there, or take Merge's next PDF's page for it. Each count is set to the pages really found.
+     */
+    private fun repairPageCount(doc: PDDocument) {
+        if (doc.pages.count() == doc.numberOfPages) return
+        recount(doc.pages.cosObject, Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>()))
+    }
+
+    /**
+     * Sets [node]'s page count to the pages under it, found as PDFBox walks the page tree (entering
+     * each part of it once), and returns it.
+     */
+    private fun recount(node: COSDictionary, seen: MutableSet<COSDictionary>): Int {
+        var count = 0
+        val kids = node.getDictionaryObject(COSName.KIDS) as? COSArray
+        if (kids != null) {
+            for (i in 0 until kids.size()) {
+                val kid = kids.getObject(i) as? COSDictionary ?: continue
+                // A part of the tree, as PDFBox tells them from pages, or a page.
+                when {
+                    kid.getCOSName(COSName.TYPE) == COSName.PAGES || kid.containsKey(COSName.KIDS) -> if (seen.add(kid)) count += recount(kid, seen)
+                    kid.getCOSName(COSName.TYPE) == COSName.PAGE -> count++
+                }
+            }
+        }
+        node.setInt(COSName.COUNT, count)
+        return count
     }
 
     /** A PDF nested deeper than PDFBox goes, as a damaged one: only a crafted file nests that deep. */
