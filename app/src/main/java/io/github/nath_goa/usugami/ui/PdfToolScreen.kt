@@ -675,7 +675,8 @@ internal fun PasswordDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.pdf_password_title)) },
         text = {
-            Column {
+            // Scrolls: with large text in landscape, a long name would push the password field out of the dialog.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.pdf_password_body, input.name))
                 OutlinedTextField(
                     value = password,
