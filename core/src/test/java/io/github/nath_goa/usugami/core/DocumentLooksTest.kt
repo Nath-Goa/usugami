@@ -372,6 +372,22 @@ class DocumentLooksTest {
         assertEquals("Enhanced", at(plain, 200), at(plain, 188))
         assertTrue("Edge ${at(sharp, 188)}, middle ${at(sharp, 200)}", at(sharp, 188) < at(sharp, 200) - 5)
         assertTrue("Step ${at(sharp, 187) - at(sharp, 188)}, Enhanced's ${at(plain, 187) - at(plain, 188)}", at(sharp, 187) - at(sharp, 188) > at(plain, 187) - at(plain, 188))
+
+        // A faint stain on yellowed paper (tea, foxing) gets no more colour than Enhanced gives it,
+        // rather than turning into an orange blotch.
+        for (stain in listOf(Color(205, 178, 135), Color(215, 192, 155))) {
+            val stained = BufferedImage(400, 400, BufferedImage.TYPE_INT_RGB)
+            val g = stained.createGraphics()
+            g.color = Color(232, 228, 218)
+            g.fillRect(0, 0, 400, 400)
+            g.color = stain
+            g.fillRect(170, 170, 60, 60)
+            g.dispose()
+            fun chroma(image: BufferedImage) = image.getRGB(200, 200).let { max(it shr 16 and 0xFF, max(it shr 8 and 0xFF, it and 0xFF)) - min(it shr 16 and 0xFF, min(it shr 8 and 0xFF, it and 0xFF)) }
+            val superChroma = chroma(colour(stained, PageLook.SUPER_ENHANCED))
+            val enhancedChroma = chroma(colour(stained, PageLook.ENHANCED))
+            assertTrue("$stain: Super's colour $superChroma, Enhanced's $enhancedChroma", superChroma <= enhancedChroma)
+        }
     }
 
     @Test fun inkSaverLeavesLargeDarkAreasHollow() {
@@ -400,6 +416,30 @@ class DocumentLooksTest {
         assertEquals("Black inside", 0, inside)
         val hollowed = (box.width - 16) * (box.height - 16)
         assertTrue("Black ${saver.blackCount()}, without ink saving ${plain.blackCount()}", saver.blackCount() < plain.blackCount() - hollowed)
+    }
+
+    @Test fun inkSaverKeepsTheOutlineOfASlantedStroke() {
+        // A marker stroke 30 pixels wide (2.5% of the picture, as in a close photo of a note) at 45
+        // degrees: wide enough to be left hollow, and its outline must hold along the whole slant.
+        val image = BufferedImage(1200, 1200, BufferedImage.TYPE_INT_RGB)
+        val g = image.createGraphics()
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+        g.color = Color(240, 236, 220)
+        g.fillRect(0, 0, 1200, 1200)
+        g.color = Color(25, 25, 30)
+        g.stroke = BasicStroke(30f)
+        g.drawLine(200, 200, 1000, 1000)
+        g.dispose()
+        val saver = DocumentLooks.blackAndWhite(source(image), PageLook.INK_SAVER)
+        var hollow = 0
+        val along = 300..900 step 20
+        for (t in along) {
+            // Across the stroke: (t + d, t - d) is d times the square root of 2 from its middle.
+            fun black(d: IntRange) = d.any { saver.isBlack(t + it, t - it) } && d.any { saver.isBlack(t - it, t + it) }
+            assertTrue("Outline at $t", black(5..11))
+            if (!saver.isBlack(t, t)) hollow++
+        }
+        assertEquals("Hollow along the stroke", along.count(), hollow)
     }
 
     @Test fun theToneCurvesNeverTurnBackAndKeepWhite() {
@@ -524,12 +564,12 @@ class DocumentLooksTest {
         assertTrue(bits.isBlack(100, 50))
         assertTrue(!bits.isBlack(10, 10))
         assertEquals(255, DocumentLooks.grayscale(source(image))[10, 10])
-        // Ink saver keeps the bar's edge; the colour looks see white paper round it.
+        // Ink saver keeps the bar's edge; the colour looks keep the white round it white, Lighten too.
         val saver = DocumentLooks.blackAndWhite(source(image), PageLook.INK_SAVER)
         assertTrue(saver.isBlack(100, 40) && !saver.isBlack(10, 10))
         for (look in PageLook.entries.filter { it.isColour }) {
             val made = colour(image, look)
-            assertTrue("$look", luma(made.getRGB(10, 10)) >= 245 && luma(made.getRGB(100, 50)) < 40)
+            assertTrue("$look", made.getRGB(10, 10) and 0xFFFFFF == 0xFFFFFF && luma(made.getRGB(100, 50)) < 40)
         }
     }
 

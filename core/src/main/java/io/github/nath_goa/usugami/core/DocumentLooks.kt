@@ -112,12 +112,14 @@ class BitImage(val width: Int, val height: Int, val data: ByteArray = ByteArray(
  *
  * Then each look does its own:
  * - [PageLook.LIGHTEN] puts part of the light back: the paper ends up as bright as the photo's own
- *   paper to the power [LIGHT_SHADE], at most [LIGHT_PAPER], and keeps part of its colour, so a shadow
- *   half as bright as the rest of the page comes out about three quarters as bright. The ink is not
- *   deepened, so the page still looks like the photo, only better lit.
+ *   paper to the power [LIGHT_SHADE], at most [LIGHT_PAPER] but never darker than it was, and keeps
+ *   part of its colour, so a shadow half as bright as the rest of the page comes out about three
+ *   quarters as bright. The ink is not deepened, so the page still looks like the photo, only better
+ *   lit.
  * - [PageLook.ENHANCED] makes [WHITE] and brighter white and deepens the ink along a gamma curve.
- * - [PageLook.SUPER_ENHANCED] does so along a steeper curve, white from [SUPER_WHITE]; then makes
- *   clearly coloured pixels richer (see [richer]), so paper and grey print stay neutral; then sharpens
+ * - [PageLook.SUPER_ENHANCED] does so along a steeper curve, white from [SUPER_WHITE], though a pale
+ *   colour (a stain) gets no more colour than [PageLook.ENHANCED] gives it; then makes clearly
+ *   coloured pixels richer (see [superEnhanced]), so paper and grey print stay neutral; then sharpens
  *   with an unsharp mask 3 pixels across (see [Sharpener]), which needs only the rows either side.
  * - [PageLook.GRAYSCALE] is [PageLook.ENHANCED]'s brightness alone.
  * - [PageLook.BLACK_WHITE] and [PageLook.INK_SAVER] need only a threshold, but one that adapts to
@@ -154,7 +156,7 @@ object DocumentLooks {
     /** [PageLook.LIGHTEN]: pixels this bright on paper made white count as the paper itself, which evens it out. */
     const val LIGHT_WHITE = 245f
 
-    /** [PageLook.LIGHTEN]: the level the page's brightest paper ends up at. */
+    /** [PageLook.LIGHTEN]: the level the page's brightest paper ends up at, unless it is brighter already. */
     const val LIGHT_PAPER = 250f
 
     /** [PageLook.LIGHTEN]: how much of the shadows and the light's fall-off is kept, as a power of the paper's brightness (0 none, 1 all). */
@@ -178,11 +180,14 @@ object DocumentLooks {
     /** [PageLook.SUPER_ENHANCED]: from this difference between its channels a pixel is made fully [RICHER]. */
     const val FULL_CHROMA = 96
 
-    /** [PageLook.SUPER_ENHANCED]: a colour this bright or brighter is pale, a tint of the paper (a stain), and isn't made richer. */
-    const val PALE = 224
+    /**
+     * [PageLook.SUPER_ENHANCED]: a colour this bright or brighter on paper made white is pale (a stain,
+     * the paper's own tint, a highlighter): its colour isn't stretched by the curve or made richer.
+     */
+    const val PALE = 200
 
-    /** [PageLook.SUPER_ENHANCED]: a colour this much darker than [PALE] is made fully [RICHER]. */
-    const val PALE_FADE = 64
+    /** [PageLook.SUPER_ENHANCED]: a colour this much darker than [PALE] gets the curve's colour and is made fully [RICHER]. */
+    const val PALE_FADE = 40
 
     /** [PageLook.SUPER_ENHANCED]: how strongly the unsharp mask adds back each pixel's difference from its neighbours. */
     const val SHARPEN = 1.0f
@@ -328,9 +333,37 @@ object DocumentLooks {
         for (x in row.indices) row[x] = argb(curve[r[x]], curve[g[x]], curve[b[x]])
     }
 
-    /** [PageLook.SUPER_ENHANCED] before it is sharpened: channels [r], [g] and [b] along its curve, and richer, into [row]. */
+    /** [PageLook.SUPER_ENHANCED] before it is sharpened: channels [r], [g] and [b] (see [superEnhanced]), into [row]. */
     private fun superEnhanced(r: IntArray, g: IntArray, b: IntArray, row: IntArray) {
-        for (x in row.indices) row[x] = richer(SUPER_CURVE[r[x]], SUPER_CURVE[g[x]], SUPER_CURVE[b[x]])
+        for (x in row.indices) row[x] = superEnhanced(r[x], g[x], b[x])
+    }
+
+    /**
+     * A pixel of [PageLook.SUPER_ENHANCED] before it is sharpened, from its channels on paper made
+     * white: each along [SUPER_CURVE], then [richer]. The curve's steep middle stretches the small
+     * differences between a pale colour's channels, which would turn a faint stain into a vivid
+     * blotch, so a colour as bright as [PALE] is given no more colour than [PageLook.ENHANCED] gives
+     * it (its channels drawn back towards its brightest, which keeps its hue) and isn't made richer;
+     * one [PALE_FADE] darker or more is left to the curve and made fully richer, in between in
+     * proportion.
+     */
+    private fun superEnhanced(r: Int, g: Int, b: Int): Int {
+        val pale = ((luma(r, g, b) - (PALE - PALE_FADE)) / PALE_FADE.toFloat()).coerceIn(0f, 1f)
+        val cr = SUPER_CURVE[r]
+        val cg = SUPER_CURVE[g]
+        val cb = SUPER_CURVE[b]
+        val high = max(cr, max(cg, cb))
+        val chroma = high - min(cr, min(cg, cb))
+        // The colour Enhanced gives it: that curve never turns back, so it keeps which channels are brightest and darkest.
+        val enhanced = CURVE[max(r, max(g, b))] - CURVE[min(r, min(g, b))]
+        if (pale == 0f || chroma <= enhanced) return richer(cr, cg, cb, 1 - pale)
+        val k = 1 - pale * (1 - enhanced / chroma.toFloat())
+        return richer(
+            (high - (high - cr) * k + 0.5f).toInt(),
+            (high - (high - cg) * k + 0.5f).toInt(),
+            (high - (high - cb) * k + 0.5f).toInt(),
+            1 - pale,
+        )
     }
 
     /** The paper under a picture, per channel, read back a row at a time. */
@@ -364,7 +397,9 @@ object DocumentLooks {
         /**
          * The paper [PageLook.LIGHTEN] leaves on each block, per channel, from the paper found there:
          * as bright as that paper to the power [LIGHT_SHADE] (against the page's brightest, which ends
-         * up at [LIGHT_PAPER]), and its colour, against its brightness, to the power [LIGHT_TINT].
+         * up at [LIGHT_PAPER]), and its colour, against its brightness, to the power [LIGHT_TINT]; but
+         * never darker than that paper, so a page already about white (a clean scan, a screenshot)
+         * stays as it is rather than turning grey.
          */
         fun lit(): Paper {
             val count = red.levels.size
@@ -374,7 +409,7 @@ object DocumentLooks {
                 FloatArray(count) { i ->
                     val light = (brightness[i] / brightest).pow(LIGHT_SHADE)
                     val tint = (paper.levels[i] / brightness[i]).pow(LIGHT_TINT)
-                    min(255f, LIGHT_PAPER * light * tint)
+                    min(255f, max(paper.levels[i], LIGHT_PAPER * light * tint))
                 },
             )
             return Paper(lit(red), lit(green), lit(blue))
@@ -399,17 +434,16 @@ object DocumentLooks {
 
     /**
      * A [PageLook.SUPER_ENHANCED] colour made richer: a pixel whose channels differ by more than
-     * [GREY_CHROMA] (so not paper, nor grey or black print with a trace of colour left), and that is
-     * darker than [PALE] (so not a stain or the paper's own tint), has them drawn further from its
-     * brightest channel, by up to [RICHER] more, and never so far that one passes 0, which keeps its
-     * hue. Deeper, not brighter, so nothing is made paler.
+     * [GREY_CHROMA] (so not paper, nor grey or black print with a trace of colour left) has them drawn
+     * further from its brightest channel, by up to [RICHER] times [strength] more (0 for a pale
+     * colour, a stain or the paper's own tint, see [superEnhanced]), and never so far that one passes
+     * 0, which keeps its hue. Deeper, not brighter, so nothing is made paler.
      */
-    private fun richer(r: Int, g: Int, b: Int): Int {
+    private fun richer(r: Int, g: Int, b: Int, strength: Float): Int {
         val high = max(r, max(g, b))
         val chroma = high - min(r, min(g, b))
-        val darker = PALE - luma(r, g, b)
-        if (chroma <= GREY_CHROMA || darker <= 0) return argb(r, g, b)
-        val more = min(1f, (chroma - GREY_CHROMA) / (FULL_CHROMA - GREY_CHROMA).toFloat()) * min(1f, darker / PALE_FADE.toFloat())
+        if (chroma <= GREY_CHROMA || strength <= 0f) return argb(r, g, b)
+        val more = min(1f, (chroma - GREY_CHROMA) / (FULL_CHROMA - GREY_CHROMA).toFloat()) * strength
         val k = min(1 + RICHER * more, high / chroma.toFloat())
         return argb(
             (high - (high - r) * k + 0.5f).toInt(),
@@ -599,11 +633,17 @@ object DocumentLooks {
      * across (2 reach + 1 pixels) is black in it, but for at most 2 reach white pixels (fewer, in
      * proportion, where the picture's edge cuts the square): so a few white specks in a dark photo
      * don't stop it, while a white line across the square, or a letter in a dark band, does. Those
-     * squares' centres, grown by the reach less the outline, are made white, which leaves the outline
-     * round each area. Beyond the picture's edge counts as black, so the dark border a crop leaves
-     * keeps only its inner edge, not a frame round the page too.
+     * squares' centres, grown by the reach less the outline, are made white, but only where no white
+     * pixel that isn't a centre itself is within the outline. The second test is what keeps the
+     * outline on a slanted or curved edge: there, the white a square may hold lets it stick out over
+     * the edge, and a square grown reaches further across the edge than along it, which together
+     * would eat the outline, and the whole of a thick marker stroke. A speck inside a dark area is a
+     * centre, so it is made white with the area rather than left with an outline of its own. Beyond
+     * the picture's edge counts as black, so the dark border a crop leaves keeps only its inner edge,
+     * not a frame round the page too.
      *
-     * Two passes over the rows, with running counts a column each and a bit a pixel for the centres.
+     * Three passes over the rows, with running counts a column each and a bit a pixel for the
+     * centres and for where no white is within the outline.
      */
     private fun hollow(bits: BitImage, checkCancelled: () -> Unit) {
         val width = bits.width
@@ -616,40 +656,20 @@ object DocumentLooks {
         val data = bits.data
         // The centres of the squares, a bit each, 1 for a centre.
         val centres = ByteArray(rowBytes * height)
-        val whites = IntArray(width)
         var any = false
-        var top = 0
-        var bottom = -1
-        fun addRow(y: Int, sign: Int) {
-            val start = y * rowBytes
-            for (x in 0 until width) {
-                if ((data[start + (x ushr 3)].toInt() shr (7 - (x and 7))) and 1 == 1) whites[x] += sign
-            }
-        }
-        for (y in 0 until height) {
-            if (y and 63 == 0) checkCancelled()
-            val newBottom = min(height - 1, y + reach)
-            val newTop = max(0, y - reach)
-            while (bottom < newBottom) addRow(++bottom, 1)
-            while (top < newTop) addRow(top++, -1)
-            var sum = 0
-            var left = 0
-            var right = -1
-            val start = y * rowBytes
-            val rows = bottom - top + 1
-            for (x in 0 until width) {
-                val newRight = min(width - 1, x + reach)
-                val newLeft = max(0, x - reach)
-                while (right < newRight) sum += whites[++right]
-                while (left < newLeft) sum -= whites[left++]
-                // At most 2 reach white pixels in a whole square, fewer in one the picture's edge cuts.
-                if (sum.toLong() * square <= 2L * reach * (right - left + 1) * rows) {
-                    centres[start + (x ushr 3)] = (centres[start + (x ushr 3)].toInt() or (0x80 ushr (x and 7))).toByte()
-                    any = true
-                }
+        squareCounts(width, height, reach, checkCancelled, { y, x -> !bits.isBlack(x, y) }) { y, x, whites, area ->
+            // At most 2 reach white pixels in a whole square, fewer in one the picture's edge cuts.
+            if (whites.toLong() * square <= 2L * reach * area) {
+                setBit(centres, y * rowBytes, x)
+                any = true
             }
         }
         if (!any) return
+        // Where no white pixel but a centre is within the outline, a bit each.
+        val inner = ByteArray(rowBytes * height)
+        squareCounts(width, height, outline, checkCancelled, { y, x -> !bits.isBlack(x, y) && !isBit(centres, y * rowBytes, x) }) { y, x, bare, _ ->
+            if (bare == 0) setBit(inner, y * rowBytes, x)
+        }
         // The centres grown into squares: across a row, then down the columns through the last row
         // each column was reached in, so a row is made white once the rows below that reach it are seen.
         val grow = reach - outline
@@ -660,12 +680,12 @@ object DocumentLooks {
                 val start = seen * rowBytes
                 var x = 0
                 while (x < width) {
-                    if ((centres[start + (x ushr 3)].toInt() shr (7 - (x and 7))) and 1 == 0) {
+                    if (!isBit(centres, start, x)) {
                         x++
                         continue
                     }
                     var end = x
-                    while (end + 1 < width && (centres[start + ((end + 1) ushr 3)].toInt() shr (7 - ((end + 1) and 7))) and 1 == 1) end++
+                    while (end + 1 < width && isBit(centres, start, end + 1)) end++
                     for (c in max(0, x - grow)..min(width - 1, end + grow)) reached[c] = seen
                     x = end + 1
                 }
@@ -674,9 +694,60 @@ object DocumentLooks {
             if (y < 0) continue
             val start = y * rowBytes
             for (x in 0 until width) {
-                if (reached[x] >= y - grow) data[start + (x ushr 3)] = (data[start + (x ushr 3)].toInt() or (0x80 ushr (x and 7))).toByte()
+                if (reached[x] >= y - grow && isBit(inner, start, x)) setBit(data, start, x)
             }
         }
+    }
+
+    /**
+     * Calls [each] with every pixel of a [width] x [height] picture (row y, column x), how many of the
+     * pixels within [radius] of it (a square) are [counted], and how many pixels that square holds,
+     * fewer where the picture's edge cuts it. The counts run a column at a time, so a pixel costs the
+     * same whatever the radius.
+     */
+    private inline fun squareCounts(
+        width: Int,
+        height: Int,
+        radius: Int,
+        checkCancelled: () -> Unit,
+        counted: (y: Int, x: Int) -> Boolean,
+        each: (y: Int, x: Int, count: Int, area: Int) -> Unit,
+    ) {
+        val columns = IntArray(width)
+        var top = 0
+        var bottom = -1
+        for (y in 0 until height) {
+            if (y and 63 == 0) checkCancelled()
+            val newBottom = min(height - 1, y + radius)
+            val newTop = max(0, y - radius)
+            while (bottom < newBottom) {
+                bottom++
+                for (x in 0 until width) if (counted(bottom, x)) columns[x]++
+            }
+            while (top < newTop) {
+                for (x in 0 until width) if (counted(top, x)) columns[x]--
+                top++
+            }
+            val rows = bottom - top + 1
+            var sum = 0
+            var left = 0
+            var right = -1
+            for (x in 0 until width) {
+                val newRight = min(width - 1, x + radius)
+                val newLeft = max(0, x - radius)
+                while (right < newRight) sum += columns[++right]
+                while (left < newLeft) sum -= columns[left++]
+                each(y, x, sum, (right - left + 1) * rows)
+            }
+        }
+    }
+
+    /** Whether bit [x] of the row starting at byte [start] of [bits] (a bit a pixel, the leftmost in the high bit) is 1. */
+    private fun isBit(bits: ByteArray, start: Int, x: Int): Boolean = (bits[start + (x ushr 3)].toInt() shr (7 - (x and 7))) and 1 == 1
+
+    /** Sets bit [x] of the row starting at byte [start] of [bits] to 1. */
+    private fun setBit(bits: ByteArray, start: Int, x: Int) {
+        bits[start + (x ushr 3)] = (bits[start + (x ushr 3)].toInt() or (0x80 ushr (x and 7))).toByte()
     }
 
     /**
