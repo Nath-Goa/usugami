@@ -1,0 +1,6 @@
+• Nuevo, arriba en la pantalla principal: Escanear documento, con fotos o imágenes importadas, recorte (también por los bordes) y giro
+• Siete aspectos (nuevos: Aclarado, Muy mejorado, Ahorro de tinta), controles de Brillo y Contraste, Aplicar a todas las páginas
+• Detecta la página por su contorno, incluso blanca sobre blanco o en la mano
+• Nuevo: Excel a PDF, hoja por hoja
+• Archivos recientes: vuelve a abrir o compartir lo que guardaste
+• Sigue sin pedir permiso de cámara

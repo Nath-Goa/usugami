@@ -1,0 +1,6 @@
+• Nouveau, en haut de l'accueil : Numériser un document (photo ou import d'images), recadrage (aussi par les bords) et rotation
+• Sept aspects (nouveaux : Éclairci, Très amélioré, Économie d'encre), curseurs Luminosité et Contraste, Appliquer à toutes les pages
+• Page repérée par ses contours, même blanche sur blanc ou tenue en main
+• Nouveau : Excel en PDF, feuille par feuille
+• Fichiers récents sur l'accueil, à rouvrir ou à partager
+• Toujours aucune autorisation pour l'appareil photo

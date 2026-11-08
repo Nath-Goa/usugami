@@ -1,9 +1,8 @@
 # Usugami
 
-**Turn photos, Word documents, PowerPoint slides and EPUB e-books into PDFs, and split, merge,
-reorganize, rotate, edit, number, watermark, sign, compress, flatten and redact PDFs, right on
-your Android phone. No ads, no
-tracking, no account, no uploads.**
+**Turn photos, Word documents, PowerPoint slides, Excel spreadsheets and EPUB e-books into PDFs,
+and split, merge, reorganize, rotate, edit, number, watermark, sign, compress, flatten and redact
+PDFs, right on your Android phone. No ads, no tracking, no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
 It was called PDFer before version 1.2.0.
@@ -32,7 +31,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 |---|---|---|---|
 | Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.8 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 14 MB: the recognition engine and models are inside |
 | Downloads | [![Usugami downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) | [![Usugami Lite downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-lite.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) | [![Usugami OCR downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-ocr.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) |
-| Images, Word, PowerPoint and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
+| Images, Word, PowerPoint, Excel and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app ([PaddleOCR](#how-usugami-ocr-reads-text) models). Works with no internet, forever. |
 | Internet needed | Only for text recognition, the first time you use each language | Never | Never |
 | Needs Google Play services | Only for text recognition | No | No |
@@ -65,21 +64,25 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.5.3
+## What's new in 1.6.0
 
-- **40+ smaller fixes** from a full review of the app:
-  - **Word, PowerPoint and EPUB files** convert more faithfully: Strict Open XML and damaged files,
-    very long paragraphs, page numbers, tab stops, numbered lists, colours, font sizes, and e-book
-    pictures and bookmarks
-  - **Edit PDF and Sign PDF**: Undo/Redo and sliders behave, and a narrow signature can be made small
-  - **Photos, saving and settings**: a photo survives low storage, saving again after a failure
-    doesn't make duplicates, and your language and theme survive an Android update
-  - **Redact and Merge**: hidden copies of a redacted picture are removed, and merged PDFs keep their
-    page numbers
-- **Usugami's own F-Droid repository** shows What's new and real release dates
+- **Scan document** at the top of Home: take photos with your phone's camera app, or upload images
+  from your gallery
+- **Two steps for each page:** crop it, now also by its sides and turned a quarter at a time, then
+  choose its look, brightness and contrast
+- **Seven looks**, with the new **Lighten**, **Super enhanced** and **Ink saver**, plus
+  **Brightness** and **Contrast** sliders and **Apply to all pages**
+- **Finds the page by its edges** too, so it can find a white page on a white desk, or one held in
+  your hand
+- **Excel to PDF:** .xlsx workbooks, each sheet on pages as Excel prints it, with its number and
+  date formats, borders, merged cells, pictures, and headers and footers
+- **Recent files** on Home: open, share or remove the files you saved, without searching through
+  Downloads
+- Still no permissions, not even for the camera, and nothing leaves your phone
 
-1.5.2, the day before: safer redaction (links, hidden form fields, Hebrew and Arabic), nothing lost
-when Android closes Usugami, and Usugami's own [F-Droid repository](https://nathank.me/usugami/).
+1.5.2 and 1.5.3, just before: 40+ fixes from a full review of the app, safer redaction (links,
+hidden form fields, Hebrew and Arabic), nothing lost when Android closes Usugami, and Usugami's own
+[F-Droid repository](https://nathank.me/usugami/).
 
 1.5.0, the big update before them:
 
@@ -127,8 +130,8 @@ works on Android 8.0 or newer. Menu names differ a little between phones.
 6. **Optional:** turn **Allow from this source** off again for that app.
 
 Once it's installed, Usugami is also in other apps' **Share** menu: share images, PDFs, Word,
-PowerPoint or EPUB files to it from Files, Photos, a mail app or a chat, and they open in the right
-tool (see *Share to Usugami* under [Features](#features)).
+PowerPoint, Excel or EPUB files to it from Files, Photos, a mail app or a chat, and they open in the
+right tool (see *Share to Usugami* under [Features](#features)).
 
 <details>
 <summary><b>Where is "Install unknown apps"? (Samsung and other phones)</b></summary>
@@ -169,26 +172,44 @@ old "PDFer".
 
 ## Features
 
+**Scan document**
+
+- The large card at the top of Home. **Take photo** opens your phone's own camera app; **Upload
+  images** picks one or more images from your gallery. Usugami still asks for no permissions: the
+  camera app saves just that photo for Usugami.
+- Each page goes through two steps: **Crop page**, then **Filters** (both below). After a photo,
+  **Take another** or **Done**. Uploaded images come one after another ("Page 2 of 5"), with
+  **Next**, and **Done** on the last; close part way, and the images not cropped yet stay in the
+  page list as they are.
+- Then the pages are in Images to PDF, where you reorder them and make the PDF as usual.
+
 **Images to PDF**
 
 - Add JPG and PNG images from **Photos** (the system photo picker), **Files**, or by **sharing**
   them to Usugami from another app.
-- **Take photo** to scan pages with your phone's own camera app, one after another: after each
-  photo, crop it, then **Take another** or **Done**. Usugami still asks for no permissions: the
-  camera app saves just that photo for Usugami.
-- **Crop and straighten** any page, a photo just taken or any image you added: drag its four
-  corners onto the page's corners (a magnifier shows what's under your finger, and buttons move a
-  corner a step at a time), and the page comes out straight, as if scanned. Usugami finds the page
-  by itself when it stands out from the table it lies on. **Reset** goes back to the page it found,
-  **Whole image** keeps the whole picture, and the picture as added is kept, so a page can be
-  cropped again from scratch.
-- A **look** for each page, chosen on the crop screen, which shows the page with it: **Original**,
-  **Enhanced** (the paper made white, the lamp's colour and shadows taken out, the print darker),
-  **Grayscale**, or **Black & white**, which keeps print crisp and turns the paper white, in a
-  shadow too. **Apply to all pages** gives every page the look, and photos taken one after another
-  start with the look chosen last. Black-and-white pages are stored one bit a pixel (CCITT Group 4,
-  as scanners store pages), so a page of print takes about 10 KB instead of the 50 to 350 KB of a
-  photo; grayscale pages are stored in grey.
+- **Take photo** scans more pages with your phone's own camera app, one after another, through the
+  same two steps as Scan document.
+- **Crop and straighten** any page, a photo just taken or any image you added (its crop button
+  opens both steps): drag its four corners onto the page's corners, or a side by the handle in its
+  middle (a magnifier shows what's under your finger, and buttons move a corner or side a step at a
+  time), and the page comes out straight, as if scanned. **Rotate left** and **Rotate right** turn
+  it a quarter at a time, on both steps. Usugami looks for the page by itself, as document scanners
+  do: by how it stands out from the table, and by its edges and colours, so it can find even a white
+  page on a white or light desk, a page on a brighter table or a pale coloured desk, or one held in
+  a hand. **Reset** goes back to the page it found, **Whole image** keeps the whole picture, and the
+  picture as added is kept, so a page can be cropped again from scratch.
+- A **look** for each page, chosen on **Filters**, which shows the page large, as it will be in the
+  PDF, and each look on the page itself: **Original**; **Lighten** (brighter, shadows softened, the
+  colours kept close to the photo's); **Enhanced** (the paper made white, the lamp's colour and
+  shadows taken out, the print darker); **Super enhanced** (whiter paper, darker and sharper print,
+  richer colours); **Grayscale**; **Black & white**, which keeps print crisp and turns the paper
+  white, in a shadow too; and **Ink saver**, black and white that leaves large dark areas hollow, to
+  save ink or toner. **Brightness** and **Contrast** sliders change any look.
+- **Apply to all pages** gives every page the look, brightness and contrast. Every new scan starts
+  on Enhanced; after that, each photo taken or image uploaded starts on the look chosen last.
+- Black-and-white and Ink saver pages are stored one bit a pixel (CCITT Group 4, as scanners store
+  pages), so a page of print takes about 10 KB instead of the 50 to 350 KB of a photo; grayscale
+  pages are stored in grey.
 - Live page previews. Long-press and drag to **reorder**; **rotate**, **remove**, or **sort** by
   name or reverse the order.
 - Page size **Fit** (same as the image), **A4**, **US Letter**, **US Legal**, **A3** or **A5**;
@@ -230,6 +251,27 @@ old "PDFer".
 - Some things are simplified: see *What converts from Word and PowerPoint?* under
   [Questions and troubleshooting](#questions-and-troubleshooting).
 - **Several at once:** pick several presentations for one PDF of each, each named as you like.
+
+**Excel to PDF**
+
+- Turns **.xlsx** workbooks into PDFs on your phone, each visible sheet on pages as Excel prints it.
+  Pick them, or share them to Usugami from another app.
+- Follows each sheet's print setup: its print area (or everything from A1), title rows and columns
+  repeated on every page, page breaks, paper size, orientation, margins, scale and Fit to. Pages
+  are numbered through the whole workbook, and pages with nothing on them are left out.
+- Cells show their numbers, currencies, percentages, fractions, dates and times as Excel shows
+  them, red negatives included, with their fonts, colors, fills, borders, alignment, wrapped and
+  merged cells, column widths and row heights. Pictures, headers and footers come along; hidden
+  sheets, rows and columns are left out.
+- **Page size** and **Orientation** stay as each sheet was set to print (US Letter when a sheet
+  names no paper), or choose one for every sheet. **Fit columns to page width** (on at first)
+  shrinks a wide sheet so its columns fit across the page, but never below half size; a sheet set
+  to fit its own way keeps that. **Gridlines** (off at first, as in Excel) adds light gray lines on
+  the sheets that show them on screen; a sheet set to print its gridlines always gets them.
+- The text stays real text, so you can search and select it in the PDF.
+- Some things are left out or simplified: see *What converts from an Excel workbook?* under
+  [Questions and troubleshooting](#questions-and-troubleshooting).
+- **Several at once:** pick several workbooks for one PDF of each, each named as you like.
 
 **EPUB to PDF**
 
@@ -371,22 +413,22 @@ old "PDFer".
 
 **Everywhere**
 
-- Home groups the tools under **Create PDF**, **Organize**, **Edit and sign** and **Optimize and
-  protect**.
-- **Search** at the top of Home finds a tool as you type, by its name, what it does or a word you
+- Home starts with **Scan document** and, once you've saved a file, **Recent files**, then groups
+  the tools under **Create PDF**, **Organize**, **Edit and sign** and **Optimize and protect**.
+- **Search** on Home finds a tool as you type, by its name, what it does or a word you
   might use for it ("combine", "shrink", "scan"), in the app's language. Case and accents don't
   matter. "Batch", "many" or "several" finds the tools that work on several files at once.
 - **Several files at once:** Compress PDF, Add page numbers, Add watermark, Flatten PDF, and Word,
-  PowerPoint and EPUB to PDF take several files: the same choices for all of them (Compress PDF can
-  also give one a level of its own), a name of your own for each new PDF, and a PDF of each, made
-  one after another with "PDF 2 of 5" and the file's name in the progress. If one can't be made,
-  Usugami names it, says why, and still makes the others. One file works just as before.
+  PowerPoint, Excel and EPUB to PDF take several files: the same choices for all of them (Compress
+  PDF can also give one a level of its own), a name of your own for each new PDF, and a PDF of each,
+  made one after another with "PDF 2 of 5" and the file's name in the progress. If one can't be
+  made, Usugami names it, says why, and still makes the others. One file works just as before.
 - **Share to Usugami** from another app (Files, a mail app, a chat): images open Images to PDF,
-  Word, PowerPoint and EPUB files their converter, and PDFs **Choose a tool**, which lists every PDF
-  tool for one PDF, and Merge PDF and the tools for several files for more. The tool you choose opens
-  with them in it, and goes back to Choose a tool when you leave it. They're copied in at once, so
-  they're still there if Android stops Usugami in the background (if it stops Usugami while they're
-  still being copied in, Usugami tells you to share them again).
+  Word, PowerPoint, Excel and EPUB files their converter, and PDFs **Choose a tool**, which lists
+  every PDF tool for one PDF, and Merge PDF and the tools for several files for more. The tool you
+  choose opens with them in it, and goes back to Choose a tool when you leave it. They're copied in
+  at once, so they're still there if Android stops Usugami in the background (if it stops Usugami
+  while they're still being copied in, Usugami tells you to share them again).
 - Shared together, files of different kinds: Usugami takes the kind most of them are (PDFs first
   when it's a tie) and names the files it left out, and those it can't open. If a tool has work you
   haven't saved, Usugami asks first; while a PDF is being made, the shared files wait for it. Images
@@ -400,6 +442,11 @@ old "PDFer".
 - When a tool makes several PDFs (Split PDF in parts, a tool working on several files, or one PDF
   per image), **Share or save as ZIP** puts them all in one ZIP file, named after them, to share
   or save in one go.
+- **Recent files** lists the files you save from any tool, newest first: the last three on Home,
+  and all of them (up to 50) under **See all**. Tap one to open it, or use its menu to **Share** it
+  or **Remove from list**; **Clear list** empties the list. The files themselves stay where you
+  saved them. A file you delete in another app leaves the list by itself, and one renamed in
+  Downloads shows its new name. Files you only share aren't listed.
 - Comes in **English**, **French**, **Spanish** and **Hindi**: pick one the first time you open
   Usugami, and change it any time in **Settings**. Text recognition starts on the same language.
 - Light and dark theme follow your phone, or pick **Light** or **Dark** in **Settings** →
@@ -416,6 +463,9 @@ old "PDFer".
   camera itself.
 - **Temporary copies are cleaned up.** While you work, copies live in Usugami's private cache and
   are deleted automatically.
+- **Recent files stays on your phone.** To open the files on the list again, Usugami keeps read
+  access only to them (at most 50) and to a folder you saved into while one of its files is listed,
+  and gives it back once they leave the list. It can always read what it saved to Downloads.
 - **Usugami (the main edition) and Google Play services:** text recognition runs on your phone,
   through Google Play services (a separate Google app), which downloads the model for each
   language the first time you use it. For this, Google's libraries inside Usugami talk to Play services on your
@@ -636,8 +686,35 @@ original, but not always identical:
   SmartArt in Word documents. Shadows, 3-D effects, animations and videos are left out, as are
   comments, footnotes and speaker notes.
 - **Not converted:** old **.doc** and **.ppt** files (save them as .docx or .pptx in Word,
-  PowerPoint or another office app first), password-protected files (remove the password first),
-  and Excel spreadsheets.
+  PowerPoint or another office app first), and password-protected files (remove the password
+  first). Excel workbooks have a tool of their own: see *What converts from an Excel workbook?*
+- The text in the PDF is real text you can search and copy. In Hindi and other scripts with joined
+  letters, copied text can come out jumbled, even though it looks right on the page.
+
+</details>
+
+<details>
+<summary><b>What converts from an Excel workbook?</b></summary>
+
+Usugami reads the workbook itself, on your phone, and lays out each sheet as Excel prints it:
+
+- **Converts:** every visible sheet with something on it, each starting a new page; cell values as
+  their number formats show them (dates, times, currencies, percentages, fractions, red
+  negatives); fonts, colors, fills, borders, alignment, wrapped, shrunk and turned text, and merged
+  cells; column widths and row heights; pictures placed on the sheet; and the print setup: print
+  area, title rows and columns, page breaks, paper size, orientation, margins, scale, Fit to, and
+  headers and footers with page numbers, dates and sheet names.
+- **Simplified:** your phone's fonts stand in for the workbook's, at the same widths, so text can
+  wrap a little differently and a number right at its column's width may show as ####. Patterned
+  and gradient fills become one color, and an accounting format's currency sign sits next to the
+  number instead of at the cell's left edge. Right-to-left sheets aren't mirrored.
+- **Left out:** charts, shapes and text boxes, comments, conditional formatting (the values a data
+  bar hides stay hidden), table styles, sparklines and pictures in headers.
+- **Formulas aren't recalculated:** each cell shows the value the file saved. A formula the file
+  kept no value for (a few apps save formulas without one) shows itself, such as `=A2*2`.
+- **Not converted:** old **.xls** files (save them as .xlsx in Excel or another app first),
+  password-protected workbooks (remove the password first), and workbooks that would make more
+  than 5,000 pages (set a print area for the part you need).
 - The text in the PDF is real text you can search and copy. In Hindi and other scripts with joined
   letters, copied text can come out jumbled, even though it looks right on the page.
 
@@ -729,7 +806,8 @@ Several PDFs at once (from Split PDF, or one PDF per image) can also go into one
 share or save with **Share or save as ZIP**. The PDFs go in exactly as they are.
 
 Until you save or share it, the PDF stays in Usugami's private storage and is cleaned up
-automatically.
+automatically. Every file you save also shows under **Recent files** on Home, to open or share
+again.
 
 </details>
 
@@ -837,8 +915,8 @@ F-Droid can ship the APKs signed by the developer; see *Reproducible builds and 
 
 ```text
 app/                  Android app (Kotlin, Jetpack Compose, Material 3)
-  src/main/           shared code: screens, PDF tools, Word, PowerPoint and EPUB conversion, OCR
-                      text layer, saving and sharing
+  src/main/           shared code: screens, PDF tools, Word, PowerPoint, Excel and EPUB
+                      conversion, OCR text layer, saving and sharing, Recent files
   src/standard/       Usugami: text recognition with Google ML Kit through Google Play services
   src/lite/           Usugami Lite: no text recognition
   src/ocr/            Usugami OCR: built-in, open-source text recognition (PaddleOCR's models
@@ -848,8 +926,10 @@ app/                  Android app (Kotlin, Jetpack Compose, Material 3)
 core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, page layout,
                       JPEG/PNG handling, metadata removal, compression sizing, page ranges,
                       where stamps, signatures and Edit PDF's additions go on a page, the
-                      Word and PowerPoint helpers (units, colors, list numbers), the EPUB
-                      helpers (links, HTML characters, simple CSS), font subsetting,
+                      Word and PowerPoint helpers (units, colors, list numbers), the Excel
+                      helpers (number, date and time formats, cell references, pages,
+                      headers and footers), the EPUB helpers (links, HTML characters,
+                      simple CSS), font subsetting, the Recent files list,
                       Usugami OCR's post-processing (text boxes, reading order, decoding),
                       finding a page on a photo and where its corners go to crop it, and the
                       page looks with their CCITT G4 and grey JPEG encoders
@@ -872,8 +952,8 @@ The PDF tools use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);
 text recognition in Usugami uses [Google ML Kit](https://developers.google.com/ml-kit/vision/text-recognition/v2),
 and in Usugami OCR [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)'s models run by
 [ncnn](https://github.com/Tencent/ncnn).
-Word and PowerPoint files and EPUB books are read with Android's own XML parser and drawn with its
-built-in PDF writer, so they need no extra library.
+Word, PowerPoint and Excel files and EPUB books are read with Android's own XML parser and drawn
+with its built-in PDF writer, so they need no extra library.
 
 ## Contributing
 

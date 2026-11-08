@@ -1,9 +1,10 @@
-<i>Usugami Lite</i> transforme vos photos, scans à l'appareil photo, documents Word, présentations PowerPoint et livres EPUB en PDF, et réunit les outils dont vous avez besoin pour vos PDF existants. Elle a tous les outils d'<i>Usugami</i> (薄紙, « papier fin » en japonais) sauf la reconnaissance de texte, et elle est donc encore plus légère. Tout se passe sur votre téléphone : Usugami Lite n'a pas l'autorisation d'accéder à Internet, rien n'est donc jamais envoyé.
+<i>Usugami Lite</i> transforme vos photos, scans à l'appareil photo, documents Word, présentations PowerPoint, classeurs Excel et livres EPUB en PDF, et réunit les outils dont vous avez besoin pour vos PDF existants. Elle a tous les outils d'<i>Usugami</i> (薄紙, « papier fin » en japonais) sauf la reconnaissance de texte, et elle est donc encore plus légère. Tout se passe sur votre téléphone : Usugami Lite n'a pas l'autorisation d'accéder à Internet, rien n'est donc jamais envoyé.
 
 <b>Créer des PDF</b>
 <ul>
-<li><b>Images en PDF :</b> des images JPG et PNG de votre galerie ou de vos fichiers, ou <b>scannez des pages avec l'appareil photo</b>. Recadrez chaque page bien droite (Usugami trouve ses coins) et choisissez son rendu : original, amélioré, niveaux de gris ou noir et blanc, qui prend environ 10 Ko par page. Choisissez le format, l'orientation et la marge, et faites un seul PDF ou un PDF par image. Les images sont toujours compressées, et leur position et les autres métadonnées cachées sont supprimées.</li>
-<li><b>Word, PowerPoint et EPUB en PDF :</b> fichiers .docx, .pptx et .epub convertis sur votre téléphone, avec leurs styles, tableaux et images, en-têtes et pieds de page, et la table des matières du livre en signets.</li>
+<li><b>Numériser un document :</b> prenez des photos avec l'application d'appareil photo de votre téléphone, ou importez des images. Recadrez chaque page bien droite (Usugami Lite peut la trouver, même une page blanche sur un bureau blanc) et faites-la pivoter, puis choisissez son aspect : original, éclairci, amélioré, très amélioré, niveaux de gris, noir et blanc (environ 10 Ko par page) ou économie d'encre, avec sa luminosité et son contraste. Appliquer à toutes les pages donne à chacune les mêmes réglages.</li>
+<li><b>Images en PDF :</b> des images JPG et PNG de votre galerie ou de vos fichiers, recadrées et améliorées de la même façon si vous le souhaitez. Choisissez le format, l'orientation et la marge, et faites un seul PDF ou un PDF par image. Les images sont toujours compressées, et leur position et les autres métadonnées cachées sont supprimées.</li>
+<li><b>Word, PowerPoint, Excel et EPUB en PDF :</b> fichiers .docx, .pptx, .xlsx et .epub convertis sur votre téléphone, avec leurs styles, tableaux et images, en-têtes et pieds de page, et la table des matières du livre en signets. Les classeurs sont mis en pages feuille par feuille, comme à l'impression dans Excel, avec leurs formats de nombres et de dates.</li>
 </ul>
 
 <b>Outils PDF</b>
@@ -18,9 +19,11 @@
 <li>Ouvrir les PDF protégés par mot de passe</li>
 </ul>
 
-<b>Traitement par lots :</b> compressez, numérotez, ajoutez un filigrane ou aplatissez plusieurs PDF à la fois, ou convertissez plusieurs fichiers Word, PowerPoint ou EPUB, chacun en un PDF. Enregistrez ou partagez les nouveaux PDF un par un ou dans un seul fichier ZIP.
+<b>Traitement par lots :</b> compressez, numérotez, ajoutez un filigrane ou aplatissez plusieurs PDF à la fois, ou convertissez plusieurs fichiers Word, PowerPoint, Excel ou EPUB, chacun en un PDF. Enregistrez ou partagez les nouveaux PDF un par un ou dans un seul fichier ZIP.
 
-<b>Partager vers Usugami Lite :</b> partagez des images, des PDF ou des fichiers Word, PowerPoint ou EPUB depuis n'importe quelle application, et ils s'ouvrent dans le bon outil.
+<b>Partager vers Usugami Lite :</b> partagez des images, des PDF ou des fichiers Word, PowerPoint, Excel ou EPUB depuis n'importe quelle application, et ils s'ouvrent dans le bon outil.
+
+<b>Fichiers récents :</b> les fichiers que vous enregistrez apparaissent sur l'accueil, pour les rouvrir ou les partager.
 
 <b>Confidentiel par conception</b>
 <ul>

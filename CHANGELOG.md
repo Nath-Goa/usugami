@@ -6,6 +6,96 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-09
+
+### Added
+
+- **Scan document**, a large card at the top of Home: **Take photo** opens your phone's camera app,
+  and **Upload images** picks one or more images from your gallery. Each page then goes through two
+  steps: **Crop page**, then **Filters**. After a photo, **Take another** or **Done**; uploaded
+  images come one after another ("Page 2 of 5"), with **Next**, and **Done** on the last. Closing
+  part way keeps the images not cropped yet in the page list as they are. After Done, the pages wait
+  in Images to PDF, to reorder and make into a PDF as before; a scan from Home that ends with no
+  page, such as the camera closed without a photo, goes back to Home. Usugami still asks for no
+  permissions: your camera app takes the photos.
+- **Filters**, the second step: the page large, as it will be in the PDF, each look shown on the
+  page itself, and **Brightness** and **Contrast** sliders that change every look, black and white
+  included. **Apply to all pages** gives every page the look, brightness and contrast, also the
+  images of a scan still being added.
+- Three new looks, for seven in all (Original, Lighten, Enhanced, Super enhanced, Grayscale,
+  Black & white and Ink saver): **Lighten** brightens the page and softens its shadows, keeping it
+  close to the photo; **Super enhanced** makes the paper whiter, the print darker and sharper and
+  colours richer; **Ink saver** is black and white that leaves large dark areas hollow, to save ink
+  or toner, and is stored one bit a pixel too.
+- **Crop page**: a handle in the middle of each side moves that whole side, and **Rotate left** and
+  **Rotate right** turn the image a quarter at a time, on both steps.
+- A screen reader hears which page of a scan each step is on ("Crop page, Page 2 of 5") and finds
+  Scan document as a heading; with large text, the buttons under each step stack instead of
+  breaking words.
+- **Excel to PDF**, under Create PDF on Home, after PowerPoint to PDF. Usugami reads .xlsx workbooks
+  (.xlsm and templates too, leaving their macros alone) on your phone, with no upload, and puts each
+  visible sheet on pages as Excel prints it: its print area, or everything from A1, with its title
+  rows and columns on every page, its page breaks, and its paper size, orientation, margins, scale
+  and Fit to. Cells show their numbers, currencies, percentages, fractions, dates and times as
+  Excel shows them, red negatives and other format colors included. Fonts, colors, fills, borders,
+  alignment, wrapped and merged cells, column widths and row heights, pictures, and headers and
+  footers carry over, with pages numbered through the whole workbook. Hidden sheets, rows and
+  columns are left out, and so are pages with nothing on them. The text stays searchable, and
+  Home's search finds the tool by words such as "spreadsheet" or "xlsx".
+- Excel to PDF's choices, the same for every workbook: **Page size** and **Orientation** ("As in
+  the file" at first, or one for every sheet); **Fit columns to page width**, on at first, which
+  shrinks a wide sheet so its columns fit across the page, but never below half size (a sheet set
+  to fit its own way keeps that, and with it off, columns that don't fit go on more pages, as Excel
+  prints them); and **Gridlines**, off at first, as in Excel: a sheet set to print its gridlines
+  always gets them, and with the switch on, light gray lines also go on every sheet that shows them
+  on screen. Pick several workbooks to convert them at once, one PDF each.
+- What Excel to PDF leaves out: charts, shapes, comments, conditional formatting (the values a data
+  bar hides stay hidden), table styles and sparklines. Formulas aren't recalculated: each cell
+  shows the value the file saved, and a formula the file kept no value for shows itself. Your
+  phone's fonts stand in for the workbook's, at the same widths, so text wraps about where it does
+  in Excel. Old .xls files and password-protected workbooks are refused with a message saying what
+  to do, and so is a workbook too big for a phone (over 5,000 pages): set a print area for the part
+  you need.
+- **Recent files**, on Home under Scan document (the last three) and on a screen of their own
+  (**See all**): the files you save, from any tool, newest first, with when you saved each and its
+  size. Tap a file to open it in another app, or use its menu to **Share** it or **Remove from
+  list**; **Clear list** on the Recent files screen empties the list after asking. Neither deletes
+  a file. Files saved to Downloads, with **Save as…** or into a folder are listed, ZIP files of
+  several PDFs and each PDF saved on its own too; a file saved again moves to the top instead of
+  showing twice, and the list keeps the last 50. Files only shared or opened aren't listed.
+- A file deleted in another app leaves Recent files by itself, and one renamed in Downloads shows
+  its new name (one renamed or moved anywhere else leaves the list). If Usugami can no longer open
+  a listed file, tapping it says so and offers to remove it. A screen reader hears each file as one
+  item, with Share and Remove from list as its actions, and finds Recent files as a heading.
+- Recent files needs no permission and stays on your phone. Usugami can always read what it saved
+  to Downloads; for the other files on the list, it keeps read access only to them (at most 50)
+  and to a folder saved into while one of its files is listed, and gives that access back once
+  they leave the list.
+
+### Changed
+
+- Images to PDF's **Take photo** and a page's crop button go through the same two steps: the look
+  is chosen on Filters instead of beside the corners.
+- Every new scan starts on **Enhanced**; after that, each photo taken or image uploaded starts on
+  the look chosen last.
+- Usugami also looks for a page by its edges and colours, as document scanners do, so it can now
+  find a white page on a white or light desk, a page on a brighter table or a pale coloured desk,
+  and one held in a hand, with its corners placed more exactly. When it can't, drag the corners
+  onto the page as before.
+- **Share to Usugami** also takes Excel files (.xlsx), which open in Excel to PDF. Home's search
+  finds Excel to PDF among the tools for several files too, with "batch", "many" or "several".
+- The privacy policy (Settings → About) says what Recent files keeps on your phone and which read
+  access Usugami keeps for it.
+
+### Fixed
+
+- **Word, PowerPoint and EPUB to PDF**, **Compress PDF**, **Add page numbers**, **Add watermark**
+  and **Flatten PDF**: after Start over, the next file's PDF gets that file's name, not the name the
+  file before had.
+- **Word and PowerPoint to PDF**: a damaged or crafted file with a tag or text over 8 MB long, a tag
+  with thousands of attributes, or parts nested tens of thousands of levels deep is refused as
+  damaged within seconds, instead of running out of memory or taking minutes.
+
 ## [1.5.3] - 2026-11-06
 
 ### Fixed
@@ -506,7 +596,10 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/Nath-Goa/usugami/compare/v1.5.3...v1.6.0
+[1.5.3]: https://github.com/Nath-Goa/usugami/compare/v1.5.2...v1.5.3
+[1.5.2]: https://github.com/Nath-Goa/usugami/compare/v1.5.1...v1.5.2
 [1.5.1]: https://github.com/Nath-Goa/usugami/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/Nath-Goa/usugami/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/Nath-Goa/usugami/compare/v1.4.0...v1.4.1

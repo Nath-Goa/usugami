@@ -1,10 +1,11 @@
-<i>Usugami</i> (薄紙, «papel fino» en japonés) convierte fotos, escaneos con la cámara, documentos de Word, presentaciones de PowerPoint y libros EPUB en PDF, y reúne las herramientas que necesitas para los PDF que ya tienes. Todo ocurre en tu teléfono: Usugami no tiene permiso de acceso a Internet, así que nunca se sube nada.
+<i>Usugami</i> (薄紙, «papel fino» en japonés) convierte fotos, escaneos con la cámara, documentos de Word, presentaciones de PowerPoint, hojas de cálculo de Excel y libros EPUB en PDF, y reúne las herramientas que necesitas para los PDF que ya tienes. Todo ocurre en tu teléfono: Usugami no tiene permiso de acceso a Internet, así que nunca se sube nada.
 
 <b>Crear PDF</b>
 <ul>
-<li><b>Imágenes a PDF:</b> imágenes JPG y PNG de tu galería o tus archivos, o <b>escanea páginas con la cámara</b>. Recorta cada página bien recta (Usugami encuentra sus esquinas) y elige su aspecto: original, mejorado, escala de grises o blanco y negro, que ocupa unos 10 KB por página. Elige el tamaño de página, la orientación y el margen, y crea un solo PDF o uno por imagen. Las imágenes siempre se comprimen, y se eliminan su ubicación y otros metadatos ocultos.</li>
+<li><b>Escanear documento:</b> toma fotos con la aplicación de cámara de tu teléfono o importa imágenes. Recorta cada página bien recta (Usugami puede encontrarla, incluso una hoja blanca sobre una mesa blanca) y gírala, y luego elige su aspecto: original, aclarado, mejorado, muy mejorado, escala de grises, blanco y negro (unos 10 KB por página) o ahorro de tinta, con su brillo y su contraste. Aplicar a todas las páginas da los mismos ajustes a cada una.</li>
+<li><b>Imágenes a PDF:</b> imágenes JPG y PNG de tu galería o tus archivos, recortadas y mejoradas del mismo modo si quieres. Elige el tamaño de página, la orientación y el margen, y crea un solo PDF o uno por imagen. Las imágenes siempre se comprimen, y se eliminan su ubicación y otros metadatos ocultos.</li>
 <li><b>Reconocimiento de texto (OCR):</b> permite buscar en el PDF, en inglés, francés, español e hindi. Es de código abierto y viene integrado (modelos PP-OCRv5 de PaddleOCR, ejecutados por ncnn de Tencent), así que funciona sin conexión, siempre.</li>
-<li><b>Word, PowerPoint y EPUB a PDF:</b> archivos .docx, .pptx y .epub convertidos en tu teléfono, con sus estilos, tablas e imágenes, encabezados y pies de página, y el índice del libro como marcadores.</li>
+<li><b>Word, PowerPoint, Excel y EPUB a PDF:</b> archivos .docx, .pptx, .xlsx y .epub convertidos en tu teléfono, con sus estilos, tablas e imágenes, encabezados y pies de página, y el índice del libro como marcadores. Las hojas de cálculo salen hoja por hoja, como al imprimir en Excel, con sus formatos de números y fechas.</li>
 </ul>
 
 <b>Herramientas PDF</b>
@@ -19,9 +20,11 @@
 <li>Abrir PDF protegidos con contraseña</li>
 </ul>
 
-<b>Modo por lotes:</b> comprime, numera, añade una marca de agua o acopla varios PDF a la vez, o convierte varios archivos de Word, PowerPoint o EPUB, cada uno en su propio PDF. Guarda o comparte los PDF nuevos uno por uno o en un solo archivo ZIP.
+<b>Modo por lotes:</b> comprime, numera, añade una marca de agua o acopla varios PDF a la vez, o convierte varios archivos de Word, PowerPoint, Excel o EPUB, cada uno en su propio PDF. Guarda o comparte los PDF nuevos uno por uno o en un solo archivo ZIP.
 
-<b>Compartir con Usugami:</b> comparte imágenes, PDF o archivos de Word, PowerPoint o EPUB desde cualquier aplicación y se abren en la herramienta adecuada.
+<b>Compartir con Usugami:</b> comparte imágenes, PDF o archivos de Word, PowerPoint, Excel o EPUB desde cualquier aplicación y se abren en la herramienta adecuada.
+
+<b>Archivos recientes:</b> los archivos que guardas aparecen en la pantalla principal para que puedas volver a abrirlos o compartirlos.
 
 <b>Privado por diseño</b>
 <ul>

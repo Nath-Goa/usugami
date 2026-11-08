@@ -1,0 +1,6 @@
+• Scan document, new at the top of Home: take photos with your camera app or upload images, then crop (by the sides too) and rotate each page
+• Seven looks (new: Lighten, Super enhanced, Ink saver), Brightness and Contrast sliders, Apply to all pages
+• Finds the page by its edges too, even a white page on a white desk or one held in your hand
+• New: Excel to PDF, each sheet as Excel prints it
+• Recent files on Home: open or share what you saved again
+• Still no camera permission

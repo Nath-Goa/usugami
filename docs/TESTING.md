@@ -41,6 +41,19 @@ For
 Word and PowerPoint files they cover units and colors, telling .docx and .pptx files from old
 binary and password-protected ones, list numbers and symbol-font bullets, table column widths,
 where a paragraph breaks between pages, and how group shapes place their contents.
+For Excel workbooks they cover number formats as Excel shows them: General in at most eleven
+characters and narrower in a narrow column, Excel's built-in formats, digit placeholders, thousands
+separators and scaling, percent and per mille, scientific notation, fractions, text around the
+number, sections for negatives, zero and text, conditions, colors, broken codes falling back to
+General, dates and times in the 1900 and 1904 calendars, another language's decimal sign and month
+names, and any code with any value shown without an error. They also cover cell references from
+A1 to XFD1048576, print areas and other defined names, column widths in points as Excel draws them,
+rows and columns split into pages that fit, Fit to shrinking to the largest whole percent that
+fits, the page order, paper sizes, palette colors with a tint, dates stored as text, escaped
+characters, shared formulas moved to each cell, and headers and footers with their fields. For
+Recent files they cover the last file saved coming first and one saved again moving up, the oldest
+going past 50, an access given back only once no listed file needs it, and the list read back as
+written, damaged text giving the files that can still be read.
 For EPUB
 books they cover HTML's named characters, links between the book's files, telling DRM from font
 obfuscation, the character set and DOCTYPE of XHTML files, white space, CSS selectors, cascading,
@@ -77,7 +90,12 @@ page's own drawing matrix puts it. For cropping photos they find the page on syn
 sheet with print on a darker wooden table, with noise): upright, tilted, photographed at a slant,
 half in shadow or with the light falling off, with a folded corner, beside a pen and a cup, and on
 a large photo, each corner within about 1% of the page's; they are unsure of a page running off
-the photo or filling it, a small page, a page on a brighter table, a round plate and a bare table.
+the photo or filling it, a small page, a round plate and a bare table. By its edges and colours,
+they also find a page on a brighter table, a white page on an unevenly lit white desk (by the faint
+shadow along its edges, also at a slant and under a hand's shadow), a page on a light grey desk only
+a little darker than the paper, a page on a pale desk with a busy grain, and a white page on a pale
+blue desk by its colour alone; they are unsure of tiles as large as a page and of a keyboard, and
+find a page beside a keyboard on a 1200 by 1600 photo in under 400 ms.
 They also check the largest four-cornered shape on a convex hull (against trying every four
 corners), Otsu's threshold, and the corners: put in order round the page, turned with the page and
 back, on the photo as stored for every EXIF orientation, which shapes make a page, and the
@@ -89,7 +107,15 @@ paper white (in the shadow too) and keeps the print black, fills bold print and 
 the pencil line, where one global threshold can't; grayscale and enhanced make the paper white and
 the ink dark, the lamp's tint goes everywhere, and the stamp stays red. They also check the paper
 found under a box, transparency, a blank page, tiny pictures, enhanced written back into the photo
-as it is made (the same as beside it), and the time a 12-megapixel photo takes. CCITT Group 4
+as it is made (the same as beside it), and the time a 12-megapixel photo takes. Lighten brightens
+the photo but keeps its look, Super enhanced goes further than Enhanced but gives a faint stain no
+more colour than Enhanced does, Ink saver leaves large dark areas hollow and keeps the outline of a
+slanted marker stroke, the tone curves never turn back and keep white (the paper round a black bar
+stays pure white in every colour look, Lighten too), brightness and contrast change every look, and
+each colour look can be written back into the photo. A side of the crop dragged
+moves across itself with its corners on the sides beside it (straight across when a side beside is
+nearly parallel, and staying on the image), and a quarter turn names each corner for where it
+lands. CCITT Group 4
 compression is decoded by Java's own TIFF reader, for every run length of
 either colour, print, noise, stripes and widths that aren't whole bytes, and is as small as Java's
 own T.6 coder; the grey JPEG encoder's output is decoded by Java's JPEG reader at every size and
@@ -188,6 +214,27 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   both), the files and their names kept when the process is restarted, one that can't be converted
   named while the others are made, books sharing the page size chosen, no copy left behind when the
   files are put away while another is added, and cancelling leaving nothing behind
+- Excel to PDF, with small workbooks the tests write: values as their formats show them (shared
+  text, a number with thousands, a date, a percentage, TRUE, an error, a formula's last value, and a
+  formula with none showing itself), text running on into empty cells but not into a filled one, a
+  number too wide for its column showing as ###, a merged title centered across its cells, wrapped
+  text growing its row and breaking after a hyphen, hidden rows, columns and sheets and a value only
+  a data bar shows left out, an empty sheet making no page, pages numbered through the whole
+  workbook, only the pages with something on them printed however far the sheet reaches, the file's
+  paper, orientation and title rows (and a paper chosen for all going over the file's), a wide sheet
+  fitted to the page width but never below half size, or on pages across when asked not to, with
+  every column once; old .xls, password-protected and other files, and a Word document picked as a
+  workbook, refused with their own messages, a workbook with nothing to convert saying so, and
+  cancelling leaving nothing behind
+- Recent files: a PDF saved to Downloads twice listed once, with its name, type and size; Home's
+  Recent files heading (a heading for a screen reader), a tap opening the file in another app with
+  access to read it, Share handing it on (not to Usugami itself), and the file leaving the list once
+  deleted in another app; Remove from list and Clear list (after its question) leaving the files in
+  Downloads; a document made with the system's "Save as" screen still readable once the activity it
+  was given to has gone, also through the list read back as after a restart, and once that access is
+  taken back all the same, still listed, with a tap saying it can't be opened and offering Remove
+  from list; and a file saved into a picked folder leaving the list when deleted in another app,
+  with Usugami giving back its access to the folder
 - EPUB to PDF, with small EPUB 2 and EPUB 3 books the tests write: A5 and A4 pages, chapters in the
   reading order (not the manifest's), each on a new page, page breaks from the style sheet, HTML's
   named characters, lists and tables, hidden parts and scripts left out, headings larger and bold,
@@ -225,7 +272,8 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   words (any case, accents or word order, tools named by the word first) in one list without the
   headings, saying when nothing matches, the line with the count read out as it changes, the clear
   button, the search surviving the activity being recreated and coming back after a tool opened from
-  it, Back clearing it before leaving Usugami, and French words finding French tools; Delete pages' pages as named check boxes kept in step with
+  it, Back clearing it before leaving Usugami, French words finding French tools, and
+  "spreadsheet" finding Excel to PDF; Delete pages' pages as named check boxes kept in step with
   the field, the count, and the messages for every page and for pages that don't exist; Reorganize
   PDF's buttons naming the chosen page, a blank page added and undone, a page removed with a screen
   reader's action, and the pages and the chosen one surviving the activity being recreated; Flatten
@@ -241,7 +289,8 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   page with the arrow buttons, surviving the activity being recreated, saved where the buttons
   moved it, and still there after going back from the result, and Word and PowerPoint to PDF refusing
   an old .doc file and a document picked as a presentation with their messages, and a picked
-  document surviving the activity being recreated and the result; EPUB to PDF refusing a file that
+  document surviving the activity being recreated and the result, and after Start over the next
+  document's PDF named after that document; EPUB to PDF refusing a file that
   isn't a book and a book with DRM with their messages, and the book and A4 surviving the activity
   being recreated; Redact PDF's Find text boxing a phrase on every page, a box added, moved and
   widened with buttons, the preview naming the chosen box and stepping to the next, a box drawn
@@ -253,10 +302,21 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   Take another cropping the photo and taking the next, the next one discarded, a page's Crop button
   opening it again with Back instead, and the message on a phone without a camera app; a corner
   dragged with injected touches past the others and back, staying under the finger while the hint
-  says the corners make no page, with the image not moving; the crop
-  screen's looks as radio buttons, Black & white kept through the activity being recreated and for
-  the next photo taken, and Grayscale given to both pages with Apply to all pages, which each page
-  then says to a screen reader; the
+  says the corners make no page, with the image not moving; a side dragged moving across itself,
+  its corners going along the sides beside it; Rotate left and right on the crop step turning the
+  page, cropped as it was; the Filters step's looks as radio buttons, a new scan starting on
+  Enhanced, the look, brightness and contrast kept through the activity being recreated and
+  reaching the page, the next photo starting on the look chosen last with the sliders at 0, and
+  Grayscale and more contrast given to both pages with Apply to all pages, which each page then
+  says to a screen reader; Scan document's title read as one heading; Scan document's Take photo
+  opening the camera over the editor, and a scan from Home that leaves no page going back to Home
+  (the camera closed without a photo, or saying it took one it never saved, and an image that can't
+  be read), also after a document shared to Usugami opened its tool over the scan and Back came
+  back to it, while once a page was kept the editor stays, also when that page is removed; Scan
+  document's Upload images taking the images through both steps one after another, "Page 2 of 5"
+  under the title and in the name a screen reader hears, Next until the last, which has Done, and
+  the rest left in the editor as they were added when the screen is closed part way;
+  the
   result screen's "Share or save as ZIP" menu for a split and for one PDF per image, with the share
   screen and the "Save as" screen it starts caught and answered (the type, the name and the ZIP
   file written), and no such button for a single PDF; Compress PDF with two PDFs: the level for
@@ -276,7 +336,7 @@ editor, Choose a tool keeping its PDF and the tool opened from it going back to 
 there showing the images; images shared over Word to PDF opened for a shared document waiting for it
 too; and a Word document shared over a result kept, then a PDF shared once Word to PDF shows it,
 opening Choose a tool;
-  Home's search finding the seven tools that take several files by "several", "batch" and "many";
+  Home's search finding the eight tools that take several files by "several", "batch" and "many";
   Settings → Appearance starting on the phone's
   setting, then Dark and Light holding through the activity being recreated, Usugami being opened
   again and the first-launch language screen (each checked by the configuration, the colors the
@@ -298,14 +358,23 @@ opening Choose a tool;
   again, whose new crop was made before Android closed Usugami), a photo the camera app
   hands back as Usugami starts again is kept, a page removed while it is cropped goes without a
   message, and a page whose photo the system cleared from the cache stays, at start and when made
-  into a PDF
-- page looks, with a photo of a page in shadow: each look in the PDF as it needs (black and white a
-  1-bit CCITT G4 image, grayscale a one-component JPEG) at the compression levels' sizes, drawn by
-  Android's renderer and by PDFBox with the paper white and a black bar black; the size of an A4
-  page in each look at each level (logged; black and white a fraction of the photo's); and through
-  the view model, a look for one page or for every page, a page opening on its look, the next photo
-  starting with the look chosen last (not with one a gallery photo only kept), and the looks kept
-  through the saved state; and Enhanced made in the picture itself, the same as beside it
+  into a PDF. The turn, look, brightness and contrast chosen reach the page, which opens on them
+  again, while a new photo starts with the look chosen last (Enhanced at first, and again for a new
+  scan) and the sliders at 0; Apply to all pages gives every page the look, brightness and contrast
+  and leaves each its turn, and reaches an image of the scan still being added; a scan's uploaded
+  images go through the crop screen in order, one removed meanwhile left out (and out of the count
+  at once), and closing stops the scan, also while the next is being opened, leaving the rest as
+  added; and a scan goes on when Usugami starts again from the saved state, without the images
+  still being added
+- page looks, with a photo of a page in shadow: each look in the PDF as it needs (black and white
+  and Ink saver a 1-bit CCITT G4 image, grayscale a one-component JPEG) at the compression levels'
+  sizes, drawn by Android's renderer and by PDFBox with the paper white and a black bar black (in
+  Ink saver hollow, in Lighten the shadow softened, not taken out), brightness and contrast reaching
+  the page; the size of an A4 page in each look at each level (logged; black and white a fraction of
+  the photo's); and through the view model, a look for one page or for every page, a page opening on
+  its look, the next photo starting with the look chosen last (not with one a gallery photo only
+  kept), and the looks kept through the saved state; and each colour look made in the picture
+  itself, the same as beside it
 - the OCR text layer, in the editions with text recognition: Devanagari and Latin text together,
   and text that follows tilted lines
 - text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,
@@ -363,10 +432,24 @@ On a phone or emulator, with the release APKs:
 - From Files, share one PDF, two PDFs, a Word document and a PDF with images to Usugami: Choose a
   tool, the converter, and the message naming what was left out; then share a PDF while a tool has
   an unsaved result.
-- Take photo on a real phone: scan a few school pages one after another with Take another, drag a
-  corner (the magnifier follows), crop a gallery photo and a page turned in the editor, crop a page
-  again and use Whole image; with TalkBack, move a corner with its actions. Try each look on a page
-  in a shadow and under a warm lamp, apply one to all pages, and compare the PDF's size.
+- Scan document's Take photo on a real phone: the camera app opens at once, and closing it without
+  a photo goes back to Home. Scan a few school pages one after another with Take another: drag a
+  corner and a side (the magnifier follows), rotate left and right on both steps, and on Filters
+  try each look with the sliders on a page in a shadow and under a warm lamp. Try a white page on a
+  white desk and a page held in your hand: Usugami should find them by their edges.
+- Scan document's Upload images with five images: "Page 1 of 5" to "Page 5 of 5", Next on each and
+  Done on the last, then the page list. Again, closing on page 3: pages 3 to 5 stay in the page list
+  as they were added. Picking nothing leaves Home as it was.
+- Android closing Usugami on each step: put Usugami in the background on the crop step, on Filters
+  with a look and the sliders moved, and on page 3 of an upload, stop it as Android does
+  (`adb shell am kill io.github.nath_goa.usugami`), and open it again from the recent apps: the
+  step, corners, turn, look, sliders and page count are as they were.
+- Apply to all pages with a look, brightness and contrast: every page gets all three, and each page
+  keeps its own turn. Make the PDF and check in another PDF viewer that each page looks as Filters
+  showed it; compare the sizes of a page in Black & white, Ink saver and Enhanced.
+- In the editor: Take photo, and a page's crop button on a gallery photo and on a page turned in the
+  editor, go through both steps; crop a page again and use Whole image; with TalkBack, move a corner
+  and a side with their actions, and the sliders.
 - Split, merge in page mode, and compress, including a password-protected PDF.
 - Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
   page turned sideways; check the results in another PDF viewer.
@@ -375,6 +458,14 @@ On a phone or emulator, with the release APKs:
   filled-in form and a PDF with comments, and check in another viewer that nothing can be edited.
 - Word to PDF and PowerPoint to PDF with a few real documents and presentations from Files; compare
   the result with the original, and check that an old .doc file is refused.
+- Excel to PDF with a few real workbooks from Files, and a sheet with dates, times, currency,
+  percentages, accounting formats and [Red] negatives: each cell reads as Excel prints it (an
+  accounting format's currency sign sits next to the number). Then a wide sheet with Fit columns to
+  page width on and off, a long sheet, a sheet with a print area and title rows (repeated on every
+  page), headers and footers with page numbers (counted through the whole workbook), pictures, and
+  a hidden sheet (left out); Gridlines off and on. An old .xls file and a password-protected
+  workbook are refused with a message saying what to do. Share an .xlsx to Usugami from Files: Excel
+  to PDF opens with it. Convert three workbooks at once.
 - EPUB to PDF with a few real DRM-free books, one with a cover and one fixed-layout; check the
   bookmarks in another PDF viewer, and that a book with DRM is refused.
 - Redact PDF with a few real documents, a scanned one among them: find a name, draw a box on the
@@ -387,6 +478,13 @@ On a phone or emulator, with the release APKs:
   PDF viewer (the highlight see-through, the text selectable). Close Usugami from the recent apps
   while editing and reopen it: the items are still there.
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
+- Recent files: save from Images to PDF, a scan, Word or Excel to PDF and a PDF tool, with Save
+  to Downloads, Save as… and Save to folder…, and save a ZIP: each appears at the top of Recent
+  files on Home (three there, all of them under See all). Open, Share and Remove from list from a
+  file's menu; Clear list asks first, and the files stay where they were saved. Delete a listed
+  file in the Files app and go back to Usugami: it leaves the list. Rename one in Downloads: it
+  shows its new name. Share a result without saving it: nothing is added. With TalkBack, each file
+  is one item, with Share and Remove from list as its actions.
 - Split a PDF into single pages, then Share or save as ZIP: share it to Files or a mail app and save
   it with Save as, then open the ZIP file in Files and check the PDFs in it.
 - Settings → Appearance: Light and Dark on Android 12 or newer and on an older version, with the
