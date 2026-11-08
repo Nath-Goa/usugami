@@ -1,9 +1,12 @@
 package io.github.nath_goa.usugami
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
@@ -116,6 +119,33 @@ class BuiltInOcrDeviceTest {
             val angle = Math.toDegrees(atan2(glyph.textMatrix.shearY, glyph.textMatrix.scaleX).toDouble())
             assertEquals("Angle of \"${glyph.unicode}\"", 180.0, abs(angle), 3.0)
         }
+    }
+
+    /** A word as tall as a poster's, which detection at full size finds only in pieces or not at all, is read. */
+    @Test fun readsAPostersLargeWord() = runBlocking {
+        // A picture of the poster, so that the PDF has no text of its own.
+        val picture = Bitmap.createBitmap(1600, 1200, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(picture)
+        canvas.drawColor(Color.WHITE)
+        val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = Typeface.DEFAULT_BOLD
+            textAlign = Paint.Align.CENTER
+            textSize = 560f
+        }
+        canvas.drawText("SALE", 800f, 680f, ink)
+        ink.textSize = 100f
+        canvas.drawText("all week", 800f, 1000f, ink)
+        val poster = File(dir, "poster.pdf")
+        val document = PdfDocument()
+        val page = document.startPage(PdfDocument.PageInfo.Builder(800, 600, 1).create())
+        page.canvas.drawBitmap(picture, null, RectF(0f, 0f, 800f, 600f), null)
+        document.finishPage(page)
+        poster.outputStream().use(document::writeTo)
+        document.close()
+        picture.recycle()
+        val found = text(ocr(poster, OcrLanguage.ENGLISH))
+        val read = found.split(Regex("\\s+")).toSet()
+        for (word in listOf("SALE", "all", "week")) assertTrue("Missing $word in $found", word in read)
     }
 
     /** A photo made into a PDF at Extreme is read as picked, and its text goes over its lines. */

@@ -381,6 +381,46 @@ object OcrScale {
     }
 }
 
+/**
+ * Words too large for text detection at full size. The detection model finds letters up to a few
+ * hundred pixels high; a larger word (a poster, a sign, a slide's title photographed close up) it
+ * finds only in pieces, or not at all. Detection on a small copy of the page finds such words.
+ */
+object LargeText {
+    /** How much of a box found on the small copy boxes found at full size may cover, for it to count as new. */
+    private const val MAX_COVERED = 0.4f
+
+    /**
+     * The boxes of [coarse] (found on a small copy of the page) at least [minHeight] high that
+     * boxes of [fine] (found at full size, in the same pixels) cover less than [MAX_COVERED] of. A
+     * covered one is a line found already, or a paragraph of small print that the small copy shows
+     * as one block; the pieces of a large word found at full size cover little of it.
+     */
+    fun boxes(coarse: List<OcrQuad>, fine: List<OcrQuad>, minHeight: Float): List<OcrQuad> {
+        val fineBounds = fine.map(::bounds)
+        return coarse.filter { box ->
+            if (box.height < minHeight) return@filter false
+            val (left, top, right, bottom) = bounds(box)
+            val area = (right - left) * (bottom - top)
+            var covered = 0f
+            for ((fineLeft, fineTop, fineRight, fineBottom) in fineBounds) {
+                val width = min(right, fineRight) - max(left, fineLeft)
+                val height = min(bottom, fineBottom) - max(top, fineTop)
+                if (width > 0 && height > 0) covered += width * height
+            }
+            area > 0 && covered < MAX_COVERED * area
+        }
+    }
+
+    /** [box]'s upright bounds: left, top, right, bottom. */
+    private fun bounds(box: OcrQuad): FloatArray = floatArrayOf(
+        box.corners.minOf { it.x },
+        box.corners.minOf { it.y },
+        box.corners.maxOf { it.x },
+        box.corners.maxOf { it.y },
+    )
+}
+
 /** What the detected boxes are: which are pieces of one line, and which lines run down the page. */
 object TextLines {
     private const val MAX_ANGLE_DEGREES = 10.0
