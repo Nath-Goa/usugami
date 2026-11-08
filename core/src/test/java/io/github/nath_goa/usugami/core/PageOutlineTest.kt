@@ -28,7 +28,8 @@ class PageOutlineTest {
      * the photo (1 = no shadow); [extra] paints more things on the table. The table is wood unless
      * [desk] gives its level at each point (fractions of the photo); a page on a desk casts a
      * [shadow] that much darker along its edges. With [deskColour], [argb] makes a colour photo of
-     * the grey page on a desk of that colour.
+     * the grey page on a desk of that colour. [soft] blurs the grey photo that many pixels each way,
+     * as a lens and a phone's scaling soften its edges.
      */
     private class Photo(
         val width: Int,
@@ -44,6 +45,7 @@ class PageOutlineTest {
         val desk: ((x: Double, y: Double) -> Double)? = null,
         val shadow: Int = 0,
         val deskColour: IntArray? = null,
+        val soft: Int = 0,
     ) {
         /** The page's homography: page coordinates (0..1 across and down) to photo pixels. */
         private val toPhoto = Homography.squareTo(corners.map { CropPoint(it.x * width, it.y * height) })
@@ -61,7 +63,13 @@ class PageOutlineTest {
                 val v = sum / 4 * shade(x.toDouble() / width, y.toDouble() / height) + random.nextInt(-noise, noise + 1)
                 out[y * width + x] = v.roundToInt().coerceIn(0, 255).toByte()
             }
-            return out
+            if (soft == 0) return out
+            fun at(x: Int, y: Int) = out[y.coerceIn(0, height - 1) * width + x.coerceIn(0, width - 1)].toInt() and 0xFF
+            return ByteArray(out.size) { i ->
+                var sum = 0
+                for (dy in -soft..soft) for (dx in -soft..soft) sum += at(i % width + dx, i / width + dy)
+                (sum / ((2 * soft + 1) * (2 * soft + 1))).toByte()
+            }
         }
 
         fun argb(): IntArray {
@@ -279,6 +287,32 @@ class PageOutlineTest {
         // A hand's shadow over the top of the page and the desk around it.
         val hand = { _: Double, y: Double -> if (y < 0.35) 0.7 else if (y < 0.45) 0.7 + (y - 0.35) / 0.1 * 0.3 else 1.0 }
         assertFound(Photo(600, 800, corners(0.18f, 0.12f, 0.82f, 0.14f, 0.8f, 0.88f, 0.2f, 0.86f), paper = 236, desk = whiteDesk, shadow = 16, noise = 5, shade = hand, seed = 3))
+    }
+
+    @Test fun theSidesLieJustInsideThePage() {
+        // Fitted to the page's edge, a side runs along the middle of the step from the desk to the
+        // paper, or along the soft shadow line a page casts on a light desk, and a thin strip of desk
+        // would show along the straightened page. Every side lies on the paper, and the corners are
+        // still where the page's are.
+        val photos = listOf(
+            Photo(600, 800, turned(0.5, 0.5, 0.6, 0.75, -4.0, 600, 800), paper = 236, desk = { _, _ -> 205.0 }, shadow = 40, noise = 4, soft = 1, seed = 3),
+            Photo(800, 600, corners(0.2f, 0.18f, 0.8f, 0.14f, 0.83f, 0.85f, 0.17f, 0.82f), noise = 4, seed = 2),
+        )
+        for (photo in photos) {
+            assertFound(photo)
+            val quad = find(photo)!!.quad
+            val luma = photo.luma()
+            for (side in 0..3) {
+                val a = quad[side]
+                val b = quad[(side + 1) % 4]
+                val levels = (10..90).map { k ->
+                    val x = ((a.x + (b.x - a.x) * k / 100) * photo.width).toInt()
+                    val y = ((a.y + (b.y - a.y) * k / 100) * photo.height).toInt()
+                    luma[y * photo.width + x].toInt() and 0xFF
+                }
+                assertTrue("Side $side at ${levels.average()}, the paper ${photo.paper}", levels.average() >= photo.paper - 5)
+            }
+        }
     }
 
     @Test fun findsAPageOnALightGreyDesk() {

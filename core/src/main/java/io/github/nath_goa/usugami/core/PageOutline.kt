@@ -34,7 +34,9 @@ data class PageOutline(val quad: CropQuad, val confidence: Float) {
  * page on a brighter table, and in colour a page that differs from the desk only in its colour.
  *
  * Each outline gets a confidence of its own kind, and the surer one is the page; when they are as
- * sure, the one by edges, whose sides are fitted to the edges themselves.
+ * sure, the one by edges, whose sides are fitted to the edges themselves. Its sides then move in to
+ * just inside the paper, past the blur of its edge and the shadow it casts, so no strip of the desk
+ * shows along the straightened page.
  */
 object PageDetection {
     /** The search runs on a copy at most this many pixels on its long side. */
@@ -106,10 +108,164 @@ object PageDetection {
         return IntArray(w * h) { sums[it] / counts[it] }
     }
 
-    /** The surer of the outlines found by edges and by brightness on [image], the one by edges if as sure. */
+    /**
+     * The surer of the outlines found by edges and by brightness on [image], the one by edges if as
+     * sure, its sides then moved in to just inside the paper ([inside]).
+     */
     private fun find(image: Grey): PageOutline? {
         if (image.width < 8 || image.height < 8) return null
-        return listOfNotNull(byLines(image), byBrightness(image)).maxByOrNull { it.confidence }
+        val page = listOfNotNull(byLines(image), byBrightness(image)).maxByOrNull { it.confidence } ?: return null
+        return page.copy(quad = inside(page.quad, image))
+    }
+
+    /**
+     * [quad] with each side moved in to where the paper starts. Either search puts a side along the
+     * middle of the page's edge: the step from the desk to the paper, blurred over a pixel or two, and
+     * on a light desk the shadow line a page casts; and a side may lie a pixel or two askew of the
+     * edge. Left there, a thin strip of desk shows along the straightened page. How far in the paper
+     * starts along each side is measured on [image] ([insets]), and each end of a side moves in at
+     * most [MAX_INSET] pixels, so the page's own margins stay. The corners stay on the image.
+     */
+    private fun inside(quad: CropQuad, image: Grey): CropQuad {
+        val w = image.width
+        val h = image.height
+        val (xs, ys) = pixels(quad, w, h)
+        if (area(xs, ys) <= 0) return quad
+        // Into the page from each side: to its right when the corners go clockwise.
+        val turn = if ((xs[1] - xs[0]) * (ys[2] - ys[1]) - (ys[1] - ys[0]) * (xs[2] - xs[1]) > 0) 1.0 else -1.0
+        val sides = List(4) { i ->
+            val j = (i + 1) % 4
+            val length = hypot(xs[j] - xs[i], ys[j] - ys[i])
+            if (length < 1) return quad
+            val dx = (xs[j] - xs[i]) / length
+            val dy = (ys[j] - ys[i]) / length
+            val inX = -dy * turn
+            val inY = dx * turn
+            val (first, last) = insets(image, xs[i], ys[i], dx, dy, inX, inY, length)
+            val ax = xs[i] + first * inX
+            val ay = ys[i] + first * inY
+            val bx = xs[j] + last * inX
+            val by = ys[j] + last * inY
+            val moved = hypot(bx - ax, by - ay)
+            if (moved < 1) return quad
+            Line(OcrPoint(ax.toFloat(), ay.toFloat()), ((bx - ax) / moved).toFloat(), ((by - ay) / moved).toFloat())
+        }
+        val corners = List(4) { i ->
+            val corner = sides[(i + 3) % 4].meet(sides[i]) ?: return quad
+            // Sides nearly in a line meet far along them: such a corner stays where it was.
+            if (hypot(corner.x - xs[i], corner.y - ys[i]) > 4 * MAX_INSET) return quad
+            CropPoint((corner.x / w).coerceIn(0f, 1f), (corner.y / h).coerceIn(0f, 1f))
+        }
+        return CropQuad(corners)
+    }
+
+    /**
+     * How far in from a side the paper starts on [image], in its pixels, at the side's two ends: the
+     * side goes from ([x], [y]) [length] pixels along ([dx], [dy]), and into the page along ([inX],
+     * [inY]). It is measured in a few stretches along the side ([paperStart]). The line that best fits
+     * where the paper starts in those away from the corners, moved in to the one furthest in, gives
+     * the ends; and an end moves in further where the paper starts further in near it, as by a corner
+     * a little rounded or curled. Each end moves in between 0 and [MAX_INSET].
+     */
+    private fun insets(image: Grey, x: Double, y: Double, dx: Double, dy: Double, inX: Double, inY: Double, length: Double): Pair<Double, Double> {
+        val stretch = length * (1 - 2 * END_SHARE) / STRETCHES
+        // Where along the side each stretch's middle is, and how far in its paper starts.
+        val middles = ArrayList<Double>()
+        val starts = ArrayList<Double>()
+        for (s in 0 until STRETCHES) {
+            val from = length * END_SHARE + s * stretch
+            val start = paperStart(image, x, y, dx, dy, inX, inY, from, from + stretch) ?: continue
+            middles += from + stretch / 2
+            starts += start
+        }
+        var first = 0.0
+        var last = 0.0
+        if (starts.isNotEmpty()) {
+            val meanAlong = middles.average()
+            val meanStart = starts.average()
+            var spread = 0.0
+            var together = 0.0
+            for (s in starts.indices) {
+                spread += (middles[s] - meanAlong) * (middles[s] - meanAlong)
+                together += (middles[s] - meanAlong) * (starts[s] - meanStart)
+            }
+            val slope = if (spread > 0) together / spread else 0.0
+            fun fitted(along: Double) = meanStart + slope * (along - meanAlong)
+            val furthest = starts.indices.maxOf { starts[it] - fitted(middles[it]) }
+            first = fitted(0.0) + furthest
+            last = fitted(length) + furthest
+        }
+        // Near each end, far enough from the corner that the shade across the side is clear of the
+        // other side's edge.
+        val clear = PAPER_TO + OUTSIDE
+        val end = length * END_SHARE
+        paperStart(image, x, y, dx, dy, inX, inY, clear, end)?.let { first = max(first, it) }
+        paperStart(image, x, y, dx, dy, inX, inY, length - end, length - clear)?.let { last = max(last, it) }
+        return first.coerceIn(0.0, MAX_INSET) to last.coerceIn(0.0, MAX_INSET)
+    }
+
+    /**
+     * How far in from a side the paper starts on [image] along the stretch of it [from] .. [to] pixels
+     * along: the side goes from ([x], [y]) along ([dx], [dy]), and into the page along ([inX], [inY]).
+     * The shade across the side is compared with the paper's a little further in: the paper starts
+     * where three quarters of the stretch are as near the paper's shade, in every colour, as its own
+     * grain and a small share of the step at its edge, from there on in. Null when the stretch is too
+     * short, or doesn't come to the paper's shade before [PAPER_FROM] (a hand over the edge, print
+     * close to it).
+     */
+    private fun paperStart(image: Grey, x: Double, y: Double, dx: Double, dy: Double, inX: Double, inY: Double, from: Double, to: Double): Double? {
+        val w = image.width
+        val h = image.height
+        val channels = image.channels
+        val depths = ((PAPER_TO + OUTSIDE) / INSET_STEP).toInt() + 1
+        fun depth(k: Int) = k * INSET_STEP - OUTSIDE
+        val firstPaper = ((PAPER_FROM + OUTSIDE) / INSET_STEP).toInt()
+        val onEdge = (OUTSIDE / INSET_STEP).toInt()
+        val along = ArrayList<Double>()
+        var t = from + 0.5
+        while (t < to) {
+            val px = x + t * dx
+            val py = y + t * dy
+            if (px >= 0 && py >= 0 && px <= w && py <= h) along += t
+            t += 1.0
+        }
+        val n = along.size
+        if (n < MIN_STRETCH) return null
+        // Each colour's level at each depth and point along the stretch.
+        val levels = Array(channels.size) { FloatArray(depths * n) }
+        for (k in 0 until depths) for (p in 0 until n) {
+            val px = x + along[p] * dx + depth(k) * inX
+            val py = y + along[p] * dy + depth(k) * inY
+            for (c in channels.indices) levels[c][k * n + p] = sampled(channels[c], w, h, px, py)
+        }
+        val paper = DoubleArray(channels.size) { c -> levels[c].copyOfRange(firstPaper * n, depths * n).sorted()[(depths - firstPaper) * n / 2].toDouble() }
+        // How far from the paper's shade three quarters of the stretch are, at each depth.
+        val off = DoubleArray(depths) { k ->
+            val apart = DoubleArray(n) { p -> channels.indices.maxOf { c -> abs(levels[c][k * n + p] - paper[c]) } }
+            apart.sorted()[3 * n / 4]
+        }
+        // As near as the paper's own grain is to its shade, and a small share of the step at its edge;
+        // or as near as is too little to see.
+        val grain = off.copyOfRange(firstPaper, depths).sorted()[(depths - firstPaper) / 2]
+        val step = (0..onEdge).maxOf { off[it] }
+        val close = max(INSET_LEVELS, grain + INSET_SHARE * step)
+        var start = firstPaper
+        while (start > onEdge && off[start - 1] <= close) start--
+        return if (start == firstPaper) null else depth(start)
+    }
+
+    /** [channel]'s level at ([x], [y]) on a [w] × [h] image (pixel centres at .5), in a straight line between pixels. */
+    private fun sampled(channel: IntArray, w: Int, h: Int, x: Double, y: Double): Float {
+        val fx = (x - 0.5).coerceIn(0.0, w - 1.0)
+        val fy = (y - 0.5).coerceIn(0.0, h - 1.0)
+        val x0 = min(fx.toInt(), w - 2)
+        val y0 = min(fy.toInt(), h - 2)
+        val tx = (fx - x0).toFloat()
+        val ty = (fy - y0).toFloat()
+        val i = y0 * w + x0
+        val top = channel[i] + (channel[i + 1] - channel[i]) * tx
+        val bottom = channel[i + w] + (channel[i + w + 1] - channel[i + w]) * tx
+        return top + (bottom - top) * ty
     }
 
     /** The page as the bright region on [image], or null if there is none large enough. */
@@ -1059,4 +1215,24 @@ object PageDetection {
     /** A line this much darker than the paper [DRAWN_SIDE] pixels either side of it is drawn on it. */
     private const val DRAWN_DIP = 35
     private const val DRAWN_SIDE = 4f
+
+    /**
+     * A found side moves in at most this many pixels (1% of the small copy's long side) to leave the
+     * desk out: a page's margins are wider.
+     */
+    private const val MAX_INSET = 4.0
+    /** The paper's shade by a side is taken from as far in as a side may move, past the blur of its edge, */
+    private const val PAPER_FROM = MAX_INSET
+    private const val PAPER_TO = 6.0
+    /** and the step at its edge from this many pixels out. */
+    private const val OUTSIDE = 2.0
+    /** How far in the paper starts is looked for in steps this many pixels apart, */
+    private const val INSET_STEP = 0.25
+    /** along each of this many stretches of a side, each at least this many pixels long. */
+    private const val STRETCHES = 4
+    private const val MIN_STRETCH = 6
+    /** The paper starts where its shade is within its grain and this share of the step at the edge, */
+    private const val INSET_SHARE = 0.1
+    /** or within this many levels, too few to see. */
+    private const val INSET_LEVELS = 4.0
 }
