@@ -49,7 +49,7 @@ internal object FieldValues {
         val texts = fields.mapNotNull { field ->
             val raw = when (field) {
                 is PDTextField -> field.value.takeUnless { field.isPassword }
-                is PDChoice -> field.value.joinToString("\n")
+                is PDChoice -> field.value.joinToString("\n") { Flattening.shownChoice(field, it) }
                 else -> null
             } ?: return@mapNotNull null
             val multiline = field is PDTextField && field.isMultiline

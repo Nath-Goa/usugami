@@ -18,6 +18,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDChoice
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDComboBox
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTerminalField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
@@ -126,6 +127,7 @@ internal object Flattening {
             // PDFBox redraws a widget's appearance in place, its background and border first, and
             // leaves it like that when it then can't draw the value: what it had is put back.
             val saved = try { field.widgets.map { SavedAppearance(it.cosObject) } } catch (_: IOException) { null }
+            val putBack = (field as? PDComboBox)?.let(::showChoiceText)
             val failed = try {
                 form.refreshAppearances(listOf(field))
                 false
@@ -133,6 +135,8 @@ internal object Flattening {
                 true
             } catch (_: RuntimeException) {
                 true
+            } finally {
+                putBack?.invoke()
             }
             if (!failed) continue
             saved?.forEach { it.restore() }
@@ -140,6 +144,26 @@ internal object Flattening {
         }
         return undrawn
     }
+
+    /**
+     * Puts the text a drop-down list shows for its value in place of the value while PDFBox draws
+     * it. Its choices may each be a value and a text to show (/Opt pairs), such as a country's
+     * code and its name, and PDFBox would draw the code where viewers show the name. Returns what
+     * puts the value back; null when the value is the text shown.
+     */
+    private fun showChoiceText(field: PDComboBox): (() -> Unit)? {
+        val value = field.value.firstOrNull() ?: return null
+        val shown = shownChoice(field, value)
+        if (shown == value) return null
+        val cos = field.cosObject
+        val before = cos.getItem(COSName.V)
+        cos.setString(COSName.V, shown)
+        return { if (before == null) cos.removeItem(COSName.V) else cos.setItem(COSName.V, before) }
+    }
+
+    /** The text [field]'s list shows for its value [value]: the text its choices pair with it (/Opt), or itself. */
+    internal fun shownChoice(field: PDChoice, value: String): String =
+        field.optionsDisplayValues.getOrNull(field.optionsExportValues.indexOf(value)) ?: value
 
     private fun hasValue(field: PDTerminalField) = when (field) {
         is PDTextField -> field.value.isNotEmpty()

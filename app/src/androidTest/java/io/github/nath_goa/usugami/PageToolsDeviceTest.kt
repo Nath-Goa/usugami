@@ -23,6 +23,7 @@ import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStructureElement
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
@@ -31,6 +32,8 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.P
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDComboBox
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.PdfInput
@@ -755,6 +758,39 @@ class PageToolsDeviceTest {
             assertTrue(form.needAppearances)
             assertEquals(2, doc.getPage(0).annotations.size)
         }
+    }
+
+    /** A drop-down list whose choices pair a code with a name shows the name, as viewers do, not the code it keeps. */
+    @Test fun aDropDownShowsTheNameOfItsChoice() {
+        val file = made("country_form.pdf")
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4).also(doc::addPage)
+            val form = PDAcroForm(doc).also { doc.documentCatalog.acroForm = it }
+            form.defaultResources = PDResources().apply { put(COSName.getPDFName("Helv"), PDType1Font.HELVETICA) }
+            form.needAppearances = true
+            val country = PDComboBox(form).apply {
+                partialName = "country"
+                defaultAppearance = "/Helv 12 Tf 0 g"
+                cosObject.setItem(COSName.OPT, COSArray().apply {
+                    for ((code, name) in listOf("code-pt" to "Portugal", "code-es" to "Spain")) add(COSArray().apply {
+                        add(COSString(code))
+                        add(COSString(name))
+                    })
+                })
+                cosObject.setString(COSName.V, "code-pt")
+            }
+            val widget = country.widgets.single().apply {
+                rectangle = PDRectangle(72f, 600f, 200f, 24f)
+                this.page = page
+                isPrinted = true
+            }
+            form.fields.add(country)
+            page.annotations = listOf(widget)
+            doc.save(file)
+        }
+        val flat = save(engine.flatten(import(file), "country_flattened").file.file, "country_flattened.pdf")
+        val content = text(flat)
+        assertTrue("The choice's name is part of the page: $content", content.contains("Portugal") && !content.contains("code-pt"))
     }
 
     /**
