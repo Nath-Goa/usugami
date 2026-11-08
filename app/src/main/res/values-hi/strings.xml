@@ -271,6 +271,31 @@
         <item quantity="one">%2$d में से %1$d स्लाइड</item>
         <item quantity="other">%2$d में से %1$d स्लाइड</item>
     </plurals>
+    <!-- Excel to PDF. Excel is the name of Microsoft's app, kept as it is; .xlsx and .xls are file
+         extensions. A workbook is an Excel file; a sheet is one of its tabs. -->
+    <string name="tool_excel">Excel से PDF</string>
+    <string name="tool_excel_detail">स्प्रेडशीट (.xlsx), शीट दर शीट</string>
+    <string name="pick_excel">Excel फ़ाइलें चुनें</string>
+    <string name="add_excel">Excel फ़ाइलें जोड़ें</string>
+    <string name="document_excel">Excel वर्कबुक</string>
+    <string name="office_note_excel">हर शीट नए पेज से शुरू होती है, जैसे Excel में प्रिंट होने पर; छिपी हुई शीट छोड़ दी जाती हैं। वर्कबुक के फ़ॉन्ट की जगह आपके फ़ोन के फ़ॉन्ट इस्तेमाल होते हैं, और चार्ट छोड़ दिए जाते हैं।</string>
+    <string name="office_legacy_excel">यह पुरानी Excel फ़ाइल (.xls) है। इसे Excel या किसी दूसरे ऐप में .xlsx के रूप में सेव करके फिर से कोशिश करें।</string>
+    <string name="office_legacy_excel_many">ये पुरानी Excel फ़ाइलें (.xls) हैं। इन्हें Excel या किसी दूसरे ऐप में .xlsx के रूप में सेव करके फिर से कोशिश करें।</string>
+    <string name="office_encrypted_excel">यह फ़ाइल पासवर्ड से सुरक्षित है। Excel में पासवर्ड हटाएं और फ़ाइल सेव करके फिर से कोशिश करें।</string>
+    <string name="office_encrypted_excel_many">ये फ़ाइलें पासवर्ड से सुरक्षित हैं। Excel में पासवर्ड हटाएं और फ़ाइलें सेव करके फिर से कोशिश करें।</string>
+    <string name="office_not_excel">यह Excel वर्कबुक (.xlsx) नहीं है, या फ़ाइल खराब है।</string>
+    <string name="office_not_excel_many">ये Excel वर्कबुक (.xlsx) नहीं हैं, या फ़ाइलें खराब हैं।</string>
+    <string name="office_no_sheets">इस वर्कबुक में बदलने के लिए कुछ नहीं है। छिपी हुई शीट छोड़ दी जाती हैं।</string>
+    <string name="office_no_sheets_many">इन वर्कबुक में बदलने के लिए कुछ नहीं है। छिपी हुई शीट छोड़ दी जाती हैं।</string>
+    <string name="office_too_large">यह वर्कबुक फ़ोन पर बदलने के लिए बहुत बड़ी है। Excel या किसी दूसरे ऐप में, जिस हिस्से की ज़रूरत है उसके लिए प्रिंट एरिया सेट करें और फिर से कोशिश करें।</string>
+    <string name="office_too_large_many">ये वर्कबुक फ़ोन पर बदलने के लिए बहुत बड़ी हैं। Excel या किसी दूसरे ऐप में, जिस हिस्से की ज़रूरत है उसके लिए प्रिंट एरिया सेट करें और फिर से कोशिश करें।</string>
+    <!-- Excel to PDF's choices. "As in the file" keeps the paper size or orientation each sheet was set to print on. -->
+    <string name="sheet_as_file">फ़ाइल के अनुसार</string>
+    <string name="sheet_fit_width">कॉलम को पेज की चौड़ाई में फ़िट करें</string>
+    <string name="sheet_fit_width_on">चौड़ी शीट छोटी की जाती हैं ताकि उनके कॉलम पेज की चौड़ाई में समा जाएं, लेकिन कभी आधे साइज़ से छोटी नहीं।</string>
+    <string name="sheet_fit_width_off">जो कॉलम पेज में नहीं समाते, वे अगले पेजों पर चले जाते हैं, जैसे Excel में प्रिंट होने पर।</string>
+    <string name="sheet_gridlines">ग्रिडलाइन</string>
+    <string name="sheet_gridlines_detail">सेल के बीच हल्की स्लेटी लाइनें, जैसी स्क्रीन पर दिखती हैं। बॉर्डर हमेशा दिखते हैं, और वे ग्रिडलाइन भी जिन्हें शीट में प्रिंट करने के लिए सेट किया गया है।</string>
     <string name="tool_delete_pages">पेज हटाएं</string>
     <string name="tool_delete_pages_detail">जिन पेजों की ज़रूरत नहीं, उन्हें हटाएं</string>
     <string name="tool_reorganize">PDF के पेज व्यवस्थित करें</string>
@@ -674,6 +699,7 @@
     <string name="search_keywords_scan">स्कैन, स्कैनर, कैमरा, फ़ोटो, डॉक्यूमेंट, दस्तावेज़, कागज़, रसीद, बिल, क्रॉप, फ़िल्टर, ब्राइटनेस, चमक, कंट्रास्ट, ब्लैक एंड व्हाइट, scan, scanner, CamScanner, camera, photo, document, receipt, crop, enhance, filter, brightness, contrast</string>
     <string name="search_keywords_word">डॉक्यूमेंट, दस्तावेज़, doc, docx, document, Office</string>
     <string name="search_keywords_powerpoint">स्लाइड, प्रेज़ेंटेशन, ppt, pptx, slides, presentation</string>
+    <string name="search_keywords_excel">स्प्रेडशीट, शीट, टेबल, तालिका, वर्कबुक, सेल, xls, xlsx, spreadsheet, sheet, table, workbook, cells, Office, Google Sheets</string>
     <string name="search_keywords_merge">जोड़ें, मिलाएं, एक फ़ाइल, merge, combine, join</string>
     <string name="search_keywords_split">अलग करें, बांटें, निकालें, split, separate, extract</string>
     <string name="search_keywords_reorganize">क्रम बदलें, खिसकाएं, खाली पेज, reorder, rearrange, organize</string>

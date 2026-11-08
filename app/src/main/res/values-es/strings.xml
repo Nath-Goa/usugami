@@ -282,6 +282,31 @@
         <item quantity="many">%1$d de %2$d diapositivas</item>
         <item quantity="other">%1$d de %2$d diapositivas</item>
     </plurals>
+    <!-- Excel to PDF. Excel is the name of Microsoft's app, kept as it is; .xlsx and .xls are file
+         extensions. A workbook is an Excel file; a sheet is one of its tabs. -->
+    <string name="tool_excel">Excel a PDF</string>
+    <string name="tool_excel_detail">Hojas de cálculo (.xlsx), hoja por hoja</string>
+    <string name="pick_excel">Elegir archivos de Excel</string>
+    <string name="add_excel">Añadir archivos de Excel</string>
+    <string name="document_excel">Libro de Excel</string>
+    <string name="office_note_excel">Cada hoja empieza en una página nueva, como al imprimir en Excel; las hojas ocultas se omiten. Las fuentes de tu teléfono sustituyen a las del libro, y los gráficos se omiten.</string>
+    <string name="office_legacy_excel">Es un archivo antiguo de Excel (.xls). Guárdalo como .xlsx en Excel u otra app y vuelve a intentarlo.</string>
+    <string name="office_legacy_excel_many">Son archivos antiguos de Excel (.xls). Guárdalos como .xlsx en Excel u otra app y vuelve a intentarlo.</string>
+    <string name="office_encrypted_excel">Este archivo está protegido con contraseña. Quita la contraseña en Excel, guarda el archivo y vuelve a intentarlo.</string>
+    <string name="office_encrypted_excel_many">Estos archivos están protegidos con contraseña. Quita la contraseña en Excel, guarda los archivos y vuelve a intentarlo.</string>
+    <string name="office_not_excel">Este archivo no es un libro de Excel (.xlsx), o está dañado.</string>
+    <string name="office_not_excel_many">Estos archivos no son libros de Excel (.xlsx), o están dañados.</string>
+    <string name="office_no_sheets">Este libro no tiene nada que convertir. Las hojas ocultas se omiten.</string>
+    <string name="office_no_sheets_many">Estos libros no tienen nada que convertir. Las hojas ocultas se omiten.</string>
+    <string name="office_too_large">Este libro es demasiado grande para convertirlo en un teléfono. Establece un área de impresión para la parte que necesitas en Excel u otra app y vuelve a intentarlo.</string>
+    <string name="office_too_large_many">Estos libros son demasiado grandes para convertirlos en un teléfono. Establece un área de impresión para la parte que necesitas en Excel u otra app y vuelve a intentarlo.</string>
+    <!-- Excel to PDF's choices. "As in the file" keeps the paper size or orientation each sheet was set to print on. -->
+    <string name="sheet_as_file">Como en el archivo</string>
+    <string name="sheet_fit_width">Ajustar las columnas al ancho de la página</string>
+    <string name="sheet_fit_width_on">Las hojas anchas se reducen para que sus columnas quepan a lo ancho de la página, pero nunca a menos de la mitad de su tamaño.</string>
+    <string name="sheet_fit_width_off">Las columnas que no caben pasan a más páginas, como al imprimir en Excel.</string>
+    <string name="sheet_gridlines">Líneas de cuadrícula</string>
+    <string name="sheet_gridlines_detail">Líneas gris claro entre las celdas, como en pantalla. Los bordes siempre se ven, igual que las líneas de cuadrícula de una hoja configurada para imprimirlas.</string>
     <string name="tool_delete_pages">Eliminar páginas</string>
     <string name="tool_delete_pages_detail">Quita las páginas que no necesitas</string>
     <string name="tool_reorganize">Reorganizar PDF</string>
@@ -705,6 +730,7 @@
     <string name="search_keywords_scan">escanear, escaneo, escáner, CamScanner, cámara, foto, documento, papel, hoja, recibo, ticket, factura, recortar, mejorar, filtro, brillo, contraste, blanco y negro</string>
     <string name="search_keywords_word">doc, docx, documento, Office, convertir</string>
     <string name="search_keywords_powerpoint">ppt, pptx, diapositivas, presentación, Office, convertir</string>
+    <string name="search_keywords_excel">xls, xlsx, hoja de cálculo, planilla, hoja, tabla, libro, celdas, Office, Google Sheets, convertir</string>
     <string name="search_keywords_merge">juntar, combinar, fusionar, unir, agrupar, anexar</string>
     <string name="search_keywords_split">separar, cortar, extraer, dividir, partir</string>
     <string name="search_keywords_reorganize">reordenar, ordenar, mover, organizar, insertar, página en blanco</string>

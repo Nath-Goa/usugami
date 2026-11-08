@@ -282,6 +282,31 @@
         <item quantity="many">%1$d sur %2$d diapositives</item>
         <item quantity="other">%1$d sur %2$d diapositives</item>
     </plurals>
+    <!-- Excel to PDF. Excel is the name of Microsoft's app, kept as it is; .xlsx and .xls are file
+         extensions. A workbook is an Excel file; a sheet is one of its tabs. -->
+    <string name="tool_excel">Excel en PDF</string>
+    <string name="tool_excel_detail">Feuilles de calcul (.xlsx), feuille par feuille</string>
+    <string name="pick_excel">Choisir des fichiers Excel</string>
+    <string name="add_excel">Ajouter des fichiers Excel</string>
+    <string name="document_excel">Classeur Excel</string>
+    <string name="office_note_excel">Chaque feuille commence sur une nouvelle page, comme à l\'impression dans Excel ; les feuilles masquées sont ignorées. Les polices de votre téléphone remplacent celles du classeur, et les graphiques sont ignorés.</string>
+    <string name="office_legacy_excel">C\'est un ancien fichier Excel (.xls). Enregistrez-le au format .xlsx dans Excel ou une autre application, puis réessayez.</string>
+    <string name="office_legacy_excel_many">Ce sont d\'anciens fichiers Excel (.xls). Enregistrez-les au format .xlsx dans Excel ou une autre application, puis réessayez.</string>
+    <string name="office_encrypted_excel">Ce fichier est protégé par un mot de passe. Retirez le mot de passe dans Excel, enregistrez le fichier, puis réessayez.</string>
+    <string name="office_encrypted_excel_many">Ces fichiers sont protégés par un mot de passe. Retirez le mot de passe dans Excel, enregistrez les fichiers, puis réessayez.</string>
+    <string name="office_not_excel">Ce fichier n\'est pas un classeur Excel (.xlsx), ou il est endommagé.</string>
+    <string name="office_not_excel_many">Ces fichiers ne sont pas des classeurs Excel (.xlsx), ou ils sont endommagés.</string>
+    <string name="office_no_sheets">Ce classeur ne contient rien à convertir. Les feuilles masquées sont ignorées.</string>
+    <string name="office_no_sheets_many">Ces classeurs ne contiennent rien à convertir. Les feuilles masquées sont ignorées.</string>
+    <string name="office_too_large">Ce classeur est trop volumineux pour être converti sur un téléphone. Dans Excel ou une autre application, définissez une zone d\'impression pour la partie dont vous avez besoin, puis réessayez.</string>
+    <string name="office_too_large_many">Ces classeurs sont trop volumineux pour être convertis sur un téléphone. Dans Excel ou une autre application, définissez une zone d\'impression pour la partie dont vous avez besoin, puis réessayez.</string>
+    <!-- Excel to PDF's choices. "As in the file" keeps the paper size or orientation each sheet was set to print on. -->
+    <string name="sheet_as_file">Comme dans le fichier</string>
+    <string name="sheet_fit_width">Ajuster les colonnes à la largeur de la page</string>
+    <string name="sheet_fit_width_on">Les feuilles larges sont réduites pour que leurs colonnes tiennent dans la largeur de la page, sans jamais descendre sous la moitié de leur taille.</string>
+    <string name="sheet_fit_width_off">Les colonnes qui ne tiennent pas passent sur d\'autres pages, comme à l\'impression dans Excel.</string>
+    <string name="sheet_gridlines">Quadrillage</string>
+    <string name="sheet_gridlines_detail">Des lignes gris clair entre les cellules, comme à l\'écran. Les bordures apparaissent toujours, tout comme le quadrillage d\'une feuille réglée pour l\'imprimer.</string>
     <string name="tool_delete_pages">Supprimer des pages</string>
     <string name="tool_delete_pages_detail">Retirer les pages inutiles</string>
     <string name="tool_reorganize">Réorganiser un PDF</string>
@@ -705,6 +730,7 @@
     <string name="search_keywords_scan">scanner, scan, numérisation, CamScanner, appareil photo, caméra, photo, document, papier, feuille, reçu, ticket de caisse, facture, recadrer, rogner, améliorer, filtre, luminosité, contraste, noir et blanc</string>
     <string name="search_keywords_word">doc, docx, document, Office, convertir, traitement de texte</string>
     <string name="search_keywords_powerpoint">ppt, pptx, diapositives, présentation, diaporama, Office, convertir</string>
+    <string name="search_keywords_excel">xls, xlsx, tableur, feuille de calcul, feuille, tableau, classeur, cellules, Office, Google Sheets, convertir</string>
     <string name="search_keywords_merge">assembler, combiner, joindre, réunir, regrouper, fusion</string>
     <string name="search_keywords_split">séparer, couper, découper, extraire, scinder</string>
     <string name="search_keywords_reorganize">réordonner, ordre, trier, ranger, déplacer, insérer, page blanche</string>
