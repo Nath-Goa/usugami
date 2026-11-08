@@ -2442,13 +2442,13 @@ class ScreensDeviceTest {
         val english = resourcesIn(AppLanguage.ENGLISH)
         launch(language = AppLanguage.ENGLISH)
         val several = listOf(
-            R.string.tool_word, R.string.tool_powerpoint, R.string.tool_epub, R.string.tool_page_numbers,
+            R.string.tool_word, R.string.tool_powerpoint, R.string.tool_excel, R.string.tool_epub, R.string.tool_page_numbers,
             R.string.tool_watermark, R.string.tool_compress, R.string.tool_flatten,
         ).map(english::getString)
         val count = english.getQuantityString(R.plurals.home_search_results, several.size, several.size)
         for (words in listOf("several", "Batch", "many")) {
             type(searchField(), words)
-            // All seven, in Home's order (on a small screen, the first of them).
+            // All eight, in Home's order (on a small screen, the first of them).
             waitUntil("the tools found by \"$words\"") {
                 val shown = shownTools(english)
                 nodes().any { it.says(count) } && shown.isNotEmpty() && shown == several.take(shown.size)
