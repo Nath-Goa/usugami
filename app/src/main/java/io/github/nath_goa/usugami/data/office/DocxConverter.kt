@@ -1244,6 +1244,8 @@ internal class DocxConverter(
             return i >= 0 && next.cells[i].vMerge == "continue"
         }
         val rows = t.rows.mapIndexed { r, row ->
+            // A table thousands of rows long takes seconds to lay out: Cancel is heard meanwhile.
+            check()
             val cells = row.cells.mapIndexed { i, cell ->
                 val col = cellColumns[r][i].coerceAtMost(columns - 1)
                 val end = (col + cell.span).coerceAtMost(columns)
