@@ -38,8 +38,6 @@ import androidx.compose.material.icons.rounded.East
 import androidx.compose.material.icons.rounded.North
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.RestartAlt
-import androidx.compose.material.icons.rounded.Rotate90DegreesCcw
-import androidx.compose.material.icons.rounded.Rotate90DegreesCw
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.Button
@@ -278,10 +276,10 @@ private fun CropSteps(
                         // Rotate left and right: a quarter turn of the image, and of the page with it.
                         actions = {
                             IconButton(onClick = { turn(-90) }) {
-                                Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.crop_rotate_left))
+                                TurnIcon(clockwise = false, description = stringResource(R.string.crop_rotate_left))
                             }
                             IconButton(onClick = { turn(90) }) {
-                                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.crop_rotate_right))
+                                TurnIcon(clockwise = true, description = stringResource(R.string.crop_rotate_right))
                             }
                         },
                     )

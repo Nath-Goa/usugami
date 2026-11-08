@@ -29,8 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Rotate90DegreesCcw
-import androidx.compose.material.icons.rounded.Rotate90DegreesCw
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -91,10 +89,10 @@ internal fun RotateOptions(input: PdfInput, pages: List<PdfPageRef>, vm: PdfTool
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.rotate_all), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             IconButton(onClick = { vm.rotateAll(-90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.rotate_all_left))
+                TurnIcon(clockwise = false, description = stringResource(R.string.rotate_all_left))
             }
             IconButton(onClick = { vm.rotateAll(90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_all_right))
+                TurnIcon(clockwise = true, description = stringResource(R.string.rotate_all_right))
             }
         }
         Text(stringResource(R.string.rotate_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -126,10 +124,10 @@ private fun RotatePageCard(input: PdfInput, ref: PdfPageRef, onRotate: (Int) -> 
                 }
             }
             IconButton(onClick = { onRotate(-90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.rotate_page_left, number))
+                TurnIcon(clockwise = false, description = stringResource(R.string.rotate_page_left, number))
             }
             IconButton(onClick = { onRotate(90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, number))
+                TurnIcon(clockwise = true, description = stringResource(R.string.rotate_page_right, number))
             }
         }
     }

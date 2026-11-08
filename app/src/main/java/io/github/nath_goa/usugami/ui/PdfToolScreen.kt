@@ -47,7 +47,6 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Rotate90DegreesCw
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -805,7 +804,7 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.merge_page_line, index + 1, input.name, ref.page + 1), modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                             IconButton(onClick = { vm.rotatePage(ref, 90) }) {
-                                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, index + 1))
+                                TurnIcon(clockwise = true, description = stringResource(R.string.rotate_page_right, index + 1))
                             }
                             IconButton(onClick = { vm.removePage(ref) }) {
                                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, index + 1))

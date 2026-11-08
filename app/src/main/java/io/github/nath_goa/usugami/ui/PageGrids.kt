@@ -36,8 +36,6 @@ import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.PictureAsPdf
-import androidx.compose.material.icons.rounded.Rotate90DegreesCcw
-import androidx.compose.material.icons.rounded.Rotate90DegreesCw
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -374,10 +372,10 @@ private fun PageActions(ref: PdfPageRef?, index: Int, count: Int, vm: PdfToolsVi
                     Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = stringResource(R.string.move_page_later, number))
                 }
                 IconButton(onClick = { vm.rotatePage(ref, -90) }) {
-                    Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.rotate_page_left, number))
+                    TurnIcon(clockwise = false, description = stringResource(R.string.rotate_page_left, number))
                 }
                 IconButton(onClick = { vm.rotatePage(ref, 90) }) {
-                    Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, number))
+                    TurnIcon(clockwise = true, description = stringResource(R.string.rotate_page_right, number))
                 }
                 // A PDF keeps at least one page.
                 IconButton(onClick = {

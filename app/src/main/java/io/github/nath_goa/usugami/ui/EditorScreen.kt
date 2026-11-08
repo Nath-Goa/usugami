@@ -55,8 +55,6 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PictureAsPdf
-import androidx.compose.material.icons.rounded.Rotate90DegreesCcw
-import androidx.compose.material.icons.rounded.Rotate90DegreesCw
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -402,10 +400,10 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
         Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             // Each card has these buttons, so their labels name the page they act on.
             IconButton(onClick = { actions.rotate(item.id, -90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCcw, contentDescription = stringResource(R.string.rotate_page_left, pageNumber))
+                TurnIcon(clockwise = false, description = stringResource(R.string.rotate_page_left, pageNumber))
             }
             IconButton(onClick = { actions.rotate(item.id, 90) }) {
-                Icon(Icons.Rounded.Rotate90DegreesCw, contentDescription = stringResource(R.string.rotate_page_right, pageNumber))
+                TurnIcon(clockwise = true, description = stringResource(R.string.rotate_page_right, pageNumber))
             }
             IconButton(onClick = { actions.remove(item.id) }) {
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, pageNumber))
