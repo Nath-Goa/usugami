@@ -490,6 +490,8 @@
     <string name="filter_reset_contrast">कंट्रास्ट रीसेट करें</string>
     <!-- Under the title while several uploaded images are cropped one after another, e.g. "Page 2 of 5". -->
     <string name="scan_place">%2$d में से पेज %1$d</string>
+    <!-- What a screen reader says as each image of such a scan comes in: the step's name (Crop page, or Filters), then which image it is, e.g. "Crop page, Page 2 of 5". -->
+    <string name="scan_pane_title">%1$s, %2$s</string>
     <string name="look_title">रूप</string>
     <string name="look_original">मूल</string>
     <string name="look_enhanced">बेहतर</string>
@@ -498,7 +500,7 @@
     <!-- Brighter, with shadows softened and the colours kept close to the photo's. -->
     <string name="look_lighten">उजला</string>
     <!-- The strongest clean-up: whiter paper, richer colours, darker and crisper print. -->
-    <string name="look_super_enhanced">और बेहतर</string>
+    <string name="look_super_enhanced">बहुत बेहतर</string>
     <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
     <string name="look_ink_saver">स्याही बचत</string>
     <string name="look_all_pages">सभी पेजों पर लागू करें</string>
