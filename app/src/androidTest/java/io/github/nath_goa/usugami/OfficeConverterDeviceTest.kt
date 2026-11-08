@@ -1039,9 +1039,11 @@ class OfficeConverterDeviceTest {
         )
         // At the bottom of their boxes, with and without space before: a first paragraph's doesn't count.
         val bottom = """<a:bodyPr anchor="b" tIns="0" bIns="0"/>"""
+        // As PowerPoint writes most text bodies: with what to do when the text overflows inside.
+        val bottomWithAutofit = """<a:bodyPr anchor="b" tIns="0" bIns="0"><a:normAutofit/></a:bodyPr>"""
         val anchored = slide(
             box(2, 40, 100, bottom, """<a:p><a:pPr><a:spcBef><a:spcPts val="2000"/></a:spcBef></a:pPr>${run("Alpha", 20)}</a:p>""") +
-                box(3, 380, 100, bottom, "<a:p>${run("Beta", 20)}</a:p>"),
+                box(3, 380, 100, bottomWithAutofit, "<a:p>${run("Beta", 20)}</a:p>"),
         )
         val pdf = convert(deck("text.pptx", listOf(directions, symbols, anchored)), OfficeKind.POWERPOINT, "slide-text")
         val (rtl, ltr) = glyphs(pdf, 1).filter { g -> g.unicode.any { it in 'א'..'ת' } }.partition { it.xDirAdj < 360f }

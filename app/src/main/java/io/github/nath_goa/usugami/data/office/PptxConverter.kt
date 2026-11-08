@@ -710,7 +710,17 @@ internal class PptxConverter(
     }
 
     private fun readBodyLook(x: OfficeXml): BodyLook {
+        // The attributes are read first: once the children (such as a:normAutofit) are, the reader has left them.
         val insets = listOf("lIns", "tIns", "rIns", "bIns").map { key -> x.longAttr(key)?.let { OfficeUnits.emu(it) } }
+        val anchor = anchorOf(x.attr("anchor"))
+        val wrap = x.attr("wrap")?.let { it != "none" }
+        val firstLastSpacing = x.attr("spcFirstLastPara")?.let { x.flag("spcFirstLastPara") }
+        val vertical = when (x.attr("vert")) {
+            "vert", "eaVert", "wordArtVertRtl" -> 1
+            "vert270" -> -1
+            "horz" -> 0
+            else -> null
+        }
         var autofit: Int? = null
         var fontScale: Float? = null
         var reduction: Float? = null
@@ -725,16 +735,7 @@ internal class PptxConverter(
                 "spAutoFit" -> autofit = 2
             }
         }
-        val vertical = when (x.attr("vert")) {
-            "vert", "eaVert", "wordArtVertRtl" -> 1
-            "vert270" -> -1
-            "horz" -> 0
-            else -> null
-        }
-        return BodyLook(
-            insets, anchorOf(x.attr("anchor")), x.attr("wrap")?.let { it != "none" }, autofit, fontScale, reduction, vertical,
-            x.attr("spcFirstLastPara")?.let { x.flag("spcFirstLastPara") },
-        )
+        return BodyLook(insets, anchor, wrap, autofit, fontScale, reduction, vertical, firstLastSpacing)
     }
 
     private fun readLevels(x: OfficeXml, ctx: Ctx): Map<Int, LevelLook> {
