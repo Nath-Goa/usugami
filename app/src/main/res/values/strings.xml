@@ -492,8 +492,8 @@
     <!-- Cropping a page out of a photo -->
     <string name="crop_title">Crop page</string>
     <!-- Above the photo when the page was found on it automatically. -->
-    <string name="crop_found">Usugami found the page. Drag the corners to adjust them.</string>
-    <string name="crop_not_found">Drag the corners onto the corners of the page.</string>
+    <string name="crop_found">Usugami found the page. Drag the corners or sides to adjust it.</string>
+    <string name="crop_not_found">Drag the corners or sides onto the edges of the page.</string>
     <string name="crop_not_a_page">The corners don\'t make a page: put each one on a corner of the page.</string>
     <string name="crop_reset">Reset</string>
     <string name="crop_whole">Whole image</string>

@@ -451,8 +451,8 @@
     <!-- Cropping a page out of a photo -->
     <string name="crop_title">पेज क्रॉप करें</string>
     <!-- Above the photo when the page was found on it automatically. -->
-    <string name="crop_found">Usugami को पेज मिल गया। कोनों को ठीक करने के लिए उन्हें खींचें।</string>
-    <string name="crop_not_found">कोनों को खींचकर पेज के कोनों पर रखें।</string>
+    <string name="crop_found">Usugami को पेज मिल गया। उसे ठीक करने के लिए कोनों या किनारों को खींचें।</string>
+    <string name="crop_not_found">कोनों या किनारों को खींचकर पेज के किनारों पर रखें।</string>
     <string name="crop_not_a_page">ये कोने पेज नहीं बनाते: हर कोने को पेज के किसी कोने पर रखें।</string>
     <string name="crop_reset">रीसेट करें</string>
     <string name="crop_whole">पूरी इमेज</string>

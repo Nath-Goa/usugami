@@ -466,8 +466,8 @@
     <!-- Cropping a page out of a photo -->
     <string name="crop_title">Recortar página</string>
     <!-- Above the photo when the page was found on it automatically. -->
-    <string name="crop_found">Usugami encontró la página. Arrastra las esquinas para ajustarlas.</string>
-    <string name="crop_not_found">Arrastra las esquinas sobre las esquinas de la página.</string>
+    <string name="crop_found">Usugami encontró la página. Arrastra las esquinas o los bordes para ajustarla.</string>
+    <string name="crop_not_found">Arrastra las esquinas o los bordes sobre el contorno de la página.</string>
     <string name="crop_not_a_page">Las esquinas no forman una página: coloca cada una en una esquina de la página.</string>
     <string name="crop_reset">Restablecer</string>
     <string name="crop_whole">Imagen completa</string>
