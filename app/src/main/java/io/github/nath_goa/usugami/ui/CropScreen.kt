@@ -335,7 +335,7 @@ private fun LookChoices(look: PageLook, onLook: (PageLook) -> Unit, allPages: Bo
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         Text(stringResource(R.string.look_title), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(end = 4.dp))
-        for (option in PageLook.entries) {
+        for (option in PageLook.shown) {
             val selected = option == look
             FilterChip(
                 selected = selected,
@@ -373,6 +373,9 @@ fun lookName(look: PageLook): Int = when (look) {
     PageLook.ENHANCED -> R.string.look_enhanced
     PageLook.GRAYSCALE -> R.string.look_grayscale
     PageLook.BLACK_WHITE -> R.string.look_black_white
+    PageLook.LIGHTEN -> R.string.look_lighten
+    PageLook.SUPER_ENHANCED -> R.string.look_super_enhanced
+    PageLook.INK_SAVER -> R.string.look_ink_saver
 }
 
 /** The controls under the image: moving the chosen corner, and Reset and Whole image. */

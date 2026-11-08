@@ -17,6 +17,7 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.LayoutSettings
+import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.Margin
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.PageOrientation
@@ -260,7 +261,7 @@ class LooksDeviceTest {
         val photo = PagePhotos.photo()
         val beside = PageLooks.applied(photo, PageLook.ENHANCED)
         val inPlace = photo.copy(Bitmap.Config.ARGB_8888, true)
-        PageLooks.enhanceInPlace(inPlace)
+        PageLooks.colourInPlace(inPlace, PageLook.ENHANCED, LookAdjustments.NONE)
         assertFalse(inPlace.hasAlpha())
         val expected = IntArray(photo.width * photo.height).also { beside.getPixels(it, 0, photo.width, 0, 0, photo.width, photo.height) }
         val actual = IntArray(photo.width * photo.height).also { inPlace.getPixels(it, 0, photo.width, 0, 0, photo.width, photo.height) }

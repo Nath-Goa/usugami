@@ -19,6 +19,49 @@ enum class PageLook {
 
     /** Black ink on white paper, one bit a pixel. */
     BLACK_WHITE,
+
+    /** In colour, brighter, with the shadows softened and the colours kept close to the photo's. */
+    LIGHTEN,
+
+    /** As [ENHANCED], further: whiter paper, richer colours, and darker, crisper print. */
+    SUPER_ENHANCED,
+
+    /** As [BLACK_WHITE], printing lighter: thin print, with large dark areas left hollow. */
+    INK_SAVER,
+    ;
+
+    /** Whether the page is black and white, a bit a pixel. */
+    val isBilevel: Boolean get() = this == BLACK_WHITE || this == INK_SAVER
+
+    /** Whether the page stays in colour. */
+    val isColour: Boolean get() = this == ORIGINAL || this == LIGHTEN || this == ENHANCED || this == SUPER_ENHANCED
+
+    companion object {
+        /**
+         * The looks in the order the filter screen shows them, from the photo as it is to the most
+         * cleaned up. The entries' own order is how a saved state stores a page's look, so a new look
+         * goes at the end of them.
+         */
+        val shown: List<PageLook> = listOf(ORIGINAL, LIGHTEN, ENHANCED, SUPER_ENHANCED, GRAYSCALE, BLACK_WHITE, INK_SAVER)
+    }
+}
+
+/**
+ * Brightness and contrast set by hand on top of a page's look, each from -[MAX] to [MAX]; 0 leaves the
+ * look as it is.
+ */
+data class LookAdjustments(val brightness: Int = 0, val contrast: Int = 0) {
+    init {
+        require(brightness in -MAX..MAX && contrast in -MAX..MAX) { "Brightness $brightness and contrast $contrast must be within ±$MAX" }
+    }
+
+    /** Whether the look is left as it is. */
+    val isNone: Boolean get() = brightness == 0 && contrast == 0
+
+    companion object {
+        const val MAX = 100
+        val NONE = LookAdjustments()
+    }
 }
 
 /** A grey picture: a byte a pixel, 0 black to 255 white, row after row. */
@@ -149,15 +192,51 @@ object DocumentLooks {
         }
     }
 
-    /** [source] with the [PageLook.GRAYSCALE] look. */
-    fun grayscale(source: PixelSource, checkCancelled: () -> Unit = {}): GrayImage {
+    /**
+     * [source] with a colour [look] ([PageLook.isColour]) and [adjustments], handed to [target] a row
+     * at a time as [enhance] hands them, with the same promise: row y is read for the last time
+     * before [target] gets it.
+     */
+    fun colour(
+        source: PixelSource,
+        look: PageLook,
+        adjustments: LookAdjustments,
+        target: (y: Int, row: IntArray) -> Unit,
+        checkCancelled: () -> Unit = {},
+    ) {
+        require(look.isColour) { "$look isn't a colour look" }
+        when (look) {
+            PageLook.ORIGINAL -> {
+                val row = IntArray(source.width)
+                for (y in 0 until source.height) {
+                    if (y and 63 == 0) checkCancelled()
+                    source.readRow(y, row)
+                    for (x in row.indices) {
+                        val argb = row[x]
+                        row[x] = (0xFF shl 24) or (flatten(argb ushr 16, argb) shl 16) or (flatten(argb ushr 8, argb) shl 8) or flatten(argb, argb)
+                    }
+                    target(y, row)
+                }
+            }
+            else -> enhance(source, target, checkCancelled)
+        }
+    }
+
+    /** [source] with the [PageLook.GRAYSCALE] look and [adjustments]. */
+    fun grayscale(source: PixelSource, adjustments: LookAdjustments = LookAdjustments.NONE, checkCancelled: () -> Unit = {}): GrayImage {
         val (image, paper) = lumaAndPaper(source, checkCancelled)
         normalize(image, paper, CURVE, checkCancelled)
         return image
     }
 
-    /** [source] with the [PageLook.BLACK_WHITE] look. */
-    fun blackAndWhite(source: PixelSource, checkCancelled: () -> Unit = {}): BitImage {
+    /** [source] with a black-and-white [look] ([PageLook.isBilevel]) and [adjustments]. */
+    fun blackAndWhite(
+        source: PixelSource,
+        look: PageLook = PageLook.BLACK_WHITE,
+        adjustments: LookAdjustments = LookAdjustments.NONE,
+        checkCancelled: () -> Unit = {},
+    ): BitImage {
+        require(look.isBilevel) { "$look isn't a black-and-white look" }
         val (image, paper) = lumaAndPaper(source, checkCancelled)
         normalize(image, paper, LINEAR, checkCancelled)
         return threshold(image, checkCancelled)

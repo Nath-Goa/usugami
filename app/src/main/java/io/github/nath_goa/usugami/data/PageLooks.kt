@@ -10,11 +10,12 @@ import io.github.nath_goa.usugami.core.BitImage
 import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.DocumentLooks
 import io.github.nath_goa.usugami.core.GrayImage
+import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.PageCrop
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.PixelSource
 
-/** A page's [PageLook] on Android bitmaps (the pixel work is [DocumentLooks]'). Blocking. */
+/** A page's [PageLook] and [LookAdjustments] on Android bitmaps (the pixel work is [DocumentLooks]'). Blocking. */
 object PageLooks {
 
     /** [bitmap]'s pixels a row at a time. */
@@ -24,24 +25,30 @@ object PageLooks {
         override fun readRow(y: Int, out: IntArray) = bitmap.getPixels(out, 0, width, 0, y, width, 1)
     }
 
-    /** [bitmap] as [look] shows it, as a new opaque bitmap of the same size; [bitmap] is left as it is. */
-    fun applied(bitmap: Bitmap, look: PageLook, checkCancelled: () -> Unit = {}): Bitmap {
-        if (look == PageLook.ORIGINAL) return bitmap.copy(Bitmap.Config.ARGB_8888, false)
-        val out = createBitmap(bitmap.width, bitmap.height)
+    /**
+     * [bitmap] as [look] shows it with [adjustments], as a new opaque bitmap of the same size; [bitmap]
+     * is left as it is.
+     */
+    fun applied(
+        bitmap: Bitmap,
+        look: PageLook,
+        adjustments: LookAdjustments = LookAdjustments.NONE,
+        checkCancelled: () -> Unit = {},
+    ): Bitmap {
         val width = bitmap.width
+        val out = createBitmap(width, bitmap.height)
         val row = IntArray(width)
-        when (look) {
-            PageLook.ORIGINAL -> Unit
-            PageLook.ENHANCED -> DocumentLooks.enhance(pixels(bitmap), { y, pixels -> out.setPixels(pixels, 0, width, 0, y, width, 1) }, checkCancelled)
-            PageLook.GRAYSCALE -> {
-                val gray = DocumentLooks.grayscale(pixels(bitmap), checkCancelled)
+        when {
+            look.isColour -> DocumentLooks.colour(pixels(bitmap), look, adjustments, { y, pixels -> out.setPixels(pixels, 0, width, 0, y, width, 1) }, checkCancelled)
+            look == PageLook.GRAYSCALE -> {
+                val gray = DocumentLooks.grayscale(pixels(bitmap), adjustments, checkCancelled)
                 for (y in 0 until gray.height) {
                     for (x in 0 until width) row[x] = grayArgb(gray[x, y])
                     out.setPixels(row, 0, width, 0, y, width, 1)
                 }
             }
-            PageLook.BLACK_WHITE -> {
-                val bits = DocumentLooks.blackAndWhite(pixels(bitmap), checkCancelled)
+            else -> {
+                val bits = DocumentLooks.blackAndWhite(pixels(bitmap), look, adjustments, checkCancelled)
                 for (y in 0 until bits.height) {
                     for (x in 0 until width) row[x] = if (bits.isBlack(x, y)) BLACK else WHITE
                     out.setPixels(row, 0, width, 0, y, width, 1)
@@ -53,14 +60,14 @@ object PageLooks {
     }
 
     /**
-     * Gives the mutable [bitmap] the [PageLook.ENHANCED] look, in place: as [applied] makes it, without
-     * a second picture as large.
+     * Gives the mutable [bitmap] a colour [look] ([PageLook.isColour]) with [adjustments], in place: as
+     * [applied] makes it, without a second picture as large.
      */
-    fun enhanceInPlace(bitmap: Bitmap, checkCancelled: () -> Unit = {}) {
+    fun colourInPlace(bitmap: Bitmap, look: PageLook, adjustments: LookAdjustments, checkCancelled: () -> Unit = {}) {
         require(bitmap.isMutable) { "The bitmap can't be changed" }
         val width = bitmap.width
-        // Each row is read before it is written (see DocumentLooks.enhance).
-        DocumentLooks.enhance(pixels(bitmap), { y, pixels -> bitmap.setPixels(pixels, 0, width, 0, y, width, 1) }, checkCancelled)
+        // Each row is read before it is written (see DocumentLooks.colour).
+        DocumentLooks.colour(pixels(bitmap), look, adjustments, { y, pixels -> bitmap.setPixels(pixels, 0, width, 0, y, width, 1) }, checkCancelled)
         bitmap.setHasAlpha(false)
     }
 
@@ -83,11 +90,13 @@ object PageLooks {
         return page
     }
 
-    /** [bitmap] in grey with the [PageLook.GRAYSCALE] look. */
-    fun gray(bitmap: Bitmap, checkCancelled: () -> Unit = {}): GrayImage = DocumentLooks.grayscale(pixels(bitmap), checkCancelled)
+    /** [bitmap] in grey with the [PageLook.GRAYSCALE] look and [adjustments]. */
+    fun gray(bitmap: Bitmap, adjustments: LookAdjustments, checkCancelled: () -> Unit = {}): GrayImage =
+        DocumentLooks.grayscale(pixels(bitmap), adjustments, checkCancelled)
 
-    /** [bitmap] in black and white with the [PageLook.BLACK_WHITE] look. */
-    fun blackAndWhite(bitmap: Bitmap, checkCancelled: () -> Unit = {}): BitImage = DocumentLooks.blackAndWhite(pixels(bitmap), checkCancelled)
+    /** [bitmap] in black and white with [look] ([PageLook.isBilevel]) and [adjustments]. */
+    fun blackAndWhite(bitmap: Bitmap, look: PageLook, adjustments: LookAdjustments, checkCancelled: () -> Unit = {}): BitImage =
+        DocumentLooks.blackAndWhite(pixels(bitmap), look, adjustments, checkCancelled)
 
     private fun grayArgb(v: Int) = (0xFF shl 24) or (v shl 16) or (v shl 8) or v
 

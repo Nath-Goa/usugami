@@ -511,6 +511,12 @@
     <string name="look_enhanced">Enhanced</string>
     <string name="look_grayscale">Grayscale</string>
     <string name="look_black_white">Black &amp; white</string>
+    <!-- Brighter, with shadows softened and the colours kept close to the photo's. -->
+    <string name="look_lighten">Lighten</string>
+    <!-- The strongest clean-up: whiter paper, richer colours, darker and crisper print. -->
+    <string name="look_super_enhanced">Super enhanced</string>
+    <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
+    <string name="look_ink_saver">Ink saver</string>
     <string name="look_all_pages">Apply to all pages</string>
 
     <!-- Options -->

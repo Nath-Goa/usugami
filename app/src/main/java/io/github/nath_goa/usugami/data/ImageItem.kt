@@ -5,6 +5,7 @@ import android.os.Parcelable
 import io.github.nath_goa.usugami.core.CropPoint
 import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.ImageTransform
+import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.PageLook
 import kotlinx.parcelize.Parceler
 import kotlinx.parcelize.Parcelize
@@ -17,9 +18,11 @@ enum class ImageFormat(val extension: String) { JPEG("jpg"), PNG("png") }
  * [width]/[height] are the stored pixel size; [exifOrientation] says how the camera stored it;
  * [rotation] is the extra clockwise rotation (0, 90, 180, 270) chosen in the editor. A page cropped
  * from an image is the straightened page ([path], upright), and [original] is the image it was
- * cropped from. [look] is how the page shows in the PDF; the image itself is left as it is.
+ * cropped from. [look] is how the page shows in the PDF, with [adjustments] (brightness and
+ * contrast) on top; the image itself is left as it is.
  */
 @Parcelize
+@TypeParceler<LookAdjustments, LookAdjustmentsParceler>
 data class ImageItem(
     val id: Long,
     val path: String,
@@ -31,7 +34,11 @@ data class ImageItem(
     val rotation: Int = 0,
     val original: OriginalImage? = null,
     val look: PageLook = PageLook.ORIGINAL,
+    val adjustments: LookAdjustments = LookAdjustments.NONE,
 ) : Parcelable {
+
+    /** Whether the page shows otherwise than its image: with a look, or with brightness or contrast changed. */
+    val styled: Boolean get() = look != PageLook.ORIGINAL || !adjustments.isNone
 
     /** EXIF orientation only: how the image looks upright in a gallery. */
     val uprightTransform: ImageTransform get() = ImageTransform.fromExif(exifOrientation)
@@ -76,5 +83,15 @@ object CropQuadParceler : Parceler<CropQuad> {
             parcel.writeFloat(corner.x)
             parcel.writeFloat(corner.y)
         }
+    }
+}
+
+/** [LookAdjustments] in a [Parcel] as its two numbers. */
+object LookAdjustmentsParceler : Parceler<LookAdjustments> {
+    override fun create(parcel: Parcel): LookAdjustments = LookAdjustments(parcel.readInt(), parcel.readInt())
+
+    override fun LookAdjustments.write(parcel: Parcel, flags: Int) {
+        parcel.writeInt(brightness)
+        parcel.writeInt(contrast)
     }
 }

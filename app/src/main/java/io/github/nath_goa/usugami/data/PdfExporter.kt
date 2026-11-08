@@ -50,8 +50,9 @@ class ImageUnreadableException(val imageName: String) : Exception("Unreadable im
 /**
  * Builds PDFs from the picked images, always compressed: each image is shrunk to the
  * [Compression] level's resolution for the space it fills on the page and stored as JPEG,
- * unless keeping the original is smaller. A page with a look of its own ([ImageItem.look]) is given
- * it at that size and stored as it needs: black and white a bit a pixel, grey as a grey JPEG.
+ * unless keeping the original is smaller. A page with a look of its own ([ImageItem.look]) or
+ * brightness and contrast ([ImageItem.adjustments]) is given them at that size and stored as it
+ * needs: black and white a bit a pixel, grey as a grey JPEG.
  * Output lives in the cache (output/images) until the next export.
  */
 class PdfExporter(private val context: Context) {
@@ -142,7 +143,7 @@ class PdfExporter(private val context: Context) {
         val file = File(item.path)
         if (!file.isFile) throw ImageUnreadableException(item.name)
         val scale = Compressor.scaleFor(item.shownWidth, item.shownHeight, options.layout, options.compression)
-        if (item.look != PageLook.ORIGINAL) return LoadedPage(withLook(item, scale, options))
+        if (item.styled) return LoadedPage(withLook(item, scale, options))
         val compressed = compressToJpeg(item, scale, options.compression.jpegQuality)
         options.checkCancelled()
         return when (item.format) {
@@ -215,10 +216,11 @@ class PdfExporter(private val context: Context) {
     }
 
     /**
-     * The image shrunk by [scale] with its look (see [PageLooks]): black and white a bit a pixel
-     * (CCITT G4, far smaller than a photo), grey as a JPEG with one component, enhanced as a colour
-     * JPEG, at the compression level's quality. A look takes more memory than the picture alone: if
-     * memory runs out, the page is made at half the size, as [decode] does, until it fits.
+     * The image shrunk by [scale] with its look and adjustments (see [PageLooks]): black and white a
+     * bit a pixel (CCITT G4, far smaller than a photo), grey as a JPEG with one component, the colour
+     * looks as a colour JPEG, at the compression level's quality. A look takes more memory than the
+     * picture alone: if memory runs out, the page is made at half the size, as [decode] does, until
+     * it fits.
      */
     private fun withLook(item: ImageItem, scale: Double, options: Options): PageImage {
         var shrink = scale
@@ -234,19 +236,19 @@ class PdfExporter(private val context: Context) {
     }
 
     private fun lookAt(item: ImageItem, scale: Double, options: Options): PageImage {
-        // Changeable, so that Enhanced is made in it rather than in a second picture as large.
+        // Changeable, so that a colour look is made in it rather than in a second picture as large.
         val bitmap = decode(item, scale, mutable = true)
         try {
             val quality = options.compression.jpegQuality
-            return when (item.look) {
-                PageLook.BLACK_WHITE -> PageImage.Bilevel(PageLooks.blackAndWhite(bitmap, options.checkCancelled))
-                PageLook.GRAYSCALE -> {
-                    val bytes = GrayJpeg.encode(PageLooks.gray(bitmap, options.checkCancelled), quality, options.checkCancelled)
+            val look = item.look
+            return when {
+                look.isBilevel -> PageImage.Bilevel(PageLooks.blackAndWhite(bitmap, look, item.adjustments, options.checkCancelled))
+                look == PageLook.GRAYSCALE -> {
+                    val bytes = GrayJpeg.encode(PageLooks.gray(bitmap, item.adjustments, options.checkCancelled), quality, options.checkCancelled)
                     PageImage.Jpeg(bytes, Jpeg.parse(bytes))
                 }
-                PageLook.ORIGINAL -> error("No look to give")
-                PageLook.ENHANCED -> {
-                    PageLooks.enhanceInPlace(bitmap, options.checkCancelled)
+                else -> {
+                    PageLooks.colourInPlace(bitmap, look, item.adjustments, options.checkCancelled)
                     jpeg(bitmap, quality, item)
                 }
             }

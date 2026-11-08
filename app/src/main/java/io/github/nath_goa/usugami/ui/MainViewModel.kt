@@ -25,6 +25,7 @@ import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.ImageTransform
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.NaturalOrder
+import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.PageCrop
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.SharedFiles
@@ -951,6 +952,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val names = saved.getByteArray("names")?.decodeToString()?.split('/').orEmpty()
         val crops = restoredCrops(saved, ids)
         val looks = saved.getByteArray("looks")?.takeIf { it.size == ids.size }
+        val adjustments = saved.getIntArray("adjustments")?.takeIf { it.size == ids.size }
         return ids.indices.map { i ->
             val format = ImageFormat.entries[details[i] shr 16]
             val crop = crops[i]
@@ -965,6 +967,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 rotation = (details[i] and 0xFF) * 90,
                 original = crop?.second,
                 look = looks?.getOrNull(i)?.toInt()?.let { PageLook.entries.getOrNull(it) } ?: PageLook.ORIGINAL,
+                adjustments = adjustments?.getOrNull(i)?.let(::unpackAdjustments) ?: LookAdjustments.NONE,
             )
         }
     }
@@ -1386,7 +1389,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
          * it went to the background. The copies' paths follow from their ids (see [ImageStore.fileFor]),
          * and names never contain "/" (they are what follows the last one). A cropped page's file has
          * a number of its own, and the image it was cropped from has the page's id. Each page's look
-         * is a byte.
+         * is a byte, and its brightness and contrast a number.
          */
         @VisibleForTesting
         internal fun packItems(list: List<ImageItem>): Bundle {
@@ -1403,7 +1406,19 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 "cropDetails" to IntArray(cropped.size) { original(it).run { format.ordinal shl 8 or exifOrientation } },
                 "cropCorners" to FloatArray(8 * cropped.size) { i -> original(i / 8).corners[i % 8 / 2].let { if (i % 2 == 0) it.x else it.y } },
                 "looks" to ByteArray(list.size) { list[it].look.ordinal.toByte() },
+                "adjustments" to IntArray(list.size) { packAdjustments(list[it].adjustments) },
             )
+        }
+
+        /** A page's brightness and contrast in one number: each moved up by 128 into a byte of its own. */
+        private fun packAdjustments(a: LookAdjustments): Int = (a.brightness + 128) shl 8 or (a.contrast + 128)
+
+        /** What [packAdjustments] packed, or null for a number it can't have made. */
+        private fun unpackAdjustments(packed: Int): LookAdjustments? {
+            val brightness = (packed shr 8 and 0xFF) - 128
+            val contrast = (packed and 0xFF) - 128
+            val range = -LookAdjustments.MAX..LookAdjustments.MAX
+            return if (packed ushr 16 == 0 && brightness in range && contrast in range) LookAdjustments(brightness, contrast) else null
         }
     }
 }

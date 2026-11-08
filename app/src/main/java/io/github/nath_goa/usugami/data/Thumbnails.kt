@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.util.LruCache
 import io.github.nath_goa.usugami.core.ImageTransform
+import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.PageLook
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,8 +14,8 @@ import kotlin.math.min
 
 /**
  * Small upright previews (EXIF orientation applied, user rotation not) kept in memory, one per
- * image file and look: a page cropped again has a new file, and a new preview, and a page given
- * another look is made from its plain preview.
+ * image file, look and adjustments: a page cropped again has a new file, and a new preview, and a
+ * page given another look or adjustments is made from its plain preview.
  * The user's rotation is applied when drawing, so rotating never re-decodes anything.
  */
 class Thumbnails {
@@ -23,22 +24,25 @@ class Thumbnails {
     }
     private val decoding = Dispatchers.IO.limitedParallelism(3)
 
-    fun cached(item: ImageItem): Bitmap? = cache.get(key(item.path, item.look))
+    fun cached(item: ImageItem): Bitmap? = cache.get(key(item))
 
-    suspend fun load(item: ImageItem): Bitmap? = cache.get(key(item.path, item.look)) ?: withContext(decoding) {
+    suspend fun load(item: ImageItem): Bitmap? = cache.get(key(item)) ?: withContext(decoding) {
         val plain = cache.get(item.path) ?: decode(item)?.also { cache.put(item.path, it) }
-        if (plain == null || item.look == PageLook.ORIGINAL) return@withContext plain
-        cache.get(key(item.path, item.look)) ?: withLook(plain, item.look)?.also { cache.put(key(item.path, item.look), it) }
+        if (plain == null || !item.styled) return@withContext plain
+        cache.get(key(item)) ?: withLook(plain, item.look, item.adjustments)?.also { cache.put(key(item), it) }
     }
 
+    /** Forgets every preview of [item]'s file, whatever its look. */
     fun remove(item: ImageItem) {
-        for (look in PageLook.entries) cache.remove(key(item.path, look))
+        val styled = "${item.path}#"
+        for (key in cache.snapshot().keys) if (key == item.path || key.startsWith(styled)) cache.remove(key)
     }
 
-    private fun key(path: String, look: PageLook) = if (look == PageLook.ORIGINAL) path else "$path#${look.name}"
+    private fun key(item: ImageItem) =
+        if (!item.styled) item.path else "${item.path}#${item.look.name}#${item.adjustments.brightness}#${item.adjustments.contrast}"
 
-    private fun withLook(plain: Bitmap, look: PageLook): Bitmap? = try {
-        PageLooks.applied(plain, look)
+    private fun withLook(plain: Bitmap, look: PageLook, adjustments: LookAdjustments): Bitmap? = try {
+        PageLooks.applied(plain, look, adjustments)
     } catch (e: Exception) {
         null
     } catch (e: OutOfMemoryError) {
