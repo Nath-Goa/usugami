@@ -3,11 +3,13 @@ package io.github.nath_goa.usugami
 import android.app.Application
 import android.app.Instrumentation
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.provider.DocumentsContract
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.IntentCompat
@@ -35,10 +37,11 @@ import java.io.File
 
 /**
  * Recent files: each file saved is listed, once however often it is saved, and Home shows it; a file
- * deleted in another app goes from the list; the list opens and shares a file with another app, and
- * removing a file or clearing the list leaves the files where they are; and a document made with the
- * system's "Save as" screen stays reachable once the screen that gave Usugami access to it has gone,
- * as after a restart, or else says it can't be opened and offers to remove it.
+ * deleted in another app goes from the list, also one saved into a folder the user picked; the list
+ * asks another app to open or share a file, with access to read it, and removing a file or clearing
+ * the list leaves the files where they are; and a document made with the system's "Save as" screen
+ * stays reachable once the screen that gave Usugami access to it has gone, as after a restart, or else
+ * says it can't be opened and offers to remove it.
  */
 class RecentFilesDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -231,9 +234,12 @@ class RecentFilesDeviceTest {
         shell("rm -f /sdcard/Download/$name")
         val first = launch()
         val picked = CompletableDeferred<Uri?>()
-        val createDocument = onMain {
-            first.activityResultRegistry.register("recent-test", ActivityResultContracts.CreateDocument(PdfSaver.PDF_MIME)) { picked.complete(it) }
+        // In Downloads: the screen otherwise opens where it was last used, such as the folder another test picked.
+        val inDownloads = object : ActivityResultContracts.CreateDocument(PdfSaver.PDF_MIME) {
+            override fun createIntent(context: Context, input: String): Intent = super.createIntent(context, input)
+                .putExtra(DocumentsContract.EXTRA_INITIAL_URI, DocumentsContract.buildDocumentUri(DOWNLOADS_DOCUMENTS, "downloads"))
         }
+        val createDocument = onMain { first.activityResultRegistry.register("recent-test", inDownloads) { picked.complete(it) } }
         onMain { createDocument.launch(name) }
         // The system's own screen, which only its Save button leaves with a document.
         click(find("the Save button") { node -> node.text?.toString().equals("save", ignoreCase = true) && node.isEnabled })
@@ -270,14 +276,57 @@ class RecentFilesDeviceTest {
             click(find("Remove from list") { it.says(app.getString(R.string.recent_remove)) })
             waitUntil("the file to leave the list") { recent.files.value.isEmpty() }
         } finally {
-            // Usugami no longer has access to the document: the shell deletes it from Downloads, where
-            // the screen opens for an app that hasn't saved anywhere else with it.
+            // Usugami no longer has access to the document: the shell deletes it from Downloads.
             shell("rm -f /sdcard/Download/$name")
+        }
+    }
+
+    /**
+     * Saved into a folder picked with the system's folder picker, a file deleted in another app goes
+     * from the list, though Android's storage answers for it with an error rather than with nothing,
+     * and Usugami gives back its access to the folder, which no listed file needs any more.
+     */
+    @Test fun aFileSavedIntoAPickedFolderGoesWhenDeleted() {
+        val folder = "Documents/Usugami-recent-test"
+        val pdf = File(dir, "Usugami-recent-folder.pdf").apply { writeText("%PDF-1.4 folder") }
+        shell("rm -rf /sdcard/$folder")
+        shell("mkdir -p /sdcard/$folder")
+        val first = launch()
+        val picked = CompletableDeferred<Uri?>()
+        val pickFolder = onMain {
+            first.activityResultRegistry.register("recent-folder-test", ActivityResultContracts.OpenDocumentTree()) { picked.complete(it) }
+        }
+        onMain { pickFolder.launch(DocumentsContract.buildDocumentUri(EXTERNAL_STORAGE_DOCUMENTS, "primary:$folder")) }
+        try {
+            // The system's own screens, which open in the folder and ask whether to allow access to it.
+            click(find("Use this folder") { it.text?.toString().equals("use this folder", ignoreCase = true) && it.isEnabled })
+            click(find("Allow") { it.text?.toString().equals("allow", ignoreCase = true) })
+            val tree = checkNotNull(runBlocking { withTimeout(20_000) { picked.await() } }) { "No folder was picked" }
+            onMain { pickFolder.unregister() }
+            PdfSaver(app).saveToFolder(listOf(pdf), tree)
+            assertEquals(tree.toString(), recent.files.value.single().grant)
+            assertTrue(app.contentResolver.persistedUriPermissions.any { it.uri == tree })
+
+            shell("rm /sdcard/$folder/${pdf.name}")
+            recent.checkAgain()
+            runBlocking { recent.check() }
+            assertTrue(recent.files.value.isEmpty())
+            assertTrue(app.contentResolver.persistedUriPermissions.none { it.uri == tree })
+        } finally {
+            shell("rm -rf /sdcard/$folder")
         }
     }
 
     /** Runs [command] in the shell, which may delete what Usugami no longer has access to. */
     private fun shell(command: String) {
         ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).use { it.readBytes() }
+    }
+
+    private companion object {
+        /** The system's Downloads, as its file screens reach it. */
+        const val DOWNLOADS_DOCUMENTS = "com.android.providers.downloads.documents"
+
+        /** The phone's own storage, as its file screens reach it. */
+        const val EXTERNAL_STORAGE_DOCUMENTS = "com.android.externalstorage.documents"
     }
 }

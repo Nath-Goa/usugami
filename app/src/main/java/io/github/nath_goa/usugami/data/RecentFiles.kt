@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.util.AtomicFile
 import androidx.annotation.VisibleForTesting
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
 
@@ -32,8 +34,8 @@ class SavedFile(val uri: Uri, val type: String, val grant: Uri?, val name: Strin
 /**
  * The files Usugami has saved, newest first, for Recent files on Home and on its own screen. The list
  * is kept in Usugami's private storage between launches (see [RecentFileList]) and looked over before
- * it shows: a file deleted meanwhile goes quietly, and a renamed one shows its new name. One list for
- * the whole app (see [of]).
+ * it shows: a file deleted meanwhile goes quietly, and so does one renamed, except in Downloads, where
+ * it shows its new name. One list for the whole app (see [of]).
  *
  * Reaching a file again needs no permission. Usugami can always read what it put into Downloads, and
  * it keeps its access to a document made with the "Save as" screen, or to the folder a copy went into,
@@ -45,11 +47,14 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
     private val store = AtomicFile(File(context.filesDir, "recent_files"))
     private val saver by lazy { PdfSaver(context) }
 
-    /** Writing the list, looking files over and giving accesses back: one at a time, off the main thread. */
+    /** Writing the list and giving accesses back: one at a time, off the main thread. */
     private val io = Dispatchers.IO.limitedParallelism(1)
     private val scope = CoroutineScope(SupervisorJob() + io)
 
-    /** Guards the list, [checked] and [unwritten], and keeps taking and giving back accesses in step with them. */
+    /** Looking files over: one check at a time, beside [io], so a slow place doesn't hold up the list. */
+    private val looking = Dispatchers.IO.limitedParallelism(1)
+
+    /** Guards the list, [checked], [round] and [unwritten], and keeps taking and giving back accesses in step with them. */
     private val lock = Any()
 
     private val _files = MutableStateFlow(read())
@@ -61,6 +66,9 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
 
     /** The files looked over since Usugami was last in the background. */
     private val checked = HashSet<String>()
+
+    /** Counts [checkAgain]s: a check begun before the last one doesn't count its files as looked over. */
+    private var round = 0
 
     /** Whether the list has changed since it was last written. */
     private var unwritten = false
@@ -107,16 +115,17 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
 
     /**
      * Looks for each listed file not looked for since Usugami was last in the background (see
-     * [checkAgain]). One deleted, or no longer on the phone, goes from the list; one renamed gets its
-     * new name; one Usugami can no longer read is marked [unreachable]. A query each, for at most
-     * [RecentFileList.MAX] files.
+     * [checkAgain]). One deleted goes from the list, and one renamed gets its new name or goes too (see
+     * [RecentFiles]); one Usugami can no longer read, or whose place is out of reach, is marked
+     * [unreachable]. A query or two each, for at most [RecentFileList.MAX] files.
      */
-    suspend fun check() = withContext(io) {
-        val due = synchronized(lock) { _files.value.filter { it.uri !in checked } }
+    suspend fun check() = withContext(looking) {
+        val (due, begun) = synchronized(lock) { _files.value.filter { it.uri !in checked } to round }
         if (due.isEmpty()) return@withContext
         val looks = due.associate { it.uri to look(it.uri.toUri()) }
         synchronized(lock) {
-            checked += looks.keys
+            // Usugami went into the background meanwhile, where files may change again: they are looked for once more.
+            if (begun == round) checked += looks.keys
             change { list ->
                 list.mapNotNull { file ->
                     when (val look = looks[file.uri]) {
@@ -132,7 +141,10 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
 
     /** Usugami went into the background, where files can be deleted, moved or renamed: they are looked for again. */
     fun checkAgain() {
-        synchronized(lock) { checked.clear() }
+        synchronized(lock) {
+            checked.clear()
+            round++
+        }
     }
 
     /** Opens [file] in an app the user picks. */
@@ -143,7 +155,10 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
 
     /** For tests: returns once the changes made so far are written. */
     @VisibleForTesting
-    internal suspend fun awaitWrites() = withContext(io) {}
+    internal suspend fun awaitWrites() {
+        // Twice: a change waiting its turn on [io], as Clear list's does, starts its write there only once it runs.
+        repeat(2) { withContext(io) {} }
+    }
 
     /**
      * Puts [change] into effect, under [lock]: gives back the accesses no listed file needs any more,
@@ -217,18 +232,66 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
         }
     }
 
-    /** Whether the file at [uri] is still there, with its name and size, has gone, or is out of Usugami's reach. */
-    private fun look(uri: Uri): Look = try {
-        resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
-            if (!c.moveToFirst()) return@use Look.Gone
-            val name = c.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 && !c.isNull(it) }?.let(c::getString)
-            val size = c.getColumnIndex(OpenableColumns.SIZE).takeIf { it >= 0 && !c.isNull(it) }?.let(c::getLong)
-            Look.Found(name?.takeIf { it.isNotBlank() }, size)
-        } ?: Look.Gone
+    /**
+     * Whether the file at [uri] is still there, with its name and size, has gone, or is out of Usugami's
+     * reach. A place says a file has gone in a way of its own: with no row, with no answer at all, with
+     * an error for one in a folder Usugami was given (Android's own storage does), or by still listing
+     * it, as empty (Downloads does, in a folder of its own). Each is checked against the place, so that
+     * a file isn't dropped, and its access given back, while its place is only out of reach.
+     */
+    private fun look(uri: Uri): Look {
+        val found = try {
+            resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+                if (!c.moveToFirst()) return Look.Gone
+                val name = c.getColumnIndex(OpenableColumns.DISPLAY_NAME).takeIf { it >= 0 && !c.isNull(it) }?.let(c::getString)
+                val size = c.getColumnIndex(OpenableColumns.SIZE).takeIf { it >= 0 && !c.isNull(it) }?.let(c::getLong)
+                Look.Found(name?.takeIf { it.isNotBlank() }, size)
+            }
+        } catch (_: SecurityException) {
+            // Usugami's access has ended.
+            return Look.Lost
+        } catch (_: IllegalArgumentException) {
+            // How Android's own storage answers for a file no longer in the folder Usugami was given.
+            if (!DocumentsContract.isTreeUri(uri)) return Look.Lost
+            null
+        } catch (_: Exception) {
+            // The place fails in a way of its own: the file stays listed rather than vanish over what may pass.
+            return Look.Lost
+        }
+        return when {
+            found == null -> if (placeAnswers(uri)) Look.Gone else Look.Lost
+            // Usugami never saves an empty file.
+            found.size == 0L && !opens(uri) -> Look.Gone
+            else -> found
+        }
+    }
+
+    /**
+     * Whether the place [uri] is in still answers, so that its having nothing for the file means the
+     * file has gone. For a file reached through a folder Usugami was given, the folder must be found:
+     * one on an SD card taken out keeps its files listed. Otherwise the app that holds the file must be
+     * there to ask, not disabled or being updated.
+     */
+    private fun placeAnswers(uri: Uri): Boolean = try {
+        if (DocumentsContract.isTreeUri(uri)) {
+            val folder = DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
+            resolver.query(folder, arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID), null, null, null)?.use { it.moveToFirst() } == true
+        } else {
+            resolver.acquireUnstableContentProviderClient(uri)?.use { true } == true
+        }
     } catch (_: Exception) {
-        // Usugami's access has ended (a SecurityException), or the place fails in a way of its own:
-        // the file stays listed rather than vanish over what may pass.
-        Look.Lost
+        false
+    }
+
+    /** Whether the file at [uri], which its place lists as empty, can still be opened. */
+    private fun opens(uri: Uri): Boolean = try {
+        resolver.openFileDescriptor(uri, "r")?.close()
+        true
+    } catch (_: FileNotFoundException) {
+        false
+    } catch (_: Exception) {
+        // Something other than the file missing: it stays as it was found.
+        true
     }
 
     /** What looking for a listed file found. */

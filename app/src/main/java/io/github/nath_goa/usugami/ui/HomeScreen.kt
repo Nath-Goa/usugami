@@ -334,6 +334,7 @@ fun HomeScreen(
 private fun RecentFilesSection(files: List<RecentFile>, actions: RecentFileActions, onSeeAll: () -> Unit) {
     // The file whose menu is open, kept when the activity is recreated.
     val menu = rememberSaveable { mutableStateOf<String?>(null) }
+    val today = rememberToday()
     Column {
         Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -348,7 +349,7 @@ private fun RecentFilesSection(files: List<RecentFile>, actions: RecentFileActio
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (file in files.take(HOME_RECENT_FILES)) {
-                key(file.uri) { RecentFileRow(file, menu, actions) }
+                key(file.uri) { RecentFileRow(file, today, menu, actions) }
             }
         }
     }

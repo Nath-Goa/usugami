@@ -749,9 +749,9 @@
     <string name="recent_clear_title">Clear the list?</string>
     <string name="recent_clear_body">The files stay where you saved them. Only this list is cleared.</string>
     <string name="recent_empty">Files you save show here, so you can open and share them again.</string>
-    <!-- A listed file Usugami can no longer reach: its access to the file has ended. %1$s is the file's name. -->
+    <!-- A listed file Usugami can no longer reach: its access to the file has ended, or the place it is in (an SD card, say) is out of reach. %1$s is the file's name. -->
     <string name="recent_lost_title">Can\'t open this file</string>
-    <string name="recent_lost_body">Usugami can no longer open %1$s. You can still find it with your phone\'s Files app.</string>
+    <string name="recent_lost_body">Usugami can no longer open %1$s. If the file still exists, you can find it with your phone\'s Files app.</string>
 
     <!-- Searching for a tool on Home -->
     <string name="home_search_hint">Search tools</string>

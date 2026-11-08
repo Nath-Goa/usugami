@@ -24,7 +24,8 @@ public, so please don't include personal details. To report a security problem p
 
 - Only the images, PDFs, Word and PowerPoint files, and EPUB books you choose. You pick them with Android's
   photo picker or file picker, or you share them to Usugami from another app. Android then gives Usugami access to those files
-  only. Usugami cannot browse your photos or other files.
+  only, and to a folder you pick to save into (see Recent files below). Usugami cannot browse your
+  photos or any other files or folders.
 - Usugami asks for no permissions: no storage, camera, location, contacts or microphone access.
 - **Take photo** opens your phone's own camera app, which saves just that one photo for Usugami.
   Usugami never uses the camera itself, and the photo stays in Usugami's private working copies
@@ -50,8 +51,10 @@ public, so please don't include personal details. To report a security problem p
   privately on your phone.
 - Recent files: the name, type, size and place of the last 50 files you saved with Usugami, and
   when you saved them, stored privately on your phone so you can open and share them again from
-  Home. For a file saved with "Save as" or into a folder you picked, Usugami keeps Android's
-  permission to read it while it is on the list, and gives that permission back when it leaves.
+  Home. For a file saved with "Save as", Usugami keeps Android's permission to read that file while
+  it is on the list. For files saved into a folder you picked, it keeps Android's permission to read
+  that folder, and what is in it, while one of them is on the list, and uses it only to open, share
+  and check on those files. Usugami gives each permission back once no file on the list needs it.
 - Usugami excludes its data from Android's cloud backup and device-to-device transfer.
 
 Nothing is stored anywhere else. Usugami has no servers.
