@@ -959,13 +959,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val input = inputs.value.singleOrNull() ?: return
         process(fileName, listOf(input), afterResult = { files ->
             // The engine keeps the original file when re-encoding would not make an unprotected PDF
-            // smaller. Say so, otherwise the result looks like nothing happened.
+            // smaller. Say so, otherwise the result looks like nothing happened. A PDF with a password
+            // can't be kept (no tool's PDF has one), and without it may come out bigger: that is said too.
             val file = files.single()
-            if (input.password.isEmpty() && Compressor.savedPercent(file.originalBytes, file.sizeBytes) == null) {
-                message(strings.getString(R.string.pdf_no_reduction))
-            }
+            if (!madeSmaller(file)) message(strings.getString(if (file.keptOriginal) R.string.pdf_no_reduction else R.string.pdf_not_smaller))
         }) { check -> listOf(engine.compress(input, level, fileName, check)) }
     }
+
+    /** Whether Compress PDF made [file] at least 1% smaller than the PDF it was made of. */
+    private fun madeSmaller(file: PdfFile) = Compressor.savedPercent(file.originalBytes, file.sizeBytes) != null
 
     /**
      * Compresses every PDF, each at its own level ([compressionOf]) into a PDF of its own name
@@ -978,7 +980,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             return
         }
         val jobs = list.map { CompressJob(it, compressionOf(it), outputName(PdfTool.COMPRESS, it)) }
-        processEach("Compressed_PDFs", list.map { it.name }, list) { check, onNext -> engine.compressEach(jobs, check, onNext) }
+        // Those not made smaller and not kept as they were: with a password, as in runCompress. A PDF
+        // kept says so under its name.
+        var notSmaller = emptyList<String>()
+        processEach("Compressed_PDFs", list.map { it.name }, list, afterResult = {
+            if (notSmaller.isNotEmpty()) message(strings.getQuantityString(R.plurals.batch_not_smaller, notSmaller.size, notSmaller.size, notSmaller.joinToString(", ")))
+        }) { check, onNext ->
+            engine.compressEach(jobs, check, onNext).also { outcomes ->
+                notSmaller = outcomes.withIndex().filter { (_, outcome) -> outcome.getOrNull()?.let { !it.keptOriginal && !madeSmaller(it) } == true }.map { list[it.index].name }
+            }
+        }
     }
 
     /** The level [input] is to be compressed at: its own, or the one chosen for all. */

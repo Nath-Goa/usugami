@@ -116,6 +116,13 @@
         <item quantity="other">Compress %d PDFs</item>
     </plurals>
     <string name="pdf_no_reduction">This PDF is already compact; the original size was kept.</string>
+    <!-- Compress PDF with a PDF that had a password: it couldn't keep the original, and the new PDF is no smaller. -->
+    <string name="pdf_not_smaller">This PDF couldn\'t be made any smaller.</string>
+    <!-- Compress PDF with several PDFs: %1$d counts those that had a password and came out no smaller (never 0), %2$s lists their names. -->
+    <plurals name="batch_not_smaller">
+        <item quantity="one">%2$s couldn\'t be made any smaller.</item>
+        <item quantity="other">%1$d PDFs couldn\'t be made any smaller: %2$s.</item>
+    </plurals>
     <string name="pdf_compress_note">Text and drawings stay sharp. Images are reduced where it saves space.</string>
     <string name="compression_for_all">Compression for all PDFs</string>
     <string name="compression_for_all_hint">Change one below to give it a level of its own.</string>
