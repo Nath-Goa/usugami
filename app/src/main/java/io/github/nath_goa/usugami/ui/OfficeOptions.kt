@@ -3,17 +3,16 @@ package io.github.nath_goa.usugami.ui
 import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
@@ -177,7 +176,8 @@ internal fun SheetPageOptions(options: SheetOptions, onChange: (SheetOptions) ->
         false -> label(PageOrientation.PORTRAIT)
     }
     Column {
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // The chips go one under the other when they don't fit side by side, as with large text.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OptionChip(
                 label = stringResource(R.string.option_page_size),
                 value = options.paper?.let { label(it) } ?: asFile,

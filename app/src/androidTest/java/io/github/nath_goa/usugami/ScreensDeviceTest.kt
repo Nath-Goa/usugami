@@ -357,7 +357,7 @@ class ScreensDeviceTest {
         }
         val headings = listOf(R.string.home_section_create, R.string.home_section_organize, R.string.home_section_edit, R.string.home_section_optimize)
         val sections = listOf(
-            listOf(R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_epub),
+            listOf(R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_excel, R.string.tool_epub),
             listOf(R.string.tool_merge, R.string.tool_split, R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate),
             listOf(R.string.tool_edit, R.string.tool_sign, R.string.tool_page_numbers, R.string.tool_watermark),
             listOf(R.string.tool_compress, R.string.tool_redact, R.string.tool_flatten),
@@ -374,7 +374,13 @@ class ScreensDeviceTest {
         val seen = ArrayList<String>()
         val down = AccessibilityAction.ACTION_SCROLL_DOWN
         repeat(12) {
-            Thread.sleep(400)
+            // Read once the list has stopped moving: a card read halfway through a scroll can be passed over.
+            var before: List<Int>? = null
+            waitUntil("Home to stop scrolling") {
+                Thread.sleep(150)
+                val tops = nodes().map { Rect().also(it::getBoundsInScreen).top }
+                (tops == before).also { before = tops }
+            }
             val shown = nodes().filter { name(it) != null }.sortedBy { Rect().also(it::getBoundsInScreen).top }
             for (node in shown) {
                 val named = name(node)!!
@@ -393,7 +399,7 @@ class ScreensDeviceTest {
 
     /** Every tool's name, as its card on Home shows it. */
     private val toolNames = listOf(
-        R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_epub, R.string.tool_merge, R.string.tool_split,
+        R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_excel, R.string.tool_epub, R.string.tool_merge, R.string.tool_split,
         R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate, R.string.tool_edit, R.string.tool_sign,
         R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_compress, R.string.tool_redact, R.string.tool_flatten,
     )
@@ -459,6 +465,9 @@ class ScreensDeviceTest {
         // (here typed where the keyword "reduce size" has none).
         type(searchField(), "SIZE réduce")
         waitForTools(english.getString(R.string.tool_compress), resources = english)
+        // Excel to PDF, by a word for what it takes.
+        type(searchField(), "spreadsheet")
+        waitForTools(english.getString(R.string.tool_excel), resources = english)
         // Tools with the word in their name come first.
         type(searchField(), "page")
         waitUntil("tools named with \"page\" first") {

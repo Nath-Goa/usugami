@@ -17,7 +17,7 @@ import kotlin.math.sin
 
 /**
  * A theme (theme1.xml): the colour scheme and the heading ("major") and body ("minor") fonts that
- * Word and PowerPoint documents refer to by name.
+ * Word, PowerPoint and Excel documents refer to by name.
  */
 internal class OfficeTheme(val colors: Map<String, Int>, val majorFont: String?, val minorFont: String?) {
     /** A theme font reference such as "+mn-lt" or "minorHAnsi", or [name] itself. */

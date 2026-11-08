@@ -1603,7 +1603,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /**
-     * Runs [block], which reads [sources] (or the Word, PowerPoint or EPUB files [documents]) and
+     * Runs [block], which reads [sources] (or the Word, PowerPoint, Excel or EPUB files [documents]) and
      * makes PDFs named after [name]. Every tool writes PDFs without a password.
      */
     private fun process(

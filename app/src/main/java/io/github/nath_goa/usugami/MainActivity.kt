@@ -68,7 +68,7 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Files shared from a gallery, a file manager or another app: images are added to the current
-     * list, PDFs open Choose a tool, and Word, PowerPoint and EPUB files their converter (see
+     * list, PDFs open Choose a tool, and Word, PowerPoint, Excel and EPUB files their converter (see
      * [MainViewModel.share]).
      */
     private fun handleShare(intent: Intent) {

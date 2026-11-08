@@ -6,6 +6,7 @@ import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.RectF
 import androidx.core.graphics.withClip
+import androidx.core.graphics.withTranslation
 import io.github.nath_goa.usugami.core.HeaderRun
 import io.github.nath_goa.usugami.core.SheetHeaders
 import io.github.nath_goa.usugami.core.SheetPages
@@ -99,6 +100,9 @@ internal class AreaLayout(
     /** The paper's margins, as laid out. */
     val margins: SheetMargins get() = margins(plan.setup.margins, pageWidth, pageHeight)
 
+    /** The merged blocks with something in them. */
+    private val filledMerges by lazy { plan.merges.filter { plan.content.any(it.firstRow, it.lastRow, it.firstColumn, it.lastColumn) } }
+
     /**
      * Whether page ([rowBand], [columnBand]) has anything on it: a cell with something in it or a
      * format that shows, part of a merged block with something in it, or a picture.
@@ -111,7 +115,7 @@ internal class AreaLayout(
         if (plan.content.any(top, bottom, left, right)) return true
         // A merged block reaching onto the page from another, with something in it.
         val band = SheetRange(top, left, bottom, right)
-        if (plan.merges.any { it.intersect(band) != null && plan.content.any(it.firstRow, it.lastRow, it.firstColumn, it.lastColumn) }) return true
+        if (filledMerges.any { it.intersect(band) != null }) return true
         val x0 = plan.columns.offset(left).toFloat()
         val x1 = plan.columns.offset(right + 1).toFloat()
         val y0 = plan.rows.offset(top).toFloat()
@@ -181,12 +185,11 @@ internal class SheetPainter(
         val left = margins.left + if (plan.setup.centerHorizontally) max(0f, (bodyWidth - contentWidth) / 2) else 0f
         val top = margins.top + if (plan.setup.centerVertically) max(0f, (bodyHeight - contentHeight) / 2) else 0f
         val placed = HashMap<Int, List<Placed>>()
-        canvas.save()
-        canvas.translate(left * U, top * U)
-        canvas.scale(layout.scale, layout.scale)
         val grid = gridlines && (plan.gridlinesShown || plan.gridlinesPrinted)
-        for (region in regions) drawRegion(canvas, layout, region, cells, placed, grid)
-        canvas.restore()
+        canvas.withTranslation(left * U, top * U) {
+            scale(layout.scale, layout.scale)
+            for (region in regions) drawRegion(this, layout, region, cells, placed, grid)
+        }
     }
 
     private fun drawRegion(canvas: Canvas, layout: AreaLayout, region: Region, cells: PageCells, placed: HashMap<Int, List<Placed>>, grid: Boolean) {

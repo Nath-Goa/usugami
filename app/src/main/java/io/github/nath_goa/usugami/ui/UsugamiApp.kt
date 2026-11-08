@@ -134,7 +134,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     var confirmShare by rememberSaveable { mutableStateOf(false) }
     // The tool showing was opened from Choose a tool, which it goes back to.
     var toolFromShare by rememberSaveable { mutableStateOf(false) }
-    // The converter showing was opened for Word, PowerPoint or EPUB files shared to Usugami.
+    // The converter showing was opened for Word, PowerPoint, Excel or EPUB files shared to Usugami.
     var docsFromShare by rememberSaveable { mutableStateOf(false) }
     // Said once that the files shared open when the PDF being made is done.
     var toldShareWaits by rememberSaveable { mutableStateOf(false) }
@@ -219,7 +219,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val picturePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null && route == pickingFor) pdfVm.addPicture(uri)
     }
-    // For Word, PowerPoint and EPUB to PDF: the tool showing says which kind of file it takes.
+    // For Word, PowerPoint, Excel and EPUB to PDF: the tool showing says which kind of file it takes.
     val documentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         val kind = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }?.officeKind
         if (kind != null && route == pickingFor) pdfVm.addDocuments(uris, kind)
@@ -346,7 +346,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         route = afterTool()
     }
 
-    // PDFs, Word, PowerPoint and EPUB files shared to Usugami open where they belong (see [sharedRoute]).
+    // PDFs, Word, PowerPoint, Excel and EPUB files shared to Usugami open where they belong (see [sharedRoute]).
     // Leaving a PDF tool discards its PDF, so a tool with work that isn't saved asks first, and a PDF
     // being made is waited for. Once copied in, the files go to the tool that opened for them.
     LaunchedEffect(sharedFiles, sharing, route, pdfResult != null, pdfProcessing, progress != null, pdfImporting, confirmShare, stayOnPdf) {
@@ -669,7 +669,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                     pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
                                 }
                             },
-                            // Word, PowerPoint and EPUB to PDF take several files of their kind.
+                            // Word, PowerPoint, Excel and EPUB to PDF take several files of their kind.
                             pickMultiple = {
                                 val kind = tool.officeKind
                                 launch(R.string.msg_no_picker) {
