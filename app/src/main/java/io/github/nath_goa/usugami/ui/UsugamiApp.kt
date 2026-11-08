@@ -70,6 +70,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val compression by vm.compression.collectAsStateWithLifecycle()
     val pendingImports by vm.pendingImports.collectAsStateWithLifecycle()
     val crop by vm.crop.collectAsStateWithLifecycle()
+    val scan by vm.scan.collectAsStateWithLifecycle()
     val cropping by vm.cropping.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
     val cancelling by vm.cancelling.collectAsStateWithLifecycle()
@@ -172,9 +173,29 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
 
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { vm.addImages(it) }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.addImages(it) }
+    // The editor was opened by Home's Scan document: when its scan leaves no page (the camera closed
+    // without a photo, or the photo discarded), it goes back to Home rather than to an empty editor.
+    var scanFromHome by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(route) { if (route != "images") scanFromHome = false }
+
+    /** Back to Home after a scan from Home that left no page, with nothing still being added. */
+    fun homeIfNothingScanned() {
+        if (scanFromHome && route == "images" && vm.items.value.isEmpty() && vm.pendingImports.value == 0 && vm.crop.value == null) route = "home"
+    }
+    // Scan document's Upload images: the images picked are added, and cropped one after another.
+    // Nothing picked leaves Home as it was.
+    val scanPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
+        if (uris.isNotEmpty()) {
+            vm.scanImages(uris)
+            if (route == "home") route = "images"
+        }
+    }
     // The phone's own camera app takes the photos, into a file Usugami gives it: Usugami needs no
-    // camera permission.
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { vm.photoTaken(it) }
+    // camera permission. Also when Android closed Usugami while it was open, this comes back.
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { taken ->
+        vm.photoTaken(taken)
+        if (!taken) homeIfNothingScanned()
+    }
     // The PDF tool whose picker is open. What is picked goes to that tool while it shows, and not to
     // Home or another tool when the user left before the picker covered Usugami.
     var pickingFor by rememberSaveable { mutableStateOf<String?>(null) }
@@ -249,15 +270,20 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
 
-    /** Opens the camera app to take a photo for a page; it is added and cropped when it comes back. */
-    fun takePhoto() {
-        if (!opener.open()) return
+    /**
+     * Opens the camera app to take a photo for a page; it is added and cropped when it comes back.
+     * Returns whether it opened.
+     */
+    fun takePhoto(): Boolean {
+        if (!opener.open()) return false
         try {
             camera.launch(vm.newCapture())
+            return true
         } catch (_: ActivityNotFoundException) {
             opener.notOpened()
             vm.photoTaken(false)
             vm.showMessage(R.string.msg_no_camera)
+            return false
         }
     }
 
@@ -361,12 +387,13 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     // sit one level deeper than home, and so do Settings ("settings"), About ("settings/about") and
     // the texts About opens ("settings/about/privacy"); that depth decides the slide direction.
     // A tool opened from Choose a tool ("share") sits one level deeper than it. The crop screen sits
-    // beside the editor's result.
+    // beside the editor's result; a scan of images picked keeps it showing while its next image is
+    // awaited.
     val screen = when {
         route == "home" || route.startsWith("settings") || route == "share" -> route
         route == "images" -> when {
             result != null -> "images/result"
-            crop != null -> "images/crop"
+            crop != null || scan != null -> "images/crop"
             else -> "images"
         }
         else -> (if (toolFromShare) "share/" else "") + if (pdfResult == null) route else "$route/result"
@@ -403,6 +430,18 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         snackbar = screenSnackbar,
                         query = homeQuery,
                         onQueryChange = { homeQuery = it },
+                        // The camera opens over the editor, where its photo is added.
+                        onScanPhoto = {
+                            if (takePhoto()) {
+                                route = "images"
+                                scanFromHome = true
+                            }
+                        },
+                        onScanUpload = {
+                            launch(R.string.msg_no_picker) {
+                                scanPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            }
+                        },
                         onImages = { route = "images" },
                         onTool = { tool ->
                             pdfVm.reset()
@@ -506,23 +545,24 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                     )
                 }
                 current == "images/crop" -> {
-                    val session = freezeWhen(!active, crop)
-                    val item = freezeWhen(!active, session?.let { s -> items.firstOrNull { it.id == s.itemId } })
-                    BackHandler(enabled = active) { vm.closeCrop() }
-                    if (session != null) {
-                        CropScreen(
-                            session = session,
-                            item = item,
-                            pageCount = items.size,
-                            snackbar = screenSnackbar,
-                            actions = CropActions(
-                                done = { corners, look, allPages -> vm.finishCrop(corners, look, allPages) },
-                                // A second tap, once the first has closed the screen, opens no second camera.
-                                takeAnother = { corners, look, allPages -> if (vm.finishCrop(corners, look, allPages)) takePhoto() },
-                                close = vm::closeCrop,
-                            ),
-                        )
-                    }
+                    // Back is the screen's own: on its second step, it goes back to the first.
+                    CropScreen(
+                        session = freezeWhen(!active, crop),
+                        items = freezeWhen(!active, items),
+                        scan = freezeWhen(!active, scan),
+                        active = active,
+                        arrived = active && transition.currentState == EnterExitState.Visible,
+                        snackbar = screenSnackbar,
+                        actions = CropActions(
+                            done = { vm.finishCrop(it.corners, it.look, it.allPages, it.adjustments, it.rotation) },
+                            // A second tap, once the first has closed the screen, opens no second camera.
+                            takeAnother = { if (vm.finishCrop(it.corners, it.look, it.allPages, it.adjustments, it.rotation)) takePhoto() },
+                            close = {
+                                vm.closeCrop()
+                                homeIfNothingScanned()
+                            },
+                        ),
+                    )
                 }
                 current == "images/result" -> {
                     val files = freezeWhen(!active, result) ?: emptyList()

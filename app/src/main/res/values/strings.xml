@@ -11,6 +11,11 @@
     <string name="home_subtitle">Your files stay on this phone. No ads, account, or uploads.</string>
     <string name="tool_images">Images to PDF</string>
     <string name="tool_images_detail">Camera scans, JPGs and PNGs to PDF, with text recognition</string>
+    <!-- The large card at the top of Home: take photos of a paper document, or pick images of one, then crop and clean up each page. -->
+    <string name="scan_title">Scan document</string>
+    <string name="scan_detail">Take photos or upload images, then crop and clean them up</string>
+    <!-- Picks images from the phone's gallery: nothing leaves the phone. -->
+    <string name="scan_upload">Upload images</string>
     <string name="tool_split">Split PDF</string>
     <string name="tool_split_detail">Extract pages or split into smaller files</string>
     <string name="tool_merge">Merge PDF</string>
@@ -503,8 +508,30 @@
     <string name="crop_corner_top_right">Top-right corner</string>
     <string name="crop_corner_bottom_right">Bottom-right corner</string>
     <string name="crop_corner_bottom_left">Bottom-left corner</string>
+    <!-- Handles in the middle of each side of the page's outline: dragging one moves that whole side. -->
+    <string name="crop_side_top">Top side</string>
+    <string name="crop_side_right">Right side</string>
+    <string name="crop_side_bottom">Bottom side</string>
+    <string name="crop_side_left">Left side</string>
+    <!-- Turn the image (and the page's outline on it) a quarter turn. -->
+    <string name="crop_rotate_left">Rotate left</string>
+    <string name="crop_rotate_right">Rotate right</string>
+    <!-- Goes on from cropping the page to choosing its look; during a scan of several images, also on to the next image. -->
+    <string name="crop_next">Next</string>
+    <!-- The crop screen's close button while several uploaded images are cropped one after another: the images not cropped yet stay as they are. -->
+    <string name="crop_stop">Stop cropping</string>
     <string name="crop_failed">Couldn\'t crop the page. It was kept as it was.</string>
-    <!-- How the page looks in the PDF, chosen on the crop screen: a heading, then the four looks. -->
+    <!-- The second step of cropping a page: its look, brightness and contrast. -->
+    <string name="filter_title">Filters</string>
+    <string name="filter_preview_description">The page, as it will be in the PDF</string>
+    <string name="filter_brightness">Brightness</string>
+    <string name="filter_contrast">Contrast</string>
+    <!-- Puts the slider back in the middle, at 0. -->
+    <string name="filter_reset_brightness">Reset brightness</string>
+    <string name="filter_reset_contrast">Reset contrast</string>
+    <!-- Under the title while several uploaded images are cropped one after another, e.g. "Page 2 of 5". -->
+    <string name="scan_place">Page %1$d of %2$d</string>
+    <!-- How the page looks in the PDF, chosen on the filters step: a heading over the looks. -->
     <string name="look_title">Look</string>
     <string name="look_original">Original</string>
     <!-- The paper made white and the print darker, in colour. -->
@@ -697,6 +724,7 @@
     <!-- Hidden words that also find a tool when searched for on Home, separated by commas. They are
          never shown: use the words people would type in this language for what the tool does. -->
     <string name="search_keywords_images">photo, picture, JPEG, scan, scanner, camera, gallery, document, black and white, OCR</string>
+    <string name="search_keywords_scan">scan, scanner, CamScanner, camera, photo, document, paper, receipt, crop, enhance, filter, brightness, contrast, black and white</string>
     <string name="search_keywords_word">doc, docx, document, Office, convert</string>
     <string name="search_keywords_powerpoint">ppt, pptx, slides, presentation, Office, convert</string>
     <string name="search_keywords_merge">join, combine, append, put together</string>

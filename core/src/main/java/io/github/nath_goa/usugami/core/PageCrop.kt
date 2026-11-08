@@ -35,6 +35,63 @@ data class CropQuad(val corners: List<CropPoint>) {
     /** Corner [index] moved by ([dx], [dy]), kept on the image. */
     fun moved(index: Int, dx: Float, dy: Float): CropQuad = with(index, corners[index].x + dx, corners[index].y + dy)
 
+    /**
+     * Side [side] (from corner [side] to the next, clockwise: [TOP_SIDE] and so on) dragged by ([dx],
+     * [dy]), as fractions of the image, on an image [width] × [height] pixels. Only the part of the drag
+     * across the side counts: the side moves parallel to itself, and its two corners slide along the
+     * sides beside it, as a page's edge does. When a side beside it is (nearly) parallel to it, or a
+     * corner would leave the image that way, both corners move straight across instead. The corners
+     * stay on the image.
+     */
+    fun movedSide(side: Int, dx: Float, dy: Float, width: Int, height: Int): CropQuad {
+        val first = side
+        val second = (side + 1) % 4
+        // In pixels: a fraction of the width and one of the height aren't the same length.
+        val xs = DoubleArray(4) { corners[it].x.toDouble() * width }
+        val ys = DoubleArray(4) { corners[it].y.toDouble() * height }
+        val sideX = xs[second] - xs[first]
+        val sideY = ys[second] - ys[first]
+        val length = hypot(sideX, sideY)
+        // A side with no length has no direction: its corners just follow the drag.
+        if (length < 1e-9) return moved(first, dx, dy).moved(second, dx, dy)
+        val normalX = -sideY / length
+        val normalY = sideX / length
+        val across = dx.toDouble() * width * normalX + dy.toDouble() * height * normalY
+
+        // Where a corner goes sliding along its other side, the one to [other], for the side to move
+        // across: null when that side is nearly parallel to the one moved, or the corner would leave
+        // the image.
+        fun slid(corner: Int, other: Int): CropPoint? {
+            val alongX = xs[corner] - xs[other]
+            val alongY = ys[corner] - ys[other]
+            val alongLength = hypot(alongX, alongY)
+            if (alongLength < 1e-9) return null
+            val slant = (alongX * normalX + alongY * normalY) / alongLength
+            if (abs(slant) < MIN_SLANT) return null
+            val t = across / (slant * alongLength)
+            val x = (xs[corner] + t * alongX) / width
+            val y = (ys[corner] + t * alongY) / height
+            return if (x in -EDGE..1 + EDGE && y in -EDGE..1 + EDGE) CropPoint(x.toFloat().coerceIn(0f, 1f), y.toFloat().coerceIn(0f, 1f)) else null
+        }
+        val a = slid(first, (side + 3) % 4)
+        val b = slid(second, (side + 2) % 4)
+        if (a != null && b != null) return with(first, a.x, a.y).with(second, b.x, b.y)
+        val shiftX = (across * normalX / width).toFloat()
+        val shiftY = (across * normalY / height).toFloat()
+        return moved(first, shiftX, shiftY).moved(second, shiftX, shiftY)
+    }
+
+    /**
+     * The same corners on the image turned [degrees] clockwise (a multiple of 90): each goes where
+     * the turn takes it, and is named for where it lands, so a quarter turn makes corner i corner
+     * i + 1 (and side i side i + 1). Turning back gives the same corners again.
+     */
+    fun turned(degrees: Int): CropQuad {
+        val quarters = Math.floorMod(degrees, 360) / 90
+        val moved = transformed(ImageTransform.rotation(degrees))
+        return CropQuad(List(4) { moved[Math.floorMod(it - quarters, 4)] })
+    }
+
     /** Each corner put where [transform] takes it (as the image is turned or flipped), in the same order. */
     fun transformed(transform: ImageTransform): CropQuad = CropQuad(
         corners.map { p ->
@@ -85,8 +142,23 @@ data class CropQuad(val corners: List<CropPoint>) {
         const val BOTTOM_RIGHT = 2
         const val BOTTOM_LEFT = 3
 
+        /** The sides, each from the corner of the same number to the next: see [movedSide]. */
+        const val TOP_SIDE = 0
+        const val RIGHT_SIDE = 1
+        const val BOTTOM_SIDE = 2
+        const val LEFT_SIDE = 3
+
         /** The shortest side, in pixels of the image, that a cropped page can have. */
         const val MIN_SIDE = 16f
+
+        /**
+         * A side less than about 10 degrees from the side being moved counts as parallel to it: its
+         * corner would race along it, far further than the drag.
+         */
+        private const val MIN_SLANT = 0.17
+
+        /** How far past the image's edge, as a fraction of it, a sliding corner still counts as on it. */
+        private const val EDGE = 1e-6
 
         val WHOLE = CropQuad(listOf(CropPoint(0f, 0f), CropPoint(1f, 0f), CropPoint(1f, 1f), CropPoint(0f, 1f)))
 

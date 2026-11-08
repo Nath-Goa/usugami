@@ -1,18 +1,26 @@
 package io.github.nath_goa.usugami.ui
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -32,20 +40,28 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -73,6 +89,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ToolSearch
@@ -178,7 +195,7 @@ private val PdfTool.keywords: Int
         PdfTool.REDACT -> R.string.search_keywords_redact
     }
 
-/** A card on Home: Images to PDF, which has no [tool], or one of the PDF tools. */
+/** A card on Home: Images to PDF or Scan document, which have no [tool], or one of the PDF tools. */
 private class HomeCard(
     val tool: PdfTool?,
     val icon: ImageVector,
@@ -188,6 +205,9 @@ private class HomeCard(
 )
 
 private fun cards(tools: List<PdfTool>) = tools.map { HomeCard(it, it.icon, it.title, it.detail, it.keywords) }
+
+/** Scan document, as the search finds it: it shows with its two buttons, as at the top of Home. */
+private val ScanCard = HomeCard(null, Icons.Rounded.DocumentScanner, R.string.scan_title, R.string.scan_detail, R.string.search_keywords_scan)
 
 private class HomeSection(@param:StringRes val heading: Int, val cards: List<HomeCard>)
 
@@ -204,8 +224,10 @@ private val HomeSections = listOf(
 )
 
 /**
- * Home: the tools in their sections, and a search field above them. While something is typed, the
- * tools it finds show in one list instead, without the sections.
+ * Home: Scan document at the top, whose two buttons take a photo ([onScanPhoto]) or pick images
+ * ([onScanUpload]) to make pages of, then the tools in their sections, and a search field between
+ * them. While something is typed, what it finds (Scan document too) shows in one list instead,
+ * without the sections, and Scan document leaves the top.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -213,6 +235,8 @@ fun HomeScreen(
     snackbar: SnackbarHostState,
     query: String,
     onQueryChange: (String) -> Unit,
+    onScanPhoto: () -> Unit,
+    onScanUpload: () -> Unit,
     onImages: () -> Unit,
     onTool: (PdfTool) -> Unit,
     onSettings: () -> Unit,
@@ -249,12 +273,21 @@ fun HomeScreen(
         ) {
             Text(stringResource(R.string.home_subtitle), style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // While searching, it shows among what is found, if it is.
+            AnimatedVisibility(
+                visible = query.isBlank(),
+                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
+                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
+                label = "scan card",
+            ) {
+                ScanDocumentCard(onScanPhoto, onScanUpload, Modifier.padding(top = 16.dp))
+            }
             SearchField(query, onQueryChange, Modifier.padding(top = 16.dp))
             Crossfade(targetState = query.isNotBlank(), animationSpec = Motion.short(), label = "homeSearch") { searching ->
                 if (searching) {
                     // Once the search is cleared, the results fade out as they were (not as "no tools
                     // match", which a screen reader would also read out).
-                    SearchResults(freezeWhen(query.isBlank(), query), open)
+                    SearchResults(freezeWhen(query.isBlank(), query), open) { ScanDocumentCard(onScanPhoto, onScanUpload) }
                 } else {
                     // To add a tool, add its card to its section.
                     Column {
@@ -306,11 +339,12 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
 
 /**
  * The tools [query] finds, in one list without the sections, under a line saying how many there are
- * (or that there are none), which a screen reader reads out as the user types.
+ * (or that there are none), which a screen reader reads out as the user types. Scan document shows
+ * as [scanCard] when it is found.
  */
 @Composable
-private fun SearchResults(query: String, open: (HomeCard) -> Unit) {
-    val cards = HomeSections.flatMap { it.cards }
+private fun SearchResults(query: String, open: (HomeCard) -> Unit, scanCard: @Composable () -> Unit) {
+    val cards = listOf(ScanCard) + HomeSections.flatMap { it.cards }
     // Each card's name, then what it says it does and its hidden keywords, in the screens' language.
     // The tools that take several files at once are also found by words such as "batch".
     val batch = stringResource(R.string.search_keywords_batch)
@@ -332,7 +366,49 @@ private fun SearchResults(query: String, open: (HomeCard) -> Unit) {
                 .semantics { liveRegion = LiveRegionMode.Polite },
         )
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (card in found) ToolCard(card.icon, card.title, card.detail) { open(card) }
+            for (card in found) {
+                if (card === ScanCard) scanCard() else ToolCard(card.icon, card.title, card.detail) { open(card) }
+            }
+        }
+    }
+}
+
+/**
+ * Scan document: a card larger than the tools', in the theme's main colour, with a button that takes
+ * a photo and one that picks images, each starting at once.
+ */
+@Composable
+private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.DocumentScanner, contentDescription = null, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text(stringResource(R.string.scan_title), style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.scan_detail), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            // Side by side, as tall as each other when a long label takes two lines.
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = onTakePhoto, modifier = Modifier.weight(1f).fillMaxHeight(), contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                    Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.add_from_camera), textAlign = TextAlign.Center)
+                }
+                OutlinedButton(onClick = onUpload, modifier = Modifier.weight(1f).fillMaxHeight(), contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                    Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.scan_upload), textAlign = TextAlign.Center)
+                }
+            }
         }
     }
 }

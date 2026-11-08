@@ -60,6 +60,51 @@ class PageCropTest {
         assertEquals(CropQuad.WHOLE[CropQuad.TOP_RIGHT], moved[CropQuad.TOP_RIGHT])
     }
 
+    @Test fun aDraggedSideMovesAcrossWithItsCornersOnTheSidesBeside() {
+        // Narrower at the top, on a 1000 × 2000 image: the top side dragged up 100 pixels (and along
+        // itself, which doesn't count) takes its corners up the slanting sides, closer together.
+        val page = quad(0.3f, 0.2f, 0.7f, 0.2f, 0.9f, 0.8f, 0.1f, 0.8f)
+        val moved = page.movedSide(CropQuad.TOP_SIDE, 0.05f, -0.05f, 1000, 2000)
+        assertSame(quad(0.3f + 0.2f / 12, 0.15f, 0.7f - 0.2f / 12, 0.15f, 0.9f, 0.8f, 0.1f, 0.8f), moved)
+    }
+
+    @Test fun aSideDraggedAlongItselfStaysInPixelsNotFractions() {
+        // On a 2000 × 1000 image, the right side runs 600 pixels across and 800 down: a drag of 60
+        // and 80 pixels is along it, though as fractions (0.03, 0.08) it isn't.
+        val page = quad(0.1f, 0.1f, 0.6f, 0.1f, 0.9f, 0.9f, 0.1f, 0.9f)
+        assertSame(page, page.movedSide(CropQuad.RIGHT_SIDE, 0.03f, 0.08f, 2000, 1000))
+    }
+
+    @Test fun aSideMovesStraightAcrossWhenASideBesideIsNearlyParallel() {
+        // The left side runs almost along the top: sliding the top-left corner along it would send
+        // it far off.
+        val page = quad(0.5f, 0.3f, 0.9f, 0.3f, 0.9f, 0.9f, 0f, 0.32f)
+        assertSame(quad(0.5f, 0.35f, 0.9f, 0.35f, 0.9f, 0.9f, 0f, 0.32f), page.movedSide(CropQuad.TOP_SIDE, 0f, 0.05f, 1000, 1000))
+    }
+
+    @Test fun aSideMovesStraightAcrossWhenACornerWouldLeaveTheImageAndStaysOnIt() {
+        // Wider at the top, near the image's top edge: up the slanting sides the corners would go off
+        // the image, so they go straight up, and stop at the edge.
+        val page = quad(0.05f, 0.05f, 0.95f, 0.05f, 0.7f, 0.9f, 0.3f, 0.9f)
+        assertSame(quad(0.05f, 0f, 0.95f, 0f, 0.7f, 0.9f, 0.3f, 0.9f), page.movedSide(CropQuad.TOP_SIDE, 0f, -0.1f, 1000, 1000))
+        // The bottom side, moved down a little, slides along the sides as usual.
+        val down = page.movedSide(CropQuad.BOTTOM_SIDE, 0f, 0.02f, 1000, 1000)
+        assertEquals(0.92f, down[CropQuad.BOTTOM_RIGHT].y, 1e-5f)
+        assertTrue(down[CropQuad.BOTTOM_RIGHT].x < 0.7f && down[CropQuad.BOTTOM_LEFT].x > 0.3f)
+    }
+
+    @Test fun aQuarterTurnNamesEachCornerForWhereItLands() {
+        val page = quad(0.2f, 0.1f, 0.9f, 0.15f, 0.85f, 0.9f, 0.1f, 0.8f)
+        val turned = page.turned(90)
+        // The top-left corner lands top right, and is named so.
+        assertEquals(CropPoint(0.9f, 0.2f), turned[CropQuad.TOP_RIGHT])
+        assertSame(page.transformed(ImageTransform.rotation(90)).ordered(), turned)
+        // Turned back, or right round, the corners are where they were.
+        assertSame(page, turned.turned(-90))
+        assertSame(page, page.turned(180).turned(180))
+        assertSame(page.turned(-90), page.turned(270))
+    }
+
     @Test fun wholeAndInset() {
         assertTrue(CropQuad.WHOLE.isWhole())
         assertTrue(quad(0.001f, 0f, 1f, 0.0005f, 0.999f, 1f, 0f, 1f).isWhole())

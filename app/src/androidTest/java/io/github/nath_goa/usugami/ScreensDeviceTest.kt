@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami
 import android.app.Activity
 import android.app.Application
 import android.app.Instrumentation
+import android.content.ClipData
 import android.content.ActivityNotFoundException
 import android.content.ContentUris
 import android.content.ContentValues
@@ -46,6 +47,7 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.InkItem
+import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
@@ -59,6 +61,7 @@ import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.data.office.OfficeKind
+import io.github.nath_goa.usugami.ui.CropSession
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.SplitMode
@@ -1150,17 +1153,21 @@ class ScreensDeviceTest {
 
     /**
      * Stands in for the camera app: catches the photo Usugami asks for, "takes" [photo] into the file
-     * it was given and returns, or with [noCamera], fails as on a phone without a camera app.
+     * it was given and returns, or with [noCamera], fails as on a phone without a camera app. Without
+     * a [photo], it is closed without taking one.
      */
     private inner class Camera(private val photo: Bitmap?, private val noCamera: Boolean = false) : Instrumentation.ActivityMonitor() {
+        @Volatile var opened = 0
         @Volatile var taken = 0
 
         override fun onStartActivity(intent: Intent): Instrumentation.ActivityResult? {
             if (intent.action != MediaStore.ACTION_IMAGE_CAPTURE) return null
             if (noCamera) throw ActivityNotFoundException()
+            opened++
+            if (photo == null) return Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)
             val output = IntentCompat.getParcelableExtra(intent, MediaStore.EXTRA_OUTPUT, Uri::class.java)!!
             assertTrue("The camera app may write the file", (intent.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0)
-            app.contentResolver.openOutputStream(output)!!.use { photo!!.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            app.contentResolver.openOutputStream(output)!!.use { photo.compress(Bitmap.CompressFormat.JPEG, 92, it) }
             taken++
             return Instrumentation.ActivityResult(Activity.RESULT_OK, null)
         }
@@ -1175,16 +1182,112 @@ class ScreensDeviceTest {
         }
     }
 
+    /**
+     * Presses the enabled button [label] once it can be: one on a screen or step still sliding in
+     * may not be pressable yet.
+     */
+    private fun press(label: Int) {
+        val text = app.getString(label)
+        waitUntil("\"$text\" to be pressed") {
+            nodes().firstOrNull { it.says(text) && ancestor(it) { node -> node.isClickable }?.isEnabled == true }
+                ?.let { clickable(it).performAction(AccessibilityNodeInfo.ACTION_CLICK) } == true
+        }
+    }
+
+    /**
+     * Opens Images to PDF from Home, and waits for Home to go: its Scan document card has a Take photo
+     * button too.
+     */
+    private fun openImagesToPdf() {
+        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
+        // Home leaves the tree all at once as it starts to slide away (see openTool).
+        waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.settings)) } }
+    }
+
+    /** Opens Images to PDF from Home and takes a photo, with a [Camera] standing in; returns its crop screen's session. */
+    private fun photoOnTheCropScreen(vm: MainViewModel): CropSession {
+        openImagesToPdf()
+        click(button(R.string.add_from_camera))
+        find("the crop screen, which found the page") { it.says(app.getString(R.string.crop_found)) }
+        return checkNotNull(onMain { vm.crop.value })
+    }
+
+    /** Where the crop step's handle [name] (a corner or a side) is on the screen. */
+    private fun handle(name: Int): Rect {
+        val actions = listOf(R.string.edit_move_left, R.string.edit_move_up).map(app::getString)
+        return Rect().also(find("the handle") { it.says(app.getString(name)) && actions.any { action -> it.action(action) != null } }::getBoundsInScreen)
+    }
+
+    /** Waits for the crop step's image to stay put, once the screen has slid in. */
+    private fun awaitCropImageStill() {
+        // Named as a pane once it has come in.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val title = app.getString(R.string.crop_title)
+            waitUntil("the crop step to come in") { nodes().any { it.paneTitle?.toString() == title } }
+        }
+        val image = app.getString(R.string.crop_image_description)
+        fun bounds() = Rect().also(find("the image") { it.says(image) }::getBoundsInScreen)
+        waitUntil("the crop screen to settle") {
+            val now = bounds()
+            Thread.sleep(300)
+            now == bounds()
+        }
+    }
+
+    /**
+     * A finger on the screen at ([x], [y]), down since [downTime]: in real time, a frame apart, as
+     * Android holds back touches timed ahead of the frames.
+     */
+    private fun touch(downTime: Long, action: Int, x: Float, y: Float) {
+        val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x, y, 0)
+        event.source = InputDevice.SOURCE_TOUCHSCREEN
+        assertTrue(automation.injectInputEvent(event, true))
+        event.recycle()
+        Thread.sleep(16)
+    }
+
+    /** The finger down since [downTime] moved from one place to another, then held still a moment, as a finger is before it lets go. */
+    private fun moveFinger(downTime: Long, fromX: Float, fromY: Float, toX: Float, toY: Float) {
+        for (i in 1..15) touch(downTime, MotionEvent.ACTION_MOVE, fromX + (toX - fromX) * i / 15, fromY + (toY - fromY) * i / 15)
+        repeat(5) { touch(downTime, MotionEvent.ACTION_MOVE, toX, toY) }
+    }
+
+    /** The filters step's look [label], like a radio button, scrolled to as a screen reader would. */
+    private fun look(label: Int): AccessibilityNodeInfo {
+        val name = app.getString(label)
+        val right = AccessibilityAction.ACTION_SCROLL_RIGHT
+        repeat(8) {
+            nodes().firstOrNull { it.says(name) && it.isCheckable }?.let { return it }
+            nodes().firstOrNull { right in it.actionList }?.performAction(right.id) ?: return radio(name)
+            Thread.sleep(300)
+        }
+        return radio(name)
+    }
+
+    /** The filters step's slider [label]. */
+    private fun slider(label: Int) = find("the ${app.getString(label)} slider") {
+        it.says(app.getString(label)) && AccessibilityAction.ACTION_SET_PROGRESS in it.actionList
+    }
+
+    /** Slider [label]'s value, as Usugami says now (see [chosen]). */
+    private fun sliderValue(label: Int): Float = slider(label).run {
+        refresh()
+        rangeInfo.current
+    }
+
+    /** Sets slider [label] to [value], as a screen reader does. */
+    private fun setSlider(label: Int, value: Float) {
+        val arguments = Bundle().apply { putFloat(AccessibilityNodeInfo.ACTION_ARGUMENT_PROGRESS_VALUE, value) }
+        assertTrue(slider(label).performAction(AccessibilityAction.ACTION_SET_PROGRESS.id, arguments))
+    }
+
     @Test fun photosAreTakenAndCroppedWithAScreenReadersActions() {
         val first = launch()
         val vm = onMain { ViewModelProvider(first)[MainViewModel::class.java] }
-        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
         val camera = Camera(PagePhotos.photo())
         withCamera(camera) {
-            click(button(R.string.add_from_camera))
-            find("the crop screen, which found the page") { it.says(app.getString(R.string.crop_found)) }
+            val session = photoOnTheCropScreen(vm)
             assertEquals(1, camera.taken)
-            val session = checkNotNull(onMain { vm.crop.value })
             assertTrue(session.fromCamera)
 
             // The corners are items of their own, which a screen reader moves with actions: the
@@ -1196,7 +1299,7 @@ class ScreensDeviceTest {
             }
             // Chosen with a tap, the bottom-right corner moves three steps down with the arrow buttons.
             click(find("the bottom-right corner") { it.says(app.getString(R.string.crop_corner_bottom_right)) && it.action(left) != null })
-            // The corners are chosen like radio buttons.
+            // The corners and sides are chosen like radio buttons.
             waitUntil("the bottom-right corner to be chosen") {
                 nodes().any { it.says(app.getString(R.string.crop_corner_bottom_right)) && it.isCheckable && it.chosen }
             }
@@ -1207,15 +1310,14 @@ class ScreensDeviceTest {
             val activity = recreatedFrom(first)
             find("the crop screen, again") { it.says(app.getString(R.string.crop_found)) }
 
-            // Take another crops this photo and takes the next.
-            click(actionButton(R.string.crop_take_another))
+            // Next goes on to the page's look, where Take another crops this photo and takes the next.
+            press(R.string.crop_next)
+            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
+            press(R.string.crop_take_another)
             waitUntil("the next photo's crop screen") { onMain { vm.crop.value?.let { it.itemId != session.itemId } == true } }
             assertEquals(2, camera.taken)
-            // Leaving the crop screen of a photo just taken discards it. (Pressed once the new screen
-            // has settled: while it slides in, its button can't be pressed yet.)
-            waitUntil("the discard button to be pressed") {
-                nodes().firstOrNull { it.says(app.getString(R.string.crop_discard)) }?.let { clickable(it).performAction(AccessibilityNodeInfo.ACTION_CLICK) } == true
-            }
+            // Leaving the crop screen of a photo just taken discards it.
+            press(R.string.crop_discard)
             find("the editor") { it.says(app.getString(R.string.convert)) }
             waitUntil("the page to be cropped") { onMain { vm.items.value.size == 1 && vm.items.value.single().original != null } }
             val page = onMain { vm.items.value.single() }
@@ -1228,13 +1330,19 @@ class ScreensDeviceTest {
             assertEquals(session.found[CropQuad.TOP_LEFT].y, corners[CropQuad.TOP_LEFT].y, 1e-3f)
             assertEquals(session.found[CropQuad.BOTTOM_RIGHT].y + 3 * step / PagePhotos.PHOTO_HEIGHT, corners[CropQuad.BOTTOM_RIGHT].y, 1e-3f)
 
-            // The page's Crop button opens it again from the photo, with Back instead of discarding
-            // and without Take another; Back leaves the page as it was.
+            // The page's Crop button opens it again from the photo, with Back instead of discarding;
+            // its second step finishes with Done, without Take another. Back goes back a step at a
+            // time, and leaves the page as it was.
             click(find("the page's crop button") { it.says(app.getString(R.string.crop_page, 1)) })
             find("the crop screen for the page") { it.says(app.getString(R.string.crop_title)) }
             find("its back button") { it.says(app.getString(R.string.back)) }
-            assertTrue(nodes().none { it.says(app.getString(R.string.crop_take_another)) })
             assertTrue(nodes().none { it.says(app.getString(R.string.crop_discard)) })
+            press(R.string.crop_next)
+            find("its filters step") { it.says(app.getString(R.string.filter_title)) }
+            actionButton(R.string.crop_done)
+            assertTrue(nodes().none { it.says(app.getString(R.string.crop_take_another)) })
+            backKey()
+            find("its crop step, again") { it.says(app.getString(R.string.crop_found)) }
             backKey()
             find("the editor, again") { it.says(app.getString(R.string.convert)) }
             assertEquals(page, onMain { vm.items.value.single() })
@@ -1247,54 +1355,62 @@ class ScreensDeviceTest {
         runBlocking { vm.awaitFileWork() }
     }
 
-    @Test fun aPagesLookIsChosenOnTheCropScreenForItOrEveryPage() {
+    /**
+     * The filters step: the looks are chosen like radio buttons (a new scan starts Enhanced), and the
+     * look, brightness and contrast reach the page, or with Apply to all pages every page. They are
+     * kept when the activity is recreated; the next photo starts with the look chosen last and the
+     * sliders at 0.
+     */
+    @Test fun theLookBrightnessAndContrastChosenReachThePageOrEveryPage() {
         val first = launch()
         val vm = onMain { ViewModelProvider(first)[MainViewModel::class.java] }
-        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
-        val original = app.getString(R.string.look_original)
-        val blackAndWhite = app.getString(R.string.look_black_white)
-        val grayscale = app.getString(R.string.look_grayscale)
         val allPages = app.getString(R.string.look_all_pages)
         val camera = Camera(PagePhotos.photo())
         withCamera(camera) {
-            click(button(R.string.add_from_camera))
-            find("the crop screen") { it.says(app.getString(R.string.crop_found)) }
-            val session = checkNotNull(onMain { vm.crop.value })
-            // The looks are one of four, like radio buttons, and the photo starts as it is. With no
-            // other page, there is nothing to apply the look to.
-            assertTrue(radio(original).chosen)
-            assertTrue(!radio(blackAndWhite).chosen)
+            val session = photoOnTheCropScreen(vm)
+            press(R.string.crop_next)
+            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
+            // With no other page, there is nothing to apply them to.
+            waitUntil("Enhanced to be chosen") { look(R.string.look_enhanced).chosen }
             assertTrue(nodes().none { it.says(allPages) })
-            click(radio(blackAndWhite))
-            waitUntil("black and white to be chosen") { radio(blackAndWhite).chosen && !radio(original).chosen }
+            click(look(R.string.look_black_white))
+            waitUntil("black and white to be chosen") { look(R.string.look_black_white).chosen && !look(R.string.look_enhanced).chosen }
+            setSlider(R.string.filter_brightness, 30f)
+            setSlider(R.string.filter_contrast, -20f)
 
             // Kept when the activity is recreated, as on rotation.
             onMain { first.recreate() }
             val activity = recreatedFrom(first)
-            find("the crop screen, again") { it.says(app.getString(R.string.crop_found)) }
-            waitUntil("black and white, still chosen") { radio(blackAndWhite).chosen }
+            find("the filters step, again") { it.says(app.getString(R.string.filter_title)) }
+            waitUntil("black and white, still chosen") { look(R.string.look_black_white).chosen }
+            assertEquals(30f, sliderValue(R.string.filter_brightness))
+            assertEquals(-20f, sliderValue(R.string.filter_contrast))
 
-            // Take another: the next photo starts in black and white too, and now there is a page to
-            // apply a look to as well. Grayscale, for both.
-            click(actionButton(R.string.crop_take_another))
+            // Take another: the page has them, and the next photo starts in black and white, the
+            // sliders at 0, with another page now to apply them to. Grayscale and more contrast, for both.
+            press(R.string.crop_take_another)
             waitUntil("the next photo's crop screen") { onMain { vm.crop.value?.let { it.itemId != session.itemId } == true } }
             assertEquals(2, camera.taken)
-            find("the second crop screen") { it.says(app.getString(R.string.crop_found)) }
-            waitUntil("black and white, chosen for the next photo") { radio(blackAndWhite).chosen }
-            click(radio(grayscale))
-            val box = find("the \"$allPages\" check box") { it.says(allPages) }
-            val toggle = checkNotNull(ancestor(box) { it.isCheckable })
+            val firstPage = onMain { vm.items.value.first() }
+            assertEquals(PageLook.BLACK_WHITE, firstPage.look)
+            assertEquals(LookAdjustments(brightness = 30, contrast = -20), firstPage.adjustments)
+            press(R.string.crop_next)
+            find("the second filters step") { it.says(app.getString(R.string.filter_title)) }
+            waitUntil("black and white, chosen for the next photo") { look(R.string.look_black_white).chosen }
+            assertEquals(0f, sliderValue(R.string.filter_brightness))
+            click(look(R.string.look_grayscale))
+            setSlider(R.string.filter_contrast, 50f)
+            val toggle = checkNotNull(ancestor(find("the \"$allPages\" check box") { it.says(allPages) }) { it.isCheckable })
             click(toggle)
             waitUntil("the box to be ticked") { toggle.chosen }
-            // Pressed once the new screen has settled: while it slides in, its button can't be pressed yet.
-            waitUntil("Done to be pressed") {
-                nodes().firstOrNull { it.says(app.getString(R.string.crop_done)) }?.let { clickable(it).performAction(AccessibilityNodeInfo.ACTION_CLICK) } == true
-            }
+            press(R.string.crop_done)
             find("the editor") { it.says(app.getString(R.string.convert)) }
             waitUntil("both pages to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.size == 2 && vm.items.value.all { it.original != null } } }
             assertEquals(listOf(PageLook.GRAYSCALE, PageLook.GRAYSCALE), onMain { vm.items.value.map { it.look } })
+            assertEquals(List(2) { LookAdjustments(contrast = 50) }, onMain { vm.items.value.map { it.adjustments } })
             // Each page says its look to a screen reader.
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val grayscale = app.getString(R.string.look_grayscale)
                 waitUntil("the pages to say their look") { nodes().count { it.stateDescription?.toString() == grayscale } == 2 }
             }
             onMain { ViewModelProvider(activity)[MainViewModel::class.java].clearAll() }
@@ -1305,57 +1421,37 @@ class ScreensDeviceTest {
     @Test fun aCornerDraggedPastTheOthersStaysUnderTheFingerAndTheImageStill() {
         val activity = launch()
         val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
-        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
         withCamera(Camera(PagePhotos.photo())) {
-            click(button(R.string.add_from_camera))
-            find("the crop screen") { it.says(app.getString(R.string.crop_found)) }
-            val session = checkNotNull(onMain { vm.crop.value })
+            val session = photoOnTheCropScreen(vm)
             val image = app.getString(R.string.crop_image_description)
             fun imageBounds() = Rect().also(find("the image") { it.says(image) }::getBoundsInScreen)
-            val left = app.getString(R.string.edit_move_left)
-            fun corner(name: Int) = Rect().also(find("a corner") { it.says(app.getString(name)) && it.action(left) != null }::getBoundsInScreen)
             // Measured once the screen has slid in.
-            waitUntil("the crop screen to settle") {
-                val now = imageBounds()
-                Thread.sleep(300)
-                now == imageBounds()
-            }
+            awaitCropImageStill()
             val before = imageBounds()
-            val topLeft = corner(R.string.crop_corner_top_left)
-            val bottomRight = corner(R.string.crop_corner_bottom_right)
+            val topLeft = handle(R.string.crop_corner_top_left)
+            val bottomRight = handle(R.string.crop_corner_bottom_right)
             val x0 = topLeft.exactCenterX()
             val y0 = topLeft.exactCenterY()
             val start = SystemClock.uptimeMillis()
-            // In real time, a frame apart: Android holds back touches timed ahead of the frames.
-            fun touch(action: Int, x: Float, y: Float) {
-                val event = MotionEvent.obtain(start, SystemClock.uptimeMillis(), action, x, y, 0)
-                event.source = InputDevice.SOURCE_TOUCHSCREEN
-                assertTrue(automation.injectInputEvent(event, true))
-                event.recycle()
-                Thread.sleep(16)
-            }
-            fun moveTo(fromX: Float, fromY: Float, toX: Float, toY: Float) {
-                for (i in 1..15) touch(MotionEvent.ACTION_MOVE, fromX + (toX - fromX) * i / 15, fromY + (toY - fromY) * i / 15)
-                // Held still a moment, as a finger is before it lets go.
-                repeat(5) { touch(MotionEvent.ACTION_MOVE, toX, toY) }
-            }
 
             // The top-left corner dragged across the page, past the others: they make no page, and
             // the hint says so without moving the image.
             val farX = x0 + (bottomRight.exactCenterX() - x0) * 0.8f
             val farY = y0 + (bottomRight.exactCenterY() - y0) * 0.8f
-            touch(MotionEvent.ACTION_DOWN, x0, y0)
-            moveTo(x0, y0, farX, farY)
+            touch(start, MotionEvent.ACTION_DOWN, x0, y0)
+            moveFinger(start, x0, y0, farX, farY)
             find("the hint that the corners make no page") { it.says(app.getString(R.string.crop_not_a_page)) }
             assertEquals(before, imageBounds())
             // Still under the finger, it comes back near where it was, and the corners make a page again.
-            moveTo(farX, farY, x0 + 40, y0 + 40)
-            touch(MotionEvent.ACTION_UP, x0 + 40, y0 + 40)
+            moveFinger(start, farX, farY, x0 + 40, y0 + 40)
+            touch(start, MotionEvent.ACTION_UP, x0 + 40, y0 + 40)
             find("the hint that the page was found") { it.says(app.getString(R.string.crop_found)) }
             assertEquals(before, imageBounds())
 
-            // Done crops the page with the corner where the finger let go of it.
-            click(actionButton(R.string.crop_done))
+            // The page is cropped with the corner where the finger let go of it.
+            press(R.string.crop_next)
+            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
+            press(R.string.crop_done)
             waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
             val corner = onMain { vm.items.value.single() }.original!!.corners[CropQuad.TOP_LEFT]
             val found = session.found
@@ -1369,10 +1465,156 @@ class ScreensDeviceTest {
         runBlocking { vm.awaitFileWork() }
     }
 
+    /** A side dragged moves across itself, its corners going along the sides beside it, the others staying. */
+    @Test fun aSideDraggedMovesWithItsCornersAlongTheSidesBeside() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        withCamera(Camera(PagePhotos.photo())) {
+            val found = photoOnTheCropScreen(vm).found
+            awaitCropImageStill()
+            val topLeft = handle(R.string.crop_corner_top_left)
+            val bottomRight = handle(R.string.crop_corner_bottom_right)
+            val top = handle(R.string.crop_side_top)
+            // The image's height on the screen, from the corners found.
+            val height = (bottomRight.exactCenterY() - topLeft.exactCenterY()) / (found[CropQuad.BOTTOM_RIGHT].y - found[CropQuad.TOP_LEFT].y)
+
+            // The top side, by the bar in its middle, dragged 60 pixels up.
+            val x = top.exactCenterX()
+            val y = top.exactCenterY()
+            val start = SystemClock.uptimeMillis()
+            touch(start, MotionEvent.ACTION_DOWN, x, y)
+            moveFinger(start, x, y, x, y - 60)
+            touch(start, MotionEvent.ACTION_UP, x, y - 60)
+            press(R.string.crop_next)
+            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
+            press(R.string.crop_done)
+            waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
+            val corners = onMain { vm.items.value.single() }.original!!.corners
+            assertEquals(found[CropQuad.TOP_LEFT].y - 60 / height, corners[CropQuad.TOP_LEFT].y, 0.01f)
+            assertEquals(found[CropQuad.TOP_RIGHT].y - 60 / height, corners[CropQuad.TOP_RIGHT].y, 0.01f)
+            // Up the left side, which leans right as it rises.
+            assertTrue("${corners[CropQuad.TOP_LEFT]}", corners[CropQuad.TOP_LEFT].x > found[CropQuad.TOP_LEFT].x)
+            for (i in listOf(CropQuad.BOTTOM_RIGHT, CropQuad.BOTTOM_LEFT)) {
+                assertEquals(found[i].x, corners[i].x, 1e-4f)
+                assertEquals(found[i].y, corners[i].y, 1e-4f)
+            }
+            onMain { vm.clearAll() }
+        }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    /** Rotate right and left on the crop step turn the image and its corners: the page is turned, cropped as it was. */
+    @Test fun turningOnTheCropStepTurnsThePageCroppedAsItWas() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        withCamera(Camera(PagePhotos.photo())) {
+            val session = photoOnTheCropScreen(vm)
+            // Right twice, left once: a quarter turn right. The page, taller than wide, shows wider.
+            repeat(2) { click(button(R.string.crop_rotate_right)) }
+            click(button(R.string.crop_rotate_left))
+            waitUntil("the page to show turned") {
+                val topLeft = handle(R.string.crop_corner_top_left)
+                val bottomRight = handle(R.string.crop_corner_bottom_right)
+                bottomRight.exactCenterX() - topLeft.exactCenterX() > bottomRight.exactCenterY() - topLeft.exactCenterY()
+            }
+            press(R.string.crop_next)
+            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
+            press(R.string.crop_done)
+            waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
+            val page = onMain { vm.items.value.single() }
+            assertEquals(90, page.rotation)
+            assertTrue("${page.original!!.corners}", page.original!!.corners.isCloseTo(session.found))
+            onMain { vm.clearAll() }
+        }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    /**
+     * Scan document's Take photo opens the camera at once, over the editor; closed without a photo,
+     * it goes back to Home, not to an empty editor.
+     */
+    @Test fun scanningFromHomeWithTheCameraClosedGoesBackHome() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        val camera = Camera(null)
+        withCamera(camera) {
+            click(button(R.string.add_from_camera))
+            waitUntil("the camera to open") { camera.opened == 1 }
+            // The camera's file goes once Usugami knows it was closed.
+            waitUntil("the camera's file to go") { File(app.cacheDir, "camera").list().isNullOrEmpty() }
+        }
+        val onHome = { nodes().any { it.says(app.getString(R.string.scan_title)) } && nodes().none { it.says(app.getString(R.string.empty_title)) } }
+        waitUntil("Home") { onHome() }
+        Thread.sleep(1_000)
+        assertTrue("Still Home, not the editor", onHome())
+        assertTrue(onMain { vm.items.value.isEmpty() })
+    }
+
+    /**
+     * Scan document's Upload images: the images picked go through both steps one after another, the
+     * count under the title, Next until the last, which has Done. Closed part way, the screen leaves
+     * the rest as they were added, in the editor.
+     */
+    @Test fun uploadedImagesAreCroppedOneAfterAnotherAndTheRestKeptWhenClosed() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        val uris = (1..3).map { Uri.fromFile(PagePhotos.jpeg(PagePhotos.photo(), File(app.cacheDir, "test-photos/scan$it.jpg"))) }
+        val picked = Instrumentation.ActivityResult(
+            Activity.RESULT_OK,
+            Intent().apply {
+                data = uris[0]
+                clipData = ClipData.newRawUri(null, uris[0]).apply { uris.drop(1).forEach { addItem(ClipData.Item(it)) } }
+            },
+        )
+        // The photo picker, or the file picker where there is none.
+        val pickers = setOf(MediaStore.ACTION_PICK_IMAGES, "androidx.activity.result.contract.action.PICK_IMAGES", Intent.ACTION_OPEN_DOCUMENT, Intent.ACTION_GET_CONTENT)
+        val picker = object : Instrumentation.ActivityMonitor() {
+            override fun onStartActivity(intent: Intent) = picked.takeIf { intent.action in pickers }
+        }
+        instrumentation.addMonitor(picker)
+        try {
+            click(button(R.string.scan_upload))
+            waitUntil("the picker") { picker.hits == 1 }
+        } finally {
+            instrumentation.removeMonitor(picker)
+        }
+
+        find("the first image's crop step") { it.says(app.getString(R.string.scan_place, 1, 3)) }
+        waitUntil("the images to be added") { onMain { vm.items.value.size == 3 && vm.pendingImports.value == 0 } }
+        val ids = onMain { vm.items.value.map { it.id } }
+        for (i in 0..1) {
+            waitUntil("image ${i + 1}'s crop screen") { onMain { vm.crop.value?.itemId == ids[i] } }
+            find("its place") { it.says(app.getString(R.string.scan_place, i + 1, 3)) }
+            press(R.string.crop_next)
+            find("its filters step") { it.says(app.getString(R.string.filter_title)) }
+            press(R.string.crop_next)
+        }
+        waitUntil("the last image's crop screen") { onMain { vm.crop.value?.itemId == ids[2] } }
+        find("its place") { it.says(app.getString(R.string.scan_place, 3, 3)) }
+        press(R.string.crop_next)
+        find("its filters step") { it.says(app.getString(R.string.filter_title)) }
+        actionButton(R.string.crop_done)
+        assertTrue("Done, not Next, on the last", nodes().none { it.says(app.getString(R.string.crop_next)) })
+
+        // Back to its crop step, and closed there: the scan stops, and the last image stays as it was.
+        backKey()
+        find("its crop step, again") { it.says(app.getString(R.string.crop_found)) }
+        press(R.string.crop_stop)
+        find("the editor") { it.says(app.getString(R.string.convert)) }
+        waitUntil("the pages to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 } }
+        val pages = onMain { vm.items.value }
+        assertEquals(ids, pages.map { it.id })
+        assertTrue("$pages", pages.take(2).all { it.original != null && it.look == PageLook.ENHANCED })
+        assertTrue("$pages", pages[2].original == null && pages[2].look == PageLook.ORIGINAL)
+        assertNull(onMain { vm.scan.value })
+        onMain { vm.clearAll() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
     @Test fun aPhoneWithoutACameraAppSaysSo() {
         val activity = launch()
         val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
-        click(findBelow("Images to PDF on the home screen") { it.text?.contains(app.getString(R.string.tool_images)) == true })
+        openImagesToPdf()
         withCamera(Camera(null, noCamera = true)) {
             click(button(R.string.add_from_camera))
             find("the message") { it.says(app.getString(R.string.msg_no_camera)) }
