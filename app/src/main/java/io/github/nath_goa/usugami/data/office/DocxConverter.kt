@@ -54,6 +54,9 @@ internal class DocxConverter(
     private lateinit var main: String
     private val headers = HashMap<String, List<DocItem>>()
 
+    /** Whether even pages have headers and footers of their own (Word's "Different Odd & Even Pages"). */
+    private var evenAndOddHeaders = false
+
     /** Converts the document; returns the number of pages. */
     fun convert(): Int {
         main = pkg.mainPart() ?: "word/document.xml"
@@ -61,6 +64,7 @@ internal class DocxConverter(
         styles = DocxStyles.read(pkg, pkg.targetOfType(main, "/styles"), theme, check)
         numbering = DocxNumbering.read(pkg, pkg.targetOfType(main, "/numbering"), theme, styles, check)
         sections = readSections()
+        evenAndOddHeaders = readEvenAndOddHeaders()
         val flow = Flow()
         val reader = Reader(main)
         var shown = false
@@ -190,6 +194,15 @@ internal class DocxConverter(
         val pageStart: Int?,
         val pageFormat: ListNumbering.Format,
     )
+
+    /** Whether the document's settings give even pages their own headers and footers. */
+    private fun readEvenAndOddHeaders(): Boolean {
+        var found = false
+        pkg.targetOfType(main, "/settings")?.let { path ->
+            pkg.xml(path, check)?.use { x -> x.children { if (x.name == "evenAndOddHeaders") found = x.flag() } }
+        }
+        return found
+    }
 
     // ---- Sections: read ahead, since a section's page size is written at its end ----
 
@@ -994,9 +1007,14 @@ internal class DocxConverter(
         }
 
         private fun drawHeaderAndFooter(c: Canvas) {
-            val first = section.titlePage && pageInSection == 1
-            val header = if (first) section.headers["first"] else section.headers["default"]
-            val footer = if (first) section.footers["first"] else section.footers["default"]
+            // Odd and even go by the number the page shows, as in Word; an even page without a header of its own has none.
+            val kind = when {
+                section.titlePage && pageInSection == 1 -> "first"
+                evenAndOddHeaders && shownNumber % 2 == 0 -> "even"
+                else -> "default"
+            }
+            val header = section.headers[kind]
+            val footer = section.footers[kind]
             val headerOverlays = ArrayList<Floating>()
             val footerOverlays = ArrayList<Floating>()
             val head = header?.let { headerBlock(it, headerOverlays) }

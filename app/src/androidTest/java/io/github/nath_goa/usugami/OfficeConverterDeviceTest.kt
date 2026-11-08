@@ -587,6 +587,25 @@ class OfficeConverterDeviceTest {
         assertTrue(texts[4].contains("Chapter two"))
     }
 
+    @Test fun wordEvenPagesHaveTheirOwnHeaders() {
+        fun header(text: String) = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:hdr $WORD_NAMESPACES>${para(text)}</w:hdr>"""
+        val pageBreak = """<w:p><w:r><w:br w:type="page"/></w:r></w:p>"""
+        val body = para("One") + pageBreak + para("Two") + pageBreak + para("Three") +
+            """<w:sectPr><w:headerReference w:type="default" r:id="rId4"/><w:headerReference w:type="even" r:id="rId5"/></w:sectPr>"""
+        val pdf = convert(
+            wordDocument(
+                body, "even-odd.docx", rels = listOf("header" to "header1.xml", "header" to "header2.xml", "settings" to "settings.xml"),
+                parts = mapOf(
+                    "word/header1.xml" to header("Right-hand header"),
+                    "word/header2.xml" to header("Left-hand header"),
+                    "word/settings.xml" to """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="$W"><w:evenAndOddHeaders/></w:settings>""",
+                ),
+            ),
+            OfficeKind.WORD, "word-even-odd-headers",
+        )
+        assertEquals(listOf("Right", "Left", "Right"), pageTexts(pdf).map { Regex("""(\S+)-hand header""").find(it)?.groupValues?.get(1) })
+    }
+
     @Test fun wordPageNumbersInTheTextAreTheirOwnPages() {
         val field = """<w:fldSimple w:instr=" PAGE "><w:r><w:t>9</w:t></w:r></w:fldSimple>"""
         val body = """<w:p><w:r><w:t xml:space="preserve">Opening page </w:t></w:r>$field</w:p><w:p><w:pPr><w:sectPr/></w:pPr></w:p>""" +
