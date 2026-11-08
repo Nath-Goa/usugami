@@ -7,6 +7,7 @@ import android.graphics.ColorSpace
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import androidx.exifinterface.media.ExifInterface
 import io.github.nath_goa.usugami.core.ImageFileType
@@ -17,6 +18,10 @@ import java.io.FilterOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Keeps private copies of picked images. Copying at pick time means the PDF can still be made
@@ -338,13 +343,36 @@ class ImageStore(context: Context) {
             resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
                 if (c.moveToFirst() && !c.isNull(0)) {
                     val name = c.getString(0).substringAfterLast('/').trim()
-                    if (name.isNotEmpty()) return name
+                    if (name.isNotEmpty()) return if (isPhotoPicker(uri)) datedName(uri, name) else name
                 }
             }
         } catch (e: Exception) {
             // Some providers don't support queries; fall back to the URI.
         }
         return uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() }
+    }
+
+    /** Whether [uri] is a photo picked with Android's photo picker, which hides the photo's file name. */
+    private fun isPhotoPicker(uri: Uri): Boolean =
+        uri.authority == MediaStore.AUTHORITY && uri.pathSegments.firstOrNull()?.startsWith("picker") == true
+
+    /**
+     * A name for the photo at [uri] from the photo picker, which names it [pickerName], its number
+     * in the phone's media store ("1000000163.jpg"): "Photo_" and the date and time it was taken,
+     * or else picked, as a photo taken from Usugami is named after when it was taken. The PDF of
+     * one photo is named after it.
+     */
+    private fun datedName(uri: Uri, pickerName: String): String {
+        val taken = try {
+            resolver.query(uri, arrayOf(MediaStore.Images.ImageColumns.DATE_TAKEN), null, null, null)?.use { c ->
+                if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else null
+            }
+        } catch (e: Exception) {
+            null
+        }
+        val time = Instant.ofEpochMilli(taken?.takeIf { it > 0 } ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault())
+        val extension = pickerName.substringAfterLast('.', "").takeIf { it.isNotEmpty() }?.let { ".$it" }.orEmpty()
+        return "Photo_" + time.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT)) + extension
     }
 
     private fun readOrientation(file: File): Int = try {
