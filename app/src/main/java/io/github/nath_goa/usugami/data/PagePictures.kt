@@ -141,7 +141,7 @@ class PagePictures(private val context: Context) {
             }
             val decoded = BitmapFactory.decodeFile(path, options) ?: return null
             val scale = min(1f, longSide.toFloat() / max(decoded.width, decoded.height))
-            val matrix = ImageTransform.fromExif(orientation).toMatrix(decoded.width, decoded.height).apply { postScale(scale, scale) }
+            val matrix = ImageTransform.fromExif(orientation).toMatrix(decoded.width, decoded.height, scale)
             val upright = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
             if (upright !== decoded) decoded.recycle()
             return upright

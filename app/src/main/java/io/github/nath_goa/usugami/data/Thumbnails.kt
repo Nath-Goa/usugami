@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Small upright previews (EXIF orientation applied, user rotation not) kept in memory, one per
@@ -58,7 +59,7 @@ class Thumbnails {
         }
         BitmapFactory.decodeFile(item.path, options)?.let { decoded ->
             val scale = min(1f, TARGET_SIZE.toFloat() / max(decoded.width, decoded.height))
-            val matrix = item.uprightTransform.toMatrix(decoded.width, decoded.height).apply { postScale(scale, scale) }
+            val matrix = item.uprightTransform.toMatrix(decoded.width, decoded.height, scale)
             val upright = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
             if (upright !== decoded) decoded.recycle()
             upright
@@ -94,4 +95,18 @@ fun ImageTransform.toMatrix(width: Int, height: Int): Matrix {
             ),
         )
     }
+}
+
+/**
+ * The [ImageTransform] as a pixel-space matrix for a [width] x [height] bitmap that also shrinks it
+ * by about [scale], to a whole number of pixels each way. Bitmap.createBitmap rounds the size it
+ * makes, and a last row or column the picture only partly covered would mix in the black a new
+ * opaque bitmap starts as: a grey line along a white page's edge.
+ */
+fun ImageTransform.toMatrix(width: Int, height: Int, scale: Float): Matrix {
+    val outW = if (swapsAxes) height else width
+    val outH = if (swapsAxes) width else height
+    val scaledW = max(1, (outW * scale).roundToInt())
+    val scaledH = max(1, (outH * scale).roundToInt())
+    return toMatrix(width, height).apply { postScale(scaledW / outW.toFloat(), scaledH / outH.toFloat()) }
 }

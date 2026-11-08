@@ -72,7 +72,7 @@ object PageCropper {
                 val transform = ImageTransform.of(image.exifOrientation, rotation)
                 val scale = min(1f, side / max(decoded.width, decoded.height).toFloat())
                 if (transform == ImageTransform.IDENTITY && scale == 1f) return decoded
-                val matrix = transform.toMatrix(decoded.width, decoded.height).apply { postScale(scale, scale) }
+                val matrix = transform.toMatrix(decoded.width, decoded.height, scale)
                 val turned = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
                 if (turned !== decoded) decoded.recycle()
                 return turned
