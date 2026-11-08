@@ -1045,11 +1045,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     /**
-     * Whether a page is on its way: the camera app open, images or a photo being added or a page
-     * being cropped, the crop screen showing or being opened, or a scan going on.
+     * Whether a scan's page is still to reach the editor: the camera app is open, or the crop screen
+     * shows, is being opened or awaits a scan's next image. A page cropped in the background is in the
+     * editor already.
      */
-    fun pageUnderWay(): Boolean =
-        _cameraOpen.value || _pendingImports.value > 0 || _openingCrop.value || _crop.value != null || _scan.value != null
+    fun scanUnderWay(): Boolean = _cameraOpen.value || _openingCrop.value || _crop.value != null || _scan.value != null
 
     /**
      * Makes [item]'s page from [source], straightened inside [quad], and puts it in place. In the saved

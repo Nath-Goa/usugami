@@ -201,8 +201,10 @@ class CropDeviceTest {
         assertTrue(taken.name, taken.name.startsWith("Scan_") && taken.name.endsWith(".jpg"))
         assertTrue("The camera's file has gone", captures().isEmpty())
 
-        // Done crops it to the corners as the screen shows them.
-        assertTrue(onMain { vm.finishCrop(session.shown(PagePhotos.QUAD)) })
+        // Done crops it to the corners as the screen shows them. Its page is in the editor from then on,
+        // while it is made: a scan from Home that took it is over.
+        assertTrue(onMain { vm.scanUnderWay() })
+        assertEquals(Triple(true, true, false), onMain { Triple(vm.finishCrop(session.shown(PagePhotos.QUAD)), vm.cropping.value.isNotEmpty(), vm.scanUnderWay()) })
         assertNull(onMain { vm.crop.value })
         waitUntil("the page to be cropped") { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 }
         val cropped = onMain { vm.items.value.single() }

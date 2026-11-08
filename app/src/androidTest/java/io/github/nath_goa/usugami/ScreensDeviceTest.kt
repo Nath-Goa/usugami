@@ -1542,7 +1542,7 @@ class ScreensDeviceTest {
      * Scan document's Take photo opens the camera at once, over the editor. A scan from Home that
      * leaves no page goes back to Home, not to an empty editor: the camera closed without a photo, or
      * saying it took one it never saved, and an image picked that can't be read. Once a page is kept,
-     * the editor stays, also when that page is removed.
+     * the editor stays, also when that page is removed while it is still being cropped.
      */
     @Test fun aScanFromHomeThatLeavesNoPageGoesBackHome() {
         val activity = launch()
@@ -1576,9 +1576,10 @@ class ScreensDeviceTest {
             press(R.string.crop_next)
             press(R.string.crop_done)
         }
-        waitUntil("the page to be cropped") { onMain { vm.items.value.size == 1 && vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 } }
-        onMain { vm.remove(vm.items.value.single().id) }
+        // Removed as soon as the editor shows it, also while it is still being cropped.
+        click(find("the page's Remove button") { it.says(app.getString(R.string.remove_page, 1)) })
         find("the empty editor") { it.says(app.getString(R.string.empty_title)) }
+        waitUntil("the page to be dropped") { onMain { vm.items.value.isEmpty() && vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 } }
         Thread.sleep(1_000)
         assertFalse("Still the editor, not Home", onHome())
     }

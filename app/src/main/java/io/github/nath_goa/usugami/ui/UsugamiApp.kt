@@ -178,13 +178,15 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     // The editor was opened by Home's Scan document, whose scan is still going on.
     var scanFromHome by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(route) { if (route != "images") scanFromHome = false }
-    // Once nothing more is on its way, the scan from Home is over. With no page (the camera closed
-    // without a photo, the photo discarded, or nothing picked could be added) it goes back to Home
-    // rather than to an empty editor; with pages, the editor is as it always is from then on. The view
-    // model is asked as it is now: its flows reach the screen one at a time.
+    // Once the camera and the crop screen have closed, the scan from Home is over. With a page in the
+    // editor, the editor is as it always is from then on, also when the user removes that page while
+    // it is still being cropped. With no page, once nothing is still being added, it goes back to Home
+    // rather than to an empty editor: the camera closed without a photo, the photo discarded, or
+    // nothing picked could be added. The view model is asked as it is now: its flows reach the screen
+    // one at a time.
     LaunchedEffect(scanFromHome, route, items.isEmpty(), pendingImports, openingCrop, crop, scan, cameraOpen) {
-        if (!scanFromHome || route != "images" || vm.pageUnderWay()) return@LaunchedEffect
-        if (vm.items.value.isEmpty()) route = "home" else scanFromHome = false
+        if (!scanFromHome || route != "images" || vm.scanUnderWay()) return@LaunchedEffect
+        if (vm.items.value.isNotEmpty()) scanFromHome = false else if (vm.pendingImports.value == 0) route = "home"
     }
     // Scan document's Upload images: the images picked are added, and cropped one after another.
     // Nothing picked leaves Home as it was.
