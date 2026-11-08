@@ -648,6 +648,19 @@ class OfficeConverterDeviceTest {
         near(72f + 36f, word(pdf, 1, "First").xDirAdj)
     }
 
+    @Test fun wordLegalNumberingWritesEveryLevelInArabic() {
+        // Contracts number articles in roman and their sections in legal style: Section 1.1, not I.1.
+        val numbering = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:numbering xmlns:w="$W">
+            <w:abstractNum w:abstractNumId="0">
+              <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="upperRoman"/><w:lvlText w:val="Article %1"/><w:suff w:val="space"/></w:lvl>
+              <w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:isLgl/><w:lvlText w:val="Section %1.%2"/><w:suff w:val="space"/></w:lvl></w:abstractNum>
+            <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+            </w:numbering>"""
+        val body = listItem("Terms", 1, 0) + listItem("Scope", 1, 1) + listItem("Payment", 1, 0) + listItem("Fees", 1, 1)
+        val text = pageTexts(convert(wordDocument(body, "legal.docx", numbering = numbering), OfficeKind.WORD, "word-legal-numbering"))[0]
+        assertTrue(text, text.contains("Article I Terms Section 1.1 Scope Article II Payment Section 2.1 Fees"))
+    }
+
     @Test fun wordAutomaticTextIsWhiteOnDarkShading() {
         val navy = """<w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="1F3864"/></w:tcPr>"""
         val body = """<w:tbl><w:tblGrid><w:gridCol w:w="3000"/><w:gridCol w:w="3000"/></w:tblGrid><w:tr>

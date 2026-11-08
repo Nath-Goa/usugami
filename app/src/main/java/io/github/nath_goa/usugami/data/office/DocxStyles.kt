@@ -496,6 +496,8 @@ internal class ListLevel(
     val run: RunProps,
     /** What comes between the number and the text: "tab", "space" or "nothing". */
     val suffix: String,
+    /** Word's legal numbering: every level's number in the label is written in arabic, so "I.1" shows as "1.1". */
+    val legal: Boolean = false,
 )
 
 /**
@@ -527,7 +529,10 @@ internal class DocxNumbering private constructor(
         for (above in 0 until at) if (counter[above] < 0) counter[above] = startOf(above)
         if (lvl.format == ListNumbering.Format.BULLET) return SymbolFonts.bullet(lvl.run.font, lvl.text)
         if (lvl.format == ListNumbering.Format.NONE && !lvl.text.contains('%')) return lvl.text
-        val formats = (0..at).map { level(numId, it)?.format ?: ListNumbering.Format.DECIMAL }
+        val formats = (0..at).map { l ->
+            val format = level(numId, l)?.format ?: ListNumbering.Format.DECIMAL
+            if (lvl.legal && format != ListNumbering.Format.NONE) ListNumbering.Format.DECIMAL else format
+        }
         return ListNumbering.wordLabel(lvl.text, counter.copyOf(at + 1), formats)
     }
 
@@ -601,17 +606,19 @@ internal class DocxNumbering private constructor(
             var para = ParaProps()
             var run = RunProps()
             var suffix = "tab"
+            var legal = false
             x.children {
                 when (x.name) {
                     "numFmt" -> format = ListNumbering.wordFormat(x.attr("val"))
                     "lvlText" -> text = x.attr("val").orEmpty()
                     "start" -> start = x.intAttr("val") ?: 1
                     "suff" -> suffix = x.attr("val") ?: "tab"
+                    "isLgl" -> legal = x.flag()
                     "pPr" -> para = ParaProps.read(x, theme)
                     "rPr" -> run = RunProps.read(x, theme)
                 }
             }
-            return level to ListLevel(format, text, start, para, run, suffix)
+            return level to ListLevel(format, text, start, para, run, suffix, legal)
         }
     }
 }
