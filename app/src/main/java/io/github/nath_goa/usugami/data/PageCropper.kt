@@ -37,22 +37,18 @@ object PageCropper {
     private const val SEARCH_SIDE = 800
     private const val JPEG_QUALITY = 92
 
-    /** The page on [image], as the automatic search finds it, or null when nothing like one stands out. */
+    /**
+     * The page on [image], as the automatic search finds it, or null when nothing like one stands out.
+     * The search sees the photo's colours, so a page that differs from the desk only in colour stands out.
+     */
     fun findPage(image: OriginalImage): PageOutline? {
         val bitmap = upright(image, 0, SEARCH_SIDE) ?: return null
         try {
             val width = bitmap.width
             val height = bitmap.height
-            val row = IntArray(width)
-            val luma = ByteArray(width * height)
-            for (y in 0 until height) {
-                bitmap.getPixels(row, 0, width, 0, y, width, 1)
-                for (x in 0 until width) {
-                    val c = row[x]
-                    luma[y * width + x] = ((Color.red(c) * 77 + Color.green(c) * 150 + Color.blue(c) * 29) shr 8).toByte()
-                }
-            }
-            return PageDetection.find(luma, width, height)
+            val pixels = IntArray(width * height)
+            bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+            return PageDetection.find(pixels, width, height)
         } finally {
             bitmap.recycle()
         }

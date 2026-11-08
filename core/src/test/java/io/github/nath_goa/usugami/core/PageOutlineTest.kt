@@ -7,6 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -16,14 +17,18 @@ import kotlin.random.Random
 /**
  * Finding the page on synthetic photos: a sheet of paper with lines of print, on a darker wooden
  * table with sensor noise, upright, tilted, photographed at a slant, half in shadow, with a folded
- * corner, next to other things, and the photos where no page can be found for sure.
+ * corner, next to other things; on a brighter table, a white, light grey, textured or pale blue
+ * desk; and the photos where no page can be found for sure, tiles and a keyboard among them.
  */
 class PageOutlineTest {
 
     /**
      * A grey photo [width] × [height] of a page whose corners (fractions of the photo, clockwise from
      * the page's top-left) are [corners]. Text lines run across the page; [shade] darkens a point of
-     * the photo (1 = no shadow); [extra] paints more things on the table.
+     * the photo (1 = no shadow); [extra] paints more things on the table. The table is wood unless
+     * [desk] gives its level at each point (fractions of the photo); a page on a desk casts a
+     * [shadow] that much darker along its edges. With [deskColour], [argb] makes a colour photo of
+     * the grey page on a desk of that colour.
      */
     private class Photo(
         val width: Int,
@@ -36,10 +41,15 @@ class PageOutlineTest {
         val shade: (x: Double, y: Double) -> Double = { _, _ -> 1.0 },
         val fold: Double = 0.0,
         val extra: (x: Double, y: Double) -> Int? = { _, _ -> null },
+        val desk: ((x: Double, y: Double) -> Double)? = null,
+        val shadow: Int = 0,
+        val deskColour: IntArray? = null,
     ) {
         /** The page's homography: page coordinates (0..1 across and down) to photo pixels. */
         private val toPhoto = Homography.squareTo(corners.map { CropPoint(it.x * width, it.y * height) })
         private val toPage = toPhoto.inverse()
+        private val xs = DoubleArray(4) { corners[it].x.toDouble() * width }
+        private val ys = DoubleArray(4) { corners[it].y.toDouble() * height }
 
         fun luma(): ByteArray {
             val random = Random(seed)
@@ -54,18 +64,57 @@ class PageOutlineTest {
             return out
         }
 
+        fun argb(): IntArray {
+            val colour = checkNotNull(deskColour)
+            val random = Random(seed)
+            return IntArray(width * height) { i ->
+                val x = i % width
+                val y = i / width
+                var argb = 0xFF
+                for (channel in 0..2) {
+                    var sum = 0.0
+                    for (sy in 0..1) for (sx in 0..1) {
+                        val px = x + 0.25 + sx * 0.5
+                        val py = y + 0.25 + sy * 0.5
+                        sum += pageLevel(px, py) ?: (colour[channel] - shadowAt(px, py))
+                    }
+                    val v = sum / 4 * shade(x.toDouble() / width, y.toDouble() / height) + random.nextInt(-noise, noise + 1)
+                    argb = (argb shl 8) or v.roundToInt().coerceIn(0, 255)
+                }
+                argb
+            }
+        }
+
         private fun level(x: Double, y: Double): Double {
             extra(x / width, y / height)?.let { return it.toDouble() }
+            pageLevel(x, y)?.let { return it }
+            val desk = desk ?: return table + 10 * sin(y / 9.0 + 3 * sin(x / 70.0))
+            return desk(x / width, y / height) - shadowAt(x, y)
+        }
+
+        /** The page's level at a point, or null off the page. */
+        private fun pageLevel(x: Double, y: Double): Double? {
             val (u, v) = toPage.map(x, y)
             // A corner folded over: the table shows through a triangle at the page's top-right.
             val folded = fold > 0 && (1 - u) + v < fold
-            if (u in 0.0..1.0 && v in 0.0..1.0 && !folded) {
-                // Lines of print inside the margins, and a heading.
-                val printed = u in 0.12..0.88 && ((v in 0.1..0.14) || (v in 0.2..0.9 && ((v - 0.2) / 0.035).toInt() % 2 == 0 && u < 0.88 - 0.2 * ((v * 37).toInt() % 3)))
-                return if (printed) 60.0 else paper.toDouble()
+            if (u !in 0.0..1.0 || v !in 0.0..1.0 || folded) return null
+            // Lines of print inside the margins, and a heading.
+            val printed = u in 0.12..0.88 && ((v in 0.1..0.14) || (v in 0.2..0.9 && ((v - 0.2) / 0.035).toInt() % 2 == 0 && u < 0.88 - 0.2 * ((v * 37).toInt() % 3)))
+            return if (printed) 60.0 else paper.toDouble()
+        }
+
+        /** How much the page's shadow darkens the desk at a point off the page: most at its edge, none 3 pixels out. */
+        private fun shadowAt(x: Double, y: Double): Double {
+            if (shadow == 0) return 0.0
+            var nearest = Double.MAX_VALUE
+            for (i in 0..3) {
+                val j = (i + 1) % 4
+                val dx = xs[j] - xs[i]
+                val dy = ys[j] - ys[i]
+                val t = (((x - xs[i]) * dx + (y - ys[i]) * dy) / (dx * dx + dy * dy)).coerceIn(0.0, 1.0)
+                nearest = min(nearest, hypot(x - xs[i] - t * dx, y - ys[i] - t * dy))
             }
-            // Wood: grain across the table.
-            return table + 10 * sin(y / 9.0 + 3 * sin(x / 70.0))
+            return shadow * max(0.0, 1 - nearest / 3)
         }
     }
 
@@ -129,7 +178,8 @@ class PageOutlineTest {
         }
     }
 
-    private fun find(photo: Photo): PageOutline? = PageDetection.find(photo.luma(), photo.width, photo.height)
+    private fun find(photo: Photo): PageOutline? =
+        if (photo.deskColour != null) PageDetection.find(photo.argb(), photo.width, photo.height) else PageDetection.find(photo.luma(), photo.width, photo.height)
 
     /** Each corner found within [tolerance] of the photo's long side from where the page's is. */
     private fun assertFound(photo: Photo, tolerance: Double = 0.012, expected: List<CropPoint> = photo.corners) {
@@ -210,8 +260,90 @@ class PageOutlineTest {
         assertEquals(null, PageDetection.find(ByteArray(300 * 400) { 128.toByte() }, 300, 400))
     }
 
-    @Test fun aPageOnABrighterTableIsNotSure() {
-        assertNotConfident(Photo(600, 800, corners(0.2f, 0.15f, 0.8f, 0.15f, 0.8f, 0.85f, 0.2f, 0.85f), paper = 190, table = 240, noise = 6))
+    @Test fun findsAPageOnABrighterTable() {
+        // The page isn't the bright region here, but its edges outline it all the same.
+        assertFound(Photo(600, 800, corners(0.2f, 0.15f, 0.8f, 0.15f, 0.8f, 0.85f, 0.2f, 0.85f), paper = 190, table = 240, noise = 6))
+    }
+
+    /** A white desk lit unevenly: 240 at its brightest corner, 230 at the opposite one. */
+    private val whiteDesk = { x: Double, y: Double -> 240 - 5 * x - 5 * y }
+
+    @Test fun findsAWhitePageOnAWhiteDesk() {
+        // As bright as the desk, the page shows only by the faint shadow along its edges.
+        assertFound(Photo(600, 800, turned(0.5, 0.5, 0.6, 0.75, 8.0, 600, 800), paper = 236, desk = whiteDesk, shadow = 16, noise = 5))
+        // Photographed at a slant.
+        assertFound(Photo(800, 600, corners(0.25f, 0.15f, 0.78f, 0.2f, 0.88f, 0.85f, 0.12f, 0.8f), paper = 236, desk = whiteDesk, shadow = 16, noise = 5, seed = 2))
+    }
+
+    @Test fun findsAWhitePageInShadowOnAWhiteDesk() {
+        // A hand's shadow over the top of the page and the desk around it.
+        val hand = { _: Double, y: Double -> if (y < 0.35) 0.7 else if (y < 0.45) 0.7 + (y - 0.35) / 0.1 * 0.3 else 1.0 }
+        assertFound(Photo(600, 800, corners(0.18f, 0.12f, 0.82f, 0.14f, 0.8f, 0.88f, 0.2f, 0.86f), paper = 236, desk = whiteDesk, shadow = 16, noise = 5, shade = hand, seed = 3))
+    }
+
+    @Test fun findsAPageOnALightGreyDesk() {
+        // Too little brighter than the desk for its brightness alone to be sure of it.
+        val photo = Photo(600, 800, corners(0.2f, 0.12f, 0.8f, 0.15f, 0.78f, 0.88f, 0.22f, 0.85f), paper = 228, desk = { _, _ -> 214.0 }, noise = 6, seed = 4)
+        val brightness = PageDetection.byBrightness(PageDetection.shrink(photo.luma(), photo.width, photo.height))
+        assertTrue("$brightness", brightness == null || !brightness.confident)
+        assertFound(photo)
+    }
+
+    @Test fun findsAPageOnALightTexturedDesk() {
+        // A pale desk with a busy grain and speckles, not much darker than the paper.
+        val grain = { x: Double, y: Double -> 205 + 12 * sin(y * 140 + 4 * sin(x * 9)) + 6 * sin(x * 410 + y * 230) }
+        assertFound(Photo(600, 800, turned(0.48, 0.5, 0.58, 0.72, -10.0, 600, 800), paper = 232, desk = grain, shadow = 10, noise = 8, seed = 5))
+    }
+
+    @Test fun findsAWhitePageOnAPaleBlueDeskByItsColour() {
+        // As bright as the page, the desk differs from it only in colour.
+        val photo = Photo(600, 800, corners(0.2f, 0.15f, 0.8f, 0.13f, 0.82f, 0.86f, 0.18f, 0.84f), paper = 232, deskColour = intArrayOf(214, 237, 255), noise = 5, seed = 6)
+        assertFound(photo)
+        // Its brightness alone doesn't show it.
+        val colours = photo.argb()
+        val luma = ByteArray(colours.size) {
+            val c = colours[it]
+            ((((c shr 16) and 255) * 77 + ((c shr 8) and 255) * 150 + (c and 255) * 29) shr 8).toByte()
+        }
+        val grey = PageDetection.find(luma, photo.width, photo.height)
+        assertTrue("$grey", grey == null || !grey.confident)
+    }
+
+    @Test fun linesOnABareLightTableAreNotAPage() {
+        // Tiles as large as a page, four of them wholly in the photo, their grout lines crossing at
+        // every corner.
+        fun grout(at: Double, period: Double) = ((at % period) + period) % period < 6
+        val tiles = { x: Double, y: Double -> if (grout(x * 600 - 24, 270.0) || grout(y * 800 - 80, 330.0)) 150.0 else 226.0 }
+        assertNotConfident(Photo(600, 800, corners(-1f, -1f, -0.9f, -1f, -0.9f, -0.9f, -1f, -0.9f), desk = tiles, noise = 6))
+    }
+
+    @Test fun theSearchIsQuickOnABusyPhoto() {
+        // Straight edges all over: a page on a pale desk beside a keyboard's rows of keys. The search
+        // runs as the crop screen opens.
+        val busy = { x: Double, y: Double ->
+            val key = y > 0.8 && y < 0.98 && x > 0.04 && x < 0.96 && (x * 30) % 1 < 0.8 && (y * 40) % 1 < 0.8
+            if (key) 50.0 else 215.0
+        }
+        val photo = Photo(1200, 1600, turned(0.5, 0.4, 0.55, 0.6, 7.0, 1200, 1600), paper = 236, desk = busy, shadow = 16, noise = 8)
+        val luma = photo.luma()
+        // Once for the JVM to compile the search, then timed.
+        PageDetection.find(luma, photo.width, photo.height)
+        val start = System.nanoTime()
+        val outline = PageDetection.find(luma, photo.width, photo.height)
+        val millis = (System.nanoTime() - start) / 1_000_000
+        assertTrue("$millis ms", millis < 400)
+        assertTrue("$outline", outline != null && outline.confident)
+    }
+
+    @Test fun aKeyboardIsNotAPage() {
+        // Rows of small dark keys on a light desk.
+        val keys = { x: Double, y: Double ->
+            val column = (x - 0.08) / 0.07
+            val row = (y - 0.3) / 0.075
+            val key = column in 0.0..12.0 && row in 0.0..5.0 && column % 1 < 0.8 && row % 1 < 0.8
+            if (key) 50.0 else 215.0
+        }
+        assertNotConfident(Photo(800, 600, corners(-1f, -1f, -0.9f, -1f, -0.9f, -0.9f, -1f, -0.9f), desk = keys, noise = 6))
     }
 
     @Test fun theLargestQuadrilateralOnAHullIsFound() {
