@@ -74,10 +74,9 @@ object PageLooks {
     /**
      * The page inside [quad] (corners on [bitmap], in a page's order) straightened onto a rectangle the
      * page's shape, at most [maxSide] pixels on its long side, as [PageCropper.crop] makes it; null
-     * when the corners make no page.
+     * when the corners can't be mapped onto a rectangle.
      */
     fun straightened(bitmap: Bitmap, quad: CropQuad, maxSide: Int): Bitmap? {
-        if (!quad.isWhole() && !quad.isUsable(bitmap.width, bitmap.height)) return null
         val (width, height) = PageCrop.outputSize(quad, bitmap.width, bitmap.height, maxSide)
         val matrix = Matrix()
         val source = FloatArray(8) { i -> if (i % 2 == 0) quad[i / 2].x * bitmap.width else quad[i / 2].y * bitmap.height }

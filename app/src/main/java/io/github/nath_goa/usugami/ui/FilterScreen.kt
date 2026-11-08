@@ -31,10 +31,13 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -44,11 +47,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
@@ -62,7 +70,9 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.scale
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.LookAdjustments
@@ -75,6 +85,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -131,29 +142,37 @@ internal fun FilterStep(
         // Without memory for it, the page shows as it is.
         value = LookPreview(base, look, adjustments, made ?: base)
     }
-    // Each look on a small copy of the page, shown as each is made.
+    // Each look on a small copy of the page, shown as each is made. Each look is made on the page at
+    // the size the editor shows pages at, and then made small, so it looks as it does on the page.
     val samples by produceState<LookSamples?>(null, photo, corners) {
         val shown = photo ?: return@produceState
         if (value?.corners?.isCloseTo(corners) == true) return@produceState
         val job = coroutineContext.job
-        val small = withContext(Dispatchers.Default) { straightened(shown, corners, SAMPLE_MAX) } ?: return@produceState
+        val plain = withContext(Dispatchers.Default) { straightened(shown, corners, SAMPLE_LOOK_MAX) } ?: return@produceState
         var made = LookSamples(corners, emptyMap())
-        for (option in PageLook.shown) {
-            val sample = withContext(Dispatchers.Default) {
-                try {
-                    if (option == PageLook.ORIGINAL) small else PageLooks.applied(small, option) { job.ensureActive() }
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    null
-                } catch (e: OutOfMemoryError) {
-                    null
+        try {
+            for (option in PageLook.shown) {
+                val sample = withContext(Dispatchers.Default) {
+                    try {
+                        val look = if (option == PageLook.ORIGINAL) plain else PageLooks.applied(plain, option) { job.ensureActive() }
+                        // The look at full size goes once it is made small; the plain page stays for the next.
+                        small(look).also { if (look !== plain && it !== look) look.recycle() }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        null
+                    } catch (e: OutOfMemoryError) {
+                        null
+                    }
+                }
+                if (sample != null) {
+                    made = LookSamples(corners, made.images + (option to sample.asImageBitmap()))
+                    value = made
                 }
             }
-            if (sample != null) {
-                made = LookSamples(corners, made.images + (option to sample.asImageBitmap()))
-                value = made
-            }
+        } finally {
+            // Once no look is being made from it, unless it is small enough to be Original's own (see small).
+            if (max(plain.width, plain.height) > SAMPLE_MAX) plain.recycle()
         }
     }
     val base = page?.takeIf { it.corners.isCloseTo(corners) }
@@ -265,6 +284,7 @@ private fun LookChoice(look: PageLook, image: ImageBitmap?, rotation: Int, selec
  * and value over it, and a button beside it ([reset] names it) that puts it back to 0. Close to 0,
  * it holds at 0, so the middle is easy to find.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AdjustmentSlider(@StringRes label: Int, @StringRes reset: Int, value: Int, onChange: (Int) -> Unit) {
     val name = stringResource(label)
@@ -281,6 +301,7 @@ private fun AdjustmentSlider(@StringRes label: Int, @StringRes reset: Int, value
                 value = value.toFloat(),
                 onValueChange = { v -> onChange(v.roundToInt().let { if (abs(it) <= SNAP) 0 else it }) },
                 valueRange = range,
+                track = { CentredTrack(it) },
                 // The slider's own item for a screen reader lies inside, out of reach of a name given
                 // here: this one, named, takes its place.
                 modifier = Modifier.clearAndSetSemantics {
@@ -299,6 +320,41 @@ private fun AdjustmentSlider(@StringRes label: Int, @StringRes reset: Int, value
             Icon(Icons.Rounded.RestartAlt, contentDescription = stringResource(reset))
         }
     }
+}
+
+/**
+ * The track of a slider with 0 in its middle: filled from the middle to the thumb, either way, as
+ * Material's own track is filled from its start, so 0 shows no fill. As Material's, it leaves a gap
+ * round the thumb and has a dot at each end it reaches.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CentredTrack(state: SliderState) {
+    val colors = SliderDefaults.colors()
+    Canvas(Modifier.fillMaxWidth().height(TRACK_HEIGHT)) {
+        val width = size.width
+        val fraction = state.coercedValueAsFraction
+        val thumb = width * if (layoutDirection == LayoutDirection.Rtl) 1 - fraction else fraction
+        val gap = THUMB_GAP.toPx()
+        val end = size.height / 2
+        val inside = INSIDE_CORNER.toPx()
+        trackPart(0f, thumb - gap, colors.inactiveTrackColor, end, inside)
+        trackPart(thumb + gap, width, colors.inactiveTrackColor, inside, end)
+        val middle = width / 2
+        if (thumb - gap > middle) trackPart(middle, thumb - gap, colors.activeTrackColor, inside, inside)
+        if (thumb + gap < middle) trackPart(thumb + gap, middle, colors.activeTrackColor, inside, inside)
+        val dot = STOP_DOT.toPx() / 2
+        if (thumb - gap >= size.height) drawCircle(colors.activeTrackColor, dot, Offset(end, end))
+        if (thumb + gap <= width - size.height) drawCircle(colors.activeTrackColor, dot, Offset(width - end, end))
+    }
+}
+
+/** The track from [from] to [to] across, in [color], its corners rounded [start] there and [end] at [to]. */
+private fun DrawScope.trackPart(from: Float, to: Float, color: Color, start: Float, end: Float) {
+    if (to <= from) return
+    val first = CornerRadius(start)
+    val last = CornerRadius(end)
+    drawPath(Path().apply { addRoundRect(RoundRect(from, 0f, to, size.height, first, last, last, first)) }, color)
 }
 
 /** [image] (the page upright) as large as fits, turned [rotation] degrees clockwise, in the middle. */
@@ -330,6 +386,17 @@ private fun straightened(photo: Bitmap, quad: CropQuad, maxSide: Int): Bitmap? {
     return null
 }
 
+/**
+ * [bitmap] made [SAMPLE_MAX] pixels on its long side, as a new bitmap; [bitmap] itself when it is no
+ * larger.
+ */
+private fun small(bitmap: Bitmap): Bitmap {
+    val long = max(bitmap.width, bitmap.height)
+    if (long <= SAMPLE_MAX) return bitmap
+    val scale = SAMPLE_MAX.toFloat() / long
+    return bitmap.scale(max(1, (bitmap.width * scale).roundToInt()), max(1, (bitmap.height * scale).roundToInt()), filter = true)
+}
+
 /** The page straightened out of the photo inside [corners]: null when it couldn't be made. */
 private class StraightPage(val corners: CropQuad, val bitmap: Bitmap?)
 
@@ -342,8 +409,15 @@ private class LookSamples(val corners: CropQuad, val images: Map<PageLook, Image
 /** The large page is made at most this many pixels on its long side. */
 private const val PAGE_MAX = 1200
 
-/** The looks' small pages are made this many pixels on their long side. */
+/** The looks' small pages are this many pixels on their long side. */
 private const val SAMPLE_MAX = 200
+
+/**
+ * The looks are made on the page this many pixels on its long side, as on the editor's pages, and
+ * then made small. The looks weigh each pixel against blocks of pixels round it, which stop getting
+ * smaller below this size: on a smaller page, a look would come out unlike the page's.
+ */
+private const val SAMPLE_LOOK_MAX = 512
 
 /** How wide each look is in the row, its name under it. */
 private val SAMPLE_WIDTH = 80.dp
@@ -353,3 +427,15 @@ private const val LOOK_DELAY_MS = 150L
 
 /** A slider this close to 0 holds at 0. */
 private const val SNAP = 2
+
+/** How tall a slider's track is, as Material's. */
+private val TRACK_HEIGHT = 16.dp
+
+/** How far the track keeps from the middle of the thumb, as Material's: half the thumb and a gap. */
+private val THUMB_GAP = 8.dp
+
+/** How round the track's corners next to the thumb and the middle are, as Material's. */
+private val INSIDE_CORNER = 2.dp
+
+/** How wide the dot at each end of the track is, as Material's. */
+private val STOP_DOT = 4.dp
