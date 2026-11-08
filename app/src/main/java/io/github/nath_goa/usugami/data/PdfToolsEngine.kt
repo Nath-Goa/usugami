@@ -241,16 +241,21 @@ class PdfToolsEngine(private val context: Context) {
                     taken += name
                     val target = File(outputDir, "$name.pdf")
                     PDDocument(memory()).use { dest ->
+                        // Each page's copy in the part, by the page, for the links between them.
+                        val copies = IdentityHashMap<COSDictionary, COSDictionary>()
                         for (pageIndex in pages) {
                             check()
                             val page = sourcePages[pageIndex]
                             val imported = dest.importPage(page)
+                            copies[page.cosObject] = imported.cosObject
                             // Its resources, also when inherited, listing only the pictures and forms
                             // it draws: pages often share one list that holds every page's.
                             page.resources?.let { imported.resources = PDResources(XObjectCleanup.drawnOnly(page, it.cosObject)) }
                         }
                         // The copies' links, comments and form fields still lead to the source's pages,
-                        // which would bring the whole source into the part.
+                        // which would bring the whole source into the part. Links to the part's own
+                        // pages lead to their copies instead; the others are cut.
+                        PageCleanup.keepLinksWithin(dest, source, copies)
                         PageCleanup.dropSourcePages(dest, cutFrom, check)
                         dest.save(target)
                     }

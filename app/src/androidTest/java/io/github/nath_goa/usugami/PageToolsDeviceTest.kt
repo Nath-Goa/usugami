@@ -253,6 +253,18 @@ class PageToolsDeviceTest {
         }
     }
 
+    /** Page 1's link to page 3 still works in a part that has both; its link to page 4, left out, leads nowhere. */
+    @Test fun linksBetweenPagesOfAPartStillWork() {
+        val source = import(chapters(made("split_links.pdf")))
+        val part = save(engine.split(source, listOf(listOf(0, 2)), "links").single().file, "split_links.pdf")
+        PDDocument.load(part).use { doc ->
+            val (toThree, toFour) = doc.getPage(0).annotations.filterIsInstance<PDAnnotationLink>().map { it.destination as PDPageDestination }
+            assertSame("The link leads to page 2 of the part", doc.getPage(1).cosObject, toThree.page?.cosObject)
+            assertNull(toFour.page)
+        }
+        assertFalse(everythingIn(part).contains("PAGE FOUR"))
+    }
+
     /**
      * Pages that share one list of resources (also inherited from the page tree) each draw their own
      * image: a page deleted, left out or split off takes its image with it, and the pages that stay

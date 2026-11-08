@@ -8,6 +8,10 @@ import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSNull
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionGoTo
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDNamedDestination
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import java.io.IOException
 import java.util.Collections
@@ -58,6 +62,59 @@ internal object PageCleanup {
                 this.pages += page.cosObject
                 annotationsOf(page.cosObject, annotations)
             }
+        }
+    }
+
+    /**
+     * For pages copied into [doc] from [source]: each link on them to one of those pages gets a copy
+     * of its own that leads to that page's copy ([copies], by the page) instead, so a contents page
+     * still works in a part of a split. Links to [source]'s other pages are left for
+     * [dropSourcePages] to cut. A link to a named place leads straight to its page, since the names
+     * don't come along.
+     */
+    fun keepLinksWithin(doc: PDDocument, source: PDDocument, copies: Map<COSDictionary, COSDictionary>) {
+        for (page in doc.pages) {
+            val annotations = page.cosObject.getDictionaryObject(COSName.ANNOTS) as? COSArray ?: continue
+            val own = COSArray()
+            var changed = false
+            for (i in 0 until annotations.size()) {
+                val link = (annotations.getObject(i) as? COSDictionary)?.let { linkWithin(it, source, copies) }
+                if (link != null) {
+                    link.setItem(COSName.P, page.cosObject)
+                    changed = true
+                }
+                // The others as they are, a reference staying a reference.
+                own.add(link ?: annotations.get(i))
+            }
+            if (changed) page.cosObject.setItem(COSName.ANNOTS, own)
+        }
+    }
+
+    /**
+     * A copy of [annotation] leading to the copy of the page it leads to, if it is a link to a page
+     * of [source] that has one in [copies]; null otherwise.
+     */
+    private fun linkWithin(annotation: COSDictionary, source: PDDocument, copies: Map<COSDictionary, COSDictionary>): COSDictionary? {
+        if (annotation.getCOSName(COSName.SUBTYPE)?.name != PDAnnotationLink.SUB_TYPE) return null
+        val target = try {
+            val link = PDAnnotationLink(annotation)
+            when (val destination = link.destination ?: (link.action as? PDActionGoTo)?.destination) {
+                is PDPageDestination -> destination
+                is PDNamedDestination -> source.documentCatalog.findNamedDestinationPage(destination)
+                else -> null
+            }
+        } catch (_: IOException) {
+            null
+        } ?: return null
+        val place = target.cosObject
+        val copy = copies[place.getObject(0)] ?: return null
+        val leads = COSArray().apply {
+            add(copy)
+            for (i in 1 until place.size()) add(place.get(i))
+        }
+        return COSDictionary(annotation).apply {
+            removeItem(COSName.A)
+            setItem(COSName.DEST, leads)
         }
     }
 
