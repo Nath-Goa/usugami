@@ -36,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -54,13 +55,17 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.data.Signature
@@ -89,6 +94,7 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
     // Edge to edge like the screens, so nothing of the screen below shows around it, even beside a
     // camera cutout in landscape.
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        BarIconsLikeTheScreens()
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing,
             topBar = {
@@ -134,6 +140,23 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
                     }, enabled = !draft.isEmpty) { Text(stringResource(R.string.sign_clear)) }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Gives the dialog's own window the bar icons the screens have: dark on a light theme. A dialog's
+ * window starts with light icons, which, drawn over a light pad, left the clock and battery unseen.
+ */
+@Composable
+private fun BarIconsLikeTheScreens() {
+    val view = LocalView.current
+    val light = MaterialTheme.colorScheme.surface.luminance() > 0.5f
+    SideEffect {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(window, view).run {
+            isAppearanceLightStatusBars = light
+            isAppearanceLightNavigationBars = light
         }
     }
 }
