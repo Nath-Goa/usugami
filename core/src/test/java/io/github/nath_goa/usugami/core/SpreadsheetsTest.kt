@@ -73,8 +73,9 @@ class SpreadsheetsTest {
 
     @Test
     fun pagesGoDownThenOverUnlessAskedOtherwise() {
-        assertEquals(listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1), SheetPages.order(2, 2, downThenOver = true))
-        assertEquals(listOf(0 to 0, 0 to 1, 1 to 0, 1 to 1), SheetPages.order(2, 2, downThenOver = false))
+        val pages = listOf(1 to 1, 0 to 1, 1 to 0, 0 to 0)
+        assertEquals(listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1), SheetPages.order(pages, downThenOver = true))
+        assertEquals(listOf(0 to 0, 0 to 1, 1 to 0, 1 to 1), SheetPages.order(pages, downThenOver = false))
     }
 
     @Test
@@ -85,6 +86,10 @@ class SpreadsheetsTest {
         assertEquals(595.3, SheetPaper.length("210mm")!!, 0.1)
         assertEquals(612.0, SheetPaper.length("8.5in")!!, 0.1)
         assertNull(SheetPaper.length("wide"))
+        // Sizes no paper has are left out, for the paper's number or Letter.
+        assertNull(SheetPaper.length("1e308mm"))
+        assertNull(SheetPaper.length("100000in"))
+        assertNull(SheetPaper.length("0.0001mm"))
     }
 
     @Test

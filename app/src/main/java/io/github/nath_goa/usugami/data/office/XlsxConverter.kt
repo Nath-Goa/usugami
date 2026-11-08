@@ -18,12 +18,15 @@ data class SheetOptions(
     /** True for landscape, false for portrait. */
     val landscape: Boolean? = null,
     /**
-     * Shrinks a sheet's columns to fit the page's width, so a wide sheet isn't cut into narrow pages
-     * across; a sheet whose file says how to fit itself on pages keeps that.
+     * Shrinks a sheet's columns to fit the page's width, down to half size, so a wide sheet isn't cut
+     * into narrow pages across; a sheet whose file says how to fit itself on pages keeps that.
      */
     val fitWidth: Boolean = true,
-    /** Light grey lines between the cells. The sheets' own borders are always drawn. */
-    val gridlines: Boolean = true,
+    /**
+     * Light grey lines between the cells of every sheet that shows them on screen. Without, they print
+     * only on the sheets set to print them, as in Excel. The sheets' own borders are always drawn.
+     */
+    val gridlines: Boolean = false,
 )
 
 /**
@@ -39,10 +42,13 @@ data class SheetOptions(
  * row heights, hidden rows, columns and sheets; manual page breaks; pictures placed on the sheet.
  *
  * Headers and footers print with their page numbers, page counts, dates, and sheet and file names.
+ * Pages are numbered through the whole PDF, as Excel numbers a whole workbook printed at once: a
+ * sheet goes on from the sheets before it unless it sets its own first page number.
  *
  * What is simplified: the phone's fonts stand in for the workbook's, drawn to their widths; patterned
- * and gradient fills become a plain colour. Charts, shapes, comments, conditional formatting, table
- * styles, sparklines and header pictures are left out.
+ * and gradient fills become a plain colour; wrapped and rich text underlined twice is underlined
+ * once. Charts, shapes, comments, conditional formatting, table styles, sparklines and header
+ * pictures are left out, but the values that data bars and icon sets hide stay hidden.
  */
 internal class XlsxConverter(
     private val pkg: OfficePackage,
@@ -120,9 +126,13 @@ internal class XlsxConverter(
             val plan = planner.plan(sheet.name, part)
             val used = plan.used ?: continue
             val titles = titles(printTitles[index])
-            val layouts = areas(printAreas[index], used).map { AreaLayout.of(plan, it, titles, options) }.filter { it.pages.isNotEmpty() }
-            total += layouts.sumOf { it.pages.size }
-            if (total > MAX_PAGES) throw OfficeTooLarge()
+            val layouts = ArrayList<AreaLayout>()
+            for (area in areas(printAreas[index], used)) {
+                check()
+                val layout = AreaLayout.of(plan, area, titles, options, MAX_PAGES - total, check)
+                total += layout.pages.size
+                if (layout.pages.isNotEmpty()) layouts += layout
+            }
             if (layouts.isNotEmpty()) laidOut += layouts
         }
         if (total == 0) throw OfficeNothingToConvert()
@@ -130,14 +140,16 @@ internal class XlsxConverter(
         val now = Date()
         val date = DateFormat.getDateInstance(DateFormat.SHORT).format(now)
         val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(now)
+        var page = 0
         for (layouts in laidOut) {
-            val pages = layouts.sumOf { it.pages.size }
-            var number = 0
             val name = layouts[0].plan.name
+            val first = layouts[0].plan.setup.firstPageNumber ?: (page + 1)
+            var number = 0
             for (layout in layouts) {
                 draw(layout, total) { canvas ->
                     number++
-                    painter.drawHeaderFooter(canvas, layout, number, pages) { page, count -> SheetHeaders.Fields(page, count, name, fileName, date, time) }
+                    page = first + number - 1
+                    painter.drawHeaderFooter(canvas, layout, number, page, total) { shown, count -> SheetHeaders.Fields(shown, count, name, fileName, date, time) }
                 }
             }
         }
@@ -147,7 +159,7 @@ internal class XlsxConverter(
     /**
      * The areas of a sheet that print: those of its print area ([printArea], a defined name's formula),
      * each on pages of its own, or everything from A1 to the last cell [used] reaches. Whole rows or
-     * columns stop where the sheet's cells do.
+     * columns stop where the sheet's cells do. An area named more than once prints once.
      */
     private fun areas(printArea: String?, used: SheetRange): List<SheetRange> {
         val given = printArea?.let { SheetRefs.areas(it) }?.map { it.second }.orEmpty()
@@ -156,7 +168,7 @@ internal class XlsxConverter(
             val lastRow = if (area.lastRow == SheetRefs.MAX_ROWS - 1) used.lastRow else area.lastRow
             val lastColumn = if (area.lastColumn == SheetRefs.MAX_COLUMNS - 1) used.lastColumn else area.lastColumn
             SheetRange(area.firstRow, area.firstColumn, lastRow, lastColumn).takeIf { it.firstRow <= it.lastRow && it.firstColumn <= it.lastColumn }
-        }
+        }.distinct()
     }
 
     /** The rows and the columns repeated on each page, from a sheet's Print_Titles ([text]). */
@@ -224,6 +236,7 @@ internal class XlsxConverter(
         val canvas = pdf.startPage(layout.pageWidth, layout.pageHeight)
         painter.draw(canvas, layout, page.first, page.second, cells)
         headerFooter(canvas)
+        pdf.keepText(texts.takeDrawn())
         pdf.finishPage()
         progress(++drawn, total)
     }

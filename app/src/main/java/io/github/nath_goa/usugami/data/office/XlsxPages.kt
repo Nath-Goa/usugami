@@ -48,9 +48,11 @@ internal class AreaLayout(
         /**
          * Lays out [area] of [plan] with [titles] (repeated rows, then columns, or nulls) as [options]
          * and the sheet's page setup say. Fit columns to page width shrinks the columns to the page's
-         * width unless the file sets how to fit the sheet itself; nothing is ever enlarged.
+         * width unless the file sets how to fit the sheet itself, but not below [MIN_FIT_WIDTH] percent;
+         * nothing is ever enlarged. Throws [OfficeTooLarge] once the pages with anything on them number
+         * more than [limit].
          */
-        fun of(plan: SheetPlan, area: SheetRange, titles: Pair<IntRange?, IntRange?>, options: SheetOptions): AreaLayout {
+        fun of(plan: SheetPlan, area: SheetRange, titles: Pair<IntRange?, IntRange?>, options: SheetOptions, limit: Int, check: () -> Unit): AreaLayout {
             val setup = plan.setup
             val paper = options.paper?.let { it.shortSide to it.longSide } ?: setup.paper ?: LETTER
             val landscape = options.landscape ?: setup.landscape ?: false
@@ -70,21 +72,31 @@ internal class AreaLayout(
             val rowBreaks = plan.rowBreaks.mapNotNullTo(HashSet()) { (it - area.firstRow).takeIf { i -> i > 0 } }
             val columnBreaks = plan.columnBreaks.mapNotNullTo(HashSet()) { (it - area.firstColumn).takeIf { i -> i > 0 } }
 
+            val shrunk = if (options.fitWidth && !setup.fitToPage) {
+                SheetPages.fitScale(widths, heights, bodyWidth, bodyHeight, 1, 0, emptySet(), rowBreaks, columnTitle, rowTitle, most = setup.scale)
+            } else null
+            // Smaller is too small to read on paper: a sheet wider still goes on more pages across.
+            val floor = min(MIN_FIT_WIDTH, setup.scale)
             val percent = when {
                 setup.fitToPage -> SheetPages.fitScale(widths, heights, bodyWidth, bodyHeight, setup.fitWidth, setup.fitHeight, emptySet(), emptySet(), columnTitle, rowTitle)
-                options.fitWidth -> SheetPages.fitScale(widths, heights, bodyWidth, bodyHeight, 1, 0, emptySet(), rowBreaks, columnTitle, rowTitle, most = setup.scale)
+                shrunk != null -> max(shrunk, floor)
                 else -> setup.scale
             }
             val scale = percent / 100.0
             val breaksApply = !setup.fitToPage
+            // Fitted to one page across, the sheet's own breaks between columns don't apply, as in Excel's "Fit to".
+            val onePageAcross = shrunk != null && shrunk >= floor
             val rowStarts = SheetPages.bands(heights, bodyHeight, scale, if (breaksApply) rowBreaks else emptySet(), rowTitle.first, rowTitle.second)
                 .map { it + area.firstRow }.toIntArray()
-            val columnStarts = SheetPages.bands(widths, bodyWidth, scale, if (breaksApply && !options.fitWidth) columnBreaks else emptySet(), columnTitle.first, columnTitle.second)
+            val columnStarts = SheetPages.bands(widths, bodyWidth, scale, if (breaksApply && !onePageAcross) columnBreaks else emptySet(), columnTitle.first, columnTitle.second)
                 .map { it + area.firstColumn }.toIntArray()
             val layout = AreaLayout(plan, area, width, height, scale.toFloat(), rowStarts, columnStarts, titleRows, titleColumns, emptyList())
-            val pages = SheetPages.order(rowStarts.size, columnStarts.size, setup.downThenOver).filter { (r, c) -> layout.hasContent(r, c) }
+            val pages = layout.pagesWithContent(setup.downThenOver, limit, check)
             return AreaLayout(plan, area, width, height, scale.toFloat(), rowStarts, columnStarts, titleRows, titleColumns, pages)
         }
+
+        /** The smallest Fit columns to page width shrinks a sheet to, in percent: half size. */
+        const val MIN_FIT_WIDTH = 50
 
         /** [margins], shrunk together if they leave less than a tenth of the paper. */
         private fun margins(margins: SheetMargins, width: Float, height: Float): SheetMargins {
@@ -100,28 +112,54 @@ internal class AreaLayout(
     /** The paper's margins, as laid out. */
     val margins: SheetMargins get() = margins(plan.setup.margins, pageWidth, pageHeight)
 
-    /** The merged blocks with something in them. */
-    private val filledMerges by lazy { plan.merges.filter { plan.content.any(it.firstRow, it.lastRow, it.firstColumn, it.lastColumn) } }
-
     /**
-     * Whether page ([rowBand], [columnBand]) has anything on it: a cell with something in it or a
-     * format that shows, part of a merged block with something in it, or a picture.
+     * The pages with anything on them, in the order they print: a cell with something in it, a format
+     * that shows or text running on from a cell, part of a merged block with something in it, or a
+     * picture. They are found from what the sheet holds rather than by looking at each page, as a sheet
+     * reaching far down and across has millions. Throws [OfficeTooLarge] once they number more than [limit].
      */
-    private fun hasContent(rowBand: Int, columnBand: Int): Boolean {
-        val top = rowStarts[rowBand]
-        val bottom = rowEnd(rowBand)
-        val left = columnStarts[columnBand]
-        val right = columnEnd(columnBand)
-        if (plan.content.any(top, bottom, left, right)) return true
-        // A merged block reaching onto the page from another, with something in it.
-        val band = SheetRange(top, left, bottom, right)
-        if (filledMerges.any { it.intersect(band) != null }) return true
-        val x0 = plan.columns.offset(left).toFloat()
-        val x1 = plan.columns.offset(right + 1).toFloat()
-        val y0 = plan.rows.offset(top).toFloat()
-        val y1 = plan.rows.offset(bottom + 1).toFloat()
-        return plan.pictures.any { it.rect.left < x1 && it.rect.right > x0 && it.rect.top < y1 && it.rect.bottom > y0 }
+    private fun pagesWithContent(downThenOver: Boolean, limit: Int, check: () -> Unit): List<Pair<Int, Int>> {
+        val found = HashSet<Long>()
+        fun mark(cells: SheetRange) {
+            val shown = cells.intersect(area) ?: return
+            val columnBands = band(columnStarts, shown.firstColumn)..band(columnStarts, shown.lastColumn)
+            for (r in band(rowStarts, shown.firstRow)..band(rowStarts, shown.lastRow)) {
+                for (c in columnBands) if (found.add(SheetRefs.pack(r, c)) && found.size > limit) throw OfficeTooLarge()
+            }
+        }
+        // The rows with something in them, the columns of each band of rows joined where they meet.
+        var rowBand = -1
+        var from = -1
+        var to = -1
+        plan.content.forEach(area.firstRow, area.lastRow) { row, first, last ->
+            val band = band(rowStarts, row)
+            if (band != rowBand || first > to + 1 || last < from - 1) {
+                if (rowBand >= 0) mark(SheetRange(rowStarts[rowBand], from, rowStarts[rowBand], to))
+                check()
+                rowBand = band
+                from = first
+                to = last
+            } else {
+                from = min(from, first)
+                to = max(to, last)
+            }
+        }
+        if (rowBand >= 0) mark(SheetRange(rowStarts[rowBand], from, rowStarts[rowBand], to))
+        for (merge in plan.merges) {
+            check()
+            if (merge.intersect(area) != null && plan.content.any(merge.firstRow, merge.lastRow, merge.firstColumn, merge.lastColumn)) mark(merge)
+        }
+        for (picture in plan.pictures) {
+            val r = picture.rect
+            val rows = plan.rows
+            val columns = plan.columns
+            mark(SheetRange(rows.rowAt(r.top.toDouble()), columns.columnAt(r.left.toDouble()), rows.rowAt(max(r.top, r.bottom - 0.01f).toDouble()), columns.columnAt(max(r.left, r.right - 0.01f).toDouble())))
+        }
+        return SheetPages.order(found.map { SheetRefs.rowOf(it) to SheetRefs.columnOf(it) }, downThenOver)
     }
+
+    /** The band of [starts] (each band's first row or column) that [index] is in. */
+    private fun band(starts: IntArray, index: Int): Int = starts.binarySearch(index).let { if (it >= 0) it else -it - 2 }.coerceAtLeast(0)
 }
 
 /**
@@ -138,8 +176,8 @@ internal class PageCells(val rows: Map<Int, SheetRow>, private val anchors: Map<
  * Draws the pages of a laid-out sheet area: fills, gridlines, borders, text and pictures, in that
  * order, as Excel prints them, and the sheet's header and footer. Text that doesn't wrap runs on into
  * empty cells beside it; numbers too wide for their cell show as ####. Sizes on the sheet are points,
- * drawn at the area's scale. With [gridlines], light gridlines show on the sheets that show them on
- * screen or are set to print them.
+ * drawn at the area's scale. Light gridlines show on the sheets set to print them, as in Excel, and
+ * with [gridlines] also on those that show them on screen.
  */
 internal class SheetPainter(
     private val styles: SheetStyles,
@@ -185,14 +223,24 @@ internal class SheetPainter(
         val left = margins.left + if (plan.setup.centerHorizontally) max(0f, (bodyWidth - contentWidth) / 2) else 0f
         val top = margins.top + if (plan.setup.centerVertically) max(0f, (bodyHeight - contentHeight) / 2) else 0f
         val placed = HashMap<Int, List<Placed>>()
-        val grid = gridlines && (plan.gridlinesShown || plan.gridlinesPrinted)
+        val grid = plan.gridlinesPrinted || (gridlines && plan.gridlinesShown)
+        // The merged blocks of more than one cell over the page's rows, found once for all of them.
+        val merges = plan.merges.filter { m -> (m.firstRow != m.lastRow || m.firstColumn != m.lastColumn) && rowParts.any { m.firstRow <= it.last && m.lastRow >= it.first } }
         canvas.withTranslation(left * U, top * U) {
             scale(layout.scale, layout.scale)
-            for (region in regions) drawRegion(this, layout, region, cells, placed, grid)
+            for (region in regions) drawRegion(this, layout, region, cells, merges, placed, grid)
         }
     }
 
-    private fun drawRegion(canvas: Canvas, layout: AreaLayout, region: Region, cells: PageCells, placed: HashMap<Int, List<Placed>>, grid: Boolean) {
+    private fun drawRegion(
+        canvas: Canvas,
+        layout: AreaLayout,
+        region: Region,
+        cells: PageCells,
+        pageMerges: List<SheetRange>,
+        placed: HashMap<Int, List<Placed>>,
+        grid: Boolean,
+    ) {
         val plan = layout.plan
         val columns = plan.columns
         val rows = plan.rows
@@ -205,7 +253,7 @@ internal class SheetPainter(
         val columnList = region.columns.toList()
         if (visibleRows.isEmpty() || columnList.isEmpty()) return
         val bounds = SheetRange(region.rows.first, region.columns.first, region.rows.last, region.columns.last)
-        val merges = plan.merges.filter { it.intersect(bounds) != null && (it.firstRow != it.lastRow || it.firstColumn != it.lastColumn) }
+        val merges = pageMerges.filter { it.intersect(bounds) != null }
         // Which merged block each cell of the region is in, or -1.
         val mergeOf = Array(visibleRows.size) { IntArray(columnList.size) { -1 } }
         val rowSlot = HashMap<Int, Int>(visibleRows.size * 2).also { map -> visibleRows.forEachIndexed { i, r -> map[r] = i } }
@@ -223,7 +271,7 @@ internal class SheetPainter(
             }
         }
         fun mergeRect(merge: SheetRange) = RectF(x(merge.firstColumn), y(merge.firstRow), x(merge.lastColumn + 1), y(merge.lastRow + 1))
-        val rowPlaced = visibleRows.associateWith { r -> placed.getOrPut(r) { place(plan, cells.rows[r], layout.area) } }
+        val rowPlaced = visibleRows.associateWith { r -> placed.getOrPut(r) { place(plan, cells.rows[r], layout.area, pageMerges) } }
 
         canvas.withClip(clip.left * U, clip.top * U, clip.right * U, clip.bottom * U) {
             // Fills, in runs of one colour along each row, so no seams show between cells.
@@ -274,15 +322,26 @@ internal class SheetPainter(
         }
 
         // Text, each in the cells it takes, cut off at the region's edge.
+        val hidden = plan.valuesHidden.filter { it.firstRow <= region.rows.last && it.lastRow >= region.rows.first }
         for (r in visibleRows) {
             for (p in rowPlaced.getValue(r)) {
                 if (p.last < region.columns.first || p.first > region.columns.last) continue
+                if (hidden.any { it.contains(r, p.cell.column) }) continue
                 val box = RectF(x(p.first), y(r), x(p.last + 1), y(r + 1))
                 val shown = texts.shown(p.cell, p.format, columns.width(p.cell.column)) ?: continue
-                texts.draw(canvas, shown, p.format, box, clip)
+                if (shown.align == SheetAlign.CENTER && p.first != p.last) {
+                    // Centred text running on stays centred on its own cell, cut off where the cells it runs into end.
+                    val centre = (x(p.cell.column) + x(p.cell.column + 1)) / 2
+                    val half = max(centre - box.left, box.right - centre)
+                    val cut = RectF(box)
+                    if (cut.intersect(clip)) texts.draw(canvas, shown, p.format, RectF(centre - half, box.top, centre + half, box.bottom), cut)
+                } else {
+                    texts.draw(canvas, shown, p.format, box, clip)
+                }
             }
         }
         for (merge in merges) {
+            if (hidden.any { it.contains(merge.firstRow, merge.firstColumn) }) continue
             val anchor = cells.cell(merge.firstRow, merge.firstColumn)?.takeIf { it.kind != null } ?: continue
             val format = styles.format(anchor.format)
             val box = mergeRect(merge)
@@ -316,17 +375,18 @@ internal class SheetPainter(
      * Where the text of each cell of [row] goes. Text that doesn't wrap and is wider than its cell runs
      * on into the empty cells beside it, the way it lines up: right of it, left of it, or both ways when
      * centred; Center Across Selection centres it over the empty cells after it that ask for the same.
-     * Numbers never run on; nor does text in merged cells, which [draw] places in its block.
+     * Numbers never run on; nor does text in the merged blocks [merges] (those over the page's rows),
+     * which [draw] places in its block. A hidden column's text doesn't print, so it goes nowhere.
      */
-    private fun place(plan: SheetPlan, row: SheetRow?, area: SheetRange): List<Placed> {
+    private fun place(plan: SheetPlan, row: SheetRow?, area: SheetRange, merges: List<SheetRange>): List<Placed> {
         if (row == null || row.cells.isEmpty()) return emptyList()
         val filled = row.cells.filter { it.kind != null }.mapTo(HashSet()) { it.column }
-        val merged = plan.merges.filter { row.index in it.firstRow..it.lastRow && (it.firstRow != it.lastRow || it.firstColumn != it.lastColumn) }
+        val merged = merges.filter { row.index in it.firstRow..it.lastRow }
         fun inMerge(column: Int) = merged.any { column in it.firstColumn..it.lastColumn }
         fun free(column: Int) = column in area.firstColumn..area.lastColumn && column !in filled && !inMerge(column)
         val out = ArrayList<Placed>()
         for (cell in row.cells) {
-            if (cell.kind == null || cell.column !in area.firstColumn..area.lastColumn || inMerge(cell.column)) continue
+            if (cell.kind == null || cell.column !in area.firstColumn..area.lastColumn || plan.columns.width(cell.column) <= 0f || inMerge(cell.column)) continue
             val format = styles.format(cell.format)
             var first = cell.column
             var last = cell.column
@@ -335,15 +395,18 @@ internal class SheetPainter(
                 while (free(last + 1) && styles.format(formatOf(plan, row, last + 1)).horizontal == SheetAlign.CENTER_ACROSS) last++
             } else if (runsOn && !format.wraps && !format.shrink && format.rotation == 0 && format.horizontal != SheetAlign.FILL) {
                 val shown = texts.shown(cell, format, plan.columns.width(cell.column))
-                if (shown != null) {
+                val right = shown != null && shown.align != SheetAlign.RIGHT && free(last + 1)
+                val left = shown != null && (shown.align == SheetAlign.RIGHT || shown.align == SheetAlign.CENTER) && free(first - 1)
+                // Measured only when it has somewhere to run on to: in a full table, most text has not.
+                if (shown != null && (right || left)) {
                     val need = texts.width(shown) + 2 * CellTexts.PAD + format.indent * texts.indentStep - plan.columns.width(cell.column)
                     if (need > 0f) {
                         val side = if (shown.align == SheetAlign.CENTER) need / 2 else need
-                        if (shown.align != SheetAlign.RIGHT) {
+                        if (right) {
                             var gained = 0f
                             while (gained < side && free(last + 1)) gained += plan.columns.width(++last)
                         }
-                        if (shown.align == SheetAlign.RIGHT || shown.align == SheetAlign.CENTER) {
+                        if (left) {
                             var gained = 0f
                             while (gained < side && free(first - 1)) gained += plan.columns.width(--first)
                         }
@@ -409,18 +472,18 @@ internal class SheetPainter(
     }
 
     /**
-     * Draws the sheet's header and footer on page [number] of the sheet's [pages], in the top and
-     * bottom margins, their left, centre and right parts lined up with the paper's side margins.
-     * [fields] gives the sheet's and the file's names and today's date and time.
+     * Draws the sheet's header and footer on its page [number] (from 1), numbered [page] of the PDF's
+     * [pages], in the top and bottom margins, their left, centre and right parts lined up with the
+     * paper's side margins. [fields] gives the sheet's and the file's names and today's date and time.
      */
-    fun drawHeaderFooter(canvas: Canvas, layout: AreaLayout, number: Int, pages: Int, fields: (page: Int, pages: Int) -> SheetHeaders.Fields) {
+    fun drawHeaderFooter(canvas: Canvas, layout: AreaLayout, number: Int, page: Int, pages: Int, fields: (page: Int, pages: Int) -> SheetHeaders.Fields) {
         val setup = layout.plan.setup
         val texts = setup.headerFooter ?: return
         val first = texts.differentFirst && number == 1
-        val even = texts.differentOddEven && number % 2 == 0
+        val even = texts.differentOddEven && page % 2 == 0
         val header = if (first) texts.firstHeader else if (even) texts.evenHeader else texts.oddHeader
         val footer = if (first) texts.firstFooter else if (even) texts.evenFooter else texts.oddFooter
-        val shown = fields((setup.firstPageNumber ?: 1) + number - 1, pages)
+        val shown = fields(page, pages)
         val scale = if (texts.scaleWithDoc) layout.scale else 1f
         header?.let { drawHeaderParts(canvas, layout, SheetHeaders.parts(it, shown), scale, top = true) }
         footer?.let { drawHeaderParts(canvas, layout, SheetHeaders.parts(it, shown), scale, top = false) }

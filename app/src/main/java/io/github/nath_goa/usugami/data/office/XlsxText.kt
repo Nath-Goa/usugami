@@ -1,9 +1,11 @@
 package io.github.nath_goa.usugami.data.office
 
 import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.Layout
+import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.style.ScaleXSpan
@@ -20,6 +22,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.floor
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
 
@@ -42,6 +45,9 @@ internal class ShownText(
  * fonts stand in for the workbook's, drawn narrower or wider to the width of the font they stand in
  * for (see [SheetUnits.digitEm]), so text fits its cells, wraps and runs on into the next ones about
  * where it does in Excel. Lengths are in points; the canvas draws in layout units ([U] per point).
+ *
+ * The PDF keeps every letter drawn in memory until its pages are written, those cut off too, so of
+ * a long text on one line only the letters that can show are drawn, and [takeDrawn] counts them all.
  */
 internal class CellTexts(
     private val styles: SheetStyles,
@@ -51,6 +57,14 @@ internal class CellTexts(
 ) {
     private val paints = HashMap<SheetFont, TextPaint>()
     private val phoneDigits = HashMap<Typeface, Float>()
+    private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var drawn = 0
+
+    /** A run of a text's characters, [start] until [end], starting [offset] points along it. */
+    private class Part(val start: Int, val end: Int, val offset: Float)
+
+    /** How many characters have been drawn since this was last asked. */
+    fun takeDrawn(): Int = drawn.also { drawn = 0 }
 
     /** One step of a cell's indent: three spaces of the default font. */
     val indentStep: Float = 7.5f * styles.defaultFont.size / 11f
@@ -75,7 +89,8 @@ internal class CellTexts(
 
     /**
      * What [cell] shows in [format], or null when it holds nothing. A number is written as its
-     * format says, with no more characters than fit [width] points when its format is General.
+     * format says, with no more characters than fit [width] points when its format is General. Text
+     * stops at Excel's limit of [MAX_CELL_CHARS] characters, which only a crafted file goes past.
      */
     fun shown(cell: SheetCell, format: CellFormat, width: Float): ShownText? {
         val kind = cell.kind ?: return null
@@ -91,11 +106,12 @@ internal class CellTexts(
             CellKind.TEXT, CellKind.FORMULA -> {
                 val value = cell.text ?: return null
                 val runs = value.runs
+                val held = value.text.take(MAX_CELL_CHARS)
                 if (runs == null || kind == CellKind.FORMULA) {
-                    val (text, color) = numbers.formatText(value.text, format.numberFormat)
+                    val (text, color) = numbers.formatText(held, format.numberFormat)
                     ShownText(lines(text, format.wraps), font, color ?: font.color, resolve(format.horizontal, SheetAlign.LEFT), number = false, rich = false)
                 } else {
-                    ShownText(richText(value.text, runs, font, format.wraps), font, font.color, resolve(format.horizontal, SheetAlign.LEFT), number = false, rich = true)
+                    ShownText(richText(held, runs, font, format.wraps), font, font.color, resolve(format.horizontal, SheetAlign.LEFT), number = false, rich = true)
                 }
             }
             CellKind.BOOLEAN ->
@@ -170,11 +186,12 @@ internal class CellTexts(
     /** [shown] as a paragraph [width] points wide, its lines as tall as in Excel. */
     private fun paragraph(shown: ShownText, format: CellFormat, width: Float): ParagraphBlock {
         val style = shown.font.style.copy(color = shown.color)
-        val text = if (shown.rich) shown.text else RichText().also { rich ->
+        val spanned = if (shown.rich) shown.text else RichText().also { rich ->
             val content = if (format.rotation == STACKED) shown.text.toString().toCharArray().joinToString("\n") else shown.text.toString()
             rich.append(content, style)
             rich.text.setSpan(ScaleXSpan(paint(shown.font).textScaleX), 0, rich.text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }.text
+        val text = if (format.wraps) breaksAfterHyphens(spanned) else spanned
         val align = when {
             format.rotation == STACKED -> Align.CENTER
             shown.align == SheetAlign.CENTER || shown.align == SheetAlign.CENTER_ACROSS -> Align.CENTER
@@ -209,9 +226,10 @@ internal class CellTexts(
             format.rotation == STACKED || format.wraps -> {
                 val block = paragraph(shown, format, room(shown, format, box.width()))
                 val top = top(format.vertical, box, block.height / U)
+                drawn += shown.text.length
                 drawIn(canvas, visible, RectF(left, top, left + block.spec.width / U, top + block.height / U)) { block.draw(this, left * U, top * U) }
             }
-            format.rotation in 1..180 -> drawIn(canvas, visible, null) { drawTurned(this, shown, format, box) }
+            format.rotation in 1..180 -> drawIn(canvas, visible, null) { drawTurned(this, shown, format, box, visible) }
             else -> drawLine(canvas, shown, format, box, left, right, visible)
         }
     }
@@ -258,6 +276,9 @@ internal class CellTexts(
             width = room
         }
         if (shown.color != shown.font.color && !shown.rich) paint = TextPaint(paint).apply { color = shown.color }
+        // Underlined twice: the two lines are drawn here, below the text, rather than the paint's one.
+        val twice = shown.font.doubleUnderline && !shown.rich
+        if (twice) paint = TextPaint(paint).apply { isUnderlineText = false }
         val x = when {
             squeezed -> box.left + (box.width() - width) / 2
             shown.align == SheetAlign.RIGHT -> right - width
@@ -265,30 +286,142 @@ internal class CellTexts(
             else -> left
         }
         if (shown.rich) {
-            val block = paragraph(ShownText(text, shown.font, shown.color, SheetAlign.LEFT, shown.number, rich = true), format, ceil(width) + 1f)
+            val outside = x < visible.left - SLACK || x + width > visible.right + SLACK
+            val part = if (outside) richPartShown(text, shown.font, x, visible.left, visible.right) else null
+            val drawnText = part?.let { text.subSequence(it.start, it.end) } ?: text
+            val start = x + (part?.offset ?: 0f)
+            val drawnWidth = if (part == null) width else Layout.getDesiredWidth(drawnText, richPaint(shown.font)) / U
+            val block = paragraph(ShownText(drawnText, shown.font, shown.color, SheetAlign.LEFT, shown.number, rich = true), format, ceil(drawnWidth) + 1f)
             val top = top(format.vertical, box, block.height / U)
-            drawIn(canvas, visible, RectF(x, top, x + width, top + block.height / U)) { block.draw(this, x * U, top * U) }
+            drawn += drawnText.length
+            drawIn(canvas, visible, RectF(start, top, start + drawnWidth, top + block.height / U)) { block.draw(this, start * U, top * U) }
             return
         }
         val height = lineHeight(shown.font)
         val metrics = paint.fontMetrics
         val baseline = top(format.vertical, box, height) + height - metrics.descent / U
         val bounds = RectF(x, baseline + metrics.ascent / U, x + width, baseline + metrics.descent / U)
-        drawIn(canvas, visible, bounds) { drawText(text.toString(), x * U, baseline * U, paint) }
+        val whole = text.toString()
+        val inside = bounds.left >= visible.left - SLACK && bounds.right <= visible.right + SLACK
+        val part = if (inside) null else partShown(whole, paint, x, visible.left, visible.right)
+        drawn += part?.let { it.end - it.start } ?: whole.length
+        drawIn(canvas, visible, bounds) {
+            if (part == null) drawText(whole, x * U, baseline * U, paint)
+            else drawText(whole.substring(part.start, part.end), (x + part.offset) * U, baseline * U, paint)
+            if (twice) drawUnderlines(this, paint, x, x + width, baseline)
+        }
     }
 
-    /** Text turned up or down by [CellFormat.rotation], drawn about the middle of its cell. */
-    private fun drawTurned(canvas: Canvas, shown: ShownText, format: CellFormat, box: RectF) {
+    /** Two lines under text drawn with [paint] from [left] to [right] on [baseline] (points), as Excel underlines twice. */
+    private fun drawUnderlines(canvas: Canvas, paint: Paint, left: Float, right: Float, baseline: Float) {
+        val size = paint.textSize
+        linePaint.color = paint.color
+        for (below in floatArrayOf(UNDERLINE_FIRST, UNDERLINE_SECOND)) {
+            val top = baseline * U + size * below
+            canvas.drawRect(left * U, top, right * U, top + size * UNDERLINE_THICKNESS, linePaint)
+        }
+    }
+
+    /**
+     * The part of [text] that can show between [left] and [right] (points) when it is drawn with
+     * [paint] from [x], with a few characters more each side; null when it all shows, or when it has
+     * right-to-left letters, whose order on the page isn't their order in the text.
+     */
+    private fun partShown(text: String, paint: Paint, x: Float, left: Float, right: Float): Part? {
+        if (text.length <= 2 * EXTRA_CHARS || rightToLeft(text)) return null
+        val skipped = if (left > x) paint.breakText(text, true, (left - x) * U, null) else 0
+        var start = max(0, skipped - EXTRA_CHARS)
+        if (start > 0 && Character.isLowSurrogate(text[start])) start--
+        val offset = if (start > 0) paint.measureText(text, 0, start) / U else 0f
+        val room = (right - x - offset) * U
+        val fits = if (room > 0f) paint.breakText(text, start, text.length, true, room, null) else 0
+        var end = min(text.length, start + fits + EXTRA_CHARS)
+        if (end < text.length && Character.isLowSurrogate(text[end])) end++
+        return if (start == 0 && end == text.length) null else Part(start, end, offset)
+    }
+
+    /**
+     * [partShown] for rich text, whose runs differ in width: each end is found by halves, measuring
+     * the text up to it.
+     */
+    private fun richPartShown(text: CharSequence, font: SheetFont, x: Float, left: Float, right: Float): Part? {
+        if (text.length <= 2 * EXTRA_CHARS || rightToLeft(text)) return null
+        val paint = richPaint(font)
+        fun along(end: Int) = Layout.getDesiredWidth(text, 0, end, paint) / U
+        // The most characters that end before [to] points along the text.
+        fun before(to: Float): Int {
+            var low = 0
+            var high = text.length
+            while (low < high) {
+                val mid = (low + high + 1) ushr 1
+                if (along(mid) <= to) low = mid else high = mid - 1
+            }
+            return low
+        }
+        var start = if (left > x) max(0, before(left - x) - EXTRA_CHARS) else 0
+        if (start > 0 && Character.isLowSurrogate(text[start])) start--
+        var end = min(text.length, before(right - x) + 1 + EXTRA_CHARS)
+        if (end < text.length && Character.isLowSurrogate(text[end])) end++
+        if (end <= start || (start == 0 && end == text.length)) return null
+        return Part(start, end, if (start > 0) along(start) else 0f)
+    }
+
+    /** The paint rich text in [font] is measured with: each run's spans change it. */
+    private fun richPaint(font: SheetFont): TextPaint = TextPaint().also { font.style.applyTo(it) }
+
+    /** Whether [text] has letters written right to left, or marks that turn it so. */
+    private fun rightToLeft(text: CharSequence): Boolean {
+        var i = 0
+        while (i < text.length) {
+            val c = Character.codePointAt(text, i)
+            i += Character.charCount(c)
+            if (c < FIRST_RIGHT_TO_LEFT) continue
+            when (Character.getDirectionality(c)) {
+                Character.DIRECTIONALITY_RIGHT_TO_LEFT, Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC,
+                Character.DIRECTIONALITY_RIGHT_TO_LEFT_EMBEDDING, Character.DIRECTIONALITY_RIGHT_TO_LEFT_OVERRIDE,
+                Character.DIRECTIONALITY_RIGHT_TO_LEFT_ISOLATE,
+                -> return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * [text] with a zero-width space after each hyphen between letters, where a line can then break.
+     * Android breaks lines after a hyphen only when it hyphenates words itself, which cells never do,
+     * so a word too long for its cell would otherwise break wherever its line ends, not after its
+     * hyphen as in Excel.
+     */
+    private fun breaksAfterHyphens(text: CharSequence): CharSequence {
+        var out: SpannableStringBuilder? = null
+        for (i in text.length - 2 downTo 1) {
+            if ((text[i] == '-' || text[i] == '\u2010') && text[i - 1].isLetter() && text[i + 1].isLetter()) {
+                val builder = out ?: SpannableStringBuilder(text)
+                builder.insert(i + 1, "\u200B")
+                out = builder
+            }
+        }
+        return out ?: text
+    }
+
+    /** Text turned up or down by [CellFormat.rotation], drawn about the middle of its cell, of which [visible] shows. */
+    private fun drawTurned(canvas: Canvas, shown: ShownText, format: CellFormat, box: RectF, visible: RectF) {
         val degrees = if (format.rotation <= 90) -format.rotation.toFloat() else (format.rotation - 90).toFloat()
         var paint = paint(shown.font)
         if (shown.color != shown.font.color) paint = TextPaint(paint).apply { color = shown.color }
         val text = shown.text.toString()
-        val width = paint.measureText(text)
+        val width = paint.measureText(text) / U
         val metrics = paint.fontMetrics
-        val cx = box.centerX() * U
-        val cy = box.centerY() * U
-        canvas.withRotation(degrees, cx, cy) {
-            drawText(text, cx - width / 2, cy - (metrics.ascent + metrics.descent) / 2, paint)
+        val cx = box.centerX()
+        val cy = box.centerY()
+        // Turned, the text shows no further from the middle than the visible corner furthest from it.
+        val reach = maxOf(hypot(visible.left - cx, visible.top - cy), hypot(visible.right - cx, visible.top - cy), hypot(visible.left - cx, visible.bottom - cy), hypot(visible.right - cx, visible.bottom - cy))
+        val x = cx - width / 2
+        val part = if (width / 2 > reach) partShown(text, paint, x, cx - reach, cx + reach) else null
+        val start = x + (part?.offset ?: 0f)
+        drawn += part?.let { it.end - it.start } ?: text.length
+        canvas.withRotation(degrees, cx * U, cy * U) {
+            drawText(part?.let { text.substring(it.start, it.end) } ?: text, start * U, cy * U - (metrics.ascent + metrics.descent) / 2, paint)
         }
     }
 
@@ -310,6 +443,20 @@ internal class CellTexts(
 
         /** Fill alignment repeats text across a cell: no cell is wider than this many repeats of a letter. */
         private const val MAX_REPEATS = 2000
+
+        /** The most characters a cell holds in Excel. */
+        const val MAX_CELL_CHARS = 32_767
+
+        /** Characters drawn beyond those that show, for the letters' shapes where they are cut off. */
+        private const val EXTRA_CHARS = 8
+
+        /** Below this, no character is written right to left (Hebrew starts it). */
+        private const val FIRST_RIGHT_TO_LEFT = 0x0590
+
+        /** Where each of two underlines starts below the baseline, and how thick it is, in shares of the font's size. */
+        private const val UNDERLINE_FIRST = 0.08f
+        private const val UNDERLINE_SECOND = 0.18f
+        private const val UNDERLINE_THICKNESS = 0.05f
     }
 }
 

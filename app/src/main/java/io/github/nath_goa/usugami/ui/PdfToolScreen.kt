@@ -184,7 +184,7 @@ fun PdfToolScreen(
     var sheetPaper by rememberSaveable(tool) { mutableStateOf<PageSize?>(null) }
     var sheetLandscape by rememberSaveable(tool) { mutableStateOf<Boolean?>(null) }
     var sheetFitWidth by rememberSaveable(tool) { mutableStateOf(true) }
-    var sheetGridlines by rememberSaveable(tool) { mutableStateOf(true) }
+    var sheetGridlines by rememberSaveable(tool) { mutableStateOf(false) }
     val sheetOptions = SheetOptions(sheetPaper, sheetLandscape, sheetFitWidth, sheetGridlines)
     val onSheetOptions = { options: SheetOptions ->
         sheetPaper = options.paper

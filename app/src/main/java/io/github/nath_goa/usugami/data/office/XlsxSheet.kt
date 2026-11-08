@@ -9,6 +9,7 @@ import io.github.nath_goa.usugami.core.SheetRange
 import io.github.nath_goa.usugami.core.SheetRefs
 import io.github.nath_goa.usugami.core.SheetStrings
 import io.github.nath_goa.usugami.core.SheetUnits
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -29,7 +30,8 @@ internal class SheetRow(val index: Int, val cells: List<SheetCell>, val format: 
 
 /**
  * Reads a worksheet's rows, one row element at a time. Rows and cells without a reference follow the
- * ones before them. The first cell of a formula shared by a block of cells is kept, for the others.
+ * ones before them, and a column given more than once in a row keeps its last cell. The first cell of
+ * a formula shared by a block of cells is kept, for the others.
  */
 internal class RowReader(private val strings: SharedStrings, private val date1904: Boolean) {
     private val shared = HashMap<String, Triple<Int, Int, String>>()
@@ -49,7 +51,15 @@ internal class RowReader(private val strings: SharedStrings, private val date190
             if (x.name != "c") return@children
             val at = x.attr("r")?.let(SheetRefs::cell)?.let(SheetRefs::columnOf) ?: column
             column = at + 1
-            if (at < SheetRefs.MAX_COLUMNS) cells += readCell(x, index, at)
+            if (at >= SheetRefs.MAX_COLUMNS) return@children
+            val cell = readCell(x, index, at)
+            if (cells.isNotEmpty() && cells[cells.lastIndex].column == at) cells[cells.lastIndex] = cell else cells += cell
+            // Columns out of order can come again and again, in a crafted file: each keeps its last cell.
+            if (cells.size > 2 * SheetRefs.MAX_COLUMNS) {
+                val ordered = cells.associateBy { it.column }.values.sortedBy { it.column }
+                cells.clear()
+                cells.addAll(ordered)
+            }
         }
         // Cells are in order in any file Excel can open; one that isn't is put in order.
         if (cells.zipWithNext().any { (a, b) -> a.column >= b.column }) {
@@ -110,18 +120,39 @@ internal class RowReader(private val strings: SharedStrings, private val date190
     }
 }
 
-/** Every column's width in points (0 when hidden), and the format its empty cells take (-1 for none). */
-internal class ColumnWidths(private val widths: FloatArray, private val formats: IntArray) {
+/**
+ * Every column's width in points (0 when hidden), and the format its empty cells take (-1 for none).
+ * Kept for the columns up to the last that differs from those after it, which all have [tailWidth]
+ * and [tailFormat], so that each of a workbook's many sheets takes little memory.
+ */
+internal class ColumnWidths(private val widths: FloatArray, private val formats: IntArray, private val tailWidth: Float, private val tailFormat: Int) {
     private val offsets = DoubleArray(widths.size + 1).also { o -> for (i in widths.indices) o[i + 1] = o[i] + widths[i] }
 
-    fun width(column: Int): Float = widths.getOrElse(column) { 0f }
-    fun format(column: Int): Int = formats.getOrElse(column) { -1 }
+    fun width(column: Int): Float = when {
+        column < 0 || column >= SheetRefs.MAX_COLUMNS -> 0f
+        column < widths.size -> widths[column]
+        else -> tailWidth
+    }
+
+    fun format(column: Int): Int = when {
+        column < 0 || column >= SheetRefs.MAX_COLUMNS -> -1
+        column < formats.size -> formats[column]
+        else -> tailFormat
+    }
 
     /** How far [column]'s left edge is from the sheet's, in points. */
-    fun offset(column: Int): Double = offsets[column.coerceIn(0, widths.size)]
+    fun offset(column: Int): Double {
+        val c = column.coerceIn(0, SheetRefs.MAX_COLUMNS)
+        return if (c <= widths.size) offsets[c] else offsets[widths.size] + (c - widths.size).toDouble() * tailWidth
+    }
 
     /** The column [x] points from the sheet's left edge is in. */
     fun columnAt(x: Double): Int {
+        val end = offsets[widths.size]
+        if (x >= end) {
+            if (tailWidth <= 0f) return SheetRefs.MAX_COLUMNS - 1
+            return (widths.size + floor((x - end) / tailWidth)).coerceAtMost(SheetRefs.MAX_COLUMNS - 1.0).toInt()
+        }
         var low = 0
         var high = widths.size - 1
         while (low < high) {
@@ -212,6 +243,15 @@ internal class RowContent(private val rows: IntArray, private val first: IntArra
         }
         return false
     }
+
+    /** Calls [action] with each row from [top] to [bottom] that has something, in order, and its first and last columns with something. */
+    fun forEach(top: Int, bottom: Int, action: (row: Int, first: Int, last: Int) -> Unit) {
+        var i = rows.binarySearch(top).let { if (it >= 0) it else -it - 1 }
+        while (i < rows.size && rows[i] <= bottom) {
+            action(rows[i], first[i], last[i])
+            i++
+        }
+    }
 }
 
 /**
@@ -224,6 +264,7 @@ internal class SheetPlan(
     val columns: ColumnWidths,
     val rows: RowHeights,
     val used: SheetRange?,
+    /** Each merged block once, in the order the file gives them. */
     val merges: List<SheetRange>,
     val pictures: List<SheetPicture>,
     val setup: PageSetup,
@@ -234,12 +275,15 @@ internal class SheetPlan(
     /** Whether the sheet shows gridlines on screen, and whether it is set to print them. */
     val gridlinesShown: Boolean,
     val gridlinesPrinted: Boolean,
+    /** Cells whose values don't show: data bars and icon sets can show only the bar or the icon. */
+    val valuesHidden: List<SheetRange>,
 )
 
 /**
  * The first pass through a worksheet ([plan]): everything but drawing. Rows whose height wasn't set
  * by hand grow to fit their wrapped text and larger fonts, as Excel fits them. Pictures are read from
- * the sheet's drawing; charts and shapes are left out.
+ * the sheet's drawing; charts and shapes are left out. A sheet with more row elements than a sheet has
+ * rows, which only a crafted file has, is refused as [OfficeTooLarge].
  */
 internal class SheetPlanner(
     private val pkg: OfficePackage,
@@ -262,12 +306,13 @@ internal class SheetPlanner(
         val rowIndices = IntList()
         val rowHeights = FloatList()
         val rowFlags = IntList()
-        val fits = ArrayList<Triple<Int, Int, Float>>()
+        val fits = Fits()
         val contentRows = IntList()
         val contentFirst = IntList()
         val contentLast = IntList()
         var used: SheetRange? = null
-        val merges = ArrayList<SheetRange>()
+        val merges = LinkedHashSet<SheetRange>()
+        val valuesHidden = ArrayList<SheetRange>()
         val rowBreaks = HashSet<Int>()
         val columnBreaks = HashSet<Int>()
         var drawing: String? = null
@@ -282,9 +327,11 @@ internal class SheetPlanner(
         val reader = RowReader(strings, date1904)
 
         fun columns(): ColumnWidths = columns ?: run {
-            val widths = FloatArray(SheetRefs.MAX_COLUMNS) { defaultWidth.toFloat() }
-            val formats = IntArray(SheetRefs.MAX_COLUMNS) { -1 }
+            val size = (columnSpans.maxOfOrNull { it[1] } ?: -1) + 1
+            val widths = FloatArray(size) { defaultWidth.toFloat() }
+            val formats = IntArray(size) { -1 }
             for ((i, span) in columnSpans.withIndex()) {
+                check()
                 val width = when {
                     columnHidden[i] -> 0f
                     else -> columnWidths[i] ?: defaultWidth.toFloat()
@@ -294,7 +341,14 @@ internal class SheetPlanner(
                     formats[c] = span[2]
                 }
             }
-            ColumnWidths(widths, formats).also { columns = it }
+            // The columns after those defined are as wide as the default, unless the last ones defined
+            // reach the sheet's end; at the end, those like the columns after them are kept as one.
+            val reachesEnd = size == SheetRefs.MAX_COLUMNS
+            val tailWidth = if (reachesEnd) widths[size - 1] else defaultWidth.toFloat()
+            val tailFormat = if (reachesEnd) formats[size - 1] else -1
+            var kept = size
+            while (kept > 0 && widths[kept - 1] == tailWidth && formats[kept - 1] == tailFormat) kept--
+            ColumnWidths(widths.copyOf(kept), formats.copyOf(kept), tailWidth, tailFormat).also { columns = it }
         }
 
         pkg.xml(part, check)?.use { x ->
@@ -310,7 +364,8 @@ internal class SheetPlanner(
                         defaultWidth = given?.let { SheetUnits.columnPoints(it, digit) } ?: SheetUnits.defaultColumnPoints(base ?: 8, digit)
                     }
                     "cols" -> x.children {
-                        if (x.name != "col") return@children
+                        // Excel writes one for each column at most: any more come from a crafted file.
+                        if (x.name != "col" || columnSpans.size >= SheetRefs.MAX_COLUMNS) return@children
                         val min = (x.intAttr("min") ?: return@children) - 1
                         val max = ((x.intAttr("max") ?: (min + 1)) - 1).coerceAtMost(SheetRefs.MAX_COLUMNS - 1)
                         if (min !in 0..max) return@children
@@ -329,6 +384,7 @@ internal class SheetPlanner(
                             rowIndices.add(row.index)
                             rowHeights.add(row.height ?: Float.NaN)
                             rowFlags.add((if (row.custom) CUSTOM else 0) or (if (row.hidden) HIDDEN else 0))
+                            if (rowIndices.size > SheetRefs.MAX_ROWS) throw OfficeTooLarge()
                             var first = -1
                             var last = -1
                             for (cell in row.cells) {
@@ -337,23 +393,26 @@ internal class SheetPlanner(
                                 if ((cell.kind == null && !format.showsEmpty) || row.hidden || widths.width(cell.column) <= 0f) continue
                                 if (first < 0) first = cell.column
                                 last = cell.column
-                                if (cell.kind != null && !row.custom && !row.hidden) {
-                                    fitting(cell, format, widths.width(cell.column))?.takeIf { it > (row.height ?: fallbackHeight) + 0.1f }?.let {
-                                        fits += Triple(row.index, cell.column, it)
-                                    }
+                                if (cell.kind != null && !row.custom) {
+                                    fitting(cell, format, widths.width(cell.column), sized = row.height != null)
+                                        ?.takeIf { it > (row.height ?: fallbackHeight) + 0.1f }
+                                        ?.let { fits.add(row.index, cell.column, it) }
                                 }
                             }
-                            reach = max(reach, overflowReach(row, widths))
                             if (first >= 0) {
+                                // Text running on past the row's last cell with something in it prints there too.
+                                val rowReach = overflowReach(row, widths)
+                                reach = max(reach, rowReach)
                                 contentRows.add(row.index)
                                 contentFirst.add(first)
-                                contentLast.add(last)
+                                contentLast.add(max(last, rowReach))
                                 val cells = SheetRange(row.index, first, row.index, last)
                                 used = used?.union(cells) ?: cells
                             }
                         }
                     }
                     "mergeCells" -> x.children { if (x.name == "mergeCell") x.attr("ref")?.let(SheetRefs::range)?.let { merges += it } }
+                    "conditionalFormatting" -> readValuesHidden(x)?.let { valuesHidden += it }
                     "printOptions" -> printOptions = booleanArrayOf(
                         x.flag("horizontalCentered", missing = false), x.flag("verticalCentered", missing = false), x.flag("gridLines", missing = false),
                     )
@@ -371,11 +430,15 @@ internal class SheetPlanner(
         }
         val widths = columns()
         val default = if (zeroHeight) 0f else defaultHeight ?: rowHeightFor(styles.defaultFont)
-        val rows = rowHeights(rowIndices, rowHeights, rowFlags, fits, merges, default, defaultHeight ?: rowHeightFor(styles.defaultFont))
+        val blocks = merges.toList()
+        val rows = rowHeights(rowIndices, rowHeights, rowFlags, fits, blocks, default, defaultHeight ?: rowHeightFor(styles.defaultFont))
         val pictures = drawing?.let { readPictures(it, widths, rows) }.orEmpty()
         val content = rowContent(contentRows, contentFirst, contentLast)
         // A merged block prints whole when anything in it does, such as a title centred across it.
-        for (merge in merges) if (content.any(merge.firstRow, merge.lastRow, merge.firstColumn, merge.lastColumn)) used = used?.union(merge) ?: merge
+        for (merge in blocks) {
+            check()
+            if (content.any(merge.firstRow, merge.lastRow, merge.firstColumn, merge.lastColumn)) used = used?.union(merge) ?: merge
+        }
         // Text running on past the last column with anything in it still prints: the area reaches as far.
         used = used?.let { if (reach > it.lastColumn) it.copy(lastColumn = reach) else it }
         for (picture in pictures) {
@@ -384,18 +447,34 @@ internal class SheetPlanner(
             used = used?.union(covered) ?: covered
         }
         return SheetPlan(
-            name, part, widths, rows, used, merges, pictures,
+            name, part, widths, rows, used, blocks, pictures,
             pageSetup(setupAttrs, fitToPage, margins, printOptions, headerFooter),
             rowBreaks, columnBreaks,
             content,
             gridlinesShown, printOptions[2],
+            valuesHidden,
         )
+    }
+
+    /**
+     * The cells whose values a conditional format ([x], the reader being at it) hides: those of a data
+     * bar or an icon set set to show only the bar or the icon. Null when it hides none.
+     */
+    private fun readValuesHidden(x: OfficeXml): List<SheetRange>? {
+        val ranges = x.attr("sqref")
+        var hides = false
+        x.children {
+            if (x.name == "cfRule") x.children { if ((x.name == "dataBar" || x.name == "iconSet") && !x.flag("showValue", missing = true)) hides = true }
+        }
+        if (!hides || ranges == null) return null
+        return ranges.splitToSequence(' ').filter { it.isNotEmpty() }.take(MAX_HIDDEN_RANGES).mapNotNull(SheetRefs::range).toList()
     }
 
     /**
      * The last column the text of [row]'s cells runs on into, past their own (see SheetPainter's
      * placing of text), or -1 when none does. Merged cells, read later, aren't known yet: the column
-     * found is at most as far as the text could run.
+     * found is at most as far as the text could run. A hidden column's text doesn't print, so it
+     * doesn't run on, but it still stops the text of the cells before it.
      */
     private fun overflowReach(row: SheetRow, widths: ColumnWidths): Int {
         var reach = -1
@@ -409,6 +488,7 @@ internal class SheetPlanner(
             val format = styles.format(cell.format)
             if (format.wraps || format.shrink || format.rotation != 0) continue
             val width = widths.width(cell.column)
+            if (width <= 0f) continue
             val shown = texts.shown(cell, format, width) ?: continue
             if (shown.align != SheetAlign.LEFT && shown.align != SheetAlign.CENTER) continue
             val need = texts.width(shown) + 2 * CellTexts.PAD + format.indent * texts.indentStep
@@ -430,11 +510,15 @@ internal class SheetPlanner(
 
     /**
      * How tall [cell]'s row has to be for its text, in points, when it is text that wraps, rich text or
-     * text larger than the default font; null for a cell that fits any row the default font fits.
+     * text larger than the default font; null for a cell that fits any row the default font fits. A row
+     * whose file gives its height ([sized]) has been fitted by Excel already: only text that wraps is
+     * measured there, as the phone's fonts can wrap it onto more lines.
      */
-    private fun fitting(cell: SheetCell, format: CellFormat, width: Float): Float? {
+    private fun fitting(cell: SheetCell, format: CellFormat, width: Float, sized: Boolean): Float? {
+        val wraps = format.wraps || format.rotation == CellTexts.STACKED
+        if (sized && !wraps) return null
         val rich = cell.text?.runs != null
-        if (!format.wraps && !rich && format.font.size <= styles.defaultFont.size && format.rotation != CellTexts.STACKED) return null
+        if (!wraps && !rich && format.font.size <= styles.defaultFont.size) return null
         if (format.rotation in 1..180) return null
         val shown = texts.shown(cell, format, width) ?: return null
         if (shown.text.isEmpty()) return null
@@ -453,22 +537,33 @@ internal class SheetPlanner(
         indices: IntList,
         heights: FloatList,
         flags: IntList,
-        fits: List<Triple<Int, Int, Float>>,
+        fits: Fits,
         merges: List<SheetRange>,
         default: Float,
         listedDefault: Float,
     ): RowHeights {
-        // The merged blocks over each row that has cells to fit.
-        val fitted = fits.mapTo(HashSet()) { it.first }
-        val merged = HashMap<Int, MutableList<SheetRange>>()
-        for (merge in merges) {
-            if (merge.firstRow == merge.lastRow && merge.firstColumn == merge.lastColumn) continue
-            for (row in merge.firstRow..merge.lastRow) if (row in fitted) merged.getOrPut(row) { ArrayList() } += merge
-        }
-        val needed = HashMap<Int, Float>()
-        for ((row, column, height) in fits) {
-            if (merged[row]?.any { it.contains(row, column) } == true) continue
-            needed[row] = max(needed[row] ?: 0f, height)
+        // How tall each row with cells to fit needs to be, in order of the rows, found by going down the
+        // rows and the merged blocks together: each block is kept from its first row until past its last.
+        val neededRows = IntList()
+        val neededHeights = FloatList()
+        val blocks = merges.filter { it.firstRow != it.lastRow || it.firstColumn != it.lastColumn }.sortedBy { it.firstRow }
+        val over = ArrayList<SheetRange>()
+        var nextBlock = 0
+        for (i in fits.inRowOrder()) {
+            val row = fits.rows[i]
+            if (neededRows.size == 0 || neededRows[neededRows.size - 1] != row) {
+                check()
+                over.removeAll { it.lastRow < row }
+                while (nextBlock < blocks.size && blocks[nextBlock].firstRow <= row) {
+                    if (blocks[nextBlock].lastRow >= row) over += blocks[nextBlock]
+                    nextBlock++
+                }
+                neededRows.add(row)
+                neededHeights.add(0f)
+            }
+            if (merged(fits.first[i], fits.last[i], over)) continue
+            val last = neededHeights.size - 1
+            neededHeights[last] = max(neededHeights[last], fits.heights[i])
         }
         val count = indices.size
         // Rows are in order in any file Excel can open; those of one that isn't are put in order.
@@ -476,15 +571,18 @@ internal class SheetPlanner(
         val order: IntArray = if (sorted) IntArray(count) { it } else (0 until count).sortedBy { indices[it] }.toIntArray()
         val rows = IntList()
         val values = FloatList()
+        var nextNeeded = 0
         for (i in order) {
             val row = indices[i]
             if (rows.size > 0 && rows[rows.size - 1] == row) continue
+            while (nextNeeded < neededRows.size && neededRows[nextNeeded] < row) nextNeeded++
+            val needed = if (nextNeeded < neededRows.size && neededRows[nextNeeded] == row) neededHeights[nextNeeded] else 0f
             val flag = flags[i]
             val given = heights[i]
             val height = when {
                 flag and HIDDEN != 0 -> 0f
                 flag and CUSTOM != 0 -> if (given.isNaN()) listedDefault else given
-                else -> max(if (given.isNaN()) listedDefault else given, needed[row] ?: 0f)
+                else -> max(if (given.isNaN()) listedDefault else given, needed)
             }
             rows.add(row)
             values.add(height.coerceAtMost(RowReader.MAX_ROW_HEIGHT))
@@ -492,12 +590,23 @@ internal class SheetPlanner(
         return RowHeights(rows.toArray(), values.toArray(), default)
     }
 
+    /** Whether every column from [first] to [last] is in one of the merged blocks [over]. */
+    private fun merged(first: Int, last: Int, over: List<SheetRange>): Boolean {
+        var column = first
+        while (column <= last) {
+            val block = over.firstOrNull { column in it.firstColumn..it.lastColumn } ?: return false
+            column = block.lastColumn + 1
+        }
+        return true
+    }
+
     private fun readHeaderFooter(x: OfficeXml): HeaderFooter {
         val differentFirst = x.flag("differentFirst", missing = false)
         val differentOddEven = x.flag("differentOddEven", missing = false)
         val scaleWithDoc = x.flag("scaleWithDoc", missing = true)
         val texts = HashMap<String, String>()
-        x.children { texts[x.name] = SheetStrings.unescape(x.text()) }
+        // Excel keeps each to 255 characters. One far longer, in a crafted file, would take minutes to lay out.
+        x.children { texts[x.name] = SheetStrings.unescape(x.text().take(MAX_HEADER_CHARS)) }
         return HeaderFooter(
             texts["oddHeader"], texts["oddFooter"], texts["evenHeader"], texts["evenFooter"], texts["firstHeader"], texts["firstFooter"],
             differentFirst, differentOddEven, scaleWithDoc,
@@ -588,10 +697,45 @@ internal class SheetPlanner(
     private companion object {
         const val CUSTOM = 1
         const val HIDDEN = 2
+        const val MAX_HEADER_CHARS = 1024
+
+        /** Far more blocks of cells than a conditional format has, unless crafted. */
+        const val MAX_HIDDEN_RANGES = 10_000
         val PAGE_SETUP_KEYS = listOf(
             "paperSize", "paperWidth", "paperHeight", "scale", "fitToWidth", "fitToHeight", "orientation", "pageOrder",
             "firstPageNumber", "useFirstPageNumber",
         )
+    }
+}
+
+/**
+ * The cells rows grow to fit (see [SheetPlanner]): runs of cells side by side in a row that need the
+ * same height, from column [first] to [last], kept without an object for each, as there can be millions.
+ */
+private class Fits {
+    val rows = IntList()
+    val first = IntList()
+    val last = IntList()
+    val heights = FloatList()
+
+    /** The cell at [row] and [column] needs [height] points. */
+    fun add(row: Int, column: Int, height: Float) {
+        val n = rows.size
+        if (n > 0 && rows[n - 1] == row && last[n - 1] == column - 1 && heights[n - 1] == height) {
+            last[n - 1] = column
+            return
+        }
+        rows.add(row)
+        first.add(column)
+        last.add(column)
+        heights.add(height)
+    }
+
+    /** The runs' places, by row: as read in any file Excel can open, sorted in one that isn't. */
+    fun inRowOrder(): IntArray {
+        val count = rows.size
+        if ((1 until count).all { rows[it - 1] <= rows[it] }) return IntArray(count) { it }
+        return (0 until count).sortedBy { rows[it] }.toIntArray()
     }
 }
 
@@ -607,6 +751,10 @@ internal class IntList {
     }
 
     operator fun get(index: Int): Int = items[index]
+    operator fun set(index: Int, value: Int) {
+        items[index] = value
+    }
+
     fun toArray(): IntArray = items.copyOf(size)
 }
 
@@ -622,5 +770,9 @@ internal class FloatList {
     }
 
     operator fun get(index: Int): Float = items[index]
+    operator fun set(index: Int, value: Float) {
+        items[index] = value
+    }
+
     fun toArray(): FloatArray = items.copyOf(size)
 }

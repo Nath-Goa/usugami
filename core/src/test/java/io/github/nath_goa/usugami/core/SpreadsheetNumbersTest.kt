@@ -211,6 +211,8 @@ class SpreadsheetNumbersTest {
             row(0.75, "h:mm AM/PM", "6:00 PM"),
             row(0.0, "h:mm:ss AM/PM", "12:00:00 AM"),
             row(0.75, "h:mm a/p", "6:00 p"),
+            // Typed in small letters, AM/PM still shows in capitals.
+            row(0.6, "h:mm am/pm", "2:24 PM"),
             row(0.5, "hh:mm:ss", "12:00:00"),
             row((12 * 60 + 5) / 1440.0, "h:mm", "12:05"),
             row(307 / 86400.0, "mm:ss", "05:07"),

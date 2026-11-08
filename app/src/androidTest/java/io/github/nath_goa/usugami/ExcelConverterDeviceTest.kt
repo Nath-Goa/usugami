@@ -1,6 +1,11 @@
 package io.github.nath_goa.usugami
 
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.RectF
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -64,6 +69,20 @@ class ExcelConverterDeviceTest {
     /** Each page's size in points. */
     private fun pageSizes(file: File): List<Pair<Float, Float>> = PDDocument.load(file).use { doc ->
         doc.pages.map { it.mediaBox.width to it.mediaBox.height }
+    }
+
+    /** Whether page [number] (from 1) of [file] has anything dark in [area], in points from its top left corner. */
+    private fun dark(file: File, number: Int, area: RectF): Boolean = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->
+        PdfRenderer(descriptor).use { renderer ->
+            renderer.openPage(number - 1).use { page ->
+                val scale = 3
+                val bitmap = Bitmap.createBitmap(page.width * scale, page.height * scale, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
+                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                ((area.top * scale).toInt() until (area.bottom * scale).toInt()).any { y ->
+                    ((area.left * scale).toInt() until (area.right * scale).toInt()).any { x -> Color.luminance(bitmap.getPixel(x, y)) < 0.5f }
+                }
+            }
+        }
     }
 
     /** The first letter of [word] on page [number] (from 1), in points from the page's top left corner. */
@@ -140,22 +159,26 @@ class ExcelConverterDeviceTest {
 
     @Test fun textRunsOnIntoEmptyCellsAndNumbersTooWideShowHashes() {
         val data = row(1, text("A1", "A sentence running on past its column"), number("E1", 123456789.123, 1)) +
-            row(2, text("A2", "Stopped here by"), text("B2", "neighbour"))
-        val body = """<cols><col min="1" max="5" width="9.140625" customWidth="1"/></cols><sheetData>$data</sheetData>"""
-        val pdf = convert(workbook("overflow.xlsx", Sheet("Text", body)))
+            row(2, text("A2", "Stopped here by"), number("B2", 7.0))
+        // Column B is wide, with B2's number on its right.
+        val columns = """<col min="1" max="1" width="9.140625" customWidth="1"/><col min="2" max="2" width="30" customWidth="1"/><col min="3" max="5" width="9.140625" customWidth="1"/>"""
+        val pdf = convert(workbook("overflow.xlsx", Sheet("Text", "<cols>$columns</cols><sheetData>$data</sheetData>")))
         val page = pageTexts(pdf).single()
         // Column A is 48 points wide: the sentence's last word starts well past it.
         val start = word(pdf, 1, "A sentence").xDirAdj
         assertTrue(word(pdf, 1, "column").xDirAdj - start > 48f)
         assertTrue("A number too wide for its column shows as #: $page", "###" in page && "123,456,789" !in page)
-        // Text that would run into a cell with something in it is cut off at its own cell's edge.
-        assertTrue(word(pdf, 1, "neighbour").xDirAdj - word(pdf, 1, "Stopped").xDirAdj < 50f)
+        // Text that would run into a cell with something in it is cut off at its own cell's edge: none of it shows in B2.
+        val baseline = word(pdf, 1, "Stopped").yDirAdj
+        val b2 = 0.7f * 72 + 48f
+        assertFalse("A2's text shows in B2", dark(pdf, 1, RectF(b2 + 1f, baseline - 7f, b2 + 100f, baseline - 1f)))
     }
 
     @Test fun mergedCellsShowTheirTextOnceAcrossThemAndWrappedTextGrowsItsRow() {
         val data = row(1, text("A1", "Centred title", 4), """<c r="B1" s="4"/>""", """<c r="C1" s="4"/>""", """<c r="D1" s="4"/>""") +
-            row(2, text("A2", "alpha bravo charlie delta echo golf", 5), text("B2", "Beside"))
-        val body = """<cols><col min="1" max="4" width="9.140625" customWidth="1"/></cols><sheetData>$data</sheetData><mergeCells count="1"><mergeCell ref="A1:D1"/></mergeCells>"""
+            row(2, text("A2", "alpha bravo charlie delta echo golf", 5), text("B2", "Beside"), text("E2", "SELF-EMPLOYED", 5))
+        val columns = """<col min="1" max="4" width="9.140625" customWidth="1"/><col min="5" max="5" width="12" customWidth="1"/>"""
+        val body = """<cols>$columns</cols><sheetData>$data</sheetData><mergeCells count="1"><mergeCell ref="A1:D1"/></mergeCells>"""
         val pdf = convert(workbook("merged.xlsx", Sheet("Merged", body)))
         // The title is centred across the four 48-point columns, not in the first.
         val title = word(pdf, 1, "Centred")
@@ -164,13 +187,17 @@ class ExcelConverterDeviceTest {
         // The wrapped words go on lines one under another, in a row grown to fit them.
         assertTrue(word(pdf, 1, "golf").yDirAdj - word(pdf, 1, "alpha").yDirAdj > 20f)
         assertEquals(1, pageTexts(pdf).single().split("Centred").size - 1)
+        // A word too long for its cell breaks after its hyphen, not inside the word after it.
+        assertTrue(word(pdf, 1, "EMPLOYED").yDirAdj - word(pdf, 1, "SELF").yDirAdj > 10f)
     }
 
     @Test fun hiddenRowsColumnsAndSheetsAreLeftOut() {
-        val data = row(1, text("A1", "Shown"), text("B1", "HiddenColumn"), text("C1", "AlsoShown")) +
+        // The hidden column's text has an empty cell beside it to run on into, and C3's value only a data bar.
+        val data = row(1, text("A1", "Shown"), text("B1", "HiddenColumn"), text("D1", "AlsoShown")) +
             row(2, text("A2", "HiddenRow"), attrs = """ hidden="1"""") +
-            row(3, text("A3", "LastRow"))
-        val body = """<cols><col min="2" max="2" width="20" hidden="1"/></cols><sheetData>$data</sheetData>"""
+            row(3, text("A3", "LastRow"), number("C3", 4321.0))
+        val bar = """<conditionalFormatting sqref="C3"><cfRule type="dataBar" priority="1"><dataBar showValue="0"><cfvo type="min"/><cfvo type="max"/><color rgb="FF638EC6"/></dataBar></cfRule></conditionalFormatting>"""
+        val body = """<cols><col min="2" max="2" width="20" hidden="1"/></cols><sheetData>$data</sheetData>$bar"""
         val pdf = convert(
             workbook(
                 "hidden.xlsx",
@@ -185,7 +212,31 @@ class ExcelConverterDeviceTest {
         assertEquals(2, pages.size)
         assertTrue(pages[0], "Shown" in pages[0] && "AlsoShown" in pages[0] && "LastRow" in pages[0])
         assertTrue(pages[1], "SecondSheet" in pages[1])
-        for (hidden in listOf("HiddenColumn", "HiddenRow", "HiddenSheet")) assertFalse(hidden, pages.any { hidden in it })
+        assertFalse(pages.toString(), pages.any { "Hidden" in it || "4321" in it })
+    }
+
+    @Test fun pagesAreNumberedThroughTheWholeWorkbook() {
+        val footer = "<headerFooter><oddFooter>&amp;CPage &amp;P of &amp;N</oddFooter></headerFooter>"
+        val pages = pageTexts(
+            convert(
+                workbook(
+                    "numbered.xlsx",
+                    Sheet("One", "<sheetData>${row(1, text("A1", "First"))}</sheetData>$footer"),
+                    Sheet("Two", "<sheetData>${row(1, text("A1", "Second"))}</sheetData>$footer"),
+                ),
+            ),
+        )
+        assertTrue(pages.toString(), "Page 1 of 2" in pages[0] && "Page 2 of 2" in pages[1])
+    }
+
+    @Test fun onlyPagesWithSomethingOnThemPrintHoweverFarTheSheetReaches() {
+        // A sentence running on from A1 onto the page beside, and a cell at the sheet's last row and column.
+        val sentence = "Quarterly figures for every branch are kept on this sheet, one row for each month, with totals for each region, Ending"
+        val data = row(1, text("A1", sentence)) + row(1048576, text("XFD1048576", "Far"))
+        val pages = pageTexts(convert(workbook("far.xlsx", Sheet("Far", "<sheetData>$data</sheetData>")), SheetOptions(fitWidth = false)))
+        assertEquals(pages.toString(), 3, pages.size)
+        assertTrue(pages[1], "Ending" in pages[1])
+        assertTrue(pages[2], "Far" in pages[2])
     }
 
     @Test fun pagesFollowTheFilesPaperOrientationAndPrintTitles() {
@@ -208,16 +259,21 @@ class ExcelConverterDeviceTest {
     }
 
     @Test fun aWideSheetFitsThePageWidthUnlessAskedNotTo() {
-        // 30 columns of 48 points: three portrait pages across, or one when fitted.
-        val data = (1..5).joinToString("") { r -> row(r, *(0 until 30).map { c -> number("${columnName(c)}$r", (r * 100 + c).toDouble()) }.toTypedArray()) }
-        val sheet = Sheet("Wide", "<sheetData>$data</sheetData>")
-        val fitted = pageTexts(convert(workbook("fitted.xlsx", sheet)))
+        // Columns of 48 points on portrait Letter: 15 fit one page across when shrunk, while 30 would
+        // be too small to read, so they go on two pages at half size, or on three unshrunk.
+        fun sheet(columns: Int): Sheet {
+            val data = (1..5).joinToString("") { r -> row(r, *(0 until columns).map { c -> number("${columnName(c)}$r", (r * 100 + c).toDouble()) }.toTypedArray()) }
+            return Sheet("Wide", "<sheetData>$data</sheetData>")
+        }
+        val fitted = pageTexts(convert(workbook("fitted.xlsx", sheet(15))))
         assertEquals(1, fitted.size)
-        assertTrue("529" in fitted[0])
-        val split = pageTexts(convert(workbook("split.xlsx", sheet), SheetOptions(fitWidth = false)))
+        assertTrue("514" in fitted[0])
+        val halved = pageTexts(convert(workbook("halved.xlsx", sheet(30))))
+        assertEquals(2, halved.size)
+        val split = pageTexts(convert(workbook("split.xlsx", sheet(30)), SheetOptions(fitWidth = false)))
         assertEquals(3, split.size)
         // Every column on one page only, whole.
-        assertTrue((0 until 30).all { c -> split.count { "${500 + c}" in it } == 1 })
+        for (pages in listOf(halved, split)) assertTrue((0 until 30).all { c -> pages.count { "${500 + c}" in it } == 1 })
     }
 
     private fun columnName(index: Int): String = if (index < 26) "${'A' + index}" else "A${'A' + index - 26}"

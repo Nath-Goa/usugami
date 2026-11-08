@@ -308,12 +308,12 @@ object SheetPages {
     }
 
     /**
-     * The order the pages of [rowBands] × [columnBands] print in, as (row band, column band): down the
-     * sheet and then over to the next columns, as Excel prints by default, or over and then down.
+     * [pages], each a (row band, column band), in the order they print: down the sheet and then over
+     * to the next columns, as Excel prints by default, or over and then down.
      */
-    fun order(rowBands: Int, columnBands: Int, downThenOver: Boolean): List<Pair<Int, Int>> =
-        if (downThenOver) (0 until columnBands).flatMap { c -> (0 until rowBands).map { r -> r to c } }
-        else (0 until rowBands).flatMap { r -> (0 until columnBands).map { c -> r to c } }
+    fun order(pages: Collection<Pair<Int, Int>>, downThenOver: Boolean): List<Pair<Int, Int>> =
+        if (downThenOver) pages.sortedWith(compareBy({ it.second }, { it.first }))
+        else pages.sortedWith(compareBy({ it.first }, { it.second }))
 
     private const val EPSILON = 1e-6
 }
@@ -342,20 +342,28 @@ object SheetPaper {
 
     /**
      * A length as pageSetup's paperWidth and paperHeight write it, such as "210mm" or "8.5in", in
-     * points; null when it isn't one.
+     * points; null when it isn't one, or is shorter than [MIN_SIDE] or longer than [MAX_SIDE], which
+     * only a crafted file asks for.
      */
     fun length(text: String?): Double? {
         val t = text?.trim()?.lowercase()?.takeIf { it.length in 2..32 } ?: return null
         val unit = t.takeLastWhile { it.isLetter() }
         val number = t.dropLast(unit.length).trim().toDoubleOrNull()?.takeIf { it > 0 && it.isFinite() } ?: return null
-        return when (unit) {
+        val points = when (unit) {
             "mm" -> number * 72 / 25.4
             "cm" -> number * 72 / 2.54
             "in" -> number * 72
             "pt" -> number
             else -> null
         }
+        return points?.takeIf { it in MIN_SIDE..MAX_SIDE }
     }
+
+    /** An inch: no paper is smaller. */
+    const val MIN_SIDE = 72.0
+
+    /** 200 inches, the longest page PDF readers show. */
+    const val MAX_SIDE = 14_400.0
 }
 
 /** Colours as spreadsheets give them: by number from a palette of 64, by theme, with a tint. */

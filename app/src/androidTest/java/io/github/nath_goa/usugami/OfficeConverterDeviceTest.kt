@@ -39,6 +39,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.CancellationException
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -779,10 +780,15 @@ class OfficeConverterDeviceTest {
 
     @Test fun deeplyNestedXmlDoesNotOverflowTheStack() {
         // Only a crafted file nests this deep: what's too deep is left out, and the rest converts.
-        val depth = 100_000
-        val body = "<w:customXml>".repeat(depth) + para("Deep") + "</w:customXml>".repeat(depth) + para("Shallow")
-        val pdf = convert(wordDocument(body, "nested.docx"), OfficeKind.WORD, "word-nested")
+        fun nested(depth: Int) = wordDocument("<w:customXml>".repeat(depth) + para("Deep") + "</w:customXml>".repeat(depth) + para("Shallow"), "nested-$depth.docx")
+        val pdf = convert(nested(10_000), OfficeKind.WORD, "word-nested")
         assertTrue(pageTexts(pdf).joinToString(" ").contains("Shallow"))
+        // Far deeper, which the XML parser would take minutes over, the file is refused as damaged.
+        try {
+            convert(nested(100_000), OfficeKind.WORD, "word-too-nested")
+            fail("Converted a document nested 100,000 levels deep")
+        } catch (_: IOException) {
+        }
     }
 
     @Test fun everyWayOfNestingHoldsInTheStack() {

@@ -17,10 +17,10 @@ import kotlin.math.roundToInt
  * Pages drawn with Android's PDF backend, which embeds just the letters used from the phone's fonts
  * and keeps text real, selectable text. Pages are drawn in layout units ([U] per point).
  *
- * The backend holds every page, with its pictures, in memory until the document is written. So
- * once the pictures drawn add up to [IMAGE_BUDGET] (or after [PAGES_PER_PART] pages), the pages so
- * far are written to a part file and the next pages start a new document; the parts are joined
- * afterwards.
+ * The backend holds every page, with its pictures and the letters drawn on it, in memory until the
+ * document is written. So once the pictures drawn add up to [IMAGE_BUDGET], or the text counted with
+ * [keepText] to [TEXT_BUDGET] characters (or after [PAGES_PER_PART] pages), the pages so far are
+ * written to a part file and the next pages start a new document; the parts are joined afterwards.
  */
 internal class PagedPdf(private val dir: File) : Closeable {
     private var document: PdfDocument? = null
@@ -28,6 +28,7 @@ internal class PagedPdf(private val dir: File) : Closeable {
     private val parts = ArrayList<File>()
     private val bitmaps = ArrayList<Bitmap>()
     private var imageBytes = 0L
+    private var textChars = 0L
     private var pagesInPart = 0
     private val partListeners = ArrayList<() -> Unit>()
 
@@ -48,13 +49,18 @@ internal class PagedPdf(private val dir: File) : Closeable {
         page = null
         pageCount++
         pagesInPart++
-        if (imageBytes > IMAGE_BUDGET || pagesInPart >= PAGES_PER_PART) writePart()
+        if (imageBytes > IMAGE_BUDGET || textChars > TEXT_BUDGET || pagesInPart >= PAGES_PER_PART) writePart()
     }
 
     /** [bitmap] is drawn on the open document's pages: it stays until the document is written. */
     fun keep(bitmap: Bitmap) {
         bitmaps += bitmap
         imageBytes += bitmap.allocationByteCount
+    }
+
+    /** [chars] characters of text are drawn on the open page: they stay in memory until the document is written. */
+    fun keepText(chars: Int) {
+        textChars += chars
     }
 
     /** [listener] runs when a part has been written, and the bitmaps drawn so far are freed. */
@@ -77,6 +83,7 @@ internal class PagedPdf(private val dir: File) : Closeable {
             doc.close()
             document = null
             pagesInPart = 0
+            textChars = 0
             freeBitmaps()
         }
         parts += file
@@ -107,6 +114,9 @@ internal class PagedPdf(private val dir: File) : Closeable {
 
     private companion object {
         const val IMAGE_BUDGET = 48L * 1024 * 1024
+
+        /** About a hundred pages of a full sheet, which take some tens of megabytes in the PDF backend. */
+        const val TEXT_BUDGET = 1_000_000L
         const val PAGES_PER_PART = 400
     }
 }

@@ -95,20 +95,23 @@ fun BatchList(
 /**
  * The name the PDF made of file [id] gets, starting as [initial]. What is typed shows at once and
  * goes to [onChange], which keeps it: the field holds it itself, as a text field must to keep up with
- * fast typing, and keeps it through rotation.
+ * fast typing, and keeps it through rotation. What it holds is saved under [id], so a name typed for
+ * one file never comes back in the field of another put in its place, as after Start over.
  */
 @Composable
 fun OutputNameField(id: Long, initial: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
-    var text by rememberSaveable(id) { mutableStateOf(initial) }
-    OutlinedTextField(
-        value = text,
-        onValueChange = {
-            text = it
-            onChange(it)
-        },
-        label = { Text(stringResource(R.string.file_name)) },
-        suffix = { Text(".pdf") },
-        singleLine = true,
-        modifier = modifier.fillMaxWidth(),
-    )
+    key(id) {
+        var text by rememberSaveable { mutableStateOf(initial) }
+        OutlinedTextField(
+            value = text,
+            onValueChange = {
+                text = it
+                onChange(it)
+            },
+            label = { Text(stringResource(R.string.file_name)) },
+            suffix = { Text(".pdf") },
+            singleLine = true,
+            modifier = modifier.fillMaxWidth(),
+        )
+    }
 }

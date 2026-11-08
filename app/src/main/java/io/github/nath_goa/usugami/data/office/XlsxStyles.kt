@@ -48,6 +48,8 @@ internal data class SheetFont(
     val color: Int,
     /** 1 for superscript, -1 for subscript. */
     val baseline: Int,
+    /** Underlined twice, as totals often are. */
+    val doubleUnderline: Boolean = false,
 ) {
     val style: TextStyle get() = TextStyle(name, size, bold, italic, underline, strike, color, baseline = baseline)
 
@@ -72,6 +74,7 @@ internal class FontProps(
     val baseline: Int? = null,
     /** "minor" or "major": the theme's body or heading font, for a font named by the theme alone. */
     val scheme: String? = null,
+    val doubleUnderline: Boolean? = null,
 ) {
     /** These properties over [base], with colours from [palette] and theme fonts from [theme]. */
     fun over(base: SheetFont, palette: SheetPalette, theme: OfficeTheme): SheetFont = SheetFont(
@@ -83,6 +86,7 @@ internal class FontProps(
         strike = strike ?: base.strike,
         color = palette.argb(color) ?: if (color != null) Color.BLACK else base.color,
         baseline = baseline ?: base.baseline,
+        doubleUnderline = doubleUnderline ?: base.doubleUnderline,
     )
 
     companion object {
@@ -93,6 +97,7 @@ internal class FontProps(
             var bold: Boolean? = null
             var italic: Boolean? = null
             var underline: Boolean? = null
+            var doubleUnderline: Boolean? = null
             var strike: Boolean? = null
             var color: SheetColor? = null
             var baseline: Int? = null
@@ -103,14 +108,18 @@ internal class FontProps(
                     "sz" -> size = x.attr("val")?.trim()?.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f }?.coerceIn(1f, 409f)
                     "b" -> bold = x.flag()
                     "i" -> italic = x.flag()
-                    "u" -> underline = x.attr("val") != "none"
+                    "u" -> {
+                        val kind = x.attr("val")
+                        underline = kind != "none"
+                        doubleUnderline = kind == "double" || kind == "doubleAccounting"
+                    }
                     "strike" -> strike = x.flag()
                     "color" -> color = SheetColor.read(x)
                     "vertAlign" -> baseline = when (x.attr("val")) { "superscript" -> 1; "subscript" -> -1; else -> 0 }
                     "scheme" -> scheme = x.attr("val")?.takeIf { it == "major" || it == "minor" }
                 }
             }
-            return FontProps(name, size, bold, italic, underline, strike, color, baseline, scheme)
+            return FontProps(name, size, bold, italic, underline, strike, color, baseline, scheme, doubleUnderline)
         }
     }
 }
@@ -187,7 +196,8 @@ internal class CellFormat(
 /**
  * A spreadsheet's cell formats (styles.xml): number formats, fonts, fills, borders, and the
  * cellXfs that combine them with alignment. Cells refer to formats by their place in cellXfs.
- * Differential formats (conditional formatting, table styles) aren't read.
+ * Differential formats (conditional formatting, table styles) aren't read. Each list is read up to
+ * [MAX_ENTRIES], past Excel's own limit of 64,000 formats: more come only from a crafted file.
  */
 internal class SheetStyles private constructor(
     private val formats: List<CellFormat>,
@@ -228,15 +238,15 @@ internal class SheetStyles private constructor(
                         "numFmts" -> x.children {
                             val id = x.intAttr("numFmtId")
                             val code = x.attr("formatCode")
-                            if (x.name == "numFmt" && id != null && code != null) numFmts[id] = SheetStrings.unescape(code)
+                            if (x.name == "numFmt" && id != null && code != null && numFmts.size < MAX_ENTRIES) numFmts[id] = SheetStrings.unescape(code)
                         }
-                        "fonts" -> x.children { if (x.name == "font") fonts += FontProps.read(x) }
-                        "fills" -> x.children { if (x.name == "fill") fills += readFill(x) }
-                        "borders" -> x.children { if (x.name == "border") borders += readBorder(x) }
-                        "cellStyleXfs" -> x.children { if (x.name == "xf") styleXfs += readXf(x) }
-                        "cellXfs" -> x.children { if (x.name == "xf") cellXfs += readXf(x) }
+                        "fonts" -> x.children { if (x.name == "font" && fonts.size < MAX_ENTRIES) fonts += FontProps.read(x) }
+                        "fills" -> x.children { if (x.name == "fill" && fills.size < MAX_ENTRIES) fills += readFill(x) }
+                        "borders" -> x.children { if (x.name == "border" && borders.size < MAX_ENTRIES) borders += readBorder(x) }
+                        "cellStyleXfs" -> x.children { if (x.name == "xf" && styleXfs.size < MAX_ENTRIES) styleXfs += readXf(x) }
+                        "cellXfs" -> x.children { if (x.name == "xf" && cellXfs.size < MAX_ENTRIES) cellXfs += readXf(x) }
                         "colors" -> x.children {
-                            if (x.name == "indexedColors") x.children { if (x.name == "rgbColor") custom += SheetColors.rgb(x.attr("rgb")) ?: Color.BLACK }
+                            if (x.name == "indexedColors") x.children { if (x.name == "rgbColor" && custom.size < MAX_ENTRIES) custom += SheetColors.rgb(x.attr("rgb")) ?: Color.BLACK }
                         }
                     }
                 }
@@ -264,6 +274,8 @@ internal class SheetStyles private constructor(
             }
             return SheetStyles(formats, defaultFont, palette)
         }
+
+        private const val MAX_ENTRIES = 65_536
 
         private fun readXf(x: OfficeXml): Xf {
             val numFmtId = x.intAttr("numFmtId") ?: 0

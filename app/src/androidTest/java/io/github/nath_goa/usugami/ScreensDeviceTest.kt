@@ -63,6 +63,7 @@ import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.CropSession
 import io.github.nath_goa.usugami.ui.MainViewModel
+import io.github.nath_goa.usugami.ui.Motion
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.SplitMode
 import kotlinx.coroutines.CompletableDeferred
@@ -1065,6 +1066,17 @@ class ScreensDeviceTest {
         waitUntil("the result to slide away") { nodes().none { it.says(app.getString(R.string.result_heading_one)) } }
         find("the document's card, after the result") { it.says("Garden report.docx") }
         assertTrue(clickable(actionButton(R.string.convert)).isEnabled)
+
+        // After Start over on the result, the next document's name shows, not the one before's.
+        click(actionButton(R.string.convert))
+        resultFile(pdfVm)
+        // Once the tool's screen has slid away, its choices are put by for Back to editing.
+        Thread.sleep(2L * Motion.SCREEN)
+        onMain { pdfVm.startOver() }
+        find("the card to pick a file, again") { it.says(app.getString(R.string.pick_word)) }
+        onMain { pdfVm.addDocuments(listOf(pdf("report.docx", "Seed list.docx")), OfficeKind.WORD) }
+        find("the next document's card") { it.says("Seed list.docx") }
+        find("its file name") { it.isEditable && it.text?.toString() == "Seed list" }
     }
 
     @Test fun powerPointToPdfRefusesOtherFilesAndConverts() {

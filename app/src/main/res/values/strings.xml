@@ -312,10 +312,10 @@
     <!-- Excel to PDF's choices. "As in the file" keeps the paper size or orientation each sheet was set to print on. -->
     <string name="sheet_as_file">As in the file</string>
     <string name="sheet_fit_width">Fit columns to page width</string>
-    <string name="sheet_fit_width_on">Wide sheets shrink so all their columns fit across the page.</string>
+    <string name="sheet_fit_width_on">Wide sheets shrink so their columns fit across the page, but never below half size.</string>
     <string name="sheet_fit_width_off">Columns that don\'t fit go on more pages, as Excel prints them.</string>
     <string name="sheet_gridlines">Gridlines</string>
-    <string name="sheet_gridlines_detail">Light gray lines between cells, on sheets that show them. The sheet\'s own borders always show.</string>
+    <string name="sheet_gridlines_detail">Light gray lines between cells, as on screen. Borders, and gridlines a sheet is set to print, always show.</string>
     <!-- Delete pages, Reorganize PDF and Flatten PDF. "Flatten" makes form fields and comments part of the page. -->
     <string name="tool_delete_pages">Delete pages</string>
     <string name="tool_delete_pages_detail">Remove the pages you don\'t need</string>

@@ -227,7 +227,7 @@ object SpreadsheetNumbers {
         /** [h], [mm] or [ss]: the hours, minutes or seconds in all, which don't start again each day or hour. */
         data class Elapsed(val kind: Char, val count: Int) : Token
 
-        /** AM/PM, or A/P when [short]; written in small letters when [lower]. */
+        /** AM/PM, or A/P when [short]. As in Excel, A/P is in small letters when [lower], and AM/PM is always in capitals. */
         data class AmPm(val short: Boolean, val lower: Boolean) : Token
 
         /** Tenths, hundredths or thousandths of a second, [digits] of them, after the seconds. */
@@ -533,7 +533,7 @@ object SpreadsheetNumbers {
                 return end
             }
             letter == 'a' && part.regionMatches(i, "AM/PM", 0, 5, ignoreCase = true) -> {
-                tokens += Token.AmPm(short = false, lower = c.isLowerCase())
+                tokens += Token.AmPm(short = false, lower = false)
                 return i + 5
             }
             letter == 'a' && part.regionMatches(i, "A/P", 0, 3, ignoreCase = true) -> {
