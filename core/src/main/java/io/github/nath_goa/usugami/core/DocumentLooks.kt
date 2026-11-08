@@ -633,17 +633,19 @@ object DocumentLooks {
      * across (2 reach + 1 pixels) is black in it, but for at most 2 reach white pixels (fewer, in
      * proportion, where the picture's edge cuts the square): so a few white specks in a dark photo
      * don't stop it, while a white line across the square, or a letter in a dark band, does. Those
-     * squares' centres, grown by the reach less the outline, are made white, but only where no white
-     * pixel that isn't a centre itself is within the outline. The second test is what keeps the
-     * outline on a slanted or curved edge: there, the white a square may hold lets it stick out over
-     * the edge, and a square grown reaches further across the edge than along it, which together
-     * would eat the outline, and the whole of a thick marker stroke. A speck inside a dark area is a
-     * centre, so it is made white with the area rather than left with an outline of its own. Beyond
-     * the picture's edge counts as black, so the dark border a crop leaves keeps only its inner edge,
-     * not a frame round the page too.
+     * squares' centres, grown by the reach less the outline, are made white, but only where no open
+     * white is within the outline: white that isn't a centre and fills over a quarter of the pixels
+     * within the outline round it, so the paper or a white letter rather than a speck. The second
+     * test is what keeps the outline on a slanted or curved edge: there, the white a square may hold
+     * lets it stick out over the edge, and a square grown reaches further across the edge than along
+     * it, which together would eat the outline, and the whole of a thick marker stroke. A speck in a
+     * dark area isn't open white, so it is made white with the area rather than left in a black
+     * ring of its own, even near the area's edge, where its square holds the paper beyond and it is
+     * no centre. Beyond the picture's edge counts as black, so the dark border a crop leaves keeps
+     * only its inner edge, not a frame round the page too.
      *
-     * Three passes over the rows, with running counts a column each and a bit a pixel for the
-     * centres and for where no white is within the outline.
+     * Four passes over the rows, with running counts a column each and a bit a pixel for the
+     * centres, for the open white and for where none is within the outline.
      */
     private fun hollow(bits: BitImage, checkCancelled: () -> Unit) {
         val width = bits.width
@@ -665,10 +667,16 @@ object DocumentLooks {
             }
         }
         if (!any) return
-        // Where no white pixel but a centre is within the outline, a bit each.
+        // The open white, a bit each: not a centre, and white over a quarter of the pixels within the
+        // outline round it, so not a speck.
+        val open = ByteArray(rowBytes * height)
+        squareCounts(width, height, outline, checkCancelled, { y, x -> !bits.isBlack(x, y) }) { y, x, whites, area ->
+            if (whites * 4 > area && !bits.isBlack(x, y) && !isBit(centres, y * rowBytes, x)) setBit(open, y * rowBytes, x)
+        }
+        // Where no open white is within the outline, a bit each.
         val inner = ByteArray(rowBytes * height)
-        squareCounts(width, height, outline, checkCancelled, { y, x -> !bits.isBlack(x, y) && !isBit(centres, y * rowBytes, x) }) { y, x, bare, _ ->
-            if (bare == 0) setBit(inner, y * rowBytes, x)
+        squareCounts(width, height, outline, checkCancelled, { y, x -> isBit(open, y * rowBytes, x) }) { y, x, near, _ ->
+            if (near == 0) setBit(inner, y * rowBytes, x)
         }
         // The centres grown into squares: across a row, then down the columns through the last row
         // each column was reached in, so a row is made white once the rows below that reach it are seen.

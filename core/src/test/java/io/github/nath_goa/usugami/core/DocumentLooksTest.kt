@@ -442,6 +442,29 @@ class DocumentLooksTest {
         assertEquals("Hollow along the stroke", along.count(), hollow)
     }
 
+    @Test fun inkSaverLeavesNoRingsRoundSpecksInADarkArea() {
+        // A black box with white specks a few pixels inside its edges, as noise in a dark photo
+        // leaves: the specks are made white with the box, not each kept inside a black ring.
+        val image = BufferedImage(1200, 1200, BufferedImage.TYPE_INT_RGB)
+        val g = image.createGraphics()
+        g.color = Color(240, 238, 230)
+        g.fillRect(0, 0, 1200, 1200)
+        g.color = Color(20, 20, 24)
+        g.fillRect(300, 300, 400, 300)
+        g.color = Color(240, 238, 230)
+        for (k in 0 until 10) {
+            g.fillRect(340 + k * 35, 306, 2, 2)
+            g.fillRect(340 + k * 35, 592, 2, 2)
+            g.fillRect(306, 330 + k * 25, 2, 2)
+        }
+        g.dispose()
+        val saver = DocumentLooks.blackAndWhite(source(image), PageLook.INK_SAVER)
+        var black = 0
+        for (y in 304 until 596) for (x in 304 until 696) if (saver.isBlack(x, y)) black++
+        assertEquals("Black inside the outline", 0, black)
+        assertTrue("Outline", (300 until 700).all { saver.isBlack(it, 300) && saver.isBlack(it, 599) })
+    }
+
     @Test fun theToneCurvesNeverTurnBackAndKeepWhite() {
         assertTrue(DocumentLooks.tones(LookAdjustments(0, 0)).withIndex().all { (i, v) -> i == v })
         for (brightness in -100..100 step 20) for (contrast in -100..100 step 20) {
