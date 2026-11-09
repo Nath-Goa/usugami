@@ -144,8 +144,8 @@ class ImageStore(context: Context) {
      * as a JPEG, and a picture with transparency or one kept without loss (a lossless WebP, a BMP,
      * the first frame of a GIF) as a PNG. A very large photo is stored at half its size, or less,
      * until it has at most [MAX_CONVERTED_PIXELS], still more than a page needs at the least
-     * compression. The pixels stay as stored: [ImageOrientation] says how they are turned. Null when
-     * the image can't be decoded.
+     * compression, and is decoded straight to that size (see [decode]). The pixels stay as stored:
+     * [ImageOrientation] says how they are turned. Null when the image can't be decoded.
      */
     private fun converted(source: File, id: Long, type: ImageFileType): Pair<File, ImageFormat>? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -179,7 +179,11 @@ class ImageStore(context: Context) {
         }
     }
 
-    /** [source] decoded at 1/[sample] of its size, or smaller while memory runs out; null if it can't be. */
+    /**
+     * [source] decoded at 1/[sample] of its size, or smaller while memory runs out; null if it can't
+     * be. Android's decoders make a WebP, BMP or GIF image smaller as they read it; a HEIC or AVIF
+     * photo is read a tile at a time for that (see [HeifTiles]).
+     */
     private fun decode(source: File, sample: Int): Bitmap? {
         var shrink = sample
         while (true) {
@@ -190,7 +194,7 @@ class ImageStore(context: Context) {
                 inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
             }
             try {
-                return BitmapFactory.decodeFile(source.path, options)
+                return HeifTiles.decode(source.path, shrink) ?: BitmapFactory.decodeFile(source.path, options)
             } catch (e: OutOfMemoryError) {
                 if (shrink >= MAX_SHRINK * sample) throw e
                 shrink *= 2

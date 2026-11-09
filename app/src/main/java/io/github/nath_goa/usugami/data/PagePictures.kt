@@ -119,8 +119,9 @@ class PagePictures(private val context: Context) {
         private const val JPEG_QUALITY = 85
 
         /**
-         * The picture at [path], upright, with its longer side at most [longSide] pixels. Null if it
-         * can't be read.
+         * The picture at [path], upright, with its longer side at most [longSide] pixels, decoded
+         * straight to about that size, a HEIC or AVIF photo too (see [HeifTiles]). Null if it can't
+         * be read.
          */
         fun decode(path: String, orientation: Int, longSide: Int): Bitmap? {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -133,7 +134,7 @@ class PagePictures(private val context: Context) {
                 inPreferredConfig = Bitmap.Config.ARGB_8888
                 inPreferredColorSpace = ColorSpace.get(ColorSpace.Named.SRGB)
             }
-            val decoded = BitmapFactory.decodeFile(path, options) ?: return null
+            val decoded = HeifTiles.decode(path, sample) ?: BitmapFactory.decodeFile(path, options) ?: return null
             val scale = min(1f, longSide.toFloat() / max(decoded.width, decoded.height))
             val matrix = ImageTransform.fromExif(orientation).toMatrix(decoded.width, decoded.height, scale)
             val upright = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
