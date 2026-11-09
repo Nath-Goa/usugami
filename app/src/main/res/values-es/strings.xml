@@ -644,6 +644,15 @@
     <string name="start_over">Empezar de nuevo</string>
     <string name="start_over_title">¿Empezar de nuevo?</string>
     <string name="not_saved_note">Aún no está guardado. Al empezar de nuevo se borra, así que guárdalo primero si quieres conservarlo.</string>
+    <string name="mark_title">Marca de agua de Usugami</string>
+    <string name="mark_detail">Añade un pequeño \"Usugami\" en la esquina de cada página para apoyar la app.</string>
+    <string name="mark_adjust">Tamaño y opacidad de la marca de agua</string>
+    <string name="mark_size">Tamaño</string>
+    <string name="mark_opacity">Opacidad</string>
+    <string name="mark_percent">%1$d %%</string>
+    <string name="mark_preview_description">Página 1 con la marca de agua de Usugami</string>
+    <string name="mark_working">Actualizando la marca de agua…</string>
+    <string name="mark_failed">No se pudo cambiar la marca de agua de Usugami. Comprueba que haya suficiente almacenamiento libre.</string>
 
     <!-- Dialogs -->
     <string name="discard_title">¿Descartar estas imágenes?</string>

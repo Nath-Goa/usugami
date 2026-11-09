@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.annotation.VisibleForTesting
 import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
+import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.data.PdfFile
 import java.io.File
 
@@ -24,9 +25,10 @@ internal class KeptResult(private val handle: SavedStateHandle) {
         if (pages.isEmpty() || files.size != pages.size || originals.size != pages.size) return null
         // Kept by Compress PDF; a result kept by an older version has none.
         val keptOriginals = kept.getBooleanArray("kept_originals")?.takeIf { it.size == pages.size }
+        val marks = kept.getIntArray("marks")?.takeIf { it.size == pages.size }
         return files.indices.map { i ->
             val file = if ('/' in files[i]) File(files[i]) else File(folder, files[i])
-            PdfFile(file, pages[i], originals[i], keptOriginal = keptOriginals?.get(i) == true)
+            PdfFile(file, pages[i], originals[i], keptOriginal = keptOriginals?.get(i) == true, mark = marks?.get(i)?.let(::unpackMark))
         }
     }
 
@@ -59,7 +61,14 @@ internal class KeptResult(private val handle: SavedStateHandle) {
                 "pages" to IntArray(files.size) { files[it].pageCount },
                 "originals" to LongArray(files.size) { files[it].originalBytes },
                 "kept_originals" to BooleanArray(files.size) { files[it].keptOriginal },
+                "marks" to IntArray(files.size) { i -> files[i].mark?.let { it.size shl 8 or it.opacity } ?: NO_MARK },
             )
         }
+
+        /** No Usugami mark, in [pack]'s "marks". */
+        private const val NO_MARK = -1
+
+        /** The mark [pack] kept as [packed]: its size and opacity in one number, or null for none. */
+        private fun unpackMark(packed: Int): MarkStyle? = if (packed < 0) null else MarkStyle.of(packed shr 8, packed and 0xFF)
     }
 }

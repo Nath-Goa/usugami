@@ -644,6 +644,15 @@
     <string name="start_over">Recommencer</string>
     <string name="start_over_title">Recommencer ?</string>
     <string name="not_saved_note">Pas encore enregistré. Recommencer le supprime : enregistrez-le d\'abord si vous voulez le conserver.</string>
+    <string name="mark_title">Filigrane Usugami</string>
+    <string name="mark_detail">Ajoute un petit « Usugami » dans le coin de chaque page, pour soutenir l\'application.</string>
+    <string name="mark_adjust">Taille et opacité du filigrane</string>
+    <string name="mark_size">Taille</string>
+    <string name="mark_opacity">Opacité</string>
+    <string name="mark_percent">%1$d %%</string>
+    <string name="mark_preview_description">Page 1 avec le filigrane Usugami</string>
+    <string name="mark_working">Mise à jour du filigrane…</string>
+    <string name="mark_failed">Impossible de modifier le filigrane Usugami. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
 
     <!-- Dialogs -->
     <string name="discard_title">Supprimer ces images ?</string>

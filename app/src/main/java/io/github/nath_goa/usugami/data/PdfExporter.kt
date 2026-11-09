@@ -16,6 +16,7 @@ import io.github.nath_goa.usugami.core.ImagePlacement
 import io.github.nath_goa.usugami.core.InvalidJpegException
 import io.github.nath_goa.usugami.core.Jpeg
 import io.github.nath_goa.usugami.core.LayoutSettings
+import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.PageImage
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.PixelSource
@@ -30,6 +31,7 @@ import java.io.File
  * [images] are, for a PDF just made from images, the image on each page and where it is drawn: text
  * recognition reads those rather than the compressed copies in the PDF. Empty for other PDFs.
  * [keptOriginal]: Compress PDF couldn't make it smaller, so it is the PDF picked, as it was.
+ * [mark]: the Usugami mark [PageMark] put on its pages, which tells the file apart from itself before.
  */
 data class PdfFile(
     val file: File,
@@ -37,6 +39,7 @@ data class PdfFile(
     val originalBytes: Long,
     val images: List<PlacedImage> = emptyList(),
     val keptOriginal: Boolean = false,
+    val mark: MarkStyle? = null,
 ) {
     val name: String get() = file.name
     val sizeBytes: Long get() = file.length()

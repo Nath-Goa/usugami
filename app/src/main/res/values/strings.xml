@@ -673,6 +673,17 @@
     <string name="start_over">Start over</string>
     <string name="start_over_title">Start over?</string>
     <string name="not_saved_note">Not saved yet. Starting over deletes it, so save it first if you want to keep it.</string>
+    <!-- The Usugami watermark on the result screen: a switch that puts a small "Usugami" on the PDFs' pages, and an arrow on its row that opens its size and opacity. "Usugami" is the app's name and stays as it is in every language. -->
+    <string name="mark_title">Usugami watermark</string>
+    <string name="mark_detail">Adds a small \"Usugami\" in the corner of each page, to support the app.</string>
+    <string name="mark_adjust">Watermark size and opacity</string>
+    <string name="mark_size">Size</string>
+    <string name="mark_opacity">Opacity</string>
+    <!-- A slider's value, such as "20%". -->
+    <string name="mark_percent">%1$d%%</string>
+    <string name="mark_preview_description">Page 1 with the Usugami watermark</string>
+    <string name="mark_working">Updating the watermark…</string>
+    <string name="mark_failed">Couldn\'t change the Usugami watermark. Check that there is enough free storage.</string>
 
     <!-- Dialogs -->
     <string name="discard_title">Discard these images?</string>

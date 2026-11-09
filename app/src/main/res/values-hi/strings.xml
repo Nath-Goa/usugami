@@ -623,6 +623,15 @@
     <string name="start_over">फिर से शुरू करें</string>
     <string name="start_over_title">फिर से शुरू करें?</string>
     <string name="not_saved_note">अभी सेव नहीं हुई है। फिर से शुरू करने पर यह मिट जाएगी, इसलिए अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
+    <string name="mark_title">Usugami वॉटरमार्क</string>
+    <string name="mark_detail">ऐप को सपोर्ट करने के लिए हर पेज के कोने में छोटा सा \"Usugami\" जोड़ता है।</string>
+    <string name="mark_adjust">वॉटरमार्क का साइज़ और अपारदर्शिता</string>
+    <string name="mark_size">साइज़</string>
+    <string name="mark_opacity">अपारदर्शिता</string>
+    <string name="mark_percent">%1$d%%</string>
+    <string name="mark_preview_description">Usugami वॉटरमार्क के साथ पेज 1</string>
+    <string name="mark_working">वॉटरमार्क अपडेट किया जा रहा है…</string>
+    <string name="mark_failed">Usugami वॉटरमार्क बदला नहीं जा सका। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
 
     <!-- Dialogs -->
     <string name="discard_title">इन इमेज को खारिज करें?</string>

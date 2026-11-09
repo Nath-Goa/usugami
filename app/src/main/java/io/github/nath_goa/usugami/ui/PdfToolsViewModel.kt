@@ -19,6 +19,7 @@ import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.EditLayout
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.InkItem
+import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.PageItem
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
@@ -35,6 +36,7 @@ import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.CompressJob
 import io.github.nath_goa.usugami.data.DownloadsCopy
+import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.NothingToNumber
 import io.github.nath_goa.usugami.data.NumberingJob
@@ -298,6 +300,27 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     val zipProgress = zipper.progress
     /** Share screens for ZIP files of the result's PDFs, once each is ready. */
     val zipShares = zipper.shares
+
+    /**
+     * The Usugami mark on the result's PDFs. A change rewrites them with the other file work, after a
+     * save under way, and the copies saved before are then of the PDFs as they were: saving again,
+     * all at once or each on its own, saves them anew.
+     */
+    private val marker = ResultMarker(
+        app, handle, viewModelScope, fileOps, result,
+        changed = { files ->
+            _result.value = files
+            setSavedFiles(emptySet())
+            _saved.value = false
+        },
+        failed = { message(strings.getString(R.string.mark_failed)) },
+    )
+    /** Whether the PDFs made carry the Usugami mark, and its size and opacity: one setting for the whole app. */
+    val mark: StateFlow<MarkSetting> = marker.setting
+    /** The result's PDFs are being changed to [mark]: they can't be opened, shared or saved meanwhile. */
+    val marking: StateFlow<Boolean> = marker.working
+    /** The result's first page, which the result screen shows the mark on while it is changed. */
+    val markPreview: StateFlow<MarkPreview?> = marker.preview
 
     private var nextId = maxOf(System.currentTimeMillis(), (((inputs.value + locked.value).map { it.id } + documents.value.map { it.id }).maxOrNull() ?: 0) + 1)
     private var task: Job? = null
@@ -967,13 +990,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun runCompress(level: PdfCompression, fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
-        process(fileName, listOf(input), afterResult = { files ->
-            // The engine keeps the original file when re-encoding would not make an unprotected PDF
-            // smaller. Say so, otherwise the result looks like nothing happened. A PDF with a password
-            // can't be kept (no tool's PDF has one), and without it may come out bigger: that is said too.
-            val file = files.single()
-            if (!madeSmaller(file)) message(strings.getString(if (file.keptOriginal) R.string.pdf_no_reduction else R.string.pdf_not_smaller))
-        }) { check -> listOf(engine.compress(input, level, fileName, check)) }
+        // The engine keeps the original file when re-encoding would not make an unprotected PDF
+        // smaller. Say so, otherwise the result looks like nothing happened. A PDF with a password
+        // can't be kept (no tool's PDF has one), and without it may come out bigger: that is said too.
+        // Told of the PDF as compressed, before the Usugami mark goes on it.
+        var note: Int? = null
+        process(fileName, listOf(input), afterResult = { note?.let { message(strings.getString(it)) } }) { check ->
+            val file = engine.compress(input, level, fileName, check)
+            if (!madeSmaller(file)) note = if (file.keptOriginal) R.string.pdf_no_reduction else R.string.pdf_not_smaller
+            listOf(file)
+        }
     }
 
     /** Whether Compress PDF made [file] at least 1% smaller than the PDF it was made of. */
@@ -1654,7 +1680,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     forgetDocuments(documentsMissing)
                     return@launch
                 }
-                val files = withContext(fileOps) { block { job.ensureActive() } }
+                // The Usugami mark goes on before the PDFs show, while the progress still does.
+                val files = withContext(fileOps) { marker.markMade(block { job.ensureActive() }) { job.ensureActive() } }
                 _saved.value = false
                 resultPutAway = false
                 setSavedFiles(emptySet())
@@ -1721,6 +1748,20 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun putAwayResult() {
         if (_result.value != null) resultPutAway = true
         _result.value = null
+        marker.stop()
+    }
+
+    /**
+     * Puts the Usugami mark on the result's PDFs and those made from now on, or takes it off. Not while
+     * the PDFs or a ZIP file of them are being saved, which would save them half changed.
+     */
+    fun setMark(on: Boolean) {
+        if (!_saving.value && !zipper.busy) marker.setOn(on)
+    }
+
+    /** Gives the Usugami mark [style], on the result's PDFs too; as [setMark], not while saving. */
+    fun setMarkStyle(style: MarkStyle) {
+        if (!_saving.value && !zipper.busy) marker.setStyle(style)
     }
 
     fun startOver() {
@@ -1876,14 +1917,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     private fun resultCleared(count: Int) {
         _result.value = null
+        marker.stop()
         message(strings.getQuantityString(R.plurals.msg_result_cleared, count))
     }
 
     fun saveToDownloads() {
         val files = _result.value ?: return
         if (!canSaveToDownloads) return
-        // A second tap that lands before the button is turned off does nothing.
-        if (_saving.value) return
+        // A second tap that lands before the button is turned off does nothing, as does one that lands
+        // as the Usugami mark starts changing.
+        if (_saving.value || marker.working.value) return
         // The PDFs copied so far: when a later one fails, these are saved all the same.
         val done = ArrayList<PdfFile>()
         save(partial = { done }) {
@@ -1901,7 +1944,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** Saves [file], one of the result's PDFs, into Downloads on its own. */
     fun saveOneToDownloads(file: PdfFile) {
         val files = _result.value ?: return
-        if (!canSaveToDownloads || _saving.value) return
+        if (!canSaveToDownloads || _saving.value || marker.working.value) return
         val one = files.firstOrNull { it.file == file.file } ?: return
         save(listOf(one)) {
             // Saved there already, with the others or on its own, it only says so again.
@@ -2049,6 +2092,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** Makes one ZIP file of the result's PDFs and shares it (see [zipShares]). */
     fun shareZip() {
         val files = _result.value ?: return
+        if (marker.working.value) return
         zipper.share(files, resultName)
     }
 

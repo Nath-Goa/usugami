@@ -91,6 +91,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val pdfPasswordRemoved by pdfVm.passwordRemoved.collectAsStateWithLifecycle()
     val zipProgress by vm.zipProgress.collectAsStateWithLifecycle()
     val pdfZipProgress by pdfVm.zipProgress.collectAsStateWithLifecycle()
+    // One setting for the whole app: either view model gives it.
+    val mark by vm.mark.collectAsStateWithLifecycle()
+    val marking by vm.marking.collectAsStateWithLifecycle()
+    val pdfMarking by pdfVm.marking.collectAsStateWithLifecycle()
+    val markPreview by vm.markPreview.collectAsStateWithLifecycle()
+    val pdfMarkPreview by pdfVm.markPreview.collectAsStateWithLifecycle()
     val sharedFiles by vm.sharedFiles.collectAsStateWithLifecycle()
     val sharing by vm.sharing.collectAsStateWithLifecycle()
     val pdfInputs by pdfVm.inputs.collectAsStateWithLifecycle()
@@ -677,8 +683,13 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                     launch(R.string.msg_no_file_picker) { createZip.launch(vm.zipFileName()) }
                                 }
                             },
+                            setMark = vm::setMark,
+                            setMarkStyle = vm::setMarkStyle,
                         ),
                         zipProgress = zipProgress,
+                        mark = mark,
+                        marking = marking,
+                        markPreview = markPreview,
                     )
                 }
                 current.endsWith("/result") -> {
@@ -725,10 +736,15 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                     }
                                 }
                             },
+                            setMark = pdfVm::setMark,
+                            setMarkStyle = pdfVm::setMarkStyle,
                         ),
                         zipProgress = pdfZipProgress,
                         note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else null,
                         savedFiles = pdfSavedFiles,
+                        mark = mark,
+                        marking = pdfMarking,
+                        markPreview = pdfMarkPreview,
                     )
                 }
                 else -> {

@@ -86,7 +86,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.Compressor
+import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.ZipProgress
+import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.PdfFile
 import kotlinx.coroutines.delay
 
@@ -108,6 +110,9 @@ class ResultActions(
     val shareOne: ((PdfFile) -> Unit)? = null,
     val saveOneToDownloads: ((PdfFile) -> Unit)? = null,
     val saveOneAs: ((PdfFile) -> Unit)? = null,
+    /** Puts the Usugami mark on the PDFs, or takes it off, and gives it a size and opacity (see [MarkCard]). */
+    val setMark: (Boolean) -> Unit = {},
+    val setMarkStyle: (MarkStyle) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -122,11 +127,17 @@ fun ResultScreen(
     note: String? = null,
     /** The names of the PDFs saved so far, each marked as saved (with [ResultActions.saveOneAs]). */
     savedFiles: Set<String> = emptySet(),
+    /** Whether the PDFs carry the Usugami mark, and its size and opacity. */
+    mark: MarkSetting = MarkSetting(),
+    /** The PDFs are being changed to [mark]: until they are, they can't be opened, shared or saved. */
+    marking: Boolean = false,
+    /** The first page, to show the mark on while it is changed. */
+    markPreview: MarkPreview? = null,
 ) {
     var confirmStartOver by rememberSaveable { mutableStateOf(false) }
     val single = files.size == 1
-    // Nothing else starts while a save or a ZIP file is under way.
-    val idle = !busy && zipProgress == null
+    // Nothing else starts while a save, a ZIP file or a change of the mark is under way.
+    val idle = !busy && zipProgress == null && !marking
     // The success check mark grows in once when the result arrives. Saved, so it does not
     // replay after a rotation.
     var checkShown by rememberSaveable { mutableStateOf(false) }
@@ -197,6 +208,19 @@ fun ResultScreen(
                     Spacer(Modifier.height(20.dp))
                 }
             }
+            // Near the top, above the PDFs and what can be done with them: it changes them.
+            item(key = "mark") {
+                MarkCard(
+                    setting = mark,
+                    working = marking,
+                    // Not while the PDFs, or a ZIP file of them, are being saved.
+                    enabled = !busy && zipProgress == null,
+                    preview = markPreview,
+                    onOn = actions.setMark,
+                    onStyle = actions.setMarkStyle,
+                    modifier = wide.padding(bottom = 12.dp),
+                )
+            }
             itemsIndexed(files, key = { _, file -> file.file.path }) { index, file ->
                 val saveAs = actions.saveOneAs
                 Box(if (index > 0) wide.padding(top = 8.dp) else wide) {
@@ -209,11 +233,12 @@ fun ResultScreen(
                             onSaveToDownloads = actions.saveOneToDownloads?.let { save -> { save(file) } },
                             onSaveAs = { saveAs(file) },
                             saveMenu = saveMenu,
-                            canShare = zipProgress == null,
+                            canOpen = !marking,
+                            canShare = zipProgress == null && !marking,
                             canSave = idle,
                         )
                     } else {
-                        FileRow(file, showOpen = !single, onOpen = { actions.open(file) })
+                        FileRow(file, showOpen = !single, canOpen = !marking, onOpen = { actions.open(file) })
                     }
                 }
             }
@@ -233,13 +258,13 @@ fun ResultScreen(
                     Column(wide, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if (single) {
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                WideButton(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open), Modifier.weight(1f), primary = true, halfWidth = true) {
+                                WideButton(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open), Modifier.weight(1f), primary = true, enabled = !marking, halfWidth = true) {
                                     actions.open(files[0])
                                 }
-                                WideButton(Icons.Rounded.Share, stringResource(R.string.share), Modifier.weight(1f), tonal = true, halfWidth = true, onClick = actions.share)
+                                WideButton(Icons.Rounded.Share, stringResource(R.string.share), Modifier.weight(1f), tonal = true, enabled = !marking, halfWidth = true, onClick = actions.share)
                             }
                         } else {
-                            WideButton(Icons.Rounded.Share, stringResource(R.string.share_all), Modifier.fillMaxWidth(), primary = true, enabled = zipProgress == null, onClick = actions.share)
+                            WideButton(Icons.Rounded.Share, stringResource(R.string.share_all), Modifier.fillMaxWidth(), primary = true, enabled = zipProgress == null && !marking, onClick = actions.share)
                         }
                         actions.saveToDownloads?.let { save ->
                             WideButton(Icons.Rounded.Download, stringResource(R.string.save_to_downloads), Modifier.fillMaxWidth(), enabled = idle, onClick = save)
@@ -370,14 +395,14 @@ private fun ZipDialog(progress: ZipProgress, onCancel: () -> Unit) {
 private const val ZIP_DIALOG_DELAY_MS = 400L
 
 @Composable
-private fun FileRow(file: PdfFile, showOpen: Boolean, onOpen: () -> Unit) {
+private fun FileRow(file: PdfFile, showOpen: Boolean, canOpen: Boolean, onOpen: () -> Unit) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             Spacer(Modifier.width(12.dp))
             FileDetails(file, Modifier.weight(1f))
             if (showOpen) {
-                IconButton(onClick = onOpen) {
+                IconButton(onClick = onOpen, enabled = canOpen) {
                     // One per file, so the label names the file.
                     Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = stringResource(R.string.open_file, file.name))
                 }
@@ -439,6 +464,7 @@ private fun OwnFileRow(
     onSaveToDownloads: (() -> Unit)?,
     onSaveAs: () -> Unit,
     saveMenu: MutableState<String?>,
+    canOpen: Boolean,
     canShare: Boolean,
     canSave: Boolean,
 ) {
@@ -456,7 +482,7 @@ private fun OwnFileRow(
             val saveLabel = stringResource(R.string.save_file, file.name)
             // Their icons line up with the PDF's.
             FlowRow(Modifier.padding(start = 8.dp)) {
-                TextButton(onClick = onOpen, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = openLabel }) {
+                TextButton(onClick = onOpen, enabled = canOpen, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = openLabel }) {
                     RowButtonContent(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open))
                 }
                 if (onShare != null) {
