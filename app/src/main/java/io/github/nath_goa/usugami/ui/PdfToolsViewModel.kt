@@ -985,9 +985,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
         // Each PDF is named by its pages after the name typed. A single one is named as typed, as the
         // field shows it, unless that is the PDF's own name, which it would then take.
-        val byPages = groups.size > 1 || fileName == defaultName(PdfTool.SPLIT, input)
-        // Their ZIP file says they were split from it: "Report_split.zip".
-        val zipName = FileNames.withSuffix(fileName, "_split", "Usugami")
+        val ownName = FileNames.sanitize(fileName, "Usugami") == defaultName(PdfTool.SPLIT, input)
+        val byPages = groups.size > 1 || ownName
+        // Their ZIP file is named as typed too, or else says they were split from it: "Report_split.zip".
+        val zipName = if (ownName) FileNames.withSuffix(fileName, "_split", "Usugami") else fileName
         process(zipName, listOf(input)) { check -> engine.split(input, groups, fileName, byPages, check) }
     }
 

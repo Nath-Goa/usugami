@@ -286,7 +286,9 @@ class PageToolsDeviceTest {
         assertEquals(listOf("alpha_p1-2.pdf", "alpha_p3.pdf"), split(SplitMode.CUSTOM, "1-2;3", combine = false, own))
         assertEquals(listOf("alpha_p3,1.pdf"), split(SplitMode.SELECTED, "3,1", combine = true, own))
         assertEquals(listOf("Chosen.pdf"), split(SplitMode.SELECTED, "3,1", combine = true, "Chosen"))
-        assertEquals(listOf("alpha_p1.pdf", "alpha_p2.pdf", "alpha_p3.pdf"), split(SplitMode.EVERY_PAGE, "", combine = false, own))
+        assertEquals("A ZIP file named as typed", "Chosen.zip", onMain { vm.zipFileName() })
+        // Typed with ".pdf", the PDF's own name is still its own.
+        assertEquals(listOf("alpha_p1.pdf", "alpha_p2.pdf", "alpha_p3.pdf"), split(SplitMode.EVERY_PAGE, "", combine = false, "alpha.pdf"))
         assertEquals("Their ZIP file", "alpha_split.zip", onMain { vm.zipFileName() })
     }
 
