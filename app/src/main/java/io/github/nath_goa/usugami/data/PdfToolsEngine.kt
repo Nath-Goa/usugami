@@ -201,18 +201,36 @@ class PdfToolsEngine(private val context: Context) {
         }
     }
 
-    fun inspect(input: PdfInput, password: String): PdfInput =
-        load(input.file, password).use { doc ->
-            if (doc.numberOfPages == 0) throw IOException("This PDF has no pages")
-            // Every page found once, as the tools find them: a page tree nested deeper than PDFBox
-            // goes (it calls itself for each level) fails here, as a damaged PDF does, not later.
-            try {
-                doc.pages.count()
-            } catch (e: StackOverflowError) {
-                throw tooDeep(e)
+    /**
+     * Reads [input]'s pages with [password]. A damaged page tree is mended (see [repairPageTree]) and
+     * the copy saved again, without its password, so that every reader of it finds the same pages:
+     * the tools, and Android's renderer, which draws the previews and Redact PDF's pictures.
+     */
+    fun inspect(input: PdfInput, password: String): PdfInput {
+        // Written whole before it takes the copy's place, so a run cut short leaves the copy as it was.
+        val mended = File(inputDir, "${input.id}-mended.tmp")
+        try {
+            val (pageCount, repaired) = load(input.file, password).use { doc ->
+                // Every page found once, as the tools find them: a page tree nested deeper than PDFBox
+                // goes (it calls itself for each level) fails here, as a damaged PDF does, not later.
+                val changed = try {
+                    repairPageTree(doc).also { doc.pages.count() }
+                } catch (e: StackOverflowError) {
+                    throw tooDeep(e)
+                }
+                if (doc.numberOfPages == 0) throw IOException("This PDF has no pages")
+                if (changed) {
+                    doc.isAllSecurityToBeRemoved = true
+                    doc.save(mended)
+                }
+                doc.numberOfPages to changed
             }
-            input.copy(pageCount = doc.numberOfPages, password = password)
+            if (repaired && !mended.renameTo(input.file)) throw IOException("Couldn't keep the mended copy")
+            return input.copy(pageCount = pageCount, password = password)
+        } finally {
+            mended.delete()
         }
+    }
 
     /** Opens a copy that [import] found locked; throws [PdfWrongPassword] if [password] doesn't fit. */
     fun unlock(input: PdfInput, password: String): PdfInput = try {
@@ -958,18 +976,10 @@ class PdfToolsEngine(private val context: Context) {
      * Opens [file] with PDFBox. Certificate encryption (Adobe.PubSec) needs BouncyCastle, which isn't
      * bundled: PDFBox then throws an IOException, or would hit a missing class, so both become
      * [PdfCertificateEncrypted]. A PDF nested deeper than PDFBox's reading goes (it reads arrays in
-     * arrays by calling itself, without a limit) fails as a damaged one does. A page count the file
-     * gets wrong is counted again (see [repairPageCount]).
+     * arrays by calling itself, without a limit) fails as a damaged one does.
      */
     private fun load(file: File, password: String): PDDocument = try {
-        PDDocument.load(file, password, memory()).also { doc ->
-            try {
-                repairPageCount(doc)
-            } catch (t: Throwable) {
-                doc.close()
-                throw t
-            }
-        }
+        PDDocument.load(file, password, memory())
     } catch (e: InvalidPasswordException) {
         throw e
     } catch (e: Exception) {
@@ -983,34 +993,54 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     /**
-     * A damaged PDF can say it has more pages than it has, or fewer. Viewers count the pages
-     * themselves, but PDFBox finds a page by the counts, so a tool would fail on a page that isn't
-     * there, or take Merge's next PDF's page for it. Each count is set to the pages really found.
+     * Mends a page tree that PDFBox would read otherwise than viewers do, and returns whether it
+     * changed anything. Viewers walk the tree and take what ends each branch for a page. PDFBox finds
+     * a page by the counts the tree gives, lists them with a walk that skips a page without its type,
+     * and takes a page out through the part of the tree it says holds it: a tool would then fail on a
+     * page, take the wrong one, or Merge's next PDF's page in its place. A page without its type gets
+     * it. A tree that miscounts, leads back into itself or reaches a part of itself twice, ends a
+     * branch with something other than a page, or whose pages and parts don't name the part that
+     * holds them, is laid out again flat with the pages found.
      */
-    private fun repairPageCount(doc: PDDocument) {
-        if (doc.pages.count() == doc.numberOfPages) return
-        recount(doc.pages.cosObject, Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>()))
+    private fun repairPageTree(doc: PDDocument): Boolean {
+        val root = doc.documentCatalog.cosObject.getDictionaryObject(COSName.PAGES) as? COSDictionary ?: return false
+        // A lone page in the tree's place, which PDFBox reads as a tree holding it.
+        if (root.getCOSName(COSName.TYPE) == COSName.PAGE) return false
+        val pages = ArrayList<COSDictionary>()
+        val sound = walkPageTree(root, Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>()).apply { add(root) }, pages)
+        var changed = false
+        for (page in pages) {
+            if (page.getCOSName(COSName.TYPE) != null) continue
+            page.setItem(COSName.TYPE, COSName.PAGE)
+            changed = true
+        }
+        if (!sound) {
+            setPages(doc, pages.map { PDPage(it) })
+            changed = true
+        }
+        return changed
     }
 
     /**
-     * Sets [node]'s page count to the pages under it, found as PDFBox walks the page tree (entering
-     * each part of it once), and returns it.
+     * Adds the pages under [node] to [pages] in order, entering each part of the tree once (those in
+     * [seen] are left out), and returns whether this part of the tree is sound (see [repairPageTree]).
      */
-    private fun recount(node: COSDictionary, seen: MutableSet<COSDictionary>): Int {
-        var count = 0
-        val kids = node.getDictionaryObject(COSName.KIDS) as? COSArray
-        if (kids != null) {
-            for (i in 0 until kids.size()) {
-                val kid = kids.getObject(i) as? COSDictionary ?: continue
-                // A part of the tree, as PDFBox tells them from pages, or a page.
-                when {
-                    kid.getCOSName(COSName.TYPE) == COSName.PAGES || kid.containsKey(COSName.KIDS) -> if (seen.add(kid)) count += recount(kid, seen)
-                    kid.getCOSName(COSName.TYPE) == COSName.PAGE -> count++
-                }
+    private fun walkPageTree(node: COSDictionary, seen: MutableSet<COSDictionary>, pages: MutableList<COSDictionary>): Boolean {
+        val first = pages.size
+        var sound = true
+        val kids = node.getDictionaryObject(COSName.KIDS) as? COSArray ?: COSArray()
+        for (i in 0 until kids.size()) {
+            val kid = kids.getObject(i) as? COSDictionary ?: continue
+            if (kid.getDictionaryObject(COSName.PARENT) !== node) sound = false
+            val type = kid.getCOSName(COSName.TYPE)
+            when {
+                // A part of the tree, as PDFBox tells them from pages.
+                type == COSName.PAGES || kid.containsKey(COSName.KIDS) -> if (!seen.add(kid) || !walkPageTree(kid, seen, pages)) sound = false
+                type == null || type == COSName.PAGE -> pages += kid
+                else -> sound = false
             }
         }
-        node.setInt(COSName.COUNT, count)
-        return count
+        return sound && node.getInt(COSName.COUNT, -1) == pages.size - first
     }
 
     /** A PDF nested deeper than PDFBox goes, as a damaged one: only a crafted file nests that deep. */
