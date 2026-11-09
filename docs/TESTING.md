@@ -494,6 +494,22 @@ On a phone or emulator, with the release APKs:
   PDF viewer (the highlight see-through, the text selectable). Close Usugami from the recent apps
   while editing and reopen it: the items are still there.
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
+- Usugami watermark: after a fresh install the switch at the top of the result screen is off and
+  the PDF has no mark. Turning it on puts a small, grey, half see-through "Usugami" upright in the
+  bottom-right corner of every page, also on a page turned sideways and on a page whose crop box is
+  smaller than its media box; check it in another PDF viewer. The arrow on the switch's row opens
+  Size and Opacity sliders with a live preview, at 20% size and 30% opacity at first. At the
+  largest size the word's left edge reaches the page's vertical centre line; at the smallest it can
+  only just be made out with a whole A4 page on the phone's screen; opacity goes from faint to
+  solid. Letting go of a slider redraws the mark in the PDFs, and Open, Share and Save wait for it.
+  With TalkBack, the row is one switch and the arrow says what it opens; with the largest text in
+  landscape, the row and the sliders can be scrolled to.
+- Usugami watermark on and off: save a PDF with the mark, turn the switch off, and the mark is gone
+  from the PDF just made, without making it again; Save then writes the clean version. Close
+  Usugami and open it again: the switch and the sliders are as they were left. With it on, make one
+  PDF per image, Split a PDF into parts, compress a batch (one PDF in it already as small as it
+  gets, so its original is kept) and convert a batch of Word documents, then share each result as a
+  ZIP: every page of every PDF has the mark.
 - Android closing Usugami while it makes a PDF: tap Convert on a long document, put Usugami in the
   background, stop it (`adb shell am kill io.github.nath_goa.usugami`) and open it again from the
   recent apps: it says it was closed before the PDF was finished. Save a PDF to Downloads, stop

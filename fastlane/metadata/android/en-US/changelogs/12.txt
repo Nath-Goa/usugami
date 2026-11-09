@@ -1,7 +1,7 @@
 • New: HEIC, AVIF, WebP, BMP and GIF images in Images to PDF and Upload images
+• Optional Usugami watermark (off by default) to support the app: a switch on the result screen, with Size and Opacity sliders
 • Photo picker photos are named by date, not a number
-• Word: even-page headers and tab stops; PowerPoint: vertical Chinese, Japanese and Korean text upright
-• Chinese and Japanese e-books: no stray spaces, vertical books fill the page
+• Better Word, PowerPoint and Chinese or Japanese e-book layout
 • Redact finds letter-spaced and hyphenated words
 • Usugami OCR reads very large words, like a poster's
 • About 40 fixes, also for damaged and crafted files

@@ -25,6 +25,8 @@
 
 <b>Archivos recientes:</b> los archivos que guardas aparecen en la pantalla principal para que puedas volver a abrirlos o compartirlos.
 
+<b>Marca de agua de Usugami:</b> para apoyar la aplicación, un interruptor añade un pequeño «Usugami» en la esquina de cada página de tus PDF nuevos; está desactivado hasta que lo actives.
+
 <b>Privado por diseño</b>
 <ul>
 <li>Sin permiso de acceso a Internet y sin permisos que conceder</li>

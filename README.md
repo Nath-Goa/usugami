@@ -68,6 +68,8 @@ reinstalling. A listing in the main F-Droid repository is planned; the builds ar
 
 - **More image types:** Images to PDF and the scanner's Upload images take HEIC, AVIF, WebP, BMP
   and GIF images as well as JPG and PNG (HEIC on Android 9 or newer, AVIF on Android 12 or newer)
+- **Usugami watermark**, off unless you turn it on: a small "Usugami" in the corner of each page,
+  to support the app, with Size and Opacity sliders
 - Photos picked from **Photos** are named by the date they were taken, not a number such as
   1000000163
 - **Word, PowerPoint and EPUB:** even-page headers, tab stops in headers and contents lines, upright
@@ -444,6 +446,16 @@ old "PDFer".
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
   folder. When a PDF tool makes several PDFs, each one also has its own **Open**, **Share** and
   **Save**.
+- **Usugami watermark**, off unless you turn it on: to support the app, the switch at the top of
+  the result screen, above Open, Share and Save, puts the word "Usugami" in the bottom-right corner
+  of every page of the PDFs just made, small and light grey unless you change it, upright and in the
+  corner you see, also on turned or cropped pages. Turn it off and the mark comes off those same
+  PDFs, without making them again. The arrow on the switch opens **Size** (from barely visible up
+  to half the page's width) and **Opacity** (from faint to solid) sliders, with a live preview.
+  Usugami remembers the switch and the sliders, so once it's on, every PDF you make gets the mark
+  until you turn it off. It goes on every page, also those a tool otherwise leaves as they were,
+  such as the original Compress PDF keeps or pages Rotate PDF only turns. A copy you saved before a
+  change stays as it was; save again to keep the new version. With the switch off, nothing is added.
 - When a tool makes several PDFs (Split PDF in parts, a tool working on several files, or one PDF
   per image), **Share or save as ZIP** puts them all in one ZIP file, named after them, to share
   or save in one go.
@@ -834,6 +846,17 @@ Google has announced that Android will check that apps come from verified develo
 October 2026 these checks don't apply to apps downloaded from GitHub, so you can install Usugami as
 described above. Google has said it plans to extend the checks to all countries in 2027. If that
 changes how you install Usugami, this page will be updated.
+
+</details>
+
+<details>
+<summary><b>Does Usugami put a watermark on my PDFs?</b></summary>
+
+Not unless you turn it on. The **Usugami watermark** switch at the top of the result screen, above
+Open, Share and Save, is off at first. If you'd like to support Usugami, turn it on: a small
+"Usugami" goes in the bottom-right corner of each page, and the arrow on the switch sets its size
+and opacity. Turn it off again and the mark comes off the PDFs you just made; Usugami remembers
+your choice. This is separate from **Add watermark**, which writes your own text across the pages.
 
 </details>
 

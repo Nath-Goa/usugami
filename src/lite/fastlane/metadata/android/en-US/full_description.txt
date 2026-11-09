@@ -25,6 +25,8 @@
 
 <b>Recent files:</b> the files you save are listed on Home, to open or share again.
 
+<b>Usugami watermark:</b> to support the app, one switch adds a small "Usugami" to the corner of each page of your new PDFs; it stays off until you turn it on.
+
 <b>Private by design</b>
 <ul>
 <li>No internet permission, and no permissions to grant</li>

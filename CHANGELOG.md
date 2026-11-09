@@ -17,6 +17,14 @@ All notable changes to Usugami are listed here. The format is based on
 - A photo added from **Photos**, Android's photo picker, which hides the photo's file name, is named
   Photo_ and the date and time it was taken, instead of a number such as 1000000163, and so is the
   PDF made of it alone.
+- An optional **Usugami watermark**, to support the app: the word "Usugami" in the bottom-right
+  corner of each page, small and light grey unless you change it, and upright on turned pages too.
+  A switch at the top of the result screen, above Open, Share and Save, turns it on or off for the
+  PDFs just made, in every tool, without making them again. The arrow on that switch opens **Size**
+  and **Opacity** sliders with a live preview: the size goes from barely visible up to half the
+  page's width, and the opacity from faint to solid. It is off until you turn it on, and Usugami
+  remembers the choice and the sliders. A copy saved before a change stays as it was; save again
+  for the new version.
 
 ### Changed
 

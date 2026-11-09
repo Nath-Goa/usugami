@@ -1,7 +1,7 @@
 • Nuevo: HEIC, AVIF, WebP, BMP y GIF en Imágenes a PDF e Importar imágenes
+• Marca de agua de Usugami opcional (desactivada por defecto) para apoyar la aplicación: un interruptor, con controles de Tamaño y Opacidad
 • Fotos del selector nombradas por su fecha
-• Word: encabezados pares y tabulaciones; PowerPoint: chino, japonés y coreano verticales ya no salen tumbados
-• EPUB chino y japonés: sin espacios de más, texto vertical a toda página
-• Censurar halla palabras espaciadas o partidas entre líneas
+• Mejor maquetación de Word, PowerPoint y EPUB chino o japonés
+• Censurar halla palabras espaciadas o partidas
 • Usugami OCR lee palabras enormes, como en un cartel
 • Unas 40 correcciones, incluidos archivos dañados o manipulados

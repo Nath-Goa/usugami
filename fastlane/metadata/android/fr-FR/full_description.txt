@@ -26,6 +26,8 @@
 
 <b>Fichiers récents :</b> les fichiers que vous enregistrez apparaissent sur l'accueil, pour les rouvrir ou les partager.
 
+<b>Filigrane Usugami :</b> pour soutenir l'application, un interrupteur ajoute un petit « Usugami » dans le coin de chaque page de vos nouveaux PDF ; il reste désactivé tant que vous ne l'activez pas.
+
 <b>Confidentiel par conception</b>
 <ul>
 <li>Pas d'autorisation Internet, et aucune autorisation à accorder</li>

@@ -1,7 +1,7 @@
-• Nouveau : HEIC, AVIF, WebP, BMP et GIF dans Images en PDF et Importer des images
+• Nouveau : HEIC, AVIF, WebP, BMP et GIF dans Images en PDF et Importer des images
+• Filigrane Usugami facultatif (désactivé par défaut) pour soutenir l'application : un interrupteur, avec des curseurs Taille et Opacité
 • Photos du sélecteur nommées par date
-• Word : en-têtes pairs, tabulations ; PowerPoint : chinois, japonais et coréen verticaux à l'endroit
-• EPUB chinois et japonais : sans espaces parasites, texte vertical pleine page
-• Caviarder trouve les mots espacés ou coupés en fin de ligne
+• Meilleure mise en page : Word, PowerPoint, EPUB chinois et japonais
+• Caviarder trouve les mots espacés ou coupés
 • Usugami OCR lit les très grands mots, comme sur une affiche
 • Environ 40 corrections, dont fichiers abîmés ou piégés
