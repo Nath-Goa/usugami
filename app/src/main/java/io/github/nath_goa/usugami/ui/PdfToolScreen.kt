@@ -84,6 +84,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -520,6 +521,8 @@ fun PdfToolScreen(
             // The PDFs are made: the Usugami mark goes on them, one after another when there are several.
             AlertDialog(
                 onDismissRequest = {},
+                // The screen stays on while it shows, as for every job (see ProgressDialog).
+                modifier = Modifier.keepScreenOn(),
                 title = { Text(stringResource(R.string.mark_adding)) },
                 text = { if (marking.total > 1) BatchProgressText(marking) else LinearProgressIndicator(Modifier.fillMaxWidth()) },
                 confirmButton = {},
@@ -530,6 +533,7 @@ fun PdfToolScreen(
         } else if (showWorking) {
             AlertDialog(
                 onDismissRequest = {},
+                modifier = Modifier.keepScreenOn(),
                 title = { Text(stringResource(if (many) R.string.pdf_working_many else R.string.pdf_working)) },
                 text = { if (many) BatchProgressText(batchProgress) else LinearProgressIndicator(Modifier.fillMaxWidth()) },
                 confirmButton = {},

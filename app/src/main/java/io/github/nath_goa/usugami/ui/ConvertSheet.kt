@@ -45,6 +45,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -299,6 +300,9 @@ fun ProgressDialog(progress: Progress, cancelling: Boolean, onCancel: () -> Unit
     }
     AlertDialog(
         onDismissRequest = {},
+        // The screen stays on while a job shows its progress, which can take minutes, and goes off
+        // as it would once the dialog has gone, the job done, failed or cancelled.
+        modifier = Modifier.keepScreenOn(),
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
         title = {
             Text(

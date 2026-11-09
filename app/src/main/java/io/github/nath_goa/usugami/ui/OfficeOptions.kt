@@ -39,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -247,6 +248,8 @@ internal fun OfficeProgressDialog(progress: OfficeProgress?, kind: OfficeKind, o
     )
     AlertDialog(
         onDismissRequest = {},
+        // The screen stays on while it shows, as for every job (see ProgressDialog).
+        modifier = Modifier.keepScreenOn(),
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
         title = { Text(stringResource(if (many) R.string.creating_pdfs else R.string.creating_pdf)) },
         text = {

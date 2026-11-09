@@ -2027,6 +2027,26 @@ class ScreensDeviceTest {
         return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
     }
 
+    /** While a tool shows its progress the screen stays on, and it can go off again once the tool is cancelled. */
+    @Test fun theScreenStaysOnWhileAToolWorks() {
+        val activity = launch()
+        val pdfVm = openTool(R.string.tool_compress, activity)
+        onMain { pdfVm.addPdfs(listOf(slowPdf()), replace = true) }
+        waitUntil("the PDF to be added") { onMain { pdfVm.inputs.value.size } == 1 }
+        assertFalse("Not kept on before", keepsScreenOn())
+        onMain { pdfVm.runCompress(PdfCompression.EXTREME, "slow") }
+        find("the progress") { it.says(app.getString(R.string.pdf_working)) }
+        assertTrue("Kept on while it works", keepsScreenOn())
+        onMain { pdfVm.cancel() }
+        waitUntil("the screen to be let go") { !keepsScreenOn() }
+    }
+
+    /** Whether Android keeps the screen on for a window of Usugami's: its window manager then holds a wake lock for Usugami. */
+    private fun keepsScreenOn(): Boolean {
+        val dump = ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand("dumpsys power")).bufferedReader().use { it.readText() }
+        return dump.lines().any { "'WindowManager'" in it && "WorkSource{${app.applicationInfo.uid}" in it }
+    }
+
     /** A PDF shared while a tool makes one waits for it; the PDF made isn't saved, so Usugami asks. */
     @Test fun filesSharedWhileAPdfIsMadeWaitForIt() {
         val activity = launch()
