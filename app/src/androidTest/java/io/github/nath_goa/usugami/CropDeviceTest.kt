@@ -312,6 +312,25 @@ class CropDeviceTest {
         assertTrue(captures().isEmpty())
     }
 
+    /** No PDF is made while a photo's crop screen is opening or shows: the photo would go in uncropped. */
+    @Test fun noPdfIsMadeWhileAPhotosCropScreenOpensOrShows() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        val uri = onMain { vm.newCapture() }
+        app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        onMain { vm.photoTaken(true) }
+        val convert = {
+            vm.convert(merge = true, fileName = "Uncropped", compression = Compression.RECOMMENDED)
+            vm.progress.value
+        }
+        waitUntil("the crop screen to open") { vm.openingCrop.value || vm.crop.value != null }
+        assertNull(onMain(convert))
+        waitUntil("the crop screen") { vm.crop.value != null }
+        assertNull(onMain(convert))
+        onMain { vm.closeCrop() }
+        assertTrue(onMain { vm.items.value.isEmpty() && vm.result.value == null })
+        runBlocking { vm.awaitFileWork() }
+    }
+
     @Test fun croppedPagesAndTheCropScreenSurviveTheSavedState() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
         val uri = onMain { vm.newCapture() }

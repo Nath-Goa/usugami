@@ -1227,6 +1227,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val language = ocrLanguage?.takeIf { engine != null }
         val snapshot = items.value
         if (snapshot.isEmpty() || _progress.value != null || _pendingImports.value > 0) return
+        // Not while a page's crop screen shows or is opening, as it does for a photo just taken: the
+        // page would go into the PDF uncropped, and closing that screen later would remove it.
+        if (_crop.value != null || _openingCrop.value) return
         if (snapshot.size > 1) {
             _merge.value = merge
             settingsStore.merge = merge

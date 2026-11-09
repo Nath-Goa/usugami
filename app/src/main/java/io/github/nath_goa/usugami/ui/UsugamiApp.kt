@@ -788,18 +788,21 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     }
 
     // The sheet is closed for good once it can't show (the images went, say, while Usugami was away),
-    // so it doesn't pop up by itself when images are added later.
-    LaunchedEffect(route, result != null, items.isEmpty()) {
-        if (route != "images" || result != null || items.isEmpty()) showConvertSheet = false
+    // so it doesn't pop up by itself when images are added later. It belongs to the editor: a photo
+    // taken while it was open (the camera app opened beside Usugami, or a tap landed before it covered
+    // Usugami) opens the crop screen, which closes it.
+    LaunchedEffect(screen, items.isEmpty()) {
+        if (screen != "images" || items.isEmpty()) showConvertSheet = false
     }
-    if (showConvertSheet && route == "images" && result == null && items.isNotEmpty()) {
+    if (showConvertSheet && screen == "images" && items.isNotEmpty()) {
         ConvertSheet(
             imageCount = items.size,
             layout = layout,
             initialMerge = merge,
             initialCompression = compression,
             initialChoices = remember { vm.initialChoices() },
-            importing = pendingImports > 0,
+            // A photo just taken is still to go through the crop screen while its page is looked for.
+            importing = pendingImports > 0 || openingCrop,
             saving = busySaving,
             onDismiss = { showConvertSheet = false },
             onCreate = { mergeAll, name, level, ocr ->
