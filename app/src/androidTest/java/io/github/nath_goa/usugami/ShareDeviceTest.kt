@@ -16,6 +16,7 @@ import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfTool
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import io.github.nath_goa.usugami.ui.SplitMode
 import io.github.nath_goa.usugami.ui.officeKind
 import io.github.nath_goa.usugami.ui.takesShared
 import kotlinx.coroutines.flow.Flow
@@ -92,6 +93,28 @@ class ShareDeviceTest {
         }
         picked.deleteRecursively()
         inbox.deleteRecursively()
+    }
+
+    /**
+     * Images shared while a tool makes its PDF, then that PDF discarded: the next tool opened doesn't
+     * show the run as its own while it ends, and makes its own PDF.
+     */
+    @Test fun aRunLeftForSharedImagesIsNotTheNextTools() {
+        val tools = tools()
+        onMain { tools.addPdfs(listOf(shared("Report.pdf", "alpha.pdf")), replace = true) }
+        waitUntil("the PDF to be added") { tools.inputs.value.size == 1 }
+        val processing = onMain {
+            tools.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "Left")
+            tools.reset()
+            tools.processing.value
+        }
+        assertFalse(processing)
+
+        onMain { tools.addPdfs(listOf(shared("Next.pdf", "alpha.pdf")), replace = true) }
+        waitUntil("the next PDF to be added") { tools.inputs.value.size == 1 && !tools.importing.value }
+        onMain { tools.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "Next") }
+        waitUntil("the next tool's PDFs") { tools.result.value != null && !tools.processing.value }
+        assertTrue(onMain { tools.result.value!!.all { it.name.startsWith("Next") } })
     }
 
     @Test fun aSharedPdfIsCopiedInAtOnceAndTheToolTakesItWithItsName() {

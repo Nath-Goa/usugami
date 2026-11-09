@@ -308,6 +308,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var findJob: Job? = null
     /** Changes when an import starts or is abandoned, so an abandoned one knows to stay quiet. */
     private var importGeneration = 0
+    /**
+     * Changes when a run starts or is abandoned (see [reset]): an abandoned run that is still saving
+     * its PDF leaves what shows to the next tool's run.
+     */
+    private var runGeneration = 0
 
     init {
         // Android closed Usugami while it made PDFs, which are gone with it (see process).
@@ -1633,6 +1638,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         handle[KEY_MAKING] = true
         _convertProgress.value = null
         val document = documents.firstOrNull()
+        val generation = ++runGeneration
         task = viewModelScope.launch {
             try {
                 val job = coroutineContext[Job]!!
@@ -1683,13 +1689,19 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 // A PDF nested deeper than PDFBox goes when it copies or saves it.
                 message(strings.getString(if (document != null) R.string.office_convert_failed else R.string.pdf_process_failed))
             } finally {
-                _processing.value = false
-                _convertProgress.value = null
-                _batchProgress.value = null
-                task = null
-                handle.remove<Boolean>(KEY_MAKING)
+                // An abandoned run cleared these when it was abandoned; another may be under way now.
+                if (generation == runGeneration) endRun()
             }
         }
+    }
+
+    /** Nothing is being made any more: the tool can be used, and run again. */
+    private fun endRun() {
+        _processing.value = false
+        _convertProgress.value = null
+        _batchProgress.value = null
+        task = null
+        handle.remove<Boolean>(KEY_MAKING)
     }
 
     fun cancel() { task?.cancel() }
@@ -1743,6 +1755,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         importJob?.cancel()
         unlockJob?.cancel()
         task?.cancel()
+        // The abandoned run stops at its next step, or once a save PDFBox can't break off has ended:
+        // the next tool needn't show it as its own meanwhile, and can start a run of its own, which
+        // waits for it with the other file work.
+        runGeneration++
+        endRun()
         // A ZIP file to share is no longer wanted. One being saved where the user chose goes on (images
         // shared meanwhile open the editor, which resets the tool), as a save of the PDFs does: freeing
         // the PDFs below waits for it.
