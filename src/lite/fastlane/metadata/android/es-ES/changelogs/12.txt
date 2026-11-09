@@ -1,0 +1,7 @@
+• Nuevo: HEIC, AVIF, WebP, BMP y GIF en Imágenes a PDF e Importar imágenes
+• Fotos del selector nombradas por su fecha
+• Word: encabezados pares y tabulaciones; PowerPoint: chino, japonés y coreano verticales ya no salen tumbados
+• EPUB chino y japonés: sin espacios de más, texto vertical a toda página
+• Censurar halla palabras espaciadas o partidas entre líneas
+• Comprimir avisa si un PDF con contraseña no se reduce
+• Unas 40 correcciones, incluidos archivos dañados o manipulados

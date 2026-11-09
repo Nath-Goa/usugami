@@ -3,7 +3,7 @@
 <b>Créer des PDF</b>
 <ul>
 <li><b>Numériser un document :</b> prenez des photos avec l'application d'appareil photo de votre téléphone, ou importez des images. Recadrez chaque page bien droite (Usugami Lite peut la trouver, même une page blanche sur un bureau blanc) et faites-la pivoter, puis choisissez son aspect : original, éclairci, amélioré, très amélioré, niveaux de gris, noir et blanc (environ 10 Ko par page) ou économie d'encre, avec sa luminosité et son contraste. Appliquer à toutes les pages donne à chacune les mêmes réglages.</li>
-<li><b>Images en PDF :</b> des images JPG et PNG de votre galerie ou de vos fichiers, recadrées et améliorées de la même façon si vous le souhaitez. Choisissez le format, l'orientation et la marge, et faites un seul PDF ou un PDF par image. Les images sont toujours compressées, et leur position et les autres métadonnées cachées sont supprimées.</li>
+<li><b>Images en PDF :</b> des images JPG, PNG, HEIC, AVIF, WebP, BMP et GIF de votre galerie ou de vos fichiers, recadrées et améliorées de la même façon si vous le souhaitez. Choisissez le format, l'orientation et la marge, et faites un seul PDF ou un PDF par image. Les images sont toujours compressées, et leur position et les autres métadonnées cachées sont supprimées.</li>
 <li><b>Word, PowerPoint, Excel et EPUB en PDF :</b> fichiers .docx, .pptx, .xlsx et .epub convertis sur votre téléphone, avec leurs styles, tableaux et images, en-têtes et pieds de page, et la table des matières du livre en signets. Les classeurs sont mis en pages feuille par feuille, comme à l'impression dans Excel, avec leurs formats de nombres et de dates.</li>
 </ul>
 

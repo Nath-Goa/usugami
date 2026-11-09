@@ -6,6 +6,98 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-09
+
+### Added
+
+- **Images to PDF** and the scanner's **Upload images** take HEIC, AVIF, WebP, BMP and GIF images
+  as well as JPG and PNG, from Photos, Files or a share, and put them on the page the right way up,
+  as the gallery shows them. HEIC needs Android 9 or newer, and AVIF Android 12 or newer. An
+  animated GIF gives its first frame.
+- A photo added from **Photos**, Android's photo picker, which hides the photo's file name, is named
+  Photo_ and the date and time it was taken, instead of a number such as 1000000163, and so is the
+  PDF made of it alone.
+
+### Changed
+
+- The message for skipped files names the image types Usugami takes, and on Android 8 to 11 only
+  those that Android version can read.
+- Images to PDF's card on Home and its empty screen say "images" instead of JPG and PNG, and Home's
+  search finds it by JPG, PNG, HEIC or WebP.
+
+### Fixed
+
+- **Word to PDF**: documents with different headers and footers on odd and even pages show the even
+  ones on even pages, instead of the odd ones on every page. Headers, footers and contents lines
+  with centre and right tab stops keep their middle and right-hand text on the line where Word puts
+  it, and their page numbers against the right margin when their style indents the first line.
+  Lists in legal style number their sections 1.1 under Article I, not I.1. Cancel stops at once on
+  a table thousands of rows long or a table cell holding a long text.
+- **PowerPoint to PDF**: text boxes that shrink or grow with their text keep their own alignment,
+  direction and line wrapping, so text set not to wrap no longer runs onto extra lines over other
+  text. Chinese, Japanese and Korean text in vertical text boxes stands upright, one character under
+  another, while Latin letters still turn as in PowerPoint.
+- **EPUB to PDF**: Chinese and Japanese books whose files break a paragraph's lines no longer get
+  stray spaces in the middle of sentences, also next to italics, links or other marked words.
+  Japanese and Chinese books written in columns down the page fill the page's width instead of a
+  narrow strip.
+- A damaged PDF whose list of pages is wrong (miscounted, a page without its type, or a list that
+  leads back into itself) opens with the pages other viewers show, so the PDF tools no longer fail
+  on it, Merge PDF no longer puts another PDF's page in its place, and its previews and Redact PDF
+  see those same pages.
+- **Split PDF**: links between pages that go into the same part keep working, also links to a named
+  place, and a damaged named place no longer makes Split fail. The parts split from a PDF with a
+  very long name all begin with the same name and keep their page numbers and the _split ending.
+- A PDF with a very long name keeps the ending each tool adds to it, such as _redacted, as the name
+  is shortened instead.
+- **Compress PDF** says when a PDF that had a password couldn't be made any smaller, instead of
+  handing back a bigger file without a word.
+- **Flatten PDF**, **Sign PDF**, **Edit PDF** and **Redact PDF** show, in some forms, the name
+  chosen in a drop-down list, such as a country's, instead of the code the form keeps for it or
+  another choice's name.
+- **Edit PDF**: a HEIC or AVIF photo stored turned goes on the page the way the gallery shows it,
+  not a quarter turn off.
+- A page's small picture in the editor, the crop screen's picture and a picture put on a page in
+  Edit PDF no longer have a thin grey line along one edge, which showed on white paper and in the
+  PDF.
+- **Redact PDF**: Find text finds letter-spaced text, such as a name in a heading set in spaced
+  capitals; a name, email address or number that breaks onto the next line after a hyphen, boxing
+  all of it even when the line before ends the same way (Bob after Bo-); and a word hyphenated at
+  the end of a line. Patterns and transparency masks that only a redacted page used are removed too
+  where pages share them, so their text no longer stays in the file.
+- **Scan document** and **Images to PDF**: a file shared to Usugami while a page is on the crop
+  screen no longer loses the corners moved, the Filters step or the look chosen there: Back from the
+  tool it opened returns to the page as it was left. Create PDF tapped just after a photo is taken,
+  while its crop screen is still opening, no longer opens the PDF choices over that screen, so the
+  photo can no longer go into the PDF uncropped.
+- A tool's PDF given up for images shared while it was being made no longer shows as being made in
+  the next tool opened.
+- When Android closes Usugami in the background while it is making a PDF, Usugami says so when you
+  come back, instead of showing the screen as if Convert was never tapped. Saving to Downloads or a
+  folder again after Android closed Usugami no longer adds a second copy of each PDF there.
+- With large text in landscape, the PDF password box can be scrolled to (a long file name used to
+  push it out of sight), and the Language and Appearance choices in Settings and the text
+  recognition problem message scroll instead of being cut off.
+- The clock and battery above the signature pad show in dark icons on the light theme, as on every
+  other screen, instead of white ones that couldn't be seen.
+- **Usugami OCR** reads very large words, such as a poster's, a sign's or a slide title photographed
+  close up, also on small pages such as a postcard, which it used to leave out or read only in
+  pieces. A stamp, logo or picture beside the text no longer moves lines out of order.
+- Crafted Word, PowerPoint and Excel files built to keep Usugami busy, in more of the ways such
+  files are made (written in UTF-16, for one, or with tags and text hidden behind comments), are
+  refused as damaged in moments, instead of keeping Usugami busy for minutes where Cancel couldn't
+  stop it. Leaving Word, PowerPoint, Excel or EPUB to PDF while such a file is being checked stops
+  the check at once, so the next file opened no longer waits behind it, and Cancel also stops a
+  conversion stuck reading the links between such a file's parts.
+- A crafted PDF whose small parts unpack to gigabytes can no longer fill the phone's storage while a
+  PDF tool reads it: Usugami leaves a quarter of a gigabyte free for the phone and its other apps,
+  and says storage ran out if it needs more.
+- **Android 8**: opening a PDF with a password no longer stops Android's renderer from drawing any
+  PDF until Usugami is closed, which left page previews, Redact PDF, Edit PDF and Sign PDF blank and
+  made redacting fail. Excel to PDF makes PDFs whose text looks, searches and copies right, where
+  viewers drew each letter about nine times as wide, over the letters after it. With Dark or Light
+  chosen in Settings, the status bar's icons follow it, where they could be hard to see.
+
 ## [1.6.0] - 2026-11-09
 
 ### Added
@@ -596,7 +688,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/Nath-Goa/usugami/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/Nath-Goa/usugami/compare/v1.5.3...v1.6.0
 [1.5.3]: https://github.com/Nath-Goa/usugami/compare/v1.5.2...v1.5.3
 [1.5.2]: https://github.com/Nath-Goa/usugami/compare/v1.5.1...v1.5.2

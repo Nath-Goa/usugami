@@ -3,7 +3,7 @@
 <b>Create PDFs</b>
 <ul>
 <li><b>Scan document:</b> take photos with your phone's camera app, or upload images. Crop each page straight (Usugami can find it, even a white page on a white desk) and turn it, then give it a look: original, lighten, enhanced, super enhanced, grayscale, black &amp; white (about 10 KB a page) or ink saver, with its brightness and contrast. Apply to all pages gives every page the same look, brightness and contrast.</li>
-<li><b>Images to PDF:</b> JPG and PNG images from your gallery or files, cropped and cleaned up the same way if you like. Choose the page size, orientation and margin, and make one PDF or one per image. Images are always compressed, and their location and other hidden metadata are removed.</li>
+<li><b>Images to PDF:</b> JPG, PNG, HEIC, AVIF, WebP, BMP and GIF images from your gallery or files, cropped and cleaned up the same way if you like. Choose the page size, orientation and margin, and make one PDF or one per image. Images are always compressed, and their location and other hidden metadata are removed.</li>
 <li><b>Text recognition (OCR)</b> makes the PDF searchable, in English, French, Spanish and Hindi. It is open source and built in (PaddleOCR's PP-OCRv5 models, run by Tencent's ncnn), so it works offline, always.</li>
 <li><b>Word, PowerPoint, Excel and EPUB to PDF:</b> .docx, .pptx, .xlsx and .epub files converted on your phone, with their styles, tables and pictures, headers and footers, and the book's table of contents as bookmarks. Spreadsheets come out sheet by sheet as Excel prints them, with their number and date formats.</li>
 </ul>

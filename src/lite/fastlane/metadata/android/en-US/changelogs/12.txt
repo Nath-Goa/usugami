@@ -1,0 +1,7 @@
+• New: HEIC, AVIF, WebP, BMP and GIF images in Images to PDF and Upload images
+• Photo picker photos are named by date, not a number
+• Word: even-page headers and tab stops; PowerPoint: vertical Chinese, Japanese and Korean text upright
+• Chinese and Japanese e-books: no stray spaces, vertical books fill the page
+• Redact finds letter-spaced and hyphenated words
+• Compress says when a PDF with a password can't get smaller
+• About 40 fixes, also for damaged and crafted files

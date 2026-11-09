@@ -1,0 +1,7 @@
+• Nouveau : HEIC, AVIF, WebP, BMP et GIF dans Images en PDF et Importer des images
+• Photos du sélecteur nommées par date
+• Word : en-têtes pairs, tabulations ; PowerPoint : chinois, japonais et coréen verticaux à l'endroit
+• EPUB chinois et japonais : sans espaces parasites, texte vertical pleine page
+• Caviarder trouve les mots espacés ou coupés en fin de ligne
+• Compresser signale un PDF protégé qui ne peut être réduit
+• Environ 40 corrections, dont fichiers abîmés ou piégés

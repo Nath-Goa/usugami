@@ -64,7 +64,21 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.6.0
+## What's new in 1.6.1
+
+- **More image types:** Images to PDF and the scanner's Upload images take HEIC, AVIF, WebP, BMP
+  and GIF images as well as JPG and PNG (HEIC on Android 9 or newer, AVIF on Android 12 or newer)
+- Photos picked from **Photos** are named by the date they were taken, not a number such as
+  1000000163
+- **Word, PowerPoint and EPUB:** even-page headers, tab stops in headers and contents lines, upright
+  Chinese, Japanese and Korean text in vertical text boxes, and Japanese and Chinese books written
+  down the page filling the page
+- **Redact PDF** finds letter-spaced words and words broken by a hyphen, and removes more of what a
+  redacted page used
+- **Usugami OCR** reads very large words, such as a poster's or a sign's
+- **About 40 fixes** in all, damaged and crafted files handled more safely among them
+
+1.6.0, the big update the same day:
 
 - **Scan document** at the top of Home: take photos with your phone's camera app, or upload images
   from your gallery
@@ -80,20 +94,9 @@ reinstalling. A listing in the main F-Droid repository is planned; the builds ar
   Downloads
 - Still no permissions, not even for the camera, and nothing leaves your phone
 
-1.5.2 and 1.5.3, just before: 40+ fixes from a full review of the app, safer redaction (links,
-hidden form fields, Hebrew and Arabic), nothing lost when Android closes Usugami, and Usugami's own
-[F-Droid repository](https://nathank.me/usugami/).
-
-1.5.0, the big update before them:
-
-- **Three editions:** Usugami, Usugami Lite (no Google code) and Usugami OCR (open-source text
-  recognition built in)
-- **Scan pages with your camera**, crop them straight, and make them black & white (tiny PDFs)
-- **Batch mode:** compress, watermark, number or flatten many PDFs at once, and convert many Word,
-  PowerPoint or EPUB files
-- **Share PDFs, Word, PowerPoint and EPUB files** straight to Usugami
-- **Text recognition reads your original photos**, so it's much more accurate
-- **100+ bug fixes**
+1.5.0 to 1.5.3, before it: three editions (Usugami, Usugami Lite and Usugami OCR), camera scans,
+batch mode, sharing files straight to Usugami, safer redaction, Usugami's own
+[F-Droid repository](https://nathank.me/usugami/), and well over 100 fixes.
 
 [Full changelog](CHANGELOG.md)
 
@@ -185,8 +188,10 @@ old "PDFer".
 
 **Images to PDF**
 
-- Add JPG and PNG images from **Photos** (the system photo picker), **Files**, or by **sharing**
-  them to Usugami from another app.
+- Add JPG, PNG, HEIC, AVIF, WebP, BMP and GIF images from **Photos** (the system photo picker),
+  **Files**, or by **sharing** them to Usugami from another app. HEIC needs Android 9 or newer, and
+  AVIF Android 12 or newer; an animated GIF gives its first frame. A photo from Photos, which hides
+  its file name, is named Photo_ and the date and time it was taken.
 - **Take photo** scans more pages with your phone's own camera app, one after another, through the
   same two steps as Scan document.
 - **Crop and straighten** any page, a photo just taken or any image you added (its crop button

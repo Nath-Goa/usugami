@@ -429,6 +429,13 @@ On a phone or emulator, with the release APKs:
 - Home's search in each language with TalkBack on: type a few words, hear how many tools were
   found, clear it with the button and with Back.
 - Images to PDF from Photos, Files and a share from the gallery, with OCR on in each language.
+- A HEIC, an AVIF, a WebP, a BMP and an animated GIF, each from Photos, from Files and shared from
+  the gallery, in Images to PDF and in Scan document's Upload images: each comes in the way the
+  gallery shows it (the GIF as its first frame), also a HEIC taken in portrait, and the PDF looks
+  the same in another viewer. On Android 8 a HEIC, and on Android 9 to 11 an AVIF, is skipped with
+  a message naming the types that Android version reads. A photo added from Photos is named Photo_
+  and the date and time it was taken, and so is the PDF made of it alone. Edit PDF: a HEIC photo
+  taken in portrait goes on the page upright.
 - From Files, share one PDF, two PDFs, a Word document and a PDF with images to Usugami: Choose a
   tool, the converter, and the message naming what was left out; then share a PDF while a tool has
   an unsaved result.
@@ -450,14 +457,18 @@ On a phone or emulator, with the release APKs:
 - In the editor: Take photo, and a page's crop button on a gallery photo and on a page turned in the
   editor, go through both steps; crop a page again and use Whole image; with TalkBack, move a corner
   and a side with their actions, and the sliders.
-- Split, merge in page mode, and compress, including a password-protected PDF.
+- Split, merge in page mode, and compress, including a password-protected PDF. Compress a
+  password-protected PDF that is already as small as it gets: Usugami says it couldn't be made any
+  smaller, alone and with another PDF.
 - Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
   page turned sideways; check the results in another PDF viewer.
 - Reorganize a PDF: drag a page, add the pages of a password-protected PDF and a blank page after a
   page turned sideways, undo, and save. Delete a few pages of a PDF with bookmarks. Flatten a
   filled-in form and a PDF with comments, and check in another viewer that nothing can be edited.
 - Word to PDF and PowerPoint to PDF with a few real documents and presentations from Files; compare
-  the result with the original, and check that an old .doc file is refused.
+  the result with the original, and check that an old .doc file is refused. A document with
+  different odd and even headers shows the even ones on even pages, and a contents page keeps its
+  page numbers against the right margin; a Japanese vertical text box stands upright.
 - Excel to PDF with a few real workbooks from Files, and a sheet with dates, times, currency,
   percentages, accounting formats and [Red] negatives: each cell reads as Excel prints it (an
   accounting format's currency sign sits next to the number). Then a wide sheet with Fit columns to
@@ -467,10 +478,15 @@ On a phone or emulator, with the release APKs:
   workbook are refused with a message saying what to do. Share an .xlsx to Usugami from Files: Excel
   to PDF opens with it. Convert three workbooks at once.
 - EPUB to PDF with a few real DRM-free books, one with a cover and one fixed-layout; check the
-  bookmarks in another PDF viewer, and that a book with DRM is refused.
+  bookmarks in another PDF viewer, and that a book with DRM is refused. A Japanese book written in
+  columns down the page fills the page's width, and Chinese or Japanese sentences have no stray
+  spaces.
 - Redact PDF with a few real documents, a scanned one among them: find a name, draw a box on the
   scan, and check in another PDF viewer that nothing under the boxes can be selected, searched or
-  copied, and that the pages without boxes still have their text.
+  copied, and that the pages without boxes still have their text. Find text also finds a name in a
+  heading set in spaced capitals, a name or email address broken onto the next line after a
+  hyphen (all of it boxed, also Bob after a line ending in Bo-), and a word hyphenated at the end of
+  a line.
 - Sign PDF in landscape and in the dark theme: the pad fills the screen, drawing feels smooth, and
   dragging the signature doesn't scroll the screen (a swipe off it does).
 - Edit PDF on a page turned sideways: add text in Hindi, a photo and a PNG with transparency, draw
@@ -478,6 +494,13 @@ On a phone or emulator, with the release APKs:
   PDF viewer (the highlight see-through, the text selectable). Close Usugami from the recent apps
   while editing and reopen it: the items are still there.
 - Open, Share, Save to Downloads (Android 10 and newer) and Save as….
+- Android closing Usugami while it makes a PDF: tap Convert on a long document, put Usugami in the
+  background, stop it (`adb shell am kill io.github.nath_goa.usugami`) and open it again from the
+  recent apps: it says it was closed before the PDF was finished. Save a PDF to Downloads, stop
+  Usugami the same way, open it and save again: Downloads has one copy.
+- Largest text and display size, in landscape: the password box of a PDF with a long name, and
+  Settings → Language and Appearance, can all be scrolled to. In the light theme, the clock and
+  battery above the signature pad can be seen.
 - Recent files: save from Images to PDF, a scan, Word or Excel to PDF and a PDF tool, with Save
   to Downloads, Save as… and Save to folder…, and save a ZIP: each appears at the top of Recent
   files on Home (three there, all of them under See all). Open, Share and Remove from list from a
@@ -492,10 +515,11 @@ On a phone or emulator, with the release APKs:
   first-launch language screen follow; System default follows the phone again.
 - Usugami: the first OCR in each language downloads that model through Google Play services.
 - Usugami OCR: OCR works with the internet turned off, on a real ARM phone, with a few photographed
-  pages in each language (one upside down); note the time per page.
-- Usugami Lite: no OCR switch when creating a PDF, and About shows "Usugami Lite". Installed next
-  to Usugami OCR, it is a separate app named "Usugami Lite" in the launcher; a PDF shared from one
-  opens in the other.
+  pages in each language (one upside down); note the time per page. A poster or a sign photographed
+  close up, and a postcard, have their very large words read whole.
+- Usugami Lite: no OCR switch when creating a PDF, About shows "Usugami Lite", and searching Home
+  for HEIC finds Images to PDF. Installed next to Usugami OCR, it is a separate app named "Usugami
+  Lite" in the launcher; a PDF shared from one opens in the other.
 - The About screen shows the license, privacy policy and notices.
 
 CI and the release workflow also check the three APKs' manifests with
