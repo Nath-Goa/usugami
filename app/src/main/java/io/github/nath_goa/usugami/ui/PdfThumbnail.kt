@@ -36,8 +36,12 @@ class RenderedPage(val index: Int, val image: ImageBitmap, val width: Float, val
  * page is drawn exactly as big as that (see [PageRendering]), for a preview on which places are
  * picked; without, Android's size for it, in whole points, will do. Null if it can't be rendered.
  * Reads the file: call it off the main thread.
+ *
+ * A PDF with a password, which the renderer can't open, isn't even tried (its view is drawn
+ * instead, see [io.github.nath_goa.usugami.data.PdfToolsEngine.previewView]): on Android 8, once
+ * the renderer has refused a PDF it refuses every PDF after it, until Usugami is closed.
  */
-fun renderShownPage(input: PdfInput, pageIndex: Int, longSide: Int, shown: Pair<Float, Float>? = null): RenderedPage? = try {
+fun renderShownPage(input: PdfInput, pageIndex: Int, longSide: Int, shown: Pair<Float, Float>? = null): RenderedPage? = if (input.password.isNotEmpty()) null else try {
     ParcelFileDescriptor.open(input.file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
         PdfRenderer(fd).use { renderer ->
             renderer.openPage(pageIndex).use { page ->
