@@ -997,13 +997,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         // The engine keeps the original file when re-encoding would not make an unprotected PDF
         // smaller. Say so, otherwise the result looks like nothing happened. A PDF with a password
         // can't be kept (no tool's PDF has one), and without it may come out bigger: that is said too.
-        // Told of the PDF as compressed, before the Usugami mark goes on it.
-        var note: Int? = null
-        process(fileName, listOf(input), afterResult = { note?.let { message(strings.getString(it)) } }) { check ->
-            val file = engine.compress(input, level, fileName, check)
-            if (!madeSmaller(file)) note = if (file.keptOriginal) R.string.pdf_no_reduction else R.string.pdf_not_smaller
-            listOf(file)
-        }
+        // Told of the PDF as it comes out, with the Usugami mark when it is on: the original isn't
+        // kept once the mark goes on it, which adds a little too.
+        process(fileName, listOf(input), afterResult = { files ->
+            val file = files.single()
+            if (!madeSmaller(file)) message(strings.getString(if (file.keptOriginal) R.string.pdf_no_reduction else R.string.pdf_not_smaller))
+        }) { check -> listOf(engine.compress(input, level, fileName, check)) }
     }
 
     /** Whether Compress PDF made [file] at least 1% smaller than the PDF it was made of. */
@@ -1020,14 +1019,15 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             return
         }
         val jobs = list.map { CompressJob(it, compressionOf(it), outputName(PdfTool.COMPRESS, it)) }
-        // Those not made smaller and not kept as they were: with a password, as in runCompress. A PDF
-        // kept says so under its name.
-        var notSmaller = emptyList<String>()
-        processEach("Compressed_PDFs", list.map { it.name }, list, afterResult = {
+        // Those not made smaller and not kept as they were, as they come out (see runCompress), by the
+        // name of the PDF each was made of. A PDF kept says so under its name.
+        val names = HashMap<File, String>()
+        processEach("Compressed_PDFs", list.map { it.name }, list, afterResult = { files ->
+            val notSmaller = files.filter { !it.keptOriginal && !madeSmaller(it) }.mapNotNull { names[it.file] }
             if (notSmaller.isNotEmpty()) message(strings.getQuantityString(R.plurals.batch_not_smaller, notSmaller.size, notSmaller.size, notSmaller.joinToString(", ")))
         }) { check, onNext ->
             engine.compressEach(jobs, check, onNext).also { outcomes ->
-                notSmaller = outcomes.withIndex().filter { (_, outcome) -> outcome.getOrNull()?.let { !it.keptOriginal && !madeSmaller(it) } == true }.map { list[it.index].name }
+                for ((i, outcome) in outcomes.withIndex()) outcome.getOrNull()?.let { names[it.file] = list[i].name }
             }
         }
     }
@@ -1599,13 +1599,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         names: List<String>,
         sources: List<PdfInput>,
         documents: List<OfficeInput> = emptyList(),
-        afterResult: () -> Unit = {},
+        afterResult: (List<PdfFile>) -> Unit = {},
         block: (check: () -> Unit, onNext: (Int) -> Unit) -> List<Result<PdfFile>>,
     ) {
         var failures = emptyList<Pair<String, Throwable>>()
-        val afterAll: (List<PdfFile>) -> Unit = {
+        val afterAll: (List<PdfFile>) -> Unit = { files ->
             reportFailures(failures)
-            afterResult()
+            afterResult(files)
         }
         process(name, sources, documents, afterAll) { check ->
             val outcomes = block(check) { i ->

@@ -194,7 +194,13 @@ internal class ResultMarker(
             if (!file.file.isFile || (!verify && file.mark == wanted)) return@mapIndexed file
             onFile(index, files.size)
             try {
-                if (marks.apply(file.file, wanted, check) || file.mark != wanted) file.copy(mark = wanted) else file
+                when {
+                    // Saved anew, a PDF Compress kept as it was isn't that PDF any more, even once the
+                    // mark is taken off again.
+                    marks.apply(file.file, wanted, check) -> file.copy(mark = wanted, keptOriginal = false)
+                    file.mark != wanted -> file.copy(mark = wanted)
+                    else -> file
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
