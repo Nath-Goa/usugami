@@ -287,22 +287,6 @@ class PageMark(context: Context) {
         (if (compressed) createOutputStream(COSName.FLATE_DECODE) else createOutputStream()).use { it.write(content.toByteArray(Charsets.US_ASCII)) }
     }
 
-    /** Writes [file]'s first [length] bytes to [target]. */
-    private fun cut(file: File, length: Long, target: File) {
-        file.inputStream().use { input ->
-            target.outputStream().use { output ->
-                val buffer = ByteArray(BUFFER)
-                var left = length
-                while (left > 0) {
-                    val read = input.read(buffer, 0, minOf(left, BUFFER.toLong()).toInt())
-                    if (read < 0) throw IOException("${file.name} is shorter than its mark says")
-                    output.write(buffer, 0, read)
-                    left -= read
-                }
-            }
-        }
-    }
-
     /** Whether [file] starts with [start]'s bytes. */
     private fun startsWith(file: File, start: File): Boolean {
         if (file.length() < start.length()) return false
@@ -467,9 +451,10 @@ class PageMark(context: Context) {
         /**
          * Where the PDF as it was ends in [file], when the mark on [pages] was appended to it as an
          * update: each marker says the same, and an update as PDFBox writes one starts there (a line
-         * break, then an object), whatever that PDF ends with. Null otherwise.
+         * break, then an object), whatever that PDF ends with. Null otherwise. That PDF, signed, is
+         * [file]'s first bytes up to there (see [cut]).
          */
-        private fun appendedAt(pages: Iterable<PDPage>, file: File): Long? {
+        fun appendedAt(pages: Iterable<PDPage>, file: File): Long? {
             val ends = pages.flatMap { markers(it.cosObject) }.map { it.getLong(KEY_ORIGINAL_LENGTH, -1) }.toSet()
             val end = ends.singleOrNull()?.takeIf { it in 1 until file.length() } ?: return null
             val head = ByteArray(minOf(file.length() - end, UPDATE_HEAD).toInt())
@@ -478,6 +463,22 @@ class PageMark(context: Context) {
                 it.readFully(head)
             }
             return end.takeIf { UPDATE_START.containsMatchIn(String(head, Charsets.ISO_8859_1)) }
+        }
+
+        /** Writes [file]'s first [length] bytes to [target]. */
+        fun cut(file: File, length: Long, target: File) {
+            file.inputStream().use { input ->
+                target.outputStream().use { output ->
+                    val buffer = ByteArray(BUFFER)
+                    var left = length
+                    while (left > 0) {
+                        val read = input.read(buffer, 0, minOf(left, BUFFER.toLong()).toInt())
+                        if (read < 0) throw IOException("${file.name} is shorter than its mark says")
+                        output.write(buffer, 0, read)
+                        left -= read
+                    }
+                }
+            }
         }
 
         /** [page]'s content streams as it lists them: references, mostly. */

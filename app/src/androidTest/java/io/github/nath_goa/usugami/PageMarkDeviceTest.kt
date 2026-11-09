@@ -443,8 +443,9 @@ class PageMarkDeviceTest {
 
     /**
      * A signed PDF has the mark appended as an update: the signed PDF stays byte for byte as it was, its
-     * signature's /ByteRange still covers all of it, and PDFBox and Android both show the mark. Changed,
-     * the mark replaces the one appended before; taken off, the file is the signed PDF again.
+     * signature's /ByteRange still covers all of it, and PDFBox and Android both show the mark. Compress
+     * keeps the signed PDF under it. Changed, the mark replaces the one appended before; taken off, the
+     * file is the signed PDF again.
      */
     @Test fun aSignedPdfHasTheMarkAppended() {
         val file = compactPdf(File(dir, "signed.pdf"), "SIGNED")
@@ -461,6 +462,12 @@ class PageMarkDeviceTest {
         // Already there, it is left as it is.
         assertFalse(marks.apply(file, style))
         assertArrayEquals(marked, file.readBytes())
+        // Compressed again, it is kept as it was signed, without the mark.
+        val engine = PdfToolsEngine(app)
+        val compressed = engine.compress(PdfInput(4244, file.path, "signed.pdf", 1), PdfCompression.RECOMMENDED, "compressed")
+        assertTrue(compressed.keptOriginal)
+        assertArrayEquals(signed, compressed.file.readBytes())
+        engine.clearOutput()
 
         // Changed: still one update after the signed PDF.
         val smaller = MarkStyle()

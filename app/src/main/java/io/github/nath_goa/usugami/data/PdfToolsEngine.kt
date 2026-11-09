@@ -847,16 +847,21 @@ class PdfToolsEngine(private val context: Context) {
      * Compresses [input] into [target]. An unprotected PDF that wouldn't get at least 1% smaller is
      * copied as it is instead, and its [PdfFile.keptOriginal] says so: not one restricted by an owner
      * password, which every tool takes off, nor one with Usugami's own mark, which no tool keeps (see
-     * [loadUnmarked]). Nothing is left at [target] if it fails.
+     * [loadUnmarked]), but for a mark appended to a signed PDF: that PDF is kept, as it was signed.
+     * Nothing is left at [target] if it fails.
      */
     internal fun compressTo(input: PdfInput, level: PdfCompression, target: File, check: () -> Unit): PdfFile {
         val candidate = File(outputDir, "candidate.tmp")
         try {
             var asItIs = input.password.isEmpty()
+            // The PDF compressed, or kept: the first bytes of a signed one the mark was appended to.
+            var length = input.file.length()
             load(input.file, input.password).use { doc ->
+                val signed = if (asItIs && !doc.isEncrypted) PageMark.appendedAt(doc.pages, input.file) else null
+                if (signed != null) length = signed
                 // Usugami's own mark comes off also when the PDF has a password or is restricted.
                 val unmarked = PageMark.unmark(doc)
-                if (doc.isEncrypted || unmarked) asItIs = false
+                if (doc.isEncrypted || (unmarked && signed == null)) asItIs = false
                 val maxPageSide = (0 until doc.numberOfPages).maxOf { p ->
                     val box = doc.getPage(p).mediaBox
                     maxOf(box.width, box.height)
@@ -872,9 +877,9 @@ class PdfToolsEngine(private val context: Context) {
                 doc.save(candidate)
             }
             // A saving under 1% isn't worth a re-encoded copy: the original is kept, as it says.
-            val keep = asItIs && Compressor.savedPercent(input.file.length(), candidate.length()) == null
-            (if (keep) input.file else candidate).copyTo(target, overwrite = true)
-            return PdfFile(target, input.pageCount, input.file.length(), keptOriginal = keep)
+            val keep = asItIs && Compressor.savedPercent(length, candidate.length()) == null
+            if (keep) PageMark.cut(input.file, length, target) else candidate.copyTo(target, overwrite = true)
+            return PdfFile(target, input.pageCount, length, keptOriginal = keep)
         } catch (t: Throwable) {
             target.delete()
             throw t
