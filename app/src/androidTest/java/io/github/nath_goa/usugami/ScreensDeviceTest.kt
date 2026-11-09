@@ -2319,7 +2319,7 @@ class ScreensDeviceTest {
     @Test fun severalPdfsAreSharedOrSavedAsOneZip() {
         val activity = launch()
         val pdfVm = openToolWithAlpha(R.string.tool_split, activity)
-        onMain { pdfVm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha_split") }
+        onMain { pdfVm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha") }
         find("the result screen") { it.says(app.getString(R.string.result_heading_many)) }
         val files = onMain { pdfVm.result.value!! }
         assertEquals(3, files.size)

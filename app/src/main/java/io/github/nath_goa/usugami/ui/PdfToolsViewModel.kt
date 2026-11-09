@@ -983,7 +983,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             message(strings.getString(R.string.pdf_invalid_pages))
             return
         }
-        process(fileName, listOf(input)) { check -> engine.split(input, groups, fileName, check) }
+        // Each PDF is named by its pages after the name typed. A single one is named as typed, as the
+        // field shows it, unless that is the PDF's own name, which it would then take.
+        val byPages = groups.size > 1 || fileName == defaultName(PdfTool.SPLIT, input)
+        // Their ZIP file says they were split from it: "Report_split.zip".
+        val zipName = FileNames.withSuffix(fileName, "_split", "Usugami")
+        process(zipName, listOf(input)) { check -> engine.split(input, groups, fileName, byPages, check) }
     }
 
     fun runMerge(pageMode: Boolean, fileName: String) {
@@ -2166,12 +2171,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         return when (tool) {
             // A converted document keeps its name: Report.docx becomes Report.pdf.
             PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> documents.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"
-            PdfTool.SPLIT -> {
-                // Each part adds its number and pages after this name: room is left for the longest
-                // ending a PDF of this many pages can give, so a long name is cut here, not its "_split".
-                val last = (input?.pageCount ?: 1).coerceAtLeast(1) - 1
-                FileNames.withSuffix(base, "_split", "Usugami", spare = PdfToolsEngine.partSuffix(last, listOf(last)).length)
-            }
+            // Each part adds its pages after this name: Report_p3-5.
+            PdfTool.SPLIT -> FileNames.sanitize(base, "Usugami")
             PdfTool.COMPRESS -> named("_compressed")
             PdfTool.MERGE -> "Merged_PDF"
             PdfTool.ROTATE -> named("_rotated")

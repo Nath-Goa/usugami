@@ -28,8 +28,8 @@ class ZipArchiveTest {
 
     @Test
     fun filesGoInAsTheyAreInTheirOrder() {
-        val first = file("Report_split_1_1-1.pdf", Random(1).nextBytes(200_000))
-        val second = file("Report_split_2_2-3.pdf", "%PDF-1.7 small".toByteArray())
+        val first = file("Report_p1.pdf", Random(1).nextBytes(200_000))
+        val second = file("Report_p2-3.pdf", "%PDF-1.7 small".toByteArray())
         val empty = file("empty.pdf", ByteArray(0))
         ZipFile(zipOf(listOf(first, second, empty))).use { zip ->
             val entries = zip.entries().toList()

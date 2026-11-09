@@ -86,15 +86,15 @@ class ResultZipDeviceTest {
         return file to uriFor(file)
     }
 
-    /** alpha.pdf (three pages) split into one PDF per page, named "alpha_split". */
+    /** alpha.pdf (three pages) split into one PDF per page, each named by its page after "alpha". */
     private fun splitEveryPage(): Pair<PdfToolsViewModel, List<PdfFile>> {
         val vm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }
         onMain { vm.addPdfs(listOf(pdf("alpha.pdf")), replace = true) }
         waitUntil("the PDF to be added") { vm.inputs.value.size == 1 }
-        onMain { vm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha_split") }
+        onMain { vm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha") }
         waitUntil("the split PDFs") { vm.result.value != null }
         val files = onMain { vm.result.value!! }
-        assertEquals(3, files.size)
+        assertEquals(listOf("alpha_p1.pdf", "alpha_p2.pdf", "alpha_p3.pdf"), files.map { it.name })
         return vm to files
     }
 

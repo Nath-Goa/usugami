@@ -5,6 +5,7 @@ import java.util.Locale
 
 object FileNames {
     private const val MAX_UTF8_BYTES = 200 // leaves room for " (99).pdf" within the usual 255-byte limit
+    private const val MAX_PAGES_TEXT = 40
     private val ILLEGAL = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]")
 
     /**
@@ -41,12 +42,40 @@ object FileNames {
 
     /**
      * Names for files made together from one [base], each followed by its own one of [suffixes], such
-     * as "Report_1_1-3" and "Report_2_4-6". A long [base] is cut once, leaving room for the longest
+     * as "Report_p1-3" and "Report_p4-6". A long [base] is cut once, leaving room for the longest
      * suffix, so the names all begin alike and sort together.
      */
     fun withSuffixes(base: String, suffixes: List<String>, fallback: String): List<String> {
         val longest = suffixes.maxOfOrNull(::utf8Size) ?: 0
         return suffixes.map { withSuffix(base, it, fallback, spare = longest - utf8Size(it)) }
+    }
+
+    /**
+     * Names for the PDFs Split PDF makes from [base], one for each list of zero-based [parts]: the
+     * name followed by the pages the part holds, counted from 1, "Report_p3" for page 3 and
+     * "Report_p3-5" for pages 3 to 5, others as they are typed ("Report_p10,1-3,5"), and a long
+     * list by its first pages and its last ("Report_p1,3,5,…,99"). A long [base] is cut alike for
+     * all, so they sort together, and two parts of the same pages are told apart as [unique] does.
+     */
+    fun pageParts(base: String, parts: List<List<Int>>, fallback: String): List<String> {
+        val taken = HashSet<String>()
+        return withSuffixes(base, parts.map { "_p" + pagesText(it) }, fallback).map { name ->
+            unique(name, taken).also { taken += it }
+        }
+    }
+
+    /** [pages] as the name of a part says them (see [pageParts]): at most [MAX_PAGES_TEXT] characters. */
+    private fun pagesText(pages: List<Int>): String {
+        val all = PdfPageSelection.formatInOrder(pages)
+        if (all.length <= MAX_PAGES_TEXT) return all
+        val items = all.split(',')
+        val end = ",…," + items.last()
+        val start = StringBuilder(items.first())
+        for (item in items.subList(1, items.size - 1)) {
+            if (start.length + 1 + item.length + end.length > MAX_PAGES_TEXT) break
+            start.append(',').append(item)
+        }
+        return start.toString() + end
     }
 
     /** The original file name without its extension, e.g. "IMG_1234.jpg" -> "IMG_1234". */

@@ -56,6 +56,24 @@ class FileNamesTest {
     }
 
     @Test
+    fun splitPartsAreNamedByTheirPages() {
+        // Every page, pages a few at a time, and ranges, with the last part a page alone.
+        assertEquals(listOf("Report_p1", "Report_p2", "Report_p3"), FileNames.pageParts("Report", listOf(listOf(0), listOf(1), listOf(2)), "x"))
+        assertEquals(listOf("Report_p1-5", "Report_p6-10", "Report_p11"), FileNames.pageParts("Report.pdf", listOf((0..4).toList(), (5..9).toList(), listOf(10)), "x"))
+        // Pages picked and put together, in the order they go in.
+        assertEquals(listOf("Report_p10,1-3,5"), FileNames.pageParts("Report", listOf(listOf(9, 0, 1, 2, 4)), "x"))
+        // The same pages twice are told apart.
+        assertEquals(listOf("Report_p1-3", "Report_p1-3 (2)"), FileNames.pageParts("Report", listOf(listOf(0, 1, 2), listOf(0, 1, 2)), "x"))
+        // A long list says its first pages and its last.
+        val scattered = FileNames.pageParts("Report", listOf((0 until 200 step 2).toList()), "x").single()
+        assertEquals("Report_p1,3,5,7,9,11,13,15,17,19,21,23,25,…,199", scattered)
+        // A long name is cut alike for all, the pages kept whole.
+        val long = FileNames.pageParts("क".repeat(67), listOf(listOf(0), (98..99).toList()), "x")
+        assertEquals(listOf("क".repeat(64) + "_p1", "क".repeat(64) + "_p99-100"), long)
+        assertEquals("x_p1", FileNames.pageParts(" ", listOf(listOf(0)), "x").single())
+    }
+
+    @Test
     fun windowsDeviceNamesGetAnUnderscore() {
         assertEquals("CON_", FileNames.sanitize("CON", "x"))
         assertEquals("nul_", FileNames.sanitize("nul.pdf", "x"))

@@ -240,18 +240,22 @@ class PdfToolsEngine(private val context: Context) {
         throw PdfWrongPassword()
     }
 
-    fun split(input: PdfInput, groups: List<List<Int>>, baseName: String, check: () -> Unit = {}): List<PdfFile> {
+    /**
+     * A PDF of [input]'s pages for each of [groups], named [baseName] and the pages it holds, such
+     * as "Report_p3-5" (see [FileNames.pageParts]); one PDF not named [byPages] is named [baseName].
+     */
+    fun split(
+        input: PdfInput,
+        groups: List<List<Int>>,
+        baseName: String,
+        byPages: Boolean = groups.size > 1,
+        check: () -> Unit = {},
+    ): List<PdfFile> {
         require(groups.isNotEmpty() && groups.all { it.isNotEmpty() })
+        require(byPages || groups.size == 1)
         clearOutput()
         outputDir.mkdirs()
-        // A long name is cut the same for every part, so their names begin alike, and their numbers
-        // and pages stay whole.
-        val names = FileNames.withSuffixes(
-            baseName,
-            if (groups.size == 1) listOf("") else groups.mapIndexed(::partSuffix),
-            "Split",
-        )
-        val taken = HashSet<String>()
+        val names = if (byPages) FileNames.pageParts(baseName, groups, "Split") else listOf(FileNames.sanitize(baseName, "Split"))
         try {
             loadUnmarked(input.file, input.password).use { source ->
                 // Read once for all the parts: finding a page in the page tree, and what each part
@@ -261,9 +265,7 @@ class PdfToolsEngine(private val context: Context) {
                 return groups.mapIndexed { index, pages ->
                     check()
                     require(pages.all { it in sourcePages.indices })
-                    val name = FileNames.unique(names[index], taken)
-                    taken += name
-                    val target = File(outputDir, "$name.pdf")
+                    val target = File(outputDir, "${names[index]}.pdf")
                     PDDocument(memory()).use { dest ->
                         // Each page's copy in the part, by the page, for the links between them.
                         val copies = IdentityHashMap<COSDictionary, COSDictionary>()
@@ -1131,14 +1133,6 @@ class PdfToolsEngine(private val context: Context) {
             if (c.moveToFirst() && !c.isNull(0)) c.getString(0).substringAfterLast('/').takeIf { it.isNotBlank() } else null
         }
     } catch (_: Exception) { null }
-
-    companion object {
-        /**
-         * What [split] adds to the name of part [index] (zero-based), which holds [pages]: its number
-         * and its first and last pages, counted from 1, as in "_2_4-6".
-         */
-        fun partSuffix(index: Int, pages: List<Int>) = "_${index + 1}_${pages.first() + 1}-${pages.last() + 1}"
-    }
 }
 
 /** The page as a viewer shows it: its crop box, turned by its rotation. */

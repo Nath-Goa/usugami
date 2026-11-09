@@ -296,7 +296,7 @@ class MultiClickDeviceTest {
     private fun splitResult(): PdfToolsViewModel {
         val pdfVm = openTool(R.string.tool_split_detail)
         addPdf(pdfVm)
-        onMain { pdfVm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha_split") }
+        onMain { pdfVm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha") }
         waitFor("the PDFs") { pdfVm.result.value?.size == 3 }
         waitForText(text(R.string.result_heading_many))
         compose.waitForIdle()
@@ -569,7 +569,7 @@ class MultiClickDeviceTest {
         // As it happens: the PDFs saved once, so images shared during a second save open the editor
         // without asking, and the tool is reset once it shows.
         addPdf(pdfVm)
-        onMain { pdfVm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha_split") }
+        onMain { pdfVm.runSplit(SplitMode.EVERY_PAGE, "", combine = false, fileName = "alpha") }
         waitFor("the PDFs") { pdfVm.result.value?.size == 3 }
         compose.waitForIdle()
         val (_, firstUri) = newDocument("first.zip")
