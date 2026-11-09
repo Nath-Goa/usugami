@@ -68,4 +68,24 @@ class PictureTilesTest {
         assertNear(Triple(0, 0, 0), unsaid.argb(0, 128, 128))
         assertNear(Triple(255, 255, 255), unsaid.argb(255, 128, 128))
     }
+
+    @Test
+    fun displayP3TurnsIntoSrgbAsWorkedOut() {
+        // sRGB's curve, which Display P3 shares, and the matrices to and from XYZ (D65), by columns.
+        fun toLinear(v: Double) = if (v <= 0.04045) v / 12.92 else Math.pow((v + 0.055) / 1.055, 2.4)
+        fun fromLinear(v: Double) = if (v <= 0.0031308) v * 12.92 else 1.055 * Math.pow(v, 1 / 2.4) - 0.055
+        val p3ToXyz = floatArrayOf(0.4865709f, 0.2289746f, 0f, 0.2656677f, 0.6917385f, 0.0451134f, 0.1982173f, 0.0792869f, 1.0439444f)
+        val xyzToSrgb = floatArrayOf(3.2404542f, -0.969266f, 0.0556434f, -1.5371385f, 1.8760108f, -0.2040259f, -0.4985314f, 0.041556f, 1.0572252f)
+        val conversion = RgbConversion(::toLinear, p3ToXyz, xyzToSrgb, ::fromLinear)
+        fun times(m: FloatArray, v: List<Double>) = (0..2).map { i -> (0..2).sumOf { j -> m[j * 3 + i] * v[j] } }
+        for (r in 0..255 step 5) for (g in 0..255 step 5) for (b in 0..255 step 5) {
+            val linear = times(xyzToSrgb, times(p3ToXyz, listOf(r, g, b).map { toLinear(it / 255.0) }))
+            val (er, eg, eb) = linear.map { (fromLinear(it.coerceIn(0.0, 1.0)) * 255 + 0.5).toInt() }
+            assertNear(Triple(er, eg, eb), conversion.argb((0xFF shl 24) or (r shl 16) or (g shl 8) or b))
+        }
+        // sRGB's red is (234, 51, 35) in Display P3; P3's own red is beyond sRGB, held to its red.
+        assertNear(Triple(255, 0, 0), conversion.argb(0xFFEA3323.toInt()))
+        assertNear(Triple(255, 0, 0), conversion.argb(0xFFFF0000.toInt()))
+        assertNear(Triple(128, 128, 128), conversion.argb(0xFF808080.toInt()))
+    }
 }

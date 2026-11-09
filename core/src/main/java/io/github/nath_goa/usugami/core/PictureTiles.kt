@@ -156,3 +156,41 @@ class YuvColors private constructor(red: Double, blue: Double, fullRange: Boolea
         private fun fixed(value: Double): Int = (value * 65536).roundToInt()
     }
 }
+
+/**
+ * Brings opaque 8-bit RGB colours from one colour space to another, as Android's
+ * ColorSpace.Connector does, but by tables, fast enough for the millions of pixels of a photo:
+ * each channel to linear light ([toLinear]), through XYZ ([toXyz], then [fromXyz]) and back with
+ * [fromLinear], held to the target's range. The matrices are 3 × 3 by columns, as ColorSpace gives
+ * them, for the same white point.
+ */
+class RgbConversion(
+    toLinear: (Double) -> Double,
+    toXyz: FloatArray,
+    fromXyz: FloatArray,
+    fromLinear: (Double) -> Double,
+) {
+    private val linear = FloatArray(256) { toLinear(it / 255.0).toFloat() }
+    private val matrix = FloatArray(9) { i -> (0..2).sumOf { k -> fromXyz[k * 3 + i % 3].toDouble() * toXyz[i / 3 * 3 + k] }.toFloat() }
+
+    // The target's byte for each linear value from 0 to 1, in steps of 1/STEPS.
+    private val encoded = ByteArray(STEPS + 1) { ((fromLinear(it.toDouble() / STEPS) * 255 + 0.5).toInt().coerceIn(0, 255)).toByte() }
+
+    /** The opaque ARGB colour [argb] is in the target. */
+    fun argb(argb: Int): Int {
+        val r = linear[argb shr 16 and 0xFF]
+        val g = linear[argb shr 8 and 0xFF]
+        val b = linear[argb and 0xFF]
+        val m = matrix
+        return (0xFF shl 24) or
+            (encode(m[0] * r + m[3] * g + m[6] * b) shl 16) or
+            (encode(m[1] * r + m[4] * g + m[7] * b) shl 8) or
+            encode(m[2] * r + m[5] * g + m[8] * b)
+    }
+
+    private fun encode(value: Float): Int = encoded[(value * STEPS + 0.5f).toInt().coerceIn(0, STEPS)].toInt() and 0xFF
+
+    private companion object {
+        const val STEPS = 1 shl 16
+    }
+}

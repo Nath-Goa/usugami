@@ -14,6 +14,7 @@ import android.os.Build
 import androidx.core.graphics.createBitmap
 import io.github.nath_goa.usugami.core.ImageFileType
 import io.github.nath_goa.usugami.core.PictureTiles
+import io.github.nath_goa.usugami.core.RgbConversion
 import io.github.nath_goa.usugami.core.YuvColors
 import java.io.File
 
@@ -44,7 +45,8 @@ internal object HeifTiles {
             // The colours the file says it is in, read without decoding it.
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(path, bounds)
-            val toSrgb = bounds.outColorSpace?.takeUnless { it.isSrgb }?.let { ColorSpace.connect(it, ColorSpace.get(ColorSpace.Named.SRGB)) }
+            val space = bounds.outColorSpace
+            val toSrgb = if (space == null || space.isSrgb) null else srgbConversion(space) ?: return null
 
             extractor.setDataSource(path)
             val track = pictureTrack(extractor) ?: return null
@@ -94,6 +96,13 @@ internal object HeifTiles {
         }
     }
 
+    /** How colours in [space] are brought to sRGB, as ColorSpace.connect does; null if it isn't RGB. */
+    private fun srgbConversion(space: ColorSpace): RgbConversion? {
+        val srgb = ColorSpace.get(ColorSpace.Named.SRGB) as ColorSpace.Rgb
+        val source = ColorSpace.adapt(space, srgb.whitePoint) as? ColorSpace.Rgb ?: return null
+        return RgbConversion(source.eotf::applyAsDouble, source.transform, srgb.inverseTransform, srgb.oetf::applyAsDouble)
+    }
+
     /** The type of picture in the file at [path], by its first bytes. */
     private fun typeOf(path: String): ImageFileType? = File(path).inputStream().use { input ->
         val header = ByteArray(ImageFileType.HEADER_BYTES)
@@ -120,7 +129,7 @@ internal object HeifTiles {
         extractor: MediaExtractor,
         tiles: PictureTiles,
         bitmap: Bitmap,
-        toSrgb: ColorSpace.Connector?,
+        toSrgb: RgbConversion?,
     ): Boolean {
         val count = tiles.columns * tiles.rows
         // Tiles give a pixel more or less than each other when the sample doesn't divide them.
@@ -185,7 +194,7 @@ internal object HeifTiles {
         tile: Int,
         tiles: PictureTiles,
         colors: YuvColors,
-        toSrgb: ColorSpace.Connector?,
+        toSrgb: RgbConversion?,
         pixels: IntArray,
         bitmap: Bitmap,
     ): Boolean {
@@ -218,22 +227,10 @@ internal object HeifTiles {
                 )
             }
         }
-        if (toSrgb != null) {
-            val rgb = FloatArray(3)
-            for (i in 0 until at) {
-                val pixel = pixels[i]
-                rgb[0] = (pixel shr 16 and 0xFF) / 255f
-                rgb[1] = (pixel shr 8 and 0xFF) / 255f
-                rgb[2] = (pixel and 0xFF) / 255f
-                toSrgb.transform(rgb)
-                pixels[i] = (0xFF shl 24) or (channel(rgb[0]) shl 16) or (channel(rgb[1]) shl 8) or channel(rgb[2])
-            }
-        }
+        if (toSrgb != null) for (i in 0 until at) pixels[i] = toSrgb.argb(pixels[i])
         bitmap.setPixels(pixels, 0, width, xs.first, ys.first, width, ys.count())
         return true
     }
-
-    private fun channel(value: Float): Int = (value * 255f + 0.5f).toInt().coerceIn(0, 255)
 
     private fun MediaFormat.intOrNull(key: String): Int? = if (containsKey(key)) getInteger(key) else null
 
