@@ -18,7 +18,8 @@ import java.io.File
  * HEIC, AVIF, WebP, BMP and GIF images are stored as a JPEG, or a PNG when they are see-through
  * or lossless, with their pixels as stored and their orientation kept. The samples are 128 × 64,
  * red in the stored top-left corner; the HEIC and AVIF ones are turned a quarter clockwise by a
- * property of their own, as libheif saves a photo, with EXIF data marked upright.
+ * property of their own. The HEIC one's EXIF data is marked upright, as libheif saves a photo, so
+ * it shows that the property wins over EXIF; the AVIF one has no EXIF data.
  */
 class ImageTypesDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -54,7 +55,11 @@ class ImageTypesDeviceTest {
     }
 
     @Test fun otherImageTypesAreStoredAsJpegOrPng() {
-        assertStored("turned.heic", 31, ImageFormat.JPEG, orientation = 6)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            assertStored("turned.heic", 31, ImageFormat.JPEG, orientation = 6)
+        } else {
+            assertEquals(ImageStore.ImportResult.Unsupported, import("turned.heic", 31))
+        }
         assertStored("photo.webp", 32, ImageFormat.JPEG)
         val clear = assertStored("clear.webp", 33, ImageFormat.PNG)
         assertEquals("Transparency kept", 0, Color.alpha(BitmapFactory.decodeFile(clear.path).getPixel(100, 50)))
