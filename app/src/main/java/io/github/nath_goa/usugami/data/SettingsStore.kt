@@ -2,6 +2,7 @@ package io.github.nath_goa.usugami.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.MarkStyle
@@ -54,11 +55,11 @@ class SettingsStore(context: Context) {
     val mark: StateFlow<MarkSetting> get() = markFlow(prefs).asStateFlow()
 
     fun setMark(setting: MarkSetting) {
-        prefs.edit()
-            .putBoolean(KEY_MARK_ON, setting.on)
-            .putInt(KEY_MARK_SIZE, setting.style.size)
-            .putInt(KEY_MARK_OPACITY, setting.style.opacity)
-            .apply()
+        prefs.edit {
+            putBoolean(KEY_MARK_ON, setting.on)
+            putInt(KEY_MARK_SIZE, setting.style.size)
+            putInt(KEY_MARK_OPACITY, setting.style.opacity)
+        }
         markFlow(prefs).value = setting
     }
 
