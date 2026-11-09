@@ -174,7 +174,7 @@
     <string name="color_red">लाल</string>
     <string name="color_blue">नीला</string>
     <string name="color_green">हरा</string>
-    <string name="watermark_opacity">पारदर्शिता</string>
+    <string name="watermark_opacity">अपारदर्शिता</string>
     <string name="opacity_translucent">पारदर्शी</string>
     <string name="opacity_semi">आधा पारदर्शी</string>
     <string name="opacity_opaque">अपारदर्शी</string>
