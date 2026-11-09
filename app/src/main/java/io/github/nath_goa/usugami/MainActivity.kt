@@ -3,10 +3,13 @@ package io.github.nath_goa.usugami
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -30,7 +33,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // The status bar's icons light on a dark screen and dark on a light one, as Usugami is, not as
+        // the window's resources say: below Android 12 Usugami may be dark on a light phone or light on
+        // a dark one, and on Android 8 the window's resources follow the phone.
+        val dark = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+        enableEdgeToEdge(statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark })
         super.onCreate(savedInstanceState)
         // A language or appearance picked before the phone was updated to an Android version that
         // keeps it for Usugami.
