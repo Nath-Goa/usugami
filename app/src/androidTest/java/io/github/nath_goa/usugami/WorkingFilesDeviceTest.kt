@@ -51,8 +51,8 @@ class WorkingFilesDeviceTest {
         return result!!.getOrThrow()
     }
 
-    private fun waitUntil(what: String, condition: () -> Boolean) {
-        val deadline = SystemClock.uptimeMillis() + 10_000
+    private fun waitUntil(what: String, millis: Long = 10_000, condition: () -> Boolean) {
+        val deadline = SystemClock.uptimeMillis() + millis
         while (!onMain(condition)) {
             check(SystemClock.uptimeMillis() < deadline) { "Timed out waiting for $what" }
             Thread.sleep(50)
@@ -262,7 +262,9 @@ class WorkingFilesDeviceTest {
         assertTrue(copy.isFile)
 
         onMain { activity.finish() }
-        waitUntil("the copy to be deleted") { !copy.exists() }
+        // Android destroys a finished activity once the screen behind it is idle, or after 10 s when it
+        // isn't, as on a busy emulator: wait longer than that.
+        waitUntil("the copy to be deleted", millis = 20_000) { !copy.exists() }
     }
 
     @Test fun imagesStillImportingWhenDiscardedDontComeBack() {
