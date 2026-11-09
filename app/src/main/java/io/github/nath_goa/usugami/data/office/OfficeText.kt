@@ -278,7 +278,10 @@ internal class ParagraphSpec(
     /** Lines above and below the paragraph, drawn in the space before and after it. */
     val ruleAbove: Rule? = null,
     val ruleBelow: Rule? = null,
-)
+) {
+    /** Whether all of the paragraph reads right to left: [rtl], or its first letter does when [directionFromText]. */
+    val readsRightToLeft: Boolean by lazy { rtl || directionFromText && TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(text, 0, text.length) }
+}
 
 /** Something laid out to a width, which can be drawn anywhere and split between pages. Units throughout. */
 internal interface Block {
@@ -356,13 +359,8 @@ internal class ParagraphBlock private constructor(
                     else -> Layout.Alignment.ALIGN_NORMAL
                 },
             )
-            .setTextDirection(
-                when {
-                    spec.rtl -> TextDirectionHeuristics.RTL
-                    spec.directionFromText -> TextDirectionHeuristics.FIRSTSTRONG_LTR
-                    else -> TextDirectionHeuristics.LTR
-                },
-            )
+            // Once for the whole paragraph: Android would decide again after each line break in it.
+            .setTextDirection(if (spec.readsRightToLeft) TextDirectionHeuristics.RTL else TextDirectionHeuristics.LTR)
             .setIncludePad(false)
             .setLineSpacing(0f, 1f)
             // Word fills each line before starting the next, and doesn't hyphenate. (Layout's

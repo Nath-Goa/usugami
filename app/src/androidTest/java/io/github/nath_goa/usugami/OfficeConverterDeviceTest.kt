@@ -9,6 +9,7 @@ import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.Debug
 import android.os.ParcelFileDescriptor
+import android.text.Layout
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -825,6 +826,14 @@ class OfficeConverterDeviceTest {
         val justified = ParagraphBlock(ParagraphSpec(key, TextStyle(), 4680, Align.JUSTIFY)).layout
         assertTrue(justified.text.substring(0, justified.getLineEnd(0)).startsWith("Key: QWxh"))
         assertTrue(justified.getLineWidth(0) > 4670)
+    }
+
+    @Test fun aParagraphThatReadsRightToLeftByItsTextDoesOnAllItsLines() {
+        // A line break, and those put in a run wider than the line, start no paragraph of their own direction.
+        val hebrew = RichText().apply { append("שלום עולם\nhttps://example.com/" + "abcdefghij".repeat(12) + " סוף הפסקה כאן", TextStyle()) }.text
+        val layout = ParagraphBlock(ParagraphSpec(hebrew, TextStyle(), 3320)).layout
+        assertTrue(layout.lineCount > 3)
+        for (line in 0 until layout.lineCount) assertEquals(Layout.DIR_RIGHT_TO_LEFT, layout.getParagraphDirection(line))
     }
 
     @Test fun aVeryLongParagraphGoesInPiecesLaidOutAsItIs() {
