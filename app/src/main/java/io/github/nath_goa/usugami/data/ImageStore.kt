@@ -4,12 +4,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ColorSpace
-import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
 import android.provider.OpenableColumns
-import androidx.exifinterface.media.ExifInterface
 import io.github.nath_goa.usugami.core.ImageFileType
 import io.github.nath_goa.usugami.core.Webp
 import io.github.nath_goa.usugami.core.isOutOfSpace
@@ -65,7 +63,7 @@ class ImageStore(context: Context) {
             if (format == null) {
                 val (file, converted) = converted(tmp, id, type) ?: return ImportResult.Failed
                 stored = file
-                return checked(file, id, itemName, converted, orientationOf(tmp, type))
+                return checked(file, id, itemName, converted, ImageOrientation.of(tmp, type))
             }
             val file = fileFor(id, format)
             if (!tmp.renameTo(file)) throw IOException("rename failed")
@@ -146,7 +144,7 @@ class ImageStore(context: Context) {
      * as a JPEG, and a picture with transparency or one kept without loss (a lossless WebP, a BMP,
      * the first frame of a GIF) as a PNG. A very large photo is stored at half its size, or less,
      * until it has at most [MAX_CONVERTED_PIXELS], still more than a page needs at the least
-     * compression. The pixels stay as stored: [orientationOf] says how they are turned. Null when
+     * compression. The pixels stay as stored: [ImageOrientation] says how they are turned. Null when
      * the image can't be decoded.
      */
     private fun converted(source: File, id: Long, type: ImageFileType): Pair<File, ImageFormat>? {
@@ -200,34 +198,6 @@ class ImageStore(context: Context) {
         }
     }
 
-    /**
-     * The EXIF orientation of the image of [type] in [file]. A HEIF or AVIF file can turn its
-     * picture with a property of its own, which Android's decoders and gallery follow, and tools
-     * such as libheif then mark its EXIF data upright; the EXIF orientation counts only when the
-     * file has no such turn.
-     */
-    private fun orientationOf(file: File, type: ImageFileType): Int {
-        if ((type == ImageFileType.HEIF || type == ImageFileType.AVIF) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            val degrees = try {
-                val retriever = MediaMetadataRetriever()
-                try {
-                    retriever.setDataSource(file.path)
-                    retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_IMAGE_ROTATION)?.toIntOrNull()
-                } finally {
-                    retriever.release()
-                }
-            } catch (e: Exception) {
-                null
-            }
-            when (degrees?.let { Math.floorMod(it, 360) }) {
-                90 -> return ExifInterface.ORIENTATION_ROTATE_90
-                180 -> return ExifInterface.ORIENTATION_ROTATE_180
-                270 -> return ExifInterface.ORIENTATION_ROTATE_270
-            }
-        }
-        return readOrientation(file)
-    }
-
     /** The first bytes of [file], as many as [Webp.isLossyOpaque] reads. */
     private fun header(file: File): ByteArray = file.inputStream().use { input ->
         val header = ByteArray(Webp.HEADER_BYTES)
@@ -243,7 +213,7 @@ class ImageStore(context: Context) {
         id: Long,
         name: String,
         format: ImageFormat,
-        orientation: Int = readOrientation(file),
+        orientation: Int = ImageOrientation.exif(file),
     ): ImportResult {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
@@ -373,17 +343,6 @@ class ImageStore(context: Context) {
         val time = Instant.ofEpochMilli(taken?.takeIf { it > 0 } ?: System.currentTimeMillis()).atZone(ZoneId.systemDefault())
         val extension = pickerName.substringAfterLast('.', "").takeIf { it.isNotEmpty() }?.let { ".$it" }.orEmpty()
         return "Photo_" + time.format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT)) + extension
-    }
-
-    private fun readOrientation(file: File): Int = try {
-        ExifInterface(file.path)
-            .getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-            .takeIf { it in 1..8 } ?: 1
-    } catch (e: Exception) {
-        1
-    } catch (e: OutOfMemoryError) {
-        // ExifInterface allocates whatever a PNG chunk's length field says before reading it.
-        1
     }
 
     private fun readFully(input: InputStream, buffer: ByteArray): Int {

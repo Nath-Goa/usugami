@@ -9,13 +9,13 @@ import android.graphics.ColorSpace
 import android.graphics.Paint
 import android.net.Uri
 import androidx.core.graphics.createBitmap
-import androidx.exifinterface.media.ExifInterface
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceGray
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
+import io.github.nath_goa.usugami.core.ImageFileType
 import io.github.nath_goa.usugami.core.ImageTransform
 import io.github.nath_goa.usugami.core.Jpeg
 import io.github.nath_goa.usugami.core.PictureItem
@@ -65,11 +65,13 @@ class PagePictures(private val context: Context) {
                 file.delete()
                 return null
             }
-            val orientation = orientation(file)
+            val header = header(file)
+            // Turned the way Images to PDF turns the same photo.
+            val orientation = ImageOrientation.of(file, ImageFileType.of(header))
             val sideways = ImageTransform.fromExif(orientation).swapsAxes
             // Photos stay photos; drawings, screenshots and pictures with transparency stay lossless.
             // A WebP file can be either: its header says which.
-            val jpeg = bounds.outMimeType in PHOTO_TYPES || (bounds.outMimeType == "image/webp" && Webp.isLossyOpaque(header(file)))
+            val jpeg = bounds.outMimeType in PHOTO_TYPES || (bounds.outMimeType == "image/webp" && Webp.isLossyOpaque(header))
             return PickedPicture(
                 file.path,
                 if (sideways) bounds.outHeight else bounds.outWidth,
@@ -89,7 +91,7 @@ class PagePictures(private val context: Context) {
         dir.listFiles()?.forEach { if (it.name !in names) it.delete() }
     }
 
-    /** The first bytes of [file], as many as [Webp.isLossyOpaque] reads. */
+    /** The first bytes of [file], as many as [Webp.isLossyOpaque] reads, more than [ImageFileType.of] needs. */
     private fun header(file: File): ByteArray = file.inputStream().use { input ->
         val header = ByteArray(Webp.HEADER_BYTES)
         var read = 0
@@ -99,14 +101,6 @@ class PagePictures(private val context: Context) {
             read += count
         }
         header.copyOf(read)
-    }
-
-    private fun orientation(file: File): Int = try {
-        ExifInterface(file.path).getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL).takeIf { it in 1..8 } ?: 1
-    } catch (_: Exception) {
-        1
-    } catch (_: OutOfMemoryError) {
-        1
     }
 
     companion object {

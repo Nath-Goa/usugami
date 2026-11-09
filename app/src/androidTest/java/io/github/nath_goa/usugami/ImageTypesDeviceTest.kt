@@ -4,10 +4,12 @@ import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
+import io.github.nath_goa.usugami.data.PagePictures
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -74,5 +76,18 @@ class ImageTypesDeviceTest {
         val tiff = File(samples, "scan.tiff").apply { writeBytes(byteArrayOf(0x49, 0x49, 0x2A, 0) + ByteArray(60)) }
         assertEquals(ImageStore.ImportResult.Unsupported, store.import(Uri.fromFile(tiff), 37))
         assertEquals(added.map { File(it.path).name }.toSet(), File(app.cacheDir, "images").list().orEmpty().filter { it.startsWith("3") }.toSet())
+    }
+
+    /** A picture put on a page in Edit PDF is turned the way Images to PDF turns the same photo. */
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
+    @Test fun editPdfTurnsHeicPicturesTheSameWay() {
+        val pictures = PagePictures(app)
+        try {
+            val picture = checkNotNull(pictures.import(sample("turned.heic"), 38))
+            assertEquals(6, picture.orientation)
+            assertEquals("Upright size", 64 to 128, picture.width to picture.height)
+        } finally {
+            pictures.deleteAllExcept(emptyList())
+        }
     }
 }
