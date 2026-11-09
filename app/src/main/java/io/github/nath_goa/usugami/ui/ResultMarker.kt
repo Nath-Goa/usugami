@@ -130,6 +130,13 @@ internal class ResultMarker(
         if (!verify && files.all { it.mark == wanted }) {
             _working.value = false
             handle.remove<Boolean>(KEY_UNDER_WAY)
+            // A result shown again: its first page, drawn as it is (the page itself only without a mark).
+            if (_preview.value == null) {
+                scope.launch(io) {
+                    val first = files.first()
+                    if (result.value === files && _preview.value == null) _preview.value = render(first, withPage = first.mark == null)
+                }
+            }
             return
         }
         _working.value = true

@@ -1,5 +1,10 @@
 package io.github.nath_goa.usugami
 
+import android.app.Application
+import android.graphics.Bitmap
+import android.net.Uri
+import android.os.SystemClock
+import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSDictionary
@@ -12,10 +17,16 @@ import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
+import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.PageFrame
+import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.PageMark
+import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.data.SettingsStore
+import io.github.nath_goa.usugami.ui.MainViewModel
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -26,15 +37,32 @@ import java.io.File
 
 /**
  * The Usugami mark on a PDF's pages: in the bottom-right corner of each page as shown, upright, in the
- * size and opacity chosen; changed and taken off again, leaving each page as it was.
+ * size and opacity chosen; changed and taken off again, leaving each page as it was. PDFs made from
+ * images get it as they are made, and lose it again when it is turned off.
  */
 class PageMarkDeviceTest {
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext
+    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
     private val dir = File(app.cacheDir, "test-mark").apply { mkdirs() }
     private val marks = PageMark(app)
 
     @After fun tearDown() {
         dir.deleteRecursively()
+        // Later tests start with the mark off, as it is at first.
+        SettingsStore(app).setMark(MarkSetting())
+    }
+
+    private fun <T> onMain(block: () -> T): T {
+        var result: Result<T>? = null
+        InstrumentationRegistry.getInstrumentation().runOnMainSync { result = runCatching(block) }
+        return result!!.getOrThrow()
+    }
+
+    private fun waitUntil(what: String, condition: () -> Boolean) {
+        val deadline = SystemClock.uptimeMillis() + 15_000
+        while (!condition()) {
+            check(SystemClock.uptimeMillis() < deadline) { "Timed out waiting for $what" }
+            Thread.sleep(100)
+        }
     }
 
     /**
@@ -168,5 +196,42 @@ class PageMarkDeviceTest {
             assertFalse(PDFTextStripper().getText(doc).contains(MarkLayout.TEXT))
         }
         assertFalse(marks.apply(file, null))
+    }
+
+    /** How many times each PDF of [files] says "Usugami", page by page. */
+    private fun marksOn(files: List<PdfFile>): List<List<Int>> = files.map { pdf ->
+        PDDocument.load(pdf.file).use { doc ->
+            glyphsByPage(doc).map { page -> Regex(MarkLayout.TEXT).findAll(page.joinToString("") { it.unicode }).count() }
+        }
+    }
+
+    /**
+     * Images to PDF, one PDF for each image: with the mark on, each PDF has it once it shows; taken off
+     * on the result screen, it goes from each, and the result is no longer saved.
+     */
+    @Test fun imagesToPdfsEachGetTheMarkAndLoseItAgain() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        val images = (1..2).map { n ->
+            val file = File(dir, "photo$n.jpg")
+            file.outputStream().use { Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 80, it) }
+            Uri.fromFile(file)
+        }
+        onMain {
+            vm.setMark(true)
+            vm.addImages(images)
+        }
+        waitUntil("the images to be added") { vm.items.value.size == 2 && vm.pendingImports.value == 0 }
+        onMain { vm.convert(merge = false, fileName = "marked", compression = Compression.RECOMMENDED) }
+        waitUntil("the PDFs to be made") { vm.result.value != null }
+        val made = onMain { vm.result.value!! }
+        assertEquals(listOf(listOf(1), listOf(1)), marksOn(made))
+        assertTrue(made.all { it.mark == MarkStyle() })
+
+        onMain { vm.setMark(false) }
+        waitUntil("the mark to come off") { !vm.marking.value && vm.result.value!!.all { it.mark == null } }
+        assertEquals(listOf(listOf(0), listOf(0)), marksOn(onMain { vm.result.value!! }))
+        assertFalse(vm.saved.value)
+        onMain { vm.startOver() }
+        runBlocking { vm.awaitFileWork() }
     }
 }

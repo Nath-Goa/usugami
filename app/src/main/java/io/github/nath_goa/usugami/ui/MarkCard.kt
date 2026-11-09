@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -48,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -55,6 +58,7 @@ import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.expand
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -104,7 +108,7 @@ internal fun MarkCard(
             Modifier
                 .fillMaxWidth()
                 .toggleable(value = setting.on, enabled = enabled, role = Role.Switch, onValueChange = onOn)
-                .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 12.dp),
+                .padding(start = 16.dp, top = 8.dp, bottom = 4.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f).padding(vertical = 4.dp)) {
@@ -130,21 +134,21 @@ internal fun MarkCard(
             }
             Switch(checked = setting.on, onCheckedChange = null, enabled = enabled)
         }
-        AnimatedVisibility(
-            visible = working,
-            enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
-            exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
-            label = "markWorking",
-        ) {
-            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp)) {
-                Text(
-                    stringResource(R.string.mark_working),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+        // While the PDFs change: a bar under the row, in room of its own, so nothing moves meanwhile
+        // (a slider being moved, say). A screen reader hears what it is.
+        val shown by animateFloatAsState(if (working) 1f else 0f, Motion.medium(), label = "markWorking")
+        val workingText = stringResource(R.string.mark_working)
+        Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(4.dp).graphicsLayer { alpha = shown }) {
+            if (working || shown > 0f) {
+                LinearProgressIndicator(
+                    Modifier.fillMaxWidth().semantics {
+                        contentDescription = workingText
+                        liveRegion = LiveRegionMode.Polite
+                    },
                 )
-                LinearProgressIndicator(Modifier.fillMaxWidth().padding(top = 6.dp))
             }
         }
+        Spacer(Modifier.height(8.dp))
         AnimatedVisibility(
             visible = open,
             enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),

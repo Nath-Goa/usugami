@@ -2317,7 +2317,9 @@ class ScreensDeviceTest {
         val uri = IntentCompat.getParcelableExtra(send, Intent.EXTRA_STREAM, Uri::class.java)!!
         assertEquals("alpha_split.zip", uri.lastPathSegment)
         assertZipHolds(files, app.contentResolver.openInputStream(uri)!!.use(::zipEntries))
-        // Sharing isn't saving.
+        // Sharing isn't saving. The note is further down, below the Usugami watermark's switch: the
+        // screen is scrolled once the menu, whose window takes the screen reader's place, has gone.
+        waitUntil("the menu to close") { nodes().none { it.says(app.getString(R.string.zip_share)) } }
         findBelow("the note that the PDFs aren't saved") { it.says(app.getString(R.string.not_saved_note)) }
 
         // Save writes the ZIP file into the document the "Save as" screen made, and counts as saving.
