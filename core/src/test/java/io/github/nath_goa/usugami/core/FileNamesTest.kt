@@ -74,6 +74,14 @@ class FileNamesTest {
     }
 
     @Test
+    fun aMessageListsAFewNamesAndCountsTheRest() {
+        assertEquals(emptyList<String>() to 0, FileNames.listed(emptyList()))
+        assertEquals(listOf("a", "b", "c", "d") to 0, FileNames.listed(listOf("a", "b", "c", "d")))
+        val many = (1..250).map { "File $it.txt" }
+        assertEquals(listOf("File 1.txt", "File 2.txt", "File 3.txt") to 247, FileNames.listed(many))
+    }
+
+    @Test
     fun windowsDeviceNamesGetAnUnderscore() {
         assertEquals("CON_", FileNames.sanitize("CON", "x"))
         assertEquals("nul_", FileNames.sanitize("nul.pdf", "x"))

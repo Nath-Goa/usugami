@@ -706,7 +706,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     files.size == 1 -> message(R.string.open_no_space)
                     else -> message(
                         R.string.file_problem,
-                        noSpace.joinToString(", "),
+                        strings.listOfNames(noSpace),
                         strings.getString(if (noSpace.size == 1) R.string.open_no_space else R.string.open_no_space_many),
                     )
                 }
@@ -760,7 +760,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     /** Says the files [names] were left out of a share, [res] saying why. */
     private fun leftOut(@PluralsRes res: Int, names: List<String>) {
-        if (names.isNotEmpty()) _messages.trySend(strings.getQuantityString(res, names.size, names.size, names.joinToString(", ")))
+        if (names.isNotEmpty()) _messages.trySend(strings.getQuantityString(res, names.size, names.size, strings.listOfNames(names)))
     }
 
     /** A name for a shared file whose app gives it none, to say which it is. */

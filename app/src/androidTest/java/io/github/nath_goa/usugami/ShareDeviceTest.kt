@@ -151,6 +151,17 @@ class ShareDeviceTest {
         assertEquals("Only the PDFs are copied in", 2, inbox.list()!!.size)
     }
 
+    /** Hundreds of files left out are counted, and only the first few named. */
+    @Test fun manyFilesLeftOutAreCountedAndAFewNamed() {
+        val vm = main()
+        val notes = (1..250).map { shared("Note $it.txt") }
+        share(vm, shared("one.pdf", "alpha.pdf"), *notes.toTypedArray())
+        val named = strings.getQuantityString(R.plurals.names_and_more, 247, "Note 1.txt, Note 2.txt, Note 3.txt", 247)
+        val message = next(vm.messages)
+        assertEquals(strings.getQuantityString(R.plurals.share_unsupported, 250, 250, named), message)
+        assertTrue(message, "250" in message && "247" in message && message.length < 200)
+    }
+
     @Test fun theKindMostOfTheFilesAreIsTaken() {
         val vm = main()
         share(vm, shared("a.docx", "report.docx"), shared("alpha.pdf", "alpha.pdf"), shared("b.docx", "report.docx"))

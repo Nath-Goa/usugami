@@ -6,6 +6,9 @@ import java.util.Locale
 object FileNames {
     private const val MAX_UTF8_BYTES = 200 // leaves room for " (99).pdf" within the usual 255-byte limit
     private const val MAX_PAGES_TEXT = 40
+
+    /** How many names a message lists before it counts the rest (see [listed]). */
+    const val LISTED = 3
     private val ILLEGAL = Regex("[\\\\/:*?\"<>|\\p{Cntrl}]")
 
     /**
@@ -77,6 +80,14 @@ object FileNames {
         }
         return start.toString() + end
     }
+
+    /**
+     * The names a message about the files [names] lists, and how many more it only counts: all of
+     * them when there are few, else the first [LISTED], so a message about hundreds of files stays
+     * short. One name more is listed rather than counted as one more.
+     */
+    fun listed(names: List<String>): Pair<List<String>, Int> =
+        if (names.size <= LISTED + 1) names to 0 else names.take(LISTED) to names.size - LISTED
 
     /** The original file name without its extension, e.g. "IMG_1234.jpg" -> "IMG_1234". */
     fun baseName(fileName: String): String {

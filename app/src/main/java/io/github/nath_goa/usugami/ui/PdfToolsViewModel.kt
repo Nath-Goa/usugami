@@ -637,7 +637,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun sayOf(said: List<Pair<String, Said>>) {
         for (group in said.groupBy { it.second.many }.values) {
             val text = if (group.size == 1) group[0].second.one else group[0].second.many
-            message(strings.getString(R.string.file_problem, group.joinToString(", ") { it.first }, text))
+            message(strings.getString(R.string.file_problem, strings.listOfNames(group.map { it.first }), text))
         }
     }
 
@@ -1030,7 +1030,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val names = HashMap<File, String>()
         processEach("Compressed_PDFs", list.map { it.name }, list, afterResult = { files ->
             val notSmaller = files.filter { !it.keptOriginal && !madeSmaller(it) }.mapNotNull { names[it.file] }
-            if (notSmaller.isNotEmpty()) message(strings.getQuantityString(R.plurals.batch_not_smaller, notSmaller.size, notSmaller.size, notSmaller.joinToString(", ")))
+            if (notSmaller.isNotEmpty()) message(strings.getQuantityString(R.plurals.batch_not_smaller, notSmaller.size, notSmaller.size, strings.listOfNames(notSmaller)))
         }) { check, onNext ->
             engine.compressEach(jobs, check, onNext).also { outcomes ->
                 for ((i, outcome) in outcomes.withIndex()) outcome.getOrNull()?.let { names[it.file] = list[i].name }
@@ -1642,7 +1642,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
         sayOf(reasons)
         fun named(@PluralsRes res: Int, names: List<String>) {
-            if (names.isNotEmpty()) message(strings.getQuantityString(res, names.size, names.size, names.joinToString(", ")))
+            if (names.isNotEmpty()) message(strings.getQuantityString(res, names.size, names.size, strings.listOfNames(names)))
         }
         named(R.plurals.batch_nothing_to_number, nothingToNumber)
         named(R.plurals.batch_nothing_to_flatten, nothingToFlatten)
