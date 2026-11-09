@@ -6,6 +6,7 @@ import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
+import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -161,9 +162,23 @@ internal object Flattening {
         return { if (before == null) cos.removeItem(COSName.V) else cos.setItem(COSName.V, before) }
     }
 
-    /** The text [field]'s list shows for its value [value]: the text its choices pair with it (/Opt), or itself. */
-    internal fun shownChoice(field: PDChoice, value: String): String =
-        field.optionsDisplayValues.getOrNull(field.optionsExportValues.indexOf(value)) ?: value
+    /**
+     * The text [field]'s list shows for its value [value]: the text its choices pair with it (/Opt),
+     * or itself. Each choice is read as a whole: PDFBox's lists of values and of texts leave out
+     * different choices (a text kept elsewhere in the file, a pair with no text), so they don't line
+     * up, and the same place in them can be another choice's text.
+     */
+    internal fun shownChoice(field: PDChoice, value: String): String {
+        val choices = field.cosObject.getDictionaryObject(COSName.OPT) as? COSArray ?: return value
+        fun COSArray.text(index: Int) = if (index < size()) (getObject(index) as? COSString)?.string else null
+        for (i in 0 until choices.size()) {
+            when (val choice = choices.getObject(i)) {
+                is COSString -> if (choice.string == value) return value
+                is COSArray -> if (choice.text(0) == value) return choice.text(1) ?: value
+            }
+        }
+        return value
+    }
 
     private fun hasValue(field: PDTerminalField) = when (field) {
         is PDTextField -> field.value.isNotEmpty()

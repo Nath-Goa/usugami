@@ -15,6 +15,7 @@ import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -35,6 +36,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOut
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDComboBox
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import io.github.nath_goa.usugami.data.Flattening
 import io.github.nath_goa.usugami.data.NothingToFlatten
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
@@ -760,7 +762,7 @@ class PageToolsDeviceTest {
         }
     }
 
-    /** A drop-down list whose choices pair a code with a name shows the name, as viewers do, not the code it keeps. */
+    /** A drop-down list whose choices pair a code with a name shows the name, as viewers do, not the code it keeps or another choice's name. */
     @Test fun aDropDownShowsTheNameOfItsChoice() {
         val file = made("country_form.pdf")
         PDDocument().use { doc ->
@@ -772,6 +774,12 @@ class PageToolsDeviceTest {
                 partialName = "country"
                 defaultAppearance = "/Helv 12 Tf 0 g"
                 cosObject.setItem(COSName.OPT, COSArray().apply {
+                    // A name kept elsewhere in the file, and a choice with no name, before the one chosen.
+                    add(COSArray().apply {
+                        add(COSString("code-at"))
+                        add(COSObject(COSString("Austria")))
+                    })
+                    add(COSArray().apply { add(COSString("code-be")) })
                     for ((code, name) in listOf("code-pt" to "Portugal", "code-es" to "Spain")) add(COSArray().apply {
                         add(COSString(code))
                         add(COSString(name))
@@ -779,6 +787,9 @@ class PageToolsDeviceTest {
                 })
                 cosObject.setString(COSName.V, "code-pt")
             }
+            // Saving writes the name kept elsewhere into the list itself, so that one is checked here.
+            assertEquals("Austria", Flattening.shownChoice(country, "code-at"))
+            assertEquals("code-be", Flattening.shownChoice(country, "code-be"))
             val widget = country.widgets.single().apply {
                 rectangle = PDRectangle(72f, 600f, 200f, 24f)
                 this.page = page
@@ -790,7 +801,7 @@ class PageToolsDeviceTest {
         }
         val flat = save(engine.flatten(import(file), "country_flattened").file.file, "country_flattened.pdf")
         val content = text(flat)
-        assertTrue("The choice's name is part of the page: $content", content.contains("Portugal") && !content.contains("code-pt"))
+        assertTrue("The choice's name is part of the page: $content", content.contains("Portugal") && !content.contains("code-pt") && !content.contains("Spain"))
     }
 
     /**
