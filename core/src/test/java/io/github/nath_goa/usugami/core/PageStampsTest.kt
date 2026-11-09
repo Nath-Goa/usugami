@@ -99,9 +99,9 @@ class PageStampsTest {
     @Test fun numbersSitInsideTheMargin() {
         // A4: the margin is half an inch.
         assertEquals(35.7f, PageNumbers.margin(595f, 842f), 0.01f)
-        assertEquals(36f, PageNumbers.margin(842f, 1190f), 0.01f)
-        // A small page gets a smaller margin.
+        // A small page gets a smaller margin, a large one a larger.
         assertEquals(12f, PageNumbers.margin(200f, 300f), 0.01f)
+        assertEquals(50.52f, PageNumbers.margin(842f, 1190f), 0.01f)
 
         val (w, h) = 600f to 800f // margin 36
         assertPoint(36f to 36f, PageNumbers.origin(PageNumberPosition.BOTTOM_LEFT, w, h, 20f, 10f))
@@ -110,6 +110,25 @@ class PageStampsTest {
         assertPoint(36f to 754f, PageNumbers.origin(PageNumberPosition.TOP_LEFT, w, h, 20f, 10f))
         assertPoint(290f to 754f, PageNumbers.origin(PageNumberPosition.TOP_CENTER, w, h, 20f, 10f))
         assertPoint(544f to 754f, PageNumbers.origin(PageNumberPosition.TOP_RIGHT, w, h, 20f, 10f))
+    }
+
+    @Test fun numbersScaleWithThePage() {
+        // A4 and Letter, either way round, look as before: 9, 12 and 16 points, half an inch in.
+        for ((width, height) in listOf(595f to 842f, 842f to 595f, 612f to 792f)) {
+            for (size in PageNumberSize.entries) {
+                assertEquals("$size on $width x $height", size.points, PageNumbers.fontSize(size, width, height), size.points * 0.03f)
+            }
+            assertEquals(36f, PageNumbers.margin(width, height), 36f * 0.03f)
+        }
+        // A 20-point label: the number and its margin are as small beside it, not over the whole label.
+        val label = PageNumbers.fontSize(PageNumberSize.MEDIUM, 20f, 30f)
+        assertEquals(0.4f, label, 0.001f)
+        assertEquals(1.2f, PageNumbers.margin(20f, 30f), 0.001f)
+        // A 200-inch poster, the largest page a PDF has: as large beside it.
+        assertEquals(288f, PageNumbers.fontSize(PageNumberSize.MEDIUM, 14_400f, 14_400f), 0.01f)
+        assertEquals(864f, PageNumbers.margin(14_400f, 14_400f), 0.01f)
+        // A long strip is judged by its width, as it is read across.
+        assertEquals(PageNumbers.fontSize(PageNumberSize.SMALL, 300f, 300f), PageNumbers.fontSize(PageNumberSize.SMALL, 300f, 9000f), 0.001f)
     }
 
     @Test fun watermarkRunsAlongTheDiagonal() {

@@ -191,7 +191,9 @@ class PdfEditingDeviceTest {
                 // In the bottom-right corner of the page as shown, the margin away from the edges.
                 assertEquals("Page ${index + 1} x", shownWidth - margin, digit.x + digit.width, 1.5f)
                 assertEquals("Page ${index + 1} y", shownHeight - margin, digit.y, 1.5f)
-                assertEquals("Page ${index + 1} size", 12f, digit.fontSizeInPt, 0.5f)
+                // Scaled with the page as shown: as before on the A4 pages, smaller on the cropped one.
+                val fontSize = if (index == 2) 12f * (PDRectangle.A4.width - 200f) / 600f else 12f
+                assertEquals("Page ${index + 1} size", fontSize, digit.fontSize, 0.2f)
             }
         }
         // Rendered the same way: ink in the bottom-right corner, none in the skipped page's corners.

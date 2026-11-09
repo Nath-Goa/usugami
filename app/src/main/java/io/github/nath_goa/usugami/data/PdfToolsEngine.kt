@@ -505,7 +505,7 @@ class PdfToolsEngine(private val context: Context) {
 
     /**
      * Writes on each of [pages] (zero-based) its own page number, as text in Helvetica, at
-     * [position] on the page as it is shown.
+     * [position] on the page as it is shown, at [size] scaled with that page (see [PageNumbers.scale]).
      */
     fun addPageNumbers(
         input: PdfInput,
@@ -537,22 +537,23 @@ class PdfToolsEngine(private val context: Context) {
         if (pages.isEmpty()) throw NothingToNumber()
         val font = PDType1Font.HELVETICA
         // Digits are as tall as capitals.
-        val digitHeight = (font.fontDescriptor?.capHeight?.takeIf { it > 0 } ?: 718f) / 1000 * size.points
+        val digitHeight = (font.fontDescriptor?.capHeight?.takeIf { it > 0 } ?: 718f) / 1000
         for (index in pages) {
             check()
             require(index in 0 until doc.numberOfPages)
             val page = doc.getPage(index)
             val frame = page.frame()
+            val fontSize = PageNumbers.fontSize(size, frame.shownWidth, frame.shownHeight)
             val label = (index + 1).toString()
-            val width = font.getStringWidth(label) / 1000 * size.points
-            val (x, y) = PageNumbers.origin(position, frame.shownWidth, frame.shownHeight, width, digitHeight)
+            val width = font.getStringWidth(label) / 1000 * fontSize
+            val (x, y) = PageNumbers.origin(position, frame.shownWidth, frame.shownHeight, width, digitHeight * fontSize)
             // Added after the page's own drawing, which is wrapped in q/Q, so whatever state that
             // leaves behind can't move or recolour the number.
             PDPageContentStream(doc, page, PDPageContentStream.AppendMode.APPEND, true, true).use { content ->
                 content.transform(frame.toMatrix())
                 content.setNonStrokingColor(0f)
                 content.beginText()
-                content.setFont(font, size.points)
+                content.setFont(font, fontSize)
                 content.newLineAtOffset(x, y)
                 content.showText(label)
                 content.endText()

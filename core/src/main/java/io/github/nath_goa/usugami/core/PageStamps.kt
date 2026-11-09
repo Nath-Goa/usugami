@@ -56,7 +56,7 @@ enum class PageNumberPosition(val top: Boolean, val column: Int) {
     BOTTOM_LEFT(false, 0), BOTTOM_CENTER(false, 1), BOTTOM_RIGHT(false, 2),
 }
 
-/** Font size of page numbers, in points. */
+/** Font size of page numbers on A4 or Letter paper, in points; on other pages it scales (see [PageNumbers.fontSize]). */
 enum class PageNumberSize(val points: Float) { SMALL(9f), MEDIUM(12f), LARGE(16f) }
 
 object PageNumbers {
@@ -86,8 +86,27 @@ object PageNumbers {
         return pageCounts.map { count -> longest.filter { it < count } }
     }
 
-    /** Distance from the shown page's edges to the number: half an inch, less on small pages. */
-    fun margin(shownWidth: Float, shownHeight: Float): Float = min(36f, 0.06f * min(shownWidth, shownHeight))
+    /**
+     * The shorter side of the paper the sizes and margin are for, in points: about A4's and
+     * Letter's (595 and 612), which look as they did before numbers scaled with the page.
+     */
+    private const val PAPER_SIDE = 600f
+
+    /** The margin on that paper: half an inch. */
+    private const val PAPER_MARGIN = 36f
+
+    /**
+     * How much larger than on A4 or Letter paper a number and its margin are on a page shown
+     * [shownWidth] × [shownHeight] points: in proportion to its shorter side, so a number on a
+     * small label is as small beside it, and one on a poster as large.
+     */
+    fun scale(shownWidth: Float, shownHeight: Float): Float = min(shownWidth, shownHeight) / PAPER_SIDE
+
+    /** The number's font size on a page shown [shownWidth] × [shownHeight] points (see [scale]). */
+    fun fontSize(size: PageNumberSize, shownWidth: Float, shownHeight: Float): Float = size.points * scale(shownWidth, shownHeight)
+
+    /** Distance from the shown page's edges to the number: half an inch on A4 or Letter paper (see [scale]). */
+    fun margin(shownWidth: Float, shownHeight: Float): Float = PAPER_MARGIN * scale(shownWidth, shownHeight)
 
     /**
      * Where the number's baseline starts on the shown page. [textWidth] is the number's width and
