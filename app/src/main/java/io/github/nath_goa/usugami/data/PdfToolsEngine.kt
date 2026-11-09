@@ -1,5 +1,6 @@
 package io.github.nath_goa.usugami.data
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -123,7 +124,7 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     // The folder is created each time: the system may have cleared the cache since the last run.
-    private fun memory() = MemoryUsageSetting.setupMixed(24L * 1024 * 1024).setTempDir(scratchDir.apply { mkdirs() })
+    private fun memory() = pdfScratch(scratchDir.apply { mkdirs() })
 
     /** Deletes the PDFs made before, but [keep]: a result showing again after Android restarted Usugami. */
     fun clearOutput(keep: Collection<File> = emptyList()) { outputDir.deleteAllBut(keep, context) }
@@ -1099,3 +1100,19 @@ class PdfToolsEngine(private val context: Context) {
 
 /** The page as a viewer shows it: its crop box, turned by its rotation. */
 internal fun PDPage.frame(): PageFrame = cropBox.let { box -> PageFrame(box.lowerLeftX, box.lowerLeftY, box.width, box.height, rotation) }
+
+/**
+ * PDFBox's room to work on one document: memory first, then files in [dir], up to all but a reserve of
+ * the storage free now. A small stream in a PDF can inflate to many gigabytes, which would otherwise
+ * fill the phone, failing other apps' writes until PDFBox gives up; past the limit it fails as full
+ * storage does (see isOutOfSpace), leaving the reserve free. The storage free now is what counts, not
+ * what Android could free by clearing caches: it clears them only for space asked for ahead.
+ */
+@SuppressLint("UsableSpace")
+internal fun pdfScratch(dir: File): MemoryUsageSetting =
+    MemoryUsageSetting.setupMixed(SCRATCH_MEMORY, maxOf(SCRATCH_MEMORY, dir.usableSpace - SCRATCH_RESERVE)).setTempDir(dir)
+
+private const val SCRATCH_MEMORY = 24L * 1024 * 1024
+
+/** Left free for the phone and its other apps to go on working; Android warns of low storage at about twice this. */
+private const val SCRATCH_RESERVE = 256L * 1024 * 1024

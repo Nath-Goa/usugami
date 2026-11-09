@@ -14,7 +14,6 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.annotation.VisibleForTesting
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
-import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType0Font
@@ -213,7 +212,7 @@ class PdfOcr(private val context: Context) {
 
     private suspend fun writeTextLayer(original: File, lines: List<Line>, target: File) {
         val scratchDir = File(context.cacheDir, "pdfbox").apply { mkdirs() }
-        PDDocument.load(original, "", MemoryUsageSetting.setupMixed(24L * 1024 * 1024).setTempDir(scratchDir)).use { doc ->
+        PDDocument.load(original, "", pdfScratch(scratchDir)).use { doc ->
             // One glyph-less font covers Latin and Devanagari, so Hindi mode keeps English words too.
             // The text layer is invisible; see tools/make_ocr_font.py.
             val font = context.assets.open(OCR_FONT).use { PDType0Font.load(doc, it) }
