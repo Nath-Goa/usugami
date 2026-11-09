@@ -180,6 +180,10 @@ class PageMarkDeviceTest {
         val marked = file.readBytes()
         assertFalse(marks.apply(file, style))
         assertArrayEquals(marked, file.readBytes())
+        // The result screen's picture of the first page is drawn from a copy of it without the mark.
+        val first = File(dir, "first.pdf")
+        assertTrue(marks.firstPageUnmarked(file, first))
+        assertArrayEquals(before[0].first, pages(first).single().first)
 
         // At its largest, the word starts on the middle of each page as shown; once, fully opaque.
         val largest = MarkStyle(size = 100, opacity = 100)
@@ -205,6 +209,7 @@ class PageMarkDeviceTest {
             assertFalse(PDFTextStripper().getText(doc).contains(MarkLayout.TEXT))
         }
         assertFalse(marks.apply(file, null))
+        assertFalse(marks.firstPageUnmarked(file, File(dir, "unmarked.pdf")))
     }
 
     /** A page turned since it was marked, as Rotate PDF turns one, has the mark put back in its corner. */

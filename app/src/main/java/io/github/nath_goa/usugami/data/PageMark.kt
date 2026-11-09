@@ -85,6 +85,31 @@ class PageMark(context: Context) {
         }
     }
 
+    /**
+     * Writes [file]'s first page to [target] without Usugami's mark, as it was made, for a picture of
+     * it. Returns false, writing nothing, when the page has no mark: [file] shows it as it was made.
+     */
+    fun firstPageUnmarked(file: File, target: File): Boolean {
+        PDDocument.load(file, "", memory()).use { doc ->
+            val first = doc.getPage(0)
+            if (!unmark(first.cosObject)) return false
+            PDDocument(memory()).use { one ->
+                // The page as it shows, alone: nothing that leads to the other pages comes along.
+                one.addPage(
+                    PDPage(first.mediaBox).apply {
+                        cropBox = first.cropBox
+                        rotation = first.rotation
+                        resources = first.resources
+                        first.cosObject.getItem(COSName.CONTENTS)?.let { cosObject.setItem(COSName.CONTENTS, it) }
+                        first.cosObject.getItem(COSName.GROUP)?.let { cosObject.setItem(COSName.GROUP, it) }
+                    },
+                )
+                one.save(target)
+            }
+        }
+        return true
+    }
+
     private fun memory() = pdfScratch(scratchDir.apply { mkdirs() })
 
     /**
