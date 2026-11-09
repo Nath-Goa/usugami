@@ -1220,7 +1220,9 @@ internal class DocxConverter(
      * The tab stops that put a one-line paragraph's [text], starting [start] units in, where Word's
      * right and centre stops put it, as plain left stops (Android's lines have only those): a header's
      * page number against the margin, say. Null when the paragraph has none of those stops, or more
-     * than a line that ends by [end].
+     * than a line that ends by [end]. Android measures stops from where a line's text starts, so for a
+     * first line starting past the left indent (indented, or after a list label) they're given that
+     * much nearer.
      */
     private fun alignedTabs(text: CharSequence, props: ParaProps, start: Float, end: Float, style: TextStyle): List<Float>? {
         val stops = props.tabs?.takeIf { it.aligned.isNotEmpty() } ?: return null
@@ -1235,7 +1237,9 @@ internal class DocxConverter(
             from = i + 1
         }
         val positions = stops.positions(start, widths, 36f.units, 1f.units)
-        return positions.takeIf { it.last() + widths.last() <= end + 1f }
+        if (positions.last() + widths.last() > end + 1f) return null
+        val shift = max(0f, start - (props.left ?: 0f).units)
+        return positions.map { it - shift }
     }
 
     /** [t] laid out in [available] units, on [behind] (the shading under it, if any). */

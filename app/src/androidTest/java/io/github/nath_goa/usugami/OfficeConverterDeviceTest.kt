@@ -607,16 +607,19 @@ class OfficeConverterDeviceTest {
     }
 
     @Test fun wordRightAndCentreTabStopsPlaceTheTextAfterThem() {
-        // Word's Header style: a centre stop in the middle of the text and a right stop at its right margin.
+        // Word's Header style: a centre stop in the middle of the text and a right stop at its right
+        // margin. Stops count from the margin, so a first line indented as in many styles changes nothing.
         val tabs = """<w:tabs><w:tab w:val="center" w:pos="4680"/><w:tab w:val="right" w:pos="9360"/></w:tabs>"""
-        val header = """<w:p><w:pPr>$tabs</w:pPr><w:r><w:t>Report</w:t><w:tab/><w:t>Middle</w:t><w:tab/><w:t xml:space="preserve">Page 1</w:t></w:r></w:p>"""
-        val pdf = convert(wordDocument(header, "tabs.docx"), OfficeKind.WORD, "word-tab-stops")
-        val all = glyphs(pdf, 1)
-        assertEquals("All on one line", 1, all.map { it.yDirAdj.toInt() }.distinct().size)
-        val at = all.joinToString("") { it.unicode }.indexOf("Middle")
-        val middle = all.subList(at, at + 6)
-        near(72f + 234f, (middle.first().xDirAdj + middle.last().xDirAdj + middle.last().widthDirAdj) / 2, 2f)
-        near(72f + 468f, all.last().xDirAdj + all.last().widthDirAdj, 2f)
+        for (indent in listOf("", """<w:ind w:firstLine="720"/>""")) {
+            val header = """<w:p><w:pPr>$tabs$indent</w:pPr><w:r><w:t>Report</w:t><w:tab/><w:t>Middle</w:t><w:tab/><w:t xml:space="preserve">Page 1</w:t></w:r></w:p>"""
+            val pdf = convert(wordDocument(header, "tabs.docx"), OfficeKind.WORD, "word-tab-stops")
+            val all = glyphs(pdf, 1)
+            assertEquals("All on one line", 1, all.map { it.yDirAdj.toInt() }.distinct().size)
+            val at = all.joinToString("") { it.unicode }.indexOf("Middle")
+            val middle = all.subList(at, at + 6)
+            near(72f + 234f, (middle.first().xDirAdj + middle.last().xDirAdj + middle.last().widthDirAdj) / 2, 2f)
+            near(72f + 468f, all.last().xDirAdj + all.last().widthDirAdj, 2f)
+        }
     }
 
     @Test fun wordPageNumbersInTheTextAreTheirOwnPages() {
