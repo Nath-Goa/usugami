@@ -107,15 +107,16 @@ internal class ResultMarker(
     /**
      * Puts the mark on [files], PDFs just made, if it is on, before they show, keeping their first page
      * as it was made for the preview first. Blocking: call it in the run's background work, which
-     * [check] stops. Returns them, each with the mark it carries; one that can't be marked is left as it
-     * is, and [failed] is called. They are made without the mark (the tools take it off the PDFs they
-     * read, in memory), so with it off there is nothing to do.
+     * [check] stops; [onFile] is told which of them is being marked, of how many. Returns them, each
+     * with the mark it carries; one that can't be marked is left as it is, and [failed] is called. They
+     * are made without the mark (the tools take it off the PDFs they read, in memory), so with it off
+     * there is nothing to do.
      */
-    fun markMade(files: List<PdfFile>, check: () -> Unit): List<PdfFile> {
+    fun markMade(files: List<PdfFile>, check: () -> Unit, onFile: (index: Int, count: Int) -> Unit = { _, _ -> }): List<PdfFile> {
         uncertain = false
         _preview.value = files.firstOrNull()?.let { render(it) }
         val wanted = setting.value.wanted ?: return files
-        val (marked, failures) = bringTo(files, wanted, verify = true, check)
+        val (marked, failures) = bringTo(files, wanted, verify = true, check, onFile)
         if (failures.isNotEmpty()) failed()
         return marked
     }
@@ -167,7 +168,7 @@ internal class ResultMarker(
     private suspend fun change(files: List<PdfFile>, wanted: MarkStyle?, verify: Boolean, job: Job) = withContext(io) {
         job.ensureActive()
         started = true
-        bringTo(files, wanted, verify) { job.ensureActive() }.also { (marked, _) ->
+        bringTo(files, wanted, verify, { job.ensureActive() }).also { (marked, _) ->
             // A result shown again whose first page couldn't be drawn yet: as it was made.
             val first = marked.firstOrNull()
             if (first != null && _preview.value?.page == null) _preview.value = render(first, asMade = true)
@@ -176,15 +177,22 @@ internal class ResultMarker(
 
     /**
      * Brings each of [files] to carry [wanted]: those that say they carry another, or each one when
-     * [verify]. Returns them, those that changed in new objects that say so, and the files that couldn't
-     * be changed (each left as it was).
+     * [verify], telling [onFile] of each. Returns them, those that changed in new objects that say so,
+     * and the files that couldn't be changed (each left as it was).
      */
-    private fun bringTo(files: List<PdfFile>, wanted: MarkStyle?, verify: Boolean, check: () -> Unit): Pair<List<PdfFile>, Set<File>> {
+    private fun bringTo(
+        files: List<PdfFile>,
+        wanted: MarkStyle?,
+        verify: Boolean,
+        check: () -> Unit,
+        onFile: (index: Int, count: Int) -> Unit = { _, _ -> },
+    ): Pair<List<PdfFile>, Set<File>> {
         val failures = HashSet<File>()
-        val marked = files.map { file ->
+        val marked = files.mapIndexed { index, file ->
             check()
             // A PDF gone from the cache is said to be when the result is next used.
-            if (!file.file.isFile || (!verify && file.mark == wanted)) return@map file
+            if (!file.file.isFile || (!verify && file.mark == wanted)) return@mapIndexed file
+            onFile(index, files.size)
             try {
                 if (marks.apply(file.file, wanted, check) || file.mark != wanted) file.copy(mark = wanted) else file
             } catch (e: CancellationException) {

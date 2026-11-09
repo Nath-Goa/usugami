@@ -631,6 +631,7 @@
     <string name="mark_percent">%1$d%%</string>
     <string name="mark_preview_description">Usugami वॉटरमार्क के साथ पेज 1</string>
     <string name="mark_working">वॉटरमार्क अपडेट किया जा रहा है…</string>
+    <string name="mark_adding">Usugami वॉटरमार्क जोड़ा जा रहा है…</string>
     <string name="mark_failed">Usugami वॉटरमार्क बदला नहीं जा सका। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
 
     <!-- Dialogs -->

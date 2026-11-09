@@ -652,6 +652,7 @@
     <string name="mark_percent">%1$d %%</string>
     <string name="mark_preview_description">Página 1 con la marca de agua de Usugami</string>
     <string name="mark_working">Actualizando la marca de agua…</string>
+    <string name="mark_adding">Añadiendo la marca de agua de Usugami…</string>
     <string name="mark_failed">No se pudo cambiar la marca de agua de Usugami. Comprueba que haya suficiente almacenamiento libre.</string>
 
     <!-- Dialogs -->

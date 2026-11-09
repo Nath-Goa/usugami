@@ -683,6 +683,8 @@
     <string name="mark_percent">%1$d%%</string>
     <string name="mark_preview_description">Page 1 with the Usugami watermark</string>
     <string name="mark_working">Updating the watermark…</string>
+    <!-- Over the progress bar once the PDFs are made, while the watermark goes on them. -->
+    <string name="mark_adding">Adding the Usugami watermark…</string>
     <string name="mark_failed">Couldn\'t change the Usugami watermark. Check that there is enough free storage.</string>
 
     <!-- Dialogs -->

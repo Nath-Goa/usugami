@@ -652,6 +652,7 @@
     <string name="mark_percent">%1$d %%</string>
     <string name="mark_preview_description">Page 1 avec le filigrane Usugami</string>
     <string name="mark_working">Mise à jour du filigrane…</string>
+    <string name="mark_adding">Ajout du filigrane Usugami…</string>
     <string name="mark_failed">Impossible de modifier le filigrane Usugami. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
 
     <!-- Dialogs -->

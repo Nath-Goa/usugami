@@ -308,6 +308,7 @@ fun ProgressDialog(progress: Progress, cancelling: Boolean, onCancel: () -> Unit
                         Progress.Stage.CREATE -> R.string.creating_pdf
                         Progress.Stage.READ_TEXT -> R.string.ocr_reading
                         Progress.Stage.ADD_TEXT -> R.string.ocr_adding_text
+                        Progress.Stage.ADD_MARK -> R.string.mark_adding
                     },
                 ),
             )
@@ -333,6 +334,8 @@ fun ProgressDialog(progress: Progress, cancelling: Boolean, onCancel: () -> Unit
                     Progress.Stage.READ_TEXT ->
                         Text(pluralStringResource(R.plurals.progress_pages, progress.total, progress.done, progress.total))
                     Progress.Stage.ADD_TEXT -> Unit
+                    Progress.Stage.ADD_MARK ->
+                        if (progress.total > 0) Text(stringResource(R.string.batch_progress, progress.done + 1, progress.total))
                 }
             }
         },

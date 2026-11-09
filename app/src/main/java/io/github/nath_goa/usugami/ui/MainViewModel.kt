@@ -89,7 +89,7 @@ enum class SortMode { NAME_ASC, NAME_DESC, REVERSE }
 
 /** [done] of [total] steps of [stage]; a [total] of 0 means the amount isn't known yet. */
 data class Progress(val done: Int, val total: Int, val stage: Stage = Stage.CREATE) {
-    enum class Stage { DOWNLOAD_OCR, CREATE, READ_TEXT, ADD_TEXT }
+    enum class Stage { DOWNLOAD_OCR, CREATE, READ_TEXT, ADD_TEXT, ADD_MARK }
 }
 
 /** What the user chose in the Convert sheet. [ocrLanguage] is null when OCR is off. */
@@ -1302,7 +1302,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     made = files
                     val read = if (engine == null || language == null) files else addTextLayer(files, engine, language).also { made = it }
                     val job = coroutineContext.job
-                    marker.markMade(read) { job.ensureActive() }
+                    marker.markMade(read, { job.ensureActive() }) { index, count ->
+                        // Which PDF, when there are several.
+                        _progress.value = if (count > 1) Progress(index, count, Progress.Stage.ADD_MARK) else Progress(0, 0, Progress.Stage.ADD_MARK)
+                    }
                 }
                 _saved.value = false
                 resultPutAway = false

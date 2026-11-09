@@ -174,6 +174,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val _batchProgress = MutableStateFlow<BatchProgress?>(null)
     val batchProgress = _batchProgress.asStateFlow()
 
+    /** Which of the PDFs just made is getting the Usugami mark, of how many, once a run puts it on them. */
+    private val _markProgress = MutableStateFlow<BatchProgress?>(null)
+    val markProgress = _markProgress.asStateFlow()
+
     /**
      * Redact PDF's boxes, on the pages as shown (see [RedactBox]), the page showing and the box
      * chosen (an index into the boxes, or -1). They survive process death in the saved state.
@@ -1684,7 +1688,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 val files = withContext(fileOps) {
                     val made = block { job.ensureActive() }
                     try {
-                        marker.markMade(made) { job.ensureActive() }
+                        marker.markMade(made, { job.ensureActive() }) { index, count -> _markProgress.value = BatchProgress(index + 1, count, made[index].name) }
                     } catch (e: CancellationException) {
                         // Cancelled meanwhile, they aren't the result: they go, as the engine's own do.
                         made.forEach { it.file.delete() }
@@ -1738,6 +1742,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         _processing.value = false
         _convertProgress.value = null
         _batchProgress.value = null
+        _markProgress.value = null
         task = null
         handle.remove<Boolean>(KEY_MAKING)
     }
