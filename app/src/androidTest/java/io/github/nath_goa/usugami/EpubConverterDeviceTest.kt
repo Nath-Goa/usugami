@@ -496,6 +496,12 @@ class EpubConverterDeviceTest {
         assertEquals(22f, entry("After").before, 0.01f)
     }
 
+    @Test fun lineBreaksBetweenJapaneseCharactersNextToInlineElementsLeaveNoSpace() {
+        // A book's lines broken where an element starts or ends; a break before Latin letters is still a space.
+        val entries = read("<p>門の下で<em>雨やみ</em>\nを待って<span>い\n</span>\n<a>た</a>\nJapan</p>")
+        assertEquals(listOf("門の下で雨やみを待っていた Japan"), texts(entries))
+    }
+
     @Test fun listsHaveSpaceAroundThemUnlessInAList() {
         val entries = read("""<p>Before</p><ul><li>Item<ul><li>Inner</li></ul></li></ul><p>After</p>""", css = "p { margin: 0 }")
         fun before(text: String) = entries.single { (it.item as? BookPara)?.text?.toString() == text }.before

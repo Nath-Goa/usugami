@@ -145,6 +145,9 @@ internal class XhtmlReader(
     private var paraContinued = false
     private var afterSpace = true
 
+    /** Where the paragraph ends in a space made of a line break after a Chinese or Japanese character; -1 when it doesn't. */
+    private var wideBreakAt = -1
+
     /** Space before the next item, the largest of the margins met since the last one (as CSS collapses them). */
     private var space = 0f
     private val pendingIds = ArrayList<String>()
@@ -390,8 +393,15 @@ internal class XhtmlReader(
     }
 
     private fun appendText(raw: String, inherited: Inherited) {
+        val sofar = para?.text
+        val before = if (sofar.isNullOrEmpty()) 0 else Character.codePointBefore(sofar, sofar.length)
+        val text = HtmlText.collapse(raw, afterSpace || para == null, before)
+        if (text.isEmpty()) return
+        // A line break that ended the text before, in another element, goes too between Chinese or Japanese characters.
+        if (sofar != null && wideBreakAt == sofar.length - 1 && HtmlText.isWide(text.codePointAt(0))) sofar.delete(wideBreakAt, sofar.length)
         // A paragraph as long as a few pages goes on as a new one, after a space: laying out a huge one is slow.
-        append(HtmlText.collapse(raw, afterSpace || para == null), ' ', inherited)
+        append(text, ' ', inherited)
+        wideBreakAt = if (HtmlText.endsInWideBreak(raw, before)) para?.text?.length?.minus(1) ?: -1 else -1
     }
 
     /**
@@ -423,6 +433,7 @@ internal class XhtmlReader(
     private fun flushPara(continued: Boolean = false) {
         val rich = para ?: return
         para = null
+        wideBreakAt = -1
         val text = rich.text
         var end = text.length
         while (end > 0 && text[end - 1].let { it == ' ' || it == '\n' }) end--

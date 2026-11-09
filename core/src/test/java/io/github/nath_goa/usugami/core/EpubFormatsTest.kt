@@ -85,6 +85,13 @@ class EpubFormatsTest {
         assertEquals("鴉 は", HtmlText.collapse("鴉 は", afterSpace = false))
         assertEquals("日本 Japan", HtmlText.collapse("日本\nJapan", afterSpace = false))
         assertEquals("한국어 문장", HtmlText.collapse("한국어\n문장", afterSpace = false))
+        // Next to an element: a break at the start of its text after such a character, and one at its end.
+        assertEquals("を待って", HtmlText.collapse("\nを待って", afterSpace = false, before = 'み'.code))
+        assertEquals(" Japan", HtmlText.collapse("\nJapan", afterSpace = false, before = 'み'.code))
+        assertTrue(HtmlText.endsInWideBreak("雨やみ\n", before = 0))
+        assertTrue(HtmlText.endsInWideBreak(" \n ", before = 'み'.code))
+        assertFalse(HtmlText.endsInWideBreak("Japan\n", before = 'み'.code))
+        assertFalse(HtmlText.endsInWideBreak("雨やみ ", before = 0))
     }
 
     @Test fun readsViewportsAndListStyles() {

@@ -170,9 +170,10 @@ object HtmlText {
      * [text] with each run of white space as one space, and leading white space dropped when the
      * text so far ends in a space ([afterSpace]). No-break spaces stay. A line break between two
      * Chinese or Japanese characters goes, as CSS has it: those languages don't put spaces between
-     * words, and their books often break a paragraph's lines in the file.
+     * words, and their books often break a paragraph's lines in the file. [before] is the character
+     * the text so far ends in (0 for none), for a break at the start of [text], as after an end tag.
      */
-    fun collapse(text: String, afterSpace: Boolean): String {
+    fun collapse(text: String, afterSpace: Boolean, before: Int = 0): String {
         val out = StringBuilder(text.length)
         var space = afterSpace
         var i = 0
@@ -188,7 +189,8 @@ object HtmlText {
                 if (text[i] == '\n' || text[i] == '\r') lineBreak = true
                 i++
             }
-            val joined = lineBreak && start > 0 && i < text.length && isWide(text.codePointBefore(start)) && isWide(text.codePointAt(i))
+            val previous = if (start > 0) text.codePointBefore(start) else before
+            val joined = lineBreak && i < text.length && isWide(previous) && isWide(text.codePointAt(i))
             if (!joined) {
                 if (!space) out.append(' ')
                 space = true
@@ -197,10 +199,25 @@ object HtmlText {
         return out.toString()
     }
 
+    /**
+     * Whether [text] ends in a line break after a Chinese or Japanese character ([before] when it's
+     * all white space). [collapse] can't see the text after it, so makes a space of it: one that
+     * goes if the text after it, in the next element, starts with such a character.
+     */
+    fun endsInWideBreak(text: String, before: Int): Boolean {
+        var i = text.length
+        var lineBreak = false
+        while (i > 0 && isSpace(text[i - 1])) {
+            if (text[i - 1] == '\n' || text[i - 1] == '\r') lineBreak = true
+            i--
+        }
+        return lineBreak && isWide(if (i > 0) text.codePointBefore(i) else before)
+    }
+
     private fun isSpace(c: Char) = c == ' ' || c == '\n' || c == '\t' || c == '\r' || c == '\u000C'
 
     /** Whether [code] is a wide Chinese or Japanese character or punctuation mark (Korean is written with spaces). */
-    private fun isWide(code: Int): Boolean {
+    fun isWide(code: Int): Boolean {
         val script = Character.UnicodeScript.of(code)
         if (script == Character.UnicodeScript.HANGUL) return false
         if (script == Character.UnicodeScript.HAN || script == Character.UnicodeScript.HIRAGANA ||
