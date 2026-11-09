@@ -625,6 +625,149 @@ class OfficeConverterDeviceTest {
         }
     }
 
+    /** A run referring to footnote (or endnote) [id], in Word's reference style. */
+    private fun noteRef(id: Int, endnote: Boolean = false) = if (endnote) {
+        """<w:r><w:rPr><w:rStyle w:val="EndnoteReference"/></w:rPr><w:endnoteReference w:id="$id"/></w:r>"""
+    } else {
+        """<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:id="$id"/></w:r>"""
+    }
+
+    /**
+     * A document of [body] with footnotes and endnotes as Word writes them: the separators, a
+     * continuation notice, and [footnotes] and [endnotes] (each a note's text, numbered by id from 2),
+     * in the note styles; [settings] goes in settings.xml.
+     */
+    private fun notesDocument(body: String, name: String, footnotes: List<String>, endnotes: List<String> = emptyList(), settings: String = ""): File {
+        fun notes(kind: String, texts: List<String>): String {
+            val style = if (kind == "footnote") "Footnote" else "Endnote"
+            val single = """<w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>"""
+            return """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:${kind}s xmlns:w="$W">
+                <w:$kind w:type="separator" w:id="-1"><w:p>$single<w:r><w:separator/></w:r></w:p></w:$kind>
+                <w:$kind w:type="continuationSeparator" w:id="0"><w:p>$single<w:r><w:continuationSeparator/></w:r></w:p></w:$kind>
+                <w:$kind w:type="continuationNotice" w:id="1"><w:p><w:r><w:t>Notice of more</w:t></w:r></w:p></w:$kind>""" +
+                texts.withIndex().joinToString("") { (i, text) ->
+                    """<w:$kind w:id="${i + 2}"><w:p><w:pPr><w:pStyle w:val="${style}Text"/></w:pPr><w:r><w:rPr><w:rStyle w:val="${style}Reference"/></w:rPr><w:${kind}Ref/></w:r>""" +
+                        """<w:r><w:t xml:space="preserve"> $text</w:t></w:r></w:p></w:$kind>"""
+                } + "</w:${kind}s>"
+        }
+        val noteStyles = listOf("Footnote", "Endnote").joinToString("") { kind ->
+            """<w:style w:type="paragraph" w:styleId="${kind}Text"><w:name w:val="${kind.lowercase()} text"/><w:basedOn w:val="Normal"/>
+                <w:pPr><w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr><w:rPr><w:sz w:val="20"/></w:rPr></w:style>
+                <w:style w:type="character" w:styleId="${kind}Reference"><w:name w:val="${kind.lowercase()} reference"/><w:rPr><w:vertAlign w:val="superscript"/></w:rPr></w:style>"""
+        }
+        val styles = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="$W">
+            <w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:sz w:val="22"/></w:rPr></w:rPrDefault>
+            <w:pPrDefault><w:pPr><w:spacing w:after="120"/></w:pPr></w:pPrDefault></w:docDefaults>
+            <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>$noteStyles</w:styles>"""
+        return wordDocument(
+            body, name,
+            rels = listOf("footnotes" to "footnotes.xml", "endnotes" to "endnotes.xml", "settings" to "settings.xml"),
+            parts = mapOf(
+                "word/styles.xml" to styles,
+                "word/footnotes.xml" to notes("footnote", footnotes),
+                "word/endnotes.xml" to notes("endnote", endnotes),
+                "word/settings.xml" to """<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings xmlns:w="$W">$settings</w:settings>""",
+            ),
+        )
+    }
+
+    /** The character just after the first place [word] is written on page [number] of [file]. */
+    private fun after(file: File, number: Int, word: String): TextPosition {
+        val all = glyphs(file, number)
+        val starts = IntArray(all.size)
+        val text = StringBuilder()
+        all.forEachIndexed { i, glyph ->
+            starts[i] = text.length
+            text.append(glyph.unicode)
+        }
+        val at = text.indexOf(word)
+        assertTrue("\"$word\" is on page $number", at >= 0)
+        return all[starts.indexOfFirst { it >= at + word.length }]
+    }
+
+    /** Where [word] first is on page [number] of [file]: its top, in points from the page's top. */
+    private fun top(file: File, number: Int, word: String): Float = word(file, number, word).let { it.yDirAdj - it.heightDir }
+
+    @Test fun wordFootnotesGoAtTheFootOfTheirPageAndEndnotesAtTheEnd() {
+        val filler = (1..30).joinToString("") { para("Filler line $it of the body.") }
+        val longNote = "A long note that goes on and on. ".repeat(60)
+        val body = """<w:p><w:r><w:t>Alpha</w:t></w:r>${noteRef(2)}<w:r><w:t xml:space="preserve"> and Charlie</w:t></w:r>${noteRef(2, endnote = true)}</w:p>""" +
+            filler + """<w:p><w:r><w:t>Bravo</w:t></w:r>${noteRef(3)}</w:p>""" + filler +
+            """<w:tbl><w:tblGrid><w:gridCol w:w="4000"/></w:tblGrid><w:tr><w:tc><w:p><w:r><w:t>Delta</w:t></w:r>${noteRef(4)}${noteRef(3, endnote = true)}</w:p></w:tc></w:tr></w:tbl>"""
+        val pdf = convert(
+            notesDocument(body, "notes.docx", listOf("First note.", longNote, "Table note."), listOf("First endnote.", "Second endnote.")),
+            OfficeKind.WORD, "word-notes",
+        )
+        val texts = pageTexts(pdf)
+        val all = texts.joinToString(" ")
+        // The special notes aren't notes; each note once, with its mark, at the foot of its reference's page.
+        assertFalse(all, "Notice of more" in all)
+        assertTrue(texts[0], Regex("""Alpha1 and Charlie""").containsMatchIn(texts[0]))
+        assertTrue(texts[0], Regex("""1 First note\.""").containsMatchIn(texts[0]))
+        assertTrue("A superscript mark", size(after(pdf, 1, "Alpha")) < size(word(pdf, 1, "Alpha")))
+        assertTrue("Under the text", top(pdf, 1, "First note") > top(pdf, 1, "Filler line 30"))
+        assertTrue("Above the bottom margin", word(pdf, 1, "First note").yDirAdj < 720f)
+        // The long note starts on its reference's page and goes on at the foot of the next.
+        assertTrue(texts[0], "Bravo2" in texts[0] && "2 A long note" in texts[0])
+        val goesOn = texts.indexOfFirst { "on and on" in it && "Bravo" !in it }
+        assertEquals(1, goesOn)
+        assertTrue("At the foot of the page", top(pdf, 2, "on and on") > top(pdf, 2, "Filler line"))
+        // Endnotes at the end of the document, numbered i, ii.
+        assertEquals(1, Regex("""First endnote""").findAll(all).count())
+        val end = texts.last()
+        assertTrue(all, "Delta3ii" in all && "3 Table note." in all)
+        assertTrue(end, Regex("""i First endnote\.\s*ii Second endnote\.""").containsMatchIn(end))
+        // A long note keeps two lines at least on its reference's page, as its paragraph's widow and orphan
+        // control says: with the reference lower and lower on the page, its line goes on to the next page
+        // rather than leave one line of its note.
+        val pageBreaks = """<w:p><w:r><w:br w:type="page"/></w:r></w:p>""".repeat(2)
+        val lower = (0..15).joinToString(pageBreaks) { i ->
+            filler + """<w:p><w:pPr><w:spacing w:before="${i * 80}"/></w:pPr><w:r><w:t>Bravo</w:t></w:r>${noteRef(2 + i)}</w:p>"""
+        }
+        val pdf2 = convert(notesDocument(lower, "lower.docx", List(16) { "A long note that goes on and on. ".repeat(30) }), OfficeKind.WORD, "word-long-notes")
+        val raw = PDDocument.load(pdf2).use { doc -> (1..doc.numberOfPages).map { n -> PDFTextStripper().apply { startPage = n; endPage = n }.getText(doc) } }
+        for (page in raw) {
+            val start = Regex("""(\d+) A long note""").find(page) ?: continue
+            assertTrue(page, Regex("""Bravo${start.groupValues[1]}\b""").containsMatchIn(page))
+            assertTrue(page, page.substring(start.range.first).trim().lines().size >= 2)
+        }
+    }
+
+    @Test fun wordNotesAreNumberedAndPlacedAsTheDocumentSays() {
+        // Footnotes a, b... again on each page, just under the text; endnotes *, †... at the end of each section.
+        val settings = """<w:footnotePr><w:pos w:val="beneathText"/><w:numFmt w:val="lowerLetter"/><w:numRestart w:val="eachPage"/></w:footnotePr>
+            <w:endnotePr><w:pos w:val="sectEnd"/><w:numFmt w:val="chicago"/></w:endnotePr>"""
+        fun line(text: String, vararg refs: String) = """<w:p><w:r><w:t>$text</w:t></w:r>${refs.joinToString("")}</w:p>"""
+        // A custom mark: the text after the reference, which takes no number.
+        val custom = """<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteReference w:customMarkFollows="1" w:id="5"/><w:t>#</w:t></w:r>"""
+        val body = line("One", noteRef(2), noteRef(2, endnote = true)) + line("Two", noteRef(3)) + """<w:p><w:r><w:br w:type="page"/></w:r></w:p>""" +
+            line("Three", noteRef(4)) + line("Custom", custom) + line("Four", noteRef(6)) + """<w:p><w:pPr><w:sectPr/></w:pPr></w:p>""" +
+            line("Five", noteRef(3, endnote = true)) + "<w:sectPr/>"
+        val pdf = convert(
+            notesDocument(body, "numbered.docx", listOf("Note A.", "Note B.", "Note C.", "Note D.", "Note E."), listOf("End one.", "End two."), settings),
+            OfficeKind.WORD, "word-numbered-notes",
+        )
+        val texts = pageTexts(pdf)
+        assertTrue(texts[0], "Onea*" in texts[0] && "Twob" in texts[0] && "a Note A." in texts[0] && "b Note B." in texts[0])
+        assertTrue("Just under the text", top(pdf, 1, "Note A") < 200f)
+        assertTrue(texts[1], "Threea" in texts[1] && "Custom#" in texts[1] && "Fourb" in texts[1])
+        assertTrue(texts[1], Regex("""a Note C\.\s*# Note D\.\s*b Note E\.""").containsMatchIn(texts[1]))
+        // The first section's endnote at its end, the second's at the end of the document.
+        assertTrue(texts[1], "* End one." in texts[1])
+        assertTrue(texts.last(), "Five†" in texts.last() && "† End two." in texts.last())
+        // Numbered again on each page, a reference whose line its note takes on to the next page is numbered
+        // there, and its note with it: the reference lower and lower on the page.
+        val filler = (1..30).joinToString("") { para("Filler line $it of the body.") }
+        val lower = (0..15).joinToString("""<w:p><w:r><w:br w:type="page"/></w:r></w:p>""") { i ->
+            line("Alpha", noteRef(2 + 2 * i)) + filler +
+                """<w:p><w:pPr><w:spacing w:before="${i * 80}"/></w:pPr><w:r><w:t>Bravo</w:t></w:r>${noteRef(3 + 2 * i)}</w:p>"""
+        }
+        val eachPage = """<w:footnotePr><w:numRestart w:val="eachPage"/></w:footnotePr>"""
+        val pages = pageTexts(convert(notesDocument(lower, "moved.docx", List(32) { if (it % 2 == 0) "Alpha note." else "Bravo note." }, settings = eachPage), OfficeKind.WORD, "word-moved-notes"))
+        assertTrue(pages.any { "Bravo1" in it })
+        for (page in pages) Regex("""Bravo(\d)""").findAll(page).forEach { assertTrue(page, Regex("""\b${it.groupValues[1]} Bravo note""").containsMatchIn(page)) }
+    }
+
     @Test fun wordPageNumbersInTheTextAreTheirOwnPages() {
         val field = """<w:fldSimple w:instr=" PAGE "><w:r><w:t>9</w:t></w:r></w:fldSimple>"""
         val body = """<w:p><w:r><w:t xml:space="preserve">Opening page </w:t></w:r>$field</w:p><w:p><w:pPr><w:sectPr/></w:pPr></w:p>""" +

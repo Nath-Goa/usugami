@@ -191,6 +191,13 @@ internal class RichText(private val behind: Int? = null) {
         style(start, text.length, style)
     }
 
+    /** [s] in [style], as the mark of the footnote or endnote [note] (see [NoteSpan]). */
+    fun appendMark(s: String, style: TextStyle, note: Any) {
+        val start = text.length
+        append(s, style)
+        if (text.length > start) text.setSpan(NoteSpan(note, text.substring(start)), start, text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+
     /** A picture (or any other object) drawn inline, as one character. */
     fun appendObject(span: ReplacementSpan, style: TextStyle) {
         val start = text.length
@@ -283,9 +290,21 @@ internal class ParagraphSpec(
     val readsRightToLeft: Boolean by lazy { rtl || directionFromText && TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(text, 0, text.length) }
 }
 
+/** The mark of footnote or endnote [note] in a paragraph's text: [mark], the text it covers. */
+internal class NoteSpan(val note: Any, val mark: String)
+
 /** Something laid out to a width, which can be drawn anywhere and split between pages. Units throughout. */
 internal interface Block {
     val height: Int
+
+    /** The notes referred to in this block, in order (see [NoteSpan]). */
+    val notes: List<NoteSpan> get() = emptyList()
+
+    /**
+     * How tall the least of this block that can go on a page is: its first lines, as many as its
+     * paragraph keeps together (see [ParagraphSpec.avoidSingleLines]).
+     */
+    val leastHeight: Int get() = height
 
     fun draw(canvas: Canvas, x: Float, y: Float)
 
@@ -325,6 +344,15 @@ internal class ParagraphBlock private constructor(
 
     /** How tall the first line is. */
     val firstLineHeight: Int get() = if (lines > 0) layout.getLineBottom(0) else 0
+
+    override val leastHeight: Int get() {
+        val bottoms = IntArray(lines) { layout.getLineBottom(it) }
+        return bottoms.firstOrNull { PageBreaking.linesThatFit(bottoms, it, spec.avoidSingleLines, false, keepFirst = !afterPiece, keepLast = !beforePiece) > 0 } ?: height
+    }
+
+    override val notes: List<NoteSpan> by lazy {
+        (text as? Spanned)?.let { t -> t.getSpans(0, t.length, NoteSpan::class.java).sortedBy(t::getSpanStart) }.orEmpty()
+    }
 
     /** The widest line, in units: for text that isn't wrapped. */
     val contentWidth: Float get() = (0 until lines).maxOfOrNull { layout.getLineWidth(it) } ?: 0f
@@ -751,6 +779,8 @@ internal class PictureSpan(private val picture: Picture, val width: Int, private
 /** Blocks one under another, with space between them: a table cell's content, for one. */
 internal class StackBlock(private val items: List<Spaced>) : Block {
     override val height: Int = items.sumOf { it.before + it.block.height + it.after }
+    override val notes: List<NoteSpan> by lazy { items.flatMap { it.block.notes } }
+    override val leastHeight: Int get() = items.firstOrNull()?.let { it.before + it.block.leastHeight } ?: 0
 
     override fun draw(canvas: Canvas, x: Float, y: Float) {
         var top = y

@@ -92,6 +92,14 @@ class OfficeFormatsTest {
         assertEquals("%5", ListNumbering.wordLabel("%5", intArrayOf(1), formats))
     }
 
+    @Test fun marksFootnotesAndEndnotes() {
+        assertEquals("3", ListNumbering.noteMark(3, null, ListNumbering.Format.DECIMAL))
+        assertEquals("iv", ListNumbering.noteMark(4, null, ListNumbering.Format.LOWER_ROMAN))
+        assertEquals("C", ListNumbering.noteMark(3, "upperLetter", ListNumbering.Format.DECIMAL))
+        assertEquals("2", ListNumbering.noteMark(2, "bullet", ListNumbering.Format.DECIMAL))
+        assertEquals(listOf("*", "†", "‡", "§", "**", "§§§"), listOf(1, 2, 3, 4, 5, 12).map { ListNumbering.noteMark(it, "chicago", ListNumbering.Format.DECIMAL) })
+    }
+
     @Test fun readsPowerPointAutonumberSchemes() {
         assertEquals(Triple(ListNumbering.Format.DECIMAL, "", "."), ListNumbering.powerPointScheme("arabicPeriod"))
         assertEquals(Triple(ListNumbering.Format.LOWER_LETTER, "(", ")"), ListNumbering.powerPointScheme("alphaLcParenBoth"))

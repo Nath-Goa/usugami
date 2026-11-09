@@ -6,6 +6,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.text.Layout
 import android.text.TextPaint
+import android.text.style.ReplacementSpan
 import androidx.core.graphics.withRotation
 import androidx.core.graphics.withScale
 import io.github.nath_goa.usugami.core.GroupFrame
@@ -41,7 +42,11 @@ import kotlin.math.roundToInt
  * follows the paragraph they're anchored to. Columns become a single column; right and centre tab
  * stops act as such only in paragraphs of one line (headers, footers, contents lines), and as left
  * ones in longer paragraphs; charts, SmartArt and drawings Android can't decode (such as EMF and
- * WMF) become light grey boxes. Footnotes, endnotes, comments and deleted text are left out.
+ * WMF) become light grey boxes. Comments and deleted text are left out.
+ *
+ * Footnotes go at the foot of the page their reference is on, under Word's short line, going on to the
+ * next page under a long one when they don't fit; endnotes go at the end of the document, or of each
+ * section. References in headers and footers, which Word doesn't allow, are left out.
  */
 internal class DocxConverter(
     private val pkg: OfficePackage,
@@ -60,16 +65,35 @@ internal class DocxConverter(
     /** Whether even pages have headers and footers of their own (Word's "Different Odd & Even Pages"). */
     private var evenAndOddHeaders = false
 
+    /** The document's own footnote and endnote settings, which its sections' add to. */
+    private var documentFootnotes = NoteProps()
+    private var documentEndnotes = NoteProps()
+    private lateinit var footnotes: Notes
+    private lateinit var endnotes: Notes
+
+    /** The section being read, and the numbers footnotes and endnotes have reached. */
+    private var readingSection = 0
+    private val footnoteCount = NoteCount()
+    private val endnoteCount = NoteCount()
+
+    /** Endnotes referred to, with their marks, not yet printed. */
+    private val endnotesDue = ArrayList<NoteSpan>()
+
+    /** Notes with a mark of their own, which take no number. */
+    private val customMarked = HashSet<NoteKey>()
+
     /** Converts the document; returns the number of pages. */
     fun convert(): Int {
         main = pkg.mainPart() ?: "word/document.xml"
         theme = OfficeTheme.read(pkg, pkg.targetOfType(main, "/theme"), check)
         styles = DocxStyles.read(pkg, pkg.targetOfType(main, "/styles"), theme, check)
         numbering = DocxNumbering.read(pkg, pkg.targetOfType(main, "/numbering"), theme, styles, check)
+        readSettings()
         sections = readSections()
-        evenAndOddHeaders = readEvenAndOddHeaders()
+        footnotes = readNotes("footnote")
+        endnotes = readNotes("endnote")
         val flow = Flow()
-        val reader = Reader(main)
+        val reader = Reader(main, body = true)
         var shown = false
         pkg.xml(main, check)?.use { x ->
             x.children {
@@ -77,6 +101,7 @@ internal class DocxConverter(
                     check()
                     if (!shown) shown = shows(item)
                     flow.add(item)
+                    if (item == SectionEnd) readingSection++
                 }
             }
         }
@@ -87,9 +112,12 @@ internal class DocxConverter(
         return pdf.pageCount
     }
 
-    /** Whether [item] has the page's number in it (a PAGE field), in its text or in a table cell's. */
+    /**
+     * Whether [item] has the page's number in it (a PAGE field), or a footnote numbered again on each
+     * page, in its text or in a table cell's.
+     */
     private fun hasPageNumber(item: DocItem): Boolean = when (item) {
-        is DocPara -> item.inlines.any { it is PageNumberInline }
+        is DocPara -> item.inlines.any { it is PageNumberInline || (it is NoteRefInline && it.mark == null) }
         is DocTable -> item.rows.any { row -> row.cells.any { cell -> cell.content.any(::hasPageNumber) } }
         else -> false
     }
@@ -137,6 +165,53 @@ internal class DocxConverter(
     private class PageNumberInline(val style: TextStyle, val format: ListNumbering.Format?) : Inline
     private class PictureInline(val picture: Picture, val width: Float, val height: Float, val style: TextStyle) : Inline
 
+    /**
+     * A footnote's or endnote's reference: its [mark], or null for a footnote numbered again on each
+     * page, which is numbered in [format] as it's laid out.
+     */
+    private class NoteRefInline(val key: NoteKey, val mark: String?, val format: String?, val style: TextStyle) : Inline
+
+    /** A note's own mark, at its start (w:footnoteRef, w:endnoteRef): its reference's. */
+    private class OwnMarkInline(val style: TextStyle) : Inline
+
+    /** Word's line above footnotes or endnotes: short, or as wide as the text above those going on from the page before. */
+    private class SeparatorInline(val continuation: Boolean, val style: TextStyle) : Inline
+
+    private data class NoteKey(val endnote: Boolean, val id: Int)
+
+    /** A document's footnotes or endnotes: each one's content by its id, and the lines put above them. */
+    private class Notes(val content: Map<Int, List<DocItem>>, val separator: List<DocItem>?, val continuation: List<DocItem>?)
+
+    /**
+     * How footnotes or endnotes are numbered and where they go (w:footnotePr, w:endnotePr): in Word's
+     * number [format], from [start], starting again ([restart]) "eachSect" or "eachPage", and at the
+     * [position] "pageBottom" or "beneathText" (footnotes), "sectEnd" or "docEnd" (endnotes). Null where not set.
+     */
+    private data class NoteProps(val format: String? = null, val start: Int? = null, val restart: String? = null, val position: String? = null) {
+        fun over(base: NoteProps) = NoteProps(format ?: base.format, start ?: base.start, restart ?: base.restart, position ?: base.position)
+
+        companion object {
+            fun read(x: OfficeXml): NoteProps {
+                var p = NoteProps()
+                x.children {
+                    when (x.name) {
+                        "numFmt" -> p = p.copy(format = x.attr("val"))
+                        "numStart" -> p = p.copy(start = x.intAttr("val"))
+                        "numRestart" -> p = p.copy(restart = x.attr("val"))
+                        "pos" -> p = p.copy(position = x.attr("val"))
+                    }
+                }
+                return p
+            }
+        }
+    }
+
+    /** The last number given to a footnote or endnote, and the section it was in. */
+    private class NoteCount {
+        var value = 0
+        var section = -1
+    }
+
     /** Where a floating picture goes: relative to [from] ("page", "margin", "paragraph"...), by [offset] points or [align]. */
     private class Position(val from: String, val offset: Float, val align: String?)
 
@@ -176,9 +251,12 @@ internal class DocxConverter(
      */
     private class Found(val path: String, val crop: FloatArray?, val box: OfficeRect?, val turn: Turn)
 
-    /** A page's number, and how its section writes page numbers. */
-    private class PageNumber(val value: Int, val format: ListNumbering.Format) {
+    /** A page's number, and how its section writes page numbers; [notes] footnotes begin on it before what is laid out. */
+    private class PageNumber(val value: Int, val format: ListNumbering.Format, private var notes: Int = 0) {
         fun text(own: ListNumbering.Format?) = ListNumbering.format(value, own ?: format)
+
+        /** The next footnote's number, for footnotes numbered again on each page. */
+        fun nextNote() = ++notes
     }
 
     private class Section(
@@ -196,15 +274,52 @@ internal class DocxConverter(
         val titlePage: Boolean,
         val pageStart: Int?,
         val pageFormat: ListNumbering.Format,
+        val footnotes: NoteProps,
+        val endnotes: NoteProps,
+        /** Its endnotes go to the end of the next section ("Suppress endnotes"). */
+        val noEndnote: Boolean,
     )
 
-    /** Whether the document's settings give even pages their own headers and footers. */
-    private fun readEvenAndOddHeaders(): Boolean {
-        var found = false
+    /** The document's settings: whether even pages have headers and footers of their own, and how notes go. */
+    private fun readSettings() {
         pkg.targetOfType(main, "/settings")?.let { path ->
-            pkg.xml(path, check)?.use { x -> x.children { if (x.name == "evenAndOddHeaders") found = x.flag() } }
+            pkg.xml(path, check)?.use { x ->
+                x.children {
+                    when (x.name) {
+                        "evenAndOddHeaders" -> evenAndOddHeaders = x.flag()
+                        "footnotePr" -> documentFootnotes = NoteProps.read(x)
+                        "endnotePr" -> documentEndnotes = NoteProps.read(x)
+                    }
+                }
+            }
         }
-        return found
+    }
+
+    /**
+     * The footnotes ([kind] "footnote") or endnotes ("endnote") of the document. The separators are
+     * kept for drawing; the continuation notice, and notes of other kinds, aren't printed.
+     */
+    private fun readNotes(kind: String): Notes {
+        val content = HashMap<Int, List<DocItem>>()
+        var separator: List<DocItem>? = null
+        var continuation: List<DocItem>? = null
+        val path = pkg.targetOfType(main, "/${kind}s") ?: return Notes(content, null, null)
+        pkg.xml(path, check)?.use { x ->
+            val reader = Reader(path)
+            x.children {
+                if (x.name != kind) return@children
+                val id = x.intAttr("id") ?: return@children
+                val type = x.attr("type") ?: "normal"
+                val found = ArrayList<DocItem>()
+                reader.blocks(x, null) { if (it is DocPara || it is DocTable) found += it }
+                when (type) {
+                    "normal" -> content[id] = found
+                    "separator" -> separator = found
+                    "continuationSeparator" -> continuation = found
+                }
+            }
+        }
+        return Notes(content, separator, continuation)
     }
 
     // ---- Sections: read ahead, since a section's page size is written at its end ----
@@ -223,7 +338,10 @@ internal class DocxConverter(
                 }
             }
         }
-        return found.ifEmpty { listOf(DEFAULT_SECTION) }
+        // US Letter with one-inch margins: Word's own default.
+        return found.ifEmpty {
+            listOf(Section(612f, 792f, 72f, 72f, 72f, 72f, 36f, 36f, "nextPage", emptyMap(), emptyMap(), false, null, ListNumbering.Format.DECIMAL, documentFootnotes, documentEndnotes, false))
+        }
     }
 
     private fun readSection(x: OfficeXml, previous: Section?): Section {
@@ -236,6 +354,9 @@ internal class DocxConverter(
         var titlePage = false
         var pageStart: Int? = null
         var pageFormat = ListNumbering.Format.DECIMAL
+        var footnotes = NoteProps()
+        var endnotes = NoteProps()
+        var noEndnote = false
         x.children {
             when (x.name) {
                 "pgSz" -> {
@@ -257,6 +378,9 @@ internal class DocxConverter(
                     pageFormat = ListNumbering.wordFormat(x.attr("fmt")).takeUnless { it == ListNumbering.Format.BULLET || it == ListNumbering.Format.NONE }
                         ?: ListNumbering.Format.DECIMAL
                 }
+                "footnotePr" -> footnotes = NoteProps.read(x)
+                "endnotePr" -> endnotes = NoteProps.read(x)
+                "noEndnote" -> noEndnote = x.flag()
             }
         }
         width = width.coerceIn(72f, 14_400f)
@@ -264,13 +388,19 @@ internal class DocxConverter(
         // Keep at least an inch for the text, whatever the margins say.
         if (margin[2] + margin[3] > width - 72f) margin[2] = 36f.also { margin[3] = 36f }
         if (margin[0] + margin[1] > height - 72f) margin[0] = 36f.also { margin[1] = 36f }
-        return Section(width, height, margin[0], margin[1], margin[2], margin[3], margin[4], margin[5], type, headers, footers, titlePage, pageStart, pageFormat)
+        return Section(
+            width, height, margin[0], margin[1], margin[2], margin[3], margin[4], margin[5], type, headers, footers, titlePage, pageStart, pageFormat,
+            footnotes.over(documentFootnotes), endnotes.over(documentEndnotes), noEndnote,
+        )
     }
 
     // ---- Reading ----
 
-    /** Reads block content from part [part] (the document, or a header or footer), whose relationships its pictures use. */
-    private inner class Reader(private val part: String) {
+    /**
+     * Reads block content from part [part] (the document, a header or footer, or the notes), whose
+     * relationships its pictures use. Only in the document's [body] do footnote and endnote references count.
+     */
+    private inner class Reader(private val part: String, private val body: Boolean = false) {
         /** Fields being read, outermost first: their instruction, and whether their result has started. */
         private val fields = ArrayList<Field>()
 
@@ -385,8 +515,14 @@ internal class DocxConverter(
             fun shown() = props.hidden != true && fields.none { !it.inResult || it.isPage }
             // Whether the run's text so far ended in complex-script letters (null: none yet).
             var complexBefore: Boolean? = null
+            // A note reference whose mark is the text after it (w:customMarkFollows), waiting for that text.
+            var customMark: NoteKey? = null
             fun text(s: String) {
                 if (s.isEmpty() || !shown()) return
+                customMark?.let { key ->
+                    customMark = null
+                    return reference(key, s, out, style())
+                }
                 val complex = complexStyle()
                 when {
                     // Most runs look the same in every script: in one piece, as ever.
@@ -439,9 +575,38 @@ internal class DocxConverter(
                     }
                     "instrText" -> fields.lastOrNull()?.instruction?.append(x.text())
                     "AlternateContent" -> x.children { if (x.name == "Choice") x.children { child() } }
+                    "footnoteReference", "endnoteReference" -> if (body && shown()) x.intAttr("id")?.let { id ->
+                        val key = NoteKey(x.name == "endnoteReference", id)
+                        if (x.flag("customMarkFollows", missing = false)) customMark = key else reference(key, null, out, style())
+                    }
+                    "footnoteRef", "endnoteRef" -> if (shown()) out.add(OwnMarkInline(style()))
+                    "separator", "continuationSeparator" -> out.add(SeparatorInline(x.name == "continuationSeparator", style()))
                 }
             }
             x.children { child() }
+            // A custom mark that never came: the note is numbered.
+            customMark?.let { reference(it, null, out, style()) }
+        }
+
+        /**
+         * The reference to footnote or endnote [key], marked [custom] (Word's custom mark), else numbered
+         * as its section says: footnotes 1, 2, 3 and endnotes i, ii, iii unless it says otherwise. Endnotes
+         * are kept to be printed at the end. A reference to a note the document hasn't is left out.
+         */
+        private fun reference(key: NoteKey, custom: String?, out: ParaBuilder, style: TextStyle) {
+            if ((if (key.endnote) endnotes else footnotes).content[key.id] == null) return
+            val section = sections[readingSection.coerceAtMost(sections.lastIndex)]
+            val props = if (key.endnote) section.endnotes else section.footnotes
+            // Numbered again on each page: numbered as it's laid out.
+            val perPage = !key.endnote && custom == null && props.restart == "eachPage"
+            val mark = custom ?: if (perPage) null else ListNumbering.noteMark(
+                number(if (key.endnote) endnoteCount else footnoteCount, props),
+                props.format,
+                if (key.endnote) ListNumbering.Format.LOWER_ROMAN else ListNumbering.Format.DECIMAL,
+            )
+            out.add(NoteRefInline(key, mark, props.format, style))
+            if (custom != null) customMarked += key
+            if (key.endnote && mark != null) endnotesDue += NoteSpan(key, mark)
         }
 
         private fun isPageField(instruction: String?) =
@@ -760,6 +925,13 @@ internal class DocxConverter(
         }
     }
 
+    /** The next number of a footnote or endnote counted by [count], in the section being read, as [props] numbers them. */
+    private fun number(count: NoteCount, props: NoteProps): Int {
+        if (count.section < 0 || (props.restart == "eachSect" && count.section != readingSection)) count.value = (props.start ?: 1) - 1
+        count.section = readingSection
+        return ++count.value
+    }
+
     // ---- Layout ----
 
     /** Lays the document out page after page, in layout units. */
@@ -780,10 +952,28 @@ internal class DocxConverter(
         private var lastContextual = false
         private val pending = ArrayList<Placed>()
 
+        // This page's footnotes, under their separator: those going on from the page before first.
+        private var noteSeparator: Block? = null
+        private val pageNotes = ArrayList<Block>()
+        private var notesHeight = 0
+        /** Parts of footnotes that didn't fit on their page, for the next one. */
+        private val carried = ArrayList<Block>()
+        /** Notes placed: one referred to again (in a heading row repeated on each page) is placed once. */
+        private val placedNotes = HashSet<Any>()
+        /** How many footnotes begin on this page, for those numbered again on each page. */
+        private var notesBegun = 0
+        /** While endnotes go on from page to page: each page starts with their long line. */
+        private var inEndnotes = false
+        private val noteBlocks = HashMap<Pair<Any, String>, Block>()
+        private val separators = HashMap<Boolean, Block>()
+
         private val left get() = section.left.units
         private val textWidth get() = (section.width - section.left - section.right).units
         private val textHeight get() = (section.height - section.top - section.bottom).units
-        private val pageNumber get() = PageNumber(shownNumber, section.pageFormat)
+        private val pageNumber get() = PageNumber(shownNumber, section.pageFormat, notesBegun)
+
+        /** Where the text's room on this page ends: above its footnotes. */
+        private val limit get() = bottom - notesHeight
 
         /**
          * A block waiting to go on the page, with its spacing and what it keeps with. One with the page's
@@ -849,7 +1039,7 @@ internal class DocxConverter(
             if (pending.isNotEmpty()) {
                 ensurePage()
                 val need = pending.sumOf { it.before + it.block.height + it.after } + item.before + min(item.block.height, 40f.units.toInt())
-                if (!empty && y + need > bottom && need <= textHeight) newPage(natural = true)
+                if (!empty && y + need > limit && need <= textHeight) newPage(natural = true)
                 flushPending()
             }
             put(item)
@@ -872,20 +1062,14 @@ internal class DocxConverter(
             // At the top of a page, the space before is kept as far as the paragraph still fits under it
             // (or, for one longer than the page, its first line): more would put the text below the page,
             // or split a short paragraph that fits.
-            val room = (bottom - y).toInt()
+            val room = (limit - y).toInt()
             val firstLine = (item.block as? ParagraphBlock)?.firstLineHeight ?: item.block.height
             val kept = if (item.block.height <= room) item.block.height else firstLine
             var gap = if (empty) (if (keepSpaceBefore) min(before, max(0, room - kept)) else 0) else before + after
             var block = item.renumbered?.invoke(pageNumber) ?: item.block
             var first = true
             while (true) {
-                val space = (bottom - y - gap).toInt()
-                if (block.height <= space) {
-                    draw(block, item, gap, first)
-                    y += gap + block.height
-                    break
-                }
-                val parts = block.split(space, force = empty)
+                val parts = fit(block, gap, force = empty)
                 if (parts == null) {
                     newPage(natural = true)
                     gap = 0
@@ -894,19 +1078,159 @@ internal class DocxConverter(
                 }
                 draw(parts.first, item, gap, first)
                 first = false
-                val rest = parts.second
-                if (rest == null) {
-                    y += gap + parts.first.height
-                    break
-                }
+                y += gap + parts.first.height
+                addNotes(parts.first.notes)
+                block = parts.second ?: break
                 newPage(natural = true)
                 gap = 0
-                block = rest
             }
             empty = false
             lastAfter = item.after
             lastStyle = item.style
             lastContextual = item.contextual
+        }
+
+        /**
+         * The part of [block] that goes on this page, [gap] under the text before it, with room for the
+         * footnotes it refers to; null when none of it does. Lines whose notes don't fit under them go on
+         * to the next page, so a reference near the foot of the page takes its line along only when not
+         * even its note's first lines fit, as in Word. With [force], something always goes.
+         */
+        private fun fit(block: Block, gap: Int, force: Boolean): Pair<Block, Block?>? {
+            var space = (limit - y - gap).toInt()
+            var tried = -1
+            while (true) {
+                val parts = if (block.height <= space) block to null else block.split(space, force) ?: return null
+                val room = (bottom - y - gap - notesNeed(parts.first.notes)).toInt()
+                if (parts.first.height <= room) return parts
+                if (force && (room <= 0 || parts.first.height == tried)) return parts
+                if (room <= 0) return null
+                tried = parts.first.height
+                space = room
+            }
+        }
+
+        /**
+         * How tall this page's footnotes must be for text referring to [spans] to go on it: the notes new
+         * here in full, but the last, which can go on to the next page after its first lines (as many as
+         * its paragraph keeps together: two, with widow and orphan control).
+         */
+        private fun notesNeed(spans: List<NoteSpan>): Int {
+            val fresh = fresh(spans)
+            if (fresh.isEmpty()) return notesHeight
+            var need = notesHeight + if (noteSeparator == null) footnoteSeparator(false).height else 0
+            fresh.forEachIndexed { i, span ->
+                val block = noteBlock(span)
+                need += if (i == fresh.lastIndex) block.leastHeight else block.height
+            }
+            return need
+        }
+
+        private fun fresh(spans: List<NoteSpan>) = spans.filter { it.note !in placedNotes }.distinctBy { it.note }
+
+        /** Puts the footnotes [spans] refer to at the foot of the page; what doesn't fit goes on to the next. */
+        private fun addNotes(spans: List<NoteSpan>) {
+            for (span in fresh(spans)) {
+                placedNotes += span.note
+                if (span.note !in customMarked) notesBegun++
+                val block = noteBlock(span)
+                if (carried.isNotEmpty()) {
+                    carried += block
+                    continue
+                }
+                if (noteSeparator == null) startNotes(continuation = false)
+                val room = (bottom - y - notesHeight).toInt()
+                // As much as fits, keeping its lines together as its paragraphs say, unless the page has no room for that.
+                val parts = if (block.height <= room) block to null else block.split(room, force = false) ?: block.split(room, force = true) ?: (block to null)
+                addNote(parts.first)
+                parts.second?.let { carried += it }
+            }
+        }
+
+        /** Footnotes going on from the page before, under the long line; the text keeps at least an inch of the page. */
+        private fun carryNotes() {
+            val waiting = carried.toList()
+            carried.clear()
+            startNotes(continuation = true)
+            val most = (bottom - top - 72f.units).toInt()
+            for (block in waiting) {
+                if (carried.isNotEmpty()) {
+                    carried += block
+                    continue
+                }
+                val room = most - notesHeight
+                val parts = if (block.height <= room) block to null else block.split(room, force = pageNotes.isEmpty())
+                if (parts == null) {
+                    carried += block
+                    continue
+                }
+                addNote(parts.first)
+                parts.second?.let { carried += it }
+            }
+            if (pageNotes.isEmpty()) {
+                noteSeparator = null
+                notesHeight = 0
+            }
+        }
+
+        private fun startNotes(continuation: Boolean) {
+            val separator = footnoteSeparator(continuation)
+            noteSeparator = separator
+            notesHeight = separator.height
+        }
+
+        private fun addNote(block: Block) {
+            pageNotes += block
+            notesHeight += block.height
+        }
+
+        private fun footnoteSeparator(continuation: Boolean) = separators.getOrPut(continuation) { separatorBlock(footnotes, continuation) }
+
+        /** The line above [notes]: the document's own, else a plain one; the long one above those going on from the page before. */
+        private fun separatorBlock(notes: Notes, continuation: Boolean): Block {
+            val plain = styles.paragraphRun(null, null).toStyle(theme)
+            val items = (if (continuation) notes.continuation else notes.separator)
+                ?: listOf(DocPara(ParaProps(after = 0f), listOf(SeparatorInline(continuation, plain)), null, plain, "tab", plain, emptyList()))
+            return stack(items, textWidth.toInt(), pageNumber, textHeight, null)
+        }
+
+        /**
+         * The note [span] marks, across the text, with [span]'s mark at its start. Kept by mark too: one
+         * numbered again on each page is numbered again when its reference moves on to the next page.
+         */
+        private fun noteBlock(span: NoteSpan): Block = noteBlocks.getOrPut(span.note to span.mark) {
+            val key = span.note as NoteKey
+            stack(marked((if (key.endnote) endnotes else footnotes).content[key.id].orEmpty(), span.mark), textWidth.toInt(), pageNumber, textHeight, null)
+        }
+
+        /** This page's footnotes under their separator: at the foot of the page, or just under the text when the section says so. */
+        private fun drawNotes(c: Canvas) {
+            val separator = noteSeparator ?: return
+            var at = if (section.footnotes.position == "beneathText") y else bottom - notesHeight
+            separator.draw(c, left, at)
+            at += separator.height
+            for (block in pageNotes) {
+                block.draw(c, left, at)
+                at += block.height
+            }
+        }
+
+        /** The endnotes referred to so far, under their separator, as text of their own. */
+        private fun printEndnotes() {
+            val due = endnotesDue.distinctBy { it.note }.filter { it.note !in placedNotes }
+            endnotesDue.clear()
+            if (due.isEmpty()) return
+            flushPending()
+            ensurePage()
+            due.forEach { placedNotes += it.note }
+            // The separator goes along with the first endnote's first line.
+            val separator = separatorBlock(endnotes, continuation = false)
+            if (!empty && y + separator.height + noteBlock(due.first()).leastHeight > limit) newPage(natural = true)
+            put(Placed(separator))
+            inEndnotes = true
+            for (span in due) for (item in marked(endnotes.content[(span.note as NoteKey).id].orEmpty(), span.mark)) add(item)
+            flushPending()
+            inEndnotes = false
         }
 
         private fun draw(block: Block, item: Placed, gap: Int, first: Boolean) {
@@ -976,16 +1300,29 @@ internal class DocxConverter(
             empty = true
             lastAfter = 0
             lastStyle = null
+            noteSeparator = null
+            pageNotes.clear()
+            notesHeight = 0
+            notesBegun = 0
+            if (carried.isNotEmpty()) carryNotes()
+            // Endnotes going on from the page before start under their long line.
+            if (inEndnotes) separatorBlock(endnotes, continuation = true).let {
+                it.draw(c, left, y)
+                y += it.height
+            }
         }
 
         private fun finishPage() {
-            if (canvas == null) return
+            val c = canvas ?: return
+            drawNotes(c)
             pdf.finishPage()
             canvas = null
         }
 
         private fun nextSection() {
             flushPending()
+            // Endnotes at the end of each section, unless the section leaves its own to the next.
+            if (section.endnotes.position == "sectEnd" && !section.noEndnote) printEndnotes()
             val next = sections.getOrNull(++sectionIndex) ?: return
             val samePage = next.type == "continuous" && next.width == section.width && next.height == section.height
             if (!samePage) {
@@ -1003,6 +1340,8 @@ internal class DocxConverter(
                 }
             }
             section = next
+            noteBlocks.clear()
+            separators.clear()
             if (!samePage) {
                 pageInSection = 0
                 keepSpaceBefore = true
@@ -1056,7 +1395,10 @@ internal class DocxConverter(
 
         fun finish() {
             flushPending()
+            printEndnotes()
             ensurePage()
+            // Footnotes still going on, on pages of their own.
+            while (carried.isNotEmpty()) newPage(natural = true)
             finishPage()
         }
     }
@@ -1098,6 +1440,20 @@ internal class DocxConverter(
         }
     }
 
+    /** Word's line above footnotes and endnotes, [width] units long, across the middle of its line. */
+    private class RuleSpan(private val width: Int) : ReplacementSpan() {
+        override fun getSize(paint: Paint, text: CharSequence?, start: Int, end: Int, fm: Paint.FontMetricsInt?): Int {
+            fm?.let(paint::getFontMetricsInt)
+            return width
+        }
+
+        override fun draw(canvas: Canvas, text: CharSequence?, start: Int, end: Int, x: Float, top: Int, y: Int, bottom: Int, paint: Paint) {
+            val metrics = paint.fontMetrics
+            val middle = y + (metrics.ascent + metrics.descent) / 2
+            canvas.drawLine(x, middle, x + width, middle, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; strokeWidth = 0.5f.units })
+        }
+    }
+
     /** A picture on a line of its own. */
     private class FloatBlock(private val picture: Picture, private val width: Int, override val height: Int, private val x: Float) : Block {
         override fun draw(canvas: Canvas, x: Float, y: Float) = picture.draw(canvas, RectF(x + this.x, y, x + this.x + width, y + height))
@@ -1130,6 +1486,23 @@ internal class DocxConverter(
             }
         }
         return StackBlock(placed)
+    }
+
+    /** [items], a note's content, with [mark] where the note's own mark goes. */
+    private fun marked(items: List<DocItem>, mark: String): List<DocItem> = items.map { item ->
+        when (item) {
+            is DocPara -> if (item.inlines.none { it is OwnMarkInline }) item else DocPara(
+                item.props, item.inlines.map { if (it is OwnMarkInline) TextInline(mark, it.style) else it },
+                item.label, item.labelStyle, item.labelSuffix, item.mark, item.floats,
+            )
+            is DocTable -> DocTable(
+                item.props, item.grid,
+                item.rows.map { row ->
+                    DocRow(row.cells.map { DocCell(it.span, it.vMerge, it.fill, it.borders, it.verticalAlign, it.margins, marked(it.content, mark)) }, row.height, row.exact, row.header, row.gridBefore)
+                },
+            )
+            else -> item
+        }
     }
 
     /**
@@ -1174,6 +1547,14 @@ internal class DocxConverter(
                 val scale = min(1f, min(width / w, maxHeight * 0.95f / h))
                 rich.appendObject(PictureSpan(inline.picture, max(1, (w * scale).toInt()), max(1, (h * scale).toInt())), inline.style)
             }
+            is NoteRefInline -> {
+                val mark = inline.mark ?: ListNumbering.noteMark(page.nextNote(), inline.format, ListNumbering.Format.DECIMAL)
+                // Endnotes are printed at the end, whichever page their reference is on.
+                if (inline.key.endnote) rich.append(mark, inline.style) else rich.appendMark(mark, inline.style, inline.key)
+            }
+            // Its note's mark goes in before the note is laid out (see [marked]).
+            is OwnMarkInline -> Unit
+            is SeparatorInline -> rich.appendObject(RuleSpan(if (inline.continuation) width else min(width, SEPARATOR.units.toInt())), inline.style)
         }
         val props = p.props
         val left = (props.left ?: 0f).units
@@ -1321,7 +1702,7 @@ internal class DocxConverter(
         /** Far more columns than Word lets a table have (63): only a crafted file has more. */
         const val MAX_COLUMNS = 1000
 
-        /** US Letter with one-inch margins: Word's own default. */
-        val DEFAULT_SECTION = Section(612f, 792f, 72f, 72f, 72f, 72f, 36f, 36f, "nextPage", emptyMap(), emptyMap(), false, null, ListNumbering.Format.DECIMAL)
+        /** The length of Word's line above footnotes and endnotes, in points. */
+        const val SEPARATOR = 144f
     }
 }

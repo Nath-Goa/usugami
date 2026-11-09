@@ -30,6 +30,7 @@ internal class RowBlock(private val cells: List<CellBox>, private val minHeight:
     override val height: Int =
         if (exact && minHeight > 0) minHeight
         else max(minHeight, cells.maxOfOrNull { (it.content?.height ?: 0) + it.padTop + it.padBottom } ?: 0)
+    override val notes: List<NoteSpan> by lazy { cells.flatMap { it.content?.notes.orEmpty() } }
 
     override fun draw(canvas: Canvas, x: Float, y: Float) {
         for (cell in cells) {
@@ -102,6 +103,7 @@ internal class RowBlock(private val cells: List<CellBox>, private val minHeight:
  */
 internal class TableBlock(private val rows: List<RowBlock>, private val headerRows: Int, private val x: Float) : Block {
     override val height: Int = rows.sumOf { it.height }
+    override val notes: List<NoteSpan> by lazy { rows.flatMap { it.notes } }
 
     override fun draw(canvas: Canvas, x: Float, y: Float) {
         var top = y

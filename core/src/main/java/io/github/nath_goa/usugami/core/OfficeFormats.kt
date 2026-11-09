@@ -173,6 +173,20 @@ object ListNumbering {
         }
     }
 
+    /**
+     * A footnote's or endnote's mark: [value] in Word's number format [numFmt] ("decimal",
+     * "lowerRoman"...), or [default] when it gives none or one that writes no number. Word's "chicago"
+     * is *, †, ‡ and §, then each twice, three times and so on.
+     */
+    fun noteMark(value: Int, numFmt: String?, default: Format): String {
+        if (numFmt == "chicago") {
+            if (value !in 1..40) return value.toString()
+            return "*†‡§"[(value - 1) % 4].toString().repeat((value - 1) / 4 + 1)
+        }
+        val format = numFmt?.let(::wordFormat)?.takeUnless { it == Format.BULLET || it == Format.NONE } ?: default
+        return format(value, format)
+    }
+
     /** A PowerPoint autonumber scheme such as "arabicPeriod" or "alphaLcParenBoth": its format and the text around the number. */
     fun powerPointScheme(scheme: String?): Triple<Format, String, String> {
         val s = scheme.orEmpty()
