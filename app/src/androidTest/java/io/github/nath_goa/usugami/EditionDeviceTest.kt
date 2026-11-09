@@ -9,6 +9,7 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nath_goa.usugami.core.ToolSearch
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Edition
@@ -66,6 +67,20 @@ class EditionDeviceTest {
             val keywords = resources.getString(R.string.search_keywords_images)
             assertEquals("$language: $detail", BuildConfig.HAS_OCR, detail.contains(words.getValue(language)))
             assertEquals("$language: $keywords", BuildConfig.HAS_OCR, keywords.split(", ").contains("OCR"))
+        }
+    }
+
+    /**
+     * Searching Home for a type of image Images to PDF takes finds it in every edition, though its
+     * card no longer names the types. Usugami Lite has its own texts for the card and its search.
+     */
+    @Test fun homeSearchFindsImagesToPdfByImageType() {
+        val resources = app.createConfigurationContext(
+            Configuration(app.resources.configuration).apply { setLocale(Locale.ENGLISH) },
+        ).resources
+        val text = resources.getString(R.string.tool_images_detail) + " " + resources.getString(R.string.search_keywords_images)
+        for (type in listOf("jpg", "jpeg", "png", "heic", "webp")) {
+            assertTrue("$type in $text", ToolSearch.matches(type, text))
         }
     }
 

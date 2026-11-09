@@ -6,5 +6,5 @@
     <!-- Usugami Lite has no text recognition, so Home's card and search for Images to PDF don't
          mention it (app/src/main has the other editions' texts). -->
     <string name="tool_images_detail">Camera scans and images to one PDF, or one PDF each</string>
-    <string name="search_keywords_images">photo, picture, JPEG, scan, scanner, camera, gallery, document, black and white</string>
+    <string name="search_keywords_images">photo, picture, JPEG, JPG, PNG, HEIC, WebP, scan, scanner, camera, gallery, document, black and white</string>
 </resources>
