@@ -854,7 +854,9 @@ class PdfToolsEngine(private val context: Context) {
         try {
             var asItIs = input.password.isEmpty()
             load(input.file, input.password).use { doc ->
-                if (doc.isEncrypted || PageMark.unmark(doc)) asItIs = false
+                // Usugami's own mark comes off also when the PDF has a password or is restricted.
+                val unmarked = PageMark.unmark(doc)
+                if (doc.isEncrypted || unmarked) asItIs = false
                 val maxPageSide = (0 until doc.numberOfPages).maxOf { p ->
                     val box = doc.getPage(p).mediaBox
                     maxOf(box.width, box.height)
