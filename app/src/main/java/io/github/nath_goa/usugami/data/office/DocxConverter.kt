@@ -1111,19 +1111,23 @@ internal class DocxConverter(
      */
     private fun stack(items: List<DocItem>, width: Int, page: PageNumber, maxHeight: Float, behind: Int?, overlays: MutableList<Floating>? = null): Block {
         val placed = ArrayList<Spaced>()
-        for (item in items) when (item) {
-            is DocPara -> {
-                for (f in item.floats) {
-                    if (f.overText && overlays != null) overlays += f
-                    else placed += Spaced(floatBlock(f, width.toFloat(), maxHeight, 0f), 0, 0)
+        for (item in items) {
+            // A table cell can hold a whole report: Cancel is heard while it's laid out.
+            check()
+            when (item) {
+                is DocPara -> {
+                    for (f in item.floats) {
+                        if (f.overText && overlays != null) overlays += f
+                        else placed += Spaced(floatBlock(f, width.toFloat(), maxHeight, 0f), 0, 0)
+                    }
+                    val pieces = paragraphBlock(item, width, page, maxHeight, behind).pieces()
+                    for ((i, piece) in pieces.withIndex()) {
+                        placed += Spaced(piece, if (i == 0) spaceBefore(item.props).units.toInt() else 0, if (i == pieces.lastIndex) spaceAfter(item.props).units.toInt() else 0)
+                    }
                 }
-                val pieces = paragraphBlock(item, width, page, maxHeight, behind).pieces()
-                for ((i, piece) in pieces.withIndex()) {
-                    placed += Spaced(piece, if (i == 0) spaceBefore(item.props).units.toInt() else 0, if (i == pieces.lastIndex) spaceAfter(item.props).units.toInt() else 0)
-                }
+                is DocTable -> placed += Spaced(tableBlock(item, width.toFloat(), page, maxHeight, behind), 0, 0)
+                else -> Unit
             }
-            is DocTable -> placed += Spaced(tableBlock(item, width.toFloat(), page, maxHeight, behind), 0, 0)
-            else -> Unit
         }
         return StackBlock(placed)
     }
