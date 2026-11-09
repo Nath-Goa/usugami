@@ -150,6 +150,7 @@ class WorkingFilesDeviceTest {
         runBlocking { images.awaitFileWork() }
         val tools = onMain { PdfToolsViewModel(app, SavedStateHandle(mapOf("making" to true))) }
         assertEquals(said, runBlocking { withTimeout(10_000) { tools.messages.first() } })
+        runBlocking { tools.awaitFileWork() }
     }
 
     @Test fun aResultShowingWhenAndroidStoppedUsugamiShowsAgain() {
