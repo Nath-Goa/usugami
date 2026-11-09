@@ -264,13 +264,9 @@ class PageToolsDeviceTest {
     }
 
     /**
-     * Page 1's links to page 3, itself and by name, still work in a part that has both, also after
-     * an earlier part left page 3 out; its link to page 4, left out, leads nowhere. A link to a
-     * damaged name doesn't stop the split.
-     */
-    /**
      * Split's PDFs are named by their pages after the name typed. A single one is named as typed,
-     * unless that is the PDF's own name, which it would take.
+     * unless that is the PDF's own name, which it would take. Their ZIP file is named as typed, or
+     * after the PDF's own name with "_split".
      */
     @Test fun splitPdfsAreNamedByTheirPages() {
         val vm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }.also { vm = it }
@@ -292,6 +288,11 @@ class PageToolsDeviceTest {
         assertEquals("Their ZIP file", "alpha_split.zip", onMain { vm.zipFileName() })
     }
 
+    /**
+     * Page 1's links to page 3, itself and by name, still work in a part that has both, also after
+     * an earlier part left page 3 out; its link to page 4, left out, leads nowhere. A link to a
+     * damaged name doesn't stop the split.
+     */
     @Test fun linksBetweenPagesOfAPartStillWork() {
         val file = made("split_links.pdf")
         PDDocument.load(chapters(made("split_chapters_links.pdf"))).use { doc ->
