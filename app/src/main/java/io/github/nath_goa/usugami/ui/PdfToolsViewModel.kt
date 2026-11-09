@@ -1681,7 +1681,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     return@launch
                 }
                 // The Usugami mark goes on before the PDFs show, while the progress still does.
-                val files = withContext(fileOps) { marker.markMade(block { job.ensureActive() }) { job.ensureActive() } }
+                val files = withContext(fileOps) {
+                    val made = block { job.ensureActive() }
+                    try {
+                        marker.markMade(made) { job.ensureActive() }
+                    } catch (e: CancellationException) {
+                        // Cancelled meanwhile, they aren't the result: they go, as the engine's own do.
+                        made.forEach { it.file.delete() }
+                        throw e
+                    }
+                }
                 _saved.value = false
                 resultPutAway = false
                 setSavedFiles(emptySet())
