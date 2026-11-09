@@ -113,7 +113,8 @@ fun SettingsScreen(
             onDismissRequest = { choosing = false },
             title = { Text(stringResource(R.string.settings_language)) },
             text = {
-                Column(Modifier.selectableGroup()) {
+                // Scrolls when large text in landscape leaves too little room for every choice.
+                Column(Modifier.verticalScroll(rememberScrollState()).selectableGroup()) {
                     for (language in AppLanguage.entries) {
                         RadioRow(nativeName(language), selected = language == current) {
                             choosing = false
@@ -133,7 +134,7 @@ fun SettingsScreen(
             onDismissRequest = { choosingAppearance = false },
             title = { Text(stringResource(R.string.settings_appearance)) },
             text = {
-                Column(Modifier.selectableGroup()) {
+                Column(Modifier.verticalScroll(rememberScrollState()).selectableGroup()) {
                     for (option in Appearance.entries) {
                         RadioRow(AnnotatedString(stringResource(option.label)), selected = option == appearance) {
                             choosingAppearance = false

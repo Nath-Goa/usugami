@@ -352,7 +352,8 @@ fun OcrProblemDialog(problem: OcrProblem, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.ocr_problem_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Scrolls when large text in landscape leaves too little room for all it says.
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
                     stringResource(
                         when (problem) {
