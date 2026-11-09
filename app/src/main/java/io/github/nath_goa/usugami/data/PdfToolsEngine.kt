@@ -253,7 +253,7 @@ class PdfToolsEngine(private val context: Context) {
         )
         val taken = HashSet<String>()
         try {
-            load(input.file, input.password).use { source ->
+            loadUnmarked(input.file, input.password).use { source ->
                 // Read once for all the parts: finding a page in the page tree, and what each part
                 // must be cut off from.
                 val sourcePages = source.pages.toList()
@@ -310,7 +310,7 @@ class PdfToolsEngine(private val context: Context) {
                     check()
                     val start = dest.numberOfPages
                     offsets[input.id] = start
-                    load(input.file, input.password).use { source ->
+                    loadUnmarked(input.file, input.password).use { source ->
                         val own = PageLabeling.of(source)
                         merger.appendDocument(dest, source)
                         if (own != null) labels += PageLabeling.byPage((start until dest.numberOfPages).map(dest::getPage), own)
@@ -410,7 +410,7 @@ class PdfToolsEngine(private val context: Context) {
                 if (extra.id in sources || pages.none { it.inputId == extra.id }) continue
                 check()
                 val start = doc.numberOfPages
-                load(extra.file, extra.password).use { source ->
+                loadUnmarked(extra.file, extra.password).use { source ->
                     val own = PageLabeling.of(source)
                     merger.appendDocument(doc, source)
                     sources[extra.id] = (start until doc.numberOfPages).map(doc::getPage)
@@ -668,17 +668,19 @@ class PdfToolsEngine(private val context: Context) {
 
     /**
      * The PDF the tools' previews draw, and Redact PDF searches and draws its pictures from: [input]
-     * itself, or, when it has a password or annotations, a copy without the password in which each
-     * visible annotation is drawn into its page, as viewers show it (Android's renderer can't open a
-     * PDF with a password, and leaves annotations out). Made once and kept beside the copy until the
-     * PDF is put away.
+     * itself, or, when it has a password, annotations or Usugami's own mark, a copy without the
+     * password and the mark, in which each visible annotation is drawn into its page, as viewers show
+     * it (Android's renderer can't open a PDF with a password, and leaves annotations out). The tools
+     * make their PDFs without the mark (see [loadUnmarked]), so the pages are shown as they come out.
+     * Made once and kept beside the copy until the PDF is put away.
      */
     fun previewView(input: PdfInput, check: () -> Unit = {}): PdfInput {
         val file = viewFile(input)
         if (file.isFile) return input.copy(path = file.path, password = "")
         load(input.file, input.password).use { doc ->
+            val unmarked = PageMark.unmark(doc)
             val drawn = Redactor.drawAnnotationsIntoPages(doc, check)
-            if (!drawn && input.password.isEmpty()) return input
+            if (!drawn && !unmarked && input.password.isEmpty()) return input
             check()
             doc.isAllSecurityToBeRemoved = true
             // Written whole before it takes the view's name, so a run cut short leaves no half view.
@@ -766,7 +768,7 @@ class PdfToolsEngine(private val context: Context) {
     /** As [edit], into [target] beside the other PDFs made; nothing is left at [target] if it fails. */
     private fun editInto(input: PdfInput, target: File, check: () -> Unit, block: (PDDocument) -> Unit): PdfFile {
         try {
-            load(input.file, input.password).use { doc ->
+            loadUnmarked(input.file, input.password).use { doc ->
                 block(doc)
                 check()
                 doc.isAllSecurityToBeRemoved = true
@@ -843,13 +845,16 @@ class PdfToolsEngine(private val context: Context) {
 
     /**
      * Compresses [input] into [target]. An unprotected PDF that wouldn't get at least 1% smaller is
-     * copied as it is instead, and its [PdfFile.keptOriginal] says so. Nothing is left at [target]
-     * if it fails.
+     * copied as it is instead, and its [PdfFile.keptOriginal] says so: not one restricted by an owner
+     * password, which every tool takes off, nor one with Usugami's own mark, which no tool keeps (see
+     * [loadUnmarked]). Nothing is left at [target] if it fails.
      */
     internal fun compressTo(input: PdfInput, level: PdfCompression, target: File, check: () -> Unit): PdfFile {
         val candidate = File(outputDir, "candidate.tmp")
         try {
+            var asItIs = input.password.isEmpty()
             load(input.file, input.password).use { doc ->
+                if (doc.isEncrypted || PageMark.unmark(doc)) asItIs = false
                 val maxPageSide = (0 until doc.numberOfPages).maxOf { p ->
                     val box = doc.getPage(p).mediaBox
                     maxOf(box.width, box.height)
@@ -865,7 +870,7 @@ class PdfToolsEngine(private val context: Context) {
                 doc.save(candidate)
             }
             // A saving under 1% isn't worth a re-encoded copy: the original is kept, as it says.
-            val keep = input.password.isEmpty() && Compressor.savedPercent(input.file.length(), candidate.length()) == null
+            val keep = asItIs && Compressor.savedPercent(input.file.length(), candidate.length()) == null
             (if (keep) input.file else candidate).copyTo(target, overwrite = true)
             return PdfFile(target, input.pageCount, input.file.length(), keptOriginal = keep)
         } catch (t: Throwable) {
@@ -996,6 +1001,24 @@ class PdfToolsEngine(private val context: Context) {
         throw PdfCertificateEncrypted(e)
     } catch (e: StackOverflowError) {
         throw tooDeep(e)
+    }
+
+    /**
+     * [load], for a tool to make a PDF of: without Usugami's own mark, which a PDF it made before may
+     * carry (see [PageMark.unmark]), taken off in memory only. What the tool makes then starts without
+     * it, also where a page's content is copied into one stream (as Split does), and gets the mark the
+     * setting asks for once it is made, in the right place, or none. Redact PDF's pictures are drawn
+     * from the [previewView], which hasn't it either.
+     */
+    private fun loadUnmarked(file: File, password: String): PDDocument {
+        val doc = load(file, password)
+        try {
+            PageMark.unmark(doc)
+        } catch (t: Throwable) {
+            doc.close()
+            throw t
+        }
+        return doc
     }
 
     /**

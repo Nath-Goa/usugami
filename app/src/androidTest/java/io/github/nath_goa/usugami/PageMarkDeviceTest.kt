@@ -13,6 +13,8 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission
+import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -23,7 +25,10 @@ import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.PageMark
+import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.SettingsStore
 import io.github.nath_goa.usugami.ui.MainViewModel
 import kotlinx.coroutines.runBlocking
@@ -31,14 +36,18 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.io.IOException
 
 /**
  * The Usugami mark on a PDF's pages: in the bottom-right corner of each page as shown, upright, in the
  * size and opacity chosen; changed and taken off again, leaving each page as it was. PDFs made from
- * images get it as they are made, and lose it again when it is turned off.
+ * images get it as they are made, and lose it again when it is turned off. The tools make their PDFs
+ * of a marked PDF's pages without it.
  */
 class PageMarkDeviceTest {
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
@@ -196,6 +205,68 @@ class PageMarkDeviceTest {
             assertFalse(PDFTextStripper().getText(doc).contains(MarkLayout.TEXT))
         }
         assertFalse(marks.apply(file, null))
+    }
+
+    /** A page turned since it was marked, as Rotate PDF turns one, has the mark put back in its corner. */
+    @Test fun aPageTurnedSinceItWasMarkedIsMarkedAgain() {
+        val file = pdf()
+        val style = MarkStyle()
+        assertTrue(marks.apply(file, style))
+        val turned = File(dir, "turned.pdf")
+        PDDocument.load(file).use { doc ->
+            doc.getPage(0).rotation = 90
+            doc.save(turned)
+        }
+        assertTrue(marks.apply(turned, style))
+        checkMarked(turned, style)
+    }
+
+    /**
+     * The tools make their PDFs of a marked PDF's pages as they were, without the mark: also Split,
+     * which puts each page's content in one stream, and Compress, which then doesn't keep the PDF as
+     * it was. The previews, which Redact PDF draws its pictures from, show the pages without it too.
+     */
+    @Test fun toolsMakeTheirPdfsWithoutAnEarlierMark() {
+        val file = pdf()
+        val before = pages(file)
+        assertTrue(marks.apply(file, MarkStyle(size = 100)))
+        val engine = PdfToolsEngine(app)
+        val input = PdfInput(4242, file.path, "marked.pdf", 3)
+        val parts = engine.split(input, listOf(listOf(0), listOf(1), listOf(2)), "part")
+        assertEquals(listOf(listOf(0), listOf(0), listOf(0)), marksOn(parts))
+        for (i in parts.indices) assertArrayEquals("Part ${i + 1}'s content", before[i].first, pages(parts[i].file).single().first)
+        assertEquals(listOf(listOf(0, 0, 0)), marksOn(listOf(engine.rotate(input, mapOf(1 to 90), "turned"))))
+        val compressed = engine.compress(input, PdfCompression.RECOMMENDED, "compressed")
+        assertFalse(compressed.keptOriginal)
+        assertEquals(listOf(listOf(0, 0, 0)), marksOn(listOf(compressed)))
+        // Made beside the PDFs picked, which are copied in there.
+        File(app.cacheDir, "pdf-inputs").mkdirs()
+        val view = engine.previewView(input)
+        assertNotEquals(input.path, view.path)
+        assertEquals(listOf(listOf(0, 0, 0)), marksOn(listOf(PdfFile(view.file, 3, 0))))
+        engine.clearOutput()
+        engine.delete(input)
+    }
+
+    /**
+     * A PDF restricted by an owner password opens without one, but the mark can't go on it as it is:
+     * Compress makes it anew, without the restriction, as every tool does, rather than keep it.
+     */
+    @Test fun aRestrictedPdfIsNeitherMarkedNorKeptAsItIs() {
+        PDFBoxResourceLoader.init(app)
+        val file = File(dir, "restricted.pdf")
+        PDDocument().use { doc ->
+            doc.addPage(PDPage(PDRectangle.A4))
+            doc.protect(StandardProtectionPolicy("owner", "", AccessPermission().apply { setCanModify(false) }))
+            doc.save(file)
+        }
+        assertThrows(IOException::class.java) { marks.apply(file, MarkStyle()) }
+        val engine = PdfToolsEngine(app)
+        val compressed = engine.compress(PdfInput(4243, file.path, "restricted.pdf", 1), PdfCompression.RECOMMENDED, "compressed")
+        assertFalse(compressed.keptOriginal)
+        PDDocument.load(compressed.file).use { assertFalse(it.isEncrypted) }
+        assertTrue(marks.apply(compressed.file, MarkStyle()))
+        engine.clearOutput()
     }
 
     /** How many times each PDF of [files] says "Usugami", page by page. */

@@ -105,8 +105,8 @@ internal class ResultMarker(
      * Puts the mark on [files], PDFs just made, if it is on, before they show, keeping their first page
      * as it was made for the preview first. Blocking: call it in the run's background work, which
      * [check] stops. Returns them, each with the mark it carries; one that can't be marked is left as it
-     * is, and [failed] is called. Only the mark it adds is looked at: when it is off, a PDF made of one
-     * that carried it keeps it (taking it off with the switch takes that off too).
+     * is, and [failed] is called. They are made without the mark (the tools take it off the PDFs they
+     * read, in memory), so with it off there is nothing to do.
      */
     fun markMade(files: List<PdfFile>, check: () -> Unit): List<PdfFile> {
         uncertain = false

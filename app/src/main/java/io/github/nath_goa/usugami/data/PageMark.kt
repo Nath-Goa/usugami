@@ -8,18 +8,19 @@ import com.tom_roush.pdfbox.cos.COSBoolean
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSFloat
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSNumber
 import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageTree
-import com.tom_roush.pdfbox.pdmodel.encryption.InvalidPasswordException
 import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.core.MarkStyle
 import java.io.File
 import java.io.IOException
 import java.math.BigDecimal
 import java.math.RoundingMode
+import kotlin.math.abs
 
 /**
  * Puts the small "Usugami" mark ([MarkStyle], see [MarkLayout]) on every page of a PDF Usugami made,
@@ -34,7 +35,8 @@ import java.math.RoundingMode
  * - after it, a stream of the page's own that restores that state (Q), so nothing the page's content
  *   leaves behind can move or recolour the mark, and draws the form at the page's corner, marked as a
  *   pagination artifact so that screen readers and other accessibility tools pass over it. Its marker
- *   keeps the style, the form's name, what the page's content was, and which resources were added;
+ *   keeps the style, where on the page it was drawn, the form's name, what the page's content was,
+ *   and which resources were added;
  * - the form's name in the page's XObject resources.
  */
 class PageMark(context: Context) {
@@ -44,20 +46,16 @@ class PageMark(context: Context) {
 
     /**
      * Brings [file] to carry [mark] on every page, or no mark when it is null, and returns whether it
-     * changed. A file that already does is left as it is, and so is a PDF with a password. The new
-     * file is written whole beside [file] before it takes its place, so a run that fails or is stopped
-     * by [check] (called for each page) leaves [file] as it was.
+     * changed. A file that already does is left as it is. A PDF with a password can't be changed: that
+     * throws. The new file is written whole beside [file] before it takes its place, so a run that
+     * fails or is stopped by [check] (called for each page) leaves [file] as it was.
      */
     fun apply(file: File, mark: MarkStyle?, check: () -> Unit = {}): Boolean {
         val temp = File(file.parentFile, "${file.name}.mark.tmp")
         try {
-            val changed = try {
-                PDDocument.load(file, "", pdfScratch(scratchDir.apply { mkdirs() }))
-            } catch (_: InvalidPasswordException) {
-                return false
-            }.use { doc ->
+            val changed = PDDocument.load(file, "", memory()).use { doc ->
                 // Saving it would take its password off. No tool's PDF has one.
-                if (doc.isEncrypted) return false
+                if (doc.isEncrypted) throw IOException("${file.name} has a password")
                 val pages = doc.pages.toList()
                 if (pages.all { carries(it, mark) }) return false
                 // Every page's mark goes first: pages that share their resources then never find
@@ -87,39 +85,24 @@ class PageMark(context: Context) {
         }
     }
 
-    /** Whether [page] carries [mark] once and nothing else of Usugami's mark, or none of it when [mark] is null. */
+    private fun memory() = pdfScratch(scratchDir.apply { mkdirs() })
+
+    /**
+     * Whether [page] carries [mark] once, drawn where it goes on the page as it is shown now, and
+     * nothing else of Usugami's mark; or none of it when [mark] is null.
+     */
     private fun carries(page: PDPage, mark: MarkStyle?): Boolean {
         val ours = contents(page.cosObject).map { resolve(it) }.filter { (it as? COSStream)?.containsKey(MARKER) == true }
         if (mark == null) return ours.isEmpty()
         val markers = ours.mapNotNull { (it as COSStream).getDictionaryObject(MARKER) as? COSDictionary }
         val marker = markers.singleOrNull() ?: return false
-        return ours.size == 2 && marker.getInt(KEY_SIZE, -1) == mark.size && marker.getInt(KEY_OPACITY, -1) == mark.opacity
-    }
-
-    /** Takes Usugami's mark off [page], if it has one, and puts back what was there before. */
-    private fun unmark(page: COSDictionary) {
-        val elements = contents(page)
-        val ours = elements.indices.filter { (resolve(elements[it]) as? COSStream)?.containsKey(MARKER) == true }
-        if (ours.isEmpty()) return
-        val markers = ours.mapNotNull { (resolve(elements[it]) as COSStream).getDictionaryObject(MARKER) as? COSDictionary }
-        for (marker in markers) {
-            val resources = resources(page) ?: break
-            val xObjects = resources.getDictionaryObject(COSName.XOBJECT) as? COSDictionary
-            val name = marker.getCOSName(KEY_NAME)
-            // Its own form only: another page sharing these resources may have taken it out already.
-            if (name != null && (xObjects?.getDictionaryObject(name) as? COSStream)?.containsKey(MARKER) == true) xObjects.removeItem(name)
-            if (xObjects != null && xObjects.size() == 0 && marker.getBoolean(KEY_MADE_XOBJECTS, false)) resources.removeItem(COSName.XOBJECT)
-            if (resources.size() == 0 && marker.getBoolean(KEY_MADE_RESOURCES, false) && page.getDictionaryObject(COSName.RESOURCES) === resources) {
-                page.removeItem(COSName.RESOURCES)
-            }
-        }
-        val left = elements.filterIndexed { i, _ -> i !in ours }
-        val was = markers.firstNotNullOfOrNull { it.getItem(KEY_WAS) }
-        when {
-            // The page's content as it was, the very object, when nothing else has been added since.
-            was != null && sameStreams(was, left) -> page.setItem(COSName.CONTENTS, was)
-            left.isEmpty() -> page.removeItem(COSName.CONTENTS)
-            else -> page.setItem(COSName.CONTENTS, COSArray().apply { left.forEach { add(it) } })
+        if (ours.size != 2 || marker.getInt(KEY_SIZE, -1) != mark.size || marker.getInt(KEY_OPACITY, -1) != mark.opacity) return false
+        // A page turned or cropped since it was marked has the mark in the wrong place.
+        val drawn = marker.getDictionaryObject(KEY_MATRIX) as? COSArray ?: return false
+        val wanted = matrix(page, mark)
+        return drawn.size() == wanted.size && wanted.indices.all { i ->
+            val number = drawn.getObject(i) as? COSNumber ?: return false
+            abs(number.floatValue() - wanted[i]) < MATRIX_SLACK
         }
     }
 
@@ -139,15 +122,7 @@ class PageMark(context: Context) {
             .first { candidate -> xObjects.getDictionaryObject(candidate).let { it == null || it === form } }
         xObjects.setItem(name, form)
 
-        val frame = page.frame()
-        val place = MarkLayout.place(mark, frame.shownWidth, frame.shownHeight)
-        // From the form's space (a font size of 1, the baseline's start at its origin) to the page's.
-        val m = frame.matrix
-        val size = place.fontSize
-        val matrix = floatArrayOf(
-            m[0] * size, m[1] * size, m[2] * size, m[3] * size,
-            m[0] * place.x + m[2] * place.y + m[4], m[1] * place.x + m[3] * place.y + m[5],
-        )
+        val matrix = matrix(page, mark)
         val after = stream(
             doc,
             "Q\nq\n/Artifact <</Type /Pagination /Subtype /Watermark>> BDC\n" +
@@ -158,6 +133,7 @@ class PageMark(context: Context) {
             COSDictionary().apply {
                 setInt(KEY_SIZE, mark.size)
                 setInt(KEY_OPACITY, mark.opacity)
+                setItem(KEY_MATRIX, COSArray().apply { matrix.forEach { add(COSFloat(number(it))) } })
                 setItem(KEY_NAME, name)
                 if (was != null) setItem(KEY_WAS, was)
                 if (madeXObjects) setBoolean(KEY_MADE_XOBJECTS, true)
@@ -171,6 +147,21 @@ class PageMark(context: Context) {
                 contents(dict).forEach { add(it) }
                 add(after)
             },
+        )
+    }
+
+    /**
+     * Where the form goes on [page] in [mark]'s size: from the form's space (a font size of 1, the
+     * baseline's start at its origin) to the page's, in the bottom-right corner of the page as shown.
+     */
+    private fun matrix(page: PDPage, mark: MarkStyle): FloatArray {
+        val frame = page.frame()
+        val place = MarkLayout.place(mark, frame.shownWidth, frame.shownHeight)
+        val m = frame.matrix
+        val size = place.fontSize
+        return floatArrayOf(
+            m[0] * size, m[1] * size, m[2] * size, m[3] * size,
+            m[0] * place.x + m[2] * place.y + m[4], m[1] * place.x + m[3] * place.y + m[5],
         )
     }
 
@@ -205,32 +196,6 @@ class PageMark(context: Context) {
         createOutputStream().use { it.write(content.toByteArray(Charsets.US_ASCII)) }
     }
 
-    /** [page]'s content streams as it lists them: references, mostly. */
-    private fun contents(page: COSDictionary): List<COSBase> = when (val contents = page.getDictionaryObject(COSName.CONTENTS)) {
-        is COSArray -> (0 until contents.size()).map { contents.get(it) }
-        is COSStream -> listOf(page.getItem(COSName.CONTENTS))
-        else -> emptyList()
-    }
-
-    /** The resources [page] uses: its own, or those it takes from the page tree. */
-    private fun resources(page: COSDictionary): COSDictionary? =
-        PDPageTree.getInheritableAttribute(page, COSName.RESOURCES) as? COSDictionary
-
-    /** Whether [was], a page's content as it was, is the streams [left], in order. */
-    private fun sameStreams(was: COSBase, left: List<COSBase>): Boolean {
-        val streams = when (val resolved = resolve(was)) {
-            is COSArray -> (0 until resolved.size()).map { resolve(resolved.get(it)) }
-            else -> listOf(resolved)
-        }
-        return streams.size == left.size && streams.indices.all { streams[it] === resolve(left[it]) }
-    }
-
-    private fun resolve(base: COSBase?): COSBase? = if (base is COSObject) base.getObject() else base
-
-    /** [value] as a PDF number: no exponent, at most 4 decimals. */
-    private fun number(value: Float): String =
-        BigDecimal(value.toDouble()).setScale(4, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
-
     companion object {
         /** In the dictionary of each stream the mark adds. */
         val MARKER: COSName = COSName.getPDFName("UsugamiMark")
@@ -240,9 +205,78 @@ class PageMark(context: Context) {
         private val STATE_NAME = COSName.getPDFName("GS")
         private val KEY_SIZE = COSName.getPDFName("Size")
         private val KEY_OPACITY = COSName.getPDFName("Opacity")
+        private val KEY_MATRIX = COSName.getPDFName("Matrix")
         private val KEY_NAME = COSName.getPDFName("Name")
         private val KEY_WAS = COSName.getPDFName("Was")
         private val KEY_MADE_XOBJECTS = COSName.getPDFName("MadeXObjects")
         private val KEY_MADE_RESOURCES = COSName.getPDFName("MadeResources")
+
+        /** How far a number of the mark's place may be from where it goes: in points, or font sizes. */
+        private const val MATRIX_SLACK = 0.01f
+
+        /**
+         * Takes Usugami's mark off [doc]'s pages, in memory, and returns whether any had it. The tools
+         * make their PDFs of the pages as they were, without it: once made, a PDF gets the mark the
+         * setting asks for, or none. The file [doc] was read from isn't changed.
+         */
+        fun unmark(doc: PDDocument): Boolean {
+            var found = false
+            for (page in doc.pages) if (unmark(page.cosObject)) found = true
+            return found
+        }
+
+        /** Takes Usugami's mark off [page], if it has one, and puts back what was there before; says whether it had one. */
+        private fun unmark(page: COSDictionary): Boolean {
+            val elements = contents(page)
+            val ours = elements.indices.filter { (resolve(elements[it]) as? COSStream)?.containsKey(MARKER) == true }
+            if (ours.isEmpty()) return false
+            val markers = ours.mapNotNull { (resolve(elements[it]) as COSStream).getDictionaryObject(MARKER) as? COSDictionary }
+            for (marker in markers) {
+                val resources = resources(page) ?: break
+                val xObjects = resources.getDictionaryObject(COSName.XOBJECT) as? COSDictionary
+                val name = marker.getCOSName(KEY_NAME)
+                // Its own form only: another page sharing these resources may have taken it out already.
+                if (name != null && (xObjects?.getDictionaryObject(name) as? COSStream)?.containsKey(MARKER) == true) xObjects.removeItem(name)
+                if (xObjects != null && xObjects.size() == 0 && marker.getBoolean(KEY_MADE_XOBJECTS, false)) resources.removeItem(COSName.XOBJECT)
+                if (resources.size() == 0 && marker.getBoolean(KEY_MADE_RESOURCES, false) && page.getDictionaryObject(COSName.RESOURCES) === resources) {
+                    page.removeItem(COSName.RESOURCES)
+                }
+            }
+            val left = elements.filterIndexed { i, _ -> i !in ours }
+            val was = markers.firstNotNullOfOrNull { it.getItem(KEY_WAS) }
+            when {
+                // The page's content as it was, the very object, when nothing else has been added since.
+                was != null && sameStreams(was, left) -> page.setItem(COSName.CONTENTS, was)
+                left.isEmpty() -> page.removeItem(COSName.CONTENTS)
+                else -> page.setItem(COSName.CONTENTS, COSArray().apply { left.forEach { add(it) } })
+            }
+            return true
+        }
+
+        /** [page]'s content streams as it lists them: references, mostly. */
+        private fun contents(page: COSDictionary): List<COSBase> = when (val contents = page.getDictionaryObject(COSName.CONTENTS)) {
+            is COSArray -> (0 until contents.size()).map { contents.get(it) }
+            is COSStream -> listOf(page.getItem(COSName.CONTENTS))
+            else -> emptyList()
+        }
+
+        /** The resources [page] uses: its own, or those it takes from the page tree. */
+        private fun resources(page: COSDictionary): COSDictionary? =
+            PDPageTree.getInheritableAttribute(page, COSName.RESOURCES) as? COSDictionary
+
+        /** Whether [was], a page's content as it was, is the streams [left], in order. */
+        private fun sameStreams(was: COSBase, left: List<COSBase>): Boolean {
+            val streams = when (val resolved = resolve(was)) {
+                is COSArray -> (0 until resolved.size()).map { resolve(resolved.get(it)) }
+                else -> listOf(resolved)
+            }
+            return streams.size == left.size && streams.indices.all { streams[it] === resolve(left[it]) }
+        }
+
+        private fun resolve(base: COSBase?): COSBase? = if (base is COSObject) base.getObject() else base
+
+        /** [value] as a PDF number: no exponent, at most 4 decimals. */
+        private fun number(value: Float): String =
+            BigDecimal(value.toDouble()).setScale(4, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
     }
 }
