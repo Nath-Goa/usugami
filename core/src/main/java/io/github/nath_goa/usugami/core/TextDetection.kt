@@ -384,41 +384,124 @@ object OcrScale {
 /**
  * Words too large for text detection at full size. The detection model finds letters up to a few
  * hundred pixels high; a larger word (a poster, a sign, a slide's title photographed close up) it
- * finds only in pieces, or not at all. Detection on a small copy of the page finds such words.
+ * finds only in pieces, or not at all. Detection on a small copy of the page finds such words, and
+ * they are read in place of their pieces.
  */
 object LargeText {
     /** How much of a box found on the small copy boxes found at full size may cover, for it to count as new. */
     private const val MAX_COVERED = 0.4f
 
+    /** A box found at full size with at least this share of its area inside a large word is a piece of it. */
+    private const val PIECE = 0.5f
+
     /**
-     * The boxes of [coarse] (found on a small copy of the page) at least [minHeight] high that
-     * boxes of [fine] (found at full size, in the same pixels) cover less than [MAX_COVERED] of. A
-     * covered one is a line found already, or a paragraph of small print that the small copy shows
-     * as one block; the pieces of a large word found at full size cover little of it.
+     * The boxes of [coarse] (found on a small copy of the page) that may be large words: at least
+     * [minHeight] high across their text (a line of ordinary print running down the page is long,
+     * not large), covered less than [MAX_COVERED] by boxes of [fine] (found at full size, in the
+     * same pixels), and with none of those running through them. A covered one is a line found
+     * already, or a paragraph of small print that the small copy shows as one block; the pieces of
+     * a large word found at full size cover little of it, and lie inside it. One that lines run
+     * through is something else among them, such as a stamp or a picture: read, it would give a few
+     * stray characters, and it would also take its place among the lines when they are put in
+     * reading order, moving them.
      */
-    fun boxes(coarse: List<OcrQuad>, fine: List<OcrQuad>, minHeight: Float): List<OcrQuad> {
-        val fineBounds = fine.map(::bounds)
-        return coarse.filter { box ->
-            if (box.height < minHeight) return@filter false
-            val (left, top, right, bottom) = bounds(box)
-            val area = (right - left) * (bottom - top)
-            var covered = 0f
-            for ((fineLeft, fineTop, fineRight, fineBottom) in fineBounds) {
-                val width = min(right, fineRight) - max(left, fineLeft)
-                val height = min(bottom, fineBottom) - max(top, fineTop)
-                if (width > 0 && height > 0) covered += width * height
+    fun candidates(coarse: List<OcrQuad>, fine: List<OcrQuad>, minHeight: Float): List<OcrQuad> = coarse.filter { box ->
+        val area = area(box.corners)
+        if (min(box.width, box.height) < minHeight || area <= 0f) return@filter false
+        var covered = 0f
+        for (line in fine) {
+            val overlap = Overlap.of(line, box) ?: continue
+            if (overlap.runsThrough) return@filter false
+            covered += overlap.area
+        }
+        covered < MAX_COVERED * area
+    }
+
+    /**
+     * The boxes to read: [fine] without the pieces of [words] (those mostly inside one), then
+     * [words]. Left in, a piece would be read on its own, as a stray letter or two inside the word.
+     */
+    fun inPlaceOfPieces(fine: List<OcrQuad>, words: List<OcrQuad>): List<OcrQuad> =
+        fine.filter { line -> words.none { Overlap.of(line, it)?.isPiece == true } } + words
+
+    /**
+     * The part of a line found at full size that lies inside a box found on the small copy, measured
+     * in the line's own frame, so that it is the same on a tilted page: its [area], and how far it
+     * reaches [along] and [across] the line, which is [lineArea] large and [thickness] thick.
+     */
+    private class Overlap(val area: Float, private val lineArea: Float, private val along: Float, private val across: Float, private val thickness: Float) {
+        /** Whether the line is a piece of the box: mostly inside it. */
+        val isPiece get() = area >= PIECE * lineArea
+
+        /**
+         * Whether the line runs through the box: it is mostly outside, but the box holds more than an
+         * edge of it (at least half its thickness across, and twice its thickness along). The box of
+         * a large word may graze the lines above and below it, or a word next to it, but no more.
+         */
+        val runsThrough get() = !isPiece && across >= thickness / 2 && along >= 2 * thickness
+
+        companion object {
+            /** The part of [line] inside [box], or null if they don't overlap. */
+            fun of(line: OcrQuad, box: OcrQuad): Overlap? {
+                val (origin, end, _, side) = line.corners
+                val length = origin.distanceTo(end)
+                val width = origin.distanceTo(side)
+                if (length <= 0f || width <= 0f) return null
+                val ux = (end.x - origin.x) / length
+                val uy = (end.y - origin.y) / length
+                fun u(p: OcrPoint) = (p.x - origin.x) * ux + (p.y - origin.y) * uy
+                fun v(p: OcrPoint) = -(p.x - origin.x) * uy + (p.y - origin.y) * ux
+                // The line spans 0..length along its first edge, and 0..width across it, on one side.
+                val (near, far) = if (v(side) >= 0) 0f to width else -width to 0f
+                var polygon = box.corners.map { OcrPoint(u(it), v(it)) }
+                polygon = clip(polygon) { it.x }
+                polygon = clip(polygon) { length - it.x }
+                polygon = clip(polygon) { it.y - near }
+                polygon = clip(polygon) { far - it.y }
+                if (polygon.size < 3) return null
+                val area = area(polygon)
+                if (area <= 0f) return null
+                val uExtent = polygon.maxOf { it.x } - polygon.minOf { it.x }
+                val vExtent = polygon.maxOf { it.y } - polygon.minOf { it.y }
+                return if (length >= width) {
+                    Overlap(area, length * width, along = uExtent, across = vExtent, thickness = width)
+                } else {
+                    Overlap(area, length * width, along = vExtent, across = uExtent, thickness = length)
+                }
             }
-            area > 0 && covered < MAX_COVERED * area
+
+            /**
+             * [polygon] cut along a straight edge (Sutherland-Hodgman), keeping the side where
+             * [distance] from the edge is positive.
+             */
+            private fun clip(polygon: List<OcrPoint>, distance: (OcrPoint) -> Float): List<OcrPoint> {
+                val kept = ArrayList<OcrPoint>(polygon.size + 2)
+                for (i in polygon.indices) {
+                    val from = polygon[i]
+                    val to = polygon[(i + 1) % polygon.size]
+                    val fromDistance = distance(from)
+                    val toDistance = distance(to)
+                    if (fromDistance >= 0) kept += from
+                    if ((fromDistance >= 0) != (toDistance >= 0)) {
+                        val t = fromDistance / (fromDistance - toDistance)
+                        kept += OcrPoint(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t)
+                    }
+                }
+                return kept
+            }
         }
     }
 
-    /** [box]'s upright bounds: left, top, right, bottom. */
-    private fun bounds(box: OcrQuad): FloatArray = floatArrayOf(
-        box.corners.minOf { it.x },
-        box.corners.minOf { it.y },
-        box.corners.maxOf { it.x },
-        box.corners.maxOf { it.y },
-    )
+    /** The area of the polygon with [corners] (shoelace formula). */
+    private fun area(corners: List<OcrPoint>): Float {
+        var twice = 0f
+        for (i in corners.indices) {
+            val a = corners[i]
+            val b = corners[(i + 1) % corners.size]
+            twice += a.x * b.y - b.x * a.y
+        }
+        return abs(twice) / 2
+    }
 }
 
 /** What the detected boxes are: which are pieces of one line, and which lines run down the page. */

@@ -168,6 +168,43 @@ class TextDetectionTest {
         assertEquals(listOf(OcrPoint(10f, 49f), OcrPoint(300f, 49f), OcrPoint(300f, 71f), OcrPoint(10f, 71f)), joined.corners)
     }
 
+    @Test fun aLargeWordIsReadInPlaceOfItsPieces() {
+        // A poster's SALE, which detection at full size found only as the A's crossbar, over "all week".
+        val sale = box(600f, 500f, 3400f, 1600f)
+        val crossbar = box(1700f, 1150f, 2000f, 1230f)
+        val allWeek = box(1400f, 2350f, 2600f, 2650f)
+        // The small copy finds both lines; "all week" was found at full size already.
+        val words = LargeText.candidates(listOf(sale, box(1380f, 2330f, 2620f, 2670f)), listOf(crossbar, allWeek), minHeight = 300f)
+        assertEquals(listOf(sale), words)
+        val lines = TextLines.merge(LargeText.inPlaceOfPieces(listOf(crossbar, allWeek), words)).map { it.quad }
+        assertEquals(listOf(sale, allWeek), ReadingOrder.of(lines).map { lines[it] })
+    }
+
+    @Test fun aBlockAmongLinesIsNoLargeWord() {
+        for (degrees in listOf(0.0, 8.0)) {
+            val angle = Math.toRadians(degrees)
+            fun tilted(quad: OcrQuad) = quad.map {
+                OcrPoint((it.x * cos(angle) - it.y * sin(angle)).toFloat(), (it.x * sin(angle) + it.y * cos(angle)).toFloat())
+            }
+            // Four lines of a form, the second starting further along, and a stamp over three of them
+            // that they cover only a third of.
+            val form = listOf(box(100f, 50f, 2000f, 80f), box(600f, 150f, 2000f, 180f), box(100f, 250f, 2000f, 280f), box(100f, 350f, 2000f, 380f)).map(::tilted)
+            val stamp = tilted(box(900f, 60f, 1500f, 300f))
+            assertEquals(emptyList<OcrQuad>(), LargeText.candidates(listOf(stamp), form, minHeight = 200f))
+            // A line of ordinary print down the margin is long, not large.
+            assertEquals(emptyList<OcrQuad>(), LargeText.candidates(listOf(tilted(box(20f, 50f, 60f, 900f))), emptyList(), minHeight = 200f))
+            // A large word may graze the lines above and below it, and a word next to it.
+            val word = tilted(box(400f, 400f, 1600f, 800f))
+            val above = tilted(box(300f, 330f, 1700f, 410f))
+            val below = tilted(box(300f, 790f, 1700f, 860f))
+            val next = tilted(box(1590f, 700f, 1800f, 780f))
+            val piece = tilted(box(900f, 600f, 1100f, 630f))
+            assertEquals(listOf(word), LargeText.candidates(listOf(word), listOf(above, below, next, piece), minHeight = 200f))
+            // Only its piece makes way for it.
+            assertEquals(listOf(above, below, next, word), LargeText.inPlaceOfPieces(listOf(above, piece, below, next), listOf(word)))
+        }
+    }
+
     @Test fun joinedLinesKeepTheirAngleAndDirection() {
         val angle = Math.toRadians(8.0)
         fun turned(quad: OcrQuad, radians: Double) = quad.map {

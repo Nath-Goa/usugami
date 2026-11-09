@@ -121,31 +121,43 @@ class BuiltInOcrDeviceTest {
         }
     }
 
-    /** A word as tall as a poster's, which detection at full size finds only in pieces or not at all, is read. */
+    /**
+     * A word as tall as a poster's, which detection at full size finds only in pieces or not at all,
+     * is read whole, without the pieces. Also on a postcard (4 x 6 inches), which is read at only
+     * 1080 x 720 pixels: its word is still taller than detection at full size finds.
+     */
     @Test fun readsAPostersLargeWord() = runBlocking {
-        // A picture of the poster, so that the PDF has no text of its own.
-        val picture = Bitmap.createBitmap(1600, 1200, Bitmap.Config.ARGB_8888)
+        val poster = picturePage("poster.pdf", 1600, 1200, 800, 600, listOf(Triple("SALE", 560f, 680f), Triple("all week", 100f, 1000f)))
+        assertEquals(listOf("SALE", "all week"), text(ocr(poster, OcrLanguage.ENGLISH)).lines().map(String::trim).filter(String::isNotEmpty))
+        val postcard = picturePage("postcard.pdf", 1080, 720, 432, 288, listOf(Triple("Hello", 400f, 400f), Triple("from the seaside", 50f, 600f)))
+        assertEquals(listOf("Hello", "from the seaside"), text(ocr(postcard, OcrLanguage.ENGLISH)).lines().map(String::trim).filter(String::isNotEmpty))
+    }
+
+    /**
+     * A PDF of one [pageWidth] x [pageHeight] page showing a [width] x [height] picture of [lines]
+     * (each its text, size and baseline, centred in bold), so that the PDF has no text of its own.
+     */
+    private fun picturePage(name: String, width: Int, height: Int, pageWidth: Int, pageHeight: Int, lines: List<Triple<String, Float, Float>>): File {
+        val picture = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(picture)
         canvas.drawColor(Color.WHITE)
         val ink = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.DEFAULT_BOLD
             textAlign = Paint.Align.CENTER
-            textSize = 560f
         }
-        canvas.drawText("SALE", 800f, 680f, ink)
-        ink.textSize = 100f
-        canvas.drawText("all week", 800f, 1000f, ink)
-        val poster = File(dir, "poster.pdf")
+        for ((text, size, baseline) in lines) {
+            ink.textSize = size
+            canvas.drawText(text, width / 2f, baseline, ink)
+        }
+        val file = File(dir, name)
         val document = PdfDocument()
-        val page = document.startPage(PdfDocument.PageInfo.Builder(800, 600, 1).create())
-        page.canvas.drawBitmap(picture, null, RectF(0f, 0f, 800f, 600f), null)
+        val page = document.startPage(PdfDocument.PageInfo.Builder(pageWidth, pageHeight, 1).create())
+        page.canvas.drawBitmap(picture, null, RectF(0f, 0f, pageWidth.toFloat(), pageHeight.toFloat()), null)
         document.finishPage(page)
-        poster.outputStream().use(document::writeTo)
+        file.outputStream().use(document::writeTo)
         document.close()
         picture.recycle()
-        val found = text(ocr(poster, OcrLanguage.ENGLISH))
-        val read = found.split(Regex("\\s+")).toSet()
-        for (word in listOf("SALE", "all", "week")) assertTrue("Missing $word in $found", word in read)
+        return file
     }
 
     /** A photo made into a PDF at Extreme is read as picked, and its text goes over its lines. */
