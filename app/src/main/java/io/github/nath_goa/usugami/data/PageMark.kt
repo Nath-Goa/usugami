@@ -44,10 +44,10 @@ import kotlin.math.abs
  *   drawn, the form's name, what the page's content was, and which resources were added;
  * - the form's name in the page's XObject resources.
  *
- * A PDF with a signature value would lose its signatures if it was saved anew: the mark is appended to
+ * A PDF with a signature that still holds would lose it if it was saved anew: the mark is appended to
  * it as an update instead, which leaves the signed PDF byte for byte as it was, and the markers keep
  * where it ends. Changing the mark or taking it off cuts the file back there first. A PDF whose
- * certification allows no change at all gets no mark ([MarkForbidden]).
+ * certification still holds and allows no change at all gets no mark ([MarkForbidden]).
  */
 class PageMark(context: Context) {
     private val scratchDir = File(context.cacheDir, "pdfbox")
@@ -57,9 +57,9 @@ class PageMark(context: Context) {
     /**
      * Brings [file] to carry [mark] on every page, or no mark when it is null, and returns whether it
      * changed. A file that already does is left as it is. A PDF with a password can't be changed: that
-     * throws, as [MarkForbidden] does for a PDF certified against any change. The new file is written
-     * whole beside [file] before it takes its place, so a run that fails or is stopped by [check]
-     * (called for each page) leaves [file] as it was.
+     * throws, as [MarkForbidden] does for a PDF still certified against any change. The new file is
+     * written whole beside [file] before it takes its place, so a run that fails or is stopped by
+     * [check] (called for each page) leaves [file] as it was.
      */
     fun apply(file: File, mark: MarkStyle?, check: () -> Unit = {}): Boolean {
         val temp = File(file.parentFile, "${file.name}.mark.tmp")
@@ -78,7 +78,7 @@ class PageMark(context: Context) {
                         cut(file, end, if (mark == null) temp else signed)
                         markSigned = mark != null
                     }
-                    mark != null && pages.none { ours(it.cosObject).isNotEmpty() } && signatures(doc).isNotEmpty() ->
+                    mark != null && pages.none { ours(it.cosObject).isNotEmpty() } && signatures(doc, file).isNotEmpty() ->
                         append(doc, file, mark, check, temp)
                     else -> {
                         // Every page's mark goes first: pages that share their resources then never find
@@ -170,12 +170,12 @@ class PageMark(context: Context) {
     }
 
     /**
-     * Marks [doc], read from [source], a PDF with a signature value, in [mark]'s style, and writes it to
-     * [target] as [source] with an update appended: the pages and the resources the mark changed. The
-     * PDF as it was stays byte for byte as it was, so its signatures still hold.
+     * Marks [doc], read from [source], a PDF with a signature that holds, in [mark]'s style, and writes
+     * it to [target] as [source] with an update appended: the pages and the resources the mark changed.
+     * The PDF as it was stays byte for byte as it was, so its signatures still hold.
      */
     private fun append(doc: PDDocument, source: File, mark: MarkStyle, check: () -> Unit, target: File) {
-        if (forbidsChanges(signatures(doc))) throw MarkForbidden(source.name)
+        if (forbidsChanges(signatures(doc, source))) throw MarkForbidden(source.name)
         val changed = markPages(doc, doc.pages.toList(), mark, check, appendedAt = source.length())
         check()
         // Those given are written, and from them what they hold that is new or flagged as changed.
@@ -321,10 +321,11 @@ class PageMark(context: Context) {
     }
 
     /**
-     * The signature values in [doc]: of its signature fields (a /V with a /ByteRange), and of its
-     * permissions (a certification, or usage rights). Saving it anew would break each of them.
+     * The signature values in [doc], read from [file], that still hold there: of its signature fields
+     * (a /V with a /ByteRange), and of its permissions (a certification, or usage rights). Saving it
+     * anew would break each of them.
      */
-    private fun signatures(doc: PDDocument): List<COSDictionary> {
+    private fun signatures(doc: PDDocument, file: File): List<COSDictionary> {
         val found = ArrayList<COSDictionary>()
         val seen = Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>())
         fun take(value: COSBase?) {
@@ -344,7 +345,33 @@ class PageMark(context: Context) {
         walk(form?.getDictionaryObject(COSName.FIELDS) as? COSArray, 0)
         val perms = catalog.getDictionaryObject(COSName.PERMS) as? COSDictionary
         perms?.keySet()?.forEach { take(perms.getDictionaryObject(it)) }
-        return found
+        if (found.isEmpty()) return found
+        return RandomAccessFile(file, "r").use { bytes -> found.filter { fits(it, bytes) } }
+    }
+
+    /**
+     * Whether [value]'s /ByteRange fits [bytes] as signing left it: all of a revision, from the start
+     * to an end of file mark, but the /Contents string between. Saved anew, a PDF keeps the value, but
+     * no longer the signature: its bytes have moved.
+     */
+    private fun fits(value: COSDictionary, bytes: RandomAccessFile): Boolean {
+        val range = value.getDictionaryObject(COSName.BYTERANGE) as? COSArray ?: return false
+        if (range.size() != 4) return false
+        val (start, gap, after, last) = (0 until 4).map { (range.getObject(it) as? COSNumber)?.longValue() ?: return false }
+        if (start != 0L || gap < 1 || after <= gap || last < 0 || after + last > bytes.length()) return false
+        fun at(position: Long): Int = bytes.run {
+            seek(position)
+            read()
+        }
+        return at(gap) == '<'.code && at(after - 1) == '>'.code && endsWithEof(bytes, after + last)
+    }
+
+    /** Whether the bytes of [bytes] before [end] end with an end of file mark, but for line breaks and the like. */
+    private fun endsWithEof(bytes: RandomAccessFile, end: Long): Boolean {
+        val tail = ByteArray(minOf(end, EOF_TAIL).toInt())
+        bytes.seek(end - tail.size)
+        bytes.readFully(tail)
+        return String(tail, Charsets.ISO_8859_1).trimEnd { it.isWhitespace() || it == '\u0000' }.endsWith("%%EOF")
     }
 
     /** Whether one of [signatures] certifies its PDF allowing no change at all (DocMDP, /P 1). */
@@ -384,6 +411,9 @@ class PageMark(context: Context) {
         /** How an update PDFBox appends starts: a line break, then its first object. */
         private val UPDATE_START = Regex("^\r\n\\d+ \\d+ obj")
         private const val UPDATE_HEAD = 32L
+
+        /** How far before a signed revision's end its end of file mark is looked for. */
+        private const val EOF_TAIL = 1024L
 
         /** How far a number of the mark's place may be from where it goes: in points, or font sizes. */
         private const val MATRIX_SLACK = 0.01f

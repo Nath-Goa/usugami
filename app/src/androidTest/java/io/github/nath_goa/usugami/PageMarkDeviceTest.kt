@@ -493,14 +493,20 @@ class PageMarkDeviceTest {
     }
 
     /**
-     * A PDF certified against any change gets no mark: it is left as it is. Compressed with the mark
-     * on, the user is told once, and the result says it has none.
+     * A PDF certified against any change gets no mark: it is left as it is, unless it was saved anew
+     * since, which broke its certification. Compressed with the mark on, the user is told once, and the
+     * result says it has none.
      */
     @Test fun aPdfCertifiedAgainstAnyChangeGetsNoMark() {
         val picked = File(app.cacheDir, "output/test-picked/certified.pdf").apply { parentFile!!.mkdirs() }
         val certified = sign(compactPdf(picked, "CERTIFIED"), certify = 1)
         assertThrows(MarkForbidden::class.java) { marks.apply(picked, MarkStyle()) }
         assertArrayEquals(certified, picked.readBytes())
+        // Saved anew, as the other tools save their PDFs, its certification no longer holds: the mark goes on.
+        val saved = File(dir, "saved.pdf")
+        PDDocument.load(picked).use { it.save(saved) }
+        assertTrue(marks.apply(saved, MarkStyle()))
+        checkMarked(saved, MarkStyle())
 
         val vm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }
         try {
