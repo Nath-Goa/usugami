@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tool_images_detail">Escaneos con la cámara, JPG y PNG en un solo PDF, o un PDF por imagen</string>
-    <string name="search_keywords_images">foto, imagen, JPEG, escanear, escaneo, escáner, cámara, galería, documento, blanco y negro</string>
+    <string name="tool_images_detail">Escaneos con la cámara e imágenes en un solo PDF, o un PDF por imagen</string>
+    <string name="search_keywords_images">foto, imagen, JPEG, JPG, PNG, HEIC, WebP, escanear, escaneo, escáner, cámara, galería, documento, blanco y negro</string>
 </resources>

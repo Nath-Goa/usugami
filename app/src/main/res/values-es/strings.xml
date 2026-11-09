@@ -5,7 +5,7 @@
     <!-- Home and PDF tools -->
     <string name="home_subtitle">Tus archivos se quedan en este teléfono. Sin anuncios, sin cuenta y sin subir nada.</string>
     <string name="tool_images">Imágenes a PDF</string>
-    <string name="tool_images_detail">Escaneos con la cámara, JPG y PNG a PDF, con reconocimiento de texto</string>
+    <string name="tool_images_detail">Escaneos con la cámara e imágenes a PDF, con reconocimiento de texto</string>
     <!-- The large card at the top of Home: take photos of a paper document, or pick images of one, then crop and clean up each page. -->
     <string name="scan_title">Escanear documento</string>
     <string name="scan_detail">Toma fotos o importa imágenes, y luego recórtalas y mejóralas</string>
@@ -110,6 +110,12 @@
         <item quantity="other">Comprimir %d PDF</item>
     </plurals>
     <string name="pdf_no_reduction">Este PDF ya es compacto; se conservó el tamaño original.</string>
+    <string name="pdf_not_smaller">No se pudo reducir más este PDF.</string>
+    <plurals name="batch_not_smaller">
+        <item quantity="one">No se pudo reducir más %2$s.</item>
+        <item quantity="many">No se pudieron reducir más %1$d PDF: %2$s.</item>
+        <item quantity="other">No se pudieron reducir más %1$d PDF: %2$s.</item>
+    </plurals>
     <string name="pdf_compress_note">El texto y los dibujos se mantienen nítidos. Las imágenes se reducen cuando así se ahorra espacio.</string>
     <string name="compression_for_all">Compresión de todos los PDF</string>
     <string name="compression_for_all_hint">Cambia uno de abajo para darle su propio nivel.</string>
@@ -453,7 +459,7 @@
 
     <!-- Editor -->
     <string name="editor_title">Imágenes a PDF</string>
-    <string name="empty_title">Convierte imágenes JPG y PNG en un PDF</string>
+    <string name="empty_title">Convierte imágenes en un PDF</string>
     <string name="empty_body">Elige tus imágenes, ordénalas y conviértelas. Todo ocurre en este teléfono. No se sube nada.</string>
     <string name="empty_share_hint">Consejo: también puedes compartir imágenes con Usugami desde tu galería.</string>
     <string name="add_from_photos">Fotos</string>
@@ -649,9 +655,19 @@
 
     <!-- Messages -->
     <plurals name="msg_skipped_unsupported">
-        <item quantity="one">Se omitió %d archivo: solo se admiten imágenes JPG y PNG.</item>
-        <item quantity="many">Se omitieron %d archivos: solo se admiten imágenes JPG y PNG.</item>
-        <item quantity="other">Se omitieron %d archivos: solo se admiten imágenes JPG y PNG.</item>
+        <item quantity="one">Se omitió %d archivo: solo se admiten imágenes JPG, PNG, HEIC, AVIF, WebP, BMP y GIF.</item>
+        <item quantity="many">Se omitieron %d archivos: solo se admiten imágenes JPG, PNG, HEIC, AVIF, WebP, BMP y GIF.</item>
+        <item quantity="other">Se omitieron %d archivos: solo se admiten imágenes JPG, PNG, HEIC, AVIF, WebP, BMP y GIF.</item>
+    </plurals>
+    <plurals name="msg_skipped_unsupported_no_avif">
+        <item quantity="one">Se omitió %d archivo: solo se admiten imágenes JPG, PNG, HEIC, WebP, BMP y GIF en esta versión de Android.</item>
+        <item quantity="many">Se omitieron %d archivos: solo se admiten imágenes JPG, PNG, HEIC, WebP, BMP y GIF en esta versión de Android.</item>
+        <item quantity="other">Se omitieron %d archivos: solo se admiten imágenes JPG, PNG, HEIC, WebP, BMP y GIF en esta versión de Android.</item>
+    </plurals>
+    <plurals name="msg_skipped_unsupported_no_heic">
+        <item quantity="one">Se omitió %d archivo: solo se admiten imágenes JPG, PNG, WebP, BMP y GIF en esta versión de Android.</item>
+        <item quantity="many">Se omitieron %d archivos: solo se admiten imágenes JPG, PNG, WebP, BMP y GIF en esta versión de Android.</item>
+        <item quantity="other">Se omitieron %d archivos: solo se admiten imágenes JPG, PNG, WebP, BMP y GIF en esta versión de Android.</item>
     </plurals>
     <plurals name="msg_failed_import">
         <item quantity="one">No se pudo leer %d imagen.</item>
@@ -680,6 +696,7 @@
     </plurals>
     <string name="msg_share_interrupted">Usugami se cerró antes de poder recibir los archivos que compartiste. Vuelve a compartirlos.</string>
     <string name="msg_picks_interrupted">Usugami se cerró antes de añadir todas tus imágenes. Vuelve a añadir las que faltan.</string>
+    <string name="msg_making_interrupted">Usugami se cerró antes de terminar tu PDF. Vuelve a intentarlo.</string>
     <string name="msg_saved_downloads">Guardado en Descargas como %1$s</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">Se guardó %d PDF en Descargas</item>
@@ -740,7 +757,7 @@
         <item quantity="other">%d herramientas encontradas</item>
     </plurals>
     <string name="home_search_none">Ninguna herramienta coincide con \"%1$s\"</string>
-    <string name="search_keywords_images">foto, imagen, JPEG, escanear, escaneo, escáner, cámara, galería, documento, blanco y negro, OCR</string>
+    <string name="search_keywords_images">foto, imagen, JPEG, JPG, PNG, HEIC, WebP, escanear, escaneo, escáner, cámara, galería, documento, blanco y negro, OCR</string>
     <string name="search_keywords_scan">escanear, escaneo, escáner, CamScanner, cámara, foto, documento, papel, hoja, recibo, ticket, factura, recortar, mejorar, filtro, brillo, contraste, blanco y negro</string>
     <string name="search_keywords_word">doc, docx, documento, Office, convertir</string>
     <string name="search_keywords_powerpoint">ppt, pptx, diapositivas, presentación, Office, convertir</string>

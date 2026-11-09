@@ -5,7 +5,7 @@
     <!-- Home and PDF tools -->
     <string name="home_subtitle">Vos fichiers restent sur ce téléphone. Sans publicité, sans compte, sans envoi en ligne.</string>
     <string name="tool_images">Images en PDF</string>
-    <string name="tool_images_detail">Scans à l\'appareil photo, JPG et PNG en PDF, avec reconnaissance de texte</string>
+    <string name="tool_images_detail">Scans à l\'appareil photo et images en PDF, avec reconnaissance de texte</string>
     <!-- The large card at the top of Home: take photos of a paper document, or pick images of one, then crop and clean up each page. -->
     <string name="scan_title">Numériser un document</string>
     <string name="scan_detail">Prendre des photos ou importer des images, puis les recadrer et les améliorer</string>
@@ -110,6 +110,12 @@
         <item quantity="other">Compresser %d PDF</item>
     </plurals>
     <string name="pdf_no_reduction">Ce PDF est déjà compact ; sa taille d\'origine a été conservée.</string>
+    <string name="pdf_not_smaller">Impossible de réduire davantage ce PDF.</string>
+    <plurals name="batch_not_smaller" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Impossible de réduire davantage %2$s.</item>
+        <item quantity="many">Impossible de réduire davantage %1$d PDF : %2$s.</item>
+        <item quantity="other">Impossible de réduire davantage %1$d PDF : %2$s.</item>
+    </plurals>
     <string name="pdf_compress_note">Le texte et les dessins restent nets. Les images sont réduites lorsque cela permet de gagner de la place.</string>
     <string name="compression_for_all">Compression de tous les PDF</string>
     <string name="compression_for_all_hint">Changez-en un ci-dessous pour lui donner son propre niveau.</string>
@@ -453,7 +459,7 @@
 
     <!-- Editor -->
     <string name="editor_title">Images en PDF</string>
-    <string name="empty_title">Transformez des images JPG et PNG en PDF</string>
+    <string name="empty_title">Transformez des images en PDF</string>
     <string name="empty_body">Choisissez vos images, mettez-les dans l\'ordre et convertissez-les. Tout se passe sur ce téléphone. Rien n\'est envoyé en ligne.</string>
     <string name="empty_share_hint">Astuce : vous pouvez aussi partager des images avec Usugami depuis votre galerie.</string>
     <string name="add_from_photos">Photos</string>
@@ -649,9 +655,19 @@
 
     <!-- Messages -->
     <plurals name="msg_skipped_unsupported">
-        <item quantity="one">%d fichier ignoré : seules les images JPG et PNG sont prises en charge.</item>
-        <item quantity="many">%d fichiers ignorés : seules les images JPG et PNG sont prises en charge.</item>
-        <item quantity="other">%d fichiers ignorés : seules les images JPG et PNG sont prises en charge.</item>
+        <item quantity="one">%d fichier ignoré : seules les images JPG, PNG, HEIC, AVIF, WebP, BMP et GIF sont prises en charge.</item>
+        <item quantity="many">%d fichiers ignorés : seules les images JPG, PNG, HEIC, AVIF, WebP, BMP et GIF sont prises en charge.</item>
+        <item quantity="other">%d fichiers ignorés : seules les images JPG, PNG, HEIC, AVIF, WebP, BMP et GIF sont prises en charge.</item>
+    </plurals>
+    <plurals name="msg_skipped_unsupported_no_avif">
+        <item quantity="one">%d fichier ignoré : seules les images JPG, PNG, HEIC, WebP, BMP et GIF sont prises en charge sur cette version d\'Android.</item>
+        <item quantity="many">%d fichiers ignorés : seules les images JPG, PNG, HEIC, WebP, BMP et GIF sont prises en charge sur cette version d\'Android.</item>
+        <item quantity="other">%d fichiers ignorés : seules les images JPG, PNG, HEIC, WebP, BMP et GIF sont prises en charge sur cette version d\'Android.</item>
+    </plurals>
+    <plurals name="msg_skipped_unsupported_no_heic">
+        <item quantity="one">%d fichier ignoré : seules les images JPG, PNG, WebP, BMP et GIF sont prises en charge sur cette version d\'Android.</item>
+        <item quantity="many">%d fichiers ignorés : seules les images JPG, PNG, WebP, BMP et GIF sont prises en charge sur cette version d\'Android.</item>
+        <item quantity="other">%d fichiers ignorés : seules les images JPG, PNG, WebP, BMP et GIF sont prises en charge sur cette version d\'Android.</item>
     </plurals>
     <plurals name="msg_failed_import">
         <item quantity="one">Impossible de lire %d image.</item>
@@ -680,6 +696,7 @@
     </plurals>
     <string name="msg_share_interrupted">Usugami a été fermé avant d\'avoir pu récupérer les fichiers que vous avez partagés. Veuillez les partager à nouveau.</string>
     <string name="msg_picks_interrupted">Usugami a été fermé avant d\'avoir ajouté toutes vos images. Veuillez ajouter à nouveau celles qui manquent.</string>
+    <string name="msg_making_interrupted">Usugami a été fermé avant d\'avoir terminé votre PDF. Veuillez réessayer.</string>
     <string name="msg_saved_downloads">Enregistré dans Téléchargements sous le nom %1$s</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">%d PDF enregistré dans Téléchargements</item>
@@ -740,7 +757,7 @@
         <item quantity="other">%d outils trouvés</item>
     </plurals>
     <string name="home_search_none">Aucun outil ne correspond à « %1$s »</string>
-    <string name="search_keywords_images">photo, image, JPEG, scanner, scan, numériser, appareil photo, caméra, galerie, document, noir et blanc, OCR</string>
+    <string name="search_keywords_images">photo, image, JPEG, JPG, PNG, HEIC, WebP, scanner, scan, numériser, appareil photo, caméra, galerie, document, noir et blanc, OCR</string>
     <string name="search_keywords_scan">scanner, scan, numérisation, CamScanner, appareil photo, caméra, photo, document, papier, feuille, reçu, ticket de caisse, facture, recadrer, rogner, améliorer, filtre, luminosité, contraste, noir et blanc</string>
     <string name="search_keywords_word">doc, docx, document, Office, convertir, traitement de texte</string>
     <string name="search_keywords_powerpoint">ppt, pptx, diapositives, présentation, diaporama, Office, convertir</string>

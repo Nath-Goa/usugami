@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tool_images_detail">Scans à l\'appareil photo, JPG et PNG en un seul PDF, ou un PDF par image</string>
-    <string name="search_keywords_images">photo, image, JPEG, scanner, scan, numériser, appareil photo, caméra, galerie, document, noir et blanc</string>
+    <string name="tool_images_detail">Scans à l\'appareil photo et images en un seul PDF, ou un PDF par image</string>
+    <string name="search_keywords_images">photo, image, JPEG, JPG, PNG, HEIC, WebP, scanner, scan, numériser, appareil photo, caméra, galerie, document, noir et blanc</string>
 </resources>

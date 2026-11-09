@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="tool_images_detail">कैमरे से स्कैन, JPG और PNG इमेज से एक PDF, या हर इमेज की अलग PDF</string>
-    <string name="search_keywords_images">फ़ोटो, तस्वीर, स्कैन, स्कैनर, कैमरा, गैलरी, डॉक्यूमेंट, ब्लैक एंड व्हाइट, photo, image, scan, scanner, camera, JPEG</string>
+    <string name="tool_images_detail">कैमरे से स्कैन और इमेज से एक PDF, या हर इमेज की अलग PDF</string>
+    <string name="search_keywords_images">फ़ोटो, तस्वीर, स्कैन, स्कैनर, कैमरा, गैलरी, डॉक्यूमेंट, ब्लैक एंड व्हाइट, photo, image, scan, scanner, camera, JPEG, JPG, PNG, HEIC, WebP</string>
 </resources>

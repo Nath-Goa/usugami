@@ -5,7 +5,7 @@
     <!-- Home and PDF tools -->
     <string name="home_subtitle">आपकी फ़ाइलें इसी फ़ोन पर रहती हैं। न विज्ञापन, न खाता, न अपलोड।</string>
     <string name="tool_images">इमेज से PDF</string>
-    <string name="tool_images_detail">कैमरे से स्कैन, JPG और PNG इमेज से PDF, टेक्स्ट पहचान के साथ</string>
+    <string name="tool_images_detail">कैमरे से स्कैन और इमेज से PDF, टेक्स्ट पहचान के साथ</string>
     <!-- The large card at the top of Home: take photos of a paper document, or pick images of one, then crop and clean up each page. -->
     <string name="scan_title">डॉक्यूमेंट स्कैन करें</string>
     <string name="scan_detail">फ़ोटो लें या इमेज चुनें, फिर उन्हें क्रॉप और साफ़ करें</string>
@@ -106,6 +106,11 @@
         <item quantity="other">%d PDF कंप्रेस करें</item>
     </plurals>
     <string name="pdf_no_reduction">यह PDF पहले से ही छोटी है; इसका मूल साइज़ रखा गया।</string>
+    <string name="pdf_not_smaller">यह PDF और छोटी नहीं की जा सकी।</string>
+    <plurals name="batch_not_smaller" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s को और छोटा नहीं किया जा सका।</item>
+        <item quantity="other">%1$d PDF और छोटी नहीं की जा सकीं: %2$s।</item>
+    </plurals>
     <string name="pdf_compress_note">टेक्स्ट और ड्रॉइंग साफ़ रहते हैं। जहां जगह बचती है, वहां इमेज छोटी की जाती हैं।</string>
     <string name="compression_for_all">सभी PDF का कंप्रेशन</string>
     <string name="compression_for_all_hint">किसी एक को उसका अपना स्तर देने के लिए उसे नीचे बदलें।</string>
@@ -440,7 +445,7 @@
 
     <!-- Editor -->
     <string name="editor_title">इमेज से PDF</string>
-    <string name="empty_title">JPG और PNG इमेज को PDF में बदलें</string>
+    <string name="empty_title">इमेज को PDF में बदलें</string>
     <string name="empty_body">अपनी इमेज चुनें, उन्हें क्रम में लगाएं और कन्वर्ट करें। सब कुछ इसी फ़ोन पर होता है। कुछ भी अपलोड नहीं किया जाता।</string>
     <string name="empty_share_hint">सलाह: आप अपनी गैलरी से इमेज को Usugami पर शेयर भी कर सकते हैं।</string>
     <string name="add_from_photos">फ़ोटो</string>
@@ -629,8 +634,16 @@
 
     <!-- Messages -->
     <plurals name="msg_skipped_unsupported">
-        <item quantity="one">%d फ़ाइल छोड़ दी गई: सिर्फ़ JPG और PNG इमेज समर्थित हैं।</item>
-        <item quantity="other">%d फ़ाइलें छोड़ दी गईं: सिर्फ़ JPG और PNG इमेज समर्थित हैं।</item>
+        <item quantity="one">%d फ़ाइल छोड़ दी गई: सिर्फ़ JPG, PNG, HEIC, AVIF, WebP, BMP और GIF इमेज समर्थित हैं।</item>
+        <item quantity="other">%d फ़ाइलें छोड़ दी गईं: सिर्फ़ JPG, PNG, HEIC, AVIF, WebP, BMP और GIF इमेज समर्थित हैं।</item>
+    </plurals>
+    <plurals name="msg_skipped_unsupported_no_avif">
+        <item quantity="one">%d फ़ाइल छोड़ दी गई: Android के इस वर्शन पर सिर्फ़ JPG, PNG, HEIC, WebP, BMP और GIF इमेज समर्थित हैं।</item>
+        <item quantity="other">%d फ़ाइलें छोड़ दी गईं: Android के इस वर्शन पर सिर्फ़ JPG, PNG, HEIC, WebP, BMP और GIF इमेज समर्थित हैं।</item>
+    </plurals>
+    <plurals name="msg_skipped_unsupported_no_heic">
+        <item quantity="one">%d फ़ाइल छोड़ दी गई: Android के इस वर्शन पर सिर्फ़ JPG, PNG, WebP, BMP और GIF इमेज समर्थित हैं।</item>
+        <item quantity="other">%d फ़ाइलें छोड़ दी गईं: Android के इस वर्शन पर सिर्फ़ JPG, PNG, WebP, BMP और GIF इमेज समर्थित हैं।</item>
     </plurals>
     <plurals name="msg_failed_import">
         <item quantity="one">%d इमेज नहीं पढ़ी जा सकी।</item>
@@ -654,6 +667,7 @@
     </plurals>
     <string name="msg_share_interrupted">आपकी शेयर की गई फ़ाइलें लेने से पहले ही Usugami बंद हो गया। कृपया उन्हें फिर से शेयर करें।</string>
     <string name="msg_picks_interrupted">आपकी सभी इमेज जोड़ने से पहले ही Usugami बंद हो गया। कृपया जो इमेज छूट गईं, उन्हें फिर से जोड़ें।</string>
+    <string name="msg_making_interrupted">आपकी PDF पूरी होने से पहले ही Usugami बंद हो गया। कृपया फिर से कोशिश करें।</string>
     <string name="msg_saved_downloads">डाउनलोड में %1$s के रूप में सेव किया गया</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">%d PDF डाउनलोड में सेव की गई</item>
@@ -709,7 +723,7 @@
         <item quantity="other">%d टूल मिले</item>
     </plurals>
     <string name="home_search_none">\"%1$s\" से मेल खाता कोई टूल नहीं मिला</string>
-    <string name="search_keywords_images">फ़ोटो, तस्वीर, स्कैन, स्कैनर, कैमरा, गैलरी, डॉक्यूमेंट, ब्लैक एंड व्हाइट, photo, image, scan, scanner, camera, JPEG, OCR</string>
+    <string name="search_keywords_images">फ़ोटो, तस्वीर, स्कैन, स्कैनर, कैमरा, गैलरी, डॉक्यूमेंट, ब्लैक एंड व्हाइट, photo, image, scan, scanner, camera, JPEG, JPG, PNG, HEIC, WebP, OCR</string>
     <string name="search_keywords_scan">स्कैन, स्कैनर, कैमरा, फ़ोटो, डॉक्यूमेंट, दस्तावेज़, कागज़, रसीद, बिल, क्रॉप, फ़िल्टर, ब्राइटनेस, चमक, कंट्रास्ट, ब्लैक एंड व्हाइट, scan, scanner, CamScanner, camera, photo, document, receipt, crop, enhance, filter, brightness, contrast</string>
     <string name="search_keywords_word">डॉक्यूमेंट, दस्तावेज़, doc, docx, document, Office</string>
     <string name="search_keywords_powerpoint">स्लाइड, प्रेज़ेंटेशन, ppt, pptx, slides, presentation</string>
