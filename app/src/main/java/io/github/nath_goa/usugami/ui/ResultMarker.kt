@@ -138,7 +138,7 @@ internal class ResultMarker(
             if (_preview.value == null) {
                 scope.launch(io) {
                     val first = files.first()
-                    if (result.value === files && _preview.value == null) _preview.value = render(first, asMade = first.mark != null)
+                    if (result.value === files && _preview.value == null) _preview.value = render(first, asMade = true)
                 }
             }
             return
@@ -219,9 +219,10 @@ internal class ResultMarker(
     }
 
     /**
-     * [file]'s first page as shown, as it was made, or null if Android can't draw it. With [asMade],
-     * [file] may carry the mark: the page is drawn from a copy of it without the mark, or, if that
-     * can't be made, only its size is given.
+     * [file]'s first page as shown, as it was made, or null if it can't be drawn. With [asMade], for a
+     * result shown again, [file] may carry the mark and is read first: the page is drawn from a copy
+     * of it without the mark, and not at all if the file can't be read. On Android 8, once Android
+     * has refused a PDF it draws none until Usugami is closed.
      */
     private fun render(file: PdfFile, asMade: Boolean = false): MarkPreview? {
         var copy: File? = null
@@ -230,15 +231,15 @@ internal class ResultMarker(
                 copy = File.createTempFile("page", ".pdf", previewDir.apply { mkdirs() })
                 if (marks.firstPageUnmarked(file.file, copy)) copy else file.file
             } catch (e: Exception) {
-                Log.w("Usugami", "Couldn't draw the first page without the mark", e)
+                Log.w("Usugami", "Couldn't read the first page", e)
                 null
             } catch (_: OutOfMemoryError) {
                 null
             } catch (_: StackOverflowError) {
                 null
-            }
-            val page = renderShownPage(PdfInput(0, (clean ?: file.file).path, file.name, file.pageCount), 0, PREVIEW_SIDE) ?: return null
-            return MarkPreview(if (clean != null) page.image else null, page.width, page.height)
+            } ?: return null
+            val page = renderShownPage(PdfInput(0, clean.path, file.name, file.pageCount), 0, PREVIEW_SIDE) ?: return null
+            return MarkPreview(page.image, page.width, page.height)
         } finally {
             copy?.delete()
         }
