@@ -232,7 +232,7 @@ class PdfToolsEngine(private val context: Context) {
                 // Read once for all the parts: finding a page in the page tree, and what each part
                 // must be cut off from.
                 val sourcePages = source.pages.toList()
-                val cutFrom = PageCleanup.Source(sourcePages)
+                val cutFrom = PageCleanup.Source(source, sourcePages)
                 return groups.mapIndexed { index, pages ->
                     check()
                     require(pages.all { it in sourcePages.indices })
@@ -255,7 +255,7 @@ class PdfToolsEngine(private val context: Context) {
                         // The copies' links, comments and form fields still lead to the source's pages,
                         // which would bring the whole source into the part. Links to the part's own
                         // pages lead to their copies instead; the others are cut.
-                        PageCleanup.keepLinksWithin(dest, source, copies)
+                        PageCleanup.keepLinksWithin(dest, cutFrom, copies)
                         PageCleanup.dropSourcePages(dest, cutFrom, check)
                         dest.save(target)
                     }

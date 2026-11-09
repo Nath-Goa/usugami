@@ -7,9 +7,11 @@ import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSNull
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDDocumentCatalog
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionGoTo
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDNamedDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
@@ -50,29 +52,43 @@ internal object PageCleanup {
     }
 
     /**
-     * The pages of a document still open that pages are copied from, and every annotation on them:
-     * read once, however many documents [dropSourcePages] then cuts off from them.
+     * The pages of [doc], a document still open that pages are copied from, and every annotation on
+     * them: read once, however many documents [dropSourcePages] then cuts off from them.
      */
-    class Source(pages: Iterable<PDPage>) {
+    class Source(doc: PDDocument, pages: Iterable<PDPage>) {
         internal val pages = identitySet<COSDictionary>()
         internal val annotations = identitySet<COSDictionary>()
+
+        /** Where [keepLinksWithin] finds the page a link to a named place leads to. */
+        internal val catalog: PDDocumentCatalog = doc.documentCatalog
+
+        /**
+         * Where each link on the pages leads that gives its page rather than a name: a copy of its
+         * destination, made before any document is cut off from the pages. Cutting one off empties
+         * the destination itself, which a later part of a split that has the page too still needs.
+         */
+        internal val places = IdentityHashMap<COSDictionary, COSArray>()
 
         init {
             for (page in pages) {
                 this.pages += page.cosObject
                 annotationsOf(page.cosObject, annotations)
             }
+            for (annotation in annotations) {
+                val place = (destinationOf(annotation) as? PDPageDestination)?.cosObject ?: continue
+                places[annotation] = COSArray().apply { addAll(place) }
+            }
         }
     }
 
     /**
-     * For pages copied into [doc] from [source]: each link on them to one of those pages gets a copy
-     * of its own that leads to that page's copy ([copies], by the page) instead, so a contents page
-     * still works in a part of a split. Links to [source]'s other pages are left for
+     * For pages copied into [doc] from [source]'s pages: each link on them to one of those pages gets
+     * a copy of its own that leads to that page's copy ([copies], by the page) instead, so a contents
+     * page still works in a part of a split. Links to [source]'s other pages are left for
      * [dropSourcePages] to cut. A link to a named place leads straight to its page, since the names
      * don't come along.
      */
-    fun keepLinksWithin(doc: PDDocument, source: PDDocument, copies: Map<COSDictionary, COSDictionary>) {
+    fun keepLinksWithin(doc: PDDocument, source: Source, copies: Map<COSDictionary, COSDictionary>) {
         for (page in doc.pages) {
             val annotations = page.cosObject.getDictionaryObject(COSName.ANNOTS) as? COSArray ?: continue
             val own = COSArray()
@@ -94,19 +110,8 @@ internal object PageCleanup {
      * A copy of [annotation] leading to the copy of the page it leads to, if it is a link to a page
      * of [source] that has one in [copies]; null otherwise.
      */
-    private fun linkWithin(annotation: COSDictionary, source: PDDocument, copies: Map<COSDictionary, COSDictionary>): COSDictionary? {
-        if (annotation.getCOSName(COSName.SUBTYPE)?.name != PDAnnotationLink.SUB_TYPE) return null
-        val target = try {
-            val link = PDAnnotationLink(annotation)
-            when (val destination = link.destination ?: (link.action as? PDActionGoTo)?.destination) {
-                is PDPageDestination -> destination
-                is PDNamedDestination -> source.documentCatalog.findNamedDestinationPage(destination)
-                else -> null
-            }
-        } catch (_: IOException) {
-            null
-        } ?: return null
-        val place = target.cosObject
+    private fun linkWithin(annotation: COSDictionary, source: Source, copies: Map<COSDictionary, COSDictionary>): COSDictionary? {
+        val place = source.places[annotation] ?: namedPlace(annotation, source.catalog) ?: return null
         val copy = copies[place.getObject(0)] ?: return null
         val leads = COSArray().apply {
             add(copy)
@@ -115,6 +120,33 @@ internal object PageCleanup {
         return COSDictionary(annotation).apply {
             removeItem(COSName.A)
             setItem(COSName.DEST, leads)
+        }
+    }
+
+    /** Where [annotation] leads, if it is a link to a named place that [catalog] finds; null otherwise. */
+    private fun namedPlace(annotation: COSDictionary, catalog: PDDocumentCatalog): COSArray? {
+        val name = destinationOf(annotation) as? PDNamedDestination ?: return null
+        return try {
+            catalog.findNamedDestinationPage(name)?.cosObject
+        } catch (_: IOException) {
+            null
+        } catch (_: RuntimeException) {
+            // A damaged entry among the names, which PDFBox reads all at once.
+            null
+        }
+    }
+
+    /** Where [annotation] leads, if it is a link that says so readably, itself or by its action. */
+    private fun destinationOf(annotation: COSDictionary): PDDestination? {
+        if (annotation.getCOSName(COSName.SUBTYPE)?.name != PDAnnotationLink.SUB_TYPE) return null
+        return try {
+            val link = PDAnnotationLink(annotation)
+            link.destination ?: (link.action as? PDActionGoTo)?.destination
+        } catch (_: IOException) {
+            null
+        } catch (_: RuntimeException) {
+            // A link damaged in another way: a split never fails on one.
+            null
         }
     }
 

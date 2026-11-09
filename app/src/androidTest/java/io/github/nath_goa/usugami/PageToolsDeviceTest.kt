@@ -11,9 +11,12 @@ import android.os.SystemClock
 import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSStream
+import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDResources
@@ -23,6 +26,7 @@ import com.tom_roush.pdfbox.pdmodel.documentinterchange.logicalstructure.PDStruc
 import com.tom_roush.pdfbox.pdmodel.interactive.action.PDActionURI
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDNamedDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
@@ -253,14 +257,39 @@ class PageToolsDeviceTest {
         }
     }
 
-    /** Page 1's link to page 3 still works in a part that has both; its link to page 4, left out, leads nowhere. */
+    /**
+     * Page 1's links to page 3, itself and by name, still work in a part that has both, also after
+     * an earlier part left page 3 out; its link to page 4, left out, leads nowhere. A link to a
+     * damaged name doesn't stop the split.
+     */
     @Test fun linksBetweenPagesOfAPartStillWork() {
-        val source = import(chapters(made("split_links.pdf")))
-        val part = save(engine.split(source, listOf(listOf(0, 2)), "links").single().file, "split_links.pdf")
+        val file = made("split_links.pdf")
+        PDDocument.load(chapters(made("split_chapters_links.pdf"))).use { doc ->
+            fun leaf(name: String, value: COSBase) = COSDictionary().apply {
+                setItem(COSName.NAMES, COSArray().apply { add(COSString(name)); add(value) })
+                setItem(COSName.LIMITS, COSArray().apply { add(COSString(name)); add(COSString(name)) })
+            }
+            val names = COSArray().apply {
+                add(leaf("bad", COSString("not a place")))
+                add(leaf("three", PDPageFitDestination().apply { setPage(doc.getPage(2)) }.cosObject))
+            }
+            doc.documentCatalog.cosObject.setItem(COSName.NAMES, COSDictionary().apply { setItem(COSName.DESTS, COSDictionary().apply { setItem(COSName.KIDS, names) }) })
+            val first = doc.getPage(0)
+            first.annotations = first.annotations + listOf("three", "bad").map { name ->
+                PDAnnotationLink().apply {
+                    rectangle = PDRectangle(72f, 520f, 200f, 20f)
+                    destination = PDNamedDestination(name)
+                }
+            }
+            doc.save(file)
+        }
+        val source = import(file)
+        val part = save(engine.split(source, listOf(listOf(0, 1), listOf(0, 2)), "links")[1].file, "split_links.pdf")
         PDDocument.load(part).use { doc ->
-            val (toThree, toFour) = doc.getPage(0).annotations.filterIsInstance<PDAnnotationLink>().map { it.destination as PDPageDestination }
+            val (toThree, toFour, byName) = doc.getPage(0).annotations.filterIsInstance<PDAnnotationLink>().take(3).map { it.destination as PDPageDestination }
             assertSame("The link leads to page 2 of the part", doc.getPage(1).cosObject, toThree.page?.cosObject)
             assertNull(toFour.page)
+            assertSame("The link by name leads to page 2 of the part", doc.getPage(1).cosObject, byName.page?.cosObject)
         }
         assertFalse(everythingIn(part).contains("PAGE FOUR"))
     }
