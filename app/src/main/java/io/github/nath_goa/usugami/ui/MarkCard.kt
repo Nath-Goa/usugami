@@ -159,6 +159,7 @@ internal fun MarkCard(
                 size = size,
                 opacity = opacity,
                 style = moving,
+                on = setting.on,
                 preview = preview,
                 enabled = enabled && setting.on,
                 onSize = { size = it },
@@ -179,6 +180,7 @@ private fun MarkPanel(
     size: Float,
     opacity: Float,
     style: MarkStyle,
+    on: Boolean,
     preview: MarkPreview?,
     enabled: Boolean,
     onSize: (Float) -> Unit,
@@ -196,12 +198,12 @@ private fun MarkPanel(
         }
         if (beside) {
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
-                MarkPage(preview, style)
+                MarkPage(preview, style, on)
                 sliders(Modifier.weight(1f))
             }
         } else {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                MarkPage(preview, style)
+                MarkPage(preview, style, on)
                 sliders(Modifier.fillMaxWidth())
             }
         }
@@ -258,13 +260,13 @@ private fun MarkSlider(
 
 /**
  * The result's first page ([preview]; a white A4 page while there is none), with the mark drawn on it
- * in [style] as the PDFs will have it.
+ * in [style] as the PDFs will have it [on]; faint while it is off, as the PDFs haven't it.
  */
 @Composable
-private fun MarkPage(preview: MarkPreview?, style: MarkStyle) {
+private fun MarkPage(preview: MarkPreview?, style: MarkStyle, on: Boolean) {
     val width = preview?.width ?: A4_WIDTH
     val height = preview?.height ?: A4_HEIGHT
-    val description = stringResource(R.string.mark_preview_description)
+    val description = if (on) stringResource(R.string.mark_preview_description) else stringResource(R.string.pdf_page_number, 1)
     val measurer = rememberTextMeasurer()
     val shape = MaterialTheme.shapes.extraSmall
     Box(
@@ -294,7 +296,7 @@ private fun MarkPage(preview: MarkPreview?, style: MarkStyle) {
                 word,
                 color = Color(MarkLayout.GRAY, MarkLayout.GRAY, MarkLayout.GRAY),
                 topLeft = Offset(place.x * scale, baseline - word.firstBaseline),
-                alpha = style.alpha,
+                alpha = if (on) style.alpha else style.alpha * OFF_ALPHA,
             )
         }
     }
@@ -302,6 +304,9 @@ private fun MarkPage(preview: MarkPreview?, style: MarkStyle) {
 
 /** The text size the word is measured at, to find the size that makes it as wide as it should be. */
 private const val PROBE_PX = 100f
+
+/** How much of its opacity the word keeps on the page while the mark is off. */
+private const val OFF_ALPHA = 0.25f
 
 /** A4's size in points, for a page that couldn't be drawn. */
 private const val A4_WIDTH = 595.28f
