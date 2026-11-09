@@ -35,8 +35,9 @@ import kotlin.math.sin
  *
  * What is simplified: fonts become the phone's, so text can take a little more or less room;
  * shadows, glow, reflections, 3-D and other effects are left out, as are animations, videos (their
- * poster picture shows), speaker notes and comments. Charts, and objects saved without a picture,
- * become light grey boxes with their title.
+ * poster picture shows), speaker notes and comments. Vertical text whose characters stand upright
+ * (Chinese, Japanese and Korean, or stacked letters) runs across its box, wrapped to its width.
+ * Charts, and objects saved without a picture, become light grey boxes with their title.
  */
 internal class PptxConverter(
     private val pkg: OfficePackage,
@@ -233,6 +234,10 @@ internal class PptxConverter(
         val autofit: Int? = null,
         val fontScale: Float? = null,
         val lineReduction: Float? = null,
+        /**
+         * Which way the text runs: 0 across, 1 down (turned a quarter clockwise), -1 up, [EAST_ASIAN]
+         * down with Chinese, Japanese and Korean characters upright, [STACKED] down with every letter upright.
+         */
         val vertical: Int? = null,
         /** spcFirstLastPara: the first paragraph's space before and the last one's space after count. */
         val firstLastSpacing: Boolean? = null,
@@ -716,7 +721,9 @@ internal class PptxConverter(
         val wrap = x.attr("wrap")?.let { it != "none" }
         val firstLastSpacing = x.attr("spcFirstLastPara")?.let { x.flag("spcFirstLastPara") }
         val vertical = when (x.attr("vert")) {
-            "vert", "eaVert", "wordArtVertRtl" -> 1
+            "vert" -> 1
+            "eaVert" -> EAST_ASIAN
+            "wordArtVert", "wordArtVertRtl" -> STACKED
             "vert270" -> -1
             "horz" -> 0
             else -> null
@@ -1169,14 +1176,24 @@ internal class PptxConverter(
         val insets = listOf(7.2f, 3.6f, 7.2f, 3.6f).mapIndexed { i, d -> (look.insets[i] ?: d).units }
         canvas.withSave {
             var area = RectF(box.left + insets[0], box.top + insets[1], box.right - insets[2], box.bottom - insets[3])
-            if (look.vertical == 1 || look.vertical == -1) {
+            // PowerPoint keeps stacked letters, and Chinese, Japanese and Korean characters, upright in
+            // vertical text: they come closest across the box, wrapped to its width so they stand one
+            // under the other in a narrow box.
+            val upright = look.vertical == STACKED || (look.vertical == EAST_ASIAN && hasUprightText(body))
+            val turn = when {
+                look.vertical == 1 || (look.vertical == EAST_ASIAN && !upright) -> 1
+                look.vertical == -1 -> -1
+                else -> 0
+            }
+            if (turn != 0) {
                 // Vertical text: drawn turned a quarter, in a box as tall as the shape is wide.
-                canvas.rotate(if (look.vertical == 1) 90f else -90f, box.centerX(), box.centerY())
+                canvas.rotate(if (turn == 1) 90f else -90f, box.centerX(), box.centerY())
                 val cx = box.centerX()
                 val cy = box.centerY()
                 area = RectF(cx - box.height() / 2 + insets[0], cy - box.width() / 2 + insets[1], cx + box.height() / 2 - insets[2], cy + box.width() / 2 - insets[3])
             }
-            val wrap = look.wrap != false
+            // In vertical text, wrap="none" keeps columns from breaking at the box's foot, not lines at its side.
+            val wrap = upright || look.wrap != false
             val width = if (wrap) max(1, area.width().toInt()) else (slideWidth.units * 4).toInt()
             val darkFill = fill?.mainColor?.let(OfficeColors::isDark) == true
             var scale = look.fontScale ?: 1f
@@ -1213,6 +1230,11 @@ internal class PptxConverter(
                 y += block.height + item.after
             }
         }
+    }
+
+    /** Whether [body] has characters PowerPoint keeps upright in vertical text: Chinese, Japanese or Korean ones. */
+    private fun hasUprightText(body: TextBody) = body.paragraphs.any { p ->
+        p.pieces.any { piece -> piece is Piece.Text && piece.text.codePoints().anyMatch { Character.UnicodeScript.of(it) in UPRIGHT_SCRIPTS } }
     }
 
     private fun layoutText(body: TextBody, chain: List<Map<Int, LevelLook>>, width: Int, scale: Float, reduction: Float, slide: Int, styleFont: Int?, darkFill: Boolean): List<Spaced> {
@@ -1429,6 +1451,16 @@ internal class PptxConverter(
         /** Far more columns and rows than PowerPoint lets a table have (75 each): only a crafted file has more. */
         const val MAX_COLUMNS = 1000
         const val MAX_ROWS = 1000
+
+        /** A text body's [BodyLook.vertical] for vert="eaVert", and for PowerPoint's stacked letters. */
+        const val EAST_ASIAN = 2
+        const val STACKED = 3
+
+        /** Scripts PowerPoint keeps upright in East Asian vertical text. */
+        val UPRIGHT_SCRIPTS = setOf(
+            Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA,
+            Character.UnicodeScript.HANGUL, Character.UnicodeScript.BOPOMOFO,
+        )
 
         /** For a slide without a master: Office's default theme and colour map. */
         val NO_MASTER = Template(emptyList(), null, true, OfficeTheme.DEFAULT, emptyMap(), emptyMap())

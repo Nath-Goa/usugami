@@ -1077,6 +1077,23 @@ class OfficeConverterDeviceTest {
         near(word(pdf, 3, "Beta").yDirAdj, word(pdf, 3, "Alpha").yDirAdj)
     }
 
+    @Test fun powerPointVerticalTextKeepsJapaneseUprightAndTurnsLatinLetters() {
+        // Insert > Text Box > Vertical, as PowerPoint writes it: a narrow box that grows with its text.
+        val vertical = """<a:bodyPr vert="eaVert" wrap="none"><a:spAutoFit/></a:bodyPr>"""
+        val rect = """<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>"""
+        val japanese = """<a:p><a:r><a:rPr lang="ja-JP" sz="2000"/><a:t>縦書き</a:t></a:r></a:p>"""
+        val pdf = convert(
+            deck("vertical.pptx", listOf(slide(sp(2, xfrm(40, 40, 30, 200) + rect, japanese, vertical) + sp(3, xfrm(200, 40, 30, 200) + rect, "<a:p>${run("Sideways", 20)}</a:p>", vertical)))),
+            OfficeKind.POWERPOINT, "slide-vertical",
+        )
+        val (upright, turned) = glyphs(pdf, 1).partition { it.dir == 0f }
+        assertEquals("縦書き", upright.joinToString("") { it.unicode })
+        assertEquals("One under the other", 3, upright.map { it.yDirAdj.toInt() }.distinct().size)
+        // Read down the page: turned a quarter clockwise.
+        assertEquals("Sideways", turned.joinToString("") { it.unicode })
+        assertTrue(turned.map { it.dir }.toString(), turned.all { it.dir == 270f })
+    }
+
     @Test fun powerPointTableStylesAndMergedCells() {
         val id = "{5C22544A-0000-0000-0000-000000000001}"
         fun ln(hex: String) = """<a:ln w="${3 * EMU}">${solid(hex)}</a:ln>"""
