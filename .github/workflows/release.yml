@@ -1,7 +1,8 @@
 name: Release
 
 # Push a tag like v1.2.0 to build, sign and publish the three APKs (Usugami, Usugami Lite and
-# Usugami OCR). The tag must equal "v" + versionName in app/build.gradle.kts. A tag with a hyphen
+# Usugami OCR), and Usugami OCR as an Android App Bundle (Usugami-ocr.aab), the file Google Play
+# takes. The tag must equal "v" + versionName in app/build.gradle.kts. A tag with a hyphen
 # (v1.3.0-rc.1) becomes a draft prerelease, which never changes the "latest" download links.
 #
 # Two jobs, so no Gradle plugin, dependency or test ever runs with write access: "build" gets the
@@ -76,7 +77,7 @@ jobs:
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
           echo "USUGAMI_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
 
-      - name: Test and build signed APKs
+      - name: Test and build signed APKs and the app bundle
         env:
           USUGAMI_KEYSTORE_PASSWORD: ${{ secrets.USUGAMI_KEYSTORE_PASSWORD }}
           USUGAMI_KEY_ALIAS: ${{ secrets.USUGAMI_KEY_ALIAS }}
@@ -84,6 +85,7 @@ jobs:
         run: >-
           ./gradlew --no-daemon --stacktrace :core:test
           :app:assembleStandardRelease :app:assembleLiteRelease :app:assembleOcrRelease
+          :app:bundleOcrRelease
 
       - name: Remove signing key
         if: always()
@@ -91,12 +93,13 @@ jobs:
 
       # The R8 mappings turn obfuscated stack traces from crash reports back into readable ones
       # (retrace mapping.txt trace.txt), so they are published with each release.
-      - name: Collect APKs and R8 mappings
+      - name: Collect APKs, the app bundle and R8 mappings
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/standard/release/app-standard-release.apk dist/Usugami.apk
           cp app/build/outputs/apk/lite/release/app-lite-release.apk dist/Usugami-lite.apk
           cp app/build/outputs/apk/ocr/release/app-ocr-release.apk dist/Usugami-ocr.apk
+          cp app/build/outputs/bundle/ocrRelease/app-ocr-release.aab dist/Usugami-ocr.aab
           cd app/build/outputs/mapping
           zip -9 -q "$GITHUB_WORKSPACE/dist/mapping-$VERSION_NAME.zip" \
             standardRelease/mapping.txt liteRelease/mapping.txt ocrRelease/mapping.txt
@@ -126,6 +129,40 @@ jobs:
             esac
           done
 
+      # An app bundle is signed like a JAR file, so the JDK's jarsigner and keytool check its
+      # signer. bundletool, Google's tool for app bundles (pinned by its SHA-256), checks the rest.
+      - name: Check the app bundle's signer, package and version
+        env:
+          EXPECTED_CERT_SHA256: ${{ vars.USUGAMI_CERT_SHA256 }}
+          BUNDLETOOL_URL: https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+          BUNDLETOOL_SHA256: a099cfa1543f55593bc2ed16a70a7c67fe54b1747bb7301f37fdfd6d91028e29
+        run: |
+          set -euo pipefail
+          bundle=dist/Usugami-ocr.aab
+          expected=$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': \n' | tr 'A-F' 'a-f')
+          if ! jarsigner -verify "$bundle" > "$RUNNER_TEMP/jarsigner.txt" 2>&1 \
+              || ! grep -q '^jar verified\.' "$RUNNER_TEMP/jarsigner.txt" \
+              || grep -q 'unsigned entries' "$RUNNER_TEMP/jarsigner.txt"; then
+            cat "$RUNNER_TEMP/jarsigner.txt"
+            echo "::error::$bundle's signature doesn't verify"; exit 1
+          fi
+          actual=$(keytool -printcert -jarfile "$bundle" | awk '$1 == "SHA256:" {print $2}' | tr -d ':' | tr 'A-F' 'a-f' | sort -u) || true
+          [ "$actual" = "$expected" ] || { echo "::error::$bundle is signed by '$actual', expected $expected"; exit 1; }
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/bundletool.jar" "$BUNDLETOOL_URL"
+          echo "$BUNDLETOOL_SHA256  $RUNNER_TEMP/bundletool.jar" | sha256sum -c --quiet -
+          java -jar "$RUNNER_TEMP/bundletool.jar" validate --bundle="$bundle" > /dev/null
+          manifest() { java -jar "$RUNNER_TEMP/bundletool.jar" dump manifest --bundle="$bundle" --xpath="/manifest/@$1"; }
+          package=$(manifest package)
+          name=$(manifest android:versionName)
+          code=$(manifest android:versionCode)
+          # The same versionCode as Usugami-ocr.apk, so Play and the APK agree on which is newer.
+          tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
+          apk_code=$("${tools}aapt2" dump badging dist/Usugami-ocr.apk | sed -n "1s/.*versionCode='\([0-9]*\)'.*/\1/p")
+          echo "$bundle: package=$package versionName=$name versionCode=$code"
+          if [ "$package" != io.github.nath_goa.usugami ] || [ "$name" != "$VERSION_NAME" ] || [ -z "$code" ] || [ "$code" != "$apk_code" ]; then
+            echo "::error::$bundle has the wrong package name or version (expected io.github.nath_goa.usugami $VERSION_NAME $apk_code)"; exit 1
+          fi
+
       - name: No permissions or blocked manifest entries
         run: bash .github/scripts/check-apk-permissions.sh dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk
 
@@ -144,7 +181,7 @@ jobs:
       - name: Checksums
         run: |
           cd dist
-          sha256sum Usugami.apk Usugami-lite.apk Usugami-ocr.apk > SHA256SUMS.txt
+          sha256sum Usugami.apk Usugami-lite.apk Usugami-ocr.apk Usugami-ocr.aab > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Write release notes
@@ -221,6 +258,16 @@ jobs:
               *) echo "::error::$apk has the wrong package name or versionName (expected $package $VERSION_NAME)"; exit 1 ;;
             esac
           done
+          # The app bundle is signed like a JAR file, so the JDK checks its signer.
+          bundle=dist/Usugami-ocr.aab
+          if ! "${JAVA_HOME:?}/bin/jarsigner" -verify "$bundle" > "$RUNNER_TEMP/jarsigner.txt" 2>&1 \
+              || ! grep -q '^jar verified\.' "$RUNNER_TEMP/jarsigner.txt" \
+              || grep -q 'unsigned entries' "$RUNNER_TEMP/jarsigner.txt"; then
+            cat "$RUNNER_TEMP/jarsigner.txt"
+            echo "::error::$bundle's signature doesn't verify"; exit 1
+          fi
+          actual=$("$JAVA_HOME/bin/keytool" -printcert -jarfile "$bundle" | awk '$1 == "SHA256:" {print $2}' | tr -d ':' | tr 'A-F' 'a-f' | sort -u) || true
+          [ "$actual" = "$expected" ] || { echo "::error::$bundle is signed by '$actual', expected $expected"; exit 1; }
           (cd dist && sha256sum -c SHA256SUMS.txt)
 
       - name: Attest build provenance
@@ -230,6 +277,7 @@ jobs:
             dist/Usugami.apk
             dist/Usugami-lite.apk
             dist/Usugami-ocr.apk
+            dist/Usugami-ocr.aab
 
       # Uploads every file before publishing, so it also works with immutable releases.
       - name: Publish release
@@ -241,6 +289,7 @@ jobs:
             dist/Usugami.apk
             dist/Usugami-lite.apk
             dist/Usugami-ocr.apk
+            dist/Usugami-ocr.aab
             dist/SHA256SUMS.txt
             dist/mapping-${{ env.VERSION_NAME }}.zip
           fail_on_unmatched_files: true

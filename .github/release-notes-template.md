@@ -49,3 +49,6 @@ ${SHA256SUMS}
 
 The mapping zip file is only for developers: it holds the R8 mapping files that turn stack
 traces in crash reports back into readable code. You don't need it to install Usugami.
+
+Usugami-ocr.aab is Usugami OCR as an Android App Bundle, the file Google Play takes. Phones can't
+install it: download one of the APKs above.

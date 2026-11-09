@@ -543,8 +543,8 @@ shasum -a 256 -c --ignore-missing SHA256SUMS.txt      # macOS
 Get-FileHash Usugami.apk -Algorithm SHA256            # Windows PowerShell: compare with the file
 ```
 
-Your APK must show `OK`. (`SHA256SUMS.txt` lists all three editions; `--ignore-missing` skips the
-ones you didn't download.)
+Your APK must show `OK`. (`SHA256SUMS.txt` lists all three editions and the app bundle;
+`--ignore-missing` skips the ones you didn't download.)
 
 GitHub also shows each file's SHA-256 next to it on the release page.
 
@@ -931,6 +931,10 @@ APKs you sign with your own key can't update the official ones, and the other wa
 Release builds are shrunk and obfuscated by R8. Each release also has a `mapping-<version>.zip`
 with the three editions' R8 mapping files, for turning stack traces in crash reports back into
 readable code.
+
+Each release has `Usugami-ocr.aab` as well: Usugami OCR as an Android App Bundle, the file Google
+Play takes (`gradlew :app:bundleOcrRelease`). It is signed with the same key as the APKs and
+carries its own R8 mapping and native debug symbols, which Google Play reads.
 
 Usugami OCR's and Usugami Lite's release builds are reproducible: the same commit gives the same
 APK byte for byte, wherever and by whoever it is built (apart from the signature). This is how

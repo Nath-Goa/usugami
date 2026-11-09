@@ -47,6 +47,7 @@ jobs:
           :app:lintStandardDebug :app:lintLiteDebug :app:lintOcrDebug
           :app:assembleStandardDebug :app:assembleLiteDebug :app:assembleOcrDebug
           :app:assembleStandardRelease :app:assembleLiteRelease :app:assembleOcrRelease
+          :app:bundleOcrRelease
 
       - name: No permissions or blocked manifest entries
         run: >-
