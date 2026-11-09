@@ -249,11 +249,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var saves = 0
     /**
      * The result's copies in Downloads by path, once saved there: saving them again copies only what
-     * has gone. Used in file work only.
+     * has gone. Changed in file work only, and read for the saved state (see [KeptCopies]).
      */
-    private var inDownloads: Pair<List<PdfFile>, MutableMap<String, DownloadsCopy>>? = null
-    /** The result's copies in the folder it was saved to last, by path, the same way. In file work only. */
-    private var inFolder: Triple<List<PdfFile>, Uri, MutableMap<String, Uri>>? = null
+    @Volatile private var inDownloads: Pair<List<PdfFile>, MutableMap<String, DownloadsCopy>>? = null
+    /** The result's copies in the folder it was saved to last, by path, the same way. */
+    @Volatile private var inFolder: Triple<List<PdfFile>, Uri, MutableMap<String, Uri>>? = null
     /**
      * The user put the last result away (Back, Start over, leaving the tool), rather than the system
      * clearing it: a document picked for it afterwards was picked after leaving it (see [notSaved]).
@@ -322,6 +322,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val keepPictures = history.items.value.filterIsInstance<PictureItem>().map { it.path }
         // The result that was showing when Android stopped Usugami in the background, if any.
         val shown = _result.value
+        if (shown != null) restoreCopies(shown)
+        handle.setSavedStateProvider(KeptCopies.KEY) { packCopies() }
         viewModelScope.launch {
             var resultGone = false
             val (missing, documentsMissing) = withContext(fileOps) {
@@ -1912,7 +1914,33 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     /** The copies in Downloads of [files], the result, by path (see [inDownloads]); in file work only. */
     private fun downloadsCopies(files: List<PdfFile>): MutableMap<String, DownloadsCopy> =
-        inDownloads?.takeIf { it.first === files }?.second ?: HashMap<String, DownloadsCopy>().also { inDownloads = files to it }
+        inDownloads?.takeIf { it.first === files }?.second ?: ConcurrentHashMap<String, DownloadsCopy>().also { inDownloads = files to it }
+
+    /** Takes back where [files], the result showing again, were saved before Android stopped Usugami. */
+    private fun restoreCopies(files: List<PdfFile>) {
+        KeptCopies.downloads(handle, files.size)?.let { uris ->
+            val copies = ConcurrentHashMap<String, DownloadsCopy>()
+            files.forEachIndexed { i, file -> uris[i]?.let { copies[file.file.path] = DownloadsCopy(it, file.name) } }
+            inDownloads = files to copies
+        }
+        KeptCopies.folder(handle, files.size)?.let { (tree, uris) ->
+            val copies = ConcurrentHashMap<String, Uri>()
+            files.forEachIndexed { i, file -> uris[i]?.let { copies[file.file.path] = it } }
+            inFolder = Triple(files, tree, copies)
+        }
+    }
+
+    /** Where the result showing was saved, for the saved state (see [KeptCopies]). */
+    private fun packCopies(): Bundle {
+        val files = _result.value ?: return Bundle()
+        val downloads = inDownloads?.takeIf { it.first === files }?.second
+        val folder = inFolder?.takeIf { it.first === files }
+        return KeptCopies.pack(
+            downloads?.let { copies -> files.map { copies[it.file.path]?.uri } },
+            folder?.second,
+            folder?.third?.let { copies -> files.map { copies[it.file.path] } },
+        )
+    }
 
     /**
      * The next document the "Save as" screen makes is for [file], one of the result's PDFs, or for
@@ -1946,7 +1974,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         save {
             // As in saveToDownloads: saving again into that folder copies only what isn't there.
             val copies = inFolder?.takeIf { it.first === files && it.second == tree }?.third
-                ?: HashMap<String, Uri>().also { inFolder = Triple(files, tree, it) }
+                ?: ConcurrentHashMap<String, Uri>().also { inFolder = Triple(files, tree, it) }
             saver.saveToFolder(files.map { it.file }, tree, earlier = files.map { copies[it.file.path] }) { i, copy ->
                 copies[files[i].file.path] = copy
             }

@@ -3,12 +3,14 @@ package io.github.nath_goa.usugami
 import android.app.Application
 import android.graphics.Bitmap
 import android.net.Uri
+import android.provider.MediaStore
 import android.system.Os
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfSaver
+import io.github.nath_goa.usugami.ui.KeptCopies
 import io.github.nath_goa.usugami.ui.KeptResult
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
@@ -20,6 +22,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
 import java.io.IOException
@@ -151,6 +154,27 @@ class SavingDeviceTest {
         assertEquals("%PDF-1.4 tool", target.readText())
         runBlocking { vm.awaitFileWork() }
         assertFalse("Freed once saved", pdf.exists())
+    }
+
+    /** Saved to Downloads, then again once Android has restarted Usugami: the copy there is not made twice. */
+    @Test fun savingToDownloadsAgainAfterARestartKeepsOneCopy() {
+        val pdf = File(app.cacheDir, "output/images/Kept copy.pdf").apply { parentFile!!.mkdirs(); writeText("%PDF-1.4 kept") }
+        val vm = onMain { MainViewModel(app, showing(pdf)) }
+        assumeTrue(vm.canSaveToDownloads)
+        runBlocking { vm.awaitFileWork() }
+        try {
+            onMain { vm.saveToDownloads() }
+            val saved = firstMessage(vm.messages)
+
+            val state = SavedStateHandle(mapOf(KeptResult.KEY to KeptResult.pack(listOf(PdfFile(pdf, 1, 0))), KeptCopies.KEY to onMain { vm.packCopies() }))
+            val restored = onMain { MainViewModel(app, state) }
+            runBlocking { restored.awaitFileWork() }
+            onMain { restored.saveToDownloads() }
+            assertEquals("Saved as the same copy", saved, firstMessage(restored.messages))
+        } finally {
+            app.contentResolver.delete(MediaStore.Downloads.EXTERNAL_CONTENT_URI, "${MediaStore.Downloads.DISPLAY_NAME} LIKE ?", arrayOf("Kept copy%"))
+            pdf.delete()
+        }
     }
 
     /** The system restarted Usugami while "Save as" was open: the PDF has gone, so say so. */

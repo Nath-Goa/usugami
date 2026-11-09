@@ -304,10 +304,14 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var saves = 0
     /** Saves of the PDFs go one at a time, in the order they were asked for. */
     private val saveTurn = Mutex()
-    /** The result's copies in Downloads, once it has been saved there: saving it again copies only what has gone. */
-    private var inDownloads: Pair<List<PdfFile>, MutableList<DownloadsCopy?>>? = null
+    /**
+     * The result's copies in Downloads, once it has been saved there: saving it again copies only what
+     * has gone. Set while saving, and read for the saved state (see [KeptCopies]): a copy's place is
+     * only ever filled in, so a read sees each copy made or not yet.
+     */
+    @Volatile private var inDownloads: Pair<List<PdfFile>, MutableList<DownloadsCopy?>>? = null
     /** The result's copies in the folder it was saved to last, the same way. */
-    private var inFolder: Triple<List<PdfFile>, Uri, MutableList<Uri?>>? = null
+    @Volatile private var inFolder: Triple<List<PdfFile>, Uri, MutableList<Uri?>>? = null
     /**
      * The user put the last result away (Back, Start over, images shared), rather than the system
      * clearing it: a document picked for it afterwards was picked after leaving it (see [notSaved]).
@@ -429,6 +433,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
         // The result that was showing when Android stopped Usugami in the background, if any.
         val shown = _result.value
+        if (shown != null) restoreCopies(shown)
+        handle.setSavedStateProvider(KeptCopies.KEY) { packCopies() }
         // Read here: photoTaken() forgets it once the camera app is back, which may be before the
         // cleanup below runs, and the photo would be deleted.
         val keepCapture = capture
@@ -1429,6 +1435,23 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             saver.saveTo(file.file, uri)
             strings.getString(R.string.msg_saved)
         }
+    }
+
+    /** Takes back where [files], the result showing again, were saved before Android stopped Usugami. */
+    private fun restoreCopies(files: List<PdfFile>) {
+        KeptCopies.downloads(handle, files.size)?.let { uris ->
+            inDownloads = files to uris.mapIndexedTo(ArrayList()) { i, uri -> uri?.let { DownloadsCopy(it, files[i].name) } }
+        }
+        KeptCopies.folder(handle, files.size)?.let { (tree, uris) -> inFolder = Triple(files, tree, uris.toMutableList()) }
+    }
+
+    /** Where the result showing was saved, for the saved state (see [KeptCopies]). */
+    @VisibleForTesting
+    internal fun packCopies(): Bundle {
+        val files = _result.value
+        val downloads = inDownloads?.takeIf { it.first === files }?.second
+        val folder = inFolder?.takeIf { it.first === files }
+        return KeptCopies.pack(downloads?.map { it?.uri }, folder?.second, folder?.third?.toList())
     }
 
     /** Saves every result into a folder picked with the system folder picker. */
