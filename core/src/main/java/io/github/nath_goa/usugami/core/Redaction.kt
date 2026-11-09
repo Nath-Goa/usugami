@@ -313,6 +313,10 @@ class PageText private constructor(val text: String, private val owners: IntArra
             }
         }
 
+        /**
+         * The text read so far, with what a match may cross where it has none of its letters: a
+         * gap between two lone glyphs, and a hyphen break with the hyphen before it.
+         */
         fun build(): PageText {
             val length = text.length
             val owners = owners.copyOf(length)
@@ -350,10 +354,23 @@ class PageText private constructor(val text: String, private val owners: IntArra
         val found = ArrayList<List<Int>>()
         var i = 0
         while (i < text.length) {
-            val end = matchAt(i, wanted)
+            var end = matchAt(i, wanted)
             if (end < 0) {
                 i++
                 continue
+            }
+            // A match that crosses a gap or a hyphen break can take the first letters of another
+            // right after it, which then wouldn't be found ("Bo-" and "Bob"): one that starts
+            // before it ends is part of it.
+            var crossed = end - i > wanted.length
+            var start = i + 1
+            while (crossed && start < end) {
+                val next = matchAt(start, wanted)
+                if (next > end) {
+                    end = next
+                    crossed = next - start > wanted.length
+                }
+                start++
             }
             val glyphs = LinkedHashSet<Int>()
             for (k in i until end) if (owners[k] >= 0) glyphs += owners[k]

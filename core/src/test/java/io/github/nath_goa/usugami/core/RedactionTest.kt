@@ -197,14 +197,25 @@ class RedactionTest {
             word("dential")
             lineBreak()
             word("end")
+            lineBreak()
+            word("Bo-")
+            lineBreak()
+            word("Bob")
+            space()
+            word("555-")
+            lineBreak()
+            word("5555")
         }.build()
-        assertEquals("jane.smith- jones@example.com confi dential end", text.text)
+        assertEquals("jane.smith- jones@example.com confi dential end Bo- Bob 555- 5555", text.text)
         assertEquals(listOf((0..27).toList()), text.find("Jane.Smith-Jones@example.com"))
         assertEquals(1, text.find("smith jones").size)
         assertEquals(listOf((28..32).toList() + (34..40).toList()), text.find("confidential"))
         // A line break after a whole word is a space, as before.
         assertTrue(text.find("dentialend").isEmpty())
         assertEquals(1, text.find("dential end").size)
+        // A match across the break doesn't take the first letters of a whole one on the next line.
+        assertEquals(listOf((44..49).toList()), text.find("bob"))
+        assertEquals(listOf((50..57).toList()), text.find("5555"))
     }
 
     @Test fun matchesDoNotOverlap() {
