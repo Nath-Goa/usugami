@@ -91,10 +91,10 @@ object MarkLayout {
     }
 
     /**
-     * Draws the word's outlines with [pen], to be filled by the nonzero winding rule: in font sizes, the
-     * baseline starting at the origin, y up.
+     * Draws the word's outlines with [pen], to be filled by the nonzero winding rule: at [fontSize] (in
+     * font sizes by default), the baseline starting at the origin, y up.
      */
-    fun drawWord(pen: Pen) = trace(1f / MarkGlyphs.UNITS_PER_EM, pen)
+    fun drawWord(pen: Pen, fontSize: Float = 1f) = trace(fontSize / MarkGlyphs.UNITS_PER_EM, pen)
 
     /**
      * PDF content that fills the word's outlines in the colour set: at a font size of 1, the baseline

@@ -7,7 +7,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -45,10 +44,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -264,7 +263,6 @@ private fun MarkPage(preview: MarkPreview?, style: MarkStyle, on: Boolean) {
     val width = preview?.width ?: A4_WIDTH
     val height = preview?.height ?: A4_HEIGHT
     val description = if (on) stringResource(R.string.mark_preview_description) else stringResource(R.string.pdf_page_number, 1)
-    val word = remember { wordPath() }
     val shape = MaterialTheme.shapes.extraSmall
     Box(
         Modifier
@@ -280,23 +278,25 @@ private fun MarkPage(preview: MarkPreview?, style: MarkStyle, on: Boolean) {
             },
     ) {
         preview?.page?.let { Image(it, contentDescription = null, contentScale = ContentScale.FillBounds, modifier = Modifier.fillMaxSize()) }
-        Canvas(Modifier.fillMaxSize()) {
-            val scale = this.size.width / width
-            val place = MarkLayout.place(style, width, height)
-            // The same outlines as in the PDF, at its size there.
-            val fontSize = place.fontSize * scale
-            withTransform({
-                translate(place.x * scale, this.size.height - place.y * scale)
-                scale(fontSize, fontSize, pivot = Offset.Zero)
-            }) {
-                drawPath(word, Color(MarkLayout.GRAY, MarkLayout.GRAY, MarkLayout.GRAY), alpha = if (on) style.alpha else style.alpha * OFF_ALPHA)
-            }
-        }
+        Spacer(
+            Modifier.fillMaxSize().drawWithCache {
+                val scale = size.width / width
+                val place = MarkLayout.place(style, width, height)
+                // The same outlines as in the PDF, made at their size there: before Android 9, a path
+                // drawn scaled up is a picture of it at its own size, stretched.
+                val word = wordPath(place.fontSize * scale)
+                val color = Color(MarkLayout.GRAY, MarkLayout.GRAY, MarkLayout.GRAY)
+                val alpha = if (on) style.alpha else style.alpha * OFF_ALPHA
+                onDrawBehind {
+                    translate(place.x * scale, size.height - place.y * scale) { drawPath(word, color, alpha = alpha) }
+                }
+            },
+        )
     }
 }
 
-/** The word as the PDFs draw it: its outlines at a font size of 1, the baseline starting at the origin, y down. */
-private fun wordPath() = Path().also { path ->
+/** The word as the PDFs draw it, [fontSize] pixels: its outlines, the baseline starting at the origin, y down. */
+private fun wordPath(fontSize: Float) = Path().also { path ->
     MarkLayout.drawWord(
         object : MarkLayout.Pen {
             override fun moveTo(x: Float, y: Float) = path.moveTo(x, -y)
@@ -304,6 +304,7 @@ private fun wordPath() = Path().also { path ->
             override fun quadTo(x1: Float, y1: Float, x: Float, y: Float) = path.quadraticTo(x1, -y1, x, -y)
             override fun close() = path.close()
         },
+        fontSize,
     )
 }
 

@@ -73,6 +73,20 @@ class MarkLayoutTest {
         assertEquals(-MarkLayout.DESCENT, ys.min(), 0.0001f)
         assertEquals(MarkLayout.INK_TOP, ys.max(), 0.0001f)
         assertTrue(MarkLayout.INK_LEFT > 0 && MarkLayout.INK_RIGHT < MarkLayout.TEXT_WIDTH)
+        // At a size, as the preview draws them: the same outlines, that much bigger.
+        var right = 0f
+        MarkLayout.drawWord(
+            object : MarkLayout.Pen {
+                override fun moveTo(x: Float, y: Float) = lineTo(x, y)
+                override fun lineTo(x: Float, y: Float) {
+                    right = maxOf(right, x)
+                }
+                override fun quadTo(x1: Float, y1: Float, x: Float, y: Float) = lineTo(maxOf(x1, x), y)
+                override fun close() = Unit
+            },
+            fontSize = 12f,
+        )
+        assertEquals(MarkLayout.INK_RIGHT * 12, right, 0.001f)
 
         val pdf = MarkLayout.pdfWord().lines().filter { it.isNotEmpty() }
         assertEquals("0.00048828125 0 0 0.00048828125 0 0 cm", pdf.first())
