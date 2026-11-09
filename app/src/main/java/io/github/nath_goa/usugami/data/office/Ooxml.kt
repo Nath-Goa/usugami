@@ -146,8 +146,6 @@ internal enum class Ns { WORD, DRAWING, SLIDE, WORD_DRAWING, PICTURE, COMPATIBIL
  * namespaces are understood.
  */
 internal class OfficeXml private constructor(private val parser: XmlPullParser, private val input: InputStream, private val check: () -> Unit) : Closeable {
-    private var events = 0
-
     val name: String get() = parser.name
     val ns: Ns get() = namespaceOf(parser.namespace)
     val depth: Int get() = parser.depth
@@ -252,8 +250,9 @@ internal class OfficeXml private constructor(private val parser: XmlPullParser, 
     }
 
     private fun next(): Int {
-        // Checked now and then: a large part can take a while to read.
-        if (++events % 512 == 0) check()
+        // Checked at each element and text: a large part takes a while to read, and so can one element
+        // of a crafted part, even within what XmlTokenGuard lets through.
+        check()
         val event = parser.next()
         // The platform's parser takes longer over each level than over the one before, so a part nested
         // far deeper than [MAX_DEPTH], which only a crafted file is, is refused rather than skipped.
