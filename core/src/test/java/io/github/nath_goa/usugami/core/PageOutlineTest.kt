@@ -391,20 +391,21 @@ class PageOutlineTest {
         // The quickest of a few runs, once the JVM has compiled the search, counted in this thread's
         // processor time where the JVM can: on a busy build machine the clock also counts the time
         // other work takes the processor away, which once made a quick search look three times as slow.
+        // Each run times five searches, as Windows counts processor time in steps of about 16 ms.
         val threads = ManagementFactory.getThreadMXBean()
         val cpu = threads.isCurrentThreadCpuTimeSupported
         fun now() = if (cpu) threads.currentThreadCpuTime else System.nanoTime()
         fun millis(luma: ByteArray): Long {
             PageDetection.find(luma, size, size)
-            return (1..5).minOf {
+            return (1..3).minOf {
                 val start = now()
-                PageDetection.find(luma, size, size)
+                repeat(5) { PageDetection.find(luma, size, size) }
                 (now() - start) / 1_000_000
             }
         }
         val plain = millis(page)
         val busy = millis(sticks)
-        assertTrue("$busy ms, a plain page $plain ms", busy <= 3 * max(plain, 10))
+        assertTrue("$busy ms, a plain page $plain ms, five searches each", busy <= 3 * max(plain, 50))
     }
 
     @Test(expected = IllegalArgumentException::class)
