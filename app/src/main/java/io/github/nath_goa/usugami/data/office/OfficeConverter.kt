@@ -325,6 +325,8 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
             // book's bookmarks, title and language go in.
             val bookInfo = info
             val joined = engine.join(parts, File(workDir, "joined.pdf"), check) { doc ->
+                // Only Excel's cells draw text narrower or wider than its font.
+                if (input.kind == OfficeKind.EXCEL) TextScales.fix(doc, check)
                 EmbeddedFonts.shrink(doc, check)
                 bookInfo?.applyTo(doc)
             }
