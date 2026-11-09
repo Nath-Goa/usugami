@@ -11,6 +11,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.ImageFormat
 import io.github.nath_goa.usugami.data.ImageItem
@@ -28,6 +29,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
@@ -125,6 +127,29 @@ class WorkingFilesDeviceTest {
         assertEquals(listOf("a1.jpg", "a2.jpg", "a3.jpg", "a4.jpg", "b1.jpg", "b2.jpg"), onMain { vm.items.value.map { it.name } })
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
+    }
+
+    /**
+     * A PDF is marked in the saved state while it is being made: when Android closes Usugami meanwhile,
+     * it is gone, and the restored view models say so.
+     */
+    @Test fun aPdfBeingMadeWhenAndroidClosedUsugamiIsToldAbout() {
+        val handle = SavedStateHandle()
+        val vm = onMain { MainViewModel(app, handle) }
+        onMain { vm.addImages(listOf(photo("made.jpg"))) }
+        waitUntil("the image to be imported") { vm.items.value.size == 1 && vm.pendingImports.value == 0 }
+        assertEquals(true, onMain { vm.convert(true, "made", Compression.RECOMMENDED).let { handle.get<Boolean>("making") } })
+        waitUntil("the PDF to be made") { vm.result.value != null }
+        assertNull("Made", onMain { handle.get<Boolean>("making") })
+        onMain { vm.startOver() }
+        runBlocking { vm.awaitFileWork() }
+
+        val said = AppLanguages.localized(app).resources.getString(R.string.msg_making_interrupted)
+        val images = onMain { MainViewModel(app, SavedStateHandle(mapOf("making" to true))) }
+        assertEquals(said, runBlocking { withTimeout(10_000) { images.messages.first() } })
+        runBlocking { images.awaitFileWork() }
+        val tools = onMain { PdfToolsViewModel(app, SavedStateHandle(mapOf("making" to true))) }
+        assertEquals(said, runBlocking { withTimeout(10_000) { tools.messages.first() } })
     }
 
     @Test fun aResultShowingWhenAndroidStoppedUsugamiShowsAgain() {

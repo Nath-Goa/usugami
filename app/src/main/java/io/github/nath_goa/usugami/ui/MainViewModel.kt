@@ -399,6 +399,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     init {
         if ((handle.remove<Int>(KEY_PICKS_UNDER_WAY) ?: 0) > 0) message(R.string.msg_picks_interrupted)
+        // Android closed Usugami while it made a PDF, which is gone with it (see convert).
+        if (handle.remove<Boolean>(KEY_MAKING) == true) message(R.string.msg_making_interrupted)
         handle.setSavedStateProvider(KEY_ITEMS) {
             packItems(_items.value).also {
                 photosInSavedState.clear()
@@ -1234,6 +1236,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         lastChoices = ConvertChoices(fileName, language)
         val layout = _layout.value
         _progress.value = Progress(0, snapshot.size)
+        // In the saved state until the PDF is made: when Android closes Usugami meanwhile, the user is told.
+        handle[KEY_MAKING] = true
         conversion = viewModelScope.launch {
             // The pages as their files are now (see takeIn).
             var pages = snapshot
@@ -1288,6 +1292,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 _progress.value = null
                 _cancelling.value = false
                 conversion = null
+                handle.remove<Boolean>(KEY_MAKING)
             }
         }
     }
@@ -1559,6 +1564,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_PENDING_CROPS = "pending_crops"
         private const val KEY_PENDING_PHOTOS = "pending_photos"
         private const val KEY_SCAN = "scan"
+        private const val KEY_MAKING = "making"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,

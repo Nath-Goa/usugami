@@ -712,6 +712,7 @@
     <!-- Android stopped Usugami in the background while it was copying in files shared to it, which are gone. -->
     <string name="msg_share_interrupted">Usugami was closed before it could take in the files you shared. Please share them again.</string>
     <string name="msg_picks_interrupted">Usugami was closed before it had added all your images. Please add the missing ones again.</string>
+    <string name="msg_making_interrupted">Usugami was closed before your PDF was finished. Please try again.</string>
     <string name="msg_saved_downloads">Saved to Downloads as %1$s</string>
     <plurals name="msg_saved_downloads_many">
         <item quantity="one">Saved %d PDF to Downloads</item>

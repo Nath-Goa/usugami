@@ -310,6 +310,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var importGeneration = 0
 
     init {
+        // Android closed Usugami while it made PDFs, which are gone with it (see process).
+        if (handle.remove<Boolean>(KEY_MAKING) == true) message(strings.getString(R.string.msg_making_interrupted))
         val keep = if (restored) inputs.value + locked.value else emptyList()
         val keepDocuments = documents.value
         val keepPictures = history.items.value.filterIsInstance<PictureItem>().map { it.path }
@@ -1627,6 +1629,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     ) {
         if (_processing.value || _importing.value) return
         _processing.value = true
+        // In the saved state until the PDFs are made: when Android closes Usugami meanwhile, the user is told.
+        handle[KEY_MAKING] = true
         _convertProgress.value = null
         val document = documents.firstOrNull()
         task = viewModelScope.launch {
@@ -1683,6 +1687,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 _convertProgress.value = null
                 _batchProgress.value = null
                 task = null
+                handle.remove<Boolean>(KEY_MAKING)
             }
         }
     }
@@ -2156,6 +2161,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_RESULT_NAME = "result_name"
         const val KEY_BATCH = "batch"
         const val KEY_TAKING_SHARED = "taking_shared"
+        const val KEY_MAKING = "making"
 
         /** The choice for all PDFs a batch starts with: Compress PDF's Recommended. */
         val DEFAULT_BATCH_CHOICE = PdfCompression.RECOMMENDED.ordinal
