@@ -585,6 +585,57 @@ object PageBreaking {
     }
 }
 
+/**
+ * Runs of text with no space wider than their line, as a pasted hash, link or base64 block can be,
+ * broken as Word breaks them.
+ */
+object LongWords {
+    /**
+     * Where a run of text with no space, whose characters are [advances] wide (0 for one that goes with
+     * the one before it, such as a mark), ends each of its lines but the last, each line as full as can
+     * be: at the last place [breakable] allows (by the index of the character after it, as after a
+     * hyphen) that fits, or, with none, after the last character that fits, as Word breaks a word wider
+     * than the line. The run's first line has [room] for it, and the others are [other] wide. When there
+     * is text before it on its first line ([lineStart] false), an end at 0 moves it to the next line.
+     * Each line takes at least one character. [fits] has the last say on whether the run from one index
+     * to another fits in a width: measured on its own, a line can come out a little wider.
+     */
+    fun lineEnds(
+        advances: FloatArray,
+        room: Float,
+        other: Float,
+        lineStart: Boolean = true,
+        breakable: (Int) -> Boolean = { false },
+        fits: (Int, Int, Float) -> Boolean = { _, _, _ -> true },
+    ): IntArray {
+        val out = ArrayList<Int>()
+        var start = 0
+        var limit = room
+        var alone = lineStart
+        while (start < advances.size) {
+            var width = 0f
+            var end = start
+            while (end < advances.size) {
+                val advance = advances[end]
+                if (advance > 0f && width + advance > limit && (end > start || !alone)) break
+                width += advance
+                end++
+            }
+            if (end >= advances.size) break
+            val at = (end downTo start + 1).firstOrNull { breakable(it) && fits(start, it, limit) } ?: if (!alone) start else {
+                var cut = end
+                while (!fits(start, cut, limit)) cut = (cut - 1 downTo start + 1).firstOrNull { advances[it] > 0f } ?: break
+                cut
+            }
+            out += at
+            start = at
+            limit = other
+            alone = true
+        }
+        return out.toIntArray()
+    }
+}
+
 /** A rectangle in a slide's or group's coordinates. */
 data class OfficeRect(val x: Float, val y: Float, val width: Float, val height: Float) {
     val centerX get() = x + width / 2

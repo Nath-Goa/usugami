@@ -201,6 +201,28 @@ class OfficeFormatsTest {
         assertEquals(0, PageBreaking.linesThatFit(IntArray(0), 800, avoidSingleLines = true, force = true))
     }
 
+    @Test fun wordsWiderThanTheLineBreakAtItsEnd() {
+        // Characters one unit wide: a first line of 10, then lines of 5, the last one what is left.
+        assertEquals(listOf(10, 15, 20), LongWords.lineEnds(FloatArray(22) { 1f }, 10f, 5f).toList())
+        // A mark (no width of its own) stays with its letter; a line takes a character however wide it is.
+        assertEquals(listOf(4, 6), LongWords.lineEnds(floatArrayOf(1f, 1f, 1f, 0f, 1f, 1f, 1f), 3.5f, 2f).toList())
+        assertEquals(listOf(1, 2), LongWords.lineEnds(floatArrayOf(9f, 9f, 1f), 5f, 5f).toList())
+        // A line that doesn't fit when measured on its own gives up its last character.
+        assertEquals(listOf(9, 18), LongWords.lineEnds(FloatArray(20) { 1f }, 10f, 10f) { start, end, _ -> end - start < 10 }.toList())
+        assertEquals(0, LongWords.lineEnds(FloatArray(5) { 1f }, 10f, 10f).size)
+    }
+
+    @Test fun runsWiderThanTheLineBreakAfterTheirLastHyphenThatFits() {
+        // Hyphens at 2, 5, 8 and 11: a line can end after each.
+        val hyphens = { at: Int -> at % 3 == 0 }
+        assertEquals(listOf(9), LongWords.lineEnds(FloatArray(14) { 1f }, 10f, 10f, breakable = hyphens).toList())
+        // After text on the line, the run's start goes on it as far as it fits, or the run goes to the next line.
+        assertEquals(listOf(3, 12), LongWords.lineEnds(FloatArray(14) { 1f }, 4f, 10f, lineStart = false, breakable = hyphens).toList())
+        assertEquals(listOf(0, 9), LongWords.lineEnds(FloatArray(14) { 1f }, 2f, 10f, lineStart = false, breakable = hyphens).toList())
+        // A word with nowhere to break goes to the next line, then breaks at each line's end.
+        assertEquals(listOf(0, 10), LongWords.lineEnds(FloatArray(14) { 1f }, 3f, 10f, lineStart = false).toList())
+    }
+
     @Test fun groupsStretchTheirChildren() {
         val group = GroupFrame(OfficeRect(100f, 50f, 200f, 100f), 0f to 0f, 400f to 100f)
         assertEquals(OfficeRect(150f, 60f, 100f, 50f), group.place(OfficeRect(100f, 10f, 200f, 50f)))

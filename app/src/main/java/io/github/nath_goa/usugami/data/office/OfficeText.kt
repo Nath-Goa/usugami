@@ -8,6 +8,9 @@ import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.icu.lang.UCharacter
+import android.icu.lang.UProperty
+import android.icu.text.BreakIterator
 import android.os.Build
 import android.text.Layout
 import android.text.SpannableStringBuilder
@@ -15,6 +18,7 @@ import android.text.Spanned
 import android.text.StaticLayout
 import android.text.TextDirectionHeuristics
 import android.text.TextPaint
+import android.text.TextUtils
 import android.text.style.BackgroundColorSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.LineHeightSpan
@@ -25,6 +29,7 @@ import android.text.style.TabStopSpan
 import android.text.style.UnderlineSpan
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
+import io.github.nath_goa.usugami.core.LongWords
 import io.github.nath_goa.usugami.core.OfficeColors
 import io.github.nath_goa.usugami.core.PageBreaking
 import kotlin.math.max
@@ -209,7 +214,7 @@ internal class RichText(private val behind: Int? = null) {
 }
 
 /** A run's font and size. Colours and lines are separate spans. */
-private class RunSpan(private val style: TextStyle) : MetricAffectingSpan() {
+private class RunSpan(val style: TextStyle) : MetricAffectingSpan() {
     override fun updateMeasureState(paint: TextPaint) = style.applyTo(paint)
     override fun updateDrawState(paint: TextPaint) = style.applyTo(paint)
 }
@@ -303,7 +308,7 @@ internal class ParagraphBlock private constructor(
     private val afterPiece: Boolean = false,
     private val beforePiece: Boolean = false,
 ) : Block {
-    constructor(spec: ParagraphSpec) : this(spec, spec.text, spec.firstIndent, spec.label, false, true, true)
+    constructor(spec: ParagraphSpec) : this(spec, WideWords.prepare(spec) { start, end -> roomLeft(spec, start, end) }, spec.firstIndent, spec.label, false, true, true)
 
     private val left = min(first, spec.indent)
     val layout: StaticLayout = build()
@@ -447,6 +452,168 @@ internal class ParagraphBlock private constructor(
     private companion object {
         /** About four pages of text. */
         const val PIECE = 12_000
+
+        /** The room left on the last line of [spec]'s text from [start] to [end], laid out as in the paragraph, [start] starting a line. */
+        fun roomLeft(spec: ParagraphSpec, start: Int, end: Int): Float {
+            val first = if (start == 0) spec.firstIndent else spec.indent
+            val layout = ParagraphBlock(spec, spec.text.subSequence(start, end), first, null, false, true, true).layout
+            val last = layout.lineCount - 1
+            val left = min(first, spec.indent)
+            return max(1, spec.width - left - spec.rightIndent) - ((if (last == 0) first else spec.indent) - left) - layout.getLineWidth(last)
+        }
+    }
+}
+
+/**
+ * Runs of text with no space wider than a line, as a pasted hash, link, base64 block or list of codes
+ * can be, broken as Word and PowerPoint break them, with a line break put in at each line's end.
+ * Android measures each line of such a run along with all of it, keeping a copy of the run for each:
+ * one 100,000 characters long took gigabytes. Each line of the run on its own costs no more than any
+ * other line. Lines end where Word ends them: after a hyphen or a dash, or between the words of a
+ * script written without spaces (Japanese, Thai...), but not after a slash, as Android would; a word
+ * wider than the line goes on lines of its own, broken at each line's end, character by character.
+ */
+internal object WideWords {
+    /**
+     * Runs this long or shorter are left to Android, which lays them out in little memory, unless a
+     * slash or an @ (links, email addresses) lets Android end a line where Word doesn't.
+     */
+    private const val LONG = 64
+
+    /**
+     * [spec]'s text ready to be laid out: itself, unless it has such runs. [roomLeft] gives the room left
+     * on the last line of the text from one index to another, laid out as in the paragraph, the first
+     * index starting a line.
+     */
+    fun prepare(spec: ParagraphSpec, roomLeft: (Int, Int) -> Float): CharSequence {
+        val text = spec.text
+        val left = min(spec.firstIndent, spec.indent)
+        val width = max(1, spec.width - left - spec.rightIndent)
+        val firstLine = (width - (spec.firstIndent - left)).toFloat()
+        val otherLines = (width - (spec.indent - left)).toFloat()
+        val narrowest = min(firstLine, otherLines)
+        // No character is wider than two of the largest letters' ems, with their spacing: shorter runs fit.
+        val widest by lazy {
+            val styles = (text as? Spanned)?.getSpans(0, text.length, RunSpan::class.java)?.map { it.style }.orEmpty() + spec.base
+            styles.maxOf { 2 * it.drawnSize.units + max(0f, it.spacing).units }
+        }
+        val paint by lazy { TextPaint(Paint.ANTI_ALIAS_FLAG).also { spec.base.applyTo(it) } }
+        val breaks = ArrayList<Int>()
+        // The breaks after text on a line before a run, where a justified line needs a filler.
+        val filled = HashSet<Int>()
+        // Where the line being filled starts: after the last line break.
+        var lineStart = 0
+        var start = 0
+        var linkLike = false
+        var i = 0
+        while (true) {
+            val code = if (i < text.length) Character.codePointAt(text, i) else -1
+            if (code >= 0 && !endsRun(code)) {
+                if (code == '/'.code || code == '@'.code) linkLike = true
+                i += Character.charCount(code)
+                continue
+            }
+            val length = i - start
+            if ((length > LONG || linkLike) && length * widest > narrowest) {
+                val from = start
+                val advances = advances(text, from, i, paint)
+                if (advances.sum() > narrowest) {
+                    val alone = from == lineStart
+                    // A little less than all the room, so that Android, measuring the line as a whole, finds it fits too.
+                    val room = if (alone) (if (from == 0) firstLine else otherLines) else roomLeft(lineStart, from) - 1f
+                    val places = breakPlaces(text, from, i)
+                    val ends = LongWords.lineEnds(advances, room, otherLines, alone, { places[it] }) { a, b, most ->
+                        Layout.getDesiredWidth(text, from + a, from + b, paint) <= most
+                    }
+                    if (ends.isNotEmpty()) {
+                        if (!alone) filled += from + ends.first()
+                        ends.forEach { breaks += from + it }
+                        lineStart = from + ends.last()
+                    }
+                }
+            }
+            if (code < 0) break
+            if (code == '\n'.code) lineStart = i + 1
+            i += Character.charCount(code)
+            start = i
+            linkLike = false
+        }
+        if (breaks.isEmpty()) return text
+        val out = SpannableStringBuilder(text)
+        for (at in breaks.asReversed()) {
+            out.insert(at, "\n")
+            // The break looks like the character before it, so its line is no taller than its text.
+            if (out.getSpans(at, at + 1, RunSpan::class.java).isEmpty()) {
+                out.getSpans(at - 1, at, RunSpan::class.java).firstOrNull()?.let { out.setSpan(RunSpan(it.style), at, at + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
+            }
+            // A justified line before a run, or the start of one, stays justified, as in Word: a filler
+            // takes a line of its own after it, which takes no room.
+            if (spec.align == Align.JUSTIFY && at in filled) {
+                out.setSpan(Collapsed(), at, at + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                out.insert(at, RichText.OBJECT)
+                out.setSpan(LineFiller(spec.width), at, at + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                // Android ends no line just after a hyphen: a space it can end the line at goes before the filler.
+                if (!Character.isWhitespace(text[at - 1])) {
+                    out.insert(at, " ")
+                    out.setSpan(Collapsed(), at, at + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+            }
+        }
+        return out
+    }
+
+    /**
+     * Whether [code] ends a run: a space or a line break, or a Chinese character, where Android's
+     * measuring starts afresh.
+     */
+    private fun endsRun(code: Int) = Character.isWhitespace(code) || code == 0x2007 || code in 0x3400..0x9FFF
+
+    /**
+     * Where Word can end a line in the run of [text] from [start] to [end], by index in the run: where
+     * Android's rules allow it, next to a character Word breaks by (not after a slash, say).
+     */
+    private fun breakPlaces(text: CharSequence, start: Int, end: Int): BooleanArray {
+        val out = BooleanArray(end - start + 1)
+        val lines = BreakIterator.getLineInstance()
+        lines.setText(text.subSequence(start, end).toString())
+        var at = lines.next()
+        while (at != BreakIterator.DONE && at < end - start) {
+            out[at] = !inWord(Character.codePointBefore(text, start + at)) || !inWord(Character.codePointAt(text, start + at))
+            at = lines.next()
+        }
+        return out
+    }
+
+    /** The width of each character from [start] to [end] of [text], drawn with [paint] and the spans on it; 0 for one that goes with the one before. */
+    private fun advances(text: CharSequence, start: Int, end: Int, paint: TextPaint): FloatArray {
+        val out = FloatArray(end - start)
+        val chars = CharArray(end - start)
+        TextUtils.getChars(text, start, end, chars, 0)
+        val work = TextPaint()
+        var from = start
+        while (from < end) {
+            val to = (text as? Spanned)?.nextSpanTransition(from, end, MetricAffectingSpan::class.java) ?: end
+            work.set(paint)
+            (text as? Spanned)?.getSpans(from, to, MetricAffectingSpan::class.java)?.forEach { it.updateMeasureState(work) }
+            val widths = FloatArray(to - from)
+            work.getTextWidths(chars, from - start, to - from, widths)
+            widths.copyInto(out, from - start)
+            from = to
+        }
+        return out
+    }
+
+    /** Whether Word keeps [code] in a word: not a space, a hyphen or a dash, nor a character of a script lines break anywhere in (Chinese, Thai...). */
+    private fun inWord(code: Int): Boolean = when (UCharacter.getIntPropertyValue(code, UProperty.LINE_BREAK)) {
+        UCharacter.LineBreak.SPACE, UCharacter.LineBreak.MANDATORY_BREAK, UCharacter.LineBreak.CARRIAGE_RETURN,
+        UCharacter.LineBreak.LINE_FEED, UCharacter.LineBreak.NEXT_LINE, UCharacter.LineBreak.ZWSPACE,
+        UCharacter.LineBreak.HYPHEN, UCharacter.LineBreak.BREAK_AFTER, UCharacter.LineBreak.BREAK_BEFORE,
+        UCharacter.LineBreak.BREAK_BOTH, UCharacter.LineBreak.IDEOGRAPHIC, UCharacter.LineBreak.CONDITIONAL_JAPANESE_STARTER,
+        UCharacter.LineBreak.H2, UCharacter.LineBreak.H3, UCharacter.LineBreak.JL, UCharacter.LineBreak.JV, UCharacter.LineBreak.JT,
+        UCharacter.LineBreak.E_BASE, UCharacter.LineBreak.E_MODIFIER, UCharacter.LineBreak.CONTINGENT_BREAK,
+        UCharacter.LineBreak.REGIONAL_INDICATOR, UCharacter.LineBreak.COMPLEX_CONTEXT, UCharacter.LineBreak.NONSTARTER,
+        -> false
+        else -> true
     }
 }
 
@@ -478,6 +645,8 @@ private class LineRule(private val spacing: LineSpacing, private val scale: Floa
     private fun adjust(text: CharSequence, start: Int, end: Int, fm: Paint.FontMetricsInt) {
         val natural = fm.descent - fm.ascent
         if (natural <= 0) return
+        // A justified line's filler (see [WideWords]) takes no room, whatever the spacing.
+        if (text is Spanned && text.getSpans(start, end, LineFiller::class.java).isNotEmpty()) return
         // A picture in the line keeps all its height.
         val picture = text is Spanned && text.getSpans(start, end, PictureSpan::class.java).isNotEmpty()
         val target = when (spacing) {
@@ -489,6 +658,15 @@ private class LineRule(private val spacing: LineSpacing, private val scale: Floa
         fm.top = fm.ascent
         fm.bottom = fm.descent
     }
+}
+
+/** A line break that takes next to no room: the end of a justified line's filler (see [WideWords]). */
+private class Collapsed : MetricAffectingSpan() {
+    override fun updateMeasureState(paint: TextPaint) {
+        paint.textSize = 1f
+    }
+
+    override fun updateDrawState(paint: TextPaint) = updateMeasureState(paint)
 }
 
 /** A full-width, invisible object: put after a justified paragraph's last line, it gets justified too. */

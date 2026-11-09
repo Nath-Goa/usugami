@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.Debug
 import android.os.ParcelFileDescriptor
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -14,6 +15,7 @@ import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.office.Align
 import io.github.nath_goa.usugami.data.office.ConvertJob
 import io.github.nath_goa.usugami.data.office.OfficeConverter
 import io.github.nath_goa.usugami.data.office.OfficeEmbeddedContent
@@ -794,6 +796,35 @@ class OfficeConverterDeviceTest {
         val (head, tail) = block.split(space, false)!!
         assertTrue("${head.height} in $space", head.height <= space)
         assertNotNull(tail)
+    }
+
+    @Test fun aWordWiderThanTheLineBreaksAtEachLinesEndInLittleMemory() {
+        // Pasted blocks 100,000 characters long. Android measured each of their lines along with all of the
+        // block, keeping a copy for each.
+        val paint = TextStyle().paint()
+        fun lines(word: String): List<String> {
+            val text = RichText().apply { append("Key: $word end", TextStyle()) }.text
+            val before = Debug.getNativeHeapAllocatedSize()
+            val layout = ParagraphBlock(ParagraphSpec(text, TextStyle(), 4680)).layout
+            val grown = Debug.getNativeHeapAllocatedSize() - before
+            assertTrue("Native memory grew by $grown bytes", grown < 32L shl 20)
+            val lines = (0 until layout.lineCount).map { layout.text.substring(layout.getLineStart(it), layout.getLineEnd(it)).trimEnd('\n') }
+            assertEquals("Key: $word end", lines.joinToString(""))
+            return lines
+        }
+        // Base64 has nowhere Word breaks: lines of its own, full to the end, not broken after its slashes.
+        val base64 = lines("QWxhZGRpbjpvcGVuIHNlc2FtZQ+/".repeat(3572))
+        assertEquals("Key: ", base64.first())
+        for (line in base64.subList(1, base64.lastIndex)) assertTrue(line, paint.measureText(line) > 4680 - paint.measureText("W"))
+        // Base64url, as UUIDs and JSON, has hyphens: each line ends after one, the first after "Key:".
+        val dashed = lines("QWxhZGRpbjpvcGVuIHNlc2FtZQ_-".repeat(3572))
+        assertTrue(dashed.first(), dashed.first().startsWith("Key: QWxh"))
+        for (line in dashed.dropLast(1)) assertTrue(line, line.endsWith("-") && paint.measureText(line) <= 4681)
+        // Justified, the line keeps the start of such a run and stays justified.
+        val key = RichText().apply { append("Key: " + "QWxhZGRpbjpvcGVuIHNlc2FtZQ_-".repeat(40) + " end", TextStyle()) }.text
+        val justified = ParagraphBlock(ParagraphSpec(key, TextStyle(), 4680, Align.JUSTIFY)).layout
+        assertTrue(justified.text.substring(0, justified.getLineEnd(0)).startsWith("Key: QWxh"))
+        assertTrue(justified.getLineWidth(0) > 4670)
     }
 
     @Test fun aVeryLongParagraphGoesInPiecesLaidOutAsItIs() {
