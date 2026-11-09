@@ -465,6 +465,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         // in yet are gone, and the user is told (see takeShareInterrupted).
         handle[KEY_TAKING_SHARED] = generation
         importJob = viewModelScope.launch {
+            val job = coroutineContext[Job]!!
             fun abandoned() = generation != importGeneration
             // The files left out, by name, and why.
             val refused = ArrayList<Pair<String, Said>>()
@@ -477,7 +478,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                             val input = withContext(fileOps) { engine.adopt(shared.file, id, shared.name) }
                             if (abandoned()) withContext(fileOps) { engine.delete(input) } else append(input)
                         } else {
-                            val input = withContext(fileOps) { office.adopt(shared.file, id, officeKind, shared.name) }
+                            val input = withContext(fileOps) { office.adopt(shared.file, id, officeKind, shared.name) { job.ensureActive() } }
                             if (abandoned()) withContext(fileOps) { office.delete(input) } else setDocuments(documents.value + input)
                         }
                         null

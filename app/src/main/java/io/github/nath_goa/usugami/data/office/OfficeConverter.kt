@@ -119,7 +119,8 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
 
     /**
      * Copies the file at [uri] into the cache and checks it is a [kind] file Usugami can read.
-     * Throws an [OfficeFileProblem] when it isn't. [check] is called between chunks and throws to stop.
+     * Throws an [OfficeFileProblem] when it isn't. [check] is called between chunks, and as the file
+     * is checked, and throws to stop.
      */
     fun import(uri: Uri, id: Long, kind: OfficeKind, check: () -> Unit = {}): OfficeInput {
         inputDir.mkdirs()
@@ -137,7 +138,7 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
                     }
                 }
             }
-            verify(file, kind)
+            verify(file, kind, check)
             return OfficeInput(id, file.path, displayName(uri) ?: "${kind.fallbackName}.${kind.extension}", kind)
         } catch (t: Throwable) {
             file.delete()
@@ -149,13 +150,14 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
 
     /**
      * Takes [file], a [kind] file shared to Usugami and copied in already (see ShareInbox), as
-     * [import] takes a picked one: it is moved in as file [id], named [name].
+     * [import] takes a picked one: it is moved in as file [id], named [name]. [check] is called as it
+     * is checked, and throws to stop.
      */
-    fun adopt(file: File, id: Long, kind: OfficeKind, name: String): OfficeInput {
+    fun adopt(file: File, id: Long, kind: OfficeKind, name: String, check: () -> Unit): OfficeInput {
         val target = File(inputDir, "$id.${kind.extension}")
         try {
             moveCopy(file, target)
-            verify(target, kind)
+            verify(target, kind, check)
             return OfficeInput(id, target.path, name, kind)
         } catch (t: Throwable) {
             target.delete()
@@ -165,8 +167,11 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
         }
     }
 
-    /** Throws an [OfficeFileProblem] unless [file] is a [kind] file Usugami can convert. */
-    fun verify(file: File, kind: OfficeKind) {
+    /**
+     * Throws an [OfficeFileProblem] unless [file] is a [kind] file Usugami can convert. [check] is
+     * called as its parts are read, and throws to stop: a crafted file can make them take a while.
+     */
+    fun verify(file: File, kind: OfficeKind, check: () -> Unit) {
         val header = ByteArray(8)
         val read = file.inputStream().use { input ->
             var total = 0
@@ -178,15 +183,15 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
             total
         }
         if (read < header.size) throw OfficeNotRecognized()
-        if (kind == OfficeKind.EPUB) return verifyBook(file, header)
+        if (kind == OfficeKind.EPUB) return verifyBook(file, header, check)
         when (OfficeFileType.container(header)) {
             OfficeContainer.COMPOUND -> throw if (file.inputStream().buffered().use(OfficeFileType::isEncryptedPackage)) OfficeEncrypted() else OfficeLegacyFormat()
             OfficeContainer.OTHER -> throw OfficeNotRecognized()
             OfficeContainer.ZIP -> {
                 val matches = try {
-                    OfficePackage(file).use { pkg ->
+                    OfficePackage(file, check).use { pkg ->
                         val main = pkg.mainPart() ?: return@use false
-                        pkg.xml(main) {}?.use { x ->
+                        pkg.xml(main, check)?.use { x ->
                             when (kind) {
                                 OfficeKind.WORD -> x.name == "document" && x.ns == Ns.WORD
                                 OfficeKind.POWERPOINT -> x.name == "presentation" && x.ns == Ns.SLIDE
@@ -195,7 +200,8 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
                             }
                         } ?: false
                     }
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    rethrowCancel(e)
                     false
                 }
                 if (!matches) throw OfficeNotRecognized()
@@ -204,13 +210,14 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
     }
 
     /** A zip with an EPUB package in it, without DRM. */
-    private fun verifyBook(file: File, header: ByteArray) {
+    private fun verifyBook(file: File, header: ByteArray, check: () -> Unit) {
         if (OfficeFileType.container(header) != OfficeContainer.ZIP) throw OfficeNotRecognized()
         try {
-            EpubArchive(file).use { EpubBook.read(it) {} }
+            EpubArchive(file).use { EpubBook.read(it, check) }
         } catch (e: OfficeFileProblem) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            rethrowCancel(e)
             throw OfficeNotRecognized()
         }
     }
@@ -298,7 +305,7 @@ class OfficeConverter(private val context: Context, private val engine: PdfTools
                 }
             } else {
                 withReadingStack {
-                    OfficePackage(input.file).use { pkg ->
+                    OfficePackage(input.file, check).use { pkg ->
                         PagedPdf(workDir).use { pdf ->
                             val images = OfficeImages(pkg::open, pdf, check)
                             pages = when (input.kind) {

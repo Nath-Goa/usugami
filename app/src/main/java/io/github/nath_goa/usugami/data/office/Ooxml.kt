@@ -39,9 +39,10 @@ private val rootedNamesAllowed: Unit by lazy {
 
 /**
  * An Office Open XML file (.docx, .pptx, .xlsx): a zip of XML parts, linked by relationships. Only read,
- * never extracted, so odd names inside the zip can't reach the file system.
+ * never extracted, so odd names inside the zip can't reach the file system. [check] is called as the
+ * relationships are read, and throws to stop: a crafted file can make them take a while.
  */
-internal class OfficePackage(file: File) : Closeable {
+internal class OfficePackage(file: File, private val check: () -> Unit) : Closeable {
     private val zip = openZip(file)
     // Part names are case-insensitive in OOXML, but zip entry names aren't.
     private val entries: Map<String, ZipEntry> = zip.entries().asSequence().associateBy { it.name.trimStart('/').lowercase() }
@@ -67,7 +68,7 @@ internal class OfficePackage(file: File) : Closeable {
         val dir = part.substringBeforeLast('/', "")
         val relsPath = (if (dir.isEmpty()) "" else "$dir/") + "_rels/" + part.substringAfterLast('/') + ".rels"
         val found = HashMap<String, Relationship>()
-        xml(relsPath) {}?.use { x ->
+        xml(relsPath, check)?.use { x ->
             x.children {
                 if (x.name == "Relationship") {
                     val id = x.attr("Id")
