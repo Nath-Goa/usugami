@@ -31,11 +31,22 @@ object FileNames {
     /**
      * [base] made safe ([sanitize], with [fallback] for a blank one) and followed by [suffix], such
      * as "Report_redacted". When the two are too long together, [base] is cut rather than [suffix],
-     * which tells the file from the one it was made from.
+     * which tells the file from the one it was made from. [spare] bytes more are left free, for an
+     * ending still to be added.
      */
-    fun withSuffix(base: String, suffix: String, fallback: String): String {
-        val room = MAX_UTF8_BYTES - utf8Size(suffix)
+    fun withSuffix(base: String, suffix: String, fallback: String, spare: Int = 0): String {
+        val room = MAX_UTF8_BYTES - spare - utf8Size(suffix)
         return sanitize(trimEnd(truncateUtf8(sanitize(base, fallback), room)) + suffix, fallback)
+    }
+
+    /**
+     * Names for files made together from one [base], each followed by its own one of [suffixes], such
+     * as "Report_1_1-3" and "Report_2_4-6". A long [base] is cut once, leaving room for the longest
+     * suffix, so the names all begin alike and sort together.
+     */
+    fun withSuffixes(base: String, suffixes: List<String>, fallback: String): List<String> {
+        val longest = suffixes.maxOfOrNull(::utf8Size) ?: 0
+        return suffixes.map { withSuffix(base, it, fallback, spare = longest - utf8Size(it)) }
     }
 
     /** The original file name without its extension, e.g. "IMG_1234.jpg" -> "IMG_1234". */

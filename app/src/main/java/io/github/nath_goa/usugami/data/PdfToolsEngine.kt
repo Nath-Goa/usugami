@@ -244,7 +244,13 @@ class PdfToolsEngine(private val context: Context) {
         require(groups.isNotEmpty() && groups.all { it.isNotEmpty() })
         clearOutput()
         outputDir.mkdirs()
-        val base = FileNames.sanitize(baseName, "Split")
+        // A long name is cut the same for every part, so their names begin alike, and their numbers
+        // and pages stay whole.
+        val names = FileNames.withSuffixes(
+            baseName,
+            if (groups.size == 1) listOf("") else groups.mapIndexed(::partSuffix),
+            "Split",
+        )
         val taken = HashSet<String>()
         try {
             load(input.file, input.password).use { source ->
@@ -255,9 +261,7 @@ class PdfToolsEngine(private val context: Context) {
                 return groups.mapIndexed { index, pages ->
                     check()
                     require(pages.all { it in sourcePages.indices })
-                    val suffix = if (groups.size == 1) "" else "_${index + 1}_${pages.first() + 1}-${pages.last() + 1}"
-                    // Cut from a long name, not from the pages the part has.
-                    val name = FileNames.unique(FileNames.withSuffix(base, suffix, "Split"), taken)
+                    val name = FileNames.unique(names[index], taken)
                     taken += name
                     val target = File(outputDir, "$name.pdf")
                     PDDocument(memory()).use { dest ->
@@ -1097,6 +1101,14 @@ class PdfToolsEngine(private val context: Context) {
             if (c.moveToFirst() && !c.isNull(0)) c.getString(0).substringAfterLast('/').takeIf { it.isNotBlank() } else null
         }
     } catch (_: Exception) { null }
+
+    companion object {
+        /**
+         * What [split] adds to the name of part [index] (zero-based), which holds [pages]: its number
+         * and its first and last pages, counted from 1, as in "_2_4-6".
+         */
+        fun partSuffix(index: Int, pages: List<Int>) = "_${index + 1}_${pages.first() + 1}-${pages.last() + 1}"
+    }
 }
 
 /** The page as a viewer shows it: its crop box, turned by its rotation. */

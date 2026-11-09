@@ -2062,7 +2062,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         return when (tool) {
             // A converted document keeps its name: Report.docx becomes Report.pdf.
             PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> documents.value.firstOrNull()?.name?.let(FileNames::baseName) ?: "Usugami"
-            PdfTool.SPLIT -> named("_split")
+            PdfTool.SPLIT -> {
+                // Each part adds its number and pages after this name: room is left for the longest
+                // ending a PDF of this many pages can give, so a long name is cut here, not its "_split".
+                val last = (input?.pageCount ?: 1).coerceAtLeast(1) - 1
+                FileNames.withSuffix(base, "_split", "Usugami", spare = PdfToolsEngine.partSuffix(last, listOf(last)).length)
+            }
             PdfTool.COMPRESS -> named("_compressed")
             PdfTool.MERGE -> "Merged_PDF"
             PdfTool.ROTATE -> named("_rotated")
