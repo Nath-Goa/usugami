@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.SavedStateHandle
 import io.github.nath_goa.usugami.core.MarkStyle
+import io.github.nath_goa.usugami.data.MarkForbidden
 import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.PageMark
 import io.github.nath_goa.usugami.data.PdfFile
@@ -25,6 +26,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The first page of a result as it was made, without the mark, and its size as shown, in points: the
@@ -43,7 +45,8 @@ class MarkPreview(val page: ImageBitmap?, val width: Float, val height: Float)
  * model's file work, [io], one thing at a time, after a save of them under way (holding [turn] too,
  * when given) and before a cleanup that deletes them. [changed] is given the result once a change has
  * rewritten its PDFs: the copies saved before are of the PDFs as they were. [failed] is called when a
- * PDF couldn't be changed.
+ * PDF couldn't be changed, and [refused] is told once how many of the result's PDFs are certified
+ * against any change: they are left as they are, without the mark.
  */
 internal class ResultMarker(
     context: Context,
@@ -53,6 +56,7 @@ internal class ResultMarker(
     private val result: StateFlow<List<PdfFile>?>,
     private val changed: (List<PdfFile>) -> Unit,
     private val failed: () -> Unit,
+    private val refused: (count: Int) -> Unit,
     private val turn: Mutex? = null,
 ) {
     private val marks = PageMark(context)
@@ -73,6 +77,9 @@ internal class ResultMarker(
     val preview: StateFlow<MarkPreview?> = _preview.asStateFlow()
 
     private var job: Job? = null
+
+    /** The result's PDFs certified against any change: they keep no mark, which the user has been told. */
+    private val forbidden: MutableSet<File> = ConcurrentHashMap.newKeySet()
 
     /** Set once [job] has started changing the PDFs. */
     @Volatile private var started = false
@@ -100,6 +107,7 @@ internal class ResultMarker(
         job?.cancel()
         job = null
         uncertain = false
+        forbidden.clear()
         _working.value = false
         handle.remove<Boolean>(KEY_UNDER_WAY)
     }
@@ -114,11 +122,10 @@ internal class ResultMarker(
      */
     fun markMade(files: List<PdfFile>, check: () -> Unit, onFile: (index: Int, count: Int) -> Unit = { _, _ -> }): List<PdfFile> {
         uncertain = false
+        forbidden.clear()
         _preview.value = files.firstOrNull()?.let { render(it) }
         val wanted = setting.value.wanted ?: return files
-        val (marked, failures) = bringTo(files, wanted, verify = true, check, onFile)
-        if (failures.isNotEmpty()) failed()
-        return marked
+        return bringTo(files, wanted, verify = true, check, onFile).also { tell(it) }.files
     }
 
     /** Brings the result showing, if any, to carry [wanted] (no mark when it is null), in the background. */
@@ -131,7 +138,7 @@ internal class ResultMarker(
         job = null
         started = false
         val verify = uncertain
-        if (!verify && files.all { it.mark == wanted }) {
+        if (!verify && files.all { settled(it, wanted) }) {
             _working.value = false
             handle.remove<Boolean>(KEY_UNDER_WAY)
             // A result shown again: its first page as it was made.
@@ -150,10 +157,11 @@ internal class ResultMarker(
             try {
                 // A moment first: a quick run of changes, as on and off again, rewrites the PDFs once.
                 delay(SETTLE_MS)
-                val (marked, failures) = if (turn != null) turn.withLock { change(files, wanted, verify, job) } else change(files, wanted, verify, job)
+                val outcome = if (turn != null) turn.withLock { change(files, wanted, verify, job) } else change(files, wanted, verify, job)
+                val marked = outcome.files
                 uncertain = false
                 if (result.value === files && marked.indices.any { marked[it] !== files[it] }) changed(marked)
-                if (failures.isNotEmpty()) failed()
+                tell(outcome)
             } finally {
                 if (this@ResultMarker.job === job) {
                     this@ResultMarker.job = null
@@ -168,17 +176,33 @@ internal class ResultMarker(
     private suspend fun change(files: List<PdfFile>, wanted: MarkStyle?, verify: Boolean, job: Job) = withContext(io) {
         job.ensureActive()
         started = true
-        bringTo(files, wanted, verify, { job.ensureActive() }).also { (marked, _) ->
+        bringTo(files, wanted, verify, { job.ensureActive() }).also { outcome ->
             // A result shown again whose first page couldn't be drawn yet: as it was made.
-            val first = marked.firstOrNull()
+            val first = outcome.files.firstOrNull()
             if (first != null && _preview.value?.page == null) _preview.value = render(first, asMade = true)
         }
+    }
+
+    /** Whether [file] is as it should be with [wanted]: it says it carries it, or it is certified against the mark. */
+    private fun settled(file: PdfFile, wanted: MarkStyle?) = file.mark == wanted || (wanted != null && file.file in forbidden)
+
+    /**
+     * What [bringTo] did: [files] as they are now, those that couldn't be changed, and how many were
+     * found to be certified against any change.
+     */
+    private class Outcome(val files: List<PdfFile>, val failures: Set<File>, val forbidden: Int)
+
+    /** Tells the user what went wrong in [outcome]. */
+    private fun tell(outcome: Outcome) {
+        if (outcome.failures.isNotEmpty()) failed()
+        if (outcome.forbidden > 0) refused(outcome.forbidden)
     }
 
     /**
      * Brings each of [files] to carry [wanted]: those that say they carry another, or each one when
      * [verify], telling [onFile] of each. Returns them, those that changed in new objects that say so,
-     * and the files that couldn't be changed (each left as it was).
+     * the files that couldn't be changed (each left as it was), and how many were found to be
+     * certified against any change (left without the mark, and skipped from then on).
      */
     private fun bringTo(
         files: List<PdfFile>,
@@ -186,21 +210,26 @@ internal class ResultMarker(
         verify: Boolean,
         check: () -> Unit,
         onFile: (index: Int, count: Int) -> Unit = { _, _ -> },
-    ): Pair<List<PdfFile>, Set<File>> {
+    ): Outcome {
         val failures = HashSet<File>()
+        var refusing = 0
         val marked = files.mapIndexed { index, file ->
             check()
             // A PDF gone from the cache is said to be when the result is next used.
-            if (!file.file.isFile || (!verify && file.mark == wanted)) return@mapIndexed file
+            if (!file.file.isFile || (!verify && file.mark == wanted) || (wanted != null && file.file in forbidden)) return@mapIndexed file
             onFile(index, files.size)
             try {
                 when {
-                    // Saved anew, a PDF Compress kept as it was isn't that PDF any more, even once the
-                    // mark is taken off again.
+                    // Changed, a PDF Compress kept as it was no longer says so, even once the mark is
+                    // taken off again.
                     marks.apply(file.file, wanted, check) -> file.copy(mark = wanted, keptOriginal = false)
                     file.mark != wanted -> file.copy(mark = wanted)
                     else -> file
                 }
+            } catch (_: MarkForbidden) {
+                // Its certification allows no change: it has no mark, and keeps none.
+                if (forbidden.add(file.file)) refusing++
+                if (file.mark != null) file.copy(mark = null) else file
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -215,7 +244,7 @@ internal class ResultMarker(
                 file
             }
         }
-        return marked to failures
+        return Outcome(marked, failures, refusing)
     }
 
     /**

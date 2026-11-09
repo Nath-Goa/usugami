@@ -16,10 +16,14 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageTree
 import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.core.MarkStyle
+import java.io.DataInputStream
 import java.io.File
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.util.Collections
+import java.util.IdentityHashMap
 import kotlin.math.abs
 
 /**
@@ -39,6 +43,11 @@ import kotlin.math.abs
  *   keeps the mark's version (1.6.1 wrote the word as text), the style, where on the page it was
  *   drawn, the form's name, what the page's content was, and which resources were added;
  * - the form's name in the page's XObject resources.
+ *
+ * A PDF with a signature value would lose its signatures if it was saved anew: the mark is appended to
+ * it as an update instead, which leaves the signed PDF byte for byte as it was, and the markers keep
+ * where it ends. Changing the mark or taking it off cuts the file back there first. A PDF whose
+ * certification allows no change at all gets no mark ([MarkForbidden]).
  */
 class PageMark(context: Context) {
     private val scratchDir = File(context.cacheDir, "pdfbox")
@@ -48,41 +57,51 @@ class PageMark(context: Context) {
     /**
      * Brings [file] to carry [mark] on every page, or no mark when it is null, and returns whether it
      * changed. A file that already does is left as it is. A PDF with a password can't be changed: that
-     * throws. The new file is written whole beside [file] before it takes its place, so a run that
-     * fails or is stopped by [check] (called for each page) leaves [file] as it was.
+     * throws, as [MarkForbidden] does for a PDF certified against any change. The new file is written
+     * whole beside [file] before it takes its place, so a run that fails or is stopped by [check]
+     * (called for each page) leaves [file] as it was.
      */
     fun apply(file: File, mark: MarkStyle?, check: () -> Unit = {}): Boolean {
         val temp = File(file.parentFile, "${file.name}.mark.tmp")
+        val signed = File(file.parentFile, "${file.name}.signed.tmp")
+        var markSigned = false
         try {
             val changed = PDDocument.load(file, "", memory()).use { doc ->
                 // Saving it would take its password off. No tool's PDF has one.
                 if (doc.isEncrypted) throw IOException("${file.name} has a password")
                 val pages = doc.pages.toList()
                 if (pages.all { carries(it, mark) }) return false
-                // Every page's mark goes first: pages that share their resources then never find
-                // another page's old mark there.
-                for (page in pages) {
-                    check()
-                    unmark(page.cosObject)
-                }
-                if (mark != null) {
-                    val form = form(doc, mark)
-                    val before = stream(doc, "q\n").apply { setItem(MARKER, COSBoolean.TRUE) }
-                    for (page in pages) {
+                val end = appendedAt(pages, file)
+                when {
+                    // A mark appended to a signed PDF comes off as the file is cut back to it.
+                    end != null -> {
+                        cut(file, end, if (mark == null) temp else signed)
+                        markSigned = mark != null
+                    }
+                    mark != null && pages.none { ours(it.cosObject).isNotEmpty() } && signatures(doc).isNotEmpty() ->
+                        append(doc, file, mark, check, temp)
+                    else -> {
+                        // Every page's mark goes first: pages that share their resources then never find
+                        // another page's old mark there.
+                        for (page in pages) {
+                            check()
+                            unmark(page.cosObject)
+                        }
+                        if (mark != null) markPages(doc, pages, mark, check, appendedAt = null)
                         check()
-                        mark(doc, page, form, before, mark)
+                        doc.save(temp)
                     }
                 }
-                check()
-                doc.save(temp)
                 // Saving can't be stopped part way: stopped meanwhile, the file stays as it was.
                 check()
                 true
             }
+            if (markSigned) PDDocument.load(signed, "", memory()).use { append(it, signed, mark!!, check, temp) }
             if (changed && !temp.renameTo(file)) throw IOException("Couldn't replace ${file.name}")
             return changed
         } finally {
             temp.delete()
+            signed.delete()
         }
     }
 
@@ -118,10 +137,9 @@ class PageMark(context: Context) {
      * nothing else of Usugami's mark; or none of it when [mark] is null.
      */
     private fun carries(page: PDPage, mark: MarkStyle?): Boolean {
-        val ours = contents(page.cosObject).map { resolve(it) }.filter { (it as? COSStream)?.containsKey(MARKER) == true }
+        val ours = ours(page.cosObject)
         if (mark == null) return ours.isEmpty()
-        val markers = ours.mapNotNull { (it as COSStream).getDictionaryObject(MARKER) as? COSDictionary }
-        val marker = markers.singleOrNull() ?: return false
+        val marker = markers(page.cosObject).singleOrNull() ?: return false
         if (ours.size != 2 || marker.getInt(KEY_SIZE, -1) != mark.size || marker.getInt(KEY_OPACITY, -1) != mark.opacity) return false
         // One written as text, by 1.6.1, is drawn anew.
         if (marker.getInt(KEY_VERSION, 1) != VERSION) return false
@@ -134,8 +152,42 @@ class PageMark(context: Context) {
         }
     }
 
-    /** Draws [form], the mark in [mark]'s style, in [page]'s bottom-right corner as shown, after the page's own content. */
-    private fun mark(doc: PDDocument, page: PDPage, form: COSStream, before: COSStream, mark: MarkStyle) {
+    /**
+     * Draws the mark in [mark]'s style on [pages], none of which has it, and returns the dictionaries
+     * that keep what changed on each: the page's, and the one its resources come from. [appendedAt]
+     * is where the PDF as it was ends, when the mark is appended to it.
+     */
+    private fun markPages(doc: PDDocument, pages: List<PDPage>, mark: MarkStyle, check: () -> Unit, appendedAt: Long?): Set<COSDictionary> {
+        val form = form(doc, mark)
+        val before = stream(doc, "q\n").apply { setItem(MARKER, COSBoolean.TRUE) }
+        val changed = Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>())
+        for (page in pages) {
+            check()
+            changed += page.cosObject
+            changed += mark(doc, page, form, before, mark, appendedAt)
+        }
+        return changed
+    }
+
+    /**
+     * Marks [doc], read from [source], a PDF with a signature value, in [mark]'s style, and writes it to
+     * [target] as [source] with an update appended: the pages and the resources the mark changed. The
+     * PDF as it was stays byte for byte as it was, so its signatures still hold.
+     */
+    private fun append(doc: PDDocument, source: File, mark: MarkStyle, check: () -> Unit, target: File) {
+        if (forbidsChanges(signatures(doc))) throw MarkForbidden(source.name)
+        val changed = markPages(doc, doc.pages.toList(), mark, check, appendedAt = source.length())
+        check()
+        // Those given are written, and from them what they hold that is new or flagged as changed.
+        target.outputStream().use { doc.saveIncremental(it, changed) }
+        if (!startsWith(target, source)) throw IOException("${source.name} was changed, not added to")
+    }
+
+    /**
+     * Draws [form], the mark in [mark]'s style, in [page]'s bottom-right corner as shown, after the
+     * page's own content. Returns the dictionary [page]'s resources come from.
+     */
+    private fun mark(doc: PDDocument, page: PDPage, form: COSStream, before: COSStream, mark: MarkStyle, appendedAt: Long?): COSDictionary {
         val dict = page.cosObject
         val was = dict.getItem(COSName.CONTENTS)
         val found = resources(dict)
@@ -144,6 +196,9 @@ class PageMark(context: Context) {
         val foundXObjects = resources.getDictionaryObject(COSName.XOBJECT) as? COSDictionary
         val madeXObjects = foundXObjects == null
         val xObjects = foundXObjects ?: COSDictionary().also { resources.setItem(COSName.XOBJECT, it) }
+        // Changed: an update appended to the PDF has them anew where they are objects of their own.
+        resources.isNeedToBeUpdated = true
+        xObjects.isNeedToBeUpdated = true
         // A name of its own, or the one an earlier page sharing these resources gave the form.
         val name = generateSequence(0) { it + 1 }
             .map { if (it == 0) FORM_NAME else COSName.getPDFName("${FORM_NAME.name}$it") }
@@ -167,6 +222,7 @@ class PageMark(context: Context) {
                 if (was != null) setItem(KEY_WAS, was)
                 if (madeXObjects) setBoolean(KEY_MADE_XOBJECTS, true)
                 if (madeResources) setBoolean(KEY_MADE_RESOURCES, true)
+                if (appendedAt != null) setLong(KEY_ORIGINAL_LENGTH, appendedAt)
             },
         )
         dict.setItem(
@@ -177,6 +233,18 @@ class PageMark(context: Context) {
                 add(after)
             },
         )
+        return if (madeResources) dict else holder(dict)
+    }
+
+    /** The page tree's node [page]'s resources come from: [page] itself, or the nearest above it that has them. */
+    private fun holder(page: COSDictionary): COSDictionary {
+        var node: COSDictionary? = page
+        repeat(MAX_DEPTH) {
+            val at = node ?: return page
+            if (at.getDictionaryObject(COSName.RESOURCES) != null) return at
+            node = at.getDictionaryObject(COSName.PARENT) as? COSDictionary
+        }
+        return page
     }
 
     /**
@@ -219,6 +287,91 @@ class PageMark(context: Context) {
         (if (compressed) createOutputStream(COSName.FLATE_DECODE) else createOutputStream()).use { it.write(content.toByteArray(Charsets.US_ASCII)) }
     }
 
+    /**
+     * Where the PDF as it was ends in [file], when the mark on [pages] was appended to it as an update:
+     * each marker says the same, and a PDF ends there. Null otherwise.
+     */
+    private fun appendedAt(pages: List<PDPage>, file: File): Long? {
+        val ends = pages.flatMap { markers(it.cosObject) }.map { it.getLong(KEY_ORIGINAL_LENGTH, -1) }.toSet()
+        val end = ends.singleOrNull()?.takeIf { it in 1 until file.length() } ?: return null
+        val tail = ByteArray(minOf(end, 1024L).toInt())
+        RandomAccessFile(file, "r").use {
+            it.seek(end - tail.size)
+            it.readFully(tail)
+        }
+        return end.takeIf { String(tail, Charsets.ISO_8859_1).trimEnd { c -> c.isWhitespace() || c == '\u0000' }.endsWith("%%EOF") }
+    }
+
+    /** Writes [file]'s first [length] bytes to [target]. */
+    private fun cut(file: File, length: Long, target: File) {
+        file.inputStream().use { input ->
+            target.outputStream().use { output ->
+                val buffer = ByteArray(BUFFER)
+                var left = length
+                while (left > 0) {
+                    val read = input.read(buffer, 0, minOf(left, BUFFER.toLong()).toInt())
+                    if (read < 0) throw IOException("${file.name} is shorter than its mark says")
+                    output.write(buffer, 0, read)
+                    left -= read
+                }
+            }
+        }
+    }
+
+    /** Whether [file] starts with [start]'s bytes. */
+    private fun startsWith(file: File, start: File): Boolean {
+        if (file.length() < start.length()) return false
+        DataInputStream(file.inputStream().buffered()).use { a ->
+            start.inputStream().use { b ->
+                val ours = ByteArray(BUFFER)
+                val theirs = ByteArray(BUFFER)
+                while (true) {
+                    val read = b.read(theirs)
+                    if (read < 0) return true
+                    a.readFully(ours, 0, read)
+                    for (i in 0 until read) if (ours[i] != theirs[i]) return false
+                }
+            }
+        }
+    }
+
+    /**
+     * The signature values in [doc]: of its signature fields (a /V with a /ByteRange), and of its
+     * permissions (a certification, or usage rights). Saving it anew would break each of them.
+     */
+    private fun signatures(doc: PDDocument): List<COSDictionary> {
+        val found = ArrayList<COSDictionary>()
+        val seen = Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>())
+        fun take(value: COSBase?) {
+            if (value is COSDictionary && value.containsKey(COSName.BYTERANGE) && seen.add(value)) found += value
+        }
+        fun walk(fields: COSArray?, depth: Int) {
+            if (fields == null || depth > MAX_DEPTH) return
+            for (i in 0 until fields.size()) {
+                val field = fields.getObject(i) as? COSDictionary ?: continue
+                if (!seen.add(field)) continue
+                take(field.getDictionaryObject(COSName.V))
+                walk(field.getDictionaryObject(COSName.KIDS) as? COSArray, depth + 1)
+            }
+        }
+        val catalog = doc.documentCatalog.cosObject
+        val form = catalog.getDictionaryObject(COSName.ACRO_FORM) as? COSDictionary
+        walk(form?.getDictionaryObject(COSName.FIELDS) as? COSArray, 0)
+        val perms = catalog.getDictionaryObject(COSName.PERMS) as? COSDictionary
+        perms?.keySet()?.forEach { take(perms.getDictionaryObject(it)) }
+        return found
+    }
+
+    /** Whether one of [signatures] certifies its PDF allowing no change at all (DocMDP, /P 1). */
+    private fun forbidsChanges(signatures: List<COSDictionary>): Boolean = signatures.any { signature ->
+        val references = signature.getDictionaryObject(COSName.REFERENCE) as? COSArray ?: return@any false
+        (0 until references.size()).any { i ->
+            val reference = references.getObject(i) as? COSDictionary
+            reference?.getCOSName(COSName.TRANSFORM_METHOD) == COSName.DOCMDP &&
+                (reference.getDictionaryObject(COSName.TRANSFORM_PARAMS) as? COSDictionary)?.getInt(COSName.P, 2) == 1
+        }
+    }
+
     companion object {
         /** In the dictionary of each stream the mark adds. */
         val MARKER: COSName = COSName.getPDFName("UsugamiMark")
@@ -233,9 +386,15 @@ class PageMark(context: Context) {
         private val KEY_WAS = COSName.getPDFName("Was")
         private val KEY_MADE_XOBJECTS = COSName.getPDFName("MadeXObjects")
         private val KEY_MADE_RESOURCES = COSName.getPDFName("MadeResources")
+        private val KEY_ORIGINAL_LENGTH = COSName.getPDFName("OriginalLength")
 
         /** The mark's version: 1.6.1's, without one, wrote the word as text; this one draws its outlines. */
         private const val VERSION = 2
+
+        /** How deep a page tree or a form's fields are followed. */
+        private const val MAX_DEPTH = 64
+
+        private const val BUFFER = 64 * 1024
 
         /** How far a number of the mark's place may be from where it goes: in points, or font sizes. */
         private const val MATRIX_SLACK = 0.01f
@@ -256,7 +415,7 @@ class PageMark(context: Context) {
             val elements = contents(page)
             val ours = elements.indices.filter { (resolve(elements[it]) as? COSStream)?.containsKey(MARKER) == true }
             if (ours.isEmpty()) return false
-            val markers = ours.mapNotNull { (resolve(elements[it]) as COSStream).getDictionaryObject(MARKER) as? COSDictionary }
+            val markers = markers(page)
             for (marker in markers) {
                 val resources = resources(page) ?: break
                 val xObjects = resources.getDictionaryObject(COSName.XOBJECT) as? COSDictionary
@@ -278,6 +437,13 @@ class PageMark(context: Context) {
             }
             return true
         }
+
+        /** [page]'s content streams the mark added. */
+        private fun ours(page: COSDictionary): List<COSStream> =
+            contents(page).mapNotNull { resolve(it) as? COSStream }.filter { it.containsKey(MARKER) }
+
+        /** The markers of the mark on [page]: one, unless something went wrong. */
+        private fun markers(page: COSDictionary): List<COSDictionary> = ours(page).mapNotNull { it.getDictionaryObject(MARKER) as? COSDictionary }
 
         /** [page]'s content streams as it lists them: references, mostly. */
         private fun contents(page: COSDictionary): List<COSBase> = when (val contents = page.getDictionaryObject(COSName.CONTENTS)) {
@@ -306,3 +472,6 @@ class PageMark(context: Context) {
             BigDecimal(value.toDouble()).setScale(4, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
     }
 }
+
+/** A PDF whose certification signature allows no change at all: the mark can't go on it. */
+class MarkForbidden(name: String) : IOException("$name is certified against any change")

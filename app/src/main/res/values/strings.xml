@@ -686,6 +686,11 @@
     <!-- Over the progress bar once the PDFs are made, while the watermark goes on them. -->
     <string name="mark_adding">Adding the Usugami watermark…</string>
     <string name="mark_failed">Couldn\'t change the Usugami watermark. Check that there is enough free storage.</string>
+    <!-- Once, when the watermark can't go on PDFs whose digital signature allows no changes at all (a certification): they are left as they are. -->
+    <plurals name="mark_refused">
+        <item quantity="one">This PDF\'s digital signature allows no changes, so it has no Usugami watermark.</item>
+        <item quantity="other">%d PDFs have a digital signature that allows no changes, so they have no Usugami watermark.</item>
+    </plurals>
 
     <!-- Dialogs -->
     <string name="discard_title">Discard these images?</string>

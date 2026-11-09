@@ -318,6 +318,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             _saved.value = false
         },
         failed = { message(strings.getString(R.string.mark_failed)) },
+        refused = { pluralMessage(R.plurals.mark_refused, it) },
     )
     /** Whether the PDFs made carry the Usugami mark, and its size and opacity: one setting for the whole app. */
     val mark: StateFlow<MarkSetting> = marker.setting

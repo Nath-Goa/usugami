@@ -654,6 +654,11 @@
     <string name="mark_working">Actualizando la marca de agua…</string>
     <string name="mark_adding">Añadiendo la marca de agua de Usugami…</string>
     <string name="mark_failed">No se pudo cambiar la marca de agua de Usugami. Comprueba que haya suficiente almacenamiento libre.</string>
+    <plurals name="mark_refused">
+        <item quantity="one">La firma digital de este PDF no permite cambios, así que no lleva la marca de agua de Usugami.</item>
+        <item quantity="many">%d PDF tienen una firma digital que no permite cambios, así que no llevan la marca de agua de Usugami.</item>
+        <item quantity="other">%d PDF tienen una firma digital que no permite cambios, así que no llevan la marca de agua de Usugami.</item>
+    </plurals>
 
     <!-- Dialogs -->
     <string name="discard_title">¿Descartar estas imágenes?</string>

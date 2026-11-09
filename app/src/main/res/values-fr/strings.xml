@@ -654,6 +654,11 @@
     <string name="mark_working">Mise à jour du filigrane…</string>
     <string name="mark_adding">Ajout du filigrane Usugami…</string>
     <string name="mark_failed">Impossible de modifier le filigrane Usugami. Vérifiez que l\'espace de stockage disponible est suffisant.</string>
+    <plurals name="mark_refused" tools:ignore="ImpliedQuantity">
+        <item quantity="one">La signature numérique de ce PDF n\'autorise aucune modification : il n\'a donc pas de filigrane Usugami.</item>
+        <item quantity="many">%d PDF ont une signature numérique qui n\'autorise aucune modification : ils n\'ont donc pas de filigrane Usugami.</item>
+        <item quantity="other">%d PDF ont une signature numérique qui n\'autorise aucune modification : ils n\'ont donc pas de filigrane Usugami.</item>
+    </plurals>
 
     <!-- Dialogs -->
     <string name="discard_title">Supprimer ces images ?</string>

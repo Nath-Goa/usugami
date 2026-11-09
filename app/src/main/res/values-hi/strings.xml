@@ -633,6 +633,10 @@
     <string name="mark_working">वॉटरमार्क अपडेट किया जा रहा है…</string>
     <string name="mark_adding">Usugami वॉटरमार्क जोड़ा जा रहा है…</string>
     <string name="mark_failed">Usugami वॉटरमार्क बदला नहीं जा सका। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
+    <plurals name="mark_refused" tools:ignore="ImpliedQuantity">
+        <item quantity="one">इस PDF के डिजिटल हस्ताक्षर कोई बदलाव नहीं करने देते, इसलिए इस पर Usugami वॉटरमार्क नहीं लगा।</item>
+        <item quantity="other">%d PDF के डिजिटल हस्ताक्षर कोई बदलाव नहीं करने देते, इसलिए उन पर Usugami वॉटरमार्क नहीं लगा।</item>
+    </plurals>
 
     <!-- Dialogs -->
     <string name="discard_title">इन इमेज को खारिज करें?</string>

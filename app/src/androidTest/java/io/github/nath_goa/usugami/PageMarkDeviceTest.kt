@@ -2,14 +2,19 @@ package io.github.nath_goa.usugami
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.Path
 import android.graphics.PointF
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.contentstream.PDFGraphicsStreamEngine
+import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -21,11 +26,14 @@ import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImage
+import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.PageFrame
+import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.MarkForbidden
 import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.PageMark
 import io.github.nath_goa.usugami.data.PdfCompression
@@ -34,23 +42,32 @@ import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.SettingsStore
 import io.github.nath_goa.usugami.ui.MainViewModel
+import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.io.IOException
+import java.util.Calendar
 
 /**
  * The Usugami mark on a PDF's pages: in the bottom-right corner of each page as shown, upright, in the
  * size and opacity chosen, drawn as outlines rather than written as text; changed and taken off again,
- * leaving each page as it was. PDFs made from images get it as they are made, and lose it again when
- * it is turned off. The tools make their PDFs of a marked PDF's pages without it.
+ * leaving each page as it was. A signed PDF has it appended, leaving the signed PDF as it was, and one
+ * certified against any change gets none. PDFs made from images get it as they are made, and lose it
+ * again when it is turned off. The tools make their PDFs of a marked PDF's pages without it.
  */
 class PageMarkDeviceTest {
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
@@ -354,6 +371,148 @@ class PageMarkDeviceTest {
     private fun marksOn(files: List<PdfFile>): List<List<Int>> = files.map { pdf ->
         PDDocument.load(pdf.file).use { doc ->
             doc.pages.map { page -> page.contentStreams.asSequence().count { it.cosObject.getDictionaryObject(PageMark.MARKER) is COSDictionary } }
+        }
+    }
+
+    /**
+     * Signs [file] as a signing app does: an update appended with a signature field whose value has a
+     * /ByteRange over the whole file but its /Contents, which holds a placeholder rather than a real
+     * signature. With [certify], it is a certification allowing that much change (DocMDP /P). Returns
+     * the signed file's bytes.
+     */
+    private fun sign(file: File, certify: Int? = null): ByteArray {
+        PDDocument.load(file.readBytes()).use { doc ->
+            val signature = PDSignature().apply {
+                setFilter(PDSignature.FILTER_ADOBE_PPKLITE)
+                setSubFilter(PDSignature.SUBFILTER_ADBE_PKCS7_DETACHED)
+                name = "Test"
+                signDate = Calendar.getInstance()
+            }
+            if (certify != null) {
+                val params = COSDictionary().apply {
+                    setItem(COSName.TYPE, COSName.getPDFName("TransformParams"))
+                    setInt(COSName.P, certify)
+                    setName(COSName.V, "1.2")
+                }
+                val reference = COSDictionary().apply {
+                    setItem(COSName.TYPE, COSName.getPDFName("SigRef"))
+                    setItem(COSName.TRANSFORM_METHOD, COSName.DOCMDP)
+                    setItem(COSName.TRANSFORM_PARAMS, params)
+                }
+                signature.cosObject.setItem(COSName.REFERENCE, COSArray().apply { add(reference) })
+                doc.documentCatalog.cosObject.apply {
+                    setItem(COSName.PERMS, COSDictionary().apply { setItem(COSName.DOCMDP, signature) })
+                    isNeedToBeUpdated = true
+                }
+            }
+            // Bytes a real signature has too, which keep it written in hex when the PDF is saved anew.
+            doc.addSignature(signature) { ByteArray(64) { 0xA7.toByte() } }
+            file.outputStream().use { doc.saveIncremental(it) }
+        }
+        return file.readBytes()
+    }
+
+    /** The /ByteRange of [file]'s signature. */
+    private fun byteRange(file: File): List<Int> = PDDocument.load(file).use { it.signatureDictionaries.single().byteRange.toList() }
+
+    /** [file]'s first page as Android draws it, [width] pixels wide. */
+    private fun render(file: File, width: Int): Bitmap = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+        PdfRenderer(fd).use { renderer ->
+            renderer.openPage(0).use { page ->
+                Bitmap.createBitmap(width, width * page.height / page.width, Bitmap.Config.ARGB_8888).apply {
+                    eraseColor(Color.WHITE)
+                    page.render(this, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                }
+            }
+        }
+    }
+
+    /** The share of [bitmap]'s pixels that are dark where the word goes in [style] on an A4 page. */
+    private fun darkWhereTheWordIs(bitmap: Bitmap, style: MarkStyle): Float {
+        val place = MarkLayout.place(style, PDRectangle.A4.width, PDRectangle.A4.height)
+        val scale = bitmap.width / PDRectangle.A4.width
+        val f = place.fontSize
+        val left = ((place.x + MarkLayout.INK_LEFT * f) * scale).toInt()
+        val right = ((place.x + MarkLayout.INK_RIGHT * f) * scale).toInt()
+        val top = bitmap.height - ((place.y + MarkLayout.INK_TOP * f) * scale).toInt()
+        val bottom = bitmap.height - ((place.y - MarkLayout.DESCENT * f) * scale).toInt()
+        var dark = 0
+        for (x in left until right) for (y in top until bottom) if (Color.red(bitmap.getPixel(x, y)) < 128) dark++
+        return dark.toFloat() / ((right - left) * (bottom - top))
+    }
+
+    /**
+     * A signed PDF has the mark appended as an update: the signed PDF stays byte for byte as it was, its
+     * signature's /ByteRange still covers all of it, and PDFBox and Android both show the mark. Changed,
+     * the mark replaces the one appended before; taken off, the file is the signed PDF again.
+     */
+    @Test fun aSignedPdfHasTheMarkAppended() {
+        val file = compactPdf(File(dir, "signed.pdf"), "SIGNED")
+        val signed = sign(file)
+        val range = byteRange(file)
+        assertEquals("The signature covers the whole file", signed.size, range[2] + range[3])
+        val style = MarkStyle(size = 100, opacity = 100)
+        assertTrue(marks.apply(file, style))
+        val marked = file.readBytes()
+        assertArrayEquals(signed, marked.copyOf(signed.size))
+        assertEquals(range, byteRange(file))
+        checkMarked(file, style)
+        assertTrue(darkWhereTheWordIs(render(file, 600), style) > 0.15f)
+        // Already there, it is left as it is.
+        assertFalse(marks.apply(file, style))
+        assertArrayEquals(marked, file.readBytes())
+
+        // Changed: still one update after the signed PDF.
+        val smaller = MarkStyle()
+        assertTrue(marks.apply(file, smaller))
+        val again = file.readBytes()
+        assertArrayEquals(signed, again.copyOf(signed.size))
+        assertEquals(eofs(signed) + 1, eofs(again))
+        checkMarked(file, smaller)
+
+        assertTrue(marks.apply(file, null))
+        assertArrayEquals(signed, file.readBytes())
+        assertEquals(0f, darkWhereTheWordIs(render(file, 600), style))
+    }
+
+    private fun eofs(bytes: ByteArray) = Regex("%%EOF").findAll(String(bytes, Charsets.ISO_8859_1)).count()
+
+    /**
+     * A PDF certified against any change gets no mark: it is left as it is. Compressed with the mark
+     * on, the user is told once, and the result says it has none.
+     */
+    @Test fun aPdfCertifiedAgainstAnyChangeGetsNoMark() {
+        val picked = File(app.cacheDir, "output/test-picked/certified.pdf").apply { parentFile!!.mkdirs() }
+        val certified = sign(compactPdf(picked, "CERTIFIED"), certify = 1)
+        assertThrows(MarkForbidden::class.java) { marks.apply(picked, MarkStyle()) }
+        assertArrayEquals(certified, picked.readBytes())
+
+        val vm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }
+        try {
+            onMain {
+                vm.setMark(true)
+                vm.addPdfs(listOf(FileProvider.getUriForFile(app, "${app.packageName}.files", picked)), replace = true)
+            }
+            waitUntil("the PDF to be added") { onMain { vm.inputs.value.size == 1 && !vm.importing.value } }
+            onMain { vm.runCompress(PdfCompression.RECOMMENDED, "certified") }
+            waitUntil("the PDF to be compressed") { onMain { !vm.processing.value && vm.result.value != null } }
+            val strings = AppLanguages.localized(app).resources
+            val told = runBlocking { withTimeout(15_000) { vm.messages.take(2).toList() } }
+            assertEquals(listOf(strings.getQuantityString(R.plurals.mark_refused, 1, 1), strings.getString(R.string.pdf_no_reduction)), told)
+            val result = onMain { vm.result.value!!.single() }
+            assertNull(result.mark)
+            assertTrue(result.keptOriginal)
+            assertArrayEquals(certified, result.file.readBytes())
+            // Once: a new size changes nothing on it, and says nothing.
+            onMain { vm.setMarkStyle(MarkStyle(size = 60)) }
+            Thread.sleep(1_000)
+            waitUntil("the watermark to settle") { !onMain { vm.marking.value } }
+            assertNull(runBlocking { withTimeoutOrNull(500) { vm.messages.first() } })
+            assertArrayEquals(certified, result.file.readBytes())
+        } finally {
+            onMain { vm.reset() }
+            runBlocking { vm.awaitFileWork() }
+            picked.parentFile!!.deleteRecursively()
         }
     }
 

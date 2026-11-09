@@ -350,6 +350,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             _saved.value = false
         },
         failed = { message(R.string.mark_failed) },
+        refused = { pluralMessage(R.plurals.mark_refused, it) },
         turn = saveTurn,
     )
     /** Whether the PDFs made carry the Usugami mark, and its size and opacity: one setting for the whole app. */
