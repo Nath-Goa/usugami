@@ -6,6 +6,75 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-11-09
+
+### Added
+
+- **Word to PDF** prints footnotes and endnotes, which it used to leave out. Each note's mark
+  appears in the text in the document's style, usually raised, and again at the start of the note.
+  Footnotes go at the foot of the page where their reference falls, above the bottom margin and
+  under Word's short line, or just below the text when the document puts them there. A footnote
+  that doesn't fit goes on at the foot of the next page, under a line as wide as the text; a long
+  one keeps at least two lines on its reference's page, as Word's widow and orphan control does,
+  and when even that doesn't fit, the line with the reference moves to the next page with it.
+  Endnotes go at the end of the document, or at the end of each section when the document says so.
+  Notes are numbered as the document says: footnotes 1, 2, 3 and endnotes i, ii, iii unless it says
+  otherwise, or letters, roman numerals or Word's * and † symbols, starting again in each section
+  or on each page when it asks, also when a reference moves to the next page. A note with a mark of
+  its own, such as *, keeps it.
+- While a job shows its progress (making a PDF from images, reading its text, converting a Word,
+  PowerPoint, Excel or EPUB file, any PDF tool, the Usugami watermark or a ZIP file), the screen
+  stays on instead of going off after the phone's timeout. It goes off as usual once the job ends,
+  fails or is cancelled.
+
+### Changed
+
+- **Split PDF** names each PDF by the pages it holds, in every way of splitting: Report_p3.pdf for
+  page 3, Report_p3-5.pdf for pages 3 to 5, and Report_p10,1-3,5.pdf for pages 10, 1 to 3 and 5
+  put together in that order, where it was Report_split_1_3-3.pdf. A long list of pages keeps its
+  first pages and its last, as in Report_p1,3,5,…,99. The file name starts as the PDF's own name,
+  Report, where it was Report_split. A name typed instead takes its place, as in Chosen_p1.pdf, and
+  names their ZIP file as it is, Chosen.zip, as before; with the PDF's own name, the ZIP file is
+  still Report_split.zip. A single PDF given a name of your own keeps exactly that name.
+- **Add page numbers**: the numbers, and their distance from the page's edges, grow and shrink with
+  the page as it is shown, turned and cropped. They look as before on A4 and Letter paper, but are
+  small on a small label instead of covering it, and large on a poster instead of being too small
+  to see.
+- A message about files left out or that couldn't be used (shared files, picked PDFs or documents,
+  and PDFs worked on several at once) names the first three and says how many more there are, such
+  as "a.pdf, b.pdf, c.pdf and 247 more", where it named every one, and still counts them all.
+
+### Fixed
+
+- **Word, PowerPoint, EPUB and Excel to PDF**: text that runs on without a space for more than a
+  line, such as a pasted hash, key, base64 block or list of codes, no longer takes huge amounts of
+  memory: 100,000 such characters, with or without hyphens, took hundreds of megabytes, about 2 GB
+  on some phones, and now take under 10 MB. Such text breaks where Word breaks it, after a hyphen
+  when there is one and otherwise at the end of each line, character by character, and no longer
+  after its slashes. A word wider than the line goes on lines of its own, and in a justified
+  paragraph the line before it, or the one holding its start, stays justified.
+- **Images to PDF**, the scanner's **Upload images** and **Edit PDF** read a very large HEIC or
+  AVIF photo, such as one of 200 megapixels, a tile at a time, in about a quarter of the memory it
+  took, so it is no longer at risk of being too big to add. It is kept at the same size and in the
+  same colours as before.
+- **Usugami watermark**: it is drawn as the outlines of its letters instead of written as text, so
+  searching, selecting or copying a watermarked PDF's text no longer finds "Usugami", and screen
+  readers no longer read it out. It looks as before: a bold "Usugami" in the same grey, size, place
+  and opacity. The page under its sliders shows exactly the letters the PDF gets, where it
+  stretched the phone's own bold font to fit. A PDF watermarked by 1.6.1 still has its watermark
+  taken off exactly, and gets the new one when it changes.
+- **Usugami watermark** on a digitally signed PDF, such as one Compress PDF keeps as it was: the
+  watermark is added after the signed part, so the signatures stay valid, instead of the whole PDF
+  being saved again, which broke them. Changing the watermark or turning it off gives back the
+  signed PDF byte for byte, also when it has extra bytes after its end, as some downloads add.
+  Compress PDF run again on such a PDF keeps it as it was signed when it can't make it smaller. A
+  PDF whose certification allows no changes at all gets no watermark, and a short message says so
+  once.
+- **EPUB to PDF** and **Excel to PDF**: a paragraph, or a cell's text, reads in one direction on all
+  its lines, the one its first letter gives. A line after a line break no longer takes its own
+  direction, so a Hebrew or Arabic paragraph's line starting with a Latin word or a link no longer
+  reads left to right.
+
 ## [1.6.1] - 2026-11-09
 
 ### Added
@@ -696,7 +765,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.2...HEAD
+[1.6.2]: https://github.com/Nath-Goa/usugami/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/Nath-Goa/usugami/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/Nath-Goa/usugami/compare/v1.5.3...v1.6.0
 [1.5.3]: https://github.com/Nath-Goa/usugami/compare/v1.5.2...v1.5.3

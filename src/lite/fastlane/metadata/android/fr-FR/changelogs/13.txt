@@ -1,0 +1,7 @@
+• Nouveau : Word en PDF imprime les notes de bas de page et de fin
+• L'écran reste allumé pendant les longues tâches, comme une conversion
+• Diviser nomme les PDF par leurs pages, comme Rapport_p3.pdf
+• Numéros de page proportionnés à la page
+• Filigrane Usugami : absent de la recherche de texte, et les PDF signés restent signés
+• Bien moins de mémoire pour les photos HEIC géantes et les très longs mots
+• Des centaines de fichiers laissés de côté : seuls les trois premiers sont nommés

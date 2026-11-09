@@ -64,21 +64,24 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.6.1
+## What's new in 1.6.2
 
-- **More image types:** Images to PDF and the scanner's Upload images take HEIC, AVIF, WebP, BMP
-  and GIF images as well as JPG and PNG (HEIC on Android 9 or newer, AVIF on Android 12 or newer)
-- **Usugami watermark**, off unless you turn it on: a small "Usugami" in the corner of each page,
-  to support the app, with Size and Opacity sliders
-- Photos picked from **Photos** are named by the date they were taken, not a number such as
-  1000000163
-- **Word, PowerPoint and EPUB:** even-page headers, tab stops in headers and contents lines, upright
-  Chinese, Japanese and Korean text in vertical text boxes, and Japanese and Chinese books written
-  down the page filling the page
-- **Redact PDF** finds letter-spaced words and words broken by a hyphen, and removes more of what a
-  redacted page used
-- **Usugami OCR** reads very large words, such as a poster's or a sign's
-- **About 40 fixes** in all, damaged and crafted files handled more safely among them
+- **Footnotes and endnotes** in Word to PDF, numbered and placed as in Word: footnotes at the foot
+  of their page, endnotes at the end of the document or of each section
+- **The screen stays on** while a job shows its progress, such as reading text (OCR) or converting
+  a long document
+- **Split PDF** names each PDF by its pages, such as Report_p3.pdf or Report_p3-5.pdf
+- **Page numbers** grow and shrink with the page: as before on A4 and Letter, small on a label,
+  large on a poster
+- **Usugami watermark** drawn as shapes, not text, so searching or copying a PDF's text no longer
+  finds it, and digitally signed PDFs keep their signatures
+- **Far less memory** for very large HEIC and AVIF photos, and for Word, PowerPoint, EPUB and Excel
+  files with very long unbroken words
+- Messages about many files left out name the first three and count the rest
+
+1.6.1, earlier the same day: HEIC, AVIF, WebP, BMP and GIF images, the optional Usugami watermark,
+photos from Photos named by their date, better Word, PowerPoint and EPUB layout, Redact PDF finding
+letter-spaced and hyphenated words, Usugami OCR reading very large words, and about 40 fixes.
 
 1.6.0, the big update the same day:
 
@@ -241,6 +244,8 @@ old "PDFer".
 - Keeps the page size and margins, headings and other styles, bold, italic, underlined, colored and
   highlighted text, bulleted and numbered lists, tables (split across pages, with their header row
   repeated), pictures, page breaks, landscape pages, and headers and footers with page numbers.
+- **Footnotes** at the foot of their page, going on to the next page when they don't fit, and
+  **endnotes** at the end of the document or of each section, numbered as the document says.
 - The text stays real text, so you can search and select it in the PDF.
 - Pictures are compressed as in Compress PDF (Recommended), and only the letters the document uses
   of your phone's fonts go into the PDF, so it stays small.
@@ -303,6 +308,10 @@ old "PDFer".
 - Enter separate ranges like `1-3;5;7-9`, split into chunks of a fixed size, or make one PDF per
   page.
 - Combine the selection into one PDF, or save each part as its own file.
+- Each PDF is named by the pages it holds: from Report.pdf, Report_p3.pdf for page 3 and
+  Report_p3-5.pdf for pages 3 to 5. A name of your own takes Report's place (Chosen_p1.pdf, and so
+  on), and a single PDF given a name of your own keeps just that name. Their ZIP file is
+  Report_split.zip, or named as you typed (Chosen.zip).
 
 **Merge PDF**
 
@@ -358,6 +367,8 @@ old "PDFer".
 **Add page numbers**
 
 - At the top or bottom, on the left, in the center or on the right; small, medium or large.
+- The numbers, and their distance from the edges, grow and shrink with the page as it is shown,
+  turned and cropped, so they stay small on a small label and can be seen on a poster.
 - Skip pages, such as a cover (`1`) or `1-2,5`. Each page keeps its own number, so after a skipped
   cover the next page is numbered 2.
 - Numbers go where you see the bottom (or top) of the page, even on pages turned sideways.
@@ -441,6 +452,10 @@ old "PDFer".
   haven't saved, Usugami asks first; while a PDF is being made, the shared files wait for it. Images
   shared while Choose a tool, a tool opened from it, or the converter shared files opened shows wait
   in Images to PDF until you leave.
+- A message about more than four files left out or that couldn't be used names the first three and
+  says how many more there are, such as "a.pdf, b.pdf, c.pdf and 247 more".
+- While a job shows its progress, such as making a PDF, reading its text or a PDF tool at work, the
+  screen stays on; it goes off as usual once the job ends, fails or is cancelled.
 - Password-protected PDFs can be opened with their password. The new files Usugami makes from them
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
@@ -456,6 +471,11 @@ old "PDFer".
   until you turn it off. It goes on every page, also those a tool otherwise leaves as they were,
   such as the original Compress PDF keeps or pages Rotate PDF only turns. A copy you saved before a
   change stays as it was; save again to keep the new version. With the switch off, nothing is added.
+  The mark is drawn as the shapes of its letters, not written as text, so searching, selecting or
+  copying the PDF's text doesn't find it, and screen readers don't read it out. On a digitally
+  signed PDF it is added after the signed part, so the signatures stay valid, and turning it off
+  gives back the PDF exactly as it was signed. A PDF whose certification allows no changes gets no
+  mark, and Usugami says so.
 - When a tool makes several PDFs (Split PDF in parts, a tool working on several files, or one PDF
   per image), **Share or save as ZIP** puts them all in one ZIP file, named after them, to share
   or save in one go.
@@ -696,12 +716,13 @@ Usugami reads the file itself, on your phone, and lays it out again. The PDF is 
 original, but not always identical:
 
 - **Converts:** text and its formatting, headings and other styles, lists, tables, pictures, page
-  and slide sizes, slide backgrounds and shapes, and headers and footers.
+  and slide sizes, slide backgrounds and shapes, headers and footers, and a Word document's
+  footnotes and endnotes.
 - **Simplified:** your phone's fonts stand in for the document's (such as Calibri or Times New
   Roman), so lines can break in slightly different places. Text doesn't wrap around floating
   pictures, and several columns become one. Charts become gray boxes with their title, and so does
   SmartArt in Word documents. Shadows, 3-D effects, animations and videos are left out, as are
-  comments, footnotes and speaker notes.
+  comments and speaker notes.
 - **Not converted:** old **.doc** and **.ppt** files (save them as .docx or .pptx in Word,
   PowerPoint or another office app first), and password-protected files (remove the password
   first). Excel workbooks have a tool of their own: see *What converts from an Excel workbook?*
@@ -857,6 +878,13 @@ Open, Share and Save, is off at first. If you'd like to support Usugami, turn it
 "Usugami" goes in the bottom-right corner of each page, and the arrow on the switch sets its size
 and opacity. Turn it off again and the mark comes off the PDFs you just made; Usugami remembers
 your choice. This is separate from **Add watermark**, which writes your own text across the pages.
+
+The mark is drawn, not written as text, so it doesn't turn up when you search or copy the PDF's
+text. A digitally signed PDF keeps its signatures: the mark is added after the signed part, as
+signed PDFs take later changes, and taking it off gives back the PDF exactly as it was signed.
+Signature checkers show the mark as a change made after signing, and a PDF certified to allow only
+form filling or comments may show its certification as broken. A PDF whose certification allows no
+changes at all gets no mark, and Usugami says so.
 
 </details>
 

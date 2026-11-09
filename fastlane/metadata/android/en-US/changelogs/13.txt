@@ -1,0 +1,7 @@
+• New: Word to PDF prints footnotes and endnotes
+• The screen stays on during long jobs, such as OCR
+• Split names each PDF by its pages, like Report_p3.pdf
+• Page numbers grow and shrink with the page
+• Usugami watermark: no longer found by text search, and signed PDFs keep their signatures
+• Far less memory for huge HEIC photos and very long words in documents
+• When hundreds of files are left out, only the first three are named

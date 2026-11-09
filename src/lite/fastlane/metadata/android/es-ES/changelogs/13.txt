@@ -1,0 +1,7 @@
+• Nuevo: Word a PDF incluye las notas al pie y las notas finales
+• La pantalla sigue encendida en las tareas largas, como una conversión grande
+• Dividir nombra cada PDF por sus páginas, como Informe_p3.pdf
+• Números de página a la medida de la página
+• Marca de agua de Usugami: ya no aparece al buscar texto, y los PDF firmados conservan su firma
+• Mucha menos memoria con fotos HEIC enormes y palabras larguísimas
+• Si se dejan fuera cientos de archivos, solo se nombran los tres primeros

@@ -436,9 +436,17 @@ On a phone or emulator, with the release APKs:
   a message naming the types that Android version reads. A photo added from Photos is named Photo_
   and the date and time it was taken, and so is the PDF made of it alone. Edit PDF: a HEIC photo
   taken in portrait goes on the page upright.
+- Very large photos, on a phone with 4 GB of memory or less, and on Android 9 to 11, 12, and 13
+  or newer: a 200-megapixel HEIC, a 48-megapixel iPhone photo in Display P3 and, from Android 12, a
+  large AVIF are added to Images to PDF, Upload images and Edit PDF without running out of memory
+  and no slower than in 1.6.1, and their colours in the PDF match the same photo saved smaller.
 - From Files, share one PDF, two PDFs, a Word document and a PDF with images to Usugami: Choose a
   tool, the converter, and the message naming what was left out; then share a PDF while a tool has
-  an unsaved result.
+  an unsaved result. Share ten PDFs and seven images together: the message names three of the
+  images and says "and 4 more".
+- With the screen timeout at 15 seconds: OCR on twenty photos, a long Word document, Compress PDF
+  on a large PDF and a ZIP of many PDFs keep the screen on to the end, and it goes off 15 seconds
+  after each one ends, fails or is cancelled.
 - Scan document's Take photo on a real phone: the camera app opens at once, and closing it without
   a photo goes back to Home. Scan a few school pages one after another with Take another: drag a
   corner and a side (the magnifier follows), rotate left and right on both steps, and on Filters
@@ -460,8 +468,15 @@ On a phone or emulator, with the release APKs:
 - Split, merge in page mode, and compress, including a password-protected PDF. Compress a
   password-protected PDF that is already as small as it gets: Usugami says it couldn't be made any
   smaller, alone and with another PDF.
+- Split PDF's names: split a 12-page Report.pdf as 1-2;3;4-6 with the name it starts with:
+  Report_p1-2.pdf, Report_p3.pdf and Report_p4-6.pdf, in Report_split.zip. Typed as Chosen:
+  Chosen_p1-2.pdf and so on, in Chosen.zip. Pages 10,1-3,5 put together: Report_p10,1-3,5.pdf, or
+  just Chosen.pdf when typed as Chosen.
 - Rotate a few pages, add page numbers with a skipped cover, add a watermark in Hindi, and sign a
   page turned sideways; check the results in another PDF viewer.
+- Add page numbers, large, to an A4 PDF, a 2 by 1 inch label and an A0 poster, each also turned
+  sideways and cropped: on A4 they look as in 1.6.1, on the label they are small and leave most of
+  it clear, and on the poster they can be seen with the whole page on the screen.
 - Reorganize a PDF: drag a page, add the pages of a password-protected PDF and a blank page after a
   page turned sideways, undo, and save. Delete a few pages of a PDF with bookmarks. Flatten a
   filled-in form and a PDF with comments, and check in another viewer that nothing can be edited.
@@ -469,6 +484,14 @@ On a phone or emulator, with the release APKs:
   the result with the original, and check that an old .doc file is refused. A document with
   different odd and even headers shows the even ones on even pages, and a contents page keeps its
   page numbers against the right margin; a Japanese vertical text box stands upright.
+- Word footnotes and endnotes, next to Word's own PDF of the same documents: one with footnotes on
+  several pages, a long one near the foot of a page (it goes on at the foot of the next page under
+  a line as wide as the text, or its reference's line moves there with it) and endnotes at the
+  end; one numbered with Word's * and † symbols, starting again on each page; one with endnotes at
+  the end of each section. Every mark matches its note, in the text and at the note's start.
+- Word, PowerPoint, EPUB and Excel files with a pasted 100,000-character base64 block, and one with
+  hyphens in it, also on Android 8: each converts in seconds without running out of memory, its
+  lines broken at the line's end (after a hyphen when there is one), not after its slashes.
 - Excel to PDF with a few real workbooks from Files, and a sheet with dates, times, currency,
   percentages, accounting formats and [Red] negatives: each cell reads as Excel prints it (an
   accounting format's currency sign sits next to the number). Then a wide sheet with Fit columns to
@@ -480,7 +503,8 @@ On a phone or emulator, with the release APKs:
 - EPUB to PDF with a few real DRM-free books, one with a cover and one fixed-layout; check the
   bookmarks in another PDF viewer, and that a book with DRM is refused. A Japanese book written in
   columns down the page fills the page's width, and Chinese or Japanese sentences have no stray
-  spaces.
+  spaces. A Hebrew or Arabic paragraph with a line break before a Latin word or a link, and an
+  Excel cell like it, read right to left on every line.
 - Redact PDF with a few real documents, a scanned one among them: find a name, draw a box on the
   scan, and check in another PDF viewer that nothing under the boxes can be selected, searched or
   copied, and that the pages without boxes still have their text. Find text also finds a name in a
@@ -510,6 +534,16 @@ On a phone or emulator, with the release APKs:
   PDF per image, Split a PDF into parts, compress a batch (one PDF in it already as small as it
   gets, so its original is kept) and convert a batch of Word documents, then share each result as a
   ZIP: every page of every PDF has the mark.
+- Usugami watermark as shapes: in another PDF viewer, searching a watermarked PDF for Usugami finds
+  nothing, its copied text has no "Usugami", and TalkBack doesn't read it. The page under the
+  sliders shows the same letters as the PDF, sharp at every size, also on Android 8. A PDF saved
+  with the mark by 1.6.1, put through Compress PDF (its original kept) with the mark on, comes out
+  with the new mark only, and with no mark once the switch is off.
+- Usugami watermark on signed PDFs: compress a digitally signed PDF that is already as small as it
+  gets, with the mark on. Acrobat Reader shows its signatures valid, the mark as a change after
+  signing; turn the mark off and the file is the original byte for byte (same SHA-256). Again with
+  bytes added after the signed PDF's end, and again by compressing the marked PDF a second time. A
+  PDF certified to allow no changes gets no mark, and the message says so once.
 - Android closing Usugami while it makes a PDF: tap Convert on a long document, put Usugami in the
   background, stop it (`adb shell am kill io.github.nath_goa.usugami`) and open it again from the
   recent apps: it says it was closed before the PDF was finished. Save a PDF to Downloads, stop
