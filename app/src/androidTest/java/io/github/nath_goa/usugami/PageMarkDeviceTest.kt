@@ -477,6 +477,21 @@ class PageMarkDeviceTest {
 
     private fun eofs(bytes: ByteArray) = Regex("%%EOF").findAll(String(bytes, Charsets.ISO_8859_1)).count()
 
+    /** A signed PDF with bytes after its end, as some downloads add: changed or taken off, the mark still leaves it as it was. */
+    @Test fun aSignedPdfWithBytesAfterItsEndStaysAsItWas() {
+        val file = compactPdf(File(dir, "tail.pdf"), "TAIL")
+        sign(file)
+        file.appendText("\nSome bytes after the end\n")
+        val signed = file.readBytes()
+        assertTrue(marks.apply(file, MarkStyle()))
+        val smaller = MarkStyle(size = 0)
+        assertTrue(marks.apply(file, smaller))
+        assertArrayEquals(signed, file.readBytes().copyOf(signed.size))
+        checkMarked(file, smaller)
+        assertTrue(marks.apply(file, null))
+        assertArrayEquals(signed, file.readBytes())
+    }
+
     /**
      * A PDF certified against any change gets no mark: it is left as it is. Compressed with the mark
      * on, the user is told once, and the result says it has none.

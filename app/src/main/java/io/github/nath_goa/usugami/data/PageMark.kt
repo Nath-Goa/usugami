@@ -287,21 +287,6 @@ class PageMark(context: Context) {
         (if (compressed) createOutputStream(COSName.FLATE_DECODE) else createOutputStream()).use { it.write(content.toByteArray(Charsets.US_ASCII)) }
     }
 
-    /**
-     * Where the PDF as it was ends in [file], when the mark on [pages] was appended to it as an update:
-     * each marker says the same, and a PDF ends there. Null otherwise.
-     */
-    private fun appendedAt(pages: List<PDPage>, file: File): Long? {
-        val ends = pages.flatMap { markers(it.cosObject) }.map { it.getLong(KEY_ORIGINAL_LENGTH, -1) }.toSet()
-        val end = ends.singleOrNull()?.takeIf { it in 1 until file.length() } ?: return null
-        val tail = ByteArray(minOf(end, 1024L).toInt())
-        RandomAccessFile(file, "r").use {
-            it.seek(end - tail.size)
-            it.readFully(tail)
-        }
-        return end.takeIf { String(tail, Charsets.ISO_8859_1).trimEnd { c -> c.isWhitespace() || c == '\u0000' }.endsWith("%%EOF") }
-    }
-
     /** Writes [file]'s first [length] bytes to [target]. */
     private fun cut(file: File, length: Long, target: File) {
         file.inputStream().use { input ->
@@ -396,6 +381,10 @@ class PageMark(context: Context) {
 
         private const val BUFFER = 64 * 1024
 
+        /** How an update PDFBox appends starts: a line break, then its first object. */
+        private val UPDATE_START = Regex("^\r\n\\d+ \\d+ obj")
+        private const val UPDATE_HEAD = 32L
+
         /** How far a number of the mark's place may be from where it goes: in points, or font sizes. */
         private const val MATRIX_SLACK = 0.01f
 
@@ -444,6 +433,22 @@ class PageMark(context: Context) {
 
         /** The markers of the mark on [page]: one, unless something went wrong. */
         private fun markers(page: COSDictionary): List<COSDictionary> = ours(page).mapNotNull { it.getDictionaryObject(MARKER) as? COSDictionary }
+
+        /**
+         * Where the PDF as it was ends in [file], when the mark on [pages] was appended to it as an
+         * update: each marker says the same, and an update as PDFBox writes one starts there (a line
+         * break, then an object), whatever that PDF ends with. Null otherwise.
+         */
+        private fun appendedAt(pages: Iterable<PDPage>, file: File): Long? {
+            val ends = pages.flatMap { markers(it.cosObject) }.map { it.getLong(KEY_ORIGINAL_LENGTH, -1) }.toSet()
+            val end = ends.singleOrNull()?.takeIf { it in 1 until file.length() } ?: return null
+            val head = ByteArray(minOf(file.length() - end, UPDATE_HEAD).toInt())
+            RandomAccessFile(file, "r").use {
+                it.seek(end)
+                it.readFully(head)
+            }
+            return end.takeIf { UPDATE_START.containsMatchIn(String(head, Charsets.ISO_8859_1)) }
+        }
 
         /** [page]'s content streams as it lists them: references, mostly. */
         private fun contents(page: COSDictionary): List<COSBase> = when (val contents = page.getDictionaryObject(COSName.CONTENTS)) {
