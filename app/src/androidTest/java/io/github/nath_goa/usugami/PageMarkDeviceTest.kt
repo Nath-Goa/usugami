@@ -2,11 +2,14 @@ package io.github.nath_goa.usugami
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.graphics.Path
+import android.graphics.PointF
 import android.net.Uri
 import android.os.SystemClock
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.contentstream.PDFGraphicsStreamEngine
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -17,8 +20,8 @@ import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission
 import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
+import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImage
 import com.tom_roush.pdfbox.text.PDFTextStripper
-import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.core.MarkStyle
@@ -45,9 +48,9 @@ import java.io.IOException
 
 /**
  * The Usugami mark on a PDF's pages: in the bottom-right corner of each page as shown, upright, in the
- * size and opacity chosen; changed and taken off again, leaving each page as it was. PDFs made from
- * images get it as they are made, and lose it again when it is turned off. The tools make their PDFs
- * of a marked PDF's pages without it.
+ * size and opacity chosen, drawn as outlines rather than written as text; changed and taken off again,
+ * leaving each page as it was. PDFs made from images get it as they are made, and lose it again when
+ * it is turned off. The tools make their PDFs of a marked PDF's pages without it.
  */
 class PageMarkDeviceTest {
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
@@ -111,62 +114,97 @@ class PageMarkDeviceTest {
         }
     }
 
-    /** Each page's characters, with the page they are on. */
-    private fun glyphsByPage(doc: PDDocument): List<List<TextPosition>> = (1..doc.numberOfPages).map { number ->
-        ArrayList<TextPosition>().also { glyphs ->
-            object : PDFTextStripper() {
-                override fun processTextPosition(text: TextPosition) {
-                    glyphs += text
+    /** A shape filled on a page: the points of its outline on the page, and its grey and opacity. */
+    private class Fill(val points: List<PointF>, val gray: Float, val alpha: Float)
+
+    /** The shapes filled on [page], as a PDF viewer draws them. */
+    private fun fills(page: PDPage): List<Fill> = ArrayList<Fill>().also { fills ->
+        val points = ArrayList<PointF>()
+        object : PDFGraphicsStreamEngine(page) {
+            private var current = PointF()
+
+            override fun appendRectangle(p0: PointF, p1: PointF, p2: PointF, p3: PointF) {
+                points += listOf(p0, p1, p2, p3)
+            }
+
+            override fun drawImage(pdImage: PDImage) = Unit
+            override fun clip(windingRule: Path.FillType) = Unit
+
+            override fun moveTo(x: Float, y: Float) {
+                current = PointF(x, y)
+                points += current
+            }
+
+            override fun lineTo(x: Float, y: Float) = moveTo(x, y)
+
+            override fun curveTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) {
+                points += listOf(PointF(x1, y1), PointF(x2, y2))
+                moveTo(x3, y3)
+            }
+
+            override fun getCurrentPoint() = current
+            override fun closePath() = Unit
+            override fun endPath() = points.clear()
+            override fun strokePath() = points.clear()
+
+            override fun fillPath(windingRule: Path.FillType) {
+                val state = graphicsState
+                fills += Fill(points.toList(), state.nonStrokingColor.components.single(), state.nonStrokeAlphaConstant.toFloat())
+                points.clear()
+            }
+
+            override fun fillAndStrokePath(windingRule: Path.FillType) = fillPath(windingRule)
+            override fun shadingFill(shadingName: COSName) = Unit
+        }.processPage(page)
+    }
+
+    /** Where the word's outline starts, in font sizes from its baseline's start: its "U". */
+    private val start: PointF by lazy {
+        var first: PointF? = null
+        MarkLayout.drawWord(
+            object : MarkLayout.Pen {
+                override fun moveTo(x: Float, y: Float) {
+                    if (first == null) first = PointF(x, y)
                 }
-            }.apply {
-                startPage = number
-                endPage = number
-            }.getText(doc)
-        }
+                override fun lineTo(x: Float, y: Float) = Unit
+                override fun quadTo(x1: Float, y1: Float, x: Float, y: Float) = Unit
+                override fun close() = Unit
+            },
+        )
+        first!!
     }
 
     /**
      * Checks that each page of [file] has the mark once, in [style], where it goes on the page as shown,
-     * written upright.
+     * upright, filled in its grey and opacity; and that it isn't text, which a search would find.
      */
     private fun checkMarked(file: File, style: MarkStyle) = PDDocument.load(file).use { doc ->
-        for ((index, glyphs) in glyphsByPage(doc).withIndex()) {
-            val page = doc.getPage(index)
-            val text = glyphs.joinToString("") { it.unicode }
-            assertEquals("Page ${index + 1} has the mark once: $text", 1, Regex(MarkLayout.TEXT).findAll(text).count())
-            val word = glyphs.drop(text.indexOf(MarkLayout.TEXT)).take(MarkLayout.TEXT.length)
+        assertFalse(PDFTextStripper().getText(doc).contains(MarkLayout.TEXT))
+        for ((index, page) in doc.pages.withIndex()) {
+            val fill = fills(page).singleOrNull() ?: throw AssertionError("Page ${index + 1} has the mark once")
             val box = page.cropBox
             val frame = PageFrame(box.lowerLeftX, box.lowerLeftY, box.width, box.height, page.rotation)
             val place = MarkLayout.place(style, frame.shownWidth, frame.shownHeight)
-            // The glyphs' places are on the page as it is, from its crop box's corner.
-            fun shown(glyph: TextPosition, dx: Float = 0f, dy: Float = 0f): Pair<Float, Float> {
-                val m = glyph.textMatrix
-                return frame.toShown(box.lowerLeftX + m.translateX + dx, box.lowerLeftY + m.translateY + dy)
-            }
-            val (x, y) = shown(word.first())
-            assertEquals("Page ${index + 1}: where the word starts", place.x, x, 0.5f)
-            assertEquals("Page ${index + 1}: its baseline", place.y, y, 0.5f)
-            // Upright as shown: it runs to the right, and its letters stand up.
-            val m = word.first().textMatrix
-            val (rightX, rightY) = shown(word.first(), m.scaleX, m.shearY)
-            assertEquals(x + place.fontSize, rightX, 0.05f)
-            assertEquals(y, rightY, 0.05f)
-            val (upX, upY) = shown(word.first(), m.shearX, m.scaleY)
-            assertEquals(x, upX, 0.05f)
-            assertEquals(y + place.fontSize, upY, 0.05f)
-            assertTrue("Page ${index + 1}: the word ends before the page's right edge", shown(word.last()).first < frame.shownWidth)
-
-            val xObjects = page.resources.xObjectNames.filter { page.resources.getXObject(it).cosObject.containsKey(PageMark.MARKER) }
-            val form = page.resources.getXObject(xObjects.single()) as PDFormXObject
-            val state = form.resources.extGStateNames.single().let { form.resources.getExtGState(it) }
-            assertEquals(style.alpha, state.nonStrokingAlphaConstant!!, 0.0001f)
+            val f = place.fontSize
+            val shown = fill.points.map { frame.toShown(it.x, it.y) }
+            // Its outlines reach as far as the word's letters do, from where the word starts.
+            assertEquals("Page ${index + 1}: its left", place.x + MarkLayout.INK_LEFT * f, shown.minOf { it.first }, 0.05f)
+            assertEquals("Page ${index + 1}: its right", place.x + MarkLayout.INK_RIGHT * f, shown.maxOf { it.first }, 0.05f)
+            assertEquals("Page ${index + 1}: its bottom", place.y - MarkLayout.DESCENT * f, shown.minOf { it.second }, 0.05f)
+            assertEquals("Page ${index + 1}: its top", place.y + MarkLayout.INK_TOP * f, shown.maxOf { it.second }, 0.05f)
+            // Upright as shown: its "U" starts where it does in the word.
+            assertEquals(place.x + start.x * f, shown.first().first, 0.05f)
+            assertEquals(place.y + start.y * f, shown.first().second, 0.05f)
+            assertTrue("Page ${index + 1}: the word ends before the page's right edge", shown.maxOf { it.first } < frame.shownWidth)
+            assertEquals(MarkLayout.GRAY, fill.gray, 0.001f)
+            assertEquals(style.alpha, fill.alpha, 0.0001f)
         }
     }
 
     @Test fun marksEachPageAsShownChangesItAndTakesItOffAgain() {
-        // The word's width the layout counts with is Helvetica Bold's.
+        // The word is as wide as Helvetica Bold made it before.
         PDFBoxResourceLoader.init(app)
-        assertEquals(MarkLayout.TEXT_WIDTH, PDType1Font.HELVETICA_BOLD.getStringWidth(MarkLayout.TEXT) / 1000, 0.0001f)
+        assertEquals(PDType1Font.HELVETICA_BOLD.getStringWidth(MarkLayout.TEXT) / 1000, MarkLayout.TEXT_WIDTH, 0.001f)
         val file = pdf()
         val before = pages(file)
 
@@ -206,10 +244,48 @@ class PageMarkDeviceTest {
         }
         PDDocument.load(file).use { doc ->
             assertFalse(doc.getPage(2).cosObject.containsKey(COSName.RESOURCES))
-            assertFalse(PDFTextStripper().getText(doc).contains(MarkLayout.TEXT))
+            assertTrue(doc.pages.all { fills(it).isEmpty() })
         }
         assertFalse(marks.apply(file, null))
         assertFalse(marks.firstPageUnmarked(file, File(dir, "unmarked.pdf")))
+    }
+
+    /**
+     * A PDF marked by Usugami 1.6.1, which wrote the word as text in Helvetica Bold: its mark is taken
+     * off as exactly, and asked for again, it is drawn anew, as outlines.
+     */
+    @Test fun aMarkWrittenAsTextIsTakenOffAndDrawnAnew() {
+        val file = pdf()
+        val before = pages(file)
+        val style = MarkStyle()
+        for (wanted in listOf(null, style)) {
+            markAsText(file, style)
+            PDDocument.load(file).use { assertTrue(PDFTextStripper().getText(it).contains(MarkLayout.TEXT)) }
+            assertTrue(marks.apply(file, wanted))
+            if (wanted == null) {
+                val after = pages(file)
+                for (i in before.indices) assertArrayEquals("Page ${i + 1}'s content", before[i].first, after[i].first)
+            } else {
+                checkMarked(file, style)
+            }
+        }
+    }
+
+    /** Marks [file] in [style] as Usugami 1.6.1 did: the word written as text, and no version in its markers. */
+    private fun markAsText(file: File, style: MarkStyle) {
+        assertTrue(marks.apply(file, style))
+        val old = File(dir, "old.pdf")
+        PDDocument.load(file).use { doc ->
+            for (page in doc.pages) {
+                for (stream in page.contentStreams) (stream.cosObject.getDictionaryObject(PageMark.MARKER) as? COSDictionary)?.removeItem(COSName.getPDFName("Version"))
+            }
+            val resources = doc.getPage(0).resources
+            val form = resources.xObjectNames.map { resources.getXObject(it) }.single { it.cosObject.containsKey(PageMark.MARKER) } as PDFormXObject
+            form.cosObject.createOutputStream().use { it.write("/GS gs\n0.2 g\nBT\n/F 1 Tf\n(${MarkLayout.TEXT}) Tj\nET\n".toByteArray()) }
+            form.resources.put(COSName.getPDFName("F"), PDType1Font.HELVETICA_BOLD)
+            doc.save(old)
+        }
+        assertTrue(old.renameTo(file))
     }
 
     /** A page turned since it was marked, as Rotate PDF turns one, has the mark put back in its corner. */
@@ -274,10 +350,10 @@ class PageMarkDeviceTest {
         engine.clearOutput()
     }
 
-    /** How many times each PDF of [files] says "Usugami", page by page. */
+    /** How many times each PDF of [files] has the mark, page by page: the streams that draw it, which say so. */
     private fun marksOn(files: List<PdfFile>): List<List<Int>> = files.map { pdf ->
         PDDocument.load(pdf.file).use { doc ->
-            glyphsByPage(doc).map { page -> Regex(MarkLayout.TEXT).findAll(page.joinToString("") { it.unicode }).count() }
+            doc.pages.map { page -> page.contentStreams.asSequence().count { it.cosObject.getDictionaryObject(PageMark.MARKER) is COSDictionary } }
         }
     }
 
@@ -301,6 +377,7 @@ class PageMarkDeviceTest {
         waitUntil("the PDFs to be made") { vm.result.value != null }
         val made = onMain { vm.result.value!! }
         assertEquals(listOf(listOf(1), listOf(1)), marksOn(made))
+        for (pdf in made) checkMarked(pdf.file, MarkStyle())
         assertTrue(made.all { it.mark == MarkStyle() })
 
         onMain { vm.setMark(false) }

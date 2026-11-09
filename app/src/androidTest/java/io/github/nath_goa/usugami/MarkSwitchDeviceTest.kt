@@ -9,11 +9,11 @@ import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.pdmodel.PDDocument
-import com.tom_roush.pdfbox.text.PDFTextStripper
-import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.MarkSetting
+import io.github.nath_goa.usugami.data.PageMark
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.SettingsStore
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
@@ -116,15 +116,9 @@ class MarkSwitchDeviceTest {
             return isChecked
         }
 
-    /** How many times each page of [file] says "Usugami". */
+    /** How many times each page of [file] has the mark: the streams that draw it, which say so. */
     private fun marksOn(file: File): List<Int> = PDDocument.load(file).use { doc ->
-        (1..doc.numberOfPages).map { number ->
-            val text = PDFTextStripper().apply {
-                startPage = number
-                endPage = number
-            }.getText(doc)
-            Regex(MarkLayout.TEXT).findAll(text).count()
-        }
+        doc.pages.map { page -> page.contentStreams.asSequence().count { it.cosObject.getDictionaryObject(PageMark.MARKER) is COSDictionary } }
     }
 
     @Test fun switchPutsTheMarkOnAndTakesItOff() {

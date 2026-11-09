@@ -47,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -64,11 +66,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.MarkLayout
@@ -267,7 +264,7 @@ private fun MarkPage(preview: MarkPreview?, style: MarkStyle, on: Boolean) {
     val width = preview?.width ?: A4_WIDTH
     val height = preview?.height ?: A4_HEIGHT
     val description = if (on) stringResource(R.string.mark_preview_description) else stringResource(R.string.pdf_page_number, 1)
-    val measurer = rememberTextMeasurer()
+    val word = remember { wordPath() }
     val shape = MaterialTheme.shapes.extraSmall
     Box(
         Modifier
@@ -286,24 +283,29 @@ private fun MarkPage(preview: MarkPreview?, style: MarkStyle, on: Boolean) {
         Canvas(Modifier.fillMaxSize()) {
             val scale = this.size.width / width
             val place = MarkLayout.place(style, width, height)
-            // The word as wide as Helvetica Bold makes it in the PDF, in the screen's own bold sans.
-            val wordWidth = MarkLayout.TEXT_WIDTH * place.fontSize * scale
-            val probe = measurer.measure(MarkLayout.TEXT, TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = PROBE_PX.toSp()))
-            val fontPx = PROBE_PX * wordWidth / probe.size.width.coerceAtLeast(1)
-            val word = measurer.measure(MarkLayout.TEXT, TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold, fontSize = fontPx.toSp()))
-            val baseline = this.size.height - place.y * scale
-            drawText(
-                word,
-                color = Color(MarkLayout.GRAY, MarkLayout.GRAY, MarkLayout.GRAY),
-                topLeft = Offset(place.x * scale, baseline - word.firstBaseline),
-                alpha = if (on) style.alpha else style.alpha * OFF_ALPHA,
-            )
+            // The same outlines as in the PDF, at its size there.
+            val fontSize = place.fontSize * scale
+            withTransform({
+                translate(place.x * scale, this.size.height - place.y * scale)
+                scale(fontSize, fontSize, pivot = Offset.Zero)
+            }) {
+                drawPath(word, Color(MarkLayout.GRAY, MarkLayout.GRAY, MarkLayout.GRAY), alpha = if (on) style.alpha else style.alpha * OFF_ALPHA)
+            }
         }
     }
 }
 
-/** The text size the word is measured at, to find the size that makes it as wide as it should be. */
-private const val PROBE_PX = 100f
+/** The word as the PDFs draw it: its outlines at a font size of 1, the baseline starting at the origin, y down. */
+private fun wordPath() = Path().also { path ->
+    MarkLayout.drawWord(
+        object : MarkLayout.Pen {
+            override fun moveTo(x: Float, y: Float) = path.moveTo(x, -y)
+            override fun lineTo(x: Float, y: Float) = path.lineTo(x, -y)
+            override fun quadTo(x1: Float, y1: Float, x: Float, y: Float) = path.quadraticTo(x1, -y1, x, -y)
+            override fun close() = path.close()
+        },
+    )
+}
 
 /** How much of its opacity the word keeps on the page while the mark is off. */
 private const val OFF_ALPHA = 0.25f

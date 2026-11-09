@@ -377,7 +377,13 @@ renamed so it uses no Reserved Font Name, and it is distributed under the same l
 
 ### Liberation Sans 2.1.5, all editions
 
-Included in PdfBox-Android (used by PDFBox as a fallback font). Unmodified.
+Liberation Sans Regular is included in PdfBox-Android (used by PDFBox as a fallback font).
+Unmodified.
+
+The Usugami watermark draws the word "Usugami" with the outlines of its letters in Liberation Sans
+Bold, kept in core/src/main/java/io/github/nath_goa/usugami/core/MarkGlyphs.kt. They were taken from
+the font with tools/make_mark_glyphs.py from Usugami's source code, and are distributed under the
+same license. No font file of Liberation Sans Bold is included.
 
 ```text
 Digitized data copyright (c) 2010 Google Corporation
