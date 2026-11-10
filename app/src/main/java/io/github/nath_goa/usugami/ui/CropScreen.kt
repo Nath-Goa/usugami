@@ -428,7 +428,7 @@ private class CropState(
      * the image as shown).
      */
     fun settle(width: Int, height: Int) {
-        val ordered = corners.ordered()
+        val ordered = corners.ordered(width, height)
         if (ordered == corners || !ordered.isUsable(width, height)) return
         chosen = if (chosen < CORNERS) {
             ordered.corners.indexOf(corners[chosen]).coerceAtLeast(0)
@@ -482,7 +482,7 @@ private fun CornersStep(session: CropSession, source: OriginalImage?, photo: Bit
     val shownWidth = source?.let { if (sideways) it.uprightHeight else it.uprightWidth } ?: 1
     val shownHeight = source?.let { if (sideways) it.uprightWidth else it.uprightHeight } ?: 1
     val corners = state.corners
-    val usable = corners.isWhole() || corners.ordered().isUsable(shownWidth, shownHeight)
+    val usable = corners.isWhole() || corners.ordered(shownWidth, shownHeight).isUsable(shownWidth, shownHeight)
     val image = remember(photo) { photo?.asImageBitmap() }
 
     // A move of the chosen handle (or of [handle]) by a step, from where it is when the button is

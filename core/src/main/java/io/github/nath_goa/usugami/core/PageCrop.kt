@@ -104,14 +104,16 @@ data class CropQuad(val corners: List<CropPoint>) {
 
     /**
      * The same four points in order round the page, clockwise as it shows, from the one nearest the
-     * image's top-left: the order a page's corners have, whichever were dragged where.
+     * top-left of the [width] × [height] image they are on: the order a page's corners have, whichever
+     * were dragged where. Nearest in pixels: in fractions of the image's sides, a page tilted to the
+     * right on a tall photo would start at its bottom-left corner and come out lying on its side.
      */
-    fun ordered(): CropQuad {
+    fun ordered(width: Int = 1, height: Int = 1): CropQuad {
         val cx = corners.sumOf { it.x.toDouble() } / 4
         val cy = corners.sumOf { it.y.toDouble() } / 4
         // Clockwise on the screen, where y points down, is the angle growing.
         val round = corners.sortedBy { atan2(it.y - cy, it.x - cx) }
-        val first = round.indices.minBy { round[it].x + round[it].y }
+        val first = round.indices.minBy { round[it].x.toDouble() * width + round[it].y.toDouble() * height }
         return CropQuad(List(4) { round[(first + it) % 4] })
     }
 

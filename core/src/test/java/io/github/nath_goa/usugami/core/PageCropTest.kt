@@ -24,6 +24,18 @@ class PageCropTest {
         assertSame(page, page.ordered())
     }
 
+    @Test fun aTiltedPageOnATallPhotoStartsAtItsOwnTopLeft() {
+        // A 600 x 800 pixel page in the middle of a 1080 x 2400 photo, turned 30 degrees clockwise and
+        // 30 degrees the other way: each from its own top-left corner.
+        val right = quad(0.4446f, 0.2932f, 0.9257f, 0.4182f, 0.5554f, 0.7068f, 0.0743f, 0.5818f)
+        val left = quad(0.0743f, 0.4182f, 0.5554f, 0.2932f, 0.9257f, 0.5818f, 0.4446f, 0.7068f)
+        for (page in listOf(right, left)) {
+            assertSame(page, CropQuad(page.corners.reversed()).ordered(1080, 2400))
+            // Upright, not on its side.
+            assertEquals(600 to 800, PageCrop.outputSize(page.ordered(1080, 2400), 1080, 2400))
+        }
+    }
+
     @Test fun turningAndTurningBackKeepsTheCorners() {
         val page = quad(0.2f, 0.1f, 0.9f, 0.15f, 0.85f, 0.9f, 0.1f, 0.8f)
         for (degrees in listOf(0, 90, 180, 270)) {

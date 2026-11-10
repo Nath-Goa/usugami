@@ -99,10 +99,10 @@ data class ConvertChoices(val fileName: String, val ocrLanguage: OcrLanguage?)
  * The crop screen, showing image [itemId] turned [rotation] degrees clockwise, as on its page. Its
  * corners start at [start]; Reset puts them on [found], the page the automatic search found
  * ([foundPage]), or else a little in from the image's edges. The corners are on the image as it shows
- * upright (see [shown] and [upright]). A photo just taken ([fromCamera]) goes if the screen is left
- * without cropping; an image of a scan ([queued], see [ScanQueue]) stays as it is, and so do the
- * scan's images after it. [opened] tells one opening from the next. The page's look starts as [look],
- * with [adjustments].
+ * upright, [width] × [height] pixels (see [shown] and [upright]). A photo just taken ([fromCamera])
+ * goes if the screen is left without cropping; an image of a scan ([queued], see [ScanQueue]) stays
+ * as it is, and so do the scan's images after it. [opened] tells one opening from the next. The
+ * page's look starts as [look], with [adjustments].
  */
 @Parcelize
 @TypeParceler<CropQuad, CropQuadParceler>
@@ -111,6 +111,8 @@ data class CropSession(
     val itemId: Long,
     val fromCamera: Boolean,
     val rotation: Int,
+    val width: Int,
+    val height: Int,
     val start: CropQuad,
     val found: CropQuad,
     val foundPage: Boolean,
@@ -120,10 +122,13 @@ data class CropSession(
     val queued: Boolean = false,
 ) : Parcelable {
     /** [quad] on the image as the screen shows it, turned [turn] degrees clockwise. */
-    fun shown(quad: CropQuad, turn: Int = rotation): CropQuad = quad.transformed(ImageTransform.rotation(turn)).ordered()
+    fun shown(quad: CropQuad, turn: Int = rotation): CropQuad {
+        val sideways = turn % 180 != 0
+        return quad.transformed(ImageTransform.rotation(turn)).ordered(if (sideways) height else width, if (sideways) width else height)
+    }
 
     /** [quad], as the screen shows the image turned [turn] degrees clockwise, on the image upright. */
-    fun upright(quad: CropQuad, turn: Int = rotation): CropQuad = quad.transformed(ImageTransform.rotation(turn).inverse()).ordered()
+    fun upright(quad: CropQuad, turn: Int = rotation): CropQuad = quad.transformed(ImageTransform.rotation(turn).inverse()).ordered(width, height)
 }
 
 /**
@@ -981,6 +986,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     itemId = item.id,
                     fromCamera = fromCamera,
                     rotation = current.rotation,
+                    width = source.uprightWidth,
+                    height = source.uprightHeight,
                     start = current.original?.corners ?: reset,
                     found = reset,
                     foundPage = found != null,
