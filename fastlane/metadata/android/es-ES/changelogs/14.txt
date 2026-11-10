@@ -1,0 +1,5 @@
+• Escanear documento: una página inclinada en una foto vertical sale del recorte derecha, no tumbada
+• Excel a PDF agrupa las cifras según la región del teléfono, como 12,34,567 en la India
+• Excel a PDF muestra un número negativo diminuto como 0,00 y no -0,00
+• Archivos recientes: un PDF borrado o renombrado en la app Archivos sale de la lista
+• Comprimir PDF y la marca de agua de Usugami conservan lo que otra app añadió a un PDF firmado

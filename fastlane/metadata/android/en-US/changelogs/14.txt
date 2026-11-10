@@ -1,0 +1,5 @@
+• Scan document: a page lying tilted on a tall photo comes out of the crop step upright, not on its side
+• Excel to PDF groups digits as your phone's region does, such as 12,34,567 in India
+• Excel to PDF shows a tiny negative number as 0.00, not -0.00
+• Recent files: a PDF deleted or renamed in the Files app leaves the list
+• Compress PDF and the Usugami watermark keep what another app added to a signed PDF

@@ -64,7 +64,14 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.6.2
+## What's new in 1.6.3
+
+Five fixes: a page lying tilted on a tall photo comes out of the scanner's crop step upright, Excel
+to PDF groups digits as the phone's region does (12,34,567 in India) and no longer shows -0.00,
+Recent files drops a PDF deleted or renamed in the Files app, and Compress PDF and the Usugami
+watermark keep what another app added to a signed PDF.
+
+1.6.2, the day before:
 
 - **Footnotes and endnotes** in Word to PDF, numbered and placed as in Word: footnotes at the foot
   of their page, endnotes at the end of the document or of each section
@@ -79,11 +86,11 @@ reinstalling. A listing in the main F-Droid repository is planned; the builds ar
   files with very long unbroken words
 - Messages about many files left out name the first three and count the rest
 
-1.6.1, earlier the same day: HEIC, AVIF, WebP, BMP and GIF images, the optional Usugami watermark,
+1.6.1, earlier that day: HEIC, AVIF, WebP, BMP and GIF images, the optional Usugami watermark,
 photos from Photos named by their date, better Word, PowerPoint and EPUB layout, Redact PDF finding
 letter-spaced and hyphenated words, Usugami OCR reading very large words, and about 40 fixes.
 
-1.6.0, the big update the same day:
+1.6.0, the big update that same day:
 
 - **Scan document** at the top of Home: take photos with your phone's camera app, or upload images
   from your gallery

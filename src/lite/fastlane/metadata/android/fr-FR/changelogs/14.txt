@@ -1,0 +1,5 @@
+• Numériser un document : une page inclinée sur une photo en hauteur sort du recadrage à l'endroit, et non couchée
+• Excel en PDF groupe les chiffres selon la région du téléphone, comme 12,34,567 en Inde
+• Excel en PDF affiche un tout petit nombre négatif 0,00 et non -0,00
+• Fichiers récents : un PDF supprimé ou renommé dans l'appli Fichiers quitte la liste
+• Compresser un PDF et le filigrane Usugami gardent ce qu'une autre appli a ajouté à un PDF signé

@@ -6,6 +6,27 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-11-10
+
+### Fixed
+
+- **Scan document** and the crop step: a page lying tilted on a tall or wide photo, such as one
+  turned 30 degrees to the right on a phone's tall photo, comes out of the crop step upright
+  instead of on its side. Its top-left corner is now the one nearest the photo's top-left in
+  pixels, not in fractions of the photo's sides.
+- **Excel to PDF** groups digits the way the phone's region does, as Excel does on a computer set
+  to that region: with the phone set to India a number reads 12,34,567.89 instead of 1,234,567.89.
+- **Excel to PDF** shows a negative number that rounds to nothing as Excel does, 0.00 instead of
+  -0.00, such as the tiny amount left over when a sum should come to zero. A format with a section
+  of its own for negative numbers still uses it.
+- **Recent files**: a PDF saved with Save as, or into a folder picked to save into, leaves the list
+  once it, or that folder, is deleted or renamed in the phone's Files app, instead of staying
+  listed as a file that can't be opened.
+- **Compress PDF** and the **Usugami watermark** keep what another app added to a digitally signed
+  PDF after Usugami's watermark, such as a second signature, a note or a page. Compress PDF cut
+  such a PDF back to how it was first signed and said it was kept as it was, and changing the
+  watermark or turning it off cut it back too.
+
 ## [1.6.2] - 2026-11-09
 
 ### Added
@@ -765,7 +786,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.3...HEAD
+[1.6.3]: https://github.com/Nath-Goa/usugami/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/Nath-Goa/usugami/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/Nath-Goa/usugami/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/Nath-Goa/usugami/compare/v1.5.3...v1.6.0

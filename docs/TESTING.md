@@ -505,6 +505,16 @@ On a phone or emulator, with the release APKs:
   columns down the page fills the page's width, and Chinese or Japanese sentences have no stray
   spaces. A Hebrew or Arabic paragraph with a line break before a Latin word or a link, and an
   Excel cell like it, read right to left on every line.
+- Excel to PDF with the phone's region set to India and then to the United States: 1234567.89 in a
+  cell with thousands separators reads 12,34,567.89 and then 1,234,567.89. A cell holding -0.001
+  shown to two decimals reads 0.00.
+- Scan document with a tall photo of a page turned about 30 degrees to the right: after the crop
+  step the page stands upright, not on its side.
+- Recent files: save a PDF with Save as, delete it in the Files app and come back to Usugami: it
+  has left the list.
+- A digitally signed PDF that Compress PDF kept as it was and Usugami watermarked, then signed
+  again or given a note in another app: Compress PDF, and changing the watermark or turning it
+  off, keep the second signature or the note.
 - Redact PDF with a few real documents, a scanned one among them: find a name, draw a box on the
   scan, and check in another PDF viewer that nothing under the boxes can be selected, searched or
   copied, and that the pages without boxes still have their text. Find text also finds a name in a
