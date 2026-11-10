@@ -51,8 +51,9 @@ data class CellText(val text: String, val colour: Int?)
  * A code has up to four sections: for positive numbers, negative numbers, zero and text. Conditions
  * such as [>=100] can pick the section instead. Numbers keep Excel's 15 significant digits and round
  * half away from zero. Dates are counts of days from 1900 (with the 29 February 1900 that Excel took
- * over from Lotus 1-2-3) or from 1904, and times are fractions of a day. A code Excel wouldn't accept
- * shows the number as General.
+ * over from Lotus 1-2-3) or from 1904, and times are fractions of a day. A negative number that
+ * rounds to nothing shows as 0.00, not -0.00, unless its code has a section for negative numbers. A
+ * code Excel wouldn't accept shows the number as General.
  */
 object SpreadsheetNumbers {
     /** Excel keeps codes to 255 characters; a much longer one is treated as broken, so a crafted file can't slow every cell. */
@@ -170,7 +171,8 @@ object SpreadsheetNumbers {
         val text = if (section.isDate) {
             dateTime(if (unsigned) abs(value) else value, section, locale, date1904, maxChars)
         } else {
-            number(abs(value), value < 0 && !unsigned, section, locale, maxChars)
+            // A negative number that rounds to nothing shows as the positive one would, as in Excel.
+            number(abs(value), value < 0 && !unsigned, section, locale, maxChars) ?: return format(abs(value), formatCode, locale, date1904, maxChars)
         }
         return CellText(text, section.colour)
     }
@@ -652,17 +654,27 @@ object SpreadsheetNumbers {
         }
     }
 
-    /** The number [magnitude] (not negative) shown by a number section, after a minus when [negative]. */
-    private fun number(magnitude: Double, negative: Boolean, section: Section, locale: SheetLocale, maxChars: Int): String {
+    /**
+     * The number [magnitude] (not negative) shown by a number section, after a minus when [negative];
+     * null when it is [negative] and its digits round to nothing, which Excel shows without the minus.
+     */
+    private fun number(magnitude: Double, negative: Boolean, section: Section, locale: SheetLocale, maxChars: Int): String? {
         val layout = section.layout!!
         val tokens = section.tokens
         val out = arrayOfNulls<String>(tokens.size)
-        when {
-            layout.general >= 0 -> out[layout.general] = general(magnitude, locale, maxChars)
+        val nothing = when {
+            layout.general >= 0 -> {
+                out[layout.general] = general(magnitude, locale, maxChars)
+                false
+            }
             layout.slash >= 0 -> fraction(excelValue(magnitude).movePointRight(layout.shift), layout, out)
-            layout.exponent >= 0 -> scientific(excelValue(magnitude).movePointRight(layout.shift), layout, locale, out)
+            layout.exponent >= 0 -> {
+                scientific(excelValue(magnitude).movePointRight(layout.shift), layout, locale, out)
+                false
+            }
             else -> decimal(excelValue(magnitude).movePointRight(layout.shift), layout, locale, out)
         }
+        if (negative && nothing) return null
         val shown = StringBuilder()
         if (negative) shown.append('-')
         for (i in tokens.indices) shown.append(out[i] ?: plain(tokens[i], layout.hidden[i]))
@@ -681,13 +693,18 @@ object SpreadsheetNumbers {
         else -> ""
     }
 
-    /** [x] rounded to the decimal placeholders and put in them, its whole part before the point. */
-    private fun decimal(x: BigDecimal, layout: NumberLayout, locale: SheetLocale, out: Array<String?>) {
-        val digits = x.setScale(layout.decimalsAt.size, RoundingMode.HALF_UP).toPlainString()
+    /**
+     * [x] rounded to the decimal placeholders and put in them, its whole part before the point.
+     * Returns whether it has placeholders and rounds to nothing in them.
+     */
+    private fun decimal(x: BigDecimal, layout: NumberLayout, locale: SheetLocale, out: Array<String?>): Boolean {
+        val rounded = x.setScale(layout.decimalsAt.size, RoundingMode.HALF_UP)
+        val digits = rounded.toPlainString()
         val whole = digits.substringBefore('.').takeIf { it != "0" }.orEmpty()
         placeWhole(whole, layout, layout.wholeAt, if (layout.grouped) locale.grouping else null, out)
         placeDecimals(digits.substringAfter('.', ""), layout, out)
         if (layout.point >= 0) out[layout.point] = (if (layout.wholeAt.isEmpty()) whole else "") + locale.decimal
+        return rounded.signum() == 0 && (layout.wholeAt.isNotEmpty() || layout.decimalsAt.isNotEmpty())
     }
 
     /**
@@ -717,8 +734,9 @@ object SpreadsheetNumbers {
     /**
      * [x] as a fraction: the nearest one with a denominator that fits its placeholders (or the fixed one),
      * after a whole part when the format has one, as in "# ?/?", or improper without, as in "?/?".
+     * Returns whether it is an improper fraction of nothing, 0/1.
      */
-    private fun fraction(x: BigDecimal, layout: NumberLayout, out: Array<String?>) {
+    private fun fraction(x: BigDecimal, layout: NumberLayout, out: Array<String?>): Boolean {
         val mixed = layout.wholeAt.isNotEmpty()
         var whole = x.setScale(0, RoundingMode.FLOOR).toBigInteger()
         val part = x.subtract(BigDecimal(whole))
@@ -747,7 +765,7 @@ object SpreadsheetNumbers {
                 for (i in layout.numeratorAt + layout.denominatorAt) out[i] = " "
                 out[layout.slash] = " "
                 if (layout.fixedDenominator > 0) out[layout.slash + 1] = " ".repeat(layout.fixedDenominator.toString().length)
-                return
+                return false
             }
         }
         placeWhole(numerator.toString(), layout, layout.numeratorAt, null, out)
@@ -760,6 +778,7 @@ object SpreadsheetNumbers {
                 else -> ""
             }
         }
+        return !mixed && numerator.signum() == 0
     }
 
     /**

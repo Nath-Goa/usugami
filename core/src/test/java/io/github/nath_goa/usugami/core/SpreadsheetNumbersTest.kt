@@ -158,6 +158,22 @@ class SpreadsheetNumbersTest {
         )
     }
 
+    @Test fun aNegativeNumberThatRoundsToNothingHasNoMinus() {
+        check(
+            row(-0.001, "0.00", "0.00"),
+            row(-0.004, "#,##0.00", "0.00"),
+            row(-0.001, "0%", "0%"),
+            row(-0.001, "0.00\" kg\"", "0.00 kg"),
+            row(-0.001, "?/8", "0/8"),
+            // Its own section for negative numbers shows it as that section says.
+            row(-0.001, "0.00;-0.00", "-0.00"),
+            row(-0.001, "#,##0.00_);(#,##0.00)", "(0.00)"),
+            // Whatever is left of it after rounding keeps its minus.
+            row(-0.001, "0.00%", "-0.10%"),
+            row(-0.005, "0.00", "-0.01"),
+        )
+    }
+
     @Test fun conditionsPickTheSection() {
         val millions = "[>=1000000]0.0,,\"M\";[>=1000]0.0,\"K\";0"
         check(row(1500000.0, millions, "1.5M"), row(2500.0, millions, "2.5K"), row(999.0, millions, "999"))
