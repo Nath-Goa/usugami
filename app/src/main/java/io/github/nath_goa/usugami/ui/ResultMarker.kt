@@ -78,8 +78,14 @@ internal class ResultMarker(
 
     private var job: Job? = null
 
-    /** The result's PDFs certified against any change: they keep no mark, which the user has been told. */
-    private val forbidden: MutableSet<File> = ConcurrentHashMap.newKeySet()
+    /**
+     * The result's PDFs certified against any change: they keep no mark, which the user has been told.
+     * Kept in the saved state too, so that a result shown again after Android closed Usugami isn't
+     * tried, and told of, once more.
+     */
+    private val forbidden: MutableSet<File> = ConcurrentHashMap.newKeySet<File>().also { files ->
+        handle.get<ArrayList<String>>(KEY_FORBIDDEN)?.mapTo(files) { File(it) }
+    }
 
     /** Set once [job] has started changing the PDFs. */
     @Volatile private var started = false
@@ -107,7 +113,7 @@ internal class ResultMarker(
         job?.cancel()
         job = null
         uncertain = false
-        forbidden.clear()
+        forget()
         _working.value = false
         handle.remove<Boolean>(KEY_UNDER_WAY)
     }
@@ -122,7 +128,7 @@ internal class ResultMarker(
      */
     fun markMade(files: List<PdfFile>, check: () -> Unit, onFile: (index: Int, count: Int) -> Unit = { _, _ -> }): List<PdfFile> {
         uncertain = false
-        forbidden.clear()
+        forget()
         _preview.value = files.firstOrNull()?.let { render(it) }
         val wanted = setting.value.wanted ?: return files
         return bringTo(files, wanted, verify = true, check, onFile).also { tell(it) }.files
@@ -183,6 +189,24 @@ internal class ResultMarker(
         }
     }
 
+    /** Notes [file] as certified against any change. False when it was noted already. */
+    private fun forbid(file: File): Boolean = forbidden.add(file).also { if (it) keepForbidden() }
+
+    /** No PDF is noted as certified against any change any more: the result is new, or put away. */
+    private fun forget() {
+        if (forbidden.isEmpty()) return
+        forbidden.clear()
+        keepForbidden()
+    }
+
+    /** Puts [forbidden] in the saved state, on the main thread, where the saved state is written. */
+    private fun keepForbidden() {
+        scope.launch {
+            val paths = forbidden.mapTo(ArrayList()) { it.path }
+            if (paths.isEmpty()) handle.remove<ArrayList<String>>(KEY_FORBIDDEN) else handle[KEY_FORBIDDEN] = paths
+        }
+    }
+
     /** Whether [file] is as it should be with [wanted]: it says it carries it, or it is certified against the mark. */
     private fun settled(file: PdfFile, wanted: MarkStyle?) = file.mark == wanted || (wanted != null && file.file in forbidden)
 
@@ -228,7 +252,7 @@ internal class ResultMarker(
                 }
             } catch (_: MarkForbidden) {
                 // Its certification allows no change: it has no mark, and keeps none.
-                if (forbidden.add(file.file)) refusing++
+                if (forbid(file.file)) refusing++
                 if (file.mark != null) file.copy(mark = null) else file
             } catch (e: CancellationException) {
                 throw e
@@ -277,6 +301,9 @@ internal class ResultMarker(
     private companion object {
         /** In the saved state while the result's PDFs are being changed. */
         const val KEY_UNDER_WAY = "marking"
+
+        /** In the saved state: the paths of the result's PDFs certified against any change. */
+        const val KEY_FORBIDDEN = "mark_forbidden"
 
         const val SETTLE_MS = 250L
 
