@@ -338,7 +338,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var resultName: String
         get() = handle[KEY_RESULT_NAME] ?: ""
         set(value) { handle[KEY_RESULT_NAME] = value }
-    private val zipper = ResultZipper(app, exporter.zipDir, viewModelScope, { strings }, { _messages.trySend(it) }, ::resultCleared)
+    private val zipper = ResultZipper(app, exporter.zipDir, viewModelScope, { strings }, { _messages.trySend(it) }, ::resultCleared, turn = saveTurn)
     /** How far the ZIP file of the result's PDFs has got, while it is being made. */
     val zipProgress: StateFlow<ZipProgress?> = zipper.progress
     /** Share screens for ZIP files of the result's PDFs, once each is ready. */

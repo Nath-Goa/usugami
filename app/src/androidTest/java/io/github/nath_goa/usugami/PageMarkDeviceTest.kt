@@ -61,6 +61,7 @@ import org.junit.Test
 import java.io.File
 import java.io.IOException
 import java.util.Calendar
+import java.util.zip.ZipInputStream
 
 /**
  * The Usugami mark on a PDF's pages: in the bottom-right corner of each page as shown, upright, in the
@@ -532,7 +533,8 @@ class PageMarkDeviceTest {
         assertTrue(marks.apply(saved, MarkStyle()))
         checkMarked(saved, MarkStyle())
 
-        val vm = onMain { PdfToolsViewModel(app, SavedStateHandle()) }
+        val handle = SavedStateHandle()
+        val vm = onMain { PdfToolsViewModel(app, handle) }
         try {
             onMain {
                 vm.setMark(true)
@@ -554,6 +556,13 @@ class PageMarkDeviceTest {
             waitUntil("the watermark to settle") { !onMain { vm.marking.value } }
             assertNull(runBlocking { withTimeoutOrNull(500) { vm.messages.first() } })
             assertArrayEquals(certified, result.file.readBytes())
+            // Nor when the result shows again after Android closed Usugami.
+            val kept = onMain { handle.keys().associateWith { handle.get<Any?>(it) } }
+            val again = onMain { PdfToolsViewModel(app, SavedStateHandle(kept)) }
+            waitUntil("the result to show again") { onMain { again.result.value != null && !again.marking.value } }
+            assertNull(runBlocking { withTimeoutOrNull(1_500) { again.messages.first() } })
+            assertArrayEquals(certified, result.file.readBytes())
+            onMain { again.reset() }
         } finally {
             onMain { vm.reset() }
             runBlocking { vm.awaitFileWork() }
@@ -588,6 +597,36 @@ class PageMarkDeviceTest {
         waitUntil("the mark to come off") { !vm.marking.value && vm.result.value!!.all { it.mark == null } }
         assertEquals(listOf(listOf(0), listOf(0)), marksOn(onMain { vm.result.value!! }))
         assertFalse(vm.saved.value)
+        onMain { vm.startOver() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    @Test fun aZipFileSavedWhileTheMarkGoesOnHoldsEveryPdfWithIt() {
+        val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        val count = 40
+        val images = (1..count).map { n ->
+            val file = File(dir, "page$n.jpg")
+            file.outputStream().use { Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 80, it) }
+            Uri.fromFile(file)
+        }
+        onMain { vm.addImages(images) }
+        waitUntil("the images to be added") { vm.items.value.size == count && vm.pendingImports.value == 0 }
+        onMain { vm.convert(merge = false, fileName = "zipped", compression = Compression.RECOMMENDED) }
+        waitUntil("the PDFs to be made") { vm.result.value != null }
+        val zip = File(dir, "zipped.zip")
+        onMain { vm.setMark(true) }
+        // The mark's short wait is over: the PDFs are being changed.
+        Thread.sleep(400)
+        onMain { vm.saveZipTo(Uri.fromFile(zip)) }
+        waitUntil("the ZIP file and the mark") { !vm.busySaving.value && !vm.marking.value }
+        val marked = ZipInputStream(zip.inputStream()).use { entries ->
+            generateSequence { entries.nextEntry }.map {
+                PDDocument.load(entries.readBytes()).use { doc ->
+                    doc.pages.sumOf { page -> page.contentStreams.asSequence().count { it.cosObject.getDictionaryObject(PageMark.MARKER) is COSDictionary } }
+                }
+            }.toList()
+        }
+        assertEquals(List(count) { 1 }, marked)
         onMain { vm.startOver() }
         runBlocking { vm.awaitFileWork() }
     }

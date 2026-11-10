@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -30,7 +32,9 @@ import java.io.File
  * with progress and cancelling. MainViewModel and PdfToolsViewModel each keep one for their results.
  * [dir] is where the ZIP for sharing is made, beside the PDFs; [resultCleared] is called when the
  * PDFs have gone from the cache. The ZIP file is written on [io], which a view model can share with
- * its other file work, so that freeing the PDFs waits for a ZIP file of them being saved.
+ * its other file work, so that freeing the PDFs waits for a ZIP file of them being saved. A view
+ * model whose other work on the PDFs runs elsewhere gives the [turn] that work holds: the ZIP file
+ * is then made of the PDFs before or after the Usugami mark changes them, never while it does.
  */
 internal class ResultZipper(
     context: Context,
@@ -40,6 +44,7 @@ internal class ResultZipper(
     private val message: (String) -> Unit,
     private val resultCleared: (count: Int) -> Unit,
     private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val turn: Mutex? = null,
 ) {
     private val zip = ResultZip(context, dir)
     private var job: Job? = null
@@ -105,7 +110,8 @@ internal class ResultZipper(
         job = scope.launch {
             val job = coroutineContext[Job]!!
             try {
-                done(withContext(io) { work { job.ensureActive() } })
+                val made = suspend { withContext(io) { work { job.ensureActive() } } }
+                done(if (turn != null) turn.withLock { made() } else made())
             } catch (e: CancellationException) {
                 withContext(NonCancellable + Dispatchers.IO) { cancelled() }
                 throw e
