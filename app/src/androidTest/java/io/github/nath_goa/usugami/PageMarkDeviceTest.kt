@@ -500,6 +500,23 @@ class PageMarkDeviceTest {
     }
 
     /**
+     * A signed PDF signed again in another app after its mark was appended, which adds an update of
+     * its own after the mark's: Compress makes its PDF of all of it, the second signature's field
+     * too, rather than cut it back to the PDF as it was first signed and say it kept it.
+     */
+    @Test fun aSignedPdfSignedAgainAfterItsMarkKeepsWhatWasAdded() {
+        val file = compactPdf(File(dir, "twice.pdf"), "TWICE")
+        sign(file)
+        assertTrue(marks.apply(file, MarkStyle()))
+        sign(file)
+        val engine = PdfToolsEngine(app)
+        val compressed = engine.compress(PdfInput(4245, file.path, "twice.pdf", 1), PdfCompression.RECOMMENDED, "compressed")
+        assertFalse(compressed.keptOriginal)
+        PDDocument.load(compressed.file).use { assertEquals(2, it.signatureDictionaries.size) }
+        engine.clearOutput()
+    }
+
+    /**
      * A PDF certified against any change gets no mark: it is left as it is, unless it was saved anew
      * since, which broke its certification. Compressed with the mark on, the user is told once, and the
      * result says it has none.

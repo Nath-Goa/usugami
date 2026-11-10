@@ -399,6 +399,9 @@ class PageMark(context: Context) {
         /** How far before a signed revision's end its end of file mark is looked for. */
         private const val EOF_TAIL = 1024L
 
+        /** The end of file mark each revision of a PDF ends with. */
+        private val EOF_MARK = "%%EOF".toByteArray(Charsets.US_ASCII)
+
         /** How far a number of the mark's place may be from where it goes: in points, or font sizes. */
         private const val MATRIX_SLACK = 0.01f
 
@@ -451,8 +454,8 @@ class PageMark(context: Context) {
         /**
          * Where the PDF as it was ends in [file], when the mark on [pages] was appended to it as an
          * update: each marker says the same, and an update as PDFBox writes one starts there (a line
-         * break, then an object), whatever that PDF ends with. Null otherwise. That PDF, signed, is
-         * [file]'s first bytes up to there (see [cut]).
+         * break, then an object), whatever that PDF ends with, and is the file's last (see
+         * [endsOnce]). Null otherwise. That PDF, signed, is [file]'s first bytes up to there (see [cut]).
          */
         fun appendedAt(pages: Iterable<PDPage>, file: File): Long? {
             val ends = pages.flatMap { markers(it.cosObject) }.map { it.getLong(KEY_ORIGINAL_LENGTH, -1) }.toSet()
@@ -462,7 +465,39 @@ class PageMark(context: Context) {
                 it.seek(end)
                 it.readFully(head)
             }
-            return end.takeIf { UPDATE_START.containsMatchIn(String(head, Charsets.ISO_8859_1)) }
+            return end.takeIf { UPDATE_START.containsMatchIn(String(head, Charsets.ISO_8859_1)) && endsOnce(file, end) }
+        }
+
+        /**
+         * Whether [file] has one end of file mark from [start] on: the update there is its last. An
+         * update another app appended since, signing the PDF again, filling it in or adding a note or
+         * a page, ends with a mark of its own: cut back to [start], the file would lose it.
+         */
+        private fun endsOnce(file: File, start: Long): Boolean {
+            var ends = 0
+            var matched = 0
+            RandomAccessFile(file, "r").use { bytes ->
+                bytes.seek(start)
+                val buffer = ByteArray(BUFFER)
+                while (true) {
+                    val read = bytes.read(buffer)
+                    if (read < 0) break
+                    for (i in 0 until read) {
+                        val byte = buffer[i]
+                        matched = when {
+                            byte == EOF_MARK[matched] -> matched + 1
+                            // One % more than the mark starts with: the last two still start it.
+                            byte == EOF_MARK[0] -> if (matched == 2) 2 else 1
+                            else -> 0
+                        }
+                        if (matched == EOF_MARK.size) {
+                            if (++ends > 1) return false
+                            matched = 0
+                        }
+                    }
+                }
+            }
+            return ends == 1
         }
 
         /** Writes [file]'s first [length] bytes to [target]. */
