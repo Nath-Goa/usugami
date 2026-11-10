@@ -276,6 +276,13 @@ class SpreadsheetNumbersTest {
         assertEquals("mercredi 15 mars 2023", SpreadsheetNumbers.format(45000.0, "dddd d mmmm yyyy", french).text)
     }
 
+    @Test fun lakhsAndCroresAreGroupedByTwoDigits() {
+        val indian = SheetLocale.ENGLISH.copy(laterGroups = 2)
+        assertEquals("12,34,567.89", SpreadsheetNumbers.format(1234567.891, "#,##0.00", indian).text)
+        assertEquals("$1,23,45,67,89,012.00", SpreadsheetNumbers.format(123456789012.0, "$#,##0.00", indian).text)
+        assertEquals("999", SpreadsheetNumbers.format(999.0, "#,##0", indian).text)
+    }
+
     @Test fun recognizesDateFormats() {
         for (code in listOf("m/d/yyyy", "[h]:mm", "mm:ss", "[$-409]mmmm", "yyyy\" years\"", "h AM/PM")) {
             assertTrue(code, SpreadsheetNumbers.isDateFormat(code))

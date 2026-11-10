@@ -22,6 +22,11 @@ data class SheetLocale(
     val shortDays: List<String>,
     val am: String,
     val pm: String,
+    /**
+     * How many digits go together after the thousands: 3 in most languages, and 2 where numbers are
+     * counted in lakhs and crores, as in India, where a million is written 10,00,000.
+     */
+    val laterGroups: Int = 3,
 ) {
     companion object {
         /** American English, the language Excel's built-in formats are written for. */
@@ -701,7 +706,7 @@ object SpreadsheetNumbers {
         val rounded = x.setScale(layout.decimalsAt.size, RoundingMode.HALF_UP)
         val digits = rounded.toPlainString()
         val whole = digits.substringBefore('.').takeIf { it != "0" }.orEmpty()
-        placeWhole(whole, layout, layout.wholeAt, if (layout.grouped) locale.grouping else null, out)
+        placeWhole(whole, layout, layout.wholeAt, if (layout.grouped) locale.grouping else null, out, locale.laterGroups)
         placeDecimals(digits.substringAfter('.', ""), layout, out)
         if (layout.point >= 0) out[layout.point] = (if (layout.wholeAt.isEmpty()) whole else "") + locale.decimal
         return rounded.signum() == 0 && (layout.wholeAt.isNotEmpty() || layout.decimalsAt.isNotEmpty())
@@ -814,9 +819,10 @@ object SpreadsheetNumbers {
     /**
      * [digits] put right to left in the placeholders at [at]; the leftmost one also takes any digits left
      * over. Empty places show 0, a space or nothing as their placeholder asks, and [separator], when
-     * given, goes between thousands.
+     * given, goes after the thousands and then after every [laterGroups] digits.
      */
-    private fun placeWhole(digits: String, layout: NumberLayout, at: IntArray, separator: Char?, out: Array<String?>) {
+    private fun placeWhole(digits: String, layout: NumberLayout, at: IntArray, separator: Char?, out: Array<String?>, laterGroups: Int = 3) {
+        fun endsGroup(place: Int) = place >= 3 && (place - 3) % laterGroups.coerceAtLeast(1) == 0
         val n = at.size
         for (j in 0 until n) {
             val place = n - 1 - j
@@ -824,14 +830,14 @@ object SpreadsheetNumbers {
             if (j == 0) {
                 for (p in digits.length - 1 downTo n) {
                     shown.append(digits[digits.length - 1 - p])
-                    if (separator != null && p % 3 == 0) shown.append(separator)
+                    if (separator != null && endsGroup(p)) shown.append(separator)
                 }
             }
             val kind = (layout.tokens[at[j]] as Token.Digit).kind
             val digit = if (place < digits.length) digits[digits.length - 1 - place] else if (kind == '0') '0' else null
             if (digit != null) {
                 shown.append(digit)
-                if (separator != null && place > 0 && place % 3 == 0) shown.append(separator)
+                if (separator != null && endsGroup(place)) shown.append(separator)
             } else if (kind == '?') {
                 shown.append(' ')
             }

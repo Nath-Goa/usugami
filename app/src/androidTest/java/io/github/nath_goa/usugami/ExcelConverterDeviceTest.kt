@@ -157,6 +157,14 @@ class ExcelConverterDeviceTest {
         }
     }
 
+    @Test fun numbersAreGroupedAsThePhonesRegionGroupsThem() {
+        Locale.setDefault(Locale.forLanguageTag("en-IN"))
+        val columns = """<cols><col min="1" max="1" width="20" customWidth="1"/></cols>"""
+        val pdf = convert(workbook("lakhs.xlsx", Sheet("Lakhs", "$columns<sheetData>${row(1, number("A1", 1234567.891, 1))}</sheetData>")))
+        val page = pageTexts(pdf).single()
+        assertTrue("\"12,34,567.89\" in $page", "12,34,567.89" in page)
+    }
+
     @Test fun textRunsOnIntoEmptyCellsAndNumbersTooWideShowHashes() {
         val data = row(1, text("A1", "A sentence running on past its column"), number("E1", 123456789.123, 1)) +
             row(2, text("A2", "Stopped here by"), number("B2", 7.0))

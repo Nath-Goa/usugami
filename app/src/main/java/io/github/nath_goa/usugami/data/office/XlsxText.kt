@@ -4,6 +4,8 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.icu.text.DecimalFormat
+import android.icu.text.NumberFormat
 import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
@@ -463,7 +465,8 @@ internal class CellTexts(
 /**
  * Numbers as their cells' formats show them (see [SpreadsheetNumbers]), written the way [locale]
  * writes them, as Excel writes them in the language of the computer it runs on: its decimal point,
- * digit grouping, and month and day names. The short date (built-in format 14) is [locale]'s too.
+ * digit grouping (12,34,567 in India), and month and day names. The short date (built-in format 14)
+ * is [locale]'s too.
  */
 internal class CellNumbers(locale: Locale) {
     private val sheetLocale = sheetLocale(locale)
@@ -497,8 +500,13 @@ internal class CellNumbers(locale: Locale) {
                 shortDays = dates.shortWeekdays.drop(1).take(7),
                 am = dates.amPmStrings.getOrNull(0) ?: SheetLocale.ENGLISH.am,
                 pm = dates.amPmStrings.getOrNull(1) ?: SheetLocale.ENGLISH.pm,
+                laterGroups = laterGroups(locale),
             )
         }
+
+        /** How many digits [locale] puts together after the thousands: 2 where it counts in lakhs and crores, else 3. */
+        fun laterGroups(locale: Locale): Int =
+            (NumberFormat.getNumberInstance(locale) as? DecimalFormat)?.secondaryGroupingSize?.takeIf { it > 0 } ?: 3
 
         /**
          * [locale]'s short date as an Excel format code, with the year in full, as Windows writes
