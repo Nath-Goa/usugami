@@ -342,7 +342,8 @@ class PageMark(context: Context) {
         val range = value.getDictionaryObject(COSName.BYTERANGE) as? COSArray ?: return false
         if (range.size() != 4) return false
         val (start, gap, after, last) = (0 until 4).map { (range.getObject(it) as? COSNumber)?.longValue() ?: return false }
-        if (start != 0L || gap < 1 || after <= gap || last < 0 || after + last > bytes.length()) return false
+        // Not after + last, which a crafted range's huge numbers would turn negative.
+        if (start != 0L || gap < 1 || after <= gap || last < 0 || after > bytes.length() || last > bytes.length() - after) return false
         fun at(position: Long): Int = bytes.run {
             seek(position)
             read()
