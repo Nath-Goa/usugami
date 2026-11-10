@@ -1,0 +1,4 @@
+• Excel en PDF : le texte arabe ou hébreu commence à droite de sa cellule, comme dans Excel
+• Un fichier ZIP créé au moment où le filigrane Usugami change contient tous les PDF avec le filigrane
+• Le message « PDF certifié, pas de filigrane » n'apparaît qu'une fois, et non à chaque retour
+• Un PDF dont la signature est abîmée peut recevoir le filigrane Usugami

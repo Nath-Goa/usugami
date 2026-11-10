@@ -1,0 +1,4 @@
+• Excel to PDF: Arabic and Hebrew text starts at the right of its cell, as in Excel
+• A ZIP file made just as the Usugami watermark is switched holds every PDF with it
+• The "certified PDF, no watermark" message is said once, not each time you come back
+• A PDF with a damaged signature can get the Usugami watermark

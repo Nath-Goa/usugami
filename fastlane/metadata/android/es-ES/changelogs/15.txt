@@ -1,0 +1,4 @@
+• Excel a PDF: el texto árabe o hebreo empieza a la derecha de su celda, como en Excel
+• Un archivo ZIP creado justo al cambiar la marca de agua de Usugami contiene todos los PDF con ella
+• El mensaje «PDF certificado, sin marca de agua» se muestra una vez, no cada vez que vuelves
+• Un PDF con una firma dañada puede llevar la marca de agua de Usugami

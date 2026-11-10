@@ -6,6 +6,24 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.4] - 2026-11-10
+
+### Fixed
+
+- **Excel to PDF** starts Arabic and Hebrew text at the right of its cell and lets it run on into
+  the empty cells to its left, as Excel does for a cell with no alignment of its own, where it sat
+  at the left and ran on to the right. In a cell that wraps its text, such text set to the left or
+  to the right now goes to that side instead of the other.
+- **Images to PDF**, one PDF per image: a ZIP file of the PDFs saved or shared just as the
+  **Usugami watermark** is switched on or off, or changed, waits for the watermark and then holds
+  every PDF with it. It could hold some PDFs with the watermark and some without while the screen
+  said it was saved, or fail.
+- **Usugami watermark**: the message that a PDF certified against any change gets no watermark is
+  said once, not again each time Android closes Usugami in the background and the result shows
+  again.
+- **Usugami watermark**: a crafted PDF whose signature claims an impossibly long signed part gets
+  the watermark like any unsigned PDF, where adding it failed with a message.
+
 ## [1.6.3] - 2026-11-10
 
 ### Fixed
@@ -786,7 +804,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.3...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.4...HEAD
+[1.6.4]: https://github.com/Nath-Goa/usugami/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/Nath-Goa/usugami/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/Nath-Goa/usugami/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/Nath-Goa/usugami/compare/v1.6.0...v1.6.1

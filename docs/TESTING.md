@@ -507,7 +507,10 @@ On a phone or emulator, with the release APKs:
   Excel cell like it, read right to left on every line.
 - Excel to PDF with the phone's region set to India and then to the United States: 1234567.89 in a
   cell with thousands separators reads 12,34,567.89 and then 1,234,567.89. A cell holding -0.001
-  shown to two decimals reads 0.00.
+  shown to two decimals reads 0.00. A cell of Hebrew or Arabic text with no alignment of its own
+  starts at the right of its cell, and a cell of Latin text at the left.
+- Images to PDF with forty photos, one PDF per image: tap the Usugami watermark switch and save a
+  ZIP file of the PDFs straight away: every PDF in it has the watermark.
 - Scan document with a tall photo of a page turned about 30 degrees to the right: after the crop
   step the page stands upright, not on its side.
 - Recent files: save a PDF with Save as, delete it in the Files app and come back to Usugami: it
