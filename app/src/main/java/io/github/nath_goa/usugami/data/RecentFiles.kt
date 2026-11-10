@@ -117,7 +117,9 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
      * Looks for each listed file not looked for since Usugami was last in the background (see
      * [checkAgain]). One deleted goes from the list, and one renamed gets its new name or goes too (see
      * [RecentFiles]); one Usugami can no longer read, or whose place is out of reach, is marked
-     * [unreachable]. A query or two each, for at most [RecentFileList.MAX] files.
+     * [unreachable]. One whose kept access Android has taken back goes as well: the phone's Files app
+     * does that to a document, or a folder, it deletes or renames, and nothing brings it back.
+     * A query or two each, for at most [RecentFileList.MAX] files.
      */
     suspend fun check() = withContext(looking) {
         val (due, begun) = synchronized(lock) { _files.value.filter { it.uri !in checked } to round }
@@ -126,10 +128,12 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
         synchronized(lock) {
             // Usugami went into the background meanwhile, where files may change again: they are looked for once more.
             if (begun == round) checked += looks.keys
+            val held = heldGrants()
             change { list ->
                 list.mapNotNull { file ->
                     when (val look = looks[file.uri]) {
-                        null, Look.Lost -> file
+                        null -> file
+                        Look.Lost -> file.takeUnless { held != null && it.grant != null && it.grant !in held }
                         Look.Gone -> null
                         is Look.Found -> file.copy(name = look.name ?: file.name, size = look.size ?: file.size)
                     }
@@ -214,6 +218,13 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
             }
             held.filterNot { it in needed }.forEach(::giveBack)
         }
+    }
+
+    /** The accesses Usugami still keeps, or null when Android doesn't say. Read under [lock], as they are taken. */
+    private fun heldGrants(): Set<String>? = try {
+        resolver.persistedUriPermissions.mapTo(HashSet()) { it.uri.toString() }
+    } catch (_: Exception) {
+        null
     }
 
     /** Keeps Usugami's access to [grant] across restarts. False when the place doesn't allow that. */

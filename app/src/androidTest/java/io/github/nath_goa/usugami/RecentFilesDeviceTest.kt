@@ -19,6 +19,7 @@ import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
+import io.github.nath_goa.usugami.data.SavedFile
 import io.github.nath_goa.usugami.ui.KeptResult
 import io.github.nath_goa.usugami.ui.MainViewModel
 import kotlinx.coroutines.CompletableDeferred
@@ -225,7 +226,9 @@ class RecentFilesDeviceTest {
     /**
      * Saved with the system's "Save as" screen, a document stays reachable once that screen's access
      * has gone with the activity it was given to: Usugami kept it, also for the list read back as after
-     * a restart. Once the access is lost all the same, opening the file says so and offers to remove it.
+     * a restart. Once Android takes that access back, as when the Files app deletes the document, it
+     * goes from the list; listed without an access Usugami could keep, it stays, and opening it says it
+     * can't be opened and offers to remove it.
      */
     @Test fun aSaveAsDocumentStaysReachableOnceTheScreenThatGaveItHasGone() {
         val name = "Usugami-recent-test.pdf"
@@ -262,8 +265,18 @@ class RecentFilesDeviceTest {
             assertEquals(listed.uri, restarted.files.value.first().uri)
             assertTrue(listed.uri !in restarted.unreachable.value)
 
-            // Android took the access back: the file stays listed, and opening it says why it can't be.
+            // Android took back the access Usugami kept, as when the Files app deletes or renames
+            // the document: nothing brings it back, and the file goes from the list.
             app.contentResolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            waitUntil("the document to leave the list") {
+                recent.checkAgain()
+                runBlocking { recent.check() }
+                recent.files.value.isEmpty()
+            }
+
+            // In a place that didn't let Usugami keep its access, the file stays listed, and opening it
+            // says why it can't be.
+            recent.add(listOf(SavedFile(uri, PdfSaver.PDF_MIME, grant = null, name, pdf.length())))
             waitUntil("Usugami to find it can't read the document") {
                 recent.checkAgain()
                 runBlocking { recent.check() }
@@ -284,7 +297,8 @@ class RecentFilesDeviceTest {
     /**
      * Saved into a folder picked with the system's folder picker, a file deleted in another app goes
      * from the list, though Android's storage answers for it with an error rather than with nothing,
-     * and Usugami gives back its access to the folder, which no listed file needs any more.
+     * and Usugami gives back its access to the folder, which no listed file needs any more. So does a
+     * file whose folder the Files app deleted, which takes that access away.
      */
     @Test fun aFileSavedIntoAPickedFolderGoesWhenDeleted() {
         val folder = "Documents/Usugami-recent-test"
@@ -312,6 +326,18 @@ class RecentFilesDeviceTest {
             runBlocking { recent.check() }
             assertTrue(recent.files.value.isEmpty())
             assertTrue(app.contentResolver.persistedUriPermissions.none { it.uri == tree })
+
+            // The folder itself deleted as the phone's Files app does it, which takes Usugami's access to
+            // it away: a file saved into it goes too, rather than staying as one that can't be opened.
+            PdfSaver(app).saveToFolder(listOf(pdf), tree)
+            assertEquals(tree.toString(), recent.files.value.single().grant)
+            DocumentsContract.deleteDocument(
+                app.contentResolver,
+                DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree)),
+            )
+            recent.checkAgain()
+            runBlocking { recent.check() }
+            assertTrue(recent.files.value.isEmpty())
         } finally {
             shell("rm -rf /sdcard/$folder")
         }
