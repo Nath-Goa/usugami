@@ -163,7 +163,7 @@ internal class CellBorders(
     val diagonalDown: CellLine?,
 )
 
-/** How a cell's text lines up across it. [GENERAL] puts text on the left, numbers on the right and TRUE or FALSE in the middle. */
+/** How a cell's text lines up across it. [GENERAL] puts text on the left (on the right when it reads right to left), numbers on the right and TRUE or FALSE in the middle. */
 internal enum class SheetAlign { GENERAL, LEFT, CENTER, RIGHT, FILL, JUSTIFY, CENTER_ACROSS, DISTRIBUTED }
 
 /** How a cell's text lines up from top to bottom. */

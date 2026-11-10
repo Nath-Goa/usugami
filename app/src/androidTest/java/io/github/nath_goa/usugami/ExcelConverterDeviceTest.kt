@@ -182,6 +182,19 @@ class ExcelConverterDeviceTest {
         assertFalse("A2's text shows in B2", dark(pdf, 1, RectF(b2 + 1f, baseline - 7f, b2 + 100f, baseline - 1f)))
     }
 
+    @Test fun hebrewTextStartsAtItsCellsRightUnlessItIsSetToTheLeft() {
+        // Column A is 210 points wide, from the page's 0.7 inch margin.
+        val columns = """<cols><col min="1" max="1" width="40" customWidth="1"/></cols>"""
+        val data = row(1, text("A1", "שלום")) + row(2, text("A2", "ברוך", 5)) + row(3, text("A3", "תודה", 6)) + row(4, text("A4", "Latin"))
+        val pdf = convert(workbook("hebrew.xlsx", Sheet("Hebrew", "$columns<sheetData>$data</sheetData>")))
+        val middle = 0.7f * 72 + 105f
+        // Each word's first letter is its rightmost: on one line, wrapped, and wrapped at the left.
+        assertTrue("General, on one line", word(pdf, 1, "ש").xDirAdj > middle + 50f)
+        assertTrue("General, wrapped", word(pdf, 1, "ב").xDirAdj > middle + 50f)
+        assertTrue("At the left, wrapped", word(pdf, 1, "ת").xDirAdj < middle)
+        assertTrue("Latin text", word(pdf, 1, "Latin").xDirAdj < middle - 50f)
+    }
+
     @Test fun mergedCellsShowTheirTextOnceAcrossThemAndWrappedTextGrowsItsRow() {
         val data = row(1, text("A1", "Centred title", 4), """<c r="B1" s="4"/>""", """<c r="C1" s="4"/>""", """<c r="D1" s="4"/>""") +
             row(2, text("A2", "alpha bravo charlie delta echo golf", 5), text("B2", "Beside"), text("E2", "SELF-EMPLOYED", 5))
@@ -355,7 +368,8 @@ class ExcelConverterDeviceTest {
             <fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts>
             <fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>
             <borders count="1"><border/></borders>
-            <cellXfs count="6"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="4"/><xf numFmtId="15"/><xf numFmtId="164"/>
-            <xf numFmtId="0"><alignment horizontal="center"/></xf><xf numFmtId="0"><alignment wrapText="1"/></xf></cellXfs></styleSheet>"""
+            <cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="4"/><xf numFmtId="15"/><xf numFmtId="164"/>
+            <xf numFmtId="0"><alignment horizontal="center"/></xf><xf numFmtId="0"><alignment wrapText="1"/></xf>
+            <xf numFmtId="0"><alignment horizontal="left" wrapText="1"/></xf></cellXfs></styleSheet>"""
     }
 }

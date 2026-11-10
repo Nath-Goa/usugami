@@ -9,6 +9,7 @@ import android.icu.text.NumberFormat
 import android.text.Layout
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import android.text.style.ScaleXSpan
 import androidx.core.graphics.withClip
@@ -111,9 +112,9 @@ internal class CellTexts(
                 val held = value.text.take(MAX_CELL_CHARS)
                 if (runs == null || kind == CellKind.FORMULA) {
                     val (text, color) = numbers.formatText(held, format.numberFormat)
-                    ShownText(lines(text, format.wraps), font, color ?: font.color, resolve(format.horizontal, SheetAlign.LEFT), number = false, rich = false)
+                    ShownText(lines(text, format.wraps), font, color ?: font.color, resolve(format.horizontal, textSide(text)), number = false, rich = false)
                 } else {
-                    ShownText(richText(held, runs, font, format.wraps), font, font.color, resolve(format.horizontal, SheetAlign.LEFT), number = false, rich = true)
+                    ShownText(richText(held, runs, font, format.wraps), font, font.color, resolve(format.horizontal, textSide(held)), number = false, rich = true)
                 }
             }
             CellKind.BOOLEAN ->
@@ -124,6 +125,15 @@ internal class CellTexts(
     }
 
     private fun resolve(align: SheetAlign, general: SheetAlign) = if (align == SheetAlign.GENERAL) general else align
+
+    /**
+     * The side General puts [text] on: the left, or the right when it reads right to left, as Arabic
+     * and Hebrew do, where Excel starts it at the cell's right and lets it run on to the left.
+     */
+    private fun textSide(text: CharSequence) = if (startsRightToLeft(text)) SheetAlign.RIGHT else SheetAlign.LEFT
+
+    /** Whether [text] reads right to left: its first letter is written that way, as a paragraph's direction is found. */
+    private fun startsRightToLeft(text: CharSequence) = TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(text, 0, text.length)
 
     /**
      * [text] with its line breaks as a cell shows them: only wrapped text goes on several lines; in
@@ -194,10 +204,13 @@ internal class CellTexts(
             rich.text.setSpan(ScaleXSpan(paint(shown.font).textScaleX), 0, rich.text.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }.text
         val text = if (format.wraps) breaksAfterHyphens(spanned) else spanned
+        // A paragraph that reads right to left starts at the right: the cell's left is then its end.
+        val rightToLeft = startsRightToLeft(text)
         val align = when {
             format.rotation == STACKED -> Align.CENTER
             shown.align == SheetAlign.CENTER || shown.align == SheetAlign.CENTER_ACROSS -> Align.CENTER
-            shown.align == SheetAlign.RIGHT -> Align.END
+            shown.align == SheetAlign.RIGHT -> if (rightToLeft) Align.START else Align.END
+            shown.align == SheetAlign.LEFT -> if (rightToLeft) Align.END else Align.START
             shown.align == SheetAlign.JUSTIFY || shown.align == SheetAlign.DISTRIBUTED -> Align.JUSTIFY
             else -> Align.START
         }
