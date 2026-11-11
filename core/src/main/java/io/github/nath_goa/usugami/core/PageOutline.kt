@@ -1979,6 +1979,7 @@ object PageDetection {
     private const val MIN_GAP = 0.15
     /** At most so many pairs of opposite sides are tried (a busy photo has a few hundred). */
     private const val MAX_PAIRS = 1000
+    /** and so many pairs of a side with the photo's border opposite it. */
     private const val MAX_BORDER_PAIRS = 100
     /** A page's corner may be this many pixels off the image. */
     private const val OFF_IMAGE = 3f

@@ -89,13 +89,29 @@ a margin, Fit, landscape, turned a quarter, and every EXIF orientation and turn)
 page's own drawing matrix puts it. For cropping photos they find the page on synthetic photos (a
 sheet with print on a darker wooden table, with noise): upright, tilted, photographed at a slant,
 half in shadow or with the light falling off, with a folded corner, beside a pen and a cup, and on
-a large photo, each corner within about 1% of the page's; they are unsure of a page running off
-the photo or filling it, a small page, a round plate and a bare table. By its edges and colours,
+a large photo, each corner within about 1% of the page's; they are unsure of a page with a corner
+cut off by the photo or filling it, a small page, a round plate and a bare table. By its edges and colours,
 they also find a page on a brighter table, a white page on an unevenly lit white desk (by the faint
 shadow along its edges, also at a slant and under a hand's shadow), a page on a light grey desk only
 a little darker than the paper, a page on a pale desk with a busy grain, and a white page on a pale
 blue desk by its colour alone; they are unsure of tiles as large as a page and of a keyboard, and
 find a page beside a keyboard on a 1200 by 1600 photo in under 400 ms.
+On a textbook's page as wide as a tall photo (its left edge on the photo's border, desk above its
+top edge, darkness below its bottom edge), they find the paper as far as it shows and not the
+ruled table printed on it, and with the whole page on a dark table, the page and not its table or
+the photograph printed on it; with the page running off the photo left and right they are unsure,
+and on a page that fills the photo, of a table, a tinted panel and a printed photograph, and of
+the lit part of a page under a hard-edged shadow. They find a page that runs off the photo at its
+top, and in colour at its left with light wood as bright as the paper beyond its other edges,
+that side the photo's border; they are unsure of a page across a corner of the photo, of a page
+with only one edge in the photo, of a bare white wall and of a white table a page lies on. They
+don't draw a page's sides on to a streak in the wood above it, and keep a dark band printed
+across a page's top in its outline. They find a page all in the photo between dark bands along
+the photo's borders, a page with a narrower printed sheet showing from under its top edge (the
+page, without the strip of the sheet), a white page lifted off a white desk, by the shadow along
+two of its sides, and a page on a white desk in a dim photo speckled with noise. On a photo of
+sticks lying every way and on rectangles one inside the other, the search takes at most four
+times as long as on a plain page.
 They also check the largest four-cornered shape on a convex hull (against trying every four
 corners), Otsu's threshold, and the corners: put in order round the page, turned with the page and
 back, on the photo as stored for every EXIF orientation, which shapes make a page, and the
@@ -513,6 +529,11 @@ On a phone or emulator, with the release APKs:
   ZIP file of the PDFs straight away: every PDF in it has the watermark.
 - Scan document with a tall photo of a page turned about 30 degrees to the right: after the crop
   step the page stands upright, not on its side.
+- Scan document with a photo of a textbook's page taken close, a ruled table printed on it: the
+  crop step never outlines the table. With three of the page's edges in the photo and the desk
+  beyond them, it says the page was found and outlines the paper as far as it shows; with the
+  page filling the photo, or running off it on two sides, it says to drag the corners and the
+  outline starts a little in from every side.
 - Recent files: save a PDF with Save as, delete it in the Files app and come back to Usugami: it
   has left the list.
 - A digitally signed PDF that Compress PDF kept as it was and Usugami watermarked, then signed

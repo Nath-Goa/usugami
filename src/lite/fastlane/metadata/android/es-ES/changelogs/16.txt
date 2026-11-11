@@ -1,0 +1,3 @@
+• Escanear documento: una tabla, un recuadro o una imagen impresos en la página ya no se toman por la página
+• El recorte encuentra una página que se sale de la foto por un lado, como la de un libro fotografiada de cerca
+• Una veta de un escritorio de madera ya no se toma por el borde de la página

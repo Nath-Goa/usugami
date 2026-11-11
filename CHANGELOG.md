@@ -6,6 +6,34 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [1.6.5] - 2026-11-11
+
+### Changed
+
+- **Scan document** and the crop step find a page that runs off the photo on one side, or ends at
+  the photo's border there, such as a book's page photographed close: the outline is the paper as
+  far as it shows, with the photo's border for that side and the page's own edges for the other
+  three. Such a page was never found before, and the outline started 8% in from every side. It is
+  found when the paper ends at those three edges with the desk beyond them, and the page shows its
+  print. With fewer than three of the page's edges in the photo, the outline still starts 8% in,
+  to be dragged: on real photos two edges proved too little to tell a page by.
+
+### Fixed
+
+- **Scan document** and the crop step: a table printed on a page is no longer taken for the page.
+  On a photo of a textbook's page taken close, the page as wide as the photo, the outline went
+  round a ruled table on the page and the screen said the page was found. Now an outline whose
+  sides are rules drawn on the paper, or beyond which the printed paper goes on, is not the page:
+  a table, a box round an example, a tinted panel or a printed photograph. Thin rules and print
+  are looked at on a finer copy of the photo, where they show. Where the page itself can't be
+  told, the screen says to drag the corners instead of offering the table.
+- The crop step no longer draws a side of the outline on past the page's corner to a line that
+  only passes by, such as a streak in the wood of the desk above the page or a rule printed across
+  a receipt. A page lying square on a wooden desk is found more often: the grain alongside it no
+  longer counts as the page's edge going on past its corners. In return, a page whose edge is
+  covered or fades out right beside a corner, on a desk as white as the paper, is sometimes not
+  found for sure, and its corners are then dragged.
+
 ## [1.6.4] - 2026-11-10
 
 ### Fixed
@@ -804,7 +832,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.4...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.5...HEAD
+[1.6.5]: https://github.com/Nath-Goa/usugami/compare/v1.6.4...v1.6.5
 [1.6.4]: https://github.com/Nath-Goa/usugami/compare/v1.6.3...v1.6.4
 [1.6.3]: https://github.com/Nath-Goa/usugami/compare/v1.6.2...v1.6.3
 [1.6.2]: https://github.com/Nath-Goa/usugami/compare/v1.6.1...v1.6.2

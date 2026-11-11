@@ -1,0 +1,3 @@
+• Scan document: a table, a box or a picture printed on a page is no longer taken for the page
+• The crop step finds a page that runs off one side of the photo, such as a book's page photographed close
+• A streak in a wooden desk is no longer taken for the page's edge

@@ -64,18 +64,24 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.6.4
+## What's new in 1.6.5
 
-Four fixes: Excel to PDF starts Arabic and Hebrew text at the right of its cell, a ZIP file made
-just as the Usugami watermark is switched holds every PDF with it, the message about a certified
-PDF getting no watermark is said once, and a PDF with a damaged signature can get the watermark.
+The scanner's crop step finds the page more steadily. A table, a box or a picture printed on a
+page is no longer taken for the page, a streak in a wooden desk is no longer taken for the page's
+edge, and a page that runs off one side of the photo, such as a book's page photographed close,
+is found as far as it shows.
 
-1.6.3, earlier the same day, five fixes: a page lying tilted on a tall photo comes out of the scanner's crop step upright, Excel
-to PDF groups digits as the phone's region does (12,34,567 in India) and no longer shows -0.00,
-Recent files drops a PDF deleted or renamed in the Files app, and Compress PDF and the Usugami
-watermark keep what another app added to a signed PDF.
+1.6.4, the day before, four fixes: Excel to PDF starts Arabic and Hebrew text at the right of its
+cell, a ZIP file made just as the Usugami watermark is switched holds every PDF with it, the
+message about a certified PDF getting no watermark is said once, and a PDF with a damaged
+signature can get the watermark.
 
-1.6.2, the day before:
+1.6.3, the same day as 1.6.4, five fixes: a page lying tilted on a tall photo comes out of the
+scanner's crop step upright, Excel to PDF groups digits as the phone's region does (12,34,567 in
+India) and no longer shows -0.00, Recent files drops a PDF deleted or renamed in the Files app,
+and Compress PDF and the Usugami watermark keep what another app added to a signed PDF.
+
+1.6.2, two days before:
 
 - **Footnotes and endnotes** in Word to PDF, numbered and placed as in Word: footnotes at the foot
   of their page, endnotes at the end of the document or of each section

@@ -1,0 +1,3 @@
+• Numériser un document : le recadrage ne prend plus pour la page un tableau, un encadré ou une image imprimés sur celle-ci
+• Le recadrage trouve une page qui sort du cadre de la photo d'un côté, comme celle d'un livre photographiée de près
+• Une veine du bois d'un bureau n'est plus prise pour le bord de la page
