@@ -48,9 +48,9 @@ data class PageOutline(val quad: CropQuad, val confidence: Float) {
  *
  * Each outline gets a confidence of its own kind. A page all in the photo, surely found, comes before
  * one that runs off it; of those, the surer one is the page, the one by edges when they are as sure
- * (its sides are fitted to the edges themselves), and the outer one of two sure ones, one within the
- * other. Its sides then move in to just inside the paper, past the blur of its edge and the shadow
- * it casts, so no strip of the desk shows along the straightened page.
+ * (its sides are fitted to the edges themselves). Its sides then move in to just inside the paper,
+ * past the blur of its edge and the shadow it casts, so no strip of the desk shows along the
+ * straightened page.
  */
 object PageDetection {
     /** The search runs on a copy at most this many pixels on its long side. */
@@ -92,6 +92,13 @@ object PageDetection {
 
         /** How white each pixel is: the level of its dullest colour, so a coloured desk as bright as the paper is darker than it. */
         val white: IntArray by lazy { if (channels.size == 1) levels else IntArray(levels.size) { i -> channels.minOf { it[i] } } }
+
+        /**
+         * Whether each square of the photo, [SQUARE] pixels a side and half a square on from the one
+         * before it, counted from the photo's top-left corner, holds print, as far as [printWithin]
+         * has looked: [UNSEEN], [OFF_PHOTO] (too little of it on the photo), [BARE] or [PRINTED].
+         */
+        val squares = ByteArray(ceil(width / (SQUARE / 2)).toInt() * ceil(height / (SQUARE / 2)).toInt())
     }
 
     /** A photo's brightness on a copy [scale] times as large each way as the small one. */
@@ -158,29 +165,26 @@ object PageDetection {
     /**
      * The page among the outlines found by edges and by brightness on [image], its sides then moved
      * in to just inside the paper ([inside]): of those all in the photo and surely a page, the surest
-     * (the one by edges if as sure), or the outer one of two, one within the other; failing those, the
-     * surest of all, those that run off the photo among them.
+     * (the one by edges if as sure); failing those, the surest of all, those that run off the photo
+     * among them.
      */
     private fun find(image: Grey): PageOutline? {
         if (image.width < 8 || image.height < 8) return null
         val edges = edges(image.width, image.height, image.channels)
         val byLines = byLines(image, edges)
         // With a page surely found by its edges, the bright region is enough to check it against.
-        val byRegions = byRegions(image, edges, if (byLines.any { it.borders == 0 && it.confidence >= CONFIDENT }) 1 else SPLITS)
-        // What is like a page all in the photo, sure or too small to be: after the first by edges,
-        // the rest by edges only bear witness.
-        val pages = (byLines + byRegions).filter { it.borders == 0 && it.like >= CONFIDENT }
-        val found = byLines.filterIndexed { i, it -> i == 0 || it.borders > 0 } + byRegions
-        // A page all in the photo, surely found, before one that runs off it. Of two such, one
-        // within the other, the outer: the inner one is the page less a dark band across it, or the
-        // whitest part of it.
-        val sure = found.filter { it.borders == 0 && it.confidence >= CONFIDENT }
-        val surest = sure.maxByOrNull { it.confidence }
-        val whole = sure.firstOrNull { it !== surest && holds(it.quad, surest!!.quad, image.width, image.height) } ?: surest
+        val byRegions = byRegions(image, edges, if (byLines.page != null && byLines.page.confidence >= CONFIDENT) 1 else SPLITS)
+        val found = listOfNotNull(byLines.page, byLines.clipped) + byRegions
+        // A page all in the photo, surely found, before one that runs off it.
+        val whole = found.filter { it.borders == 0 && it.confidence >= CONFIDENT }.maxByOrNull { it.confidence }
         // What runs off the photo round something like a page, however small, is the desk it lies on.
+        val pages = (byLines.alike + byRegions).filter { it.borders == 0 && it.like >= CONFIDENT }
         val page = whole ?: found.filter { it.borders == 0 || pages.none { page -> holds(it.quad, page.quad, image.width, image.height) } }.maxByOrNull { it.confidence } ?: return null
         return PageOutline(inside(page.quad, image), page.confidence)
     }
+
+    /** The outlines found by edges: the [page] all in the photo, the one [clipped] by the photo's border, and whatever all in the photo is [alike] a page. */
+    private class Lines(val page: Found?, val clipped: Found?, val alike: List<Found>)
 
     /** Whether [inner] lies within [outer] on a [w] × [h] image (to within [HELD] pixels) and is clearly smaller. */
     private fun holds(outer: CropQuad, inner: CropQuad, w: Int, h: Int): Boolean {
@@ -469,10 +473,9 @@ object PageDetection {
      *
      * Unless that is surely a page, each of the photo's own borders is tried as a side as well, for
      * a page that runs off the photo there, and the outlines with a side on the border give a page
-     * of their own. Both are returned, the one all in the photo first, and after them whatever else
-     * all in the photo is like a page.
+     * of their own: among them those of four edges, one of which turned out to lie along the border.
      */
-    private fun byLines(image: Grey, edges: Edges): List<Found> {
+    private fun byLines(image: Grey, edges: Edges): Lines {
         val w = image.width
         val h = image.height
         // The photo's own borders may stand in for sides: where the page runs off the photo.
@@ -540,33 +543,38 @@ object PageDetection {
             }
         }
         tryPairs(tried, tried, same = true)
-        val alike = ArrayList<Found>()
-        val page = surest(best[0], lines, edges, image, alike)
-        if (page != null && page.borders == 0 && page.confidence >= CONFIDENT) return listOf(page)
+        val whole = weighed(best[0], lines, edges, image) { it.borders == 0 }
+        val page = surest(whole.filter { it.borders == 0 })
+        val alike = whole.filter { it.borders == 0 && it.like >= CONFIDENT }
+        if (page != null && page.confidence >= CONFIDENT) return Lines(page, null, alike)
         tryPairs(tried, withBorder, same = false)
-        return listOfNotNull(page, surest(best[1], lines, edges, image, null)) + alike.filter { it !== page }
+        val clipped = whole.filter { it.borders > 0 } + weighed(best[1], lines, edges, image) { it.borders > 0 }
+        return Lines(page, surest(clipped), alike)
     }
 
     /**
-     * The page among the outlines [best] (each a score and its four [lines], best scored first). The
-     * best few are fitted to their edges and weighed ([edgeConfidence]); and when none of them is
-     * surely a page (the rows of a table on the page outscore the page itself), the next few as well.
-     * Of those about as sure as the surest, the best scored is the page: its sides have the most edge.
-     * Those weighed that are like a page, sure or too small to be, are added to [alike].
+     * The outlines [best] (each a score and its four [lines], best scored first) fitted to their
+     * edges and weighed ([edgeConfidence]): the best few, and when none of them is surely a page of
+     * the kind [wanted] (the rows of a table on the page outscore the page itself), the next few as
+     * well.
      */
-    private fun surest(best: List<Pair<Double, IntArray>>, lines: List<StraightEdge>, edges: Edges, image: Grey, alike: MutableList<Found>?): Found? {
+    private fun weighed(best: List<Pair<Double, IntArray>>, lines: List<StraightEdge>, edges: Edges, image: Grey, wanted: (Found) -> Boolean): List<Found> {
         val w = image.width
         val h = image.height
-        var outlines = emptyList<Found>()
+        val outlines = ArrayList<Found>()
         for (few in best.chunked(CANDIDATES)) {
-            outlines = outlines + few.mapNotNull { (_, sides) ->
-                val corners = fitted(sides.map { lines[it] }, edges) ?: return@mapNotNull null
+            for ((_, sides) in few) {
+                val corners = fitted(sides.map { lines[it] }, edges) ?: continue
                 val quad = CropQuad(onBorder(corners, w, h).map { CropPoint((it.x / w).coerceIn(0f, 1f), (it.y / h).coerceIn(0f, 1f)) }).ordered()
-                edgeConfidence(quad, edges, image)
+                outlines += edgeConfidence(quad, edges, image)
             }
-            if (outlines.any { it.confidence >= CONFIDENT }) break
+            if (outlines.any { wanted(it) && it.confidence >= CONFIDENT }) break
         }
-        alike?.addAll(outlines.filter { it.borders == 0 && it.like >= CONFIDENT })
+        return outlines
+    }
+
+    /** The page among [outlines], best scored first: of those about as sure as the surest, the best scored, as its sides have the most edge. */
+    private fun surest(outlines: List<Found>): Found? {
         val surest = outlines.maxOfOrNull { it.confidence } ?: return null
         return outlines.firstOrNull { it.confidence >= surest - NEARLY_AS_SURE }
     }
@@ -841,7 +849,7 @@ object PageDetection {
      * median gradient, so the grain of a table doesn't count but the faint edge of a white page on a
      * smooth white desk does.
      */
-    internal fun edges(width: Int, height: Int, channels: List<IntArray>): Edges {
+    private fun edges(width: Int, height: Int, channels: List<IntArray>): Edges {
         val n = width * height
         val gx = FloatArray(n)
         val gy = FloatArray(n)
@@ -925,7 +933,7 @@ object PageDetection {
      * Edges on an image: which pixels lie on one, and there the direction across it, from darker to
      * brighter (a unit vector [ux], [uy]).
      */
-    internal class Edges(val width: Int, val height: Int, val on: BooleanArray, val ux: FloatArray, val uy: FloatArray) {
+    private class Edges(val width: Int, val height: Int, val on: BooleanArray, val ux: FloatArray, val uy: FloatArray) {
         /**
          * Whether an edge running along a line with the unit normal ([nx], [ny]) passes within two
          * pixels, across the line, of the point ([x], [y]).
@@ -1470,7 +1478,7 @@ object PageDetection {
      * How surely printed paper goes on beyond a side of the outline with corners at [xs], [ys] on
      * [image], from 0 to 1: then the outline isn't the page's but lies on the page, round a table, a
      * box, a figure or a tinted panel, or along a shadow's edge. Beyond each side that isn't the
-     * photo's border ([borders] gives each side's, or -1; null for none), a band of the photo is looked
+     * photo's border ([borders] gives each side's, or -1), a band of the photo is looked
      * at on its finer copy for print ([print]).
      *
      * With [sameShade], only where the ground beyond a side is as white as the paper within the
@@ -1478,7 +1486,7 @@ object PageDetection {
      * as the paper. Without, also where it is as dark as paper in shadow; darker than that, it is a
      * dark desk, whose grain and noise would pass for strokes.
      */
-    private fun printBeyond(xs: DoubleArray, ys: DoubleArray, image: Grey, borders: IntArray?, sameShade: Shades?): Double {
+    private fun printBeyond(xs: DoubleArray, ys: DoubleArray, image: Grey, borders: IntArray, sameShade: Shades?): Double {
         val fine = image.fine
         // Out of the page from each side: to its left when the corners go clockwise.
         val turn = if ((xs[1] - xs[0]) * (ys[2] - ys[1]) - (ys[1] - ys[0]) * (xs[2] - xs[1]) > 0) 1.0 else -1.0
@@ -1488,7 +1496,7 @@ object PageDetection {
         // The band beyond side i (or the one within it), row by row away from the side: null for a
         // side that is the photo's border, or too short.
         fun band(i: Int, way: Double): Pair<IntArray, Int>? {
-            if (borders != null && borders[i] >= 0) return null
+            if (borders[i] >= 0) return null
             val j = (i + 1) % 4
             val length = hypot(xs[j] - xs[i], ys[j] - ys[i])
             val across = ((1 - 2 * BEYOND_ENDS) * length * fine.scale).toInt()
@@ -1527,55 +1535,81 @@ object PageDetection {
         val turn = if ((xs[1] - xs[0]) * (ys[2] - ys[1]) - (ys[1] - ys[0]) * (xs[2] - xs[1]) > 0) 1.0 else -1.0
         val side = (SQUARE * fine.scale).toInt()
         val stroke = (MAX_STROKE * fine.scale).toInt()
+        val step = SQUARE / 2
+        val across = ceil(image.width / step).toInt()
+        val down = ceil(image.height / step).toInt()
         var squares = 0
         var printed = 0
-        var top = ys.min()
-        while (top + SQUARE <= ys.max()) {
-            var left = xs.min()
-            while (left + SQUARE <= xs.max()) {
-                // A square whose middle is well within the outline.
-                val cx = left + SQUARE / 2
-                val cy = top + SQUARE / 2
-                var within = true
-                for (i in 0 until 4) {
-                    val j = (i + 1) % 4
-                    val length = hypot(xs[j] - xs[i], ys[j] - ys[i])
-                    if (turn * ((xs[j] - xs[i]) * (cy - ys[i]) - (ys[j] - ys[i]) * (cx - xs[i])) < SQUARE / 2 * length) within = false
-                }
-                if (within) {
-                    val square = IntArray(side * side) { k -> fine.at(left + (k % side + 0.5) / fine.scale, top + (k / side + 0.5) / fine.scale) }
-                    val ground = ground(square)
-                    if (ground != null) {
-                        squares++
-                        if ((print(square, side, ground, stroke, INK) ?: 0.0) >= 0.5) printed++
+        // The squares are the photo's own, not the outline's: each is looked at once, however many
+        // outlines are weighed. First those side by side. Where they leave it open (some print, but
+        // not across the page: a card's few lines, cut in two by the squares' sides), those half a
+        // square on from them as well, so a line of print lies well within one wherever it falls.
+        for (pass in 0..1) {
+            for (row in max(0, ceil(ys.min() / step).toInt()) until min(down, floor(ys.max() / step).toInt() - 1)) {
+                for (column in max(0, ceil(xs.min() / step).toInt()) until min(across, floor(xs.max() / step).toInt() - 1)) {
+                    if ((row % 2 == 0 && column % 2 == 0) != (pass == 0)) continue
+                    val left = column * step
+                    val top = row * step
+                    // A square whose middle is well within the outline.
+                    val cx = left + SQUARE / 2
+                    val cy = top + SQUARE / 2
+                    var within = true
+                    for (i in 0 until 4) {
+                        val j = (i + 1) % 4
+                        val length = hypot(xs[j] - xs[i], ys[j] - ys[i])
+                        if (turn * ((xs[j] - xs[i]) * (cy - ys[i]) - (ys[j] - ys[i]) * (cx - xs[i])) < SQUARE / 2 * length) within = false
                     }
+                    if (!within) continue
+                    var state = image.squares[row * across + column]
+                    if (state == UNSEEN) {
+                        val square = IntArray(side * side) { k -> fine.at(left + (k % side + 0.5) / fine.scale, top + (k / side + 0.5) / fine.scale) }
+                        val ground = ground(square)
+                        state = if (ground == null) OFF_PHOTO else if ((print(square, side, ground, stroke, INK) ?: 0.0) >= 0.5) PRINTED else BARE
+                        image.squares[row * across + column] = state
+                    }
+                    if (state != OFF_PHOTO) squares++
+                    if (state == PRINTED) printed++
                 }
-                left += SQUARE
             }
-            top += SQUARE
+            if (squares < MIN_SQUARES) return 1.0
+            if (printed == 0 || printed >= MUCH_PRINT * squares) break
         }
-        return if (squares < MIN_SQUARES) 1.0 else printed.toDouble() / squares
+        return printed.toDouble() / squares
     }
 
     /**
      * How surely a patch of the photo's finer copy holds print, from 0 to 1: [levels] row by row,
      * [across] to a row (-1 off the photo), on a ground of the shade [ground]. Print is many short
-     * dark strokes (at most [ink] of the ground's level), at most [stroke] pixels long, on a lighter
-     * ground, in lines with gaps between them, as letters and words are. Strokes in every row and column (the pages under a book's top
+     * dark strokes (at most [ink] of the ground's level, and darker than the specks of a photo taken
+     * in poor light), at most [stroke] pixels long, on a lighter ground, in lines with gaps between
+     * them, as letters and words are. Strokes in every row and column (the pages under a book's top
      * one, the grain of wood, stripes, the photo's noise) aren't print, nor are things too large for
      * strokes (keys, a pen). Null when too little of the patch is on the photo.
      */
     private fun print(levels: IntArray, across: Int, ground: Double, stroke: Int, ink: Double = PRINT_DARK): Double? {
         val deep = levels.size / across
+        val histogram = IntArray(256)
+        var seen = 0
+        for (v in levels) if (v >= 0) {
+            histogram[v]++
+            seen++
+        }
+        if (seen < BEYOND_SEEN * levels.size) return null
+        // How far the ground's own levels spread, by the level three tenths of the patch are
+        // brighter than: a photo taken in poor light is speckled all over, and a stroke is darker
+        // than its specks.
+        var above = 0
+        var bright = 255
+        while (bright > 0 && 10 * (above + histogram[bright]) < 3 * seen) above += histogram[bright--]
+        val spread = max(0.0, ground - bright)
         // Dark against the ground, or light: in between, as the pixel before (so a stroke's soft
         // edge doesn't flicker).
-        val dark = min(ground * ink, ground - 2 * PRINT_LEVELS)
-        val light = min(ground * PRINT_LIGHT, ground - PRINT_LEVELS)
+        val dark = min(min(ground * ink, ground - 2 * PRINT_LEVELS), ground - SPECKS * spread)
+        val light = min(min(ground * PRINT_LIGHT, ground - PRINT_LEVELS), ground - SPECKS / 2 * spread)
         // Short strokes along the rows, then along the columns: how many, and in how many of them.
         val strokes = IntArray(2)
         val inked = IntArray(2)
         val looked = IntArray(2)
-        var seen = 0
         for (way in 0..1) {
             val lines = if (way == 0) deep else across
             val steps = if (way == 0) across else deep
@@ -1596,18 +1630,14 @@ object PageDetection {
                         run = 0
                     }
                 }
-                if (way == 0) seen += on
                 if (2 * on < steps) continue
                 looked[way]++
                 strokes[way] += found
                 if (found > 0) inked[way]++
             }
         }
-        if (seen < BEYOND_SEEN * levels.size) return null
         // The ground is what most of the patch is: light letters on a darker ground (a camera's
         // stamp across the photo's foot) aren't a page's print.
-        val histogram = IntArray(256)
-        for (v in levels) if (v >= 0) histogram[v]++
         var below = 0
         var median = 0
         while (2 * (below + histogram[median]) < seen) below += histogram[median++]
@@ -1652,8 +1682,10 @@ object PageDetection {
      * on paper (a box on a form photographed close up, by the levels either side of them, on the
      * finer copy where a thin rule shows), not even one of them where the same paper lies beyond it
      * and the desk beyond another (a table as wide as its page); no printed paper goes on beyond a
-     * side ([printBeyond]: a table, a box or a figure on the page); and as for brightness it is
-     * large enough, doesn't run off the photo at a slant and its corners aren't squashed flat.
+     * side ([printBeyond]: a table, a box or a figure on the page), though neither counts where the
+     * desk lies beyond three sides, the fourth then lying on a second sheet under the page; and as
+     * for brightness it is large enough, doesn't run off the photo at a slant and its corners
+     * aren't squashed flat.
      *
      * A side along the photo's border is the border itself, where the page runs off the photo, and
      * isn't weighed. As for a bright region ([regionConfidence]), more is then asked of the others:
@@ -1796,7 +1828,11 @@ object PageDetection {
         val support = onEdges(share, weakest)
         val inFrame = 1 - ramp(onBorder.toDouble() / max(samples, 1), 0.03, 0.2)
         val corners = (1 - ramp(crossed, 0.4, 0.7)) * (1 - ramp(open, 0.3, 0.6))
-        val page = 1 - ramp(drawn.toDouble() / max(samples, 1), 0.3, 0.6)
+        // A sheet's shadow on a white desk falls along two sides that meet, dark as a rule on the
+        // finer copy: those two don't count when neither of the other two is drawn.
+        var drawnShare = drawn.toDouble() / max(samples, 1)
+        if (borders == 0) for (i in 0 until 4) drawnShare = min(drawnShare, max(ruled[(i + 2) % 4], ruled[(i + 3) % 4]))
+        val page = 1 - ramp(drawnShare, 0.3, 0.6)
         // How white the photo is just within each side and just beyond it: looked at only where it matters.
         val shades by lazy(LazyThreadSafetyMode.NONE) { shades(xs, ys, image, sides) }
         // Both sides of a page end at its corner, or both stop about as short of it (a rounded or
@@ -1823,13 +1859,16 @@ object PageDetection {
         // box's, where another side has the desk beyond it, darker: a page's sides are all alike. (On
         // a white desk, where the paper's white goes on beyond every side, a page's edge may be the
         // line of its shadow.)
-        val onPage = ruled.any { it >= RULED } && (0 until 4).any { i -> ruled[i] >= RULED && shades.same(i) } && (0 until 4).any { shades.darker(it) }
+        // The desk beyond three sides, though, leaves the fourth lying on another sheet, one under
+        // the page: it is the page's edge all the same, whatever is printed on the sheet beyond it.
+        val desk by lazy(LazyThreadSafetyMode.NONE) { (0 until 4).count { shades.darker(it) } }
+        val onPage = (0 until 4).any { i -> ruled[i] >= RULED && shades.same(i) } && desk in 1..2
         // How much it is like a page, whatever its size.
         var like = if (onPage) 0.0 else squareness(xs, ys) * support * inFrame * corners * page * (1 - passed)
         if (borders > 0 && like > 0) like *= ramp(quadArea / (w.toDouble() * h), CLIPPED_AREA, CLIPPED_GOOD_AREA) * CLIPPED[borders] * (1 - paperBeyond(xs, ys, image, sides))
         if (borders > 0 && like >= CONFIDENT) like *= ramp(printWithin(xs, ys, image), SOME_PRINT, MUCH_PRINT)
         // Printed paper going on beyond a side: a table, a box or a figure on the page.
-        val beyond = if (like >= CONFIDENT) printBeyond(xs, ys, image, sides, if (borders == 0) shades else null) else 0.0
+        val beyond = if (like >= CONFIDENT && (borders > 0 || desk < 3)) printBeyond(xs, ys, image, sides, if (borders == 0) shades else null) else 0.0
         val sure = like * size(xs, ys, w, h)
         return Found(quad, (sure * (1 - beyond)).toFloat(), borders, (like * (1 - beyond)).toFloat())
     }
@@ -1989,7 +2028,7 @@ object PageDetection {
     private const val NEAR = 6
     private const val COS_NEAR = 0.97f
 
-    /** Paper beyond a side is looked for where the photo shows at least this many pixels' depth of it (looking at every other one), */
+    /** Paper beyond a side is looked for where the photo shows about 12 pixels' depth of it: so many times the side's length in samples, taken every other pixel each way, */
     private const val FAR_SEEN = 3
     /** and is what is at least this share as white as the paper within the outline. */
     private const val AS_WHITE = 0.9
@@ -2015,6 +2054,11 @@ object PageDetection {
     private const val PRINT_LIGHT = 0.93
     /** and at least twice this many levels darker, or this many: less is the photo's noise. */
     private const val PRINT_LEVELS = 6
+    /**
+     * In a speckled photo, print is also darker than the ground by this many times what the
+     * ground's brightest tenth is brighter than its brightest three tenths: less are its specks.
+     */
+    private const val SPECKS = 5.5
     /** A stroke of print is at most this many pixels long (of the small copy). */
     private const val MAX_STROKE = 6.0
     /** Print has at least this many strokes for each pixel of the band, and so many for sure, */
@@ -2033,6 +2077,11 @@ object PageDetection {
     /** Print within an outline is looked for in squares this many pixels a side, of which it has at least this many, */
     private const val SQUARE = 16.0
     private const val MIN_SQUARES = 8
+    /** What is known of a square: not looked at yet, too little of it on the photo, no print in it, print. */
+    private const val UNSEEN: Byte = 0
+    private const val OFF_PHOTO: Byte = 1
+    private const val BARE: Byte = 2
+    private const val PRINTED: Byte = 3
     /** and a page that runs off the photo has print in at least this share of them, for sure in this share. */
     private const val SOME_PRINT = 0.2
     private const val MUCH_PRINT = 0.3

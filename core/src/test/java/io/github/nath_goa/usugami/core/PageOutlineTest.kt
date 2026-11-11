@@ -406,6 +406,30 @@ class PageOutlineTest {
         assertFound(Photo(600, 800, corners(0.2f, 0.15f, 0.8f, 0.13f, 0.82f, 0.86f, 0.18f, 0.84f), paper = 222, table = 95, seed = 2, print = banded))
     }
 
+    @Test fun aBandAlongThePhotosBorderDoesntHideThePage() {
+        // A page all in the photo, between two black bands down the photo's sides and under a dark
+        // line along its top (the bars and the frame of a screenshot). The outline weighed first
+        // ran up the left band's edge and the page's right side to the photo's top border, and the
+        // page itself, found for sure, was dropped.
+        val bands = { x: Double, y: Double -> if (x * 650 < 62 || x * 650 > 511) 0 else if (y * 800 < 1) 59 else null }
+        val page = corners(0.115f, 0.11f, 0.77f, 0.1f, 0.767f, 0.9f, 0.113f, 0.89f)
+        assertFound(Photo(650, 800, page, paper = 203, desk = { _, _ -> 156.0 }, noise = 4, soft = 1, print = { u, v -> textbook(u, v) }, extra = bands))
+    }
+
+    @Test fun findsAPageLyingOnAnotherSheet() {
+        // A second printed sheet, narrower, shows from under the page's top edge: three of the
+        // page's sides have the desk beyond them, the fourth lies on the other sheet, whose print
+        // goes on beyond it. It is the page's edge all the same, and the outline doesn't take in
+        // the strip of the sheet under it.
+        val under = { x: Double, y: Double ->
+            val u = (x - 0.36) / 0.38
+            val v = (y - 0.05) / 0.5
+            if (u in 0.0..1.0 && v in 0.0..1.0) (text(u, v, 0.03, 0.9) ?: 222).toDouble() else 72.0
+        }
+        val page = corners(0.22f, 0.143f, 0.85f, 0.167f, 0.823f, 0.857f, 0.15f, 0.83f)
+        assertFound(Photo(600, 800, page, desk = under, shadow = 45, noise = 5, soft = 1, seed = 2, print = { u, v -> text(u, v, 0.05, 0.95) }), tolerance = 0.03)
+    }
+
     @Test fun findsAPageOnABrighterTable() {
         // The page isn't the bright region here, but its edges outline it all the same.
         assertFound(Photo(600, 800, corners(0.2f, 0.15f, 0.8f, 0.15f, 0.8f, 0.85f, 0.2f, 0.85f), paper = 190, table = 240, noise = 6))
@@ -425,6 +449,28 @@ class PageOutlineTest {
         // A hand's shadow over the top of the page and the desk around it.
         val hand = { _: Double, y: Double -> if (y < 0.35) 0.7 else if (y < 0.45) 0.7 + (y - 0.35) / 0.1 * 0.3 else 1.0 }
         assertFound(Photo(600, 800, corners(0.18f, 0.12f, 0.82f, 0.14f, 0.8f, 0.88f, 0.2f, 0.86f), paper = 236, desk = whiteDesk, shadow = 16, noise = 5, shade = hand, seed = 3))
+    }
+
+    @Test fun findsAWhitePageLiftedOffAWhiteDesk() {
+        // A sheet that doesn't lie flat casts a shadow along the two sides away from the light, as
+        // dark and as thin as a rule drawn on paper; along the other two there is only the faint
+        // line of its edge. Two sides that meet, with nothing drawn along the other two, are a
+        // shadow's, not a box's.
+        val page = corners(0.2f, 0.15f, 0.8f, 0.15f, 0.8f, 0.85f, 0.2f, 0.85f)
+        val lifted = { x: Double, y: Double ->
+            val right = x in 0.8..0.812 && y in 0.16..0.862
+            val below = y in 0.85..0.859 && x in 0.21..0.812
+            if (right || below) 150.0 else 240 - 5 * x - 5 * y
+        }
+        assertFound(Photo(600, 800, page, paper = 236, desk = lifted, shadow = 16, noise = 5, soft = 1))
+    }
+
+    @Test fun findsAPageOnAWhiteDeskInPoorLight() {
+        // A dim photo, speckled with the camera's noise all over: the specks on the desk beyond the
+        // page's sides aren't print, and the desk isn't more of the page.
+        val dim = { _: Double, _: Double -> 0.6 }
+        val page = corners(0.193f, 0.105f, 0.887f, 0.131f, 0.86f, 0.895f, 0.113f, 0.865f)
+        assertFound(Photo(600, 800, page, paper = 236, desk = whiteDesk, shadow = 44, noise = 12, shade = dim, seed = 7), tolerance = 0.02)
     }
 
     @Test fun theSidesLieJustInsideThePage() {
@@ -540,9 +586,17 @@ class PageOutlineTest {
                 (now() - start) / 1_000_000
             }
         }
+        // And rectangles one inside the other, each a candidate with the photo's border for a side.
+        val nested = ByteArray(size * size) { i ->
+            val x = min(i % size, size - 1 - i % size)
+            val y = min(i / size, size - 1 - i / size)
+            (if (x == 0 || y == 0) 0 else min(255, 255 * (min((x - 1) / 12, (y - 1) / 2) + 1) / 10)).toByte()
+        }
         val plain = millis(page)
         val busy = millis(sticks)
         assertTrue("$busy ms, a plain page $plain ms, five searches each", busy <= 3 * max(plain, 50))
+        val rings = millis(nested)
+        assertTrue("$rings ms on nested rectangles, a plain page $plain ms, five searches each", rings <= 3 * max(plain, 50))
     }
 
     @Test(expected = IllegalArgumentException::class)
