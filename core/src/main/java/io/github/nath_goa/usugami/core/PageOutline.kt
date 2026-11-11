@@ -367,7 +367,7 @@ object PageDetection {
         return top + (bottom - top) * ty
     }
 
-    /** The page as the bright region on [image], or null if there is none large enough. */
+    /** The page as the surest of the bright regions on [image] ([byRegions]), or null if there is none large enough. */
     internal fun byBrightness(image: Grey): PageOutline? =
         byRegions(image, edges(image.width, image.height, image.channels), SPLITS).maxByOrNull { it.confidence }?.let { PageOutline(it.quad, it.confidence) }
 
@@ -1366,11 +1366,10 @@ object PageDetection {
     }
 
     /**
-     * How white the photo is (as bright as its dullest colour) along the sides of an outline with
-     * corners at [xs], [ys] on [image]: the ground's shade just [within] each side and just [beyond]
-     * it, or -1 for a side on the photo's border ([borders], or -1), too short, or with too little of
-     * the photo beyond it. [paper] is the paper's shade: within the sides, where it is whitest, as a
-     * dark band may run along one.
+     * How white the photo is (as bright as its dullest colour) along the sides of an outline: the
+     * ground's shade just [within] each side and just [beyond] it, or -1 where it can't be told.
+     * [paper] is the paper's shade: within the sides, where it is whitest, as a dark band may run
+     * along one.
      */
     private class Shades(val within: DoubleArray, val beyond: DoubleArray) {
         val paper = within.max()
@@ -1385,7 +1384,11 @@ object PageDetection {
         fun darker(i: Int) = beyond[i] >= 0 && within[i] >= 0 && beyond[i] <= DARKER * within[i]
     }
 
-    /** The [Shades] along the sides of the outline with corners at [xs], [ys] on [image], those on the photo's border ([borders], or -1) left out. */
+    /**
+     * The [Shades] along the sides of the outline with corners at [xs], [ys] on [image]: -1 for a
+     * side on the photo's border ([borders], or -1), too short, or with too little of the photo
+     * beyond it.
+     */
     private fun shades(xs: DoubleArray, ys: DoubleArray, image: Grey, borders: IntArray): Shades {
         val w = image.width
         val h = image.height
@@ -1483,8 +1486,8 @@ object PageDetection {
      * How surely printed paper goes on beyond a side of the outline with corners at [xs], [ys] on
      * [image], from 0 to 1: then the outline isn't the page's but lies on the page, round a table, a
      * box, a figure or a tinted panel, or along a shadow's edge. Beyond each side that isn't the
-     * photo's border ([borders] gives each side's, or -1), a band of the photo is looked
-     * at on its finer copy for print ([print]).
+     * photo's border ([borders] gives each side's, or -1), a band of the photo is looked at on its
+     * finer copy for print ([print]).
      *
      * With [sameShade], only where the ground beyond a side is as white as the paper within the
      * outline, as on one sheet: a darker desk, however speckled, isn't paper, nor is wood as bright
@@ -1495,7 +1498,7 @@ object PageDetection {
         val fine = image.fine
         // Out of the page from each side: to its left when the corners go clockwise.
         val turn = if ((xs[1] - xs[0]) * (ys[2] - ys[1]) - (ys[1] - ys[0]) * (xs[2] - xs[1]) > 0) 1.0 else -1.0
-        val deep = ((BEYOND_TO - BEYOND_FROM) * fine.scale).toInt()
+        val deep = ((PRINT_TO - BEYOND_FROM) * fine.scale).toInt()
         val stroke = (MAX_STROKE * fine.scale).toInt()
         if (deep < 4) return 0.0
         // The band beyond side i (or the one within it), row by row away from the side: null for a
@@ -1685,7 +1688,8 @@ object PageDetection {
      * print) and where both sides' edges stop (a side drawn on to a line that passes by, the grain
      * of the desk above the page, ends short of its corner); its sides aren't lines drawn or printed
      * on paper (a box on a form photographed close up, by the levels either side of them, on the
-     * finer copy where a thin rule shows), not even one of them where the same paper lies beyond it
+     * finer copy where a thin rule shows; two sides that meet, alone, are the shadow of a sheet
+     * lifted off a white desk), not even one of them where the same paper lies beyond it
      * and the desk beyond another (a table as wide as its page); no printed paper goes on beyond a
      * side ([printBeyond]: a table, a box or a figure on the page), though neither counts where the
      * desk lies beyond three sides, the fourth then lying on a second sheet under the page; and as
@@ -2040,9 +2044,13 @@ object PageDetection {
     /** and is what is at least this share as white as the paper within the outline. */
     private const val AS_WHITE = 0.9
 
-    /** Print is looked for beyond a side from this many pixels out to this many, */
+    /**
+     * The shade beyond a side is taken from this many pixels out to this many, and print is looked
+     * for as far as this many (the blank margin round a tinted panel is about a line of print deep),
+     */
     private const val BEYOND_FROM = 2.5
     private const val BEYOND_TO = 12.0
+    private const val PRINT_TO = 14.0
     /** leaving out this share of the side at either end, along at least this many pixels of the finer copy, */
     private const val BEYOND_ENDS = 0.1
     private const val MIN_BEYOND = 24
@@ -2052,7 +2060,7 @@ object PageDetection {
     private const val RULED = 0.5
     /** Beyond a side it is the desk when at most this share as white as within it. */
     private const val DARKER = 0.85
-    /** The ground beyond a side is as bright as the paper within when at least this share of it, */
+    /** The ground beyond a side is as white as the paper within when at least this share of it, */
     private const val SAME_SHADE = 0.96
     /** and may be paper in shadow from this share on. */
     private const val IN_SHADE = 0.45
@@ -2084,14 +2092,14 @@ object PageDetection {
     /** Print within an outline is looked for in squares this many pixels a side, of which it has at least this many, */
     private const val SQUARE = 16.0
     private const val MIN_SQUARES = 8
+    /** and a page that runs off the photo has print in at least this share of them, for sure in this share. */
+    private const val SOME_PRINT = 0.2
+    private const val MUCH_PRINT = 0.3
     /** What is known of a square: not looked at yet, too little of it on the photo, no print in it, print. */
     private const val UNSEEN: Byte = 0
     private const val OFF_PHOTO: Byte = 1
     private const val BARE: Byte = 2
     private const val PRINTED: Byte = 3
-    /** and a page that runs off the photo has print in at least this share of them, for sure in this share. */
-    private const val SOME_PRINT = 0.2
-    private const val MUCH_PRINT = 0.3
 
     /**
      * A found side moves in at most this many pixels (1% of the small copy's long side) to leave the

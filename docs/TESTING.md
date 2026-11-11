@@ -100,18 +100,22 @@ On a textbook's page as wide as a tall photo (its left edge on the photo's borde
 top edge, darkness below its bottom edge), they find the paper as far as it shows and not the
 ruled table printed on it, and with the whole page on a dark table, the page and not its table or
 the photograph printed on it; with the page running off the photo left and right they are unsure,
-and on a page that fills the photo, of a table, a tinted panel and a printed photograph, and of
-the lit part of a page under a hard-edged shadow. They find a page that runs off the photo at its
+and on a page that fills the photo, of a table, an empty box with rules a pixel thin, a tinted
+panel and a printed photograph, and of the lit part of a page under a hard-edged shadow. They find a page that runs off the photo at its
 top, and in colour at its left with light wood as bright as the paper beyond its other edges,
 that side the photo's border; they are unsure of a page across a corner of the photo, of a page
-with only one edge in the photo, of a bare white wall and of a white table a page lies on. They
+with only one edge in the photo, of a bare white wall, of a white table a page lies on (the page's
+edges aren't joined to the table's) and of a book open across the photo up to its gutter. They
 don't draw a page's sides on to a streak in the wood above it, and keep a dark band printed
 across a page's top in its outline. They find a page all in the photo between dark bands along
 the photo's borders, a page with a narrower printed sheet showing from under its top edge (the
 page, without the strip of the sheet), a white page lifted off a white desk, by the shadow along
 two of its sides, and a page on a white desk in a dim photo speckled with noise. On a photo of
 sticks lying every way and on rectangles one inside the other, the search takes at most four
-times as long as on a plain page.
+times as long as on a plain page. Some of what the search weighs has no photo of its own here and
+rests on real photos kept outside the repository: a side ending at the page's corner where a
+streak in the wood or a rule across a receipt passes by, the grain of a desk alongside a page, and
+how many outlines are weighed.
 They also check the largest four-cornered shape on a convex hull (against trying every four
 corners), Otsu's threshold, and the corners: put in order round the page, turned with the page and
 back, on the photo as stored for every EXIF orientation, which shapes make a page, and the
