@@ -547,7 +547,12 @@ object PageDetection {
         val page = surest(whole.filter { it.borders == 0 })
         val alike = whole.filter { it.borders == 0 && it.like >= CONFIDENT }
         if (page != null && page.confidence >= CONFIDENT) return Lines(page, null, alike)
-        tryPairs(tried, withBorder, same = false)
+        // Of the pairs with the photo's border for one side, likewise, where there are many.
+        val bordered = if (withBorder.size <= MAX_BORDER_PAIRS) withBorder else {
+            withBorder.indices.sortedByDescending { max(lines[withBorder[it][0]].longestRun, lines[withBorder[it][1]].longestRun) }
+                .take(MAX_BORDER_PAIRS).sorted().map { withBorder[it] }
+        }
+        tryPairs(tried, bordered, same = false)
         val clipped = whole.filter { it.borders > 0 } + weighed(best[1], lines, edges, image) { it.borders > 0 }
         return Lines(page, surest(clipped), alike)
     }
@@ -1862,9 +1867,9 @@ object PageDetection {
         // The desk beyond three sides, though, leaves the fourth lying on another sheet, one under
         // the page: it is the page's edge all the same, whatever is printed on the sheet beyond it.
         val desk by lazy(LazyThreadSafetyMode.NONE) { (0 until 4).count { shades.darker(it) } }
-        val onPage = (0 until 4).any { i -> ruled[i] >= RULED && shades.same(i) } && desk in 1..2
         // How much it is like a page, whatever its size.
-        var like = if (onPage) 0.0 else squareness(xs, ys) * support * inFrame * corners * page * (1 - passed)
+        var like = squareness(xs, ys) * support * inFrame * corners * page * (1 - passed)
+        if (like > 0 && (0 until 4).any { i -> ruled[i] >= RULED && shades.same(i) } && desk in 1..2) like = 0.0
         if (borders > 0 && like > 0) like *= ramp(quadArea / (w.toDouble() * h), CLIPPED_AREA, CLIPPED_GOOD_AREA) * CLIPPED[borders] * (1 - paperBeyond(xs, ys, image, sides))
         if (borders > 0 && like >= CONFIDENT) like *= ramp(printWithin(xs, ys, image), SOME_PRINT, MUCH_PRINT)
         // Printed paper going on beyond a side: a table, a box or a figure on the page.
@@ -1974,6 +1979,7 @@ object PageDetection {
     private const val MIN_GAP = 0.15
     /** At most so many pairs of opposite sides are tried (a busy photo has a few hundred). */
     private const val MAX_PAIRS = 1000
+    private const val MAX_BORDER_PAIRS = 100
     /** A page's corner may be this many pixels off the image. */
     private const val OFF_IMAGE = 3f
     /** So many of the best-scored outlines are fitted and weighed, */

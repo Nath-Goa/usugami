@@ -586,17 +586,23 @@ class PageOutlineTest {
                 (now() - start) / 1_000_000
             }
         }
-        // And rectangles one inside the other, each a candidate with the photo's border for a side.
+        // And rectangles one inside the other, each an outline with the photo's border for a side
+        // to weigh: looking for print in every one of them anew took sixteen plain pages' time.
         val nested = ByteArray(size * size) { i ->
             val x = min(i % size, size - 1 - i % size)
             val y = min(i / size, size - 1 - i / size)
             (if (x == 0 || y == 0) 0 else min(255, 255 * (min((x - 1) / 12, (y - 1) / 2) + 1) / 10)).toByte()
         }
+        // Each photo is searched a few times before any is timed, so the JVM has compiled the whole
+        // search: timed first, the plain page looked slower than it is and the bound looser.
+        repeat(3) { for (luma in listOf(page, sticks, nested)) PageDetection.find(luma, size, size) }
         val plain = millis(page)
+        // The sticks take three plain pages' time (two and a third before 1.6.5, when a plain page
+        // took a sixth longer and the sticks a twelfth less), the rectangles two.
         val busy = millis(sticks)
-        assertTrue("$busy ms, a plain page $plain ms, five searches each", busy <= 3 * max(plain, 50))
+        assertTrue("$busy ms on sticks, a plain page $plain ms, five searches each", busy <= 4 * max(plain, 50))
         val rings = millis(nested)
-        assertTrue("$rings ms on nested rectangles, a plain page $plain ms, five searches each", rings <= 3 * max(plain, 50))
+        assertTrue("$rings ms on nested rectangles, a plain page $plain ms, five searches each", rings <= 4 * max(plain, 50))
     }
 
     @Test(expected = IllegalArgumentException::class)
