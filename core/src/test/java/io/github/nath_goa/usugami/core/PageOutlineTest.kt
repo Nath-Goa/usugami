@@ -312,17 +312,21 @@ class PageOutlineTest {
     private val fillsThePhoto = corners(-0.05f, -0.05f, 1.05f, -0.05f, 1.05f, 1.05f, -0.05f, 1.05f)
 
     @Test fun aTableOnAPageIsNotThePage() {
-        // A textbook's page across the whole width of a tall photo, running off it left and right: a
-        // strip of desk above its top edge, darkness below its bottom edge. The ruled table low on the
-        // page, its last row not far above the page's bottom edge, was taken for the page. The page
-        // is the paper as far as it shows, from its top edge to its bottom edge.
-        val page = corners(-0.03f, 0.105f, 1.03f, 0.09f, 1.04f, 0.9f, -0.04f, 0.885f)
-        val shown = corners(0f, 0.1046f, 1f, 0.0904f, 1f, 0.8994f, 0f, 0.8856f)
+        // A textbook's page as wide as a tall photo, its left edge on the photo's border and its right
+        // edge just inside it: a strip of desk above its top edge, darkness below its bottom edge.
+        // The ruled table low on the page, its last row not far above the page's bottom edge, was
+        // taken for the page. The page is the paper as far as it shows, its left side the border.
+        val page = corners(0.002f, 0.105f, 0.975f, 0.09f, 0.985f, 0.9f, -0.004f, 0.885f)
+        val shown = corners(0f, 0.105f, 0.975f, 0.09f, 0.985f, 0.9f, 0f, 0.885f)
         assertFound(Photo(450, 800, page, paper = 200, desk = overABook, noise = 4, soft = 1, print = { u, v -> textbook(u, v) }), expected = shown)
         // The table higher up the page, and bolder.
         assertFound(Photo(450, 800, page, paper = 200, desk = overABook, noise = 4, soft = 1, seed = 2, print = { u, v -> textbook(u, v, 0.3, 0.55, 0.003, 70) }), expected = shown)
         // The whole page on a dark table: the page, not the table on it.
         assertFound(Photo(600, 800, corners(0.14f, 0.1f, 0.86f, 0.12f, 0.88f, 0.9f, 0.12f, 0.88f), paper = 215, noise = 5, soft = 1, print = { u, v -> textbook(u, v) }))
+        // The page across the whole width of the photo, running off it left and right: with two of
+        // its edges alone there is no telling, and the table still isn't the page.
+        val across = corners(-0.03f, 0.105f, 1.03f, 0.09f, 1.04f, 0.9f, -0.04f, 0.885f)
+        assertNotConfident(Photo(450, 800, across, paper = 200, desk = overABook, noise = 4, soft = 1, seed = 3, print = { u, v -> textbook(u, v) }))
     }
 
     @Test fun aTableOnAPageThatFillsThePhotoIsNotSure() {
@@ -357,33 +361,31 @@ class PageOutlineTest {
             Photo(600, 800, corners(0.15f, -0.2f, 0.85f, -0.2f, 0.88f, 0.8f, 0.12f, 0.8f), print = words),
             expected = corners(0.144f, 0f, 0.856f, 0f, 0.88f, 0.8f, 0.12f, 0.8f),
         )
-        // Its top and its left: a page across a corner of the photo.
+        // Its left side is, in colour, with light wood as bright as the paper beyond its other
+        // edges: the paper is whiter.
         assertFound(
-            Photo(600, 800, corners(-0.2f, -0.15f, 0.8f, -0.15f, 0.8f, 0.75f, -0.2f, 0.75f), seed = 2, print = words),
-            expected = corners(0f, 0f, 0.8f, 0f, 0.8f, 0.75f, 0f, 0.75f),
-        )
-        // In colour, light wood as bright as the paper beyond the page's top edge: the paper is whiter.
-        val page = corners(-0.03f, 0.13f, 1.03f, 0.11f, 1.04f, 0.9f, -0.04f, 0.88f)
-        assertFound(
-            Photo(450, 800, page, paper = 205, deskColour = intArrayOf(232, 200, 150), noise = 4, print = { u, v -> textbook(u, v) }),
-            expected = corners(0f, 0.1294f, 1f, 0.1106f, 1f, 0.8993f, 0f, 0.8807f),
+            Photo(450, 800, corners(-0.1f, 0.13f, 0.9f, 0.11f, 0.92f, 0.9f, -0.12f, 0.88f), paper = 205, deskColour = intArrayOf(232, 200, 150), noise = 4, print = { u, v -> textbook(u, v) }),
+            expected = corners(0f, 0.128f, 0.9f, 0.11f, 0.92f, 0.9f, 0f, 0.8823f),
         )
     }
 
     @Test fun whatRunsOffThePhotoWithLittleToShowForItIsNotSure() {
         val words = { u: Double, v: Double -> text(u, v, 0.05, 0.95) }
-        // A close photo: the page fills it but for the table below its bottom edge. One edge is too
-        // little to go by: a desk's far edge, a keyboard's and a wall's foot look the same.
+        // A page across a corner of the photo, its top and its left out of the frame: two edges are
+        // too little to go by. A keyboard between its top and its foot, a wall between the ceiling
+        // and the floor and the strip of a page between two rules look the same.
+        assertNotConfident(Photo(600, 800, corners(-0.2f, -0.15f, 0.8f, -0.15f, 0.8f, 0.75f, -0.2f, 0.75f), seed = 2, print = words))
+        // A close photo: the page fills it but for the table below its bottom edge.
         assertNotConfident(Photo(600, 800, corners(-0.1f, -0.06f, 1.1f, -0.06f, 1.1f, 0.86f, -0.1f, 0.84f), seed = 3, print = words))
-        // A bare white wall between the ceiling and the floor, across the photo: no print, no page.
-        assertNotConfident(Photo(450, 800, corners(-0.03f, 0.13f, 1.03f, 0.11f, 1.04f, 0.9f, -0.04f, 0.88f), paper = 215, noise = 4, print = { _, _ -> null }))
-        // A page lying on a white table that runs off the photo: the table isn't the page.
+        // A bare white wall, off the photo at the left: no print, no page.
+        assertNotConfident(Photo(450, 800, corners(-0.1f, 0.13f, 0.9f, 0.11f, 0.92f, 0.9f, -0.12f, 0.88f), paper = 215, noise = 4, print = { _, _ -> null }))
+        // A page lying on a white table that runs off the photo at the left: the table isn't the page.
         val sheet = { u: Double, v: Double ->
-            val x = (u - 0.3) / 0.4
+            val x = (u - 0.3) / 0.45
             val y = (v - 0.3) / 0.45
             if (x in 0.0..1.0 && y in 0.0..1.0) (if (x < 0.006 || x > 0.994 || y < 0.004 || y > 0.996) 186 else text(x, y, 0.08, 0.92)) else null
         }
-        val table = find(Photo(450, 800, corners(-0.03f, 0.13f, 1.03f, 0.11f, 1.04f, 0.9f, -0.04f, 0.88f), paper = 222, noise = 4, print = sheet))
+        val table = find(Photo(450, 800, corners(-0.1f, 0.13f, 0.9f, 0.11f, 0.92f, 0.9f, -0.12f, 0.88f), paper = 222, noise = 4, print = sheet))
         assertTrue("Found $table", table == null || !table.confident || table.quad[0].x > 0.2f)
     }
 
