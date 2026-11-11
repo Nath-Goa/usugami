@@ -47,6 +47,7 @@ class PageOutlineTest {
         val shadow: Int = 0,
         val deskColour: IntArray? = null,
         val soft: Int = 0,
+        val print: ((u: Double, v: Double) -> Int?)? = null,
     ) {
         /** The page's homography: page coordinates (0..1 across and down) to photo pixels. */
         private val toPhoto = Homography.squareTo(corners.map { CropPoint(it.x * width, it.y * height) })
@@ -107,6 +108,7 @@ class PageOutlineTest {
             // A corner folded over: the table shows through a triangle at the page's top-right.
             val folded = fold > 0 && (1 - u) + v < fold
             if (u !in 0.0..1.0 || v !in 0.0..1.0 || folded) return null
+            if (print != null) return (print.invoke(u, v) ?: paper).toDouble()
             // Lines of print inside the margins, and a heading.
             val printed = u in 0.12..0.88 && ((v in 0.1..0.14) || (v in 0.2..0.9 && ((v - 0.2) / 0.035).toInt() % 2 == 0 && u < 0.88 - 0.2 * ((v * 37).toInt() % 3)))
             return if (printed) 60.0 else paper.toDouble()
@@ -267,6 +269,139 @@ class PageOutlineTest {
         assertNotConfident(Photo(600, 800, corners(-1f, -1f, -0.9f, -1f, -0.9f, -0.9f, -1f, -0.9f), extra = plate))
         // A flat grey image.
         assertEquals(null, PageDetection.find(ByteArray(300 * 400) { 128.toByte() }, 300, 400))
+    }
+
+    /**
+     * The ink of lines of text in words at a point of a page (across and down it, 0..1), between
+     * [from] and [to] down the page and inside its margins, the last line of each paragraph short:
+     * its level, or null on bare paper.
+     */
+    private fun text(u: Double, v: Double, from: Double, to: Double): Int? {
+        if (u !in 0.07..0.93 || v !in from..to) return null
+        val line = (v - from) / 0.021
+        val n = line.toInt()
+        val end = if (n % 5 == 4) 0.45 else 0.93 - 0.03 * (n % 3)
+        // Letters two to a line's height, and gaps between words.
+        val letter = (u * 80 + n * 0.37) % 1 < 0.45 && ((u * 11 + n * 0.61) % 1) > 0.18
+        return if (line % 1 < 0.5 && u < end && n % 5 != 0 && letter) 80 else null
+    }
+
+    /**
+     * A textbook's page: paragraphs of text, and from [top] to [bottom] down it a ruled table, its
+     * rules [rule] of the page's height thick and at the level [ink], with a shaded header row and a
+     * word in each cell. Null on bare paper.
+     */
+    private fun textbook(u: Double, v: Double, top: Double = 0.68, bottom: Double = 0.9, rule: Double = 0.0022, ink: Int = 110): Int? {
+        val left = 0.07
+        val right = 0.93
+        if (v !in top..bottom) return text(u, v, 0.05, top - 0.03) ?: text(u, v, bottom + 0.03, 0.95)
+        if (u !in left..right) return null
+        val rows = 7
+        val row = (v - top) / (bottom - top) * rows
+        val acrossRule = rule * 4 / 3
+        if (row % 1 < rule * rows / (bottom - top) || v > bottom - rule) return ink
+        if (u < left + acrossRule || u > right - acrossRule || abs(u - 0.33) < acrossRule / 2 || abs(u - 0.62) < acrossRule / 2) return ink
+        val word = row % 1 in 0.35..0.7 && ((u in 0.17..0.23) || (u in 0.44..0.51) || (u in 0.75..0.79))
+        return if (word) 95 else if (row < 1) 182 else null
+    }
+
+    /** The desk of a photo held over a book: light wood beyond the page's top edge, darkness beyond its bottom edge. */
+    private val overABook = { _: Double, y: Double -> if (y < 0.5) 168.0 else 22.0 }
+
+    /** A page larger than the photo: none of its edges shows. */
+    private val fillsThePhoto = corners(-0.05f, -0.05f, 1.05f, -0.05f, 1.05f, 1.05f, -0.05f, 1.05f)
+
+    @Test fun aTableOnAPageIsNotThePage() {
+        // A textbook's page across the whole width of a tall photo, running off it left and right: a
+        // strip of desk above its top edge, darkness below its bottom edge. The ruled table low on the
+        // page, its last row not far above the page's bottom edge, was taken for the page. The page
+        // is the paper as far as it shows, from its top edge to its bottom edge.
+        val page = corners(-0.03f, 0.105f, 1.03f, 0.09f, 1.04f, 0.9f, -0.04f, 0.885f)
+        val shown = corners(0f, 0.1046f, 1f, 0.0904f, 1f, 0.8994f, 0f, 0.8856f)
+        assertFound(Photo(450, 800, page, paper = 200, desk = overABook, noise = 4, soft = 1, print = { u, v -> textbook(u, v) }), expected = shown)
+        // The table higher up the page, and bolder.
+        assertFound(Photo(450, 800, page, paper = 200, desk = overABook, noise = 4, soft = 1, seed = 2, print = { u, v -> textbook(u, v, 0.3, 0.55, 0.003, 70) }), expected = shown)
+        // The whole page on a dark table: the page, not the table on it.
+        assertFound(Photo(600, 800, corners(0.14f, 0.1f, 0.86f, 0.12f, 0.88f, 0.9f, 0.12f, 0.88f), paper = 215, noise = 5, soft = 1, print = { u, v -> textbook(u, v) }))
+    }
+
+    @Test fun aTableOnAPageThatFillsThePhotoIsNotSure() {
+        // No edge of the paper shows: there is no page to find, and the table isn't one,
+        assertNotConfident(Photo(450, 800, fillsThePhoto, paper = 205, noise = 4, soft = 1, print = { u, v -> textbook(u, v, 0.4, 0.62) }))
+        // nor one with bold rules,
+        assertNotConfident(Photo(450, 800, fillsThePhoto, paper = 205, noise = 4, soft = 1, seed = 2, print = { u, v -> textbook(u, v, 0.25, 0.6, 0.004, 50) }))
+        // nor a wide photo's.
+        assertNotConfident(Photo(800, 600, fillsThePhoto, paper = 205, noise = 4, soft = 1, seed = 3, print = { u, v -> textbook(u, v, 0.3, 0.7) }))
+    }
+
+    @Test fun aPanelOrAFigureOnAPageIsNotThePage() {
+        // A tinted panel with no rule round it, text above and below it and in it.
+        val panel = { u: Double, v: Double ->
+            if (u in 0.1..0.9 && v in 0.36..0.6) text(u, v, 0.39, 0.57) ?: 172 else text(u, v, 0.05, 0.346) ?: text(u, v, 0.614, 0.95)
+        }
+        assertNotConfident(Photo(450, 800, fillsThePhoto, paper = 215, noise = 4, soft = 1, print = panel))
+        // A printed photograph, dark, between paragraphs.
+        val figure = { u: Double, v: Double ->
+            if (u in 0.12..0.88 && v in 0.3..0.62) 70 + (40 * sin(u * 9) * sin(v * 14)).roundToInt() else text(u, v, 0.05, 0.286) ?: text(u, v, 0.634, 0.95)
+        }
+        assertNotConfident(Photo(450, 800, fillsThePhoto, paper = 215, noise = 4, soft = 1, seed = 2, print = figure))
+        // The same page whole on a dark table: the page, not the photograph on it.
+        assertFound(Photo(600, 800, corners(0.14f, 0.1f, 0.86f, 0.12f, 0.88f, 0.9f, 0.12f, 0.88f), paper = 215, noise = 5, soft = 1, print = figure))
+    }
+
+    @Test fun findsAPageRunningOffThePhoto() {
+        val words = { u: Double, v: Double -> text(u, v, 0.05, 0.95) }
+        // The top of the page is out of the frame: the page is the paper as far as it shows, its top
+        // side the photo's border.
+        assertFound(
+            Photo(600, 800, corners(0.15f, -0.2f, 0.85f, -0.2f, 0.88f, 0.8f, 0.12f, 0.8f), print = words),
+            expected = corners(0.144f, 0f, 0.856f, 0f, 0.88f, 0.8f, 0.12f, 0.8f),
+        )
+        // Its top and its left: a page across a corner of the photo.
+        assertFound(
+            Photo(600, 800, corners(-0.2f, -0.15f, 0.8f, -0.15f, 0.8f, 0.75f, -0.2f, 0.75f), seed = 2, print = words),
+            expected = corners(0f, 0f, 0.8f, 0f, 0.8f, 0.75f, 0f, 0.75f),
+        )
+        // In colour, light wood as bright as the paper beyond the page's top edge: the paper is whiter.
+        val page = corners(-0.03f, 0.13f, 1.03f, 0.11f, 1.04f, 0.9f, -0.04f, 0.88f)
+        assertFound(
+            Photo(450, 800, page, paper = 205, deskColour = intArrayOf(232, 200, 150), noise = 4, print = { u, v -> textbook(u, v) }),
+            expected = corners(0f, 0.1294f, 1f, 0.1106f, 1f, 0.8993f, 0f, 0.8807f),
+        )
+    }
+
+    @Test fun whatRunsOffThePhotoWithLittleToShowForItIsNotSure() {
+        val words = { u: Double, v: Double -> text(u, v, 0.05, 0.95) }
+        // A close photo: the page fills it but for the table below its bottom edge. One edge is too
+        // little to go by: a desk's far edge, a keyboard's and a wall's foot look the same.
+        assertNotConfident(Photo(600, 800, corners(-0.1f, -0.06f, 1.1f, -0.06f, 1.1f, 0.86f, -0.1f, 0.84f), seed = 3, print = words))
+        // A bare white wall between the ceiling and the floor, across the photo: no print, no page.
+        assertNotConfident(Photo(450, 800, corners(-0.03f, 0.13f, 1.03f, 0.11f, 1.04f, 0.9f, -0.04f, 0.88f), paper = 215, noise = 4, print = { _, _ -> null }))
+        // A page lying on a white table that runs off the photo: the table isn't the page.
+        val sheet = { u: Double, v: Double ->
+            val x = (u - 0.3) / 0.4
+            val y = (v - 0.3) / 0.45
+            if (x in 0.0..1.0 && y in 0.0..1.0) (if (x < 0.006 || x > 0.994 || y < 0.004 || y > 0.996) 186 else text(x, y, 0.08, 0.92)) else null
+        }
+        val table = find(Photo(450, 800, corners(-0.03f, 0.13f, 1.03f, 0.11f, 1.04f, 0.9f, -0.04f, 0.88f), paper = 222, noise = 4, print = sheet))
+        assertTrue("Found $table", table == null || !table.confident || table.quad[0].x > 0.2f)
+    }
+
+    @Test fun aShadowAcrossAPageIsNotItsEdge() {
+        // A hard-edged shadow, a window frame's, over the lower part of a page that fills the photo:
+        // the lit part isn't the page.
+        val shadow = { _: Double, y: Double -> if (y > 0.62) 0.55 else 1.0 }
+        assertNotConfident(Photo(450, 800, fillsThePhoto, paper = 215, noise = 4, soft = 1, shade = shadow, print = { u, v -> text(u, v, 0.05, 0.95) }))
+    }
+
+    @Test fun aSideEndsAtThePagesCorner() {
+        // A pale streak in the wood runs across the table above the page, along its top edge: the
+        // page's sides aren't drawn on up to it.
+        val streak = { _: Double, y: Double -> if (y in 0.07..0.078) 118 else null }
+        assertFound(Photo(600, 800, corners(0.2f, 0.15f, 0.8f, 0.15f, 0.8f, 0.85f, 0.2f, 0.85f), extra = streak))
+        // And a dark band printed across the page's top, from edge to edge, is part of the page.
+        val banded = { u: Double, v: Double -> if (v < 0.13) 40 else text(u, v, 0.18, 0.92) }
+        assertFound(Photo(600, 800, corners(0.2f, 0.15f, 0.8f, 0.13f, 0.82f, 0.86f, 0.18f, 0.84f), paper = 222, table = 95, seed = 2, print = banded))
     }
 
     @Test fun findsAPageOnABrighterTable() {
