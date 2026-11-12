@@ -4,14 +4,11 @@ import android.text.format.Formatter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.activity.compose.BackHandler
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
@@ -33,7 +30,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -94,7 +90,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
@@ -965,38 +960,12 @@ private fun SplitOptions(
         AnimatedVisibility(visible = mode == SplitMode.SELECTED, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page picker") {
             // In the order typed, which a combined PDF keeps.
             val selected = typedPages(text, input.pageCount).toSet()
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
-                items(input.pageCount) { i ->
-                    val active = i in selected
-                    val borderWidth by animateDpAsState(if (active) 2.dp else 1.dp, Motion.short(), label = "page border width")
-                    val borderColor by animateColorAsState(
-                        if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                        Motion.short(),
-                        label = "page border color",
-                    )
-                    val pageLabel = stringResource(R.string.pdf_page_number, i + 1)
-                    OutlinedCard(
-                        // A page tapped goes at the end; the others keep their order, and ranges stay short.
-                        // From the pages chosen now, not as last drawn: two tapped at once are both chosen.
-                        onClick = {
-                            onTap tap@{ current ->
-                                val now = tappedOnto(current, input.pageCount) ?: return@tap current
-                                PdfPageSelection.formatInOrder(if (i in now) now - i else now + i)
-                            }
-                        },
-                        border = BorderStroke(borderWidth, borderColor),
-                        modifier = Modifier.width(105.dp).semantics { this.selected = active },
-                    ) {
-                        PdfThumbnail(input, i, Modifier.fillMaxWidth().height(130.dp))
-                        // A screen reader says "Page 3" rather than a bare "3".
-                        Text(
-                            "${i + 1}",
-                            modifier = Modifier
-                                .align(Alignment.CenterHorizontally)
-                                .semantics { contentDescription = pageLabel }
-                                .padding(6.dp),
-                        )
-                    }
+            // A page tapped goes at the end; the others keep their order, and ranges stay short.
+            // From the pages chosen now, not as last drawn: two tapped at once are both chosen.
+            PageRowPicker(input, selected, Modifier.padding(top = 16.dp).fillMaxWidth()) { i ->
+                onTap tap@{ current ->
+                    val now = tappedOnto(current, input.pageCount) ?: return@tap current
+                    PdfPageSelection.formatInOrder(if (i in now) now - i else now + i)
                 }
             }
         }

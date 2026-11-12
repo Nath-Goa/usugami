@@ -57,9 +57,6 @@ class TextOutcome(val file: PdfFile, val withoutText: List<Int>, val read: List<
 /** No page chosen has text, not even after text recognition; [recognitionFailed] when it failed on some of them. */
 class NoTextFound(val recognitionFailed: Boolean) : Exception("No page has text")
 
-/** [input]'s pages as images, or its text as a file, in place of the files made before. The lane fills it in: nothing is made yet. */
-internal fun PdfToolsEngine.fromPdf(input: PdfInput, fileName: String, check: () -> Unit = {}): List<PdfFile> = newOutput { emptyList() }
-
 /**
  * The zero-based [pages] of [input] (sorted, each once, at least one) as pictures in [format] at
  * [size], in place of the files made before, named after [typedName] ("Report_p3.jpg"). Each is

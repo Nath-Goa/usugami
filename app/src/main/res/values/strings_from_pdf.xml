@@ -16,4 +16,96 @@
     <string name="search_keywords_pdf_to_images_or_text">JPG, JPEG, PNG, picture, photo, image, export, extract, convert, text, txt, copy, words, screenshot</string>
     <!-- The button that makes the images or the text. -->
     <string name="pdf_to_images_or_text_action">Convert</string>
+    <!-- The options of PDF to images or text. A heading over two choices: what the PDF's pages become. -->
+    <string name="export_kind_title">Convert to</string>
+    <!-- The pages become pictures, one for each page. -->
+    <string name="export_kind_images">Images</string>
+    <!-- The pages' text becomes a text file. -->
+    <string name="export_kind_text">Text</string>
+    <!-- A field for the page numbers to convert. -->
+    <string name="export_pages">Pages</string>
+    <string name="export_pages_hint" tools:ignore="TypographyDashes">Leave empty for all pages. Or type some, such as 1,3,5-8, or tap the previews.</string>
+    <!-- Under the pages field while it is empty: every page is converted. -->
+    <string name="export_pages_all">To convert: all pages</string>
+    <!-- %1$d pages are chosen, out of the %2$d pages in the PDF. -->
+    <string name="export_pages_count">To convert: %1$d of %2$d</string>
+    <!-- A heading over the image formats to choose from. -->
+    <string name="export_format">Format</string>
+    <string name="export_format_jpg" translatable="false">JPG</string>
+    <string name="export_format_png" translatable="false">PNG</string>
+    <!-- What JPG images are good for, under the choice. -->
+    <string name="export_format_jpg_summary">Smaller files. Best for photos and scans.</string>
+    <!-- What PNG images are good for, under the choice. -->
+    <string name="export_format_png_summary">Sharpest text and drawings. Larger files.</string>
+    <!-- A heading over the image sizes to choose from. -->
+    <string name="export_size">Image size</string>
+    <string name="export_size_small">Small</string>
+    <string name="export_size_medium">Medium</string>
+    <string name="export_size_large">Large</string>
+    <!-- Under the size chosen. dpi (dots per inch) says how sharp the images are: keep it as it is. -->
+    <string name="export_size_small_summary">Fine on a screen, smallest files (100 dpi)</string>
+    <string name="export_size_medium_summary">Sharp on a screen and in print (200 dpi)</string>
+    <string name="export_size_large_summary">Best for printing and zooming in, largest files (300 dpi)</string>
+    <!-- Under the file name field. %1$s is the name a page's image gets, such as Report_p3.jpg: it is made from the name typed. -->
+    <string name="export_images_name_hint">Each image adds its page number: %1$s</string>
+    <!-- The button that makes the pages into images. -->
+    <string name="export_images_action">Convert to images</string>
+    <!-- .txt is the ending of a text file's name: keep it as it is. -->
+    <string name="export_text_note">You get the text of the pages, in reading order, to copy or to save as a .txt file.</string>
+    <!-- A switch: pages that are pictures of text (scans) are read with text recognition. -->
+    <string name="export_text_read_scans">Read pages without text</string>
+    <string name="export_text_read_scans_detail">Scanned pages are read with text recognition.</string>
+    <!-- Shown in Usugami Lite in place of the switch "Read pages without text". Usugami Lite is the app's name: keep it as it is. -->
+    <string name="export_text_lite_note">Usugami Lite has no text recognition, so it can\'t read scanned pages.</string>
+    <!-- The button that makes the pages' text into a text file. -->
+    <string name="export_text_action">Convert to text</string>
+
+    <!-- Under the bar while the images are made: the one being made (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_image" tools:ignore="PluralsCandidate">Image %1$d of %2$d</string>
+    <!-- Under the bar while the pages' text is read: the page being read (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_text" tools:ignore="PluralsCandidate">Getting the text: page %1$d of %2$d</string>
+    <!-- Under the bar while pages without text are read with text recognition: the one being read (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_scans" tools:ignore="PluralsCandidate">Reading pages without text: %1$d of %2$d</string>
+
+    <!-- No page chosen has text that can be copied, in Usugami Lite. Usugami Lite is the app's name: keep it as it is. -->
+    <string name="export_none_lite">These pages have no text that can be copied. They may be scans, which Usugami Lite can\'t read.</string>
+    <!-- No page chosen has text, and the switch "Read pages without text" is off: use that switch's own words. -->
+    <string name="export_none_off">These pages have no text that can be copied. Turn on \"Read pages without text\" to read them.</string>
+    <!-- Text recognition read the pages and found no text on any of them. -->
+    <string name="export_none_found">No text was found on these pages.</string>
+    <string name="export_none_failed">Text recognition failed, so these pages couldn\'t be read. Please try again.</string>
+    <!-- %1$d is a page number. -->
+    <string name="export_page_failed" tools:ignore="PluralsCandidate">Couldn\'t draw page %1$d. Leave it out and try again.</string>
+    <string name="export_no_space">There isn\'t enough free storage. Free up some space, or choose fewer pages or a smaller size.</string>
+
+    <!-- Notes on the result. %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. Usugami Lite is the app's name: keep it as it is. -->
+    <plurals name="export_no_text_lite">
+        <item quantity="one">Page %2$s has no text that can be copied. It may be a scan, which Usugami Lite can\'t read.</item>
+        <item quantity="other">%1$d pages have no text that can be copied: %2$s. They may be scans, which Usugami Lite can\'t read.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_no_text_off">
+        <item quantity="one">Page %2$s has no text that can be copied, so it was left out.</item>
+        <item quantity="other">%1$d pages have no text that can be copied, so they were left out: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_no_text_found">
+        <item quantity="one">No text was found on page %2$s.</item>
+        <item quantity="other">No text was found on %1$d pages: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_ocr_failed_pages">
+        <item quantity="one">Text recognition failed on page %2$s, so it was left out.</item>
+        <item quantity="other">Text recognition failed on %1$d pages, so they were left out: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_scans_read">
+        <item quantity="one">Page %2$s was read with text recognition, which can make mistakes.</item>
+        <item quantity="other">%1$d pages were read with text recognition, which can make mistakes: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_images_reduced">
+        <item quantity="one">Page %2$s is very large, so its image has fewer pixels than this size gives.</item>
+        <item quantity="other">%1$d pages are very large, so their images have fewer pixels than this size gives: %2$s.</item>
+    </plurals>
 </resources>
