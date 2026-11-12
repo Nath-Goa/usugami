@@ -88,12 +88,17 @@ class OcrDeviceTest {
         }
     }
 
-    /** French and Spanish keep their accents: ML Kit reads them and the OCR font has them. */
-    @Test fun ocrFrenchAndSpanishKeepAccents() = runBlocking {
+    /**
+     * French, Spanish, German and Portuguese keep their accents, umlauts and ß: ML Kit's Latin model
+     * reads them and the OCR font has them.
+     */
+    @Test fun ocrKeepsAccentsAndUmlauts() = runBlocking {
         val ocr = PdfOcr(context)
         for ((language, lines, expected) in listOf(
             Triple(OcrLanguage.FRENCH, listOf("Le garçon et l'élève", "fêtent Noël à Paris"), listOf("garçon", "élève", "Noël")),
             Triple(OcrLanguage.SPANISH, listOf("El niño pequeño", "cumple años mañana"), listOf("niño", "pequeño", "mañana")),
+            Triple(OcrLanguage.GERMAN, listOf("Die Größe der Tür", "Übung für Mädchen"), listOf("Größe", "Tür", "Übung", "Mädchen")),
+            Triple(OcrLanguage.PORTUGUESE, listOf("A ação do coração", "não é só pão e maçã"), listOf("ação", "coração", "não", "maçã")),
         )) {
             ensureOcrReady(language)
             val page = scannedText(lines, File(context.filesDir, "ocr_${language.name}.pdf"))

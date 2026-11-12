@@ -134,6 +134,24 @@ class BuiltInOcrDeviceTest {
     }
 
     /**
+     * German and Portuguese are read by the latin model with their umlauts, ß, tildes and cedillas,
+     * which the text layer keeps (each language finds its model's files).
+     */
+    @Test fun readsGermanAndPortugueseLetters() = runBlocking {
+        val lines = listOf("Die Größe der Tür", "Übung für Mädchen", "A ação do coração", "não é só pão e maçã")
+            .mapIndexed { index, line -> Triple(line, 72f, 240f + index * 240f) }
+        val words = listOf("Größe", "Tür", "Übung", "Mädchen", "ação", "coração", "não", "maçã")
+        for (language in listOf(OcrLanguage.GERMAN, OcrLanguage.PORTUGUESE)) {
+            // Made for each language: the PDF read is replaced by the one with the text layer.
+            val page = picturePage("letters_${language.name}.pdf", 1600, 1200, 800, 600, lines)
+            val found = text(ocr(page, language))
+            Log.i(TAG, "letters_${language.name}.pdf read as: ${found.trim().replace('\n', '|')}")
+            val read = found.split(Regex("\\s+")).toSet()
+            for (word in words) assertTrue("$language: missing $word in $found", word in read)
+        }
+    }
+
+    /**
      * A PDF of one [pageWidth] x [pageHeight] page showing a [width] x [height] picture of [lines]
      * (each its text, size and baseline, centred in bold), so that the PDF has no text of its own.
      */

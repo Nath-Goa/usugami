@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Usugami 2.0.0: the new text-recognition languages. English only for now. The translations lane
+     translates these strings, moves them where they belong and takes tools:ignore away, so that
+     lint checks them as it checks the rest. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- Names of text-recognition languages, shown in the app's language. -->
+    <string name="ocr_german">German</string>
+    <string name="ocr_portuguese">Portuguese</string>
+    <string name="ocr_indonesian">Indonesian</string>
+</resources>

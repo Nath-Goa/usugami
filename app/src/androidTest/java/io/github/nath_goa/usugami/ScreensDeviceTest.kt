@@ -2324,8 +2324,9 @@ class ScreensDeviceTest {
     @Test fun firstLaunchAsksForLanguage() {
         languageChanged = true
         launch(firstRun = true)
-        for (language in AppLanguage.entries) find(language.nativeName) { it.says(language.nativeName) }
-        click(find("English") { it.says(AppLanguage.ENGLISH.nativeName) })
+        // Seven cards may not all fit on the screen: those further down show as it scrolls.
+        for (language in AppLanguage.entries) findBelow(language.nativeName) { it.says(language.nativeName) }
+        click(findAbove("English") { it.says(AppLanguage.ENGLISH.nativeName) })
         // In English now, whatever the phone's language.
         val images = stringIn(AppLanguage.ENGLISH, R.string.tool_images)
         find("Home") { it.text?.contains(images) == true }
@@ -2345,8 +2346,8 @@ class ScreensDeviceTest {
         find("the GitHub link") { it.says(english(R.string.about_source_detail)) }
         find("About in Settings") { it.says(english(R.string.about)) }
         click(find("the language entry") { it.says(english(R.string.settings_language)) })
-        for (language in AppLanguage.entries) find("${language.nativeName} in the dialog") { it.says(language.nativeName) }
-        click(find("Français") { it.says(AppLanguage.FRENCH.nativeName) })
+        for (language in AppLanguage.entries) findBelow("${language.nativeName} in the dialog") { it.says(language.nativeName) }
+        click(findAbove("Français") { it.says(AppLanguage.FRENCH.nativeName) })
 
         val french = recreatedFrom(first)
         assertEquals("fr", onMain { french.resources.configuration.locales[0].language })

@@ -13,8 +13,10 @@ import io.github.nath_goa.usugami.core.ToolSearch
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Edition
+import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.ocrEngine
 import io.github.nath_goa.usugami.ui.MainViewModel
+import io.github.nath_goa.usugami.ui.label
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -59,15 +61,32 @@ class EditionDeviceTest {
             AppLanguage.SPANISH to "reconocimiento de texto",
             AppLanguage.HINDI to "टेक्स्ट पहचान",
         )
-        for (language in AppLanguage.entries) {
+        for ((language, phrase) in words) {
             val resources = app.createConfigurationContext(
                 Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag(language.tag)) },
             ).resources
             val detail = resources.getString(R.string.tool_images_detail)
             val keywords = resources.getString(R.string.search_keywords_images)
-            assertEquals("$language: $detail", BuildConfig.HAS_OCR, detail.contains(words.getValue(language)))
+            assertEquals("$language: $detail", BuildConfig.HAS_OCR, detail.contains(phrase))
             assertEquals("$language: $keywords", BuildConfig.HAS_OCR, keywords.split(", ").contains("OCR"))
         }
+    }
+
+    /**
+     * Each language is told from the locale a screen is built in, whatever its region and however this
+     * Android writes the code: Indonesian's tag is "id" and Android's code "in", Portuguese's tag is
+     * "pt-BR" and a phone in Portugal's Portuguese is shown it too. A language Usugami lacks is English.
+     */
+    @Test fun everyLanguageIsKnownFromItsLocale() {
+        fun shownIn(locale: Locale) = AppLanguage.shownIn(
+            app.createConfigurationContext(Configuration(app.resources.configuration).apply { setLocale(locale) }),
+        )
+        for (language in AppLanguage.entries) assertEquals(language.tag, language, shownIn(Locale.forLanguageTag(language.tag)))
+        assertEquals(AppLanguage.PORTUGUESE, shownIn(Locale.forLanguageTag("pt-PT")))
+        assertEquals(AppLanguage.GERMAN, shownIn(Locale.forLanguageTag("de-AT")))
+        @Suppress("DEPRECATION") // the code Android has always used for Indonesian
+        assertEquals(AppLanguage.INDONESIAN, shownIn(Locale("in")))
+        assertEquals(AppLanguage.ENGLISH, shownIn(Locale.forLanguageTag("ja")))
     }
 
     /**
@@ -84,7 +103,10 @@ class EditionDeviceTest {
         }
     }
 
-    /** The Convert sheet has the OCR switch, except in Usugami Lite. */
+    /**
+     * The Convert sheet has the OCR switch, except in Usugami Lite. Switched on, it shows the text
+     * language as a chip, starting on the app's language, whose menu offers every language.
+     */
     @Test fun convertSheetOffersOcrOnlyWithTextRecognition() {
         AppLanguages.skipChoice(app)
         val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -109,7 +131,13 @@ class EditionDeviceTest {
         if (!BuildConfig.HAS_OCR) {
             val texts = nodes().mapNotNull { it.text?.toString() }
             assertTrue("No mention of OCR in $texts", texts.none { it.contains("OCR") })
+            return
         }
+        click(nodes().first { it.text?.contains(app.getString(R.string.ocr_title)) == true })
+        fun chip(language: OcrLanguage) = app.getString(R.string.option_value, app.getString(R.string.ocr_language), app.getString(language.label))
+        click(find(chip(AppLanguage.shownIn(main).ocr)))
+        click(find(app.getString(OcrLanguage.GERMAN.label)))
+        find(chip(OcrLanguage.GERMAN))
     }
 
     /** Every node in the window that has focus (the sheet's, once it is open). */

@@ -5,11 +5,12 @@ import android.graphics.Point
 import java.io.Closeable
 
 /**
- * The languages text recognition offers. Hindi mode reads Devanagari and also keeps English words.
- * (In the standard edition, English, French and Spanish share ML Kit's Latin-script model, so one
- * download covers all three.)
+ * The languages text recognition offers, in the order the text-language menu lists them. Hindi mode
+ * reads Devanagari and also keeps English words. English, French, Spanish, German, Portuguese and
+ * Indonesian share one Latin-script recognizer (in the standard edition ML Kit's, so one download
+ * covers all six; in Usugami OCR the built-in latin model).
  */
-enum class OcrLanguage { ENGLISH, FRENCH, SPANISH, HINDI }
+enum class OcrLanguage { ENGLISH, FRENCH, SPANISH, HINDI, GERMAN, PORTUGUESE, INDONESIAN }
 
 /**
  * Why text recognition can't run on this phone right now. Only the standard edition, which gets

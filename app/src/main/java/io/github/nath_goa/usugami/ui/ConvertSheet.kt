@@ -206,22 +206,8 @@ fun ConvertSheet(
                     exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
                     label = "ocrLanguage",
                 ) {
-                    Column {
-                        Text(stringResource(R.string.ocr_language), style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(8.dp))
-                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                            OcrLanguage.entries.forEachIndexed { index, language ->
-                                SegmentedButton(
-                                    selected = ocrLanguage == language,
-                                    onClick = { ocrLanguage = language },
-                                    shape = SegmentedButtonDefaults.itemShape(index, OcrLanguage.entries.size),
-                                    icon = {},
-                                    contentPadding = SegmentPadding,
-                                    label = { SegmentLabel(stringResource(language.label)) },
-                                )
-                            }
-                        }
-                    }
+                    // Seven languages don't fit a row of buttons: a chip that opens a menu of them.
+                    OcrLanguageChip(selected = ocrLanguage, onSelect = { ocrLanguage = it })
                 }
             }
 
@@ -383,10 +369,13 @@ fun OcrProblemDialog(problem: OcrProblem, onDismiss: () -> Unit) {
 }
 
 /** The name of a text-recognition language, in the app's language. */
-private val OcrLanguage.label: Int
+internal val OcrLanguage.label: Int
     get() = when (this) {
         OcrLanguage.ENGLISH -> R.string.ocr_english
         OcrLanguage.FRENCH -> R.string.ocr_french
         OcrLanguage.SPANISH -> R.string.ocr_spanish
         OcrLanguage.HINDI -> R.string.ocr_hindi
+        OcrLanguage.GERMAN -> R.string.ocr_german
+        OcrLanguage.PORTUGUESE -> R.string.ocr_portuguese
+        OcrLanguage.INDONESIAN -> R.string.ocr_indonesian
     }

@@ -33,9 +33,13 @@ import kotlin.math.roundToInt
 internal object PaddleModels {
     const val DETECTION = "ocr/PP-OCRv5_mobile_det"
 
-    /** English, French and Spanish share the Latin-script model; Hindi's also reads English words. */
+    /**
+     * English, French, Spanish, German, Portuguese and Indonesian share the Latin-script model (its
+     * dictionary has their accents, umlauts and ß); Hindi's also reads English words.
+     */
     fun recognition(language: OcrLanguage) = when (language) {
-        OcrLanguage.ENGLISH, OcrLanguage.FRENCH, OcrLanguage.SPANISH -> "ocr/latin_PP-OCRv5_mobile_rec"
+        OcrLanguage.ENGLISH, OcrLanguage.FRENCH, OcrLanguage.SPANISH, OcrLanguage.GERMAN, OcrLanguage.PORTUGUESE, OcrLanguage.INDONESIAN ->
+            "ocr/latin_PP-OCRv5_mobile_rec"
         OcrLanguage.HINDI -> "ocr/devanagari_PP-OCRv5_mobile_rec"
     }
 

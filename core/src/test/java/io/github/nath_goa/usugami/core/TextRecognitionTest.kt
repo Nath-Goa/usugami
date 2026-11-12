@@ -30,6 +30,16 @@ class TextRecognitionTest {
         }
     }
 
+    /**
+     * German and Portuguese, read by the latin model in Usugami OCR, keep their letters: each is one
+     * the model can give (this dictionary is the one in the OCR edition's assets).
+     */
+    @Test fun theLatinDictionaryHasGermanAndPortugueseLetters() {
+        val characters = javaClass.getResourceAsStream("/ocr/latin_dictionary.txt")!!.bufferedReader().readLines().toSet()
+        val missing = "äöüßÄÖÜãõçáàâéêíóôúÃÕÇÁÀÂÉÊÍÓÔÚ".map(Char::toString).filter { it !in characters }
+        assertEquals(emptyList<String>(), missing)
+    }
+
     @Test fun mergesRepeatsDropsBlanksAndAddsTheSpaceClass() {
         // Class 0 is the blank, 1..4 the characters, 5 the space. "क ि" are two classes: a letter and
         // its vowel sign, which the text keeps in order.

@@ -95,9 +95,10 @@ android {
         buildConfig = true
     }
     androidResources {
-        // Usugami comes in English, French, Spanish and Hindi (also listed in res/xml/locales_config.xml);
-        // this drops the libraries' 80+ other translations (~300 KB).
-        localeFilters += listOf("en", "fr", "es", "hi")
+        // Usugami comes in English, French, Spanish, Hindi, German, Portuguese and Indonesian (also listed in
+        // res/xml/locales_config.xml); this drops the libraries' 80+ other translations (~300 KB). "in" is the
+        // resource system's code for Indonesian ("id" would drop it); "pt" keeps values-pt for every Portuguese.
+        localeFilters += listOf("en", "fr", "es", "hi", "de", "pt", "in")
     }
     // The language can be switched inside the app, so an app bundle must not split languages off.
     bundle {

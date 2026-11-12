@@ -134,9 +134,13 @@ private class PlayServicesOcrEngine(private val context: Context) : OcrEngine {
 /** How long a download may go without any progress before it counts as failed (usually: no internet). */
 private val STALL_TIMEOUT = 60.seconds
 
-/** ML Kit's recognizer for [language]; the download in [PlayServicesOcrEngine.ensureReady] is for the same one. */
+/**
+ * ML Kit's recognizer for [language]; the download in [PlayServicesOcrEngine.ensureReady] is for the same one.
+ * The Latin-script recognizer takes no language hint: it reads every language written in Latin letters.
+ */
 private fun newRecognizer(language: OcrLanguage): TextRecognizer = when (language) {
-    OcrLanguage.ENGLISH, OcrLanguage.FRENCH, OcrLanguage.SPANISH -> TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    OcrLanguage.ENGLISH, OcrLanguage.FRENCH, OcrLanguage.SPANISH, OcrLanguage.GERMAN, OcrLanguage.PORTUGUESE, OcrLanguage.INDONESIAN ->
+        TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     OcrLanguage.HINDI -> TextRecognition.getClient(DevanagariTextRecognizerOptions.Builder().build())
 }
 

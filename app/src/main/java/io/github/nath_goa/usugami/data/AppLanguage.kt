@@ -10,19 +10,36 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.edit
 import java.util.Locale
 
-/** The languages Usugami's screens come in. Each also picks the default text-recognition language. */
+/**
+ * The languages Usugami's screens come in, in the order the pickers list them. Each also picks the
+ * default text-recognition language.
+ *
+ * [tag] is a BCP 47 language tag, which may carry a region: "pt-BR", whose texts (in values-pt) every
+ * Portuguese-speaking phone gets, and "id" for Indonesian, which Android's resources and Locale write
+ * "in". So a tag is never compared with a Locale's language as it is: see [shownIn].
+ */
 enum class AppLanguage(val tag: String, val nativeName: String, val ocr: OcrLanguage) {
     ENGLISH("en", "English", OcrLanguage.ENGLISH),
     FRENCH("fr", "Français", OcrLanguage.FRENCH),
     SPANISH("es", "Español", OcrLanguage.SPANISH),
     HINDI("hi", "हिन्दी", OcrLanguage.HINDI),
+    GERMAN("de", "Deutsch", OcrLanguage.GERMAN),
+    PORTUGUESE("pt-BR", "Português (Brasil)", OcrLanguage.PORTUGUESE),
+    INDONESIAN("id", "Bahasa Indonesia", OcrLanguage.INDONESIAN),
     ;
 
+    /** The language code of [tag] as this Android's Locale writes it ("in" for Indonesian on most versions). */
+    private val languageCode: String get() = Locale.forLanguageTag(tag).language
+
     companion object {
-        /** The language a screen built from [context] is showing: one of ours, or English. */
+        /**
+         * The language a screen built from [context] is showing: one of ours, or English. Any region
+         * counts (a phone in Portuguese from Portugal or German from Austria gets ours), and the codes
+         * are compared as Locale writes them, so Indonesian is found whether this Android says "in" or "id".
+         */
         fun shownIn(context: Context): AppLanguage {
             val language = context.resources.configuration.locales[0].language
-            return entries.firstOrNull { it.tag == language } ?: ENGLISH
+            return entries.firstOrNull { it.languageCode == language } ?: ENGLISH
         }
     }
 }
