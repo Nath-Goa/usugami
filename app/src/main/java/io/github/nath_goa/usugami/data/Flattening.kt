@@ -14,6 +14,7 @@ import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotation
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationMarkup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
@@ -112,7 +113,8 @@ internal object Flattening {
      * Draws again the fields that need it: all of them when the form asks viewers to (NeedAppearances),
      * otherwise only those with a widget that has no appearance. Fields that already look right
      * keep the appearance their app gave them. A field PDFBox can't draw (say, text in a script its
-     * font doesn't have) keeps what it has instead of stopping the rest. Returns those of them that
+     * font doesn't have), or a field set in a CJK font it can't write in (see [CjkFormFonts]), keeps
+     * what it has instead of stopping the rest. Returns those of them that
      * have a value but nothing that shows it: a widget with no appearance, or, when the form asks
      * viewers to draw its fields, any appearance at all, which the form itself says is out of date
      * (apps that fill forms that way set the value and leave the look as it was, often blank).
@@ -128,8 +130,10 @@ internal object Flattening {
             // PDFBox redraws a widget's appearance in place, its background and border first, and
             // leaves it like that when it then can't draw the value: what it had is put back.
             val saved = try { field.widgets.map { SavedAppearance(it.cosObject) } } catch (_: IOException) { null }
-            val putBack = (field as? PDComboBox)?.let(::showChoiceText)
-            val failed = try {
+            // PDFBox would write the value in codes its font doesn't read as these letters (see CjkFormFonts).
+            val unwritable = CjkFormFonts.sets(form, field)
+            val putBack = if (unwritable) null else (field as? PDComboBox)?.let(::showChoiceText)
+            val failed = unwritable || try {
                 form.refreshAppearances(listOf(field))
                 false
             } catch (_: IOException) {
@@ -348,10 +352,26 @@ internal object Flattening {
     internal fun appearanceOf(doc: PDDocument, annotation: PDAnnotation): PDAppearanceStream? {
         var appearance = annotation.normalAppearanceStream
         if (appearance == null) {
+            val form = doc.documentCatalog.getAcroForm(null)
+            val note = annotation.subtype == PDAnnotationMarkup.SUB_TYPE_FREETEXT
+            // A text note set in a font PDFBox can't write in (its own /DA, or the form's when it
+            // has none) is drawn without what it says: its box and border, as it came out while
+            // PDFBox couldn't open such a font (see CjkFormFonts).
+            val says = annotation.cosObject.getItem(COSName.CONTENTS)
+            val unwritable = form != null && says != null && note &&
+                CjkFormFonts.names(form, annotation.cosObject.getDictionaryObject(COSName.DA) ?: form.cosObject.getDictionaryObject(COSName.DA))
+            if (unwritable) annotation.cosObject.removeItem(COSName.CONTENTS)
+            // PDFBox redraws the whole form when it draws a text note, if the form asks for it. No
+            // other look it makes reads the form, so the fields aren't gone through again for each
+            // widget or comment without a look.
+            val asked = note && CjkFormFonts.silence(doc)
             try {
                 annotation.constructAppearances(doc)
             } catch (_: IOException) {
             } catch (_: RuntimeException) {
+            } finally {
+                if (asked) form?.needAppearances = true
+                if (unwritable) annotation.cosObject.setItem(COSName.CONTENTS, says)
             }
             appearance = annotation.normalAppearanceStream
         }

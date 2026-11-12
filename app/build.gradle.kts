@@ -161,11 +161,17 @@ dependencies {
 
 /**
  * Drops asset files that a build never reads.
- * - PDFBox data files that Usugami's code paths never read (about 1.2 MB). Predefined CJK CMaps
- *   are only read when PDFBox parses existing CJK fonts (text extraction, rendering, form
- *   appearances); Usugami only needs Identity-H for the OCR text layer. BidiMirroring.txt (7 KB)
- *   stays: PDFTextStripper's static initializer crashes without it, and the device tests use
- *   PDFTextStripper to check the OCR text layer.
+ * - PDFBox's Scripts.txt (167 KB), which only embedding a font with OpenType substitutions reads.
+ *   BidiMirroring.txt (7 KB) stays: PDFTextStripper's static initializer crashes without it.
+ *   PDFBox's CMaps all stay (1.2 MB packed): the tables of the encodings Chinese, Japanese and
+ *   Korean fonts name (UniJIS-UTF16-H, GBK-EUC-H, 90ms-RKSJ-H, ETen-B5-H, KSCms-UHC-H...), of
+ *   their character collections (Adobe-Japan1-6...) and from each collection to Unicode
+ *   (Adobe-Japan1-UCS2...). PDFBox opens a font's named encoding whenever it reads text in that
+ *   font and can't read the page without it; with the collection's table it reads the text of a
+ *   font that has no ToUnicode map, which Redact PDF's Find text then searches. A PDF may name
+ *   any of them, and the ones 1.5.2 tried leaving out (the UTF-16 ones, GBKp) are among those the
+ *   built-in CJK fonts of TCPDF and FPDF name. PDFBox must not write text in these fonts: see
+ *   CjkFormFonts.
  * - With [withoutOcrFont] (Usugami Lite, which has no text recognition), the OCR text layer's font.
  */
 abstract class PruneAssets : DefaultTask() {
@@ -185,10 +191,15 @@ abstract class PruneAssets : DefaultTask() {
     @TaskAction
     fun prune() {
         val dropOcrFont = withoutOcrFont.get()
+        // A PDFBox that kept its CMaps elsewhere would leave Find text unable to read CJK PDFs
+        // without anyone noticing: the build stops instead.
+        val cmaps = input.get().asFile.resolve("com/tom_roush/fontbox/resources/cmap")
+        for (name in listOf("Identity-H", "UniJIS-UTF16-H", "GBKp-EUC-H", "Adobe-GB1-UCS2", "Adobe-CNS1-UCS2", "Adobe-Japan1-UCS2", "Adobe-Korea1-UCS2")) {
+            if (!cmaps.resolve(name).isFile) throw GradleException("PDFBox's CMap $name isn't among the assets in $cmaps")
+        }
         fs.sync {
             from(input)
             into(output)
-            exclude { it.path.startsWith("com/tom_roush/fontbox/resources/cmap/") && !it.name.startsWith("Identity-") }
             exclude("com/tom_roush/fontbox/resources/unicode/Scripts.txt")
             // fonts/LICENSE is the OCR font's license (SIL OFL).
             if (dropOcrFont) exclude("fonts/UsugamiOcr-Regular.ttf", "fonts/LICENSE")

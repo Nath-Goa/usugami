@@ -472,3 +472,38 @@ fun compactPdf(file: File, text: String): File = file.also {
     }
     bitmap.recycle()
 }
+
+/** A font as older CJK PDFs have them: named, not embedded, without a ToUnicode map. [encoding] is a CMap's name. */
+fun cjkFont(encoding: String, ordering: String, supplement: Int, subtype: String = "CIDFontType0", name: String = "Usugami-Test"): COSDictionary {
+    val descriptor = COSDictionary().apply {
+        setItem(COSName.TYPE, COSName.FONT_DESC)
+        setName(COSName.FONT_NAME, name)
+        setInt(COSName.FLAGS, 6)
+        setItem(COSName.FONT_BBOX, COSArray().apply { listOf(0L, -120L, 1000L, 880L).forEach { add(COSInteger.get(it)) } })
+        setInt(COSName.ITALIC_ANGLE, 0)
+        setInt(COSName.ASCENT, 880)
+        setInt(COSName.DESCENT, -120)
+        setInt(COSName.CAP_HEIGHT, 700)
+        setInt(COSName.STEM_V, 80)
+    }
+    val collection = COSDictionary().apply {
+        setString(COSName.REGISTRY, "Adobe")
+        setString(COSName.ORDERING, ordering)
+        setInt(COSName.SUPPLEMENT, supplement)
+    }
+    val descendant = COSDictionary().apply {
+        setItem(COSName.TYPE, COSName.FONT)
+        setName(COSName.SUBTYPE, subtype)
+        setName(COSName.BASE_FONT, name)
+        setItem(COSName.CIDSYSTEMINFO, collection)
+        setItem(COSName.FONT_DESC, descriptor)
+        setInt(COSName.DW, 1000)
+    }
+    return COSDictionary().apply {
+        setItem(COSName.TYPE, COSName.FONT)
+        setItem(COSName.SUBTYPE, COSName.TYPE0)
+        setName(COSName.BASE_FONT, "$name-$encoding")
+        setName(COSName.ENCODING, encoding)
+        setItem(COSName.DESCENDANT_FONTS, COSArray().apply { add(descendant) })
+    }
+}

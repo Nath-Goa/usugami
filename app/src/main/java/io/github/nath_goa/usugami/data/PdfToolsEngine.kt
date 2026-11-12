@@ -316,7 +316,7 @@ class PdfToolsEngine(private val context: Context) {
                     offsets[input.id] = start
                     loadUnmarked(input.file, input.password).use { source ->
                         val own = PageLabeling.of(source)
-                        merger.appendDocument(dest, source)
+                        CjkFormFonts.append(merger, dest, source)
                         if (own != null) labels += PageLabeling.byPage((start until dest.numberOfPages).map(dest::getPage), own)
                     }
                 }
@@ -416,7 +416,7 @@ class PdfToolsEngine(private val context: Context) {
                 val start = doc.numberOfPages
                 loadUnmarked(extra.file, extra.password).use { source ->
                     val own = PageLabeling.of(source)
-                    merger.appendDocument(doc, source)
+                    CjkFormFonts.append(merger, doc, source)
                     sources[extra.id] = (start until doc.numberOfPages).map(doc::getPage)
                     if (own != null) labels?.putAll(PageLabeling.byPage(sources.getValue(extra.id), own))
                 }
