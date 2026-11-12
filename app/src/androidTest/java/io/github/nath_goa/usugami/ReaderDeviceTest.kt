@@ -19,12 +19,17 @@ import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.ReaderDocument
+import io.github.nath_goa.usugami.data.Redactor
+import io.github.nath_goa.usugami.ui.Found
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -32,12 +37,15 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
  * Files opened in the reader ("Open with", Home's Read and annotate), through the view models: what
  * a file is is told by its content, then by its type and name; it is copied in at once and waits for
  * the reader, also when Android restarts Usugami; the file opened last is the one wanted. And the
- * reader's drawing: the sharp part of a page drawn when zoomed lines up with the whole page's picture.
+ * reader's drawing: the sharp part of a page drawn when zoomed lines up with the whole page's picture,
+ * as does what Find text finds; a long PDF is searched a few pages at a time from the page showing.
  */
 class ReaderDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -221,10 +229,81 @@ class ReaderDeviceTest {
             for ((edge, pair) in listOf("left" to (inWhole.left to inPart.left), "top" to (inWhole.top to inPart.top), "right" to (inWhole.right to inPart.right), "bottom" to (inWhole.bottom to inPart.bottom))) {
                 assertTrue("The $edge edge: $inWhole in the page, $inPart in the part", kotlin.math.abs(pair.first - pair.second) <= 1)
             }
+
+            // The box Find text gives for "needle", searched on that page alone, covers the word in the
+            // page's picture (left of the square, which is near the far corner) and nothing of the square.
+            val box = PDDocument.load(file).use { Redactor.findOnPages(it, "needle", 0..0) {} }.matches.single().single()
+            val boxed = Rect(floor(box.left * 2404).toInt(), floor(box.top * 1604).toInt(), ceil(box.right * 2404).toInt(), ceil(box.bottom * 1604).toInt())
+            val word = checkNotNull(darkIn(whole, Rect(0, 0, 1800, 1604))) { "The word isn't drawn" }
+            val square = checkNotNull(darkIn(whole, Rect(1800, 0, 2404, 1604))) { "The square isn't drawn" }
+            assertTrue("The word $word in the box $boxed", boxed.left <= word.left + 1 && boxed.top <= word.top + 1 && boxed.right >= word.right - 1 && boxed.bottom >= word.bottom - 1)
+            assertFalse("The square $square in the box $boxed", Rect.intersects(boxed, square))
             whole.recycle()
             part.recycle()
         } finally {
             document.close()
         }
+    }
+
+    @Test fun aLongPdfIsSearchedAFewPagesAtATime() {
+        // 40 pages, each with "needle" on it.
+        PDFBoxResourceLoader.init(app)
+        val file = File(picked, "long.pdf").apply { parentFile!!.mkdirs() }
+        PDDocument().use { doc ->
+            repeat(40) {
+                val page = PDPage(PDRectangle.A4)
+                doc.addPage(page)
+                writeText(doc, page, "needle")
+            }
+            doc.save(file)
+        }
+        val tools = tools()
+        onMain { tools.addPdfs(listOf(FileProvider.getUriForFile(app, "${app.packageName}.files", file)), replace = true) }
+        waitUntil("the PDF to be taken in") { tools.inputs.value.size == 1 && !tools.importing.value }
+        onMain { tools.reader.show(tools.inputs.value.single()) }
+        waitUntil("the PDF to be ready to show") { tools.reader.session.value != null }
+        val session = onMain { tools.reader.session.value!! }
+
+        // From page 31 on: its match is marked as soon as the first pages searched (31 to 40) are in.
+        // What was found is watched on the main thread, where each lot of pages comes in on its own.
+        val seen = ArrayList<Found>()
+        val watching = MainScope().launch { session.found.collect { seen += it } }
+        onMain { session.find("needle", from = 30) }
+        waitUntil("the search to end") { session.found.value.let { it.query == "needle" && !it.searching } }
+        watching.cancel()
+        val first = onMain { seen.first { it.current >= 0 } }
+        val marked = first.matches[first.current]
+        assertEquals(30, marked.first().page)
+        assertEquals("The pages from 31 on first", 10, first.pagesDone)
+        assertTrue(first.searching)
+
+        // All 40 in the end, in page order, the same match still marked.
+        val done = onMain { session.found.value }
+        assertEquals((0 until 40).toList(), done.matches.map { it.first().page })
+        assertEquals(marked, done.matches[done.current])
+        assertEquals(40, done.pagesDone)
+        assertEquals(0, done.unread)
+        // Followed once, when it was marked, not again as the pages before it came in.
+        assertEquals(first.moves, done.moves)
+
+        // Next, and round from the last to the first; Previous, back to the last. Each is followed.
+        onMain { session.step(1) }
+        assertEquals(31, onMain { session.found.value.let { it.matches[it.current].first().page } })
+        assertEquals(done.moves + 1, onMain { session.found.value.moves })
+        onMain { repeat(9) { session.step(1) } }
+        assertEquals(0, onMain { session.found.value.let { it.matches[it.current].first().page } })
+        onMain { session.step(-1) }
+        assertEquals(39, onMain { session.found.value.let { it.matches[it.current].first().page } })
+
+        // Stopped while it searches: nothing found, and nothing said, also once the text's thread has done
+        // what it was given.
+        onMain {
+            session.find("needle", from = 0)
+            session.stopFinding()
+        }
+        runBlocking { session.document.find("needle", 0..0) {} }
+        Thread.sleep(500)
+        assertEquals(Found(), onMain { session.found.value })
+        assertNull(runBlocking { withTimeoutOrNull(1_000) { tools.messages.first() } })
     }
 }

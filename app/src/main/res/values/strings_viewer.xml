@@ -43,4 +43,22 @@
     <!-- Actions a screen reader offers on a page of the reader: they make the pages larger or smaller, as pinching does. -->
     <string name="reader_zoom_in">Zoom in</string>
     <string name="reader_zoom_out">Zoom out</string>
+    <!-- Find text in the reader: the hint in the search field that takes the reader's top bar. -->
+    <string name="reader_find_hint">Find in this file</string>
+    <!-- Buttons beside the search field: they move to the match before or after the one marked, and close the search. -->
+    <string name="reader_find_previous">Previous match</string>
+    <string name="reader_find_next">Next match</string>
+    <string name="reader_find_close">Close search</string>
+    <!-- Beside the search field: the match marked (%1$d) of how many were found (%2$d), as in "3 of 17". -->
+    <string name="reader_find_count">%1$d of %2$d</string>
+    <!-- What a screen reader says of that count: "Match 3 of 17". -->
+    <string name="reader_find_count_spoken">Match %1$d of %2$d</string>
+    <string name="reader_find_none">Nothing found. Text in scans and pictures can\'t be searched.</string>
+    <!-- %1$d is the most matches the reader keeps (2000): there were more. -->
+    <string name="reader_find_capped" tools:ignore="PluralsCandidate">Showing the first %1$d matches. Try a longer phrase.</string>
+    <!-- After a search, when some pages' text couldn't be read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0. -->
+    <plurals name="reader_find_unread">
+        <item quantity="one">The text on %d page couldn\'t be read, so it wasn\'t searched.</item>
+        <item quantity="other">The text on %d pages couldn\'t be read, so they weren\'t searched.</item>
+    </plurals>
 </resources>

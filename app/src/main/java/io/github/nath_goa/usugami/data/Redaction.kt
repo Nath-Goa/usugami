@@ -151,12 +151,23 @@ internal object Redactor {
      * code that reads as a space), when a form placed on it can't be read, or when the page itself
      * can't be: then none of its matches is given, and the other pages are searched all the same.
      */
-    fun find(doc: PDDocument, query: String, check: () -> Unit): TextSearch {
-        if (PageText.normalize(query).isEmpty()) return TextSearch(emptyList(), emptyList())
+    fun find(doc: PDDocument, query: String, check: () -> Unit): TextSearch = findOnPages(doc, query, 0 until doc.numberOfPages, check)
+
+    /**
+     * As [find], on [pages] only (zero-based): the reader searches a long PDF a few pages at a time.
+     * The matches and the pages it couldn't read are on those pages, numbered in the whole PDF.
+     */
+    fun findOnPages(doc: PDDocument, query: String, pages: IntRange, check: () -> Unit): TextSearch {
+        if (PageText.normalize(query).isEmpty() || pages.isEmpty()) return TextSearch(emptyList(), emptyList())
         val found = LinkedHashMap<List<Int>, List<RedactBox>>()
         val unread = TreeSet<Int>()
         for (sorted in listOf(false, true)) {
-            val finder = Finder(query, check).apply { sortByPosition = sorted }
+            val finder = Finder(query, check).apply {
+                sortByPosition = sorted
+                // Text extraction counts pages from 1.
+                startPage = pages.first + 1
+                endPage = pages.last + 1
+            }
             finder.writeText(doc, NoWriter)
             for (match in finder.matches) {
                 // Rounded to a thousandth of a point or so: the same glyphs give the same boxes.

@@ -6,6 +6,7 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.core.graphics.createBitmap
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,7 +32,7 @@ internal class ReaderDocument private constructor(
     private val descriptor: ParcelFileDescriptor,
     private val renderer: PdfRenderer,
     /** Opens [file] with PDFBox, for its text: called on [reading], the first time text is wanted. */
-    @Suppress("unused") private val text: () -> PDDocument,
+    private val text: () -> PDDocument,
 ) {
     val pageCount: Int get() = sizes.size
 
@@ -100,6 +101,38 @@ internal class ReaderDocument private constructor(
         }
     }
 
+    /**
+     * Find text on [pages] (zero-based; see Redactor.findOnPages), on the text's own thread, after
+     * what it reads now. Throws what the search throws; [check] is called between pages and throws to
+     * stop it. Once this is closed, it throws CancellationException.
+     */
+    suspend fun find(query: String, pages: IntRange, check: () -> Unit): TextSearch = withContext(reading) {
+        ensureActive()
+        // Checked on this thread: closing comes after it here, so a search never opens a document again once closed.
+        if (closed) throw CancellationException("The reader's PDF is closed")
+        val doc = textDocument ?: text().also { textDocument = it }
+        Redactor.findOnPages(doc, query, pages, check)
+    }
+
+    /**
+     * Closes the PDFBox document the text is read from, once what it reads now is done, so that a PDF
+     * read through for a search doesn't keep what PDFBox holds of it for as long as it shows. It
+     * opens again when text is next wanted.
+     */
+    fun releaseText() {
+        if (closed) return
+        closing.launch(reading) { closeText() }
+    }
+
+    /** Closes the text's document, if open; on [reading] only. */
+    private fun closeText() {
+        try {
+            textDocument?.close()
+        } catch (_: IOException) {
+        }
+        textDocument = null
+    }
+
     fun close() {
         if (closed) return
         closed = true
@@ -113,13 +146,7 @@ internal class ReaderDocument private constructor(
             } catch (_: IOException) {
             }
         }
-        closing.launch(reading) {
-            try {
-                textDocument?.close()
-            } catch (_: IOException) {
-            }
-            textDocument = null
-        }
+        closing.launch(reading) { closeText() }
     }
 
     companion object {

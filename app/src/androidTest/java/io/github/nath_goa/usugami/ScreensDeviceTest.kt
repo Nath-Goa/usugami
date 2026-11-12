@@ -2156,8 +2156,10 @@ class ScreensDeviceTest {
     /**
      * A PDF opened from another app ("Open with") shows in the reader, with its name and the page
      * showing. Go to page, from the page showing, shows the page asked for, still after the activity
-     * is recreated. Opened again while Usugami shows, it shows again from its first page, and Back
-     * leaves Usugami for the app that opened it.
+     * is recreated. Find text, searched with the keyboard's search key, marks the first match from the
+     * page showing on and counts the PDF's; Next goes round, and closing the search brings the
+     * reader's bar back. Opened again while Usugami shows, it shows again from its first page, and
+     * Back leaves Usugami for the app that opened it.
      */
     @Test fun aPdfOpenedFromAnotherAppShowsInTheReaderAndBackLeavesUsugami() {
         val name = "Opened ${System.currentTimeMillis()}.pdf"
@@ -2185,6 +2187,32 @@ class ScreensDeviceTest {
         onMain { activity.recreate() }
         recreatedFrom(activity)
         find("page 3, still showing") { it.says(app.getString(R.string.reader_page_of, 3, 3)) }
+
+        // Find text, from the page showing: a word of page 3 as text extraction reads it. The match marked
+        // is the first from page 3 on, numbered among the PDF's (the page indicator says "3 of 3" too: the
+        // count is told by what a screen reader hears).
+        val pages = PDDocument.load(asset("alpha.pdf")).use { doc ->
+            (1..doc.numberOfPages).map { PDFTextStripper().apply { startPage = it; endPage = it }.getText(doc) }
+        }
+        val word = pages[2].split(Regex("\\s+")).first { it.isNotBlank() }
+        val counts = pages.map { Regex(Regex.escape(word), RegexOption.IGNORE_CASE).findAll(it).count() }
+        val marked = counts[0] + counts[1] + 1
+        click(find("Find text") { it.says(app.getString(R.string.redact_find)) })
+        val search = find("the search field") { it.isEditable }
+        type(search, word)
+        // The keyboard's search key.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            assertTrue(search.performAction(AccessibilityAction.ACTION_IME_ENTER.id))
+        } else {
+            instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_ENTER)
+        }
+        find("the match marked, counted") { it.says(app.getString(R.string.reader_find_count_spoken, marked, counts.sum())) }
+        click(find("Next match") { it.says(app.getString(R.string.reader_find_next)) })
+        find("the next match, round and round") { it.says(app.getString(R.string.reader_find_count_spoken, marked % counts.sum() + 1, counts.sum())) }
+        // Closed, the matches go and the reader's bar is back.
+        click(find("Close search") { it.says(app.getString(R.string.reader_find_close)) })
+        find("the file's name, back in the bar") { it.says(name) }
+        assertTrue(onMain { pdfVm.reader.session.value!!.found.value.matches.isEmpty() })
 
         // Opened again while Usugami shows: the reader shows it anew.
         shareTo(openWith())

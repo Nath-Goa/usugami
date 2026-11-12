@@ -14,6 +14,7 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -69,6 +71,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ReaderGeometry
+import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.data.ReaderDocument
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -102,6 +105,10 @@ private val ZoomSteps = listOf(ReaderGeometry.MIN_ZOOM, 1f, ReaderGeometry.DOUBL
 /** How long after the pages stop moving their sharp parts are drawn. */
 private const val TILE_DELAY_MS = 150L
 
+/** Find text's matches on the pages, and the match marked: fixed colours, as pages are white in both themes. */
+private val MatchColor = Color(0x66FFE600)
+private val CurrentMatchColor = Color(0x99FF9800)
+
 /**
  * How wide a page [shownWidth] × [shownHeight] points is laid out when the others are [itemWidth]
  * pixels wide: as wide, but for a page too tall to be laid out so (see MAX_ITEM_HEIGHT), which is
@@ -113,6 +120,10 @@ private fun pageWidth(shownWidth: Float, shownHeight: Float, itemWidth: Int): In
     return if (itemWidth / shape > MAX_ITEM_HEIGHT) maxOf(1, (MAX_ITEM_HEIGHT * shape).toInt()) else itemWidth
 }
 
+/** How tall a page [shownWidth] × [shownHeight] points is laid out at [ownWidth] pixels wide (see pageWidth): in its shape, at most MAX_ITEM_HEIGHT. */
+private fun pageHeight(shownWidth: Float, shownHeight: Float, ownWidth: Int): Int =
+    (ownWidth * shownHeight / shownWidth).roundToInt().coerceIn(1, MAX_ITEM_HEIGHT)
+
 /**
  * The reader's pages ([session]'s PDF), one under another in one scroll ([list]), each as wide as
  * the screen but for its margins. Only the pages near the screen are composed and drawn (see
@@ -122,7 +133,8 @@ private fun pageWidth(shownWidth: Float, shownHeight: Float, itemWidth: Int): In
  * about the spot, or back to the screen's width. [onView] is told the new zoom and pan. Once the
  * pages stop moving, the part of each page that shows is drawn again sharp when its picture is
  * coarser than the screen (see [ReaderTiles]). [zoom] and [panX] are read where they are used, so a
- * pinch lays the list out again without composing it again.
+ * pinch lays the list out again without composing it again. What Find text [found] is marked on the
+ * pages, and the pages move to show the match marked whenever another one is.
  */
 @Composable
 internal fun ReaderPages(
@@ -131,6 +143,7 @@ internal fun ReaderPages(
     zoom: () -> Float,
     panX: () -> Float,
     onView: (zoom: Float, panX: Float) -> Unit,
+    found: Found,
     modifier: Modifier = Modifier,
 ) {
     val document = session.document
@@ -257,6 +270,29 @@ internal fun ReaderPages(
                 }
         }
 
+        // The match marked, shown a third of the way down the screen and, zoomed in, a quarter of the
+        // screen in from the left: whenever a match is marked (Found.moves; also the same one again, by
+        // Next with one match, or the same word searched again), not when its number grows as matches of
+        // earlier pages come in before it, and again when the phone is turned, which lays the pages out anew.
+        val target = found.matches.getOrNull(found.current)?.firstOrNull()
+        LaunchedEffect(target, found.moves) {
+            val box = target ?: return@LaunchedEffect
+            if (itemWidth <= 0) return@LaunchedEffect
+            val (shownWidth, shownHeight) = document.sizes.getOrNull(box.page) ?: return@LaunchedEffect
+            // Heights from the sizes, as the pages are laid out: so for a page not yet laid out too.
+            val ownWidth = pageWidth(shownWidth, shownHeight, itemWidth)
+            val zoomNow = currentZoom()
+            val below = box.top * pageHeight(shownWidth, shownHeight, ownWidth) - height / zoomNow / 3f
+            list.scrollToItem(box.page)
+            if (below != 0f) list.scrollBy(below)
+            if (zoomNow > 1f) {
+                val left = margin + (itemWidth - ownWidth) / 2 + box.left * ownWidth
+                currentOnView(zoomNow, ReaderGeometry.clampPan(left * zoomNow - width / 4f, zoomNow, width.toFloat()))
+            }
+        }
+        // The matches by page.
+        val marks = remember(found.matches) { found.matches.withIndex().groupBy { it.value.first().page } }
+
         // Behind the list, so touched only where it isn't: beside the pages, zoomed out.
         Box(
             Modifier
@@ -284,7 +320,17 @@ internal fun ReaderPages(
                 },
         ) {
             items(document.pageCount, key = { it }) { index ->
-                ReaderPage(document, bitmaps, tiles, index, itemWidth, onZoom = { larger -> zoomStep(index, larger) })
+                val onPage = marks[index].orEmpty()
+                ReaderPage(
+                    document,
+                    bitmaps,
+                    tiles,
+                    index,
+                    itemWidth,
+                    matches = onPage.filter { it.index != found.current }.flatMap { it.value },
+                    current = onPage.firstOrNull { it.index == found.current }?.value.orEmpty(),
+                    onZoom = { larger -> zoomStep(index, larger) },
+                )
             }
         }
     }
@@ -354,9 +400,21 @@ private suspend fun drawTiles(
     }
 }
 
-/** Page [index] of [document], white, in its shape, with its picture once drawn and its sharp part over it. */
+/**
+ * Page [index] of [document], white, in its shape, with its picture once drawn, its sharp part over it,
+ * and Find text's [matches] on it marked, the match marked last ([current], its boxes) in another colour.
+ */
 @Composable
-private fun ReaderPage(document: ReaderDocument, bitmaps: ReaderBitmaps, tiles: ReaderTiles, index: Int, itemWidth: Int, onZoom: (larger: Boolean) -> Boolean) {
+private fun ReaderPage(
+    document: ReaderDocument,
+    bitmaps: ReaderBitmaps,
+    tiles: ReaderTiles,
+    index: Int,
+    itemWidth: Int,
+    matches: List<RedactBox>,
+    current: List<RedactBox>,
+    onZoom: (larger: Boolean) -> Boolean,
+) {
     val (shownWidth, shownHeight) = document.sizes[index]
     val spoken = stringResource(R.string.reader_page_of_spoken, index + 1, document.pageCount)
     val zoomIn = stringResource(R.string.reader_zoom_in)
@@ -391,7 +449,7 @@ private fun ReaderPage(document: ReaderDocument, bitmaps: ReaderBitmaps, tiles: 
                 } else {
                     // In its shape at its width in whole pixels (rounded down, so at most MAX_ITEM_HEIGHT), as
                     // its sharp part is drawn: a box any taller would leave the part short of its end.
-                    val ownHeight = (ownWidth * shownHeight / shownWidth).roundToInt().coerceIn(1, MAX_ITEM_HEIGHT)
+                    val ownHeight = pageHeight(shownWidth, shownHeight, ownWidth)
                     Modifier.layout { measurable, constraints ->
                         val placeable = measurable.measure(Constraints.fixed(ownWidth, ownHeight))
                         layout(constraints.maxWidth, ownHeight) { placeable.place((constraints.maxWidth - ownWidth) / 2, 0) }
@@ -432,6 +490,9 @@ private fun ReaderPage(document: ReaderDocument, bitmaps: ReaderBitmaps, tiles: 
                         drawImage(drawn.image)
                     }
                 }
+                // Find text's matches, each box a share of the page as shown.
+                for (box in matches) drawRect(MatchColor, Offset(box.left * size.width, box.top * size.height), Size(box.width * size.width, box.height * size.height))
+                for (box in current) drawRect(CurrentMatchColor, Offset(box.left * size.width, box.top * size.height), Size(box.width * size.width, box.height * size.height))
             }
         }
     }
