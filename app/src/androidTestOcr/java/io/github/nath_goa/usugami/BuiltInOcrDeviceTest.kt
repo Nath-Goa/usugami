@@ -9,6 +9,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
+import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.util.Log
@@ -22,7 +23,9 @@ import com.tom_roush.pdfbox.text.TextPosition
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfOcr
+import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.ocrEngine
+import io.github.nath_goa.usugami.data.pagesToText
 import io.github.nath_goa.usugami.ocr.NcnnNet
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -176,6 +179,27 @@ class BuiltInOcrDeviceTest {
         document.close()
         picture.recycle()
         return file
+    }
+
+    /**
+     * PDF to images or text: a page that is only a picture of large printed words has no text of
+     * its own, so it is read with text recognition, and the text file has its words.
+     */
+    @Test fun aScannedPageIsReadForItsText() = runBlocking {
+        val scan = picturePage("scanned_text.pdf", 1600, 1200, 800, 600, listOf(Triple("INVOICE", 140f, 300f), Triple("Total due today", 100f, 700f)))
+        val tools = PdfToolsEngine(context)
+        val input = tools.import(Uri.fromFile(scan), 7901L)
+        try {
+            val outcome = tools.pagesToText(input, listOf(0), engine, OcrLanguage.ENGLISH, "Scan", {}) {}
+            assertEquals(listOf(0), outcome.read)
+            val found = outcome.file.file.readText()
+            Log.i(TAG, "scanned_text.pdf exported as: ${found.trim().replace('\n', '|')}")
+            val read = found.split(Regex("\\s+")).toSet()
+            for (word in listOf("INVOICE", "Total", "due", "today")) assertTrue("Missing $word in $found", word in read)
+        } finally {
+            tools.clearOutput()
+            tools.delete(input)
+        }
     }
 
     /** A photo made into a PDF at Extreme is read as picked, and its text goes over its lines. */
