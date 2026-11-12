@@ -83,8 +83,8 @@ enum class PdfCompression(val dpi: Int, val quality: Float) {
     LESS(200, 0.85f), RECOMMENDED(150, 0.68f), EXTREME(100, 0.48f)
 }
 
-/** One of several PDFs to compress at once: [input] at [level], into a PDF named [fileName]. */
-data class CompressJob(val input: PdfInput, val level: PdfCompression, val fileName: String)
+/** One of several PDFs to compress at once: [input] at [level], into a PDF named [fileName], turned gray when [gray] (Black and white). */
+data class CompressJob(val input: PdfInput, val level: PdfCompression, val fileName: String, val gray: Boolean = false)
 
 /** One of several PDFs a tool makes at once with the same choices: of [input], named [fileName]. */
 data class ToolJob(val input: PdfInput, val fileName: String)
@@ -835,13 +835,18 @@ class PdfToolsEngine(private val context: Context) {
 
     private fun PageFrame.toMatrix(): Matrix = matrix.let { m -> Matrix(m[0], m[1], m[2], m[3], m[4], m[5]) }
 
-    /** Re-encodes only opaque image XObjects; text, vectors, and untouched images stay as PDF objects. */
-    fun compress(input: PdfInput, level: PdfCompression, fileName: String, check: () -> Unit = {}): PdfFile {
+    /**
+     * Re-encodes only opaque image XObjects; text, vectors, and untouched images stay as PDF objects.
+     * With [gray] (Black and white) every colour is also turned into a shade of gray, text and
+     * drawings staying text and drawings ([PdfGray]); [PdfFile.gray] says what was turned gray and
+     * which pages are still partly in colour.
+     */
+    fun compress(input: PdfInput, level: PdfCompression, fileName: String, check: () -> Unit = {}, gray: Boolean = false): PdfFile {
         clearOutput()
         outputDir.mkdirs()
         val target = File(outputDir, "${FileNames.sanitize(fileName, "Compressed")}.pdf")
         try {
-            return compressTo(input, level, target, check)
+            return compressTo(input, level, target, check, gray)
         } catch (t: Throwable) {
             clearOutput()
             throw t
@@ -854,7 +859,7 @@ class PdfToolsEngine(private val context: Context) {
      */
     fun compressEach(jobs: List<CompressJob>, check: () -> Unit = {}, onNext: (Int) -> Unit = {}): List<Result<PdfFile>> {
         val names = FileNames.uniqueNames(jobs.map { it.fileName }, "Compressed")
-        return each(jobs.size, check, onNext) { i -> compressTo(jobs[i].input, jobs[i].level, outputFile(names[i]), check) }
+        return each(jobs.size, check, onNext) { i -> compressTo(jobs[i].input, jobs[i].level, outputFile(names[i]), check, jobs[i].gray) }
     }
 
     /**
@@ -897,11 +902,15 @@ class PdfToolsEngine(private val context: Context) {
      * copied as it is instead, and its [PdfFile.keptOriginal] says so: not one restricted by an owner
      * password, which every tool takes off, nor one with Usugami's own mark, which no tool keeps (see
      * [loadUnmarked]), but for a mark appended to a signed PDF: that PDF is kept, as it was signed.
+     * With [gray] (Black and white), the PDF's colours are turned gray after its pictures are
+     * compressed ([PdfGray]), and once anything was turned gray that PDF is the result, smaller or
+     * not: the user asked for gray. A PDF with no colour is kept by the rule above, as without it.
      * Nothing is left at [target] if it fails.
      */
-    internal fun compressTo(input: PdfInput, level: PdfCompression, target: File, check: () -> Unit): PdfFile {
+    internal fun compressTo(input: PdfInput, level: PdfCompression, target: File, check: () -> Unit, gray: Boolean = false): PdfFile {
         val candidate = File(outputDir, "candidate.tmp")
         try {
+            var outcome: GrayOutcome? = null
             var asItIs = input.password.isEmpty()
             // The PDF compressed, or kept: the first bytes of a signed one the mark was appended to.
             var length = input.file.length()
@@ -916,19 +925,23 @@ class PdfToolsEngine(private val context: Context) {
                     maxOf(box.width, box.height)
                 }
                 val maxDimension = minOf(4000, (maxPageSide * level.dpi / 72f).toInt().coerceAtLeast(1))
+                val grayer = if (gray) PdfGray(doc, maxDimension, level, scratchDir, check) else null
                 val seen = Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>())
                 val done = IdentityHashMap<COSBase, PDImageXObject?>()
                 for (page in doc.pages) {
                     check()
                     compressResources(doc, page.resources, level, maxDimension, seen, done, check)
                 }
+                // Black and white's pass over everything the pages draw, after the pictures were compressed.
+                outcome = grayer?.convert()
                 doc.isAllSecurityToBeRemoved = true
                 doc.save(candidate)
             }
-            // A saving under 1% isn't worth a re-encoded copy: the original is kept, as it says.
-            val keep = asItIs && Compressor.savedPercent(length, candidate.length()) == null
+            // A saving under 1% isn't worth a re-encoded copy: the original is kept, as it says,
+            // unless Black and white turned something gray.
+            val keep = outcome?.changed != true && asItIs && Compressor.savedPercent(length, candidate.length()) == null
             if (keep) PageMark.cut(input.file, length, target) else candidate.copyTo(target, overwrite = true)
-            return PdfFile(target, input.pageCount, length, keptOriginal = keep)
+            return PdfFile(target, input.pageCount, length, keptOriginal = keep, gray = outcome)
         } catch (t: Throwable) {
             target.delete()
             throw t

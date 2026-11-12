@@ -34,6 +34,8 @@ import java.io.File
  * recognition reads those rather than the compressed copies in the PDF. Empty for other PDFs.
  * [keptOriginal]: Compress PDF couldn't make it smaller, so it is the PDF picked, as it was.
  * [mark]: the Usugami mark [PageMark] put on its pages, which tells the file apart from itself before.
+ * [gray]: what Compress PDF's Black and white did to it (whether colour was turned gray, and the
+ * pages still partly in colour); null when it wasn't asked for.
  */
 data class PdfFile(
     val file: File,
@@ -42,6 +44,7 @@ data class PdfFile(
     val images: List<PlacedImage> = emptyList(),
     val keptOriginal: Boolean = false,
     val mark: MarkStyle? = null,
+    val gray: GrayOutcome? = null,
 ) {
     val name: String get() = file.name
     val sizeBytes: Long get() = file.length()
