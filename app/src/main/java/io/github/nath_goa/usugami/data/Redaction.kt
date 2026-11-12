@@ -434,7 +434,7 @@ internal object Redactor {
      * the whole line, so that the words of a phrase are in order too. A glyph moves as a whole, so
      * one that reads as several letters (a ligature) keeps them in order.
      */
-    private fun readingOrder(line: List<TextPosition?>): List<Pair<TextPosition?, Boolean>> {
+    internal fun readingOrder(line: List<TextPosition?>): List<Pair<TextPosition?, Boolean>> {
         val drawn = StringBuilder()
         val starts = IntArray(line.size)
         for ((i, glyph) in line.withIndex()) {
@@ -454,10 +454,10 @@ internal object Redactor {
     }
 
     /** U+FFFC, which stands for an object in text. */
-    private val OBJECT_CHARACTER = Char(0xFFFC).toString()
+    internal val OBJECT_CHARACTER = Char(0xFFFC).toString()
 
     /** [text] with each character that has a mirror image (a bracket, say) turned into it. */
-    private fun mirror(text: String): String = buildString {
+    internal fun mirror(text: String): String = buildString {
         var i = 0
         while (i < text.length) {
             val c = text.codePointAt(i)
@@ -470,7 +470,7 @@ internal object Redactor {
      * Where [glyph] is drawn on the page as shown: from its font's descent to its ascent, along its
      * advance, turned with the text and with the page.
      */
-    private fun glyphBox(glyph: TextPosition, frame: PageFrame): GlyphBox? {
+    internal fun glyphBox(glyph: TextPosition, frame: PageFrame): GlyphBox? {
         // Text extraction measures from the crop box's corner, in the page's own directions.
         val trm = glyph.textMatrix
         val startX = trm.translateX

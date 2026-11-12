@@ -94,11 +94,15 @@ import java.util.concurrent.ConcurrentHashMap
  * REORGANIZE works on one PDF and can take pages from others. EDIT puts text, drawings, shapes and
  * pictures on a PDF's pages. REDACT removes what is under its boxes for good. COMPRESS, PAGE_NUMBERS,
  * WATERMARK and FLATTEN also work on several PDFs, and WORD, POWERPOINT, EXCEL and EPUB on several
- * files, one after another, each into a PDF of its own (see [isBatch]).
+ * files, one after another, each into a PDF of its own (see [isBatch]). PDF_TO_IMAGES_OR_TEXT saves a
+ * PDF's pages as images or its text, PAGE_LAYOUT crops pages or puts several on a sheet, and
+ * DOCUMENT_INFO shows and changes a PDF's title, author and the like; each lives in files of its own
+ * (see [ToolAction]).
  */
 enum class PdfTool {
     SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB,
     DELETE_PAGES, REORGANIZE, FLATTEN, EDIT, REDACT, EXCEL,
+    PDF_TO_IMAGES_OR_TEXT, PAGE_LAYOUT, DOCUMENT_INFO,
 }
 
 /**
@@ -131,14 +135,21 @@ data class BatchProgress(val number: Int, val total: Int, val name: String)
 
 class PdfToolsViewModel(private val app: Application, private val handle: SavedStateHandle) : AndroidViewModel(app) {
     // Messages are written here, in the language the user picked (see AppLanguages.localized).
-    private val strings: Resources get() = AppLanguages.localized(app).resources
+    internal val strings: Resources get() = AppLanguages.localized(app).resources
 
-    private val engine = PdfToolsEngine(app)
+    internal val engine = PdfToolsEngine(app)
     private val office = OfficeConverter(app, engine)
     private val saver = PdfSaver(app)
+
+    /** What the tools kept in files of their own keep here, beside the PDFs (see ToolState). */
+    internal val fromPdf = FromPdfState(handle)
+    internal val pageLayout = PageLayoutState(handle)
+    internal val documentInfo = DocumentInfoState(handle)
+    private val ownStates: List<ToolState> = listOf(fromPdf, pageLayout, documentInfo)
+
     private val pictures = PagePictures(app)
     private val history = EditHistory(handle)
-    private val fileOps = Dispatchers.IO.limitedParallelism(1)
+    internal val fileOps = Dispatchers.IO.limitedParallelism(1)
     private val restored = handle.contains(KEY_INPUTS)
 
     val inputs: StateFlow<List<PdfInput>> = handle.getStateFlow(KEY_INPUTS, ArrayList<PdfInput>())
@@ -216,6 +227,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** How far converting the file in [documents] being converted has got. */
     private val _convertProgress = MutableStateFlow<OfficeProgress?>(null)
     val convertProgress = _convertProgress.asStateFlow()
+
+    /** How far the job on one PDF has got, when it says (see [reportProgress]); null otherwise. */
+    private val _toolProgress = MutableStateFlow<ToolProgress?>(null)
+    val toolProgress = _toolProgress.asStateFlow()
 
     /**
      * Page lists before the latest changes, newest last, for Undo. Kept in memory only: lists of a
@@ -822,13 +837,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     /**
      * Whether leaving [tool] would throw away work done on its PDF: Edit PDF's additions, Redact
-     * PDF's boxes, or pages turned or moved. Merge's pages start as all its PDFs' pages, in order;
-     * the other tools' as the first PDF's (Reorganize PDF's pages added from others count). Not
+     * PDF's boxes, what a tool kept in files of its own says it would (see [ToolState]), or pages
+     * turned or moved. Merge's pages start as all its PDFs' pages, in order; the other tools' as the
+     * first PDF's (Reorganize PDF's pages added from others count). Not
      * whether Undo has something: Undo is forgotten when Android closes Usugami in the background,
      * the pages aren't.
      */
     fun hasUnsavedWork(tool: PdfTool): Boolean = when {
-        history.items.value.isNotEmpty() || _redactBoxes.value.isNotEmpty() -> true
+        history.items.value.isNotEmpty() || _redactBoxes.value.isNotEmpty() || ownStates.any { it.hasUnsavedWork } -> true
         // A tool working on several PDFs lists every page of them all, and changes none.
         tool == PdfTool.MERGE || tool.isBatch -> pages.value != allPages()
         else -> pages.value != originalPages()
@@ -843,7 +859,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun forgetInputs(missing: List<PdfInput>) {
         val ids = missing.mapTo(HashSet()) { it.id }
         // Only with the PDF previewed: Add watermark previews the first of its PDFs.
-        if (inputs.value.firstOrNull()?.id in ids) clearRedaction()
+        if (inputs.value.firstOrNull()?.id in ids) clearWork()
         setInputs(inputs.value.filterNot { it.id in ids })
         setPages(pages.value.filterNot { it.inputId in ids })
         setLocked(locked.value.filterNot { it.id in ids })
@@ -854,7 +870,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val input = inputs.value.firstOrNull { it.id == id } ?: return
         // Only with the PDF previewed, the first: Add watermark keeps the preview of its first PDF, or
         // the one being made, when another of its PDFs is removed.
-        if (inputs.value.first().id == id) clearRedaction()
+        if (inputs.value.first().id == id) clearWork()
         setInputs(inputs.value - input)
         setPages(pages.value.filterNot { it.inputId == id })
         viewModelScope.launch(fileOps) { engine.delete(input) }
@@ -1584,8 +1600,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         handle[KEY_REDACT_SELECTED] = -1
     }
 
+    /** The work done on the PDF previewed goes with it: Redact PDF's boxes, and what the tools in files of their own keep. */
+    private fun clearWork() {
+        clearRedaction()
+        ownStates.forEach { it.clear() }
+    }
+
     /** Why the page numbers typed can't be used, in the user's language. */
-    private fun pageSelectionMessage(e: PageSelectionException): String = when (e.problem) {
+    internal fun pageSelectionMessage(e: PageSelectionException): String = when (e.problem) {
         PageSelectionException.Problem.FORMAT -> strings.getString(R.string.pdf_pages_format)
         PageSelectionException.Problem.RANGES_FORMAT -> strings.getString(R.string.pdf_ranges_format)
         PageSelectionException.Problem.OUT_OF_RANGE -> strings.getString(R.string.pdf_pages_range, e.pageCount)
@@ -1662,20 +1684,24 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     /**
      * Runs [block], which reads [sources] (or the Word, PowerPoint, Excel or EPUB files [documents]) and
-     * makes PDFs named after [name]. Every tool writes PDFs without a password.
+     * makes files, PDFs unless the tool says otherwise, named after [name]. Every tool writes PDFs
+     * without a password. [block] runs on the file-work thread and may suspend (text recognition
+     * does); the check it is given throws once the run is cancelled. A block that makes no file shows
+     * no result: [afterResult] then says what it did. A [ToolMessage] it throws is said as it is.
      */
-    private fun process(
+    internal fun process(
         name: String,
         sources: List<PdfInput>,
         documents: List<OfficeInput> = emptyList(),
         afterResult: (List<PdfFile>) -> Unit = {},
-        block: (() -> Unit) -> List<PdfFile>,
+        block: suspend (() -> Unit) -> List<PdfFile>,
     ) {
         if (_processing.value || _importing.value) return
         _processing.value = true
         // In the saved state until the PDFs are made: when Android closes Usugami meanwhile, the user is told.
         handle[KEY_MAKING] = true
         _convertProgress.value = null
+        _toolProgress.value = null
         val document = documents.firstOrNull()
         val generation = ++runGeneration
         task = viewModelScope.launch {
@@ -1702,6 +1728,11 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                         throw e
                     }
                 }
+                // A job that makes no file (text copied, say) shows no result: afterResult says what it did.
+                if (files.isEmpty()) {
+                    afterResult(files)
+                    return@launch
+                }
                 _saved.value = false
                 resultPutAway = false
                 setSavedFiles(emptySet())
@@ -1727,6 +1758,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 forgetPictures(e.paths)
             } catch (e: BatchFailed) {
                 reportFailures(e.failures)
+            } catch (e: ToolMessage) {
+                message(e.text)
             } catch (e: Exception) {
                 message(
                     if (e.isOutOfSpace()) strings.getString(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_space))
@@ -1748,10 +1781,16 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun endRun() {
         _processing.value = false
         _convertProgress.value = null
+        _toolProgress.value = null
         _batchProgress.value = null
         _markProgress.value = null
         task = null
         handle.remove<Boolean>(KEY_MAKING)
+    }
+
+    /** A job says how far it has got: [done] of [total] steps, [text] saying so. From any thread. */
+    internal fun reportProgress(done: Int, total: Int, text: String) {
+        _toolProgress.value = ToolProgress(done, total, text)
     }
 
     fun cancel() { task?.cancel() }
@@ -1844,7 +1883,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setBatch(BatchChoices(all = DEFAULT_BATCH_CHOICE))
         clearUndo()
         history.clear()
-        clearRedaction()
+        clearWork()
         // Every copy goes, including one still being imported or waiting for its password. File work
         // runs one task at a time, so this waits for a cancelled import or run to stop first, and for a
         // save of the result (its PDFs or a ZIP file of them) to finish.
@@ -1888,7 +1927,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         clearUndo()
         val hadItems = history.items.value.isNotEmpty()
         history.clear()
-        clearRedaction()
+        clearWork()
         viewModelScope.launch(fileOps) {
             engine.clearOutput()
             // A PDF the abandoned import copied anyway goes with the others once the PDFs are put away.
@@ -1916,7 +1955,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         // What was added belongs to the PDF's pages.
         val hadItems = history.items.value.isNotEmpty()
         history.clear()
-        clearRedaction()
+        clearWork()
         _wrongPassword.value = false
         old.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
         oldDocuments.forEach { viewModelScope.launch(fileOps) { office.delete(it) } }
@@ -2185,6 +2224,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.FLATTEN -> named("_flattened")
             PdfTool.EDIT -> named("_edited")
             PdfTool.REDACT -> named("_redacted")
+            // Each image adds its page after this name; the text file is named just this.
+            PdfTool.PDF_TO_IMAGES_OR_TEXT -> FileNames.sanitize(base, "Usugami")
+            PdfTool.PAGE_LAYOUT -> named("_layout")
+            PdfTool.DOCUMENT_INFO -> named("_info")
         }
     }
 
@@ -2231,10 +2274,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
     }
     private fun setLocked(list: List<PdfInput>) { handle[KEY_LOCKED] = ArrayList(list) }
-    private fun message(text: String) {
+    internal fun message(text: String) {
         if (unshown.add(text) && _messages.trySend(text).isFailure) unshown -= text
     }
-    private fun pluralMessage(@PluralsRes res: Int, count: Int) = message(strings.getQuantityString(res, count, count))
+    internal fun pluralMessage(@PluralsRes res: Int, count: Int) = message(strings.getQuantityString(res, count, count))
 
     private var finishing = false
 

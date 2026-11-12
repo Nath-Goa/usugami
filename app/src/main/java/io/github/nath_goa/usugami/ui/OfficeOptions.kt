@@ -207,7 +207,7 @@ internal fun SheetPageOptions(options: SheetOptions, onChange: (SheetOptions) ->
 
 /** A choice that is on or off: the whole row flips the switch, and a screen reader hears its [title] and [detail]. */
 @Composable
-private fun OptionSwitch(@StringRes title: Int, detail: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun OptionSwitch(@StringRes title: Int, detail: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()

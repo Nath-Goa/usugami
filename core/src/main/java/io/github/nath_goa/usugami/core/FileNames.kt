@@ -68,7 +68,7 @@ object FileNames {
     }
 
     /** [pages] as the name of a part says them (see [pageParts]): at most [MAX_PAGES_TEXT] characters. */
-    private fun pagesText(pages: List<Int>): String {
+    internal fun pagesText(pages: List<Int>): String {
         val all = PdfPageSelection.formatInOrder(pages)
         if (all.length <= MAX_PAGES_TEXT) return all
         val items = all.split(',')

@@ -9,6 +9,7 @@ import android.os.Parcelable
 import android.provider.OpenableColumns
 import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
@@ -112,7 +113,8 @@ class FlattenResult(val file: PdfFile, val droppedDynamicXfa: Boolean, val keptF
  * Split, merge, compress, rotate, delete pages, reorganize, flatten, page numbers, watermarks,
  * signatures, Edit PDF's additions and redaction. Input copies, results and PDFBox's scratch files all live in
  * the cache, so the system can reclaim them (and "Clear cache" removes them); callers must cope with
- * a file that has gone.
+ * a file that has gone. PDF to images or text, Page layout and Document info are extension functions
+ * in files of their own (FromPdf.kt, PdfPageLayout.kt and DocumentInfo.kt).
  */
 class PdfToolsEngine(private val context: Context) {
     private val inputDir = File(context.cacheDir, "pdf-inputs")
@@ -124,7 +126,7 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     // The folder is created each time: the system may have cleared the cache since the last run.
-    private fun memory() = pdfScratch(scratchDir.apply { mkdirs() })
+    internal fun memory() = pdfScratch(scratchDir.apply { mkdirs() })
 
     /** Deletes the PDFs made before, but [keep]: a result showing again after Android restarted Usugami. */
     fun clearOutput(keep: Collection<File> = emptyList()) { outputDir.deleteAllBut(keep, context) }
@@ -757,7 +759,7 @@ class PdfToolsEngine(private val context: Context) {
      * Opens [input], lets [block] change it, and saves it as [fileName] without a password. [check]
      * is called before saving too, since saving a large PDF takes a while.
      */
-    private fun edit(input: PdfInput, fileName: String, fallbackName: String, check: () -> Unit, block: (PDDocument) -> Unit): PdfFile {
+    internal fun edit(input: PdfInput, fileName: String, fallbackName: String, check: () -> Unit, block: (PDDocument) -> Unit): PdfFile {
         clearOutput()
         outputDir.mkdirs()
         try {
@@ -769,7 +771,7 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     /** As [edit], into [target] beside the other PDFs made; nothing is left at [target] if it fails. */
-    private fun editInto(input: PdfInput, target: File, check: () -> Unit, block: (PDDocument) -> Unit): PdfFile {
+    internal fun editInto(input: PdfInput, target: File, check: () -> Unit, block: (PDDocument) -> Unit): PdfFile {
         try {
             loadUnmarked(input.file, input.password).use { doc ->
                 block(doc)
@@ -786,6 +788,24 @@ class PdfToolsEngine(private val context: Context) {
 
     /** Where a PDF named [name] (a name already cleaned) is made, in the output folder. */
     internal fun outputFile(name: String): File = File(outputDir, "$name.pdf")
+
+    /** Where a file named [name] (a name already cleaned) of [type] is made, in the output folder. */
+    internal fun outputFile(name: String, type: OutputType): File = File(outputDir, "$name.${type.extension}")
+
+    /**
+     * Starts a result in place of the files made before, and runs [make], which makes its files in
+     * the output folder (see [outputFile]). If it fails or is cancelled, none is left behind.
+     */
+    internal fun <T> newOutput(make: () -> T): T {
+        clearOutput()
+        outputDir.mkdirs()
+        try {
+            return make()
+        } catch (t: Throwable) {
+            clearOutput()
+            throw t
+        }
+    }
 
     private fun PageFrame.toMatrix(): Matrix = matrix.let { m -> Matrix(m[0], m[1], m[2], m[3], m[4], m[5]) }
 
@@ -999,7 +1019,7 @@ class PdfToolsEngine(private val context: Context) {
      * [PdfCertificateEncrypted]. A PDF nested deeper than PDFBox's reading goes (it reads arrays in
      * arrays by calling itself, without a limit) fails as a damaged one does.
      */
-    private fun load(file: File, password: String): PDDocument = try {
+    internal fun load(file: File, password: String): PDDocument = try {
         PDDocument.load(file, password, memory())
     } catch (e: InvalidPasswordException) {
         throw e
@@ -1020,7 +1040,7 @@ class PdfToolsEngine(private val context: Context) {
      * setting asks for once it is made, in the right place, or none. Redact PDF's pictures are drawn
      * from the [previewView], which hasn't it either.
      */
-    private fun loadUnmarked(file: File, password: String): PDDocument {
+    internal fun loadUnmarked(file: File, password: String): PDDocument {
         val doc = load(file, password)
         try {
             PageMark.unmark(doc)

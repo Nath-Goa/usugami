@@ -294,7 +294,7 @@ class PdfOcr(private val context: Context) {
 
     private fun List<Point>.bounds() = Rect(minOf { it.x }, minOf { it.y }, maxOf { it.x }, maxOf { it.y })
 
-    private companion object {
+    internal companion object {
         /** Not in Usugami Lite, which has no text recognition (see PruneAssets in app/build.gradle.kts). */
         const val OCR_FONT = "fonts/UsugamiOcr-Regular.ttf"
 

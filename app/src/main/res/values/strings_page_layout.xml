@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Usugami 2.0.0: Page layout. English only for now. The translations lane translates these
+     strings, moves them where they belong and takes tools:ignore away, so that lint checks them
+     as it checks the rest. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_page_layout">Page layout</string>
+    <!-- Not "several": that word finds the tools that work on several files at once. -->
+    <string name="tool_page_layout_detail">Crop pages, or put two or more on a sheet</string>
+    <!-- Hidden words that also find Page layout when searched for on Home, separated by commas. They
+         are never shown: use the words people would type in this language for what the tool does.
+         No word that begins with batch, many, several, multiple or bulk: those find the tools that
+         work on several files at once. -->
+    <string name="search_keywords_page_layout">crop, trim, cut off, margins, edges, border, n-up, 2-up, 4-up, pages per sheet, side by side, handout, print, paper</string>
+    <!-- The button that saves the PDF with its pages laid out as chosen. -->
+    <string name="pdf_page_layout_action">Save PDF</string>
+</resources>

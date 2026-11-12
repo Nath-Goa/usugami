@@ -378,6 +378,26 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         route = target
     }
 
+    /** Opens [tool] from Home, empty: the last tool's choices are forgotten. */
+    fun openTool(tool: PdfTool) {
+        pdfVm.reset()
+        // The last tool's choices are forgotten, also while its screen is still sliding away.
+        toolStates.removeState(toolStateKey(toolOpening))
+        toolOpening++
+        toolFromShare = false
+        docsFromShare = false
+        route = tool.name.lowercase()
+    }
+
+    /** Starts a scan from Home: the camera opens over the editor, where its photo is added. */
+    fun startScan() {
+        if (takePhoto()) {
+            vm.newScan()
+            route = "images"
+            scanFromHome = true
+        }
+    }
+
     /**
      * Leaves the PDF tool showing: for the files shared meanwhile, if any; else for Choose a tool if the
      * tool was opened from it, with its PDFs (the images shared meanwhile wait, as Back from there
@@ -506,14 +526,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         snackbar = screenSnackbar,
                         query = homeQuery,
                         onQueryChange = { homeQuery = it },
-                        // The camera opens over the editor, where its photo is added.
-                        onScanPhoto = {
-                            if (takePhoto()) {
-                                vm.newScan()
-                                route = "images"
-                                scanFromHome = true
-                            }
-                        },
+                        onScanPhoto = ::startScan,
                         onScanUpload = {
                             launch(R.string.msg_no_picker) {
                                 scanPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -523,15 +536,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         recentActions = recentActions,
                         onAllRecentFiles = { route = "recent" },
                         onImages = { route = "images" },
-                        onTool = { tool ->
-                            pdfVm.reset()
-                            // The last tool's choices are forgotten, also while its screen is still sliding away.
-                            toolStates.removeState(toolStateKey(toolOpening))
-                            toolOpening++
-                            toolFromShare = false
-                            docsFromShare = false
-                            route = tool.name.lowercase()
-                        },
+                        onTool = ::openTool,
                         onSettings = { route = "settings" },
                     )
                 }
@@ -748,45 +753,50 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                     )
                 }
                 else -> {
-                    val tool = PdfTool.entries.first { it.name.equals(current, ignoreCase = true) }
-                    val leaveTool: () -> Unit = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "leave" else exitTool() }
-                    BackHandler(enabled = active, onBack = leaveTool)
-                    toolStates.SaveableStateProvider(toolStateKey(shown.opening)) {
-                        PdfToolScreen(
-                            tool = tool,
-                            vm = pdfVm,
-                            // Files shared to Usugami are being copied in for it.
-                            receiving = receivingFor == current && pdfResult == null,
-                            snackbar = screenSnackbar,
-                            onBack = leaveTool,
-                            onRemove = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "remove" else pdfVm.startOver() },
-                            pickSingle = {
-                                launch(R.string.msg_no_picker) {
-                                    pickingFor = current
-                                    pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
-                                }
-                            },
-                            // Word, PowerPoint, Excel and EPUB to PDF take several files of their kind.
-                            pickMultiple = {
-                                val kind = tool.officeKind
-                                launch(R.string.msg_no_picker) {
-                                    pickingFor = current
-                                    if (kind != null) documentPicker.launch(kind.pickerTypes) else pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME))
-                                }
-                            },
-                            pickAdd = {
-                                launch(R.string.msg_no_picker) {
-                                    pickingFor = current
-                                    pdfAddPicker.launch(arrayOf(PdfSaver.PDF_MIME))
-                                }
-                            },
-                            pickPicture = {
-                                launch(R.string.msg_no_picker) {
-                                    pickingFor = current
-                                    picturePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }
-                            },
-                        )
+                    val tool = PdfTool.entries.firstOrNull { it.name.equals(current, ignoreCase = true) }
+                    if (tool == null) {
+                        // A route no tool has, kept from a version that had other tools: Home.
+                        LaunchedEffect(current) { route = "home" }
+                    } else {
+                        val leaveTool: () -> Unit = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "leave" else exitTool() }
+                        BackHandler(enabled = active, onBack = leaveTool)
+                        toolStates.SaveableStateProvider(toolStateKey(shown.opening)) {
+                            PdfToolScreen(
+                                tool = tool,
+                                vm = pdfVm,
+                                // Files shared to Usugami are being copied in for it.
+                                receiving = receivingFor == current && pdfResult == null,
+                                snackbar = screenSnackbar,
+                                onBack = leaveTool,
+                                onRemove = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "remove" else pdfVm.startOver() },
+                                pickSingle = {
+                                    launch(R.string.msg_no_picker) {
+                                        pickingFor = current
+                                        pdfPicker.launch(arrayOf(PdfSaver.PDF_MIME))
+                                    }
+                                },
+                                // Word, PowerPoint, Excel and EPUB to PDF take several files of their kind.
+                                pickMultiple = {
+                                    val kind = tool.officeKind
+                                    launch(R.string.msg_no_picker) {
+                                        pickingFor = current
+                                        if (kind != null) documentPicker.launch(kind.pickerTypes) else pdfMultiPicker.launch(arrayOf(PdfSaver.PDF_MIME))
+                                    }
+                                },
+                                pickAdd = {
+                                    launch(R.string.msg_no_picker) {
+                                        pickingFor = current
+                                        pdfAddPicker.launch(arrayOf(PdfSaver.PDF_MIME))
+                                    }
+                                },
+                                pickPicture = {
+                                    launch(R.string.msg_no_picker) {
+                                        pickingFor = current
+                                        picturePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }

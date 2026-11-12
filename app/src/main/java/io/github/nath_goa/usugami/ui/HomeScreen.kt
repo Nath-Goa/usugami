@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.BrandingWatermark
 import androidx.compose.material.icons.automirrored.rounded.RotateRight
+import androidx.compose.material.icons.automirrored.rounded.ViewQuilt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Collections
@@ -45,6 +46,8 @@ import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
@@ -100,23 +103,54 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.ToolSearch
 
+// The lists below are written one tool per line, so that a change to one tool changes one line.
+// They must stay above PdfToolSections: a list written below it would still be null when it is built.
+
 /** The tools under "Create PDF" on Home, after Images to PDF, in order. */
-private val CreateTools = listOf(PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB)
+private val CreateTools = listOf(
+    PdfTool.WORD,
+    PdfTool.POWERPOINT,
+    PdfTool.EXCEL,
+    PdfTool.EPUB,
+)
 
 /** The tools under "Organize" on Home, in order: those that change which pages there are and how they lie. */
-private val OrganizeTools = listOf(PdfTool.MERGE, PdfTool.SPLIT, PdfTool.REORGANIZE, PdfTool.DELETE_PAGES, PdfTool.ROTATE)
+private val OrganizeTools = listOf(
+    PdfTool.MERGE,
+    PdfTool.SPLIT,
+    PdfTool.REORGANIZE,
+    PdfTool.DELETE_PAGES,
+    PdfTool.ROTATE,
+    PdfTool.PAGE_LAYOUT,
+)
 
 /** The tools under "Edit and sign" on Home, in order: those that add to the pages. */
-private val EditTools = listOf(PdfTool.EDIT, PdfTool.SIGN, PdfTool.PAGE_NUMBERS, PdfTool.WATERMARK)
+private val EditTools = listOf(
+    PdfTool.EDIT,
+    PdfTool.SIGN,
+    PdfTool.PAGE_NUMBERS,
+    PdfTool.WATERMARK,
+)
 
 /** The tools under "Optimize and protect" on Home, in order. */
-private val OptimizeTools = listOf(PdfTool.COMPRESS, PdfTool.REDACT, PdfTool.FLATTEN)
+private val OptimizeTools = listOf(
+    PdfTool.COMPRESS,
+    PdfTool.REDACT,
+    PdfTool.FLATTEN,
+    PdfTool.DOCUMENT_INFO,
+)
+
+/** The tools under "Convert from PDF" on Home, in order: those that make other files of a PDF. */
+private val FromPdfTools = listOf(
+    PdfTool.PDF_TO_IMAGES_OR_TEXT,
+)
 
 /** The tools that work on PDFs, under their headings, as Home shows them (see [ShareScreen]). */
 internal val PdfToolSections = listOf(
     R.string.home_section_organize to OrganizeTools,
     R.string.home_section_edit to EditTools,
     R.string.home_section_optimize to OptimizeTools,
+    R.string.home_section_from_pdf to FromPdfTools,
 )
 
 /** A tool's name: on its card on Home and at the top of its screen. */
@@ -139,6 +173,9 @@ internal val PdfTool.title: Int
         PdfTool.EDIT -> R.string.tool_edit
         PdfTool.EPUB -> R.string.tool_epub
         PdfTool.REDACT -> R.string.tool_redact
+        PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.tool_pdf_to_images_or_text
+        PdfTool.PAGE_LAYOUT -> R.string.tool_page_layout
+        PdfTool.DOCUMENT_INFO -> R.string.tool_document_info
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -161,6 +198,9 @@ internal val PdfTool.detail: Int
         PdfTool.EDIT -> R.string.tool_edit_detail
         PdfTool.EPUB -> R.string.tool_epub_detail
         PdfTool.REDACT -> R.string.tool_redact_detail
+        PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.tool_pdf_to_images_or_text_detail
+        PdfTool.PAGE_LAYOUT -> R.string.tool_page_layout_detail
+        PdfTool.DOCUMENT_INFO -> R.string.tool_document_info_detail
     }
 
 internal val PdfTool.icon: ImageVector
@@ -181,6 +221,9 @@ internal val PdfTool.icon: ImageVector
         PdfTool.EDIT -> Icons.Rounded.EditNote
         PdfTool.EPUB -> Icons.Rounded.AutoStories
         PdfTool.REDACT -> Icons.Rounded.VisibilityOff
+        PdfTool.PDF_TO_IMAGES_OR_TEXT -> Icons.Rounded.Image
+        PdfTool.PAGE_LAYOUT -> Icons.AutoMirrored.Rounded.ViewQuilt
+        PdfTool.DOCUMENT_INFO -> Icons.Rounded.Info
     }
 
 /** Hidden words, separated by commas, that also find a tool in Home's search. */
@@ -203,6 +246,9 @@ private val PdfTool.keywords: Int
         PdfTool.EDIT -> R.string.search_keywords_edit
         PdfTool.EPUB -> R.string.search_keywords_epub
         PdfTool.REDACT -> R.string.search_keywords_redact
+        PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.search_keywords_pdf_to_images_or_text
+        PdfTool.PAGE_LAYOUT -> R.string.search_keywords_page_layout
+        PdfTool.DOCUMENT_INFO -> R.string.search_keywords_document_info
     }
 
 /** A card on Home: Images to PDF or Scan document, which have no [tool], or one of the PDF tools. */
@@ -231,6 +277,7 @@ private val HomeSections = listOf(
     HomeSection(R.string.home_section_organize, cards(OrganizeTools)),
     HomeSection(R.string.home_section_edit, cards(EditTools)),
     HomeSection(R.string.home_section_optimize, cards(OptimizeTools)),
+    HomeSection(R.string.home_section_from_pdf, cards(FromPdfTools)),
 )
 
 /**

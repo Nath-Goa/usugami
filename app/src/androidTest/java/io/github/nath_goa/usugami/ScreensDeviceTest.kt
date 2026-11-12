@@ -366,12 +366,44 @@ class ScreensDeviceTest {
             val scan = find("Scan document") { it.says(app.getString(R.string.scan_title)) }
             assertNotNull("A screen reader can jump to Scan document", ancestor(scan) { it.isHeading })
         }
-        val headings = listOf(R.string.home_section_create, R.string.home_section_organize, R.string.home_section_edit, R.string.home_section_optimize)
+        val headings = listOf(
+            R.string.home_section_create,
+            R.string.home_section_organize,
+            R.string.home_section_edit,
+            R.string.home_section_optimize,
+            R.string.home_section_from_pdf,
+        )
         val sections = listOf(
-            listOf(R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_excel, R.string.tool_epub),
-            listOf(R.string.tool_merge, R.string.tool_split, R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate),
-            listOf(R.string.tool_edit, R.string.tool_sign, R.string.tool_page_numbers, R.string.tool_watermark),
-            listOf(R.string.tool_compress, R.string.tool_redact, R.string.tool_flatten),
+            listOf(
+                R.string.tool_images,
+                R.string.tool_word,
+                R.string.tool_powerpoint,
+                R.string.tool_excel,
+                R.string.tool_epub,
+            ),
+            listOf(
+                R.string.tool_merge,
+                R.string.tool_split,
+                R.string.tool_reorganize,
+                R.string.tool_delete_pages,
+                R.string.tool_rotate,
+                R.string.tool_page_layout,
+            ),
+            listOf(
+                R.string.tool_edit,
+                R.string.tool_sign,
+                R.string.tool_page_numbers,
+                R.string.tool_watermark,
+            ),
+            listOf(
+                R.string.tool_compress,
+                R.string.tool_redact,
+                R.string.tool_flatten,
+                R.string.tool_document_info,
+            ),
+            listOf(
+                R.string.tool_pdf_to_images_or_text,
+            ),
         )
         val expected = headings.zip(sections).flatMap { (heading, tools) -> listOf(heading) + tools }.map(app::getString)
         val headingNames = headings.map(app::getString)
@@ -410,9 +442,26 @@ class ScreensDeviceTest {
 
     /** Every tool's name, as its card on Home shows it. */
     private val toolNames = listOf(
-        R.string.tool_images, R.string.tool_word, R.string.tool_powerpoint, R.string.tool_excel, R.string.tool_epub, R.string.tool_merge, R.string.tool_split,
-        R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate, R.string.tool_edit, R.string.tool_sign,
-        R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_compress, R.string.tool_redact, R.string.tool_flatten,
+        R.string.tool_images,
+        R.string.tool_word,
+        R.string.tool_powerpoint,
+        R.string.tool_excel,
+        R.string.tool_epub,
+        R.string.tool_merge,
+        R.string.tool_split,
+        R.string.tool_reorganize,
+        R.string.tool_delete_pages,
+        R.string.tool_rotate,
+        R.string.tool_page_layout,
+        R.string.tool_edit,
+        R.string.tool_sign,
+        R.string.tool_page_numbers,
+        R.string.tool_watermark,
+        R.string.tool_compress,
+        R.string.tool_redact,
+        R.string.tool_flatten,
+        R.string.tool_document_info,
+        R.string.tool_pdf_to_images_or_text,
     )
 
     /** The tools whose cards are on screen, top to bottom, named in [resources]' language. */
@@ -479,10 +528,13 @@ class ScreensDeviceTest {
         // Excel to PDF, by a word for what it takes.
         type(searchField(), "spreadsheet")
         waitForTools(english.getString(R.string.tool_excel), resources = english)
-        // Tools with the word in their name come first.
+        // Tools with the word in their name come first: Add page numbers before Merge PDF, which is
+        // found by its description, whichever other tools have the word in their names.
         type(searchField(), "page")
+        val numbers = english.getString(R.string.tool_page_numbers)
+        val merge = english.getString(R.string.tool_merge)
         waitUntil("tools named with \"page\" first") {
-            shownTools(english).take(2) == listOf(english.getString(R.string.tool_delete_pages), english.getString(R.string.tool_page_numbers))
+            shownTools(english).let { it.indexOf(numbers) in 0 until it.indexOf(merge) }
         }
 
         type(searchField(), "zebra")
@@ -1928,9 +1980,21 @@ class ScreensDeviceTest {
         val pdfVm = onMain { ViewModelProvider(first)[PdfToolsViewModel::class.java] }
         assertEquals(3, onMain { pdfVm.inputs.value.single().pageCount })
         val tools = listOf(
-            R.string.tool_merge, R.string.tool_split, R.string.tool_reorganize, R.string.tool_delete_pages, R.string.tool_rotate,
-            R.string.tool_edit, R.string.tool_sign, R.string.tool_page_numbers, R.string.tool_watermark,
-            R.string.tool_compress, R.string.tool_redact, R.string.tool_flatten,
+            R.string.tool_merge,
+            R.string.tool_split,
+            R.string.tool_reorganize,
+            R.string.tool_delete_pages,
+            R.string.tool_rotate,
+            R.string.tool_page_layout,
+            R.string.tool_edit,
+            R.string.tool_sign,
+            R.string.tool_page_numbers,
+            R.string.tool_watermark,
+            R.string.tool_compress,
+            R.string.tool_redact,
+            R.string.tool_flatten,
+            R.string.tool_document_info,
+            R.string.tool_pdf_to_images_or_text,
         )
         for (tool in tools) findBelow("${app.getString(tool)} under Choose a tool") { it.says(app.getString(tool)) }
         assertFalse("No converter", texts().contains(app.getString(R.string.tool_word)))
@@ -1959,9 +2023,22 @@ class ScreensDeviceTest {
         chooseATool()
         find("the second PDF") { it.says("Second $stamp.pdf") }
         find("the hint") { it.says(app.getString(R.string.share_several_hint)) }
-        val others = listOf(R.string.tool_split, R.string.tool_reorganize, R.string.tool_rotate, R.string.tool_sign, R.string.tool_edit, R.string.tool_redact)
-            .map(app::getString)
-        for (tool in listOf(R.string.tool_merge, R.string.tool_page_numbers, R.string.tool_watermark, R.string.tool_compress, R.string.tool_flatten)) {
+        val others = listOf(
+            R.string.tool_split,
+            R.string.tool_reorganize,
+            R.string.tool_rotate,
+            R.string.tool_sign,
+            R.string.tool_edit,
+            R.string.tool_redact,
+        ).map(app::getString)
+        val forSeveral = listOf(
+            R.string.tool_merge,
+            R.string.tool_page_numbers,
+            R.string.tool_watermark,
+            R.string.tool_compress,
+            R.string.tool_flatten,
+        )
+        for (tool in forSeveral) {
             findBelow(app.getString(tool)) { it.says(app.getString(tool)) }
             assertTrue("Only the tools for several", texts().none { it in others })
         }
@@ -2560,8 +2637,14 @@ class ScreensDeviceTest {
         val english = resourcesIn(AppLanguage.ENGLISH)
         launch(language = AppLanguage.ENGLISH)
         val several = listOf(
-            R.string.tool_word, R.string.tool_powerpoint, R.string.tool_excel, R.string.tool_epub, R.string.tool_page_numbers,
-            R.string.tool_watermark, R.string.tool_compress, R.string.tool_flatten,
+            R.string.tool_word,
+            R.string.tool_powerpoint,
+            R.string.tool_excel,
+            R.string.tool_epub,
+            R.string.tool_page_numbers,
+            R.string.tool_watermark,
+            R.string.tool_compress,
+            R.string.tool_flatten,
         ).map(english::getString)
         val count = english.getQuantityString(R.plurals.home_search_results, several.size, several.size)
         for (words in listOf("several", "Batch", "many")) {
@@ -2571,6 +2654,23 @@ class ScreensDeviceTest {
                 val shown = shownTools(english)
                 nodes().any { it.says(count) } && shown.isNotEmpty() && shown == several.take(shown.size)
             }
+        }
+    }
+
+    /**
+     * PDF to images or text, Page layout and Document info open from Home, take a PDF and go back
+     * Home with Back. What their buttons do is for their own tests.
+     */
+    @Test fun theNewToolsOpenFromHomeAndTakeAPdf() {
+        val activity = launch()
+        // In Home's order, top to bottom, as each is scrolled to from where Home was left.
+        for (title in listOf(R.string.tool_page_layout, R.string.tool_document_info, R.string.tool_pdf_to_images_or_text)) {
+            val pdfVm = openToolWithAlpha(title, activity)
+            find("${app.getString(title)}'s screen") { it.says(app.getString(title)) }
+            find("the PDF's card") { it.says("alpha.pdf") }
+            backKey()
+            find("Home") { it.says(app.getString(R.string.settings)) }
+            waitUntil("the PDF to be put away") { onMain { pdfVm.inputs.value.isEmpty() } }
         }
     }
 

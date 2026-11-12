@@ -201,6 +201,11 @@ fun PdfToolScreen(
         else -> inputs.firstOrNull()?.id
     }
     var fileName by rememberSaveable(tool, inputKey) { mutableStateOf(vm.defaultName(tool)) }
+    // What the options of a tool kept in a file of its own tell this screen (see ToolAction).
+    // PDF to images or text names its files itself: its name field isn't there even for the one
+    // frame before its options are first drawn and say so.
+    val toolAction = remember(tool) { ToolAction(suffix = if (tool == PdfTool.PDF_TO_IMAGES_OR_TEXT) null else ".pdf") }
+    val toolProgress by vm.toolProgress.collectAsStateWithLifecycle()
     val ready = when (tool) {
         PdfTool.SPLIT -> inputs.size == 1
         PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.FLATTEN -> inputs.isNotEmpty()
@@ -213,6 +218,7 @@ fun PdfToolScreen(
         PdfTool.REORGANIZE -> reorganized
         PdfTool.EDIT -> inputs.size == 1 && editItems.any { it.page < inputs[0].pageCount }
         PdfTool.REDACT -> inputs.size == 1 && redactBoxes.isNotEmpty() && !finding
+        PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO -> inputs.size == 1 && toolAction.ready
     }
     val title = tool.title
     val action = when (tool) {
@@ -229,6 +235,9 @@ fun PdfToolScreen(
         PdfTool.FLATTEN -> R.string.pdf_flatten_action
         PdfTool.EDIT -> R.string.pdf_edit_action
         PdfTool.REDACT -> R.string.pdf_redact_action
+        PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.pdf_to_images_or_text_action
+        PdfTool.PAGE_LAYOUT -> R.string.pdf_page_layout_action
+        PdfTool.DOCUMENT_INFO -> R.string.pdf_document_info_action
     }
     // The pages are drawn from a copy without the password and with annotations drawn in, when the
     // PDF has either: Android's renderer can't open the one and leaves the others out. Add watermark
@@ -273,6 +282,8 @@ fun PdfToolScreen(
                             PdfTool.EPUB -> vm.runConvertAll(bookPage)
                             PdfTool.EXCEL -> vm.runConvertAll(sheets = sheetOptions)
                             PdfTool.REDACT -> vm.runRedact(fileName)
+                            // What their options told the screen they do.
+                            PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO -> toolAction.run(fileName)
                         }
                     },
                     enabled = ready && !importing && !processing,
@@ -283,7 +294,7 @@ fun PdfToolScreen(
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                 ) {
                     val count = if (officeKind != null) documents.size else inputs.size
-                    Text(if (many) pluralStringResource(manyAction(tool), count, count) else stringResource(action))
+                    Text(if (many) pluralStringResource(manyAction(tool), count, count) else toolAction.label ?: stringResource(action))
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },
@@ -461,12 +472,15 @@ fun PdfToolScreen(
                                 pickPicture()
                             })
                             PdfTool.REDACT -> RedactOptions(inputs[0], vm)
+                            PdfTool.PDF_TO_IMAGES_OR_TEXT -> FromPdfOptions(inputs[0], drawn(inputs[0]), vm, toolAction)
+                            PdfTool.PAGE_LAYOUT -> PageLayoutOptions(inputs[0], drawn(inputs[0]), vm, toolAction)
+                            PdfTool.DOCUMENT_INFO -> DocumentInfoOptions(inputs[0], drawn(inputs[0]), vm, toolAction)
                         }
                         // A tool for several PDFs keeps each one's name, also while there is only one.
                         if (tool.isBatch) {
                             if (!many) OutputNameField(inputs[0].id, vm.outputName(tool, inputs[0]), onChange = { vm.setBatchName(inputs[0].id, it) })
                         } else {
-                            FileNameField(fileName, onChange = { fileName = it })
+                            toolAction.suffix?.let { FileNameField(fileName, onChange = { fileName = it }, suffix = it) }
                         }
                     }
                 }
@@ -535,7 +549,13 @@ fun PdfToolScreen(
                 onDismissRequest = {},
                 modifier = Modifier.keepScreenOn(),
                 title = { Text(stringResource(if (many) R.string.pdf_working_many else R.string.pdf_working)) },
-                text = { if (many) BatchProgressText(batchProgress) else LinearProgressIndicator(Modifier.fillMaxWidth()) },
+                text = {
+                    when {
+                        many -> BatchProgressText(batchProgress)
+                        toolProgress != null -> ToolProgressText(toolProgress)
+                        else -> LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
+                },
                 confirmButton = {},
                 dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
             )
@@ -571,6 +591,24 @@ private fun BatchProgressText(progress: BatchProgress?) {
                 )
             }
         }
+    }
+}
+
+/**
+ * How far a job on one PDF has got, when it says (see PdfToolsViewModel.reportProgress): a bar that
+ * fills, over the line the job gives ("Page 3 of 40"). Not a live region: a line that changes with
+ * every page would have a screen reader talk without end.
+ */
+@Composable
+private fun ToolProgressText(progress: ToolProgress?) {
+    val fraction by animateFloatAsState(
+        if (progress == null || progress.total <= 0) 0f else (progress.done.toFloat() / progress.total).coerceIn(0f, 1f),
+        Motion.medium(),
+        label = "tool progress",
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+        if (progress != null) Text(progress.text)
     }
 }
 
@@ -661,15 +699,19 @@ private fun addDocuments(kind: OfficeKind): Int = when (kind) {
 private const val WORKING_DIALOG_DELAY_MS = 400L
 
 /** The tools that draw the PDF's pages for the user to work on. Redact PDF prepares its own. */
-private val PREVIEWED = setOf(PdfTool.SPLIT, PdfTool.ROTATE, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.DELETE_PAGES, PdfTool.REORGANIZE, PdfTool.EDIT)
+private val PREVIEWED = setOf(
+    PdfTool.SPLIT, PdfTool.ROTATE, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.DELETE_PAGES, PdfTool.REORGANIZE, PdfTool.EDIT,
+    PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT,
+)
 
+/** The name the file made gets, typed; [suffix] is how it ends, shown after it. */
 @Composable
-private fun FileNameField(fileName: String, onChange: (String) -> Unit) {
+internal fun FileNameField(fileName: String, onChange: (String) -> Unit, suffix: String = ".pdf") {
     OutlinedTextField(
         value = fileName,
         onValueChange = onChange,
         label = { Text(stringResource(R.string.file_name)) },
-        suffix = { Text(".pdf") },
+        suffix = { Text(suffix) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
