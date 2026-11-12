@@ -381,8 +381,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var runGeneration = 0
 
     init {
-        // Android closed Usugami while it made PDFs, which are gone with it (see process).
-        if (handle.remove<Boolean>(KEY_MAKING) == true) message(strings.getString(R.string.msg_making_interrupted))
+        // Android closed Usugami while it made PDFs, which are gone with it (see process); or images or
+        // a text file, when the run was PDF to images or text's.
+        if (handle.remove<Boolean>(KEY_MAKING) == true) message(strings.getString(if (fromPdf.ranHere) R.string.export_interrupted else R.string.msg_making_interrupted))
         val keep = if (restored) inputs.value + locked.value else emptyList()
         val keepDocuments = documents.value
         val keepPictures = history.items.value.filterIsInstance<PictureItem>().map { it.path }

@@ -78,6 +78,30 @@
     <string name="export_page_failed" tools:ignore="PluralsCandidate">Couldn\'t draw page %1$d. Leave it out and try again.</string>
     <string name="export_no_space">There isn\'t enough free storage. Free up some space, or choose fewer pages or a smaller size.</string>
 
+    <!-- The last line of the "Text recognition isn't available" dialog over PDF to images or text. "Read pages without text" is a switch: use its own words. -->
+    <string name="export_text_ocr_retry">To get only the text that can be copied, turn off \"Read pages without text\" and try again.</string>
+    <!-- Said when Usugami opens again after Android closed it while it was making images or a text file of a PDF. -->
+    <string name="export_interrupted">Usugami was closed before it had finished. Please try again.</string>
+
+    <!-- The result screen of PDF to images or text. The title of a card showing the text of the text file made. -->
+    <string name="result_text_title">Text</string>
+    <!-- A button on that card: puts the text on the clipboard. -->
+    <string name="copy">Copy</string>
+    <!-- What a screen reader says for the Copy button. -->
+    <string name="copy_text">Copy the text</string>
+    <!-- Under the first lines of the text: shows the rest of it. -->
+    <string name="show_more">Show more</string>
+    <!-- Under the whole text: shows only its first lines again. -->
+    <string name="show_less">Show less</string>
+    <!-- At the end of the text shown, when the file has more of it than the card shows. -->
+    <string name="result_text_more">This is the beginning. The file has all of the text.</string>
+    <!-- Said once the text is on the clipboard (Android 13 and later say so themselves). -->
+    <string name="msg_text_copied">Text copied</string>
+    <string name="msg_text_too_long">This text is too long to copy in one go. Open, share or save the file instead.</string>
+    <string name="msg_copy_failed">Couldn\'t copy the text. Open, share or save the file instead.</string>
+    <!-- A note on the result: what the text file leaves out. Flatten PDF is a tool's name: use its name in this language. -->
+    <string name="export_forms_left_out">Text in form fields and comments isn\'t included. To include what the pages show of it, use Flatten PDF first.</string>
+
     <!-- Notes on the result. %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. Usugami Lite is the app's name: keep it as it is. -->
     <plurals name="export_no_text_lite">
         <item quantity="one">Page %2$s has no text that can be copied. It may be a scan, which Usugami Lite can\'t read.</item>

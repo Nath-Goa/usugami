@@ -113,6 +113,8 @@ fun UsugamiApp(
     val pdfSaving by pdfVm.saving.collectAsStateWithLifecycle()
     val pdfSavedFiles by pdfVm.savedFiles.collectAsStateWithLifecycle()
     val pdfPasswordRemoved by pdfVm.passwordRemoved.collectAsStateWithLifecycle()
+    val fromPdfNotes by pdfVm.fromPdf.notes.collectAsStateWithLifecycle()
+    val fromPdfOcrProblem by pdfVm.fromPdf.ocrProblem.collectAsStateWithLifecycle()
     val zipProgress by vm.zipProgress.collectAsStateWithLifecycle()
     val pdfZipProgress by pdfVm.zipProgress.collectAsStateWithLifecycle()
     // One setting for the whole app: either view model gives it.
@@ -847,6 +849,8 @@ fun UsugamiApp(
                 }
                 current.endsWith("/result") -> {
                     val files = freezeWhen(!active, pdfResult) ?: emptyList()
+                    // Start over forgets the notes as the screen starts to slide away with its files.
+                    val notes = freezeWhen(!active, fromPdfNotes)
                     BackHandler(enabled = active) { pdfVm.backToEditing() }
                     ResultScreen(
                         files = files,
@@ -892,13 +896,16 @@ fun UsugamiApp(
                             setMark = pdfVm::setMark,
                             setMarkStyle = pdfVm::setMarkStyle,
                             print = { file: PdfFile -> if (pdfVm.checkResult()) startPrint(file.name) { FileInputStream(file.file) } }.takeIf { canPrint },
+                            copyText = pdfVm::copyResultText,
                         ),
                         zipProgress = pdfZipProgress,
-                        note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else null,
+                        // Said of PDFs only, and the notes of PDF to images or text's images or text only: never both.
+                        note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else exportNotesText(notes),
                         savedFiles = pdfSavedFiles,
                         mark = mark,
                         marking = pdfMarking,
                         markPreview = pdfMarkPreview,
+                        text = textPreviewOf(files),
                     )
                 }
                 else -> {
@@ -1011,6 +1018,8 @@ fun UsugamiApp(
     ZipProgressDialog(zipProgress, onCancel = vm::cancelZip)
     ZipProgressDialog(pdfZipProgress, onCancel = pdfVm::cancelZip)
     ocrProblem?.let { OcrProblemDialog(it, onDismiss = vm::dismissOcrProblem) }
+    // PDF to images or text's, over its screen: no text was made, and its own switch is the way out.
+    fromPdfOcrProblem?.let { OcrProblemDialog(it, retry = R.string.export_text_ocr_retry, onDismiss = { pdfVm.fromPdf.ocrProblem.value = null }) }
 
     // The dialog belongs to the list: it goes when another screen opens (images shared meanwhile, say),
     // and when the file has left the list.

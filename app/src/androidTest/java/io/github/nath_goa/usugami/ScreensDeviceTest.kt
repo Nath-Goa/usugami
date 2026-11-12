@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.Application
 import android.app.Instrumentation
 import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ActivityNotFoundException
 import android.content.ContentUris
 import android.content.ContentValues
@@ -2854,6 +2855,38 @@ class ScreensDeviceTest {
         val onePage = app.resources.getQuantityString(R.plurals.page_count, 1, 1)
         assertTrue("No page count", nodes().none { it.text?.contains(onePage) == true })
         findBelow("the second image's row") { it.says(names[1]) }
+    }
+
+    /**
+     * The tool's main button once it says [label] and can be pressed. The options change its words in
+     * place, which the tree as read here may not have caught up with: each node is read afresh.
+     */
+    private fun relabelledButton(label: Int) = find("the enabled \"${app.getString(label)}\" button") {
+        it.refresh() && it.says(app.getString(label)) && ancestor(it) { node -> node.isClickable }?.isEnabled == true
+    }
+
+    /**
+     * PDF to images or text makes alpha.pdf's text into a text file: the options tell the screen's
+     * button what it makes, the result shows the file with the beginning of its text and no Usugami
+     * watermark, and Copy puts the whole text on the clipboard.
+     */
+    @Test fun pdfToTextShowsTheTextAndCopiesIt() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_pdf_to_images_or_text, activity)
+        relabelledButton(R.string.export_images_action)
+        click(find("the Text choice") { it.says(app.getString(R.string.export_kind_text)) })
+        click(relabelledButton(R.string.export_text_action))
+        find("the heading over a text file") { it.says(app.getString(R.string.result_heading_text_one)) }
+        find("the text file's row") { it.says("alpha.txt") }
+        assertTrue("No watermark switch", nodes().none { it.says(app.getString(R.string.mark_title)) })
+        findBelow("the text in its card") { it.text?.contains("ALPHA ONE") == true }
+        val whole = onMain { pdfVm.result.value!!.single().file.readText() }
+        // Something else on the clipboard first, so that only the copy can put the text there. Read
+        // while Usugami is in front: from Android 10 only the app in front may read the clipboard.
+        val clipboard = onMain { app.getSystemService(ClipboardManager::class.java) }
+        onMain { clipboard.setPrimaryClip(ClipData.newPlainText("test", "Not copied yet")) }
+        click(find("the Copy button") { it.says(app.getString(R.string.copy_text)) })
+        waitUntil("the whole text on the clipboard") { onMain { clipboard.primaryClip?.getItemAt(0)?.text?.toString() } == whole }
     }
 
     /** Set by tests that change the appearance, which outlives the activity (and Usugami, from Android 12). */

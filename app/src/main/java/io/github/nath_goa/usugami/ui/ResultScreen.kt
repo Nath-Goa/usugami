@@ -121,6 +121,8 @@ class ResultActions(
     val setMarkStyle: (MarkStyle) -> Unit = {},
     /** Prints a PDF with Android's print screen; null where the phone can't print. */
     val print: ((PdfFile) -> Unit)? = null,
+    /** Puts the text of a text file made (PDF to images or text) on the clipboard: the text card's Copy. */
+    val copyText: (() -> Unit)? = null,
 )
 
 /**
@@ -145,6 +147,8 @@ fun ResultScreen(
     marking: Boolean = false,
     /** The first page, to show the mark on while it is changed. */
     markPreview: MarkPreview? = null,
+    /** The beginning of the text file made, shown under it with Copy (see [ResultTextCard]). */
+    text: TextPreview? = null,
 ) {
     var confirmStartOver by rememberSaveable { mutableStateOf(false) }
     val single = files.size == 1
@@ -267,6 +271,11 @@ fun ResultScreen(
                             onPrint = actions.print?.takeIf { file.isPdf }?.let { print -> { print(file) } },
                         )
                     }
+                }
+            }
+            if (text != null) {
+                item(key = "text") {
+                    ResultTextCard(text, enabled = idle, onCopy = { actions.copyText?.invoke() }, modifier = wide.padding(top = 12.dp))
                 }
             }
             item(key = "actions") {
