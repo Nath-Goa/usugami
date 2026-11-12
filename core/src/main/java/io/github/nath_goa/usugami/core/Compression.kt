@@ -35,6 +35,14 @@ object Compressor {
     }
 
     /**
+     * As [scaleFor] for an image drawn [placedWidth] points wide, keeping [detail] times the level's
+     * resolution: [shownWidth] is the image's pixel width as it appears on the page. An ID card's
+     * side is drawn small, so it keeps more pixels per inch than a page (IdCardLayout.DETAIL).
+     */
+    fun scaleFor(shownWidth: Int, placedWidth: Double, level: Compression, detail: Double = 1.0): Double =
+        min(1.0, placedWidth / 72.0 * level.dpi * detail / shownWidth)
+
+    /**
      * How much smaller [now] bytes are than [original], in whole percent; null unless that is at
      * least 1%, so a PDF is never said to be "0% smaller".
      */

@@ -50,6 +50,22 @@ class CompressionTest {
     }
 
     @Test
+    fun anImageDrawnSmallKeepsTheDetailAsked() {
+        // A card's side 85.6 mm (242.65 pt) wide, shown 3000 px wide, at 300 dpi (twice Recommended's).
+        val placed = 85.6 * 72 / 25.4
+        val scale = Compressor.scaleFor(3000, placed, Compression.RECOMMENDED, detail = 2.0)
+        assertEquals(1011 to 638, Compressor.scaledSize(3000, 1893, scale))
+        // Detail 1 is the level's own resolution, as for a page that size.
+        assertEquals(scale / 2, Compressor.scaleFor(3000, placed, Compression.RECOMMENDED), 1e-12)
+    }
+
+    @Test
+    fun anImageDrawnSmallIsNeverEnlarged() {
+        assertEquals(1.0, Compressor.scaleFor(800, 242.65, Compression.LESS, detail = 2.0), 0.0)
+        assertEquals(1.0, Compressor.scaleFor(1, 595.0, Compression.EXTREME), 0.0)
+    }
+
+    @Test
     fun savingsUnderOnePercentDontCount() {
         assertEquals(null, Compressor.savedPercent(1000, 1000))
         assertEquals(null, Compressor.savedPercent(1000, 995))

@@ -255,6 +255,41 @@ class PageOutlineTest {
         assertFound(Photo(1500, 2000, corners(0.22f, 0.18f, 0.8f, 0.14f, 0.84f, 0.86f, 0.18f, 0.84f), noise = 14, seed = 5))
     }
 
+    @Test fun findsACardOnATable() {
+        // An ID card (85.6 x 54 mm, 1.586 to 1) covering about a quarter of the photo, a few degrees
+        // askew: a photo at its left, lines of print, a band at its foot, and rounded corners (the
+        // table shows outside a radius of 3.7% of its long edge). The corners found are where its
+        // straight edges meet.
+        val width = 600
+        val height = 800
+        val long = 0.727 // of the photo's width: 436 x 275 pixels
+        val short = long / 1.586
+        val degrees = 4.0
+        val card = turned(0.5, 0.5, long, short, degrees, width, height)
+        val r = Math.toRadians(degrees)
+        val halfLong = long / 2 * width
+        val halfShort = short / 2 * width
+        val radius = 0.037 * long * width
+        val roundedCorners = { x: Double, y: Double ->
+            // The point in the card's own frame, in pixels from its centre.
+            val dx = (x - 0.5) * width
+            val dy = (y - 0.5) * height
+            val across = abs(dx * cos(r) + dy * sin(r))
+            val down = abs(-dx * sin(r) + dy * cos(r))
+            val inCorner = across in (halfLong - radius)..halfLong && down in (halfShort - radius)..halfShort
+            if (inCorner && hypot(across - (halfLong - radius), down - (halfShort - radius)) > radius) 72 else null
+        }
+        val face = { u: Double, v: Double ->
+            when {
+                u in 0.05..0.3 && v in 0.2..0.78 -> 120 // the holder's photo
+                u in 0.36..0.92 && listOf(0.22, 0.34, 0.46, 0.58, 0.7).any { v in it..it + 0.05 } && u < 0.92 - 0.1 * ((v * 13).toInt() % 3) -> 70
+                u in 0.04..0.96 && v in 0.84..0.94 -> 150 // a band at the foot
+                else -> null
+            }
+        }
+        assertFound(Photo(width, height, card, paper = 215, extra = roundedCorners, print = face))
+    }
+
     @Test fun aPageWithACornerOffThePhotoOrFillingItIsNotSure() {
         // The bottom-right corner is outside the photo.
         assertNotConfident(Photo(600, 800, corners(0.3f, 0.2f, 0.85f, 0.25f, 1.15f, 1.1f, 0.25f, 0.9f)))

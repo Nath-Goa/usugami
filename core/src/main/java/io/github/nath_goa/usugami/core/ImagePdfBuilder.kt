@@ -60,8 +60,17 @@ data class ImagePlacement(val geometry: PageGeometry, val transform: ImageTransf
 }
 
 /**
- * Writes a PDF with one image per page, streaming each page out as it is added so only one
- * image is in memory at a time. Call [addPage] for every image, then [finish].
+ * One image of a page that holds several: stored with [exifOrientation] (1–8), turned
+ * [rotationDegrees] clockwise by the user, drawn in the rectangle [geometry] gives it on the page
+ * [geometry] describes.
+ */
+class PageDrawing(val image: PageImage, val exifOrientation: Int, val rotationDegrees: Int, val geometry: PageGeometry)
+
+/**
+ * Writes a PDF of images, streaming each page out as it is added. A page holds one image laid out
+ * by the [settings], so only one image is in memory at a time; or, for an ID card, its two sides,
+ * small and laid out by the caller, which are held together while their page is written. Call
+ * [addPage] for every page, then [finish].
  */
 class ImagePdfBuilder(
     output: OutputStream,
@@ -107,6 +116,45 @@ class ImagePdfBuilder(
         )
         pageObjects.add(pageObject)
         return placement
+    }
+
+    /**
+     * Adds a page with [drawings] on it (all with the same page box), the first drawn first.
+     * Returns where each went, in the same order.
+     */
+    fun addPage(drawings: List<PageDrawing>, checkCancelled: () -> Unit = {}): List<ImagePlacement> {
+        require(drawings.isNotEmpty()) { "A page needs at least one image" }
+        val box = drawings.first().geometry
+        require(drawings.all { it.geometry.pageWidth == box.pageWidth && it.geometry.pageHeight == box.pageHeight }) {
+            "The images of one page must share its page box"
+        }
+        val placements = drawings.map { ImagePlacement(it.geometry, ImageTransform.of(it.exifOrientation, it.rotationDegrees)) }
+
+        val imageObjects = drawings.map { drawing ->
+            val imageObject = writer.reserve()
+            writeImage(imageObject, drawing.image, checkCancelled)
+            imageObject
+        }
+
+        val content = StringBuilder()
+        placements.forEachIndexed { i, placement ->
+            val m = placement.matrix()
+            content.append("q\n${m.joinToString(" ") { PdfSyntax.number(it) }} cm\n/Im$i Do\nQ\n")
+        }
+        val contentObject = writer.reserve()
+        writer.writeStream(contentObject, "", content.toString().toByteArray(Charsets.ISO_8859_1))
+
+        val xObjects = imageObjects.withIndex().joinToString(" ") { (i, number) -> "/Im$i $number 0 R" }
+        val pageObject = writer.reserve()
+        writer.writeObject(
+            pageObject,
+            "<< /Type /Page /Parent $pages 0 R" +
+                " /MediaBox [0 0 ${PdfSyntax.number(box.pageWidth)} ${PdfSyntax.number(box.pageHeight)}]" +
+                " /Resources << /XObject << $xObjects >> /ProcSet [/PDF /ImageB /ImageC] >>" +
+                " /Contents $contentObject 0 R >>",
+        )
+        pageObjects.add(pageObject)
+        return placements
     }
 
     /** Writes the page tree, catalog, metadata and cross-reference table. */
