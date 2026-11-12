@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Usugami 2.0.0: Documents to PDF. English only for now. The translations lane translates these
+     strings, moves them where they belong and takes tools:ignore away, so that lint checks them
+     as it checks the rest. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- A tool's name on Home: the one tile for Word, PowerPoint, Excel and EPUB files, which opens the
+         converter for the files picked (Word to PDF and the others). -->
+    <string name="tool_documents">Documents to PDF</string>
+    <!-- What the tile takes. Word, PowerPoint and Excel are the names of Microsoft's apps, and EPUB
+         the name of the e-book format: keep them as they are. -->
+    <string name="tool_documents_detail">Word, PowerPoint, Excel and EPUB files, converted on this phone</string>
+</resources>

@@ -52,6 +52,7 @@ import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.ShapeKind
+import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.data.AppLanguages
@@ -376,10 +377,7 @@ class ScreensDeviceTest {
         val sections = listOf(
             listOf(
                 R.string.tool_images,
-                R.string.tool_word,
-                R.string.tool_powerpoint,
-                R.string.tool_excel,
-                R.string.tool_epub,
+                R.string.tool_documents,
             ),
             listOf(
                 R.string.tool_merge,
@@ -443,10 +441,7 @@ class ScreensDeviceTest {
     /** Every tool's name, as its card on Home shows it. */
     private val toolNames = listOf(
         R.string.tool_images,
-        R.string.tool_word,
-        R.string.tool_powerpoint,
-        R.string.tool_excel,
-        R.string.tool_epub,
+        R.string.tool_documents,
         R.string.tool_merge,
         R.string.tool_split,
         R.string.tool_reorganize,
@@ -525,9 +520,9 @@ class ScreensDeviceTest {
         // (here typed where the keyword "reduce size" has none).
         type(searchField(), "SIZE réduce")
         waitForTools(english.getString(R.string.tool_compress), resources = english)
-        // Excel to PDF, by a word for what it takes.
+        // Documents to PDF, by a word for what Excel to PDF takes.
         type(searchField(), "spreadsheet")
-        waitForTools(english.getString(R.string.tool_excel), resources = english)
+        waitForTools(english.getString(R.string.tool_documents), resources = english)
         // Tools with the word in their name come first: Add page numbers before Merge PDF, which is
         // found by its description, whichever other tools have the word in their names.
         type(searchField(), "page")
@@ -1091,9 +1086,57 @@ class ScreensDeviceTest {
         assertTrue(clickable(actionButton(R.string.pdf_redact_action)).isEnabled)
     }
 
+    /**
+     * Opens the converter for [kind] (titled [title]) from Home, empty, as Documents to PDF does for
+     * files of that kind that were all refused: the picker it opens belongs to another app.
+     */
+    private fun openConverter(kind: SharedKind, title: Int, activity: MainActivity): PdfToolsViewModel {
+        find("Home") { it.says(app.getString(R.string.settings)) }
+        val mainVm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        onMain { mainVm.openConverter(kind) }
+        waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.settings)) } }
+        find("the converter's title") { it.says(app.getString(title)) }
+        return onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+    }
+
+    /**
+     * Home's Documents to PDF: the search finds it by what finds the four converters, and the files
+     * picked open the converter of the kind most of them are, with the others named.
+     */
+    @Test fun documentsToPdfOpensTheConverterForTheFilesPicked() {
+        val english = resourcesIn(AppLanguage.ENGLISH)
+        val activity = launch(language = AppLanguage.ENGLISH)
+        val documents = english.getString(R.string.tool_documents)
+        findBelow("Documents to PDF") { it.text?.contains(documents) == true }
+        // Words for what Word, PowerPoint, Excel and EPUB to PDF take; "spreadsheet" finds it alone.
+        for (words in listOf("docx", "slides", "e-book")) {
+            type(searchField(), words)
+            waitUntil("\"$words\" to find Documents to PDF") { documents in shownTools(english) }
+        }
+        type(searchField(), "spreadsheet")
+        waitForTools(documents, resources = english)
+        click(find("the clear button") { it.says(english.getString(R.string.home_search_clear)) })
+        find("the sections again") { it.says(english.getString(R.string.home_section_create)) }
+
+        // As if picked: two presentations and a document.
+        val mainVm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        onMain { mainVm.pickDocuments(listOf(pdf("deck.pptx", "Deck.pptx"), pdf("deck.pptx", "Deck 2.pptx"), pdf("report.docx", "Report.docx"))) }
+        // The message shows for a few seconds only: looked for first.
+        find("the message naming the document left out") { it.says(english.getQuantityString(R.plurals.share_other_kind, 1, 1, "Report.docx")) }
+        find("PowerPoint to PDF") { it.says(english.getString(R.string.tool_powerpoint)) }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        waitUntil("both presentations to be added") { onMain { pdfVm.documents.value.map { it.name } } == listOf("Deck.pptx", "Deck 2.pptx") }
+        find("the second presentation's card") { it.says("Deck 2.pptx") }
+
+        // Back goes Home, as from a converter opened there.
+        backKey()
+        find("Home") { it.says(english.getString(R.string.settings)) }
+        findBelow("Documents to PDF, on Home") { it.text?.contains(documents) == true }
+    }
+
     @Test fun wordToPdfConvertsTheDocumentAndKeepsItThroughRecreation() {
         val first = launch()
-        val firstVm = openTool(R.string.tool_word, first)
+        val firstVm = openConverter(SharedKind.WORD, R.string.tool_word, first)
         find("the card to pick a file") { it.says(app.getString(R.string.pick_word)) }
         assertFalse("Nothing to convert yet", clickable(button(R.string.convert)).isEnabled)
 
@@ -1143,7 +1186,7 @@ class ScreensDeviceTest {
 
     @Test fun powerPointToPdfRefusesOtherFilesAndConverts() {
         val activity = launch()
-        val pdfVm = openTool(R.string.tool_powerpoint, activity)
+        val pdfVm = openConverter(SharedKind.POWERPOINT, R.string.tool_powerpoint, activity)
         find("the card to pick a file") { it.says(app.getString(R.string.pick_powerpoint)) }
 
         // A Word document isn't a presentation.
@@ -1181,7 +1224,7 @@ class ScreensDeviceTest {
 
     @Test fun epubToPdfRefusesOtherFilesAndKeepsThePageSizeChosen() {
         val first = launch()
-        val firstVm = openTool(R.string.tool_epub, first)
+        val firstVm = openConverter(SharedKind.EPUB, R.string.tool_epub, first)
         find("the card to pick a file") { it.says(app.getString(R.string.pick_epub)) }
         assertFalse("Nothing to convert yet", clickable(button(R.string.convert)).isEnabled)
 
@@ -2614,7 +2657,7 @@ class ScreensDeviceTest {
      */
     @Test fun severalWordFilesAreConvertedEachIntoItsOwnPdf() {
         val activity = launch()
-        val pdfVm = openTool(R.string.tool_word, activity)
+        val pdfVm = openConverter(SharedKind.WORD, R.string.tool_word, activity)
         find("the card to choose files") { it.says(app.getString(R.string.pick_word)) }
         find("the hint that several can be chosen") { it.says(app.getString(R.string.pick_several_hint)) }
         onMain { pdfVm.addDocuments(listOf(pdf("report.docx", "Garden report.docx"), pdf("report.docx", "Notes.docx")), OfficeKind.WORD) }
@@ -2638,10 +2681,7 @@ class ScreensDeviceTest {
         val english = resourcesIn(AppLanguage.ENGLISH)
         launch(language = AppLanguage.ENGLISH)
         val several = listOf(
-            R.string.tool_word,
-            R.string.tool_powerpoint,
-            R.string.tool_excel,
-            R.string.tool_epub,
+            R.string.tool_documents,
             R.string.tool_page_numbers,
             R.string.tool_watermark,
             R.string.tool_compress,
@@ -2650,7 +2690,7 @@ class ScreensDeviceTest {
         val count = english.getQuantityString(R.plurals.home_search_results, several.size, several.size)
         for (words in listOf("several", "Batch", "many")) {
             type(searchField(), words)
-            // All eight, in Home's order (on a small screen, the first of them).
+            // All five, in Home's order (on a small screen, the first of them).
             waitUntil("the tools found by \"$words\"") {
                 val shown = shownTools(english)
                 nodes().any { it.says(count) } && shown.isNotEmpty() && shown == several.take(shown.size)

@@ -106,12 +106,23 @@ import io.github.nath_goa.usugami.core.ToolSearch
 // The lists below are written one tool per line, so that a change to one tool changes one line.
 // They must stay above PdfToolSections: a list written below it would still be null when it is built.
 
-/** The tools under "Create PDF" on Home, after Images to PDF, in order. */
-private val CreateTools = listOf(
-    PdfTool.WORD,
-    PdfTool.POWERPOINT,
-    PdfTool.EXCEL,
-    PdfTool.EPUB,
+/**
+ * Documents to PDF, under "Create PDF" on Home after Images to PDF: one card for the Word, PowerPoint,
+ * Excel and EPUB converters, which picks files and opens the converter for them. The search finds
+ * it by everything that finds those converters.
+ */
+private val DocumentsCard = HomeCard(
+    null,
+    Icons.Rounded.Description,
+    R.string.tool_documents,
+    R.string.tool_documents_detail,
+    keywords = R.string.search_keywords_word,
+    alsoFoundAs = listOf(
+        PdfTool.WORD,
+        PdfTool.POWERPOINT,
+        PdfTool.EXCEL,
+        PdfTool.EPUB,
+    ),
 )
 
 /** The tools under "Organize" on Home, in order: those that change which pages there are and how they lie. */
@@ -251,13 +262,18 @@ private val PdfTool.keywords: Int
         PdfTool.DOCUMENT_INFO -> R.string.search_keywords_document_info
     }
 
-/** A card on Home: Images to PDF or Scan document, which have no [tool], or one of the PDF tools. */
+/**
+ * A card on Home: Images to PDF, Documents to PDF or Scan document, which have no [tool], or one of
+ * the PDF tools. The search also finds it by the texts of the tools it stands for, [alsoFoundAs]:
+ * their names as its name, their descriptions and keywords as its other text.
+ */
 private class HomeCard(
     val tool: PdfTool?,
     val icon: ImageVector,
     @param:StringRes val title: Int,
     @param:StringRes val detail: Int,
     @param:StringRes val keywords: Int,
+    val alsoFoundAs: List<PdfTool> = emptyList(),
 )
 
 private fun cards(tools: List<PdfTool>) = tools.map { HomeCard(it, it.icon, it.title, it.detail, it.keywords) }
@@ -271,8 +287,10 @@ private class HomeSection(@param:StringRes val heading: Int, val cards: List<Hom
 private val HomeSections = listOf(
     HomeSection(
         R.string.home_section_create,
-        listOf(HomeCard(null, Icons.Rounded.PictureAsPdf, R.string.tool_images, R.string.tool_images_detail, R.string.search_keywords_images)) +
-            cards(CreateTools),
+        listOf(
+            HomeCard(null, Icons.Rounded.PictureAsPdf, R.string.tool_images, R.string.tool_images_detail, R.string.search_keywords_images),
+            DocumentsCard,
+        ),
     ),
     HomeSection(R.string.home_section_organize, cards(OrganizeTools)),
     HomeSection(R.string.home_section_edit, cards(EditTools)),
@@ -283,9 +301,9 @@ private val HomeSections = listOf(
 /**
  * Home: Scan document at the top, whose two buttons take a photo ([onScanPhoto]) or pick images
  * ([onScanUpload]) to make pages of, then the files saved last ([recentFiles], if any), then the tools
- * in their sections, and a search field above them. While something is typed, what it finds (Scan
- * document too) shows in one list instead, without the sections, and Scan document and the files
- * leave the top.
+ * in their sections, and a search field above them. Documents to PDF picks files ([onDocuments]).
+ * While something is typed, what it finds (Scan document too) shows in one list instead, without the
+ * sections, and Scan document and the files leave the top.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -299,6 +317,7 @@ fun HomeScreen(
     recentActions: RecentFileActions,
     onAllRecentFiles: () -> Unit,
     onImages: () -> Unit,
+    onDocuments: () -> Unit,
     onTool: (PdfTool) -> Unit,
     onSettings: () -> Unit,
 ) {
@@ -321,7 +340,13 @@ fun HomeScreen(
         // nowhere to show would wait, and show up later on another screen.
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        val open = { card: HomeCard -> if (card.tool == null) onImages() else onTool(card.tool) }
+        val open = { card: HomeCard ->
+            when {
+                card === DocumentsCard -> onDocuments()
+                card.tool == null -> onImages()
+                else -> onTool(card.tool)
+            }
+        }
         // The list ends above the keyboard, so every tool found can be scrolled to while typing.
         Column(
             Modifier
@@ -447,11 +472,16 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
 @Composable
 private fun SearchResults(query: String, open: (HomeCard) -> Unit, scanCard: @Composable () -> Unit) {
     val cards = listOf(ScanCard) + HomeSections.flatMap { it.cards }
-    // Each card's name, then what it says it does and its hidden keywords, in the screens' language.
-    // The tools that take several files at once are also found by words such as "batch".
+    // Each card's name, then what it says it does and its hidden keywords, in the screens' language,
+    // with those of the tools it stands for. The tools that take several files at once are also
+    // found by words such as "batch".
     val batch = stringResource(R.string.search_keywords_batch)
-    val texts = cards.associateWith {
-        stringResource(it.title) to "${stringResource(it.detail)} ${stringResource(it.keywords)}${if (it.tool?.isBatch == true) " $batch" else ""}"
+    val texts = cards.associateWith { card ->
+        val names = listOf(stringResource(card.title)) + card.alsoFoundAs.map { stringResource(it.title) }
+        val more = listOf(stringResource(card.detail), stringResource(card.keywords)) +
+            card.alsoFoundAs.flatMap { listOf(stringResource(it.detail), stringResource(it.keywords)) } +
+            if (card.tool?.isBatch == true || card.alsoFoundAs.any { it.isBatch }) listOf(batch) else emptyList()
+        names.joinToString(" ") to more.joinToString(" ")
     }
     val found = remember(query, texts) {
         ToolSearch.search(cards, query, name = { texts.getValue(it).first }, moreText = { texts.getValue(it).second })

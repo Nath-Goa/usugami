@@ -40,6 +40,16 @@ class ShareInbox(private val context: Context) {
         return type to name
     }
 
+    /** A name for a shared or picked file whose app gives it none, to say which it is. */
+    fun fallbackName(uri: Uri, kind: SharedKind): String = when (kind) {
+        SharedKind.PDF -> "Document.pdf"
+        SharedKind.WORD -> "Document.docx"
+        SharedKind.POWERPOINT -> "Presentation.pptx"
+        SharedKind.EPUB -> "Book.epub"
+        SharedKind.EXCEL -> "Spreadsheet.xlsx"
+        else -> uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "File"
+    }
+
     /**
      * Copies the file at [uri] in, as file [id] named [name]. [check] is called between chunks and
      * throws to stop: a large file from a cloud provider can take a while.

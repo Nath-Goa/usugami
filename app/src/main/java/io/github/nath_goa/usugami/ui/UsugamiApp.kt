@@ -51,6 +51,7 @@ import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
+import io.github.nath_goa.usugami.data.office.DocumentSorter
 import kotlinx.coroutines.flow.merge
 
 @Composable
@@ -255,6 +256,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             if (route == "images") vm.saveZipTo(uri) else pdfVm.saveZipTo(uri)
         }
     }
+    // Home's Documents to PDF: the files picked are sorted by kind, then open their converter (see
+    // vm.pickedDocuments). Not when the user left Home before the picker covered Usugami.
+    val documentsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (route == "home" && pickingFor == "home") vm.pickDocuments(uris)
+    }
 
     // Images shared while the user stayed with a tool's PDF wait for them in the editor.
     fun afterTool(): String = if (vm.items.value.isNotEmpty() || vm.pendingImports.value > 0) "images" else "home"
@@ -398,6 +404,18 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         }
     }
 
+    // The files picked with Documents to PDF open their converter, as its Home tile used to, and go in
+    // as files picked there do: Back from it goes Home.
+    val pickedDocuments by vm.pickedDocuments.collectAsStateWithLifecycle()
+    LaunchedEffect(pickedDocuments) {
+        val pick = vm.takePickedDocuments() ?: return@LaunchedEffect
+        // Only from Home, where they were picked: the user may have opened something else while they were sorted.
+        if (route != "home") return@LaunchedEffect
+        val tool = PdfTool.entries.first { it.name.equals(sharedRoute(pick.kind), ignoreCase = true) }
+        openTool(tool)
+        pdfVm.addDocuments(pick.uris, tool.officeKind!!)
+    }
+
     /**
      * Leaves the PDF tool showing: for the files shared meanwhile, if any; else for Choose a tool if the
      * tool was opened from it, with its PDFs (the images shared meanwhile wait, as Back from there
@@ -536,6 +554,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         recentActions = recentActions,
                         onAllRecentFiles = { route = "recent" },
                         onImages = { route = "images" },
+                        onDocuments = {
+                            launch(R.string.msg_no_picker) {
+                                pickingFor = "home"
+                                documentsPicker.launch(DocumentSorter.pickerTypes)
+                            }
+                        },
                         onTool = ::openTool,
                         onSettings = { route = "settings" },
                     )

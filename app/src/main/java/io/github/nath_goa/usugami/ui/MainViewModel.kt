@@ -58,6 +58,8 @@ import io.github.nath_goa.usugami.data.ShareInbox
 import io.github.nath_goa.usugami.data.SharedFile
 import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.data.ocrEngine
+import io.github.nath_goa.usugami.data.office.DocumentSorter
+import io.github.nath_goa.usugami.data.office.PickedDocuments
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
@@ -656,7 +658,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 // The share's own type tells what a file is only when its type and name don't.
                 val kinds = described.map { (type, name) -> SharedFiles.kindOf(type, name, sharedAs) }
                 val kind = SharedFiles.chosen(kinds)
-                val names = uris.indices.map { i -> described[i].second ?: fallbackName(uris[i], kinds[i]) }
+                val names = uris.indices.map { i -> described[i].second ?: inbox.fallbackName(uris[i], kinds[i]) }
                 leftOut(R.plurals.share_unsupported, names.filterIndexed { i, _ -> kinds[i] == SharedKind.OTHER })
                 leftOut(R.plurals.share_other_kind, names.filterIndexed { i, _ -> kinds[i] != SharedKind.OTHER && kinds[i] != kind })
                 val taken = uris.indices.filter { kinds[it] == kind }
@@ -768,14 +770,49 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         if (names.isNotEmpty()) _messages.trySend(strings.getQuantityString(res, names.size, names.size, strings.listOfNames(names)))
     }
 
-    /** A name for a shared file whose app gives it none, to say which it is. */
-    private fun fallbackName(uri: Uri, kind: SharedKind): String = when (kind) {
-        SharedKind.PDF -> "Document.pdf"
-        SharedKind.WORD -> "Document.docx"
-        SharedKind.POWERPOINT -> "Presentation.pptx"
-        SharedKind.EPUB -> "Book.epub"
-        SharedKind.EXCEL -> "Spreadsheet.xlsx"
-        else -> uri.lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotBlank() } ?: "File"
+    /** Sorts the files picked with Home's Documents to PDF by kind. */
+    private val sorter = DocumentSorter(app)
+
+    private val _pickedDocuments = MutableStateFlow<PickedDocuments?>(null)
+
+    /**
+     * The files picked with Home's Documents to PDF, sorted, until the converter they open in takes
+     * them (see [takePickedDocuments]). Not kept in the saved state: a pick lost with the process
+     * leaves the user on Home with nothing changed.
+     */
+    val pickedDocuments: StateFlow<PickedDocuments?> = _pickedDocuments.asStateFlow()
+
+    /** Set while the files picked with Documents to PDF are being sorted. */
+    private var sortingPick = false
+
+    /**
+     * Home's Documents to PDF: sorts the files picked at [uris] by kind (see [DocumentSorter]), says
+     * which were left out, as for files shared, and offers the rest in [pickedDocuments]. The files
+     * aren't copied: the converter takes them as files picked there.
+     */
+    fun pickDocuments(uris: List<Uri>) {
+        if (uris.isEmpty() || sortingPick) return
+        sortingPick = true
+        viewModelScope.launch {
+            try {
+                val sorted = withContext(Dispatchers.IO) { sorter.sort(uris) }
+                // In the order a share says them.
+                leftOut(R.plurals.share_unsupported, sorted.unsupported)
+                leftOut(R.plurals.share_other_kind, sorted.otherKind)
+                _pickedDocuments.value = sorted.picked
+            } finally {
+                sortingPick = false
+            }
+        }
+    }
+
+    /** The files picked with Documents to PDF and sorted, for the converter they open in; null when there are none. */
+    fun takePickedDocuments(): PickedDocuments? = _pickedDocuments.value.also { _pickedDocuments.value = null }
+
+    /** For tests: opens the [kind] converter empty, as after picking files of that kind that were all refused. */
+    @VisibleForTesting
+    internal fun openConverter(kind: SharedKind) {
+        _pickedDocuments.value = PickedDocuments(kind, emptyList())
     }
 
     // ---- Editing ----
