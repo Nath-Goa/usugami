@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.East
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.North
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
@@ -71,9 +72,11 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
@@ -129,6 +132,23 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     FindText(query, onQuery = { query = it }, finding, enabled = view != null, onFind = { vm.findText(query) })
+    // The pages Find text couldn't read all of, kept for the PDF: the user must look at them.
+    val unread by vm.redactUnread.collectAsStateWithLifecycle()
+    val unreadPages = unread.filter { it in 0 until input.pageCount }
+    // While the notice slides away it keeps saying what it said.
+    val listed = freezeWhen(unreadPages.isEmpty(), unreadPages)
+    AnimatedVisibility(visible = unreadPages.isNotEmpty(), enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "unread pages") {
+        Row(verticalAlignment = Alignment.Top, modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+            Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (listed.size >= input.pageCount) stringResource(R.string.redact_find_unread_all)
+                else pluralStringResource(R.plurals.redact_find_unread, listed.size, Redaction.pageList(listed)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
     if (input.pageCount > 1) {
         Text(stringResource(R.string.redact_page), style = MaterialTheme.typography.titleMedium)
         PageStrip(

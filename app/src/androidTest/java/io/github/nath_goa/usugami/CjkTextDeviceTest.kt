@@ -289,6 +289,96 @@ class CjkTextDeviceTest {
     }
 
     /**
+     * Asserts that [box], on a page shown [shownWidth] × [shownHeight] points big, covers the shown
+     * area from [x0] to [x1] across and [y0] to [y1] down from the top, and reaches no more than 8
+     * points beyond it.
+     */
+    private fun assertCoversShown(what: String, box: RedactBox, shownWidth: Float, shownHeight: Float, x0: Float, x1: Float, y0: Float, y1: Float) {
+        val left = box.left * shownWidth
+        val right = box.right * shownWidth
+        val top = box.top * shownHeight
+        val bottom = box.bottom * shownHeight
+        val shown = "$what: %.1f to %.1f across, %.1f to %.1f down".format(left, right, top, bottom)
+        assertTrue("$shown covers $x0 to $x1, $y0 to $y1", left <= x0 + 0.1f && right >= x1 - 0.1f && top <= y0 + 0.1f && bottom >= y1 - 0.1f)
+        assertTrue("$shown reaches no more than 8 points beyond it", left >= x0 - 8 && right <= x1 + 8 && top >= y0 - 8 && bottom <= y1 + 8)
+    }
+
+    /**
+     * Japanese written down the page in two columns, as a vertical font draws it: a word down a
+     * column is found with one box over its cells, digits in a column are part of its word, and a
+     * word wrapped into the next column gets a box in each. On a page turned a quarter, the column
+     * lies on its side and gets one box along it. Korean down the page with room between two words
+     * and no space glyph is found with the space typed and without it.
+     */
+    @Test fun findTextFindsWritingDownThePage() {
+        val columns = "BT /V1 20 Tf 500 400 Td <67714EAC90FD00320030003200345E74> Tj ET\n" + // 東京都2024年, down from y 400 at x 490 to 510
+            "BT /V1 20 Tf 470 400 Td <6E2F533A> Tj ET\n" // 港区, down from y 400 at x 460 to 480
+        val file = made("cjk_vertical.pdf").also { file ->
+            PDDocument().use { doc ->
+                val fonts = mapOf("V1" to cjkFont("UniJIS-UCS2-V", "Japan1", 6))
+                rawPage(doc, fonts, columns)
+                rawPage(doc, fonts, columns).rotation = 90
+                // 서울 down from y 400, then 6 points of room (more than a quarter of a letter), then 특별시 down to y 294.
+                rawPage(
+                    doc, mapOf("K1" to cjkFont("UniKS-UCS2-V", "Korea1", 1)),
+                    "BT /K1 20 Tf 500 400 Td <C11CC6B8> Tj ET\nBT /K1 20 Tf 500 354 Td <D2B9BCC4C2DC> Tj ET\n",
+                )
+                doc.save(file)
+            }
+        }
+        val source = import(file)
+        val width = PDRectangle.A4.width
+        val height = PDRectangle.A4.height
+        // The matches of query on the upright page. Each glyph is a cell 20 points high, the first from y 400 down.
+        fun upright(query: String): List<List<RedactBox>> {
+            val search = engine.searchText(source, query)
+            assertEquals("$query: no page left unread", emptyList<Int>(), search.unread)
+            return search.matches.filter { it.first().page == 0 }
+        }
+        // y down from the top of the shown page for a cell from [from] down to [to] (in points, y up).
+        fun down(from: Int, to: Int) = height - from to height - to
+
+        val tokyo = upright("東京都")
+        assertEquals("東京都: one match", 1, tokyo.size)
+        val box = tokyo.single().single()
+        val (top, bottom) = down(400, 340)
+        assertCoversShown("東京都", box, width, height, 490f, 510f, top, bottom)
+        assertTrue("東京都 is not wider than its column", (box.right - box.left) * width <= 30f)
+
+        val withYear = upright("京都2024")
+        assertEquals("京都2024: one match", 1, withYear.size)
+        val (from, to) = down(380, 260)
+        assertCoversShown("京都2024", withYear.single().single(), width, height, 490f, 510f, from, to)
+
+        val minato = upright("港区")
+        assertEquals("港区: one match", 1, minato.size)
+        val (high, low) = down(400, 360)
+        assertCoversShown("港区", minato.single().single(), width, height, 460f, 480f, high, low)
+
+        val wrapped = upright("年港")
+        assertEquals("年港: one match", 1, wrapped.size)
+        assertEquals("年港: a box in each column", 2, wrapped.single().size)
+        val (yearTop, yearBottom) = down(260, 240)
+        assertCoversShown("年", wrapped.single()[0], width, height, 490f, 510f, yearTop, yearBottom)
+        val (portTop, portBottom) = down(400, 380)
+        assertCoversShown("港", wrapped.single()[1], width, height, 460f, 480f, portTop, portBottom)
+
+        // Turned a quarter, the page is shown 842 × 595 and the column runs across it, 490 to 510 from the top.
+        val turned = engine.searchText(source, "東京都").matches.filter { it.first().page == 1 }
+        assertEquals("東京都 on the turned page: one match", 1, turned.size)
+        assertCoversShown("東京都 turned", turned.single().single(), height, width, 340f, 400f, 490f, 510f)
+
+        for (query in listOf("서울 특별시", "서울특별시")) {
+            val search = engine.searchText(source, query)
+            assertEquals("$query: no page left unread", emptyList<Int>(), search.unread)
+            val seoul = search.matches.filter { it.first().page == 2 }
+            assertEquals("$query: one match", 1, seoul.size)
+            val (seoulTop, seoulBottom) = down(400, 294)
+            assertCoversShown(query, seoul.single().single(), width, height, 490f, 510f, seoulTop, seoulBottom)
+        }
+    }
+
+    /**
      * A page is listed when a glyph on it reads as no letters, when a form on it can't be read, or
      * when the page can't be; what can be read is searched all the same, but not a page that
      * failed. A big bracket of TeX's maths fonts, which PDFBox reads by its name, lists no page;

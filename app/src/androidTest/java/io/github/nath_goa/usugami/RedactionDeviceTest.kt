@@ -1064,7 +1064,10 @@ class RedactionDeviceTest {
         val boxes = listOf(RedactBox(0, 0.1f, 0.2f, 0.3f, 0.25f), RedactBox(3, 0.5f, 0.5f, 0.9f, 0.6f))
         // PdfToolsViewModel's saved-state keys, as Android hands them back.
         val handle = SavedStateHandle(
-            mapOf("pdf_inputs" to arrayListOf(input), "redact_boxes" to Redaction.pack(boxes), "redact_page" to 3, "redact_selected" to 1),
+            mapOf(
+                "pdf_inputs" to arrayListOf(input), "redact_boxes" to Redaction.pack(boxes), "redact_page" to 3, "redact_selected" to 1,
+                "redact_unread" to intArrayOf(1, 3),
+            ),
         )
         var vm: PdfToolsViewModel? = null
         instrumentation.runOnMainSync { vm = PdfToolsViewModel(app, handle) }
@@ -1073,6 +1076,7 @@ class RedactionDeviceTest {
             assertEquals(boxes, restored.redactBoxes.value)
             assertEquals(3, restored.redactPage.value)
             assertEquals(1, restored.redactSelected.value)
+            assertEquals("The pages Find text couldn't read", listOf(1, 3), restored.redactUnread.value.toList())
             // The preview's copy is made again, and redacting works from what came back.
             instrumentation.runOnMainSync { restored.preparePreview(input) }
             val deadline = System.currentTimeMillis() + 10_000

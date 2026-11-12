@@ -35,10 +35,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
@@ -1089,6 +1092,35 @@ class ScreensDeviceTest {
         waitUntil("the result to slide away") { nodes().none { it.says(app.getString(R.string.result_heading_one)) } }
         assertEquals(4, onMain { pdfVm.redactBoxes.value.size })
         assertTrue(clickable(actionButton(R.string.pdf_redact_action)).isEnabled)
+    }
+
+    /**
+     * Two pages: "SECRET NAME" on the first, and on the second glyphs of a font that doesn't say
+     * which letters they stand for (no ToUnicode map, a character collection of its own).
+     */
+    private fun unreadPdf(file: File): File = file.also {
+        PDDocument().use { doc ->
+            writeText(doc, PDPage(PDRectangle.A4).also(doc::addPage), "SECRET NAME")
+            val page = PDPage(PDRectangle.A4).also(doc::addPage)
+            page.cosObject.setItem(COSName.RESOURCES, COSDictionary().apply {
+                setItem(COSName.FONT, COSDictionary().apply { setItem("C1", cjkFont("Identity-H", "Identity", 0)) })
+            })
+            page.setContents(PDStream(doc, "BT /C1 20 Tf 72 700 Td <000100020003> Tj ET\n".byteInputStream(Charsets.ISO_8859_1)))
+            doc.save(file)
+        }
+    }
+
+    /** Under Find text, a notice names the pages it couldn't read, and stays after the message. */
+    @Test fun redactSaysWhichPagesFindTextCouldNotRead() {
+        val activity = launch()
+        val pdfVm = openTool(R.string.tool_redact, activity)
+        onMain { pdfVm.addPdfs(listOf(picked("unread.pdf", unreadPdf(File(app.cacheDir, "test-unread.pdf")).readBytes())), replace = true) }
+        find("the PDF's card") { it.says("unread.pdf") }
+        type(find("the Find text field") { it.isEditable }, "secret")
+        click(find("the Find button") { it.says(app.getString(R.string.redact_find_action)) && clickable(it).isEnabled })
+        find("the message") { it.says(app.resources.getQuantityString(R.plurals.redact_found, 1, 1)) }
+        find("the notice") { it.says(app.resources.getQuantityString(R.plurals.redact_find_unread, 1, "2")) }
+        assertEquals(listOf(1), onMain { pdfVm.redactUnread.value.toList() })
     }
 
     /**

@@ -205,6 +205,12 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     val redactSelected: StateFlow<Int> = handle.getStateFlow(KEY_REDACT_SELECTED, -1)
 
     /**
+     * The pages (zero-based) of the PDF being redacted with text Find text couldn't read, as its
+     * searches so far found them. Kept until the PDF is put away, in the saved state too.
+     */
+    val redactUnread: StateFlow<IntArray> = handle.getStateFlow(KEY_REDACT_UNREAD, IntArray(0))
+
+    /**
      * What Find text found in the PDF being redacted, as typed: Redact also takes out the form
      * fields that hold it where no page shows them (see [PdfToolsEngine.redact]). Kept until the
      * boxes are all cleared, or the PDF is put away, in the saved state too.
@@ -1538,7 +1544,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     /**
      * Boxes every place [query] is found, on every page, for the user to check before saving.
-     * Boxes already there aren't added again.
+     * Boxes already there aren't added again. The pages with text it couldn't read are added to
+     * [redactUnread], whatever was found.
      */
     fun findText(query: String) {
         val input = inputs.value.singleOrNull() ?: return
@@ -1548,15 +1555,17 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         findJob = viewModelScope.launch {
             val job = coroutineContext[Job]!!
             try {
-                val matches = withContext(fileOps) {
-                    if (!input.file.isFile) null else engine.findText(input, query, view) { job.ensureActive() }
+                val search = withContext(fileOps) {
+                    if (!input.file.isFile) null else engine.searchText(input, query, view) { job.ensureActive() }
                 }
-                if (matches == null) {
+                if (search == null) {
                     forgetInputs(listOf(input))
                     return@launch
                 }
                 if (inputs.value.singleOrNull()?.id != input.id) return@launch
-                val found = matches.flatten()
+                // The pages belong to the PDF, not to this search: they add up.
+                if (search.unread.isNotEmpty()) handle[KEY_REDACT_UNREAD] = (redactUnread.value.toSet() + search.unread).sorted().toIntArray()
+                val found = search.matches.flatten()
                 val boxes = _redactBoxes.value
                 val new = ArrayList<RedactBox>()
                 for (box in found) if (boxes.none { Redaction.same(it, box) } && new.none { Redaction.same(it, box) }) new += box
@@ -1569,7 +1578,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                         // Shows a page with matches, unless the one showing has some.
                         val pages = found.mapTo(HashSet()) { it.page }
                         if (redactPage.value !in pages) showRedactPage(found.minOf { it.page }) else handle[KEY_REDACT_SELECTED] = -1
-                        pluralMessage(R.plurals.redact_found, matches.size)
+                        pluralMessage(R.plurals.redact_found, search.matches.size)
                     }
                 }
             } catch (e: CancellationException) {
@@ -1613,6 +1622,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         _previewView.value = null
         setRedactBoxes(emptyList())
         redactSearched = emptyList()
+        handle[KEY_REDACT_UNREAD] = IntArray(0)
         handle[KEY_REDACT_PAGE] = 0
         handle[KEY_REDACT_SELECTED] = -1
     }
@@ -2355,6 +2365,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_REDACT_PAGE = "redact_page"
         const val KEY_REDACT_SELECTED = "redact_selected"
         const val KEY_REDACT_SEARCHED = "redact_searched"
+        const val KEY_REDACT_UNREAD = "redact_unread"
     }
 }
 

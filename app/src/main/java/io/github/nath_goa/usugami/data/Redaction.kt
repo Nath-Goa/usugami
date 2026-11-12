@@ -52,6 +52,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.TreeSet
 import kotlin.math.abs
+import kotlin.math.max
 
 /**
  * Redact PDF: true removal, not a black box on top.
@@ -141,7 +142,9 @@ internal object Redactor {
      * so a phrase is found across a line break, and sorted by position along each direction, which
      * reads text that runs up or down the page as shown. Matches found both ways count once. Text
      * set with wide spacing between its letters, and words broken after a hyphen at the end of a
-     * line, are found too (see [PageText]).
+     * line, are found too (see [PageText]). So is writing down the page, as Chinese and Japanese are
+     * set in a vertical font: a word is found down its column and on into the next, with a box down
+     * each column it is in.
      *
      * A page is listed in [TextSearch.unread] when a glyph on it reads as no letters (see
      * [readable]; a simple font's glyph PDFBox has no name for at a control code is one, also at a
@@ -379,6 +382,11 @@ internal object Redactor {
      * Arabic read the other way, so their glyphs are put in the order they are read (see [readingOrder]).
      * It notes the pages ([unread]) with a glyph that reads as no letters, a form it couldn't read,
      * or nothing it could read at all.
+     *
+     * Text extraction takes each letter of a line of vertical writing (a font written down the page)
+     * for a line of its own: a letter that carries on such a line follows the one before it with no
+     * break between them (see [carriesOn]), so a word down a column is one word, and each glyph of
+     * it has its own cell (see [glyphBox]).
      */
     private class Finder(private val query: String, private val check: () -> Unit) : PDFTextStripper() {
         val matches = ArrayList<List<RedactBox>>()
@@ -393,6 +401,12 @@ internal object Redactor {
 
         /** Whether text extraction read the glyph being shown as something (see [showGlyph]). */
         private var read = false
+
+        /** The page being read, as shown. */
+        private var frame: PageFrame? = null
+
+        /** Whether a break between lines comes before the next glyph (see [space]). */
+        private var pendingBreak = false
 
         /** A page PDFBox can't read (a font on it naming an encoding it doesn't have, damaged content) is counted as not read, and the next is read. */
         override fun processPage(page: PDPage) {
@@ -413,6 +427,8 @@ internal object Redactor {
             text = PageText.Builder()
             glyphs.clear()
             line.clear()
+            pendingBreak = false
+            frame = page.shownFrame()
         }
 
         /**
@@ -471,19 +487,26 @@ internal object Redactor {
         override fun startArticle(isLTR: Boolean) = space()
         override fun endArticle() = space()
 
-        /** A break between lines: the line read so far goes into the page's text first. */
+        /**
+         * A break between lines: the line read so far goes into the page's text first. The break
+         * goes in before the next glyph, unless that carries on a line of vertical writing.
+         */
         private fun space() {
             endLine()
-            text.lineBreak()
+            pendingBreak = true
         }
 
         private fun endLine() {
             for ((glyph, mirrored) in readingOrder(line)) {
                 // Text extraction found a gap there, with no space in the text: between two words,
-                // or between two letters of letter-spaced text.
+                // or between two letters of letter-spaced text. Right after a break it is that break.
                 if (glyph == null) {
-                    text.gap()
+                    if (!pendingBreak) text.gap()
                     continue
+                }
+                if (pendingBreak) {
+                    pendingBreak = false
+                    if (!carriesOn(glyphs.lastOrNull(), glyph)) text.lineBreak()
                 }
                 val unicode = glyph.unicode ?: ""
                 text.glyph(glyphs.size, if (mirrored) mirror(unicode) else unicode)
@@ -492,11 +515,30 @@ internal object Redactor {
             line.clear()
         }
 
+        /**
+         * Whether [next] is the letter after [last] down a line of vertical writing, with no more
+         * than a quarter of a letter between their cells. Text extraction takes each letter of such
+         * a line for a line of its own. Further apart (a space between words the PDF makes by moving
+         * the text, with no space glyph), the line break stays: a match may cross it beside Chinese
+         * or Japanese and between two Korean letters, and a space typed in the query matches it.
+         */
+        private fun carriesOn(last: TextPosition?, next: TextPosition): Boolean {
+            if (last?.font?.isVertical != true || next.font?.isVertical != true) return false
+            val frame = frame ?: return false
+            val a = glyphBox(last, frame) ?: return false
+            val b = glyphBox(next, frame) ?: return false
+            if (!Redaction.follows(a, b)) return false
+            // Along the line, as Redaction.follows measures it.
+            val gap = if (a.across) max(b.left - a.right, a.left - b.right) else max(b.top - a.bottom, a.top - b.bottom)
+            val length = if (a.across) max(a.right - a.left, b.right - b.left) else max(a.bottom - a.top, b.bottom - b.top)
+            return gap <= 0.25f * length
+        }
+
         override fun endPage(page: PDPage) {
             endLine()
             val matches = text.build().find(query)
             if (matches.isEmpty()) return
-            val frame = page.shownFrame()
+            val frame = frame ?: page.shownFrame()
             val index = currentPageNo - 1
             for (match in matches) {
                 val shapes = match.mapNotNull { glyphBox(glyphs[it], frame) }
@@ -562,19 +604,44 @@ internal object Redactor {
 
     /**
      * Where [glyph] is drawn on the page as shown: from its font's descent to its ascent, along its
-     * advance, turned with the text and with the page.
+     * advance, turned with the text and with the page. A glyph of vertical writing (a font written
+     * down the page) gets its own cell: its width across, and its step down the line.
      */
     internal fun glyphBox(glyph: TextPosition, frame: PageFrame): GlyphBox? {
         // Text extraction measures from the crop box's corner, in the page's own directions.
         val trm = glyph.textMatrix
         val startX = trm.translateX
         val startY = trm.translateY
-        val endX = glyph.endX
-        val endY = glyph.endY
-        val (ascent, descent) = fontExtent(glyph)
+        val font = glyph.font
+        val code = glyph.characterCodes?.firstOrNull()
+        val vertical = font != null && code != null && font.isVertical
         // One unit up in text space: the text's own "up", its size included.
         val upX = trm.shearX
         val upY = trm.scaleY
+        val endX: Float
+        val endY: Float
+        val ascent: Float
+        val descent: Float
+        if (vertical) {
+            // Written down the page: text extraction's end is not the glyph's (it lies to the right
+            // and a line down). The glyph's cell is its width across, from the top of its line step
+            // (the text position is its width's left end, down from there by the position vector)
+            // to the bottom of it (the displacement, which points down). A width or a step of
+            // nothing would leave the letter uncovered: one em stands in.
+            val width = (try { font!!.getWidth(code!!) / 1000f } catch (_: IOException) { 1f }).takeIf { it > 0f } ?: 1f
+            val top = -font!!.getPositionVector(code!!).y
+            val step = (try { font.getDisplacement(code).y } catch (_: IOException) { -1f }).takeIf { it != 0f } ?: -1f
+            endX = startX + trm.scaleX * width
+            endY = startY + trm.shearY * width
+            ascent = top
+            descent = top + step
+        } else {
+            endX = glyph.endX
+            endY = glyph.endY
+            val extent = fontExtent(glyph)
+            ascent = extent.first
+            descent = extent.second
+        }
         val points = listOf(
             startX + upX * descent to startY + upY * descent, endX + upX * descent to endY + upY * descent,
             startX + upX * ascent to startY + upY * ascent, endX + upX * ascent to endY + upY * ascent,
@@ -589,7 +656,12 @@ internal object Redactor {
         val (topShownX, topShownY) = points[2]
         val dx = endShownX - startShownX
         val dy = endShownY - startShownY
-        val across = if (dx != 0f || dy != 0f) abs(dx) >= abs(dy) else abs(topShownY - startShownY) >= abs(topShownX - startShownX)
+        val across = when {
+            // A line of vertical writing runs along "up".
+            vertical -> abs(topShownX - startShownX) >= abs(topShownY - startShownY)
+            dx != 0f || dy != 0f -> abs(dx) >= abs(dy)
+            else -> abs(topShownY - startShownY) >= abs(topShownX - startShownX)
+        }
         return GlyphBox(points.minOf { it.first }, points.minOf { it.second }, points.maxOf { it.first }, points.maxOf { it.second }, across)
     }
 
