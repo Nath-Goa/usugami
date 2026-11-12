@@ -17,6 +17,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.data.PdfPrinting
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.SavedFile
@@ -193,6 +194,7 @@ class RecentFilesDeviceTest {
         assertTrue((send.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
         val excluded = IntentCompat.getParcelableArrayExtra(chooser, Intent.EXTRA_EXCLUDE_COMPONENTS, ComponentName::class.java)
         assertTrue("Not shared to Usugami itself", excluded!!.contains(ComponentName(app, MainActivity::class.java)))
+        if (PdfPrinting.available(app)) assertTrue("A PDF can be printed", row(file.name).actionList.any { it.label == app.getString(R.string.print) })
 
         // Deleted in another app, it goes from the list when Usugami looks again.
         app.contentResolver.delete(uri, null, null)

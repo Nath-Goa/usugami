@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
@@ -52,12 +53,18 @@ import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.data.PdfPrinting
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.office.DocumentSorter
 import io.github.nath_goa.usugami.data.office.OfficeKind
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.FileInputStream
+import java.io.InputStream
 
 @Composable
 fun UsugamiApp(
@@ -66,6 +73,11 @@ fun UsugamiApp(
     onChooseAppearance: (Appearance) -> Unit,
     /** Puts Usugami behind the app that was showing before it; false when it can't. */
     onLeaveToBack: () -> Boolean,
+    /**
+     * Opens Android's print screen for the PDF the function gives, under the name given; false when
+     * printing couldn't be started. It goes through the activity, which only it can (see MainActivity.print).
+     */
+    onPrint: (name: String, open: () -> InputStream) -> Boolean,
 ) {
     val context = LocalContext.current
     // The first time Usugami opens, it asks for a language before anything else. Choosing one
@@ -350,6 +362,19 @@ fun UsugamiApp(
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
 
+    // No Print anywhere on a phone without printing.
+    val canPrint = remember(context) { PdfPrinting.available(context) }
+    val scope = rememberCoroutineScope()
+
+    /** Opens Android's print screen for a PDF, once per burst of taps (see ScreenOpener). */
+    fun startPrint(name: String, open: () -> InputStream) {
+        if (!opener.open()) return
+        if (!onPrint(name, open)) {
+            opener.notOpened()
+            vm.showMessage(R.string.msg_no_printing)
+        }
+    }
+
     // The listed file Usugami found it can no longer open, whose dialog shows.
     var lostFile by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -372,6 +397,22 @@ fun UsugamiApp(
         }
     }
 
+    /** Prints a listed file; one Usugami can no longer read gets the dialog that says so, as Open does. */
+    fun printRecent(file: RecentFile) {
+        if (file.uri in recent.unreachable.value) {
+            lostFile = file.uri
+            return
+        }
+        scope.launch {
+            // Looked at first, off the main thread, so the print screen never opens on a file that has gone.
+            val readable = withContext(Dispatchers.IO) { recent.canRead(file) }
+            // The user may have left the list, or Usugami, meanwhile: neither the print screen nor the dialog
+            // opens over another screen or app. Print is tapped again once back.
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) || (route != "home" && route != "recent")) return@launch
+            if (readable) startPrint(file.name) { recent.open(file) } else lostFile = file.uri
+        }
+    }
+
     val recentActions = RecentFileActions(
         open = { file -> launchRecent(file, noAppToOpen(file.type)) { recent.viewIntent(file) } },
         // As for a tool's result; a ZIP file keeps the message it had.
@@ -380,6 +421,7 @@ fun UsugamiApp(
             launchRecent(file, noApp) { recent.shareIntent(file) }
         },
         remove = recent::remove,
+        print = if (canPrint) ::printRecent else null,
     )
 
     /**
@@ -794,6 +836,8 @@ fun UsugamiApp(
                             },
                             setMark = vm::setMark,
                             setMarkStyle = vm::setMarkStyle,
+                            // What Open would show: the file as the mark was last put on or taken off.
+                            print = { file: PdfFile -> if (vm.checkResult()) startPrint(file.name) { FileInputStream(file.file) } }.takeIf { canPrint },
                         ),
                         zipProgress = zipProgress,
                         mark = mark,
@@ -847,6 +891,7 @@ fun UsugamiApp(
                             },
                             setMark = pdfVm::setMark,
                             setMarkStyle = pdfVm::setMarkStyle,
+                            print = { file: PdfFile -> if (pdfVm.checkResult()) startPrint(file.name) { FileInputStream(file.file) } }.takeIf { canPrint },
                         ),
                         zipProgress = pdfZipProgress,
                         note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else null,

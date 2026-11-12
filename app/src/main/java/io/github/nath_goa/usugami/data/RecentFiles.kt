@@ -23,6 +23,7 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 
 /**
  * A file just saved, for [RecentFiles.add]: where it went, its type, and the access that keeps it
@@ -156,6 +157,16 @@ class RecentFiles @VisibleForTesting internal constructor(context: Context) {
 
     /** Hands [file] to an app the user picks, as the result screen's Share does. */
     fun shareIntent(file: RecentFile): Intent = saver.shareIntent(listOf(file.uri.toUri()), file.name, file.type)
+
+    /** Whether [file] can be read now: false when it has gone or Usugami's access to it has ended. Blocking. */
+    fun canRead(file: RecentFile): Boolean = try {
+        resolver.openFileDescriptor(file.uri.toUri(), "r")?.use { true } ?: false
+    } catch (_: Exception) {
+        false
+    }
+
+    /** [file]'s content, to print. Throws when it can't be opened. */
+    fun open(file: RecentFile): InputStream = resolver.openInputStream(file.uri.toUri()) ?: throw FileNotFoundException(file.name)
 
     /** For tests: returns once the changes made so far are written. */
     @VisibleForTesting

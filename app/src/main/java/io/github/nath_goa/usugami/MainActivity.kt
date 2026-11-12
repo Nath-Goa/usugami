@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Parcelable
+import android.print.PrintManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -17,19 +18,25 @@ import androidx.core.content.IntentCompat
 import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Appearances
+import io.github.nath_goa.usugami.data.PdfPrinting
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.UsugamiApp
 import io.github.nath_goa.usugami.ui.UsugamiTheme
+import java.io.InputStream
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     // The same instance UsugamiApp gets from viewModel().
     private val pdfToolsViewModel: PdfToolsViewModel by viewModels()
 
+    // The context Android made for this activity, before the language and appearance picked were put on a copy of it.
+    private var systemContext: Context? = null
+
     // Below Android 13 the language the user picked is applied here, and below Android 12 the
     // appearance (light or dark); newer versions do it themselves.
     override fun attachBaseContext(newBase: Context) {
+        systemContext = newBase
         super.attachBaseContext(Appearances.applied(AppLanguages.localized(newBase)))
     }
 
@@ -58,6 +65,7 @@ class MainActivity : ComponentActivity() {
                     onChooseAppearance = { Appearances.choose(this, it) },
                     // Back from a file another app opened returns to that app: Usugami steps behind it.
                     onLeaveToBack = { moveTaskToBack(true) },
+                    onPrint = ::print,
                 )
             }
         }
@@ -80,6 +88,17 @@ class MainActivity : ComponentActivity() {
         handleShare(intent)
         handleView(intent)
     }
+
+    /**
+     * Android's print service as this activity must ask for it. Android prints only for an activity, which
+     * it tells by the context the service was asked through: the copy of the context this activity gets
+     * below Android 13 (see attachBaseContext) doesn't know the activity, and printing would be refused.
+     */
+    private fun printManager(): PrintManager? = systemContext?.getSystemService(PrintManager::class.java)
+
+    /** Opens Android's print screen for the PDF [open] gives, named [name]; false when printing couldn't be started (see PdfPrinting.print). */
+    internal fun print(name: String, open: () -> InputStream): Boolean =
+        PdfPrinting.print(printManager(), name, getString(R.string.print_failed), open)
 
     /**
      * Files shared from a gallery, a file manager or another app: images are added to the current

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
@@ -74,6 +75,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.ZipArchive
+import io.github.nath_goa.usugami.data.PdfSaver
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.time.Duration
@@ -89,6 +91,8 @@ class RecentFileActions(
     val open: (RecentFile) -> Unit,
     val share: (RecentFile) -> Unit,
     val remove: (RecentFile) -> Unit,
+    /** Prints a PDF with Android's print screen; null where the phone can't print. */
+    val print: ((RecentFile) -> Unit)? = null,
 )
 
 /**
@@ -182,9 +186,9 @@ fun RecentFilesScreen(
 
 /**
  * A file on the Recent files list: an icon for its kind, its name, and when it was saved ([today] or
- * another day) and its size. A tap opens it; its menu also shares it or takes it off the list. A screen
- * reader hears the row as one item named by all three, with the menu's choices as its actions. [menu]
- * holds the address of the file whose menu is open.
+ * another day) and its size. A tap opens it; its menu also shares it, prints it (a PDF, on a phone that
+ * prints) or takes it off the list. A screen reader hears the row as one item named by all three, with
+ * the menu's choices as its actions. [menu] holds the address of the file whose menu is open.
  */
 @Composable
 internal fun RecentFileRow(
@@ -201,7 +205,10 @@ internal fun RecentFileRow(
     val details = if (size != null) stringResource(R.string.result_details, savedAt, size) else savedAt
     val label = listOfNotNull(file.name, savedAt, size).joinToString(", ")
     val share = stringResource(R.string.share)
+    val print = stringResource(R.string.print)
     val remove = stringResource(R.string.recent_remove)
+    // Only a PDF is printed: not a ZIP file, an image or a text file.
+    val onPrint = actions.print?.takeIf { file.type == PdfSaver.PDF_MIME }
 
     // Read when tapped, not when drawn: a second tap before the screen is drawn again finds it closed.
     fun menuOpen() = menu.value == file.uri
@@ -212,8 +219,9 @@ internal fun RecentFileRow(
             .fillMaxWidth()
             .semantics {
                 contentDescription = label
-                customActions = listOf(
+                customActions = listOfNotNull(
                     CustomAccessibilityAction(share) { actions.share(file); true },
+                    onPrint?.let { printFile -> CustomAccessibilityAction(print) { printFile(file); true } },
                     CustomAccessibilityAction(remove) { actions.remove(file); true },
                 )
             },
@@ -254,6 +262,14 @@ internal fun RecentFileRow(
                         if (menuOpen()) {
                             menu.value = null
                             actions.share(file)
+                        }
+                    }
+                    if (onPrint != null) {
+                        MenuItem(Icons.Rounded.Print, print) {
+                            if (menuOpen()) {
+                                menu.value = null
+                                onPrint(file)
+                            }
                         }
                     }
                     MenuItem(Icons.Rounded.RemoveCircleOutline, remove) {

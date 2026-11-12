@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.SaveAs
 import androidx.compose.material.icons.rounded.Share
@@ -118,6 +119,8 @@ class ResultActions(
     /** Puts the Usugami mark on the PDFs, or takes it off, and gives it a size and opacity (see [MarkCard]). */
     val setMark: (Boolean) -> Unit = {},
     val setMarkStyle: (MarkStyle) -> Unit = {},
+    /** Prints a PDF with Android's print screen; null where the phone can't print. */
+    val print: ((PdfFile) -> Unit)? = null,
 )
 
 /**
@@ -247,13 +250,22 @@ fun ResultScreen(
                             onShare = actions.shareOne?.let { share -> { share(file) } },
                             onSaveToDownloads = actions.saveOneToDownloads?.let { save -> { save(file) } },
                             onSaveAs = { saveAs(file) },
+                            onPrint = actions.print?.takeIf { file.isPdf }?.let { print -> { print(file) } },
                             saveMenu = saveMenu,
                             canOpen = !marking,
                             canShare = zipProgress == null && !marking,
                             canSave = idle,
+                            // Reading the PDF doesn't disturb a save; it is never read while the mark rewrites it.
+                            canPrint = !marking,
                         )
                     } else {
-                        FileRow(file, showOpen = !single, canOpen = !marking, onOpen = { actions.open(file) })
+                        FileRow(
+                            file,
+                            showOpen = !single,
+                            canOpen = !marking,
+                            onOpen = { actions.open(file) },
+                            onPrint = actions.print?.takeIf { file.isPdf }?.let { print -> { print(file) } },
+                        )
                     }
                 }
             }
@@ -291,6 +303,12 @@ fun ResultScreen(
                             enabled = idle,
                             onClick = actions.saveAs,
                         )
+                        // Under "Save as…", across the screen: a third button beside Open and Share wouldn't fit longer languages.
+                        if (single) {
+                            actions.print?.takeIf { files[0].isPdf }?.let { print ->
+                                WideButton(Icons.Rounded.Print, stringResource(R.string.print), Modifier.fillMaxWidth(), enabled = !marking) { print(files[0]) }
+                            }
+                        }
                         if (!single) ZipButton(enabled = idle, onShare = actions.shareZip, onSave = actions.saveZip)
                     }
 
@@ -427,8 +445,12 @@ internal val OutputType.icon: ImageVector
         OutputType.TEXT -> Icons.AutoMirrored.Rounded.TextSnippet
     }
 
+/**
+ * A file of the result, with its own Open (and Print, for a PDF on a phone that prints) when there are
+ * several ([showOpen]); a single file has the wide buttons under it instead.
+ */
 @Composable
-private fun FileRow(file: PdfFile, showOpen: Boolean, canOpen: Boolean, onOpen: () -> Unit) {
+private fun FileRow(file: PdfFile, showOpen: Boolean, canOpen: Boolean, onOpen: () -> Unit, onPrint: (() -> Unit)?) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(file.type.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
@@ -438,6 +460,11 @@ private fun FileRow(file: PdfFile, showOpen: Boolean, canOpen: Boolean, onOpen: 
                 IconButton(onClick = onOpen, enabled = canOpen) {
                     // One per file, so the label names the file.
                     Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = stringResource(R.string.open_file, file.name))
+                }
+                if (onPrint != null) {
+                    IconButton(onClick = onPrint, enabled = canOpen) {
+                        Icon(Icons.Rounded.Print, contentDescription = stringResource(R.string.print_file, file.name))
+                    }
                 }
             } else {
                 Spacer(Modifier.width(12.dp))
@@ -491,10 +518,10 @@ private fun FileDetails(file: PdfFile, modifier: Modifier = Modifier, saved: Boo
 }
 
 /**
- * One of several files, with buttons of its own under it: Open, Share, and Save, which offers
- * Downloads and "Save as" (or goes straight to "Save as" where Android has no Downloads to save to).
- * [saved] marks it once it has been saved, on its own or with the others. [saveMenu] holds the name
- * of the file whose menu is open.
+ * One of several files, with buttons of its own under it: Open, Share, Save, which offers Downloads
+ * and "Save as" (or goes straight to "Save as" where Android has no Downloads to save to), and Print
+ * for a PDF on a phone that prints ([onPrint]). [saved] marks it once it has been saved, on its own or
+ * with the others. [saveMenu] holds the name of the file whose menu is open.
  */
 @Composable
 private fun OwnFileRow(
@@ -504,10 +531,12 @@ private fun OwnFileRow(
     onShare: (() -> Unit)?,
     onSaveToDownloads: (() -> Unit)?,
     onSaveAs: () -> Unit,
+    onPrint: (() -> Unit)?,
     saveMenu: MutableState<String?>,
     canOpen: Boolean,
     canShare: Boolean,
     canSave: Boolean,
+    canPrint: Boolean,
 ) {
     OutlinedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(top = 12.dp, bottom = 4.dp, end = 8.dp)) {
@@ -521,6 +550,7 @@ private fun OwnFileRow(
             val openLabel = stringResource(R.string.open_file, file.name)
             val shareLabel = stringResource(R.string.share_file, file.name)
             val saveLabel = stringResource(R.string.save_file, file.name)
+            val printLabel = stringResource(R.string.print_file, file.name)
             // Their icons line up with the file's.
             FlowRow(Modifier.padding(start = 8.dp)) {
                 TextButton(onClick = onOpen, enabled = canOpen, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = openLabel }) {
@@ -567,18 +597,23 @@ private fun OwnFileRow(
                         )
                     }
                 }
+                if (onPrint != null) {
+                    TextButton(onClick = onPrint, enabled = canPrint, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = printLabel }) {
+                        RowButtonContent(Icons.Rounded.Print, stringResource(R.string.print))
+                    }
+                }
             }
         }
     }
 }
 
-/** Narrower than a text button's own, so the three fit on one line on most phones. */
-private val RowButtonPadding = PaddingValues(horizontal = 8.dp)
+/** Narrower than a text button's own, so the four fit on one line on most phones. */
+private val RowButtonPadding = PaddingValues(horizontal = 6.dp)
 
 @Composable
 private fun RowButtonContent(icon: ImageVector, text: String) {
     Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-    Spacer(Modifier.width(6.dp))
+    Spacer(Modifier.width(4.dp))
     Text(text)
 }
 

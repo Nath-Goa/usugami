@@ -63,6 +63,7 @@ import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.Appearances
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.data.PdfPrinting
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.data.office.OfficeKind
@@ -2576,6 +2577,7 @@ class ScreensDeviceTest {
         val activity = launch()
         unsavedCompressResult(activity)
         findBelow("Start over") { it.says(app.getString(R.string.start_over)) }
+        if (PdfPrinting.available(app)) find("the Print button") { it.says(app.getString(R.string.print)) }
         assertTrue(nodes().none { it.says(app.getString(R.string.zip_button)) })
     }
 
@@ -2650,6 +2652,7 @@ class ScreensDeviceTest {
         find("the notes' original kept") { it.says(app.getString(R.string.original_kept)) }
         find("the notes' own Open button") { it.says(app.getString(R.string.open_file, files[1].name)) }
         find("the notes' own Share button") { it.says(app.getString(R.string.share_file, files[1].name)) }
+        if (PdfPrinting.available(app)) find("the notes' own Print button") { it.says(app.getString(R.string.print_file, files[1].name)) }
 
         // The notes alone, with "Save as" (offered in a menu beside Downloads where there are Downloads).
         val document = File(app.cacheDir, "output/test-picked/saved-one.pdf").apply { parentFile!!.mkdirs(); writeBytes(ByteArray(0)) }
