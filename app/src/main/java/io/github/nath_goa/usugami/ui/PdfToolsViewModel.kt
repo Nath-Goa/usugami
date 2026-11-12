@@ -98,12 +98,15 @@ import java.util.concurrent.ConcurrentHashMap
  * files, one after another, each into a PDF of its own (see [isBatch]). PDF_TO_IMAGES_OR_TEXT saves a
  * PDF's pages as images or its text, PAGE_LAYOUT crops pages or puts several on a sheet, and
  * DOCUMENT_INFO shows and changes a PDF's title, author and the like; each lives in files of its own
- * (see [ToolAction]).
+ * (see [ToolAction]). READER opens a PDF to read: its pages in one scroll, text to find, select and
+ * copy, and, as Edit PDF did, text, drawings, shapes and pictures put on its pages. It has a screen
+ * of its own (ReaderScreen).
  */
 enum class PdfTool {
     SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB,
     DELETE_PAGES, REORGANIZE, FLATTEN, EDIT, REDACT, EXCEL,
     PDF_TO_IMAGES_OR_TEXT, PAGE_LAYOUT, DOCUMENT_INFO,
+    READER,
 }
 
 /**
@@ -146,7 +149,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     internal val fromPdf = FromPdfState(handle)
     internal val pageLayout = PageLayoutState(handle)
     internal val documentInfo = DocumentInfoState(handle)
-    private val ownStates: List<ToolState> = listOf(fromPdf, pageLayout, documentInfo)
+    /** The reader's PDF as it shows (see ReaderState): given the view model too, which it uses only once it is built. */
+    internal val reader = ReaderState(this, handle)
+    private val ownStates: List<ToolState> = listOf(fromPdf, pageLayout, documentInfo, reader)
 
     private val pictures = PagePictures(app)
     private val history = EditHistory(handle)
@@ -264,6 +269,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     val processing = _processing.asStateFlow()
     private val _importing = MutableStateFlow(false)
     val importing = _importing.asStateFlow()
+
+    /** Whether the reader has a file, or is taking one in: a PDF, one waiting for its password, a document being made into a PDF. */
+    val readerHasFile: Boolean get() = inputs.value.isNotEmpty() || locked.value.isNotEmpty() || documents.value.isNotEmpty() || _importing.value
+
     /** The result's PDFs or a ZIP file of them are being saved, or waiting their turn. */
     private val _saving = MutableStateFlow(false)
     val saving = _saving.asStateFlow()
@@ -2239,6 +2248,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.PDF_TO_IMAGES_OR_TEXT -> FileNames.sanitize(base, "Usugami")
             PdfTool.PAGE_LAYOUT -> named("_layout")
             PdfTool.DOCUMENT_INFO -> named("_info")
+            PdfTool.READER -> named("_annotated")
         }
     }
 

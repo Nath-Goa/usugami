@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.core.content.IntentCompat
+import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Appearances
 import io.github.nath_goa.usugami.ui.MainViewModel
@@ -43,14 +44,20 @@ class MainActivity : ComponentActivity() {
         // keeps it for Usugami.
         AppLanguages.handOver(this)
         Appearances.handOver(this)
-        // On recreation the shared files were already taken in (and are in the saved state).
-        if (savedInstanceState == null) handleShare(intent)
+        // On recreation the shared files were already taken in (and are in the saved state), and so
+        // was a file opened.
+        if (savedInstanceState == null) {
+            handleShare(intent)
+            handleView(intent)
+        }
         setContent {
             UsugamiTheme(Appearances.forTheme(this)) {
                 UsugamiApp(
                     viewModel,
                     onChooseLanguage = { AppLanguages.choose(this, it) },
                     onChooseAppearance = { Appearances.choose(this, it) },
+                    // Back from a file another app opened returns to that app: Usugami steps behind it.
+                    onLeaveToBack = { moveTaskToBack(true) },
                 )
             }
         }
@@ -71,6 +78,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleShare(intent)
+        handleView(intent)
     }
 
     /**
@@ -95,6 +103,14 @@ class MainActivity : ComponentActivity() {
                 uri.authority?.substringAfterLast('@') != "$packageName.files"
         }
         viewModel.share(accepted, sharedAs = intent.type, refused = uris.size - accepted.size)
+    }
+
+    /** A file another app asks Usugami to open ("Open with"): it opens in the reader (see MainViewModel.open). */
+    private fun handleView(intent: Intent) {
+        if (intent.action != Intent.ACTION_VIEW || intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        // As for shares: only content:// addresses, and none of Usugami's own files.
+        val uri = intent.data?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT && it.authority?.substringAfterLast('@') != "$packageName.files" }
+        viewModel.open(uri, type = intent.type, from = ReadFrom.OUTSIDE)
     }
 
     private fun sharedUris(intent: Intent): List<Uri>? = when (intent.action) {

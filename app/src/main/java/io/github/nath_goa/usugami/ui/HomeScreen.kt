@@ -32,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.BrandingWatermark
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.RotateRight
 import androidx.compose.material.icons.automirrored.rounded.ViewQuilt
 import androidx.compose.material.icons.outlined.Settings
@@ -106,6 +107,11 @@ import io.github.nath_goa.usugami.core.ToolSearch
 // The lists below are written one tool per line, so that a change to one tool changes one line.
 // They must stay above PdfToolSections: a list written below it would still be null when it is built.
 
+/** The tools under "View" on Home: the reader. */
+private val ViewTools = listOf(
+    PdfTool.READER,
+)
+
 /**
  * Documents to PDF, under "Create PDF" on Home after Images to PDF: one card for the Word, PowerPoint,
  * Excel and EPUB converters, which picks files and opens the converter for them. The search finds
@@ -158,6 +164,7 @@ private val FromPdfTools = listOf(
 
 /** The tools that work on PDFs, under their headings, as Home shows them (see [ShareScreen]). */
 internal val PdfToolSections = listOf(
+    R.string.home_section_view to ViewTools,
     R.string.home_section_organize to OrganizeTools,
     R.string.home_section_edit to EditTools,
     R.string.home_section_optimize to OptimizeTools,
@@ -187,6 +194,7 @@ internal val PdfTool.title: Int
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.tool_pdf_to_images_or_text
         PdfTool.PAGE_LAYOUT -> R.string.tool_page_layout
         PdfTool.DOCUMENT_INFO -> R.string.tool_document_info
+        PdfTool.READER -> R.string.tool_reader
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -212,6 +220,7 @@ internal val PdfTool.detail: Int
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.tool_pdf_to_images_or_text_detail
         PdfTool.PAGE_LAYOUT -> R.string.tool_page_layout_detail
         PdfTool.DOCUMENT_INFO -> R.string.tool_document_info_detail
+        PdfTool.READER -> R.string.tool_reader_detail
     }
 
 internal val PdfTool.icon: ImageVector
@@ -235,6 +244,7 @@ internal val PdfTool.icon: ImageVector
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> Icons.Rounded.Image
         PdfTool.PAGE_LAYOUT -> Icons.AutoMirrored.Rounded.ViewQuilt
         PdfTool.DOCUMENT_INFO -> Icons.Rounded.Info
+        PdfTool.READER -> Icons.AutoMirrored.Rounded.MenuBook
     }
 
 /** Hidden words, separated by commas, that also find a tool in Home's search. */
@@ -260,6 +270,7 @@ private val PdfTool.keywords: Int
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.search_keywords_pdf_to_images_or_text
         PdfTool.PAGE_LAYOUT -> R.string.search_keywords_page_layout
         PdfTool.DOCUMENT_INFO -> R.string.search_keywords_document_info
+        PdfTool.READER -> R.string.search_keywords_reader
     }
 
 /**
@@ -285,6 +296,7 @@ private class HomeSection(@param:StringRes val heading: Int, val cards: List<Hom
 
 /** Home's sections in order, each a heading over its cards. The search looks through these same cards. */
 private val HomeSections = listOf(
+    HomeSection(R.string.home_section_view, cards(ViewTools)),
     HomeSection(
         R.string.home_section_create,
         listOf(
@@ -301,7 +313,8 @@ private val HomeSections = listOf(
 /**
  * Home: Scan document at the top, whose two buttons take a photo ([onScanPhoto]) or pick images
  * ([onScanUpload]) to make pages of, then the files saved last ([recentFiles], if any), then the tools
- * in their sections, and a search field above them. Documents to PDF picks files ([onDocuments]).
+ * in their sections, and a search field above them. Documents to PDF picks files ([onDocuments]), and
+ * Read and annotate a file to open in the reader ([onOpenFile]).
  * While something is typed, what it finds (Scan document too) shows in one list instead, without the
  * sections, and Scan document and the files leave the top.
  */
@@ -320,6 +333,7 @@ fun HomeScreen(
     onDocuments: () -> Unit,
     onTool: (PdfTool) -> Unit,
     onSettings: () -> Unit,
+    onOpenFile: () -> Unit,
 ) {
     // The bar takes a tint of its own once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
@@ -344,6 +358,7 @@ fun HomeScreen(
             when {
                 card === DocumentsCard -> onDocuments()
                 card.tool == null -> onImages()
+                card.tool == PdfTool.READER -> onOpenFile()
                 else -> onTool(card.tool)
             }
         }

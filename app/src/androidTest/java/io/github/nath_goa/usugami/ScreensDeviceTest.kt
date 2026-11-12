@@ -368,6 +368,7 @@ class ScreensDeviceTest {
             assertNotNull("A screen reader can jump to Scan document", ancestor(scan) { it.isHeading })
         }
         val headings = listOf(
+            R.string.home_section_view,
             R.string.home_section_create,
             R.string.home_section_organize,
             R.string.home_section_edit,
@@ -375,6 +376,9 @@ class ScreensDeviceTest {
             R.string.home_section_from_pdf,
         )
         val sections = listOf(
+            listOf(
+                R.string.tool_reader,
+            ),
             listOf(
                 R.string.tool_images,
                 R.string.tool_documents,
@@ -440,6 +444,7 @@ class ScreensDeviceTest {
 
     /** Every tool's name, as its card on Home shows it. */
     private val toolNames = listOf(
+        R.string.tool_reader,
         R.string.tool_images,
         R.string.tool_documents,
         R.string.tool_merge,
@@ -2023,6 +2028,7 @@ class ScreensDeviceTest {
         val pdfVm = onMain { ViewModelProvider(first)[PdfToolsViewModel::class.java] }
         assertEquals(3, onMain { pdfVm.inputs.value.single().pageCount })
         val tools = listOf(
+            R.string.tool_reader,
             R.string.tool_merge,
             R.string.tool_split,
             R.string.tool_reorganize,
@@ -2067,6 +2073,7 @@ class ScreensDeviceTest {
         find("the second PDF") { it.says("Second $stamp.pdf") }
         find("the hint") { it.says(app.getString(R.string.share_several_hint)) }
         val others = listOf(
+            R.string.tool_reader,
             R.string.tool_split,
             R.string.tool_reorganize,
             R.string.tool_rotate,
@@ -2111,6 +2118,33 @@ class ScreensDeviceTest {
         actionButton(R.string.convert)
         val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
         assertEquals(listOf("Report $stamp.docx"), onMain { pdfVm.documents.value.map { it.name } })
+    }
+
+    /**
+     * A PDF opened from another app ("Open with") shows in the reader, with its name and the page
+     * showing. Opened again while Usugami shows, it shows again, and Back leaves Usugami for the app
+     * that opened it.
+     */
+    @Test fun aPdfOpenedFromAnotherAppShowsInTheReaderAndBackLeavesUsugami() {
+        val name = "Opened ${System.currentTimeMillis()}.pdf"
+        val pdf = inDownloads(name, "application/pdf", asset("alpha.pdf"))
+        // As another app asks Usugami to open a file; a new one each time, as the flags added go with it.
+        fun openWith() = Intent(Intent.ACTION_VIEW).setDataAndType(pdf, "application/pdf").setClass(app, MainActivity::class.java)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val activity = launchSharing(openWith())
+        find("the file's name in the bar") { it.says(name) }
+        find("the page showing, of three") { it.says(app.getString(R.string.reader_page_of, 1, 3)) }
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        val first = onMain { pdfVm.inputs.value.single().id }
+
+        // Opened again while Usugami shows: the reader shows it anew.
+        shareTo(openWith())
+        waitUntil("the file opened again to show") { pdfVm.reader.session.value?.id.let { it != null && it != first } }
+        find("the file's name, again") { it.says(name) }
+        find("the page showing, again") { it.says(app.getString(R.string.reader_page_of, 1, 3)) }
+        // Back returns to the app that opened it: Usugami steps behind it.
+        backKey()
+        waitUntil("Usugami to leave") { resumedMain() == null }
     }
 
     /** A PDF shared over a PDF not saved yet asks first; kept, the shared PDF opens once the tool is left. */

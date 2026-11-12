@@ -3,9 +3,12 @@ package io.github.nath_goa.usugami.data
 import android.content.Context
 import android.net.Uri
 import io.github.nath_goa.usugami.core.DocumentPicks
+import io.github.nath_goa.usugami.core.OpenedFiles
 import io.github.nath_goa.usugami.core.SharedKind
+import java.io.ByteArrayInputStream
 import java.io.FilterInputStream
 import java.io.InputStream
+import java.io.SequenceInputStream
 import java.util.zip.ZipInputStream
 
 /** How much of a file [probeKind] reads at most. */
@@ -18,17 +21,36 @@ private const val PROBE_ENTRIES = 64
 private const val PROBE_MIMETYPE_BYTES = 64
 
 /**
- * What the file at [uri] is by its content, for a file whose type and name say nothing: its first
- * entries read as a ZIP file (see [DocumentPicks.kindOfEntries]). Null when that doesn't tell: the
- * file isn't a ZIP file, can't be read, or doesn't say within its first 256 KB and 64 entries.
- * Nothing is copied. Blocking.
+ * What the file at [uri] is by its content: a PDF ("%PDF-" in its first kilobyte, see
+ * [OpenedFiles.isPdf]), or the document a ZIP file holds, by its first entries (see
+ * [DocumentPicks.kindOfEntries]). Null when that doesn't tell: the file is neither, can't be read,
+ * or doesn't say within its first 256 KB and 64 entries. Nothing is copied. Blocking.
  */
 internal fun probeKind(context: Context, uri: Uri): SharedKind? = try {
     context.contentResolver.openInputStream(uri)?.use { input ->
-        ZipInputStream(Limited(input, PROBE_BYTES.toLong())).use(::kindOfZip)
+        val limited = Limited(input, PROBE_BYTES.toLong())
+        val start = ByteArray(OpenedFiles.HEADER)
+        val read = readUpTo(limited, start)
+        when {
+            OpenedFiles.isPdf(start, read) -> SharedKind.PDF
+            // Read on from where the start left off: the bytes already read, then the rest, all within the limit.
+            OpenedFiles.isZip(start, read) -> ZipInputStream(SequenceInputStream(ByteArrayInputStream(start, 0, read), limited)).use(::kindOfZip)
+            else -> null
+        }
     }
 } catch (_: Exception) {
     null
+}
+
+/** Fills [bytes] from [input] as far as it goes, and says how many it read: a stream may give fewer bytes than asked for at a time. */
+private fun readUpTo(input: InputStream, bytes: ByteArray): Int {
+    var count = 0
+    while (count < bytes.size) {
+        val read = input.read(bytes, count, bytes.size - count)
+        if (read < 0) break
+        count += read
+    }
+    return count
 }
 
 /** What the ZIP file [zip] is by its first entries, as soon as they tell (see [DocumentPicks.kindOfEntries]). */

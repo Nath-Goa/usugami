@@ -41,6 +41,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.OutputType
+import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.SharedFiles
 import io.github.nath_goa.usugami.core.SharedKind
@@ -54,10 +55,18 @@ import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.office.DocumentSorter
+import io.github.nath_goa.usugami.data.office.OfficeKind
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.merge
 
 @Composable
-fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onChooseAppearance: (Appearance) -> Unit) {
+fun UsugamiApp(
+    vm: MainViewModel,
+    onChooseLanguage: (AppLanguage) -> Unit,
+    onChooseAppearance: (Appearance) -> Unit,
+    /** Puts Usugami behind the app that was showing before it; false when it can't. */
+    onLeaveToBack: () -> Boolean,
+) {
     val context = LocalContext.current
     // The first time Usugami opens, it asks for a language before anything else. Choosing one
     // usually recreates the activity in that language; this state carries over, so Home follows.
@@ -105,6 +114,9 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val pdfInputs by pdfVm.inputs.collectAsStateWithLifecycle()
     val pdfLocked by pdfVm.locked.collectAsStateWithLifecycle()
     val pdfImporting by pdfVm.importing.collectAsStateWithLifecycle()
+    val pdfDocuments by pdfVm.documents.collectAsStateWithLifecycle()
+    // A file opened (from another app, or Home) is being copied in for the reader, or waits for it.
+    val reading by vm.reading.collectAsStateWithLifecycle()
     val recent = remember(context) { RecentFiles.of(context) }
     val recentFiles by recent.files.collectAsStateWithLifecycle()
 
@@ -119,9 +131,15 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     LaunchedEffect(pdfVm) {
         pdfVm.messages.collect { snackbar.showSnackbar(it) }
     }
-    // Android closed Usugami while it took in files shared to it, which are gone: said once.
+    // Android closed Usugami while it took in files shared to it, which are gone: said once. Taken in
+    // by the reader, it was a file opened, and is said as one (each is asked, so that each is said once).
     LaunchedEffect(vm, pdfVm) {
-        if (vm.takeShareInterrupted() or pdfVm.takeShareInterrupted()) vm.showMessage(R.string.msg_share_interrupted)
+        val shared = vm.takeShareInterrupted()
+        val taking = pdfVm.takeShareInterrupted()
+        val opened = vm.takeOpenInterrupted()
+        val reader = route == "reader"
+        if (shared || (taking && !reader)) vm.showMessage(R.string.msg_share_interrupted)
+        if (opened || (taking && reader)) vm.showMessage(R.string.reader_open_interrupted)
     }
     // A ZIP file of the result's PDFs is shared once it is ready, while Usugami is on screen: an app
     // in the background can't open the share screen.
@@ -152,6 +170,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     var docsFromShare by rememberSaveable { mutableStateOf(false) }
     // Said once that the files shared open when the PDF being made is done.
     var toldShareWaits by rememberSaveable { mutableStateOf(false) }
+    // Where the file in the reader was opened from (a ReadFrom's name), which is where Back leads;
+    // null for a PDF chosen on Choose a tool.
+    var readerFrom by rememberSaveable { mutableStateOf<String?>(null) }
+    // Back left the reader for the app that opened its file: Usugami is stepping behind that app,
+    // and the reader is put away once it no longer shows (see finishLeaving).
+    var leavingToSender by rememberSaveable { mutableStateOf(false) }
     // Back in the editor asks whether to discard its images. Files shared meanwhile open another
     // screen, which the question doesn't belong to: it goes.
     var confirmDiscard by rememberSaveable { mutableStateOf(false) }
@@ -264,12 +288,32 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     val documentsPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         if (route == "home" && pickingFor == "home") vm.pickDocuments(uris)
     }
+    // Home's Read and annotate: the file picked opens in the reader. Nothing picked leaves Home as it was.
+    val openPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null && route == "home" && pickingFor == "home") vm.open(uri, null, ReadFrom.HOME)
+    }
 
     // Images shared while the user stayed with a tool's PDF wait for them in the editor.
     fun afterTool(): String = if (vm.items.value.isNotEmpty() || vm.pendingImports.value > 0) "images" else "home"
 
-    /** Where the shared files waiting, or else being copied in, open (see [sharedRoute]); null for none. */
-    fun shareTarget(): String? = sharedRoute(SharedFiles.chosen(vm.sharedFiles.value.map { it.kind }) ?: vm.sharing.value)
+    /**
+     * Where the shared files waiting, or else being copied in, open (see [sharedRoute]); null for none.
+     * A file opened, coming in or waiting, opens in the reader.
+     */
+    fun shareTarget(): String? {
+        if (vm.reading.value != null) return "reader"
+        return sharedRoute(SharedFiles.chosen(vm.sharedFiles.value.map { it.kind }) ?: vm.sharing.value)
+    }
+
+    /** Usugami went behind the app whose file it showed: the reader is put away, and its file freed. */
+    fun finishLeaving() {
+        if (!leavingToSender) return
+        leavingToSender = false
+        if (route == "reader") {
+            route = afterTool()
+            pdfVm.reset()
+        }
+    }
 
     // Another app's screen opens once per burst of taps (see ScreenOpener).
     val opener = remember { ScreenOpener() }
@@ -278,8 +322,11 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> opener.covered()
                 Lifecycle.Event.ON_RESUME -> opener.back()
-                // Files may be deleted, moved or renamed while Usugami is away.
-                Lifecycle.Event.ON_STOP -> recent.checkAgain()
+                Lifecycle.Event.ON_STOP -> {
+                    // Files may be deleted, moved or renamed while Usugami is away.
+                    recent.checkAgain()
+                    finishLeaving()
+                }
                 else -> Unit
             }
         }
@@ -380,6 +427,9 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         }
         toolFromShare = false
         docsFromShare = target != "share"
+        // The reader is left for where its file was opened from.
+        readerFrom = if (target == "reader") vm.reading.value else null
+        leavingToSender = false
         toldShareWaits = false
         // What was asked about the last tool, and the choice to stay with its PDF, go with it: also when
         // a converter opens, a tool's route, which doesn't clear them as other routes do.
@@ -428,18 +478,33 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
      * tool was opened from it, with its PDFs (the images shared meanwhile wait, as Back from there
      * leads to them); else for those images, in the editor; else for Home.
      */
-    fun exitTool() {
+    fun exitTool(toSender: Boolean = true) {
         val target = shareTarget()
         // Leaving the tool shared files are being copied in for, the user doesn't want them any more.
-        if (target == route) vm.dropShares() else if (target != null) return openForShare(target)
+        // The reader, left while a file opened meanwhile waits, shows that file; left before its own
+        // file came in, that file is no longer wanted.
+        val another = target == "reader" && route == "reader" && pdfVm.readerHasFile
+        if (target == route && !another) vm.dropShares() else if (target != null) return openForShare(target)
         docsFromShare = false
         val tool = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }
-        route = when {
+        val reader = tool == PdfTool.READER && !toolFromShare
+        val next = when {
             toolFromShare && tool != null && (pdfVm.inputs.value.isNotEmpty() || pdfVm.locked.value.isNotEmpty()) -> {
                 pdfVm.clearToolWork(tool)
                 "share"
             }
+            reader && readerFrom == ReadFrom.RECENT.name -> "recent"
             else -> afterTool()
+        }
+        // A file another app opened: Usugami steps behind that app, and the reader is put away once it no longer shows.
+        if (toSender && reader && readerFrom == ReadFrom.OUTSIDE.name && onLeaveToBack()) leavingToSender = true else route = next
+    }
+
+    // Where Usugami never stops on stepping behind the app (split screen), the reader goes after a moment.
+    LaunchedEffect(leavingToSender) {
+        if (leavingToSender) {
+            delay(1_000)
+            finishLeaving()
         }
     }
 
@@ -452,7 +517,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     // PDFs, Word, PowerPoint, Excel and EPUB files shared to Usugami open where they belong (see [sharedRoute]).
     // Leaving a PDF tool discards its PDF, so a tool with work that isn't saved asks first, and a PDF
     // being made is waited for. Once copied in, the files go to the tool that opened for them.
-    LaunchedEffect(sharedFiles, sharing, route, pdfResult != null, pdfProcessing, progress != null, pdfImporting, confirmShare, stayOnPdf) {
+    LaunchedEffect(sharedFiles, sharing, reading, route, pdfResult != null, pdfProcessing, progress != null, pdfImporting, confirmShare, stayOnPdf) {
         val target = shareTarget()
         if (target == null) {
             confirmShare = false
@@ -463,11 +528,13 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         if (pdfVm.processing.value || vm.progress.value != null) {
             if (!toldShareWaits) {
                 toldShareWaits = true
-                vm.showMessage(R.string.share_waits)
+                vm.showMessage(if (vm.reading.value != null) R.string.reader_open_waits else R.string.share_waits)
             }
             return@LaunchedEffect
         }
-        if (route != target || pdfVm.result.value != null) {
+        // The reader gives way to the next file opened: it is another file, not more for the one showing.
+        val another = target == "reader" && route == "reader" && pdfVm.readerHasFile
+        if (route != target || pdfVm.result.value != null || another) {
             val tool = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }
             if (tool != null) {
                 // The user chose to stay with the tool's PDF: the files wait until they leave it.
@@ -509,7 +576,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         else -> (if (toolFromShare) "share/" else "") + if (pdfResult == null) route else "$route/result"
     }
     // Where shared files are going, for the screen they open in to say more are coming.
-    val receivingFor = sharedRoute(SharedFiles.chosen(sharedFiles.map { it.kind }) ?: sharing)
+    val receivingFor = if (reading != null) "reader" else sharedRoute(SharedFiles.chosen(sharedFiles.map { it.kind }) ?: sharing)
 
     AnimatedContent(
         targetState = Shown(
@@ -535,10 +602,10 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                 // The files listed are looked over while they show, once each time Usugami comes back.
                 LaunchedEffect(recent, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { recent.check() } }
             }
-            if (current == "home" || current.startsWith("images")) {
-                // Once a PDF tool's screens have gone (the user went home, or shared images opened the
-                // editor), nothing of that tool can be shown again: opening a tool starts afresh. Its
-                // copies and results are freed as soon as the new screen has settled. Not when files shared
+            if (current == "home" || current == "recent" || current.startsWith("images")) {
+                // Once a PDF tool's screens have gone (the user went home or to Recent files, or shared
+                // images opened the editor), nothing of that tool can be shown again: opening a tool starts
+                // afresh. Its copies and results are freed as soon as the new screen has settled. Not when files shared
                 // to Usugami opened a tool meanwhile, even before this screen was first drawn.
                 val settled = transition.currentState == EnterExitState.Visible && transition.targetState == EnterExitState.Visible
                 LaunchedEffect(settled) { if (settled && route == current.substringBefore('/')) pdfVm.reset() }
@@ -569,6 +636,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         },
                         onTool = ::openTool,
                         onSettings = { route = "settings" },
+                        onOpenFile = {
+                            launch(R.string.msg_no_picker) {
+                                pickingFor = "home"
+                                openPicker.launch(ReaderTypes)
+                            }
+                        },
                     )
                 }
                 current == "recent" -> {
@@ -792,7 +865,24 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         val leaveTool: () -> Unit = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "leave" else exitTool() }
                         BackHandler(enabled = active, onBack = leaveTool)
                         toolStates.SaveableStateProvider(toolStateKey(shown.opening)) {
-                            PdfToolScreen(
+                            if (tool == PdfTool.READER) {
+                                // With no file left (it couldn't be opened, was put away, or its copy was cleared), the
+                                // reader goes: not behind another app, so the message shows. Not while Usugami steps
+                                // behind the app that opened the file (Cancel during "Opening…"): finishLeaving() puts
+                                // the reader away then. The view models are asked as they are now: their flows reach
+                                // the screen one at a time.
+                                val none = pdfInputs.isEmpty() && pdfLocked.isEmpty() && pdfDocuments.isEmpty() && !pdfImporting && receivingFor != "reader"
+                                LaunchedEffect(none, active, leavingToSender) {
+                                    if (none && active && !leavingToSender && route == "reader" && !pdfVm.readerHasFile && shareTarget() != "reader") exitTool(toSender = false)
+                                }
+                                ReaderScreen(
+                                    vm = pdfVm,
+                                    // A file opened is being copied in for it, or waits to be shown.
+                                    receiving = receivingFor == "reader" && pdfResult == null,
+                                    snackbar = screenSnackbar,
+                                    actions = ReaderActions(back = leaveTool),
+                                )
+                            } else PdfToolScreen(
                                 tool = tool,
                                 vm = pdfVm,
                                 // Files shared to Usugami are being copied in for it.
@@ -936,6 +1026,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         // text file made, in words of their own.
         val changes = pdfResult == null
         val notPdf = pdfResult?.none { it.isPdf } == true
+        // A file opened, rather than shared, is said to be so.
+        val opened = reading != null
         AlertDialog(
             onDismissRequest = keepPdf,
             title = {
@@ -953,9 +1045,9 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                 Text(
                     stringResource(
                         when {
-                            changes -> R.string.share_discard_changes
-                            notPdf -> R.string.share_discard_body_files
-                            else -> R.string.share_discard_body
+                            changes -> if (opened) R.string.reader_open_discard_changes else R.string.share_discard_changes
+                            notPdf -> if (opened) R.string.reader_open_discard_files else R.string.share_discard_body_files
+                            else -> if (opened) R.string.reader_open_discard_body else R.string.share_discard_body
                         },
                     ),
                 )
@@ -1085,6 +1177,13 @@ private fun sharedRoute(kind: SharedKind?): String? = when (kind) {
     SharedKind.EXCEL -> PdfTool.EXCEL.name.lowercase()
     else -> null
 }
+
+/**
+ * What Home's Read and annotate offers in the file picker: PDFs and the documents the reader makes
+ * into PDFs, each type once ("binary data" among them, which some providers call EPUB files).
+ */
+private val ReaderTypes: Array<String> =
+    (listOf(PdfSaver.PDF_MIME) + OfficeKind.entries.flatMap { it.pickerTypes.asList() }).distinct().toTypedArray()
 
 /** What is said when no app on the phone opens a file of the type [mime]. */
 @StringRes

@@ -25,10 +25,12 @@ import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.ImageTransform
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.NaturalOrder
+import io.github.nath_goa.usugami.core.OpenedFiles
 import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.PageCrop
 import io.github.nath_goa.usugami.core.PageLook
+import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.SharedFiles
 import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.core.ZipProgress
@@ -58,6 +60,7 @@ import io.github.nath_goa.usugami.data.ShareInbox
 import io.github.nath_goa.usugami.data.SharedFile
 import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.data.ocrEngine
+import io.github.nath_goa.usugami.data.probeKind
 import io.github.nath_goa.usugami.data.office.DocumentSorter
 import io.github.nath_goa.usugami.data.office.PickedDocuments
 import kotlinx.coroutines.CancellationException
@@ -424,6 +427,23 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private var shareInterrupted = (handle.remove<Int>(KEY_SHARES_UNDER_WAY) ?: 0) > 0
 
     /**
+     * Where the file being copied in for the reader, or waiting for it, was opened from (a
+     * [ReadFrom]'s name); null when there is none. It is then the only file in [sharedFiles].
+     * Kept in the saved state.
+     */
+    val reading: StateFlow<String?> = handle.getStateFlow(KEY_READING, null)
+
+    /** Bumped when a file opened gives way to a newer one, or to files shared. */
+    private var openGeneration = 0
+
+    /**
+     * Android closed Usugami while a file opened was being copied in (see [open]): the copy cut short
+     * left nothing, so nothing waits for the reader. A file that was in and waiting keeps [reading],
+     * and still opens in the reader.
+     */
+    private var openInterrupted = (handle.remove<Boolean>(KEY_OPENING) == true).also { if (it) handle[KEY_READING] = null }
+
+    /**
      * How many images picked or shared are still to be added. Kept in the saved state, as [sharesUnderWay] is:
      * when Android closes Usugami meanwhile, those not added yet are gone, and the user is told.
      */
@@ -461,6 +481,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             if (missing.isNotEmpty()) {
                 setShared(_sharedFiles.value - missing.toSet())
                 pluralMessage(R.plurals.msg_files_cleared, missing.size)
+                // A file opened that the system cleared: nothing waits for the reader.
+                if (_sharedFiles.value.isEmpty()) handle[KEY_READING] = null
             }
         }
         // The result that was showing when Android stopped Usugami in the background, if any.
@@ -647,6 +669,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
             return
         }
+        // A file opened that still waits gives way to what is shared now.
+        if (reading.value != null) dropShares()
         // Until the share's last step: counted down on the main thread once its files are copied in, or
         // its images are handed on (from then on they count in picksUnderWay until each is added).
         sharesUnderWay++
@@ -667,15 +691,20 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     SharedKind.IMAGE -> importImages(taken.map { uris[it] }, refused)
                     else -> {
                         if (refused > 0) pluralMessage(R.plurals.msg_share_unreadable, refused)
-                        copyShared(kind, taken.map { uris[it] to names[it] })
+                        // A file opened since this share came is the one wanted: the share gives way,
+                        // rather than landing beside that file or being taken by the reader in its place.
+                        if (reading.value == null) copyShared(kind, taken.map { uris[it] to names[it] })
                     }
                 }
             }
         }.invokeOnCompletion { sharesUnderWay-- }
     }
 
-    /** Copies [files] (each one's address and name), shared files of [kind], into [sharedFiles]. */
-    private suspend fun copyShared(kind: SharedKind, files: List<Pair<Uri, String>>) {
+    /**
+     * Copies [files] (each one's address and name), shared files of [kind], into [sharedFiles]. A file
+     * [opened] (see [open]) that can't be read is told about in words of its own.
+     */
+    private suspend fun copyShared(kind: SharedKind, files: List<Pair<Uri, String>>, opened: Boolean = false) {
         // Read as the files start to show as being copied in: [dropShares] stops the files the user
         // sees coming, not those of a share still waiting its turn behind them.
         val generation = shareGeneration
@@ -706,7 +735,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             } else {
                 // Listed before the copying is said to be over, so they are never taken for gone.
                 setShared(_sharedFiles.value + copies)
-                if (failed > 0) pluralMessage(R.plurals.msg_share_unreadable, failed)
+                if (failed > 0) {
+                    if (opened) message(R.string.reader_unreadable) else pluralMessage(R.plurals.msg_share_unreadable, failed)
+                }
                 // One file shared is told about as before; of several, those left out are named.
                 when {
                     noSpace.isEmpty() -> Unit
@@ -731,6 +762,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val kind = SharedFiles.chosen(all.map { it.kind }) ?: return emptyList()
         val (taken, others) = all.partition { it.kind == kind }
         setShared(emptyList())
+        // The reader has taken the file opened, if that is what waited.
+        handle[KEY_READING] = null
         if (others.isNotEmpty()) {
             leftOut(R.plurals.share_other_kind, others.map { it.name })
             viewModelScope.launch(shareOps) { others.forEach(inbox::delete) }
@@ -741,6 +774,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** Forgets the shared files waiting or being copied in: the user left the screen they were opening in. */
     fun dropShares() {
         shareGeneration++
+        // A file opened, being copied in or waiting, goes too.
+        openGeneration++
+        handle[KEY_READING] = null
+        handle.remove<Boolean>(KEY_OPENING)
         val dropped = _sharedFiles.value
         setShared(emptyList())
         _sharing.value = null
@@ -752,6 +789,49 @@ class MainViewModel(private val app: Application, private val handle: SavedState
      * gone: true once, for the user to be told.
      */
     fun takeShareInterrupted(): Boolean = shareInterrupted.also { shareInterrupted = false }
+
+    /**
+     * Opens the file at [uri] in the reader: looks at what it is (its content, else its type as
+     * the app that has it or [type] gives it, and its name), then copies it in at once, as shared
+     * files are, to wait in [sharedFiles] for the reader ([reading] says it is for the reader).
+     * A null [uri] is an address Usugami can't read. The file opened last is the one wanted: one
+     * still coming in or waiting, and files shared before, give way to it.
+     */
+    fun open(uri: Uri?, type: String?, from: ReadFrom) {
+        if (uri == null) return message(R.string.reader_unreadable)
+        dropShares()
+        val mine = ++openGeneration
+        handle[KEY_READING] = from.name
+        // Until it is in: when Android closes Usugami meanwhile, the user is told (takeOpenInterrupted).
+        handle[KEY_OPENING] = true
+        viewModelScope.launch {
+            shareLock.withLock {
+                fun current() = mine == openGeneration
+                try {
+                    if (!current()) return@withLock
+                    val (given, name) = withContext(shareOps) { inbox.describe(uri) }
+                    // An app that gives no name (it didn't let Usugami ask) still has the address's
+                    // ending, which "Open with" matched: a PDF there that can't be read is said to be so.
+                    val declared = SharedFiles.kindOf(given, name ?: uri.lastPathSegment, type)
+                    // An image is an image: the others are worth a look inside.
+                    val probed = if (declared == SharedKind.IMAGE) null else withContext(shareOps) { probeKind(app, uri) }
+                    val kind = OpenedFiles.kind(declared, probed)
+                    val shown = name ?: inbox.fallbackName(uri, kind ?: declared)
+                    if (!current()) return@withLock
+                    if (kind == null) message(R.string.reader_cant_open, shown) else copyShared(kind, listOf(uri to shown), opened = true)
+                } finally {
+                    if (current()) {
+                        handle.remove<Boolean>(KEY_OPENING)
+                        // Nothing came in (it couldn't be opened, or read): nothing waits for the reader.
+                        if (_sharedFiles.value.isEmpty()) handle[KEY_READING] = null
+                    }
+                }
+            }
+        }
+    }
+
+    /** Whether Android closed Usugami while a file opened was being copied in: true once, for the user to be told. */
+    fun takeOpenInterrupted(): Boolean = openInterrupted.also { openInterrupted = false }
 
     /**
      * For tests: returns once the shares started so far are sorted and copied in, and the cleanup of
@@ -1690,6 +1770,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_PENDING_PHOTOS = "pending_photos"
         private const val KEY_SCAN = "scan"
         private const val KEY_MAKING = "making"
+        private const val KEY_READING = "reading"
+        private const val KEY_OPENING = "opening"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,

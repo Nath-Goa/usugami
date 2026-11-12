@@ -142,7 +142,13 @@ class PdfToolsEngine(private val context: Context) {
 
     fun delete(input: PdfInput) {
         input.file.delete()
+        deleteViews(input)
+    }
+
+    /** Deletes [input]'s views, not the PDF itself: for a PDF that is not the engine's to delete (a result being looked at). */
+    fun deleteViews(input: PdfInput) {
         viewFile(input).delete()
+        viewFile(input, unmark = false).delete()
     }
 
     fun deleteAllExcept(keep: Collection<PdfInput>) {
@@ -159,7 +165,7 @@ class PdfToolsEngine(private val context: Context) {
         val file = File(inputDir, "$id.pdf")
         val inputInfo = PdfInput(id, file.path, displayName(uri) ?: "Document.pdf", 0, password)
         // A view made for an earlier copy with this number would show the wrong PDF.
-        viewFile(inputInfo).delete()
+        deleteViews(inputInfo)
         try {
             val input = context.contentResolver.openInputStream(uri) ?: throw IOException("Could not open PDF")
             input.use { source ->
@@ -192,7 +198,7 @@ class PdfToolsEngine(private val context: Context) {
     fun adopt(file: File, id: Long, name: String): PdfInput {
         val target = File(inputDir, "$id.pdf")
         val inputInfo = PdfInput(id, target.path, name, 0)
-        viewFile(inputInfo).delete()
+        deleteViews(inputInfo)
         try {
             moveCopy(file, target)
             if (!hasPdfHeader(target)) throw IOException("This file is not a PDF")
@@ -671,8 +677,11 @@ class PdfToolsEngine(private val context: Context) {
         }
     }
 
-    /** Where [input]'s view (see [previewView]) is kept, beside the copy. */
-    private fun viewFile(input: PdfInput) = File(inputDir, "${input.id}-view.pdf")
+    /**
+     * Where [input]'s view (see [previewView]) is kept, beside the copy: the view without Usugami's
+     * mark, or ([unmark] false) the one with it, which the reader shows.
+     */
+    private fun viewFile(input: PdfInput, unmark: Boolean = true) = File(inputDir, "${input.id}-${if (unmark) "view" else "read"}.pdf")
 
     /**
      * The PDF the tools' previews draw, and Redact PDF searches and draws its pictures from: [input]
@@ -682,17 +691,26 @@ class PdfToolsEngine(private val context: Context) {
      * make their PDFs without the mark (see [loadUnmarked]), so the pages are shown as they come out.
      * Made once and kept beside the copy until the PDF is put away.
      */
-    fun previewView(input: PdfInput, check: () -> Unit = {}): PdfInput {
-        val file = viewFile(input)
+    fun previewView(input: PdfInput, check: () -> Unit = {}): PdfInput = previewView(input, check, unmark = true)
+
+    /**
+     * As [previewView], and with [unmark] false the view keeps Usugami's own mark: the reader shows a
+     * file as it is, where the tools' previews show pages as their PDF will come out. The two views
+     * are files of their own.
+     */
+    fun previewView(input: PdfInput, check: () -> Unit, unmark: Boolean): PdfInput {
+        val file = viewFile(input, unmark)
         if (file.isFile) return input.copy(path = file.path, password = "")
         load(input.file, input.password).use { doc ->
-            val unmarked = PageMark.unmark(doc)
+            val unmarked = unmark && PageMark.unmark(doc)
             val drawn = Redactor.drawAnnotationsIntoPages(doc, check)
             if (!drawn && !unmarked && input.password.isEmpty()) return input
             check()
             doc.isAllSecurityToBeRemoved = true
             // Written whole before it takes the view's name, so a run cut short leaves no half view.
-            val partial = File(inputDir, "${input.id}-view.tmp")
+            val partial = File(inputDir, "${input.id}-${if (unmark) "view" else "read"}.tmp")
+            // A preview of a result may be the first to write here.
+            inputDir.mkdirs()
             try {
                 doc.save(partial)
                 if (!partial.renameTo(file)) throw IOException("Couldn't keep the view")
