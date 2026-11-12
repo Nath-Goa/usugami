@@ -2715,6 +2715,34 @@ class ScreensDeviceTest {
         }
     }
 
+    /**
+     * A tool's result of images (as PDF to images or text makes) shows as images: its own heading, each
+     * image's name with its size and no page count, and no Usugami watermark, which is only for PDFs.
+     */
+    @Test fun aResultOfImagesShowsAsImagesWithoutTheWatermarkSwitch() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_page_layout, activity)
+        val names = listOf("alpha_p1.jpg", "alpha_p2.jpg")
+        onMain {
+            pdfVm.process("alpha_pages", pdfVm.inputs.value) {
+                // Written by the job: the cleanup that opening the tool started runs before it, on the same thread.
+                val dir = File(app.cacheDir, "output/tools").apply { mkdirs() }
+                names.map { name ->
+                    val image = File(dir, name)
+                    image.outputStream().use { Bitmap.createBitmap(40, 30, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.JPEG, 80, it) }
+                    PdfFile(image, 1, 0)
+                }
+            }
+        }
+        find("the heading over images") { it.says(app.getString(R.string.result_heading_image_many)) }
+        find("the first image's row") { it.says(names[0]) }
+        // Before any scrolling, while the top of the screen shows: what is off it isn't in the tree.
+        assertTrue("No watermark switch", nodes().none { it.says(app.getString(R.string.mark_title)) })
+        val onePage = app.resources.getQuantityString(R.plurals.page_count, 1, 1)
+        assertTrue("No page count", nodes().none { it.text?.contains(onePage) == true })
+        findBelow("the second image's row") { it.says(names[1]) }
+    }
+
     /** Set by tests that change the appearance, which outlives the activity (and Usugami, from Android 12). */
     private var appearanceChanged = false
 

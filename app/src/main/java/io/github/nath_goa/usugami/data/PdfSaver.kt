@@ -14,12 +14,17 @@ import android.provider.OpenableColumns
 import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import io.github.nath_goa.usugami.MainActivity
+import io.github.nath_goa.usugami.core.OutputType
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.OutputStream
 
-/** Saving finished PDFs (and ZIP files of them) to shared storage, where Recent files lists them, and handing them to other apps. */
+/**
+ * Saving finished files (PDFs, images and text files made from them, and ZIP files of them) to shared
+ * storage, where Recent files lists them, and handing them to other apps. Each is saved, listed and
+ * handed over as what its name's ending says it is (see [OutputType]).
+ */
 class PdfSaver(private val context: Context) {
     private val resolver = context.contentResolver
 
@@ -45,7 +50,7 @@ class PdfSaver(private val context: Context) {
             return files.mapIndexed { i, file ->
                 (earlier?.getOrNull(i)?.let(::stillInDownloads) ?: saveToDownloads(file)).also {
                     // Usugami can always read what it put into Downloads: there is no access to keep.
-                    saved += SavedFile(it.uri, PDF_MIME, grant = null, it.name, file.length())
+                    saved += SavedFile(it.uri, typeOf(file), grant = null, it.name, file.length())
                     onCopied(i, it)
                 }
             }
@@ -61,7 +66,8 @@ class PdfSaver(private val context: Context) {
         val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, file.name)
-            put(MediaStore.Downloads.MIME_TYPE, PDF_MIME)
+            // Its own type: an image is listed by galleries, and gets no ".pdf" added to its name.
+            put(MediaStore.Downloads.MIME_TYPE, typeOf(file))
             put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
             put(MediaStore.Downloads.IS_PENDING, 1)
         }
@@ -104,7 +110,7 @@ class PdfSaver(private val context: Context) {
             if (created) delete(target)
             throw e
         }
-        recent.add(listOf(SavedFile(target, PDF_MIME, grant = target, file.name, file.length())))
+        recent.add(listOf(SavedFile(target, typeOf(file), grant = target, file.name, file.length())))
     }
 
     /**
@@ -179,7 +185,7 @@ class PdfSaver(private val context: Context) {
         try {
             files.forEachIndexed { i, file ->
                 val target = earlier?.getOrNull(i)?.takeIf(::stillThere) ?: copyInto(parent, file)
-                saved += SavedFile(target, PDF_MIME, grant = tree, file.name, file.length())
+                saved += SavedFile(target, typeOf(file), grant = tree, file.name, file.length())
                 onCopied(i, target)
             }
         } finally {
@@ -189,7 +195,7 @@ class PdfSaver(private val context: Context) {
 
     /** A new copy of [file] in the folder [parent]. */
     private fun copyInto(parent: Uri, file: File): Uri {
-        val target = DocumentsContract.createDocument(resolver, parent, PDF_MIME, file.name)
+        val target = DocumentsContract.createDocument(resolver, parent, typeOf(file), file.name)
             ?: throw IOException("Could not create ${file.name}")
         try {
             copy(file, target)
@@ -215,8 +221,11 @@ class PdfSaver(private val context: Context) {
         if (sizeOf(target) == 0L) delete(target)
     }
 
-    /** Hands [files] (PDFs, or one ZIP file with [type] application/zip) to an app the user picks. */
-    fun shareIntent(files: List<File>, type: String = PDF_MIME): Intent = shareIntent(files.map(::contentUri), files[0].name, type)
+    /**
+     * Hands [files] to an app the user picks, as [type]: by default the one type they all have, or any
+     * type when they differ. A ZIP file of them passes its own.
+     */
+    fun shareIntent(files: List<File>, type: String = commonType(files)): Intent = shareIntent(files.map(::contentUri), files[0].name, type)
 
     /** Hands the files at [uris], of [type], to an app the user picks; [label] names the first. */
     fun shareIntent(uris: List<Uri>, label: String, type: String): Intent {
@@ -233,7 +242,7 @@ class PdfSaver(private val context: Context) {
             .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(context, MainActivity::class.java)))
     }
 
-    fun viewIntent(file: File): Intent = viewIntent(contentUri(file), PDF_MIME)
+    fun viewIntent(file: File): Intent = viewIntent(contentUri(file), typeOf(file))
 
     /** Opens the file at [uri], of [type], in an app the user picks. */
     fun viewIntent(uri: Uri, type: String): Intent = Intent(Intent.ACTION_VIEW)
@@ -241,6 +250,12 @@ class PdfSaver(private val context: Context) {
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
     private fun contentUri(file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
+
+    /** The type of [file], a PDF, image or text file Usugami made, by its name's ending. */
+    private fun typeOf(file: File): String = OutputType.ofName(file.name).mime
+
+    /** The one type all of [files] have, or any type when they differ. */
+    private fun commonType(files: List<File>): String = files.map(::typeOf).distinct().singleOrNull() ?: "*/*"
 
     /** The source is opened first, so a PDF that can't be read doesn't truncate the target. */
     private fun copy(file: File, target: Uri) {
@@ -292,5 +307,5 @@ class PdfSaver(private val context: Context) {
     }
 }
 
-/** A PDF saved into the Downloads folder: its entry there, and the name it got. */
+/** A file saved into the Downloads folder: its entry there, and the name it got. */
 class DownloadsCopy(val uri: Uri, val name: String)

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <!-- Only finished PDFs and ZIP files of them (in the cache) are ever shared or opened in other apps. -->
+    <!-- Only finished files (PDFs, images and text files made from them, and ZIP files of them, all in the cache) are ever shared or opened in other apps. -->
     <cache-path name="pdfs" path="output/" />
     <!-- The camera app is given one file here at a time, to save the photo it takes in. -->
     <cache-path name="camera" path="camera/" />

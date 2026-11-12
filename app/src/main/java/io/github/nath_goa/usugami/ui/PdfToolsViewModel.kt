@@ -20,6 +20,7 @@ import io.github.nath_goa.usugami.core.EditLayout
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.InkItem
 import io.github.nath_goa.usugami.core.MarkStyle
+import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.core.PageItem
 import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
@@ -286,7 +287,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** The names of the result's PDFs saved so far, all at once or each on its own. */
     private val _savedFiles = MutableStateFlow(restoredSavedFiles())
     val savedFiles = _savedFiles.asStateFlow()
-    /** True when the result was made from a PDF opened with a password: the new PDF has none. */
+    /** True when the result, PDFs, was made from a PDF opened with a password: the new PDF has none. */
     private val _passwordRemoved = MutableStateFlow(handle[KEY_PASSWORD_REMOVED] ?: false)
     val passwordRemoved = _passwordRemoved.asStateFlow()
     /**
@@ -312,6 +313,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private var resultName: String
         get() = handle[KEY_RESULT_NAME] ?: ""
         set(value) { handle[KEY_RESULT_NAME] = value }
+    /**
+     * What the last run made, as its first file is (PDFs, images or text files), which what is said of
+     * its files follows, also once they have gone; a PDF when nothing (or nothing known) is kept.
+     */
+    private var resultType: OutputType
+        get() = handle.get<String>(KEY_RESULT_TYPE)?.let { name -> OutputType.entries.firstOrNull { it.name == name } } ?: OutputType.PDF
+        set(value) { handle[KEY_RESULT_TYPE] = value.name }
     // A ZIP file is written with the other file work, one at a time: freeing the result's PDFs (see
     // reset) waits for a ZIP file of them being saved, as it does for a save of the PDFs.
     private val zipper = ResultZipper(app, engine.zipDir, viewModelScope, { strings }, ::message, ::resultCleared, io = fileOps)
@@ -1737,8 +1745,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 resultPutAway = false
                 setSavedFiles(emptySet())
                 handle[KEY_SAVE_AS] = null
-                _passwordRemoved.value = sources.any { it.password.isNotEmpty() }
+                // Said of PDFs only: an image or a text file never had a password.
+                _passwordRemoved.value = sources.any { it.password.isNotEmpty() } && files.all { it.isPdf }
                 resultName = name
+                resultType = files.first().type
                 _result.value = files
                 afterResult(files)
             } catch (_: CancellationException) {
@@ -1978,7 +1988,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private fun resultCleared(count: Int) {
         _result.value = null
         marker.stop()
-        message(strings.getQuantityString(R.plurals.msg_result_cleared, count))
+        val cleared = if (resultType == OutputType.PDF) R.plurals.msg_result_cleared else R.plurals.msg_result_files_cleared
+        message(strings.getQuantityString(cleared, count))
     }
 
     fun saveToDownloads() {
@@ -2132,7 +2143,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                     // The save itself failed (the storage may be full), also when the result was put away meanwhile.
                     pdfsThere -> {
                         partial().takeIf { it.isNotEmpty() }?.let(::markSaved)
-                        message(strings.getString(R.string.msg_save_failed))
+                        message(strings.getString(if (saved.all { it.isPdf }) R.string.msg_save_failed else R.string.msg_save_failed_files))
                     }
                     files != null && files === saving -> resultCleared(files.size)
                     // Otherwise the result was put away and its PDFs have gone: cleared, which was said then.
@@ -2313,6 +2324,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val KEY_SAVE_AS = "save_as"
         const val KEY_PASSWORD_REMOVED = "password_removed"
         const val KEY_RESULT_NAME = "result_name"
+        const val KEY_RESULT_TYPE = "result_type"
         const val KEY_BATCH = "batch"
         const val KEY_TAKING_SHARED = "taking_shared"
         const val KEY_MAKING = "making"

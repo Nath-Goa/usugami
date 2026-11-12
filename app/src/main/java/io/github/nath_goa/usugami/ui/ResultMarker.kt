@@ -46,7 +46,8 @@ class MarkPreview(val page: ImageBitmap?, val width: Float, val height: Float)
  * when given) and before a cleanup that deletes them. [changed] is given the result once a change has
  * rewritten its PDFs: the copies saved before are of the PDFs as they were. [failed] is called when a
  * PDF couldn't be changed, and [refused] is told once how many of the result's PDFs are certified
- * against any change: they are left as they are, without the mark.
+ * against any change: they are left as they are, without the mark. A result's files that are not PDFs
+ * (images and text files) are left alone: never marked, and never drawn.
  */
 internal class ResultMarker(
     context: Context,
@@ -207,8 +208,11 @@ internal class ResultMarker(
         }
     }
 
-    /** Whether [file] is as it should be with [wanted]: it says it carries it, or it is certified against the mark. */
-    private fun settled(file: PdfFile, wanted: MarkStyle?) = file.mark == wanted || (wanted != null && file.file in forbidden)
+    /**
+     * Whether [file] is as it should be with [wanted]: it isn't a PDF, which never carries the mark, it
+     * says it carries it, or it is certified against the mark.
+     */
+    private fun settled(file: PdfFile, wanted: MarkStyle?) = !file.isPdf || file.mark == wanted || (wanted != null && file.file in forbidden)
 
     /**
      * What [bringTo] did: [files] as they are now, those that couldn't be changed, and how many were
@@ -239,8 +243,9 @@ internal class ResultMarker(
         var refusing = 0
         val marked = files.mapIndexed { index, file ->
             check()
-            // A PDF gone from the cache is said to be when the result is next used.
-            if (!file.file.isFile || (!verify && file.mark == wanted) || (wanted != null && file.file in forbidden)) return@mapIndexed file
+            // A file that isn't a PDF is left as it is. A PDF gone from the cache is said to be when
+            // the result is next used.
+            if (!file.isPdf || !file.file.isFile || (!verify && file.mark == wanted) || (wanted != null && file.file in forbidden)) return@mapIndexed file
             onFile(index, files.size)
             try {
                 when {
@@ -275,9 +280,10 @@ internal class ResultMarker(
      * [file]'s first page as shown, as it was made, or null if it can't be drawn. With [asMade], for a
      * result shown again, [file] may carry the mark and is read first: the page is drawn from a copy
      * of it without the mark, and not at all if the file can't be read. On Android 8, once Android
-     * has refused a PDF it draws none until Usugami is closed.
+     * has refused a PDF it draws none until Usugami is closed: a file that isn't a PDF is never drawn.
      */
     private fun render(file: PdfFile, asMade: Boolean = false): MarkPreview? {
+        if (!file.isPdf) return null
         var copy: File? = null
         try {
             val clean = if (!asMade) file.file else try {

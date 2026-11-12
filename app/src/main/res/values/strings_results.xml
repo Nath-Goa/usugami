@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Usugami 2.0.0: Results that are not PDFs. English only for now. The translations lane translates these
+     strings, moves them where they belong and takes tools:ignore away, so that lint checks them
+     as it checks the rest. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- The heading over what a tool made, when it made pictures (JPG or PNG files) from a PDF's pages: one picture. -->
+    <string name="result_heading_image_one">Your image is ready</string>
+    <!-- The same, for several pictures. -->
+    <string name="result_heading_image_many">Your images are ready</string>
+    <!-- The heading over what a tool made, when it made a plain text file (.txt) from a PDF: one file. -->
+    <string name="result_heading_text_one">Your text file is ready</string>
+    <!-- The same, for several text files. -->
+    <string name="result_heading_text_many">Your text files are ready</string>
+    <string name="msg_no_image_app">No app on this phone can open images.</string>
+    <string name="msg_no_text_app">No app on this phone can open text files.</string>
+    <!-- Said when images or text files were to be shared, as "No app on this phone can share PDFs." is for PDFs. -->
+    <string name="msg_no_share_app_files">No app on this phone can share files.</string>
+    <!-- Said when images or text files couldn't be saved, as "Couldn't save the PDF…" is for PDFs. -->
+    <string name="msg_save_failed_files">Couldn\'t save. Check that there is enough free storage.</string>
+    <!-- Counts images or text files, so never 0: in French and Hindi "one" may leave the number out. -->
+    <plurals name="msg_result_files_cleared">
+        <item quantity="one">The file was cleared from temporary storage. Please create it again.</item>
+        <item quantity="other">The files were cleared from temporary storage. Please create them again.</item>
+    </plurals>
+    <!-- Asked when files are shared to Usugami while images or a text file it made aren't saved yet. "What you made" is those files. -->
+    <string name="files_discard_title">Discard what you made?</string>
+    <!-- Under that question when the files shared are PDFs, Word, PowerPoint, Excel or EPUB files. -->
+    <string name="share_discard_body_files">The files you shared are ready to open, but what you just made isn\'t saved yet. Save it first if you want to keep it.</string>
+    <!-- Under that question when the files shared are images. -->
+    <string name="files_discard_shared_body">The images you shared are ready to convert, but what you just made isn\'t saved yet. Save it first if you want to keep it.</string>
+</resources>

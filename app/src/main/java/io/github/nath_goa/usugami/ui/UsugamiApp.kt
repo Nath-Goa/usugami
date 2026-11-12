@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.SharedFiles
 import io.github.nath_goa.usugami.core.SharedKind
@@ -49,6 +50,7 @@ import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.LegalDocument
+import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.office.DocumentSorter
@@ -241,7 +243,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
         val kind = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }?.officeKind
         if (kind != null && route == pickingFor) pdfVm.addDocuments(uris, kind)
     }
-    val createDocument = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(PdfSaver.PDF_MIME)) { uri ->
+    // "Save as" for one file of a result, offered as what it is: a PDF, an image or a text file.
+    val createDocument = rememberLauncherForActivityResult(CreateFileDocument()) { uri ->
         if (uri != null) {
             if (route == "images") vm.saveTo(uri) else pdfVm.saveTo(uri)
         }
@@ -323,8 +326,12 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
     }
 
     val recentActions = RecentFileActions(
-        open = { file -> launchRecent(file, if (file.type == ZipArchive.MIME) R.string.msg_no_zip_app else R.string.msg_no_pdf_app) { recent.viewIntent(file) } },
-        share = { file -> launchRecent(file, R.string.msg_no_share_app) { recent.shareIntent(file) } },
+        open = { file -> launchRecent(file, noAppToOpen(file.type)) { recent.viewIntent(file) } },
+        // As for a tool's result; a ZIP file keeps the message it had.
+        share = { file ->
+            val noApp = if (OutputType.ofMime(file.type) == OutputType.PDF) R.string.msg_no_share_app else R.string.msg_no_share_app_files
+            launchRecent(file, noApp) { recent.shareIntent(file) }
+        },
         remove = recent::remove,
     )
 
@@ -700,7 +707,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                             saveAs = {
                                 if (vm.checkResult()) {
                                     launch(R.string.msg_no_file_picker) {
-                                        if (files.size == 1) createDocument.launch(files[0].name) else pickFolder.launch(null)
+                                        if (files.size == 1) createDocument.launch(files[0]) else pickFolder.launch(null)
                                     }
                                 }
                             },
@@ -731,15 +738,15 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         snackbar = screenSnackbar,
                         actions = ResultActions(
                             back = pdfVm::backToEditing,
-                            open = { file -> if (pdfVm.checkResult()) launch(R.string.msg_no_pdf_app) { context.startActivity(pdfVm.viewIntent(file)) } },
-                            share = { if (pdfVm.checkResult()) launch(R.string.msg_no_share_app) { context.startActivity(pdfVm.shareIntent(files)) } },
+                            open = { file -> if (pdfVm.checkResult()) launch(noAppToOpen(file.type.mime)) { context.startActivity(pdfVm.viewIntent(file)) } },
+                            share = { if (pdfVm.checkResult()) launch(noAppToShare(files)) { context.startActivity(pdfVm.shareIntent(files)) } },
                             saveToDownloads = if (pdfVm.canSaveToDownloads) pdfVm::saveToDownloads else null,
                             saveAs = {
                                 if (pdfVm.checkResult()) {
                                     launch(R.string.msg_no_file_picker) {
                                         if (files.size == 1) {
                                             pdfVm.prepareSaveAs(null)
-                                            createDocument.launch(files[0].name)
+                                            createDocument.launch(files[0])
                                         } else {
                                             pickFolder.launch(null)
                                         }
@@ -755,13 +762,13 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                                 }
                             },
                             // Each PDF of several also has Share and Save buttons of its own.
-                            shareOne = { file -> if (pdfVm.checkResult()) launch(R.string.msg_no_share_app) { context.startActivity(pdfVm.shareIntent(listOf(file))) } },
+                            shareOne = { file -> if (pdfVm.checkResult()) launch(noAppToShare(listOf(file))) { context.startActivity(pdfVm.shareIntent(listOf(file))) } },
                             saveOneToDownloads = if (pdfVm.canSaveToDownloads) pdfVm::saveOneToDownloads else null,
                             saveOneAs = { file ->
                                 if (pdfVm.checkResult()) {
                                     launch(R.string.msg_no_file_picker) {
                                         pdfVm.prepareSaveAs(file)
-                                        createDocument.launch(file.name)
+                                        createDocument.launch(file)
                                     }
                                 }
                             },
@@ -925,12 +932,34 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             confirmShare = false
             stayOnPdf = true
         }
-        // Asked over changes made to the tool's PDF, rather than over a PDF made.
+        // Asked over changes made to the tool's PDF, rather than over a PDF made; over images or a
+        // text file made, in words of their own.
         val changes = pdfResult == null
+        val notPdf = pdfResult?.none { it.isPdf } == true
         AlertDialog(
             onDismissRequest = keepPdf,
-            title = { Text(stringResource(if (changes) R.string.tool_discard_title else R.string.pdf_discard_title)) },
-            text = { Text(stringResource(if (changes) R.string.share_discard_changes else R.string.share_discard_body)) },
+            title = {
+                Text(
+                    stringResource(
+                        when {
+                            changes -> R.string.tool_discard_title
+                            notPdf -> R.string.files_discard_title
+                            else -> R.string.pdf_discard_title
+                        },
+                    ),
+                )
+            },
+            text = {
+                Text(
+                    stringResource(
+                        when {
+                            changes -> R.string.share_discard_changes
+                            notPdf -> R.string.share_discard_body_files
+                            else -> R.string.share_discard_body
+                        },
+                    ),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     // Once: a second tap before the dialog has gone finds it answered.
@@ -949,12 +978,35 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
             confirmLeavePdf = false
             stayOnPdf = true
         }
-        // Asked over changes made to the tool's PDF, rather than over a PDF made or being made.
+        // Asked over changes made to the tool's PDF, rather than over a PDF made or being made; over
+        // images or a text file made, in words of their own (while a job runs, what it makes isn't
+        // known yet: the PDF's words stay).
         val changes = pdfResult == null && !pdfProcessing
+        val notPdf = pdfResult?.none { it.isPdf } == true
         AlertDialog(
             onDismissRequest = keepPdf,
-            title = { Text(stringResource(if (changes) R.string.tool_discard_title else R.string.pdf_discard_title)) },
-            text = { Text(stringResource(if (changes) R.string.pdf_discard_shared_changes else R.string.pdf_discard_shared_body)) },
+            title = {
+                Text(
+                    stringResource(
+                        when {
+                            changes -> R.string.tool_discard_title
+                            notPdf -> R.string.files_discard_title
+                            else -> R.string.pdf_discard_title
+                        },
+                    ),
+                )
+            },
+            text = {
+                Text(
+                    stringResource(
+                        when {
+                            changes -> R.string.pdf_discard_shared_changes
+                            notPdf -> R.string.files_discard_shared_body
+                            else -> R.string.pdf_discard_shared_body
+                        },
+                    ),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmLeavePdf = false
@@ -1033,6 +1085,18 @@ private fun sharedRoute(kind: SharedKind?): String? = when (kind) {
     SharedKind.EXCEL -> PdfTool.EXCEL.name.lowercase()
     else -> null
 }
+
+/** What is said when no app on the phone opens a file of the type [mime]. */
+@StringRes
+private fun noAppToOpen(mime: String): Int = if (mime == ZipArchive.MIME) R.string.msg_no_zip_app else when (OutputType.ofMime(mime)) {
+    OutputType.PDF -> R.string.msg_no_pdf_app
+    OutputType.JPEG, OutputType.PNG -> R.string.msg_no_image_app
+    OutputType.TEXT -> R.string.msg_no_text_app
+}
+
+/** What is said when no app on the phone takes [shared], a tool's files, to share: PDFs, or other files. */
+@StringRes
+private fun noAppToShare(shared: List<PdfFile>): Int = if (shared.all { it.isPdf }) R.string.msg_no_share_app else R.string.msg_no_share_app_files
 
 /** Whether [route] is a PDF tool's screen (its result included: that shares the tool's route). */
 private fun isPdfToolRoute(route: String): Boolean = PdfTool.entries.any { it.name.equals(route, ignoreCase = true) }

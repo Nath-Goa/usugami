@@ -17,6 +17,7 @@ import io.github.nath_goa.usugami.core.InvalidJpegException
 import io.github.nath_goa.usugami.core.Jpeg
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.MarkStyle
+import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.core.PageImage
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.PixelSource
@@ -27,7 +28,8 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
- * A finished PDF in the app's cache, ready to save or share. [originalBytes] is the size of its source images.
+ * A finished file in the app's cache, ready to save or share: a PDF, unless [type] says otherwise.
+ * [pageCount] is 1 for an image, and the pages read for a text file. [originalBytes] is the size of its source images.
  * [images] are, for a PDF just made from images, the image on each page and where it is drawn: text
  * recognition reads those rather than the compressed copies in the PDF. Empty for other PDFs.
  * [keptOriginal]: Compress PDF couldn't make it smaller, so it is the PDF picked, as it was.
@@ -43,6 +45,10 @@ data class PdfFile(
 ) {
     val name: String get() = file.name
     val sizeBytes: Long get() = file.length()
+
+    /** What the file is, by its name's ending: a PDF, or an image or text file made from one (PDF to images or text). */
+    val type: OutputType get() = OutputType.ofName(file.name)
+    val isPdf: Boolean get() = type == OutputType.PDF
 }
 
 /** The picked image [item], drawn on its page as [placement] says. */
