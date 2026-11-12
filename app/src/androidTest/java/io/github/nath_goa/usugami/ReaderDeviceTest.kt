@@ -1,14 +1,24 @@
 package io.github.nath_goa.usugami
 
 import android.app.Application
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.Rect
 import android.net.Uri
 import android.os.SystemClock
 import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.data.ReaderDocument
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import kotlinx.coroutines.flow.Flow
@@ -26,7 +36,8 @@ import java.io.File
 /**
  * Files opened in the reader ("Open with", Home's Read and annotate), through the view models: what
  * a file is is told by its content, then by its type and name; it is copied in at once and waits for
- * the reader, also when Android restarts Usugami; the file opened last is the one wanted.
+ * the reader, also when Android restarts Usugami; the file opened last is the one wanted. And the
+ * reader's drawing: the sharp part of a page drawn when zoomed lines up with the whole page's picture.
  */
 class ReaderDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -156,5 +167,64 @@ class ReaderDeviceTest {
         assertEquals(listOf("Shared.pdf" to SharedKind.PDF), onMain { vm.sharedFiles.value.map { it.name to it.kind } })
         assertNull(onMain { vm.reading.value })
         assertEquals(1, inbox.list()!!.size)
+    }
+
+    /** The bounds of [bitmap]'s dark pixels within [area], or null when there are none. */
+    private fun darkIn(bitmap: Bitmap, area: Rect): Rect? {
+        val row = IntArray(area.width())
+        var found: Rect? = null
+        for (y in area.top until area.bottom) {
+            bitmap.getPixels(row, 0, row.size, area.left, y, row.size, 1)
+            for (i in row.indices) {
+                if (Color.red(row[i]) >= 128) continue
+                val x = area.left + i
+                found = found?.apply { union(x, y, x + 1, y + 1) } ?: Rect(x, y, x + 1, y + 1)
+            }
+        }
+        return found
+    }
+
+    @Test fun partsOfAPageAreDrawnWhereTheWholePageHasThem() {
+        // A page turned a quarter and cropped to a box of no whole size (300.5 × 200.5 points as
+        // shown), so that the two ways a renderer may take a transform (the page as it is, or squeezed
+        // to whole points) draw it differently. In its lower right quarter as shown: "needle" and a
+        // black square, the square near the far corner.
+        PDFBoxResourceLoader.init(app)
+        val file = File(picked, "turned.pdf").apply { parentFile!!.mkdirs() }
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle(400f, 500f))
+            page.cropBox = PDRectangle(50f, 100f, 200.5f, 300.5f)
+            page.rotation = 90
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { content ->
+                content.addRect(200f, 350f, 30f, 30f)
+                content.fill()
+            }
+            writeText(doc, page, "needle", x = 160f, y = 270f)
+            doc.save(file)
+        }
+        val sizes = tools().engine.shownPageSizes(PdfInput(1, file.path, "turned.pdf", 1))
+        assertEquals(listOf(300.5f to 200.5f), sizes)
+        val document = ReaderDocument.open(file, sizes) { PDDocument.load(file) }
+        try {
+            // The whole page at 8 pixels a point, and its lower right quarter at the same scale. (At 8,
+            // the half point a renderer squeezes off a side would move the square's far edge by over 3
+            // pixels; at 2, by less than the pixel the edges may differ by.)
+            val whole = runBlocking { document.page(0, 2404, 1604) }!!
+            val part = runBlocking { document.part(0, 8f, 1202, 802, 1202, 802) }!!
+            val inWhole = darkIn(whole, Rect(1202, 802, 2404, 1604))
+            val inPart = darkIn(part, Rect(0, 0, 1202, 802))
+            // The word and the square are there, the word's corner and the square's far corner making the bounds.
+            assertTrue("Nothing dark in the quarter: $inWhole", inWhole != null && inWhole.width() > 600 && inWhole.height() > 400)
+            checkNotNull(inPart) { "Nothing dark in the part" }
+            inWhole!!.offset(-1202, -802)
+            for ((edge, pair) in listOf("left" to (inWhole.left to inPart.left), "top" to (inWhole.top to inPart.top), "right" to (inWhole.right to inPart.right), "bottom" to (inWhole.bottom to inPart.bottom))) {
+                assertTrue("The $edge edge: $inWhole in the page, $inPart in the part", kotlin.math.abs(pair.first - pair.second) <= 1)
+            }
+            whole.recycle()
+            part.recycle()
+        } finally {
+            document.close()
+        }
     }
 }

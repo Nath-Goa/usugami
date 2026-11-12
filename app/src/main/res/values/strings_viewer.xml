@@ -34,4 +34,13 @@
     <string name="reader_page_of_spoken">Page %1$d of %2$d</string>
     <!-- On a page Android couldn't draw, in place of the page. -->
     <string name="reader_page_failed">This page can\'t be shown.</string>
+    <!-- The title of a small window that asks for a page number and shows that page; also what tapping the page label at the bottom of the reader does, as a screen reader says it. -->
+    <string name="reader_go_to_page">Go to page</string>
+    <!-- The label of the page number field in "Go to page". %1$d is the PDF's number of pages (at least 1): "Page number, 1 to 12". -->
+    <string name="reader_page_field">Page number, 1 to %1$d</string>
+    <!-- The button in "Go to page" that shows the page typed. -->
+    <string name="reader_go">Go</string>
+    <!-- Actions a screen reader offers on a page of the reader: they make the pages larger or smaller, as pinching does. -->
+    <string name="reader_zoom_in">Zoom in</string>
+    <string name="reader_zoom_out">Zoom out</string>
 </resources>

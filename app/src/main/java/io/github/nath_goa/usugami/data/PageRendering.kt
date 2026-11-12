@@ -33,6 +33,23 @@ internal object PageRendering {
     }
 
     /**
+     * Draws the part of [page], [shownWidth] × [shownHeight] points as shown, that [bitmap] covers
+     * when the page is drawn [scale] pixels to the point and the bitmap's top-left corner is ([left],
+     * [top]) pixels into it. So a point (x, y) of the page as shown, from its top-left corner, lands
+     * on pixel (x·scale − left, y·scale − top) with either kind of renderer.
+     */
+    fun renderPart(page: PdfRenderer.Page, bitmap: Bitmap, shownWidth: Float, shownHeight: Float, scale: Float, left: Float, top: Float) {
+        // What a transform starts from: the page as it is, or the page squeezed to whole points (see the class's KDoc).
+        val baseWidth = if (transformsWholePage) shownWidth else page.width.toFloat()
+        val baseHeight = if (transformsWholePage) shownHeight else page.height.toFloat()
+        val transform = Matrix().apply {
+            setScale(scale * shownWidth / baseWidth, scale * shownHeight / baseHeight)
+            postTranslate(-left, -top)
+        }
+        page.render(bitmap, null, transform, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+    }
+
+    /**
      * A page 10.5 points square, black all over, drawn twice its size: as it is, it covers the
      * bitmap's last row and column of pixels; squeezed to 10 points first, it stops one pixel short.
      */

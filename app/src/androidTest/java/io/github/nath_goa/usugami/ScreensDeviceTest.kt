@@ -2155,8 +2155,9 @@ class ScreensDeviceTest {
 
     /**
      * A PDF opened from another app ("Open with") shows in the reader, with its name and the page
-     * showing. Opened again while Usugami shows, it shows again, and Back leaves Usugami for the app
-     * that opened it.
+     * showing. Go to page, from the page showing, shows the page asked for, still after the activity
+     * is recreated. Opened again while Usugami shows, it shows again from its first page, and Back
+     * leaves Usugami for the app that opened it.
      */
     @Test fun aPdfOpenedFromAnotherAppShowsInTheReaderAndBackLeavesUsugami() {
         val name = "Opened ${System.currentTimeMillis()}.pdf"
@@ -2169,6 +2170,21 @@ class ScreensDeviceTest {
         find("the page showing, of three") { it.says(app.getString(R.string.reader_page_of, 1, 3)) }
         val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
         val first = onMain { pdfVm.inputs.value.single().id }
+
+        // Go to page, from the page showing: Go is on only for a page the PDF has.
+        click(find("the page showing, a button") { it.says(app.getString(R.string.reader_page_of, 1, 3)) })
+        val field = find("the page number") { it.isEditable }
+        val go = { find("the Go button") { it.says(app.getString(R.string.reader_go)) } }
+        type(field, "4")
+        waitUntil("Go to be off for a page the PDF hasn't") { !clickable(go()).isEnabled }
+        type(field, "3")
+        waitUntil("Go to be on") { clickable(go()).isEnabled }
+        click(go())
+        find("page 3 showing") { it.says(app.getString(R.string.reader_page_of, 3, 3)) }
+        // It stays there when the activity is recreated, as it is on rotation.
+        onMain { activity.recreate() }
+        recreatedFrom(activity)
+        find("page 3, still showing") { it.says(app.getString(R.string.reader_page_of, 3, 3)) }
 
         // Opened again while Usugami shows: the reader shows it anew.
         shareTo(openWith())

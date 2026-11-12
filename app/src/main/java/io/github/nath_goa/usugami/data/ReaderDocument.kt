@@ -53,18 +53,37 @@ internal class ReaderDocument private constructor(
     suspend fun page(index: Int, width: Int, height: Int): Bitmap? = withContext(drawing) {
         // A page asked for and no longer wanted before its turn came is never drawn.
         ensureActive()
-        if (closed || index !in sizes.indices) return@withContext null
+        drawn(index, width, height) { page, bitmap, shownWidth, shownHeight -> PageRendering.render(page, bitmap, shownWidth, shownHeight) }
+    }
+
+    /**
+     * A part of page [index], [width] × [height] pixels, on white: the page drawn [scale] pixels to
+     * the point, from [left], [top] pixels into it (see PageRendering.renderPart). Null when it can't
+     * be drawn, or this is closed.
+     */
+    suspend fun part(index: Int, scale: Float, left: Int, top: Int, width: Int, height: Int): Bitmap? = withContext(drawing) {
+        // A part asked for and no longer wanted before its turn came is never drawn.
+        ensureActive()
+        if (!(scale > 0f) || !scale.isFinite()) return@withContext null
+        drawn(index, width, height) { page, bitmap, shownWidth, shownHeight ->
+            PageRendering.renderPart(page, bitmap, shownWidth, shownHeight, scale, left.toFloat(), top.toFloat())
+        }
+    }
+
+    /** A [width] × [height] bitmap on white with page [index] drawn into it by [draw]; on [drawing] only. */
+    private fun CoroutineScope.drawn(index: Int, width: Int, height: Int, draw: (PdfRenderer.Page, Bitmap, Float, Float) -> Unit): Bitmap? {
+        if (closed || index !in sizes.indices) return null
         val (shownWidth, shownHeight) = sizes[index]
         val bitmap = try {
             createBitmap(width, height)
         } catch (_: OutOfMemoryError) {
-            return@withContext null
+            return null
         } catch (_: IllegalArgumentException) {
-            return@withContext null
+            return null
         }
-        try {
+        return try {
             bitmap.eraseColor(Color.WHITE)
-            renderer.openPage(index).use { PageRendering.render(it, bitmap, shownWidth, shownHeight) }
+            renderer.openPage(index).use { draw(it, bitmap, shownWidth, shownHeight) }
             // Drawn for a page that has gone meanwhile: nobody will give it back.
             if (!isActive) {
                 bitmap.recycle()
