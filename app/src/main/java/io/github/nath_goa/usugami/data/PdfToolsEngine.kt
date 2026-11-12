@@ -109,6 +109,9 @@ class PdfCertificateEncrypted(cause: Throwable) : IOException("Certificate-encry
  */
 class FlattenResult(val file: PdfFile, val droppedDynamicXfa: Boolean, val keptFields: Int)
 
+/** What Find text found: [matches], each the boxes of one match, and [unread], the pages (zero-based, in order) with text it couldn't read. */
+class TextSearch(val matches: List<List<RedactBox>>, val unread: List<Int>)
+
 /**
  * Split, merge, compress, rotate, delete pages, reorganize, flatten, page numbers, watermarks,
  * signatures, Edit PDF's additions and redaction. Input copies, results and PDFBox's scratch files all live in
@@ -700,18 +703,23 @@ class PdfToolsEngine(private val context: Context) {
         return input.copy(path = file.path, password = "")
     }
 
+    /** The matches of [searchText]. */
+    fun findText(input: PdfInput, query: String, view: PdfInput? = null, check: () -> Unit = {}): List<List<RedactBox>> =
+        searchText(input, query, view, check).matches
+
     /**
      * Every place [query] is found in [input]'s text, as boxes over each line of it (see [Redactor.find]),
-     * and in its comments, as a box over each comment (see [Redactor.findInComments]). [view] is
-     * its [previewView], if already made.
+     * and in its comments, as a box over each comment (see [Redactor.findInComments]), and the pages
+     * whose text couldn't all be read (see [Redactor.readable]). [view] is its [previewView], if
+     * already made.
      */
-    fun findText(input: PdfInput, query: String, view: PdfInput? = null, check: () -> Unit = {}): List<List<RedactBox>> {
+    fun searchText(input: PdfInput, query: String, view: PdfInput? = null, check: () -> Unit = {}): TextSearch {
         val view = view ?: previewView(input, check)
         val inText = load(view.file, view.password).use { doc -> Redactor.find(doc, query, check) }
         // The view has the comments drawn into the pages, without what they say: that is in the PDF itself.
-        val pages = inText.mapTo(HashSet()) { it.first().page }
+        val pages = inText.matches.mapTo(HashSet()) { it.first().page }
         val inComments = load(input.file, input.password).use { doc -> Redactor.findInComments(doc, query, pages, check) }
-        return (inText + inComments).sortedBy { it.first().page }
+        return TextSearch((inText.matches + inComments).sortedBy { it.first().page }, inText.unread)
     }
 
     /**

@@ -267,6 +267,66 @@ class RedactionTest {
         assertTrue("Vowel signs aren't dropped", text.find("दनय").isEmpty())
     }
 
+    /** One glyph for each character of [text], as text extraction reads CJK text. */
+    private fun glyphs(builder: PageText.Builder, text: String, from: Int = 0) {
+        var i = 0
+        var index = from
+        while (i < text.length) {
+            val c = text.codePointAt(i)
+            builder.glyph(index++, String(Character.toChars(c)))
+            i += Character.charCount(c)
+        }
+    }
+
+    @Test fun chineseAndJapaneseAreFoundAcrossBreaksOfEveryKind() {
+        // A word wrapped onto the next line at any character.
+        val wrapped = PageText.Builder().apply {
+            glyphs(this, "東京")
+            lineBreak()
+            glyphs(this, "都", 2)
+        }.build()
+        assertEquals(listOf(listOf(0, 1, 2)), wrapped.find("東京都"))
+        // A name with a space in it (U+3000, which reads as a space), found with and without one.
+        val name = PageText.Builder().apply { glyphs(this, "山田\u3000太郎") }.build()
+        assertEquals(listOf(listOf(0, 1, 3, 4)), name.find("山田太郎"))
+        assertEquals(listOf(listOf(0, 1, 3, 4)), name.find("山田 太郎"))
+        // A sliver of room between Japanese and a Latin word.
+        val mixed = PageText.Builder().apply {
+            glyphs(this, "東京")
+            gap()
+            glyphs(this, "Tower", 2)
+        }.build()
+        assertEquals(listOf((0..6).toList()), mixed.find("東京tower"))
+        assertEquals("山田太郎", PageText.normalize("山田 太郎"))
+        assertEquals("Windows版", PageText.normalize("Windows 版"))
+        assertEquals("John Smith", PageText.normalize("John  Smith"))
+    }
+
+    @Test fun koreanIsFoundAcrossALineBreakButNotAcrossASpace() {
+        val wrapped = PageText.Builder().apply {
+            glyphs(this, "서울")
+            lineBreak()
+            glyphs(this, "시", 2)
+        }.build()
+        assertEquals(listOf(listOf(0, 1, 2)), wrapped.find("서울시"))
+        // Korean separates words with spaces: a typed space must match one.
+        val spaced = PageText.Builder().apply { glyphs(this, "홍길 동") }.build()
+        assertTrue(spaced.find("홍길동").isEmpty())
+        assertEquals(listOf(listOf(0, 1, 3)), spaced.find("홍길 동"))
+    }
+
+    @Test fun fullWidthAndHalfWidthFormsMatch() {
+        val full = PageText.Builder().apply { glyphs(this, "ＡＢＣ１２３") }.build()
+        assertEquals(listOf((0..5).toList()), full.find("abc123"))
+        // ｶﾞ is two glyphs, ガ one.
+        val half = PageText.Builder().apply { glyphs(this, "ｶﾞ") }.build()
+        assertEquals(listOf(listOf(0, 1)), half.find("ガ"))
+        val whole = PageText.Builder().apply { glyphs(this, "ガ") }.build()
+        assertEquals(listOf(listOf(0)), whole.find("ｶﾞ"))
+        val unvoiced = PageText.Builder().apply { glyphs(this, "カ") }.build()
+        assertTrue(unvoiced.find("ガ").isEmpty())
+    }
+
     @Test fun aMatchGetsOneBoxPerLine() {
         // Two words on one line, 12 points tall, then one on the next line.
         val glyphs = listOf(
@@ -295,6 +355,15 @@ class RedactionTest {
         assertEquals(2, Redaction.boxesFor(0, glyphs, 600f, 800f).size)
     }
 
+    @Test fun lettersDownAColumnFollowOneAnother() {
+        val first = GlyphBox(490f, 442f, 510f, 462f, false)
+        assertTrue(Redaction.follows(first, GlyphBox(490f, 462f, 510f, 482f, false)))
+        assertFalse("The next column", Redaction.follows(first, GlyphBox(460f, 442f, 480f, 462f, false)))
+        assertFalse("15 points further down", Redaction.follows(first, GlyphBox(490f, 477f, 510f, 497f, false)))
+        // A column lying on its side, as on a page turned by 90°.
+        assertTrue(Redaction.follows(GlyphBox(442f, 490f, 462f, 510f, true), GlyphBox(462f, 490f, 482f, 510f, true)))
+    }
+
     @Test fun addressesAreAlsoReadWithTheirEscapesAsLetters() {
         assertEquals(listOf("mailto:john.smith@example.org"), Redaction.addressForms("mailto:john.smith@example.org"))
         assertTrue("https://example.org/team/Ana Silva" in Redaction.addressForms("https://example.org/team/Ana%20Silva"))
@@ -304,5 +373,11 @@ class RedactionTest {
         val forms = Redaction.addressForms("100%+sure?to=jane+doe%2Bwork%zz%4")
         assertTrue(forms.toString(), "100%+sure?to=jane+doe+work%zz%4" in forms)
         assertTrue(forms.toString(), "100% sure?to=jane doe+work%zz%4" in forms)
+    }
+
+    @Test fun pagesAreListedAsTheyAreTyped() {
+        assertEquals("3", Redaction.pageList(listOf(2)))
+        assertEquals("2, 5-7", Redaction.pageList(listOf(1, 4, 5, 6)))
+        assertEquals("1, 3, 5, 7, 9, 11, 13, 15…", Redaction.pageList((0 until 20 step 2).toList(), most = 8))
     }
 }

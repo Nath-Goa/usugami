@@ -244,6 +244,26 @@ object Redaction {
         val gap = max(bStart - aEnd, aStart - bEnd)
         return gap <= 3 * thickness
     }
+
+    /**
+     * Whether [b] is the next letter after [a] in a line of vertical writing: in the same line
+     * (side by side across it), and no further from it than half a letter.
+     */
+    fun follows(a: GlyphBox, b: GlyphBox): Boolean {
+        if (!sameLine(a, b)) return false
+        val gap = if (a.across) max(b.left - a.right, a.left - b.right) else max(b.top - a.bottom, a.top - b.bottom)
+        val length = if (a.across) max(a.right - a.left, b.right - b.left) else max(a.bottom - a.top, b.bottom - b.top)
+        return gap <= 0.5f * length
+    }
+
+    /**
+     * [pages] (zero-based) as a notice lists them: "3", or "2, 5-7". With more than [most] numbers
+     * and ranges, the first [most] and "…".
+     */
+    fun pageList(pages: Collection<Int>, most: Int = 8): String {
+        val parts = PdfPageSelection.format(pages).split(',')
+        return if (parts.size <= most) parts.joinToString(", ") else parts.take(most).joinToString(", ") + "…"
+    }
 }
 
 /**
@@ -253,13 +273,19 @@ object Redaction {
  * S P A C E D capitals, is read with a gap between each two letters, and a word that breaks after
  * a hyphen at the end of a line, such as a double-barrelled name or an email address, with a line
  * break after the hyphen: a match may cross those (see [Builder.gap] and [Builder.lineBreak]).
+ *
+ * Chinese and Japanese are written without spaces between words and break a line at any
+ * character, so a match may cross any break beside one of their characters, a space too (山田　太郎
+ * is found by 山田太郎); Korean separates words with spaces but breaks a line inside a word, so a
+ * match may cross a line break between two of its letters, not a space. Full-width and half-width
+ * forms are the ordinary letters (see [fold]).
  */
 class PageText private constructor(val text: String, private val owners: IntArray, private val inWord: BooleanArray) {
     class Builder {
         private val text = StringBuilder()
         private var owners = IntArray(256)
 
-        /** For each space, whether it is a [GAP] or a [HYPHEN_BREAK]. */
+        /** For each space, whether it is a [SPACE], a [GAP], a [HYPHEN_BREAK] or a [LINE] break. */
         private var kinds = ByteArray(256)
 
         /** Whether the last glyph read as nothing but a soft hyphen, the hyphen of a word broken at a line's end. */
@@ -292,7 +318,8 @@ class PageText private constructor(val text: String, private val owners: IntArra
         /**
          * A gap between two glyphs where the PDF has no space: a break between words, or the
          * spacing between the letters of letter-spaced text. Between two lone letters it may be
-         * either, so a match may cross it; elsewhere it is a space.
+         * either, so a match may cross it, as it may beside a Chinese or Japanese character;
+         * elsewhere it is a space.
          */
         fun gap() {
             if (text.isNotEmpty() && text.last() != ' ') append(' ', -1, GAP)
@@ -300,22 +327,24 @@ class PageText private constructor(val text: String, private val owners: IntArra
 
         /**
          * A break between lines. After a hyphen it may break a word, so a match may cross it, and
-         * the hyphen too; otherwise it is a space.
+         * the hyphen too; so may it beside a Chinese or Japanese character, and between two Korean
+         * letters. Otherwise it is a space.
          */
         fun lineBreak() {
             if (text.isEmpty()) return
             val last = text.length - 1
             when {
                 // Several breaks in a row (a line's and a paragraph's) are one.
-                text[last] == ' ' -> if (kinds[last] == GAP) kinds[last] = SPACE
+                text[last] == ' ' -> if (kinds[last] == GAP) kinds[last] = LINE
                 softHyphen || text[last] == '-' -> append(' ', -1, HYPHEN_BREAK)
-                else -> append(' ', -1)
+                else -> append(' ', -1, LINE)
             }
         }
 
         /**
          * The text read so far, with what a match may cross where it has none of its letters: a
-         * gap between two lone glyphs, and a hyphen break with the hyphen before it.
+         * gap between two lone glyphs, a hyphen break with the hyphen before it, a break of any
+         * kind beside a Chinese or Japanese character, and a line break between two Korean letters.
          */
         fun build(): PageText {
             val length = text.length
@@ -329,11 +358,19 @@ class PageText private constructor(val text: String, private val owners: IntArra
                 }
                 return k != from
             }
+            fun before(k: Int) = if (k > 0) text.codePointBefore(k) else -1
+            fun after(k: Int) = if (k + 1 < length) text.codePointAt(k + 1) else -1
             val inWord = BooleanArray(length) { k ->
                 when {
-                    kinds[k] == GAP -> lone(k - 1, -1) && lone(k + 1, 1)
+                    text[k] != ' ' -> text[k] == '-' && k + 1 < length && kinds[k + 1] == HYPHEN_BREAK
                     kinds[k] == HYPHEN_BREAK -> true
-                    else -> text[k] == '-' && k + 1 < length && kinds[k + 1] == HYPHEN_BREAK
+                    // Chinese and Japanese are written without spaces between words, and a line
+                    // breaks at any character: a break of any kind beside one may be inside a word.
+                    unspaced(before(k)) || unspaced(after(k)) -> true
+                    kinds[k] == GAP -> lone(k - 1, -1) && lone(k + 1, 1)
+                    // Korean has spaces between words, but breaks a line inside a word too.
+                    kinds[k] == LINE -> hangul(before(k)) && hangul(after(k))
+                    else -> false
                 }
             }
             return PageText(text.toString(), owners, inWord)
@@ -343,6 +380,8 @@ class PageText private constructor(val text: String, private val owners: IntArra
             const val SPACE: Byte = 0
             const val GAP: Byte = 1
             const val HYPHEN_BREAK: Byte = 2
+            /** A break between lines, not after a hyphen. */
+            const val LINE: Byte = 3
             const val SOFT_HYPHEN = '\u00AD'
         }
     }
@@ -382,9 +421,10 @@ class PageText private constructor(val text: String, private val owners: IntArra
 
     /**
      * Where a match of [wanted] that starts at [start] ends, exclusive, or -1 if there is none. A
-     * gap between two lone letters, and a line break after a hyphen and that hyphen (see
-     * [Builder.gap] and [Builder.lineBreak]), may come between two of its letters where it has
-     * none of them.
+     * gap between two lone letters, a line break after a hyphen and that hyphen, a break beside a
+     * Chinese or Japanese character and a line break between two Korean letters (see
+     * [Builder.gap], [Builder.lineBreak] and [Builder.build]) may come between two of its letters
+     * where it has none of them.
      */
     private fun matchAt(start: Int, wanted: String): Int {
         var k = start
@@ -438,7 +478,31 @@ class PageText private constructor(val text: String, private val owners: IntArra
         private const val STROKED = "łŁøØđĐħĦŧŦ"
         private const val UNSTROKED = "lLoOdDhHtT"
 
-        /** [query] folded like page text, with its spaces trimmed and each run of them made one. */
-        fun normalize(query: String): String = fold(query).trim().replace(Regex(" +"), " ")
+        /** Whether [codePoint] belongs to writing that has no spaces between words: Chinese characters, kana, bopomofo, and their punctuation. */
+        internal fun unspaced(codePoint: Int): Boolean {
+            if (codePoint < 0x2E80) return false
+            return when (Character.UnicodeScript.of(codePoint)) {
+                Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA, Character.UnicodeScript.BOPOMOFO -> true
+                // 、。「」 and the like; the kana voiced marks; ゠ ・ ー.
+                else -> codePoint in 0x3001..0x303F || codePoint in 0x3099..0x309C || codePoint == 0x30A0 || codePoint == 0x30FB || codePoint == 0x30FC
+            }
+        }
+
+        private fun hangul(codePoint: Int): Boolean = codePoint >= 0x1100 && Character.UnicodeScript.of(codePoint) == Character.UnicodeScript.HANGUL
+
+        /**
+         * [query] folded like page text, with its spaces trimmed and each run of them made one; a
+         * space beside a Chinese or Japanese character is dropped, as a match may cross one there.
+         */
+        fun normalize(query: String): String {
+            val plain = fold(query).trim().replace(Regex(" +"), " ")
+            if (' ' !in plain) return plain
+            val out = StringBuilder(plain.length)
+            for ((i, c) in plain.withIndex()) {
+                if (c == ' ' && (unspaced(plain.codePointBefore(i)) || unspaced(plain.codePointAt(i + 1)))) continue
+                out.append(c)
+            }
+            return out.toString()
+        }
     }
 }

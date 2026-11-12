@@ -2,20 +2,26 @@ package io.github.nath_goa.usugami
 
 import android.net.Uri
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotation
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationWidget
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTerminalField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.data.Flattening
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
@@ -138,6 +144,193 @@ class CjkTextDeviceTest {
 
     /** Whether [file]'s form asks viewers to draw its fields (NeedAppearances). */
     private fun asksForLooks(file: File): Boolean = PDDocument.load(file).use { it.documentCatalog.getAcroForm(null)!!.needAppearances }
+
+    // ---- Find text ----
+
+    /** An A4 page added to [doc] that draws [content], with [fonts] and [xobjects] by name. */
+    private fun rawPage(doc: PDDocument, fonts: Map<String, COSDictionary>, content: String, xobjects: Map<String, COSBase> = emptyMap()): PDPage =
+        PDPage(PDRectangle.A4).also { page ->
+            doc.addPage(page)
+            page.cosObject.setItem(COSName.RESOURCES, COSDictionary().apply {
+                setItem(COSName.FONT, COSDictionary().apply { for ((name, font) in fonts) setItem(name, font) })
+                if (xobjects.isNotEmpty()) setItem(COSName.XOBJECT, COSDictionary().apply { for ((name, xobject) in xobjects) setItem(name, xobject) })
+            })
+            page.setContents(PDStream(doc, content.byteInputStream(Charsets.ISO_8859_1)))
+        }
+
+    /** A line of 20-point text in [font] at ([x], [y]): the character codes [hex]. Every glyph of the test fonts is 20 points wide. */
+    private fun line(font: String, x: Int, y: Int, hex: String) = "BT /$font 20 Tf $x $y Td <$hex> Tj ET\n"
+
+    /**
+     * A simple font as fonts of TeX are in older PDFs: no font file and no ToUnicode map, its one
+     * glyph at [code] named [glyph]. By default a big bracket of the maths fonts at code 0, named
+     * parenleftbig, a name PDFBox knows from its own list.
+     */
+    private fun bracketFont(code: Int = 0, glyph: String = "parenleftbig"): COSDictionary = COSDictionary().apply {
+        setItem(COSName.TYPE, COSName.FONT)
+        setItem(COSName.SUBTYPE, COSName.TYPE1)
+        setName(COSName.BASE_FONT, "Usugami-Test-Math")
+        setInt(COSName.FIRST_CHAR, code)
+        setInt(COSName.LAST_CHAR, code)
+        setItem(COSName.WIDTHS, COSArray().apply { add(COSInteger.get(500)) })
+        setItem(COSName.ENCODING, COSDictionary().apply {
+            setItem(COSName.TYPE, COSName.ENCODING)
+            setItem(COSName.DIFFERENCES, COSArray().apply {
+                add(COSInteger.get(code.toLong()))
+                add(COSName.getPDFName(glyph))
+            })
+        })
+        setItem(COSName.FONT_DESC, COSDictionary().apply {
+            setItem(COSName.TYPE, COSName.FONT_DESC)
+            setName(COSName.FONT_NAME, "Usugami-Test-Math")
+            setInt(COSName.FLAGS, 4)
+            setItem(COSName.FONT_BBOX, COSArray().apply { listOf(0L, -120L, 1000L, 880L).forEach { add(COSInteger.get(it)) } })
+            setInt(COSName.ITALIC_ANGLE, 0)
+            setInt(COSName.ASCENT, 880)
+            setInt(COSName.DESCENT, -120)
+            setInt(COSName.CAP_HEIGHT, 700)
+            setInt(COSName.STEM_V, 80)
+        })
+    }
+
+    /**
+     * Asserts that [box] covers the cells of the 20-point glyphs drawn from [x0] to [x1] along the
+     * baseline [y] (in points, y up, on an A4 page), and reaches no more than 8 points beyond them.
+     */
+    private fun assertCovers(what: String, box: RedactBox, x0: Int, x1: Int, y: Int) {
+        val width = PDRectangle.A4.width
+        val height = PDRectangle.A4.height
+        val left = box.left * width
+        val right = box.right * width
+        val top = (1 - box.top) * height
+        val bottom = (1 - box.bottom) * height
+        // The test fonts reach 0.12 em below the baseline and 0.88 em above it.
+        val (low, high) = y - 2.4f to y + 17.6f
+        val shown = "$what: %.1f to %.1f across, %.1f to %.1f up".format(left, right, bottom, top)
+        assertTrue("$shown covers $x0 to $x1, $low to $high", left <= x0 + 0.1f && right >= x1 - 0.1f && bottom <= low + 0.1f && top >= high - 0.1f)
+        assertTrue("$shown reaches no more than 8 points beyond them", left >= x0 - 8 && right <= x1 + 8 && bottom >= low - 8 && top <= y + 20 + 8)
+    }
+
+    /**
+     * Fonts as TCPDF, FPDF, iText and older Acrobat and Distiller write them, without a ToUnicode
+     * map, one line in each: the encodings of Japanese, Simplified and Traditional Chinese and
+     * Korean, a Unicode one, Identity-H with a CJK collection, and a TrueType font. In 1.6.5 the
+     * search failed or found nothing.
+     */
+    @Test fun findTextReadsCjkFontsThatHaveNoToUnicodeMap() {
+        val lines = listOf(
+            cjkFont("90ms-RKSJ-H", "Japan1", 2) to "938C8B9E9373", // 東京都
+            cjkFont("GBKp-EUC-H", "GB1", 2) to "B1B1BEA9CAD0", // 北京市
+            cjkFont("ETen-B5-H", "CNS1", 0) to "A578A55FA5AB", // 台北市
+            cjkFont("KSCms-UHC-H", "Korea1", 1) to "BCADBFEFBDC3", // 서울시
+            cjkFont("UniGB-UTF16-H", "GB1", 5) to "53174EAC5E02", // 北京市
+            cjkFont("Identity-H", "Japan1", 6) to "0C6606980C4E", // 東京都, as Adobe-Japan1 CIDs
+            cjkFont("90msp-RKSJ-H", "Japan1", 2, "CIDFontType2") to "938C8B9E9373", // 東京都
+        )
+        fun baseline(line: Int) = 700 - 40 * line
+        val file = made("cjk_fonts.pdf").also { file ->
+            PDDocument().use { doc ->
+                val fonts = lines.indices.associate { "C${it + 1}" to lines[it].first }
+                rawPage(doc, fonts, lines.indices.joinToString("") { line("C${it + 1}", 72, baseline(it), lines[it].second) })
+                doc.save(file)
+            }
+        }
+        val source = import(file)
+        for ((query, expected) in listOf("東京都" to listOf(0, 5, 6), "北京市" to listOf(1, 4), "台北市" to listOf(2), "서울시" to listOf(3))) {
+            val search = engine.searchText(source, query)
+            assertEquals("$query: no page left unread", emptyList<Int>(), search.unread)
+            assertTrue("$query: one box for each match", search.matches.all { it.size == 1 })
+            val boxes = search.matches.map { it.single() }.sortedBy { it.top }
+            assertEquals("$query: found on lines ${expected.map { it + 1 }}", expected.size, boxes.size)
+            for ((box, line) in boxes.zip(expected)) assertCovers("$query on line ${line + 1}", box, 72, 132, baseline(line))
+        }
+    }
+
+    /**
+     * Words wrapped onto the next line at any character, a name with a space in it, full-width
+     * and half-width letters, and a Korean word wrapped inside it.
+     */
+    @Test fun findTextMatchesCjkAsItIsWritten() {
+        val file = made("cjk_written.pdf").also { file ->
+            PDDocument().use { doc ->
+                val fonts = mapOf("C1" to cjkFont("90ms-RKSJ-H", "Japan1", 2), "C2" to cjkFont("KSCms-UHC-H", "Korea1", 1))
+                rawPage(
+                    doc, fonts,
+                    line("C1", 72, 700, "938C8B9E") + // 東京, wrapped…
+                        line("C1", 72, 670, "9373") + // …都 on the next line
+                        line("C1", 72, 620, "8E529363814091BE9859") + // 山田　太郎, with an ideographic space
+                        line("C1", 72, 570, "826082618262") + // ＡＢＣ
+                        line("C1", 72, 520, "B6DE") + // ｶﾞ, half-width: two glyphs
+                        line("C2", 72, 450, "BCADBFEF") + // 서울, wrapped…
+                        line("C2", 72, 420, "BDC3"), // …시
+                )
+                doc.save(file)
+            }
+        }
+        val source = import(file)
+        fun found(query: String): List<RedactBox> {
+            val search = engine.searchText(source, query)
+            assertEquals("$query: no page left unread", emptyList<Int>(), search.unread)
+            assertEquals("$query: one match", 1, search.matches.size)
+            return search.matches.single()
+        }
+
+        val tokyo = found("東京都")
+        assertEquals("A box on each line", 2, tokyo.size)
+        assertCovers("東京", tokyo[0], 72, 112, 700)
+        assertCovers("都", tokyo[1], 72, 92, 670)
+        for (query in listOf("山田太郎", "山田 太郎")) assertCovers(query, found(query).single(), 72, 172, 620)
+        assertCovers("abc", found("abc").single(), 72, 132, 570)
+        assertCovers("ガ", found("ガ").single(), 72, 112, 520)
+        val seoul = found("서울시")
+        assertEquals("A box on each line", 2, seoul.size)
+        assertCovers("서울", seoul[0], 72, 112, 450)
+        assertCovers("시", seoul[1], 72, 92, 420)
+    }
+
+    /**
+     * A page is listed when a glyph on it reads as no letters, when a form on it can't be read, or
+     * when the page can't be; what can be read is searched all the same, but not a page that
+     * failed. A big bracket of TeX's maths fonts, which PDFBox reads by its name, lists no page;
+     * a glyph at a control code that reads as a space, under a name PDFBox doesn't know, does.
+     */
+    @Test fun findTextTellsWhichPagesItCouldNotRead() {
+        val file = made("cjk_unread.pdf").also { file ->
+            PDDocument().use { doc ->
+                val beijing = line("C1", 72, 600, "53174EAC5E02") // 北京市
+                // 1: Chinese PDFBox reads.
+                rawPage(doc, mapOf("C1" to cjkFont("UniGB-UCS2-H", "GB1", 2)), beijing)
+                // 2: the same, then a line in a font that names a CMap PDFBox doesn't have.
+                val missing = line("C2", 72, 560, "6771")
+                rawPage(doc, mapOf("C1" to cjkFont("UniGB-UCS2-H", "GB1", 2), "C2" to cjkFont("UniJIS2004-UTF16-H", "Japan1", 6)), beijing + missing)
+                // 3: glyphs of a font with no ToUnicode map and a character collection of its own, and SECRET NAME.
+                writeText(doc, rawPage(doc, mapOf("C1" to cjkFont("Identity-H", "Identity", 0)), line("C1", 72, 600, "000100020003")), "SECRET NAME")
+                // 4: a Chinese character outside the first plane, which the CJK tables can't name.
+                rawPage(doc, mapOf("C1" to cjkFont("UniJIS-UTF16-H", "Japan1", 6)), line("C1", 72, 600, "D842DFB7"))
+                // 5: a form that can't be read placed on the page before SECRET NAME.
+                val form = PDFormXObject(doc).apply {
+                    bBox = PDRectangle.A4
+                    resources = PDResources(COSDictionary().apply {
+                        setItem(COSName.FONT, COSDictionary().apply { setItem("C2", cjkFont("UniJIS2004-UTF16-H", "Japan1", 6)) })
+                    })
+                    cosObject.createOutputStream().use { it.write(missing.toByteArray(Charsets.ISO_8859_1)) }
+                }
+                writeText(doc, rawPage(doc, emptyMap(), "q /Fm Do Q\n", mapOf("Fm" to form.cosObject)), "SECRET NAME")
+                // 6: a big bracket of a maths font, at code 0.
+                rawPage(doc, mapOf("M1" to bracketFont()), "BT /M1 20 Tf 72 600 Td <00> Tj ET\n")
+                // 7: "fi" of an old TeX font at code 12, a form feed, under a name PDFBox doesn't know.
+                rawPage(doc, mapOf("M1" to bracketFont(12, "a12")), "BT /M1 20 Tf 72 600 Td <0C> Tj ET\n")
+                doc.save(file)
+            }
+        }
+        val source = import(file)
+        val chinese = engine.searchText(source, "北京市")
+        assertEquals("Found on the page read, not on the page that couldn't be", listOf(0), chinese.matches.map { it.single().page })
+        assertEquals(listOf(1, 2, 3, 4, 6), chinese.unread)
+        val secret = engine.searchText(source, "secret name")
+        assertEquals("Found on pages with text that couldn't be read", listOf(2, 4), secret.matches.map { it.single().page })
+        assertEquals(listOf(1, 2, 3, 4, 6), secret.unread)
+    }
 
     /**
      * A form whose fields are set in CJK fonts PDFBox can't write in, one it would write in wrong

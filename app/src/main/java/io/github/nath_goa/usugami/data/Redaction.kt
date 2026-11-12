@@ -9,6 +9,9 @@ import android.icu.lang.UCharacter
 import android.os.ParcelFileDescriptor
 import android.text.Html
 import androidx.core.graphics.createBitmap
+import com.tom_roush.pdfbox.contentstream.operator.MissingOperandException
+import com.tom_roush.pdfbox.contentstream.operator.Operator
+import com.tom_roush.pdfbox.contentstream.operator.OperatorName
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
@@ -20,6 +23,8 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
+import com.tom_roush.pdfbox.pdmodel.font.PDFont
+import com.tom_roush.pdfbox.pdmodel.font.PDSimpleFont
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceGray
 import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceRGB
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
@@ -28,6 +33,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationPopup
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import com.tom_roush.pdfbox.util.Matrix
+import com.tom_roush.pdfbox.util.Vector
 import io.github.nath_goa.usugami.core.Areas
 import io.github.nath_goa.usugami.core.GlyphBox
 import io.github.nath_goa.usugami.core.PageFrame
@@ -44,6 +50,7 @@ import java.io.Writer
 import java.text.Bidi
 import java.util.Collections
 import java.util.IdentityHashMap
+import java.util.TreeSet
 import kotlin.math.abs
 
 /**
@@ -125,18 +132,26 @@ internal object Redactor {
     // ---- Find text ----
 
     /**
-     * Every place [query] is found in [doc]'s text, on every page, as a box over each line it is on.
-     * Letters match ignoring case and accents. Text that is a picture (a scan) has nothing to find.
+     * Every place [query] is found in [doc]'s text, on every page, as a box over each line it is on,
+     * and the pages with text it couldn't read. Letters match ignoring case and accents, and
+     * Chinese, Japanese and Korean as they are written (see [PageText]). Text that is a picture (a
+     * scan) has nothing to find.
      *
      * The text is read twice: in the order the PDF draws it, which keeps a column's lines together
      * so a phrase is found across a line break, and sorted by position along each direction, which
      * reads text that runs up or down the page as shown. Matches found both ways count once. Text
      * set with wide spacing between its letters, and words broken after a hyphen at the end of a
      * line, are found too (see [PageText]).
+     *
+     * A page is listed in [TextSearch.unread] when a glyph on it reads as no letters (see
+     * [readable]; a simple font's glyph PDFBox has no name for at a control code is one, also at a
+     * code that reads as a space), when a form placed on it can't be read, or when the page itself
+     * can't be: then none of its matches is given, and the other pages are searched all the same.
      */
-    fun find(doc: PDDocument, query: String, check: () -> Unit): List<List<RedactBox>> {
-        if (PageText.normalize(query).isEmpty()) return emptyList()
+    fun find(doc: PDDocument, query: String, check: () -> Unit): TextSearch {
+        if (PageText.normalize(query).isEmpty()) return TextSearch(emptyList(), emptyList())
         val found = LinkedHashMap<List<Int>, List<RedactBox>>()
+        val unread = TreeSet<Int>()
         for (sorted in listOf(false, true)) {
             val finder = Finder(query, check).apply { sortByPosition = sorted }
             finder.writeText(doc, NoWriter)
@@ -147,9 +162,10 @@ internal object Redactor {
                 }
                 found.getOrPut(key) { match }
             }
+            unread += finder.unread
         }
         // In page order, as they are on each page.
-        return found.values.sortedBy { it.first().page }
+        return TextSearch(found.values.sortedBy { it.first().page }, unread.toList())
     }
 
     /**
@@ -361,20 +377,84 @@ internal object Redactor {
      * Collects each page's glyphs as text extraction reads them, and boxes the matches when the page
      * ends. Text extraction gives a line's glyphs from left to right, as they are drawn; Hebrew and
      * Arabic read the other way, so their glyphs are put in the order they are read (see [readingOrder]).
+     * It notes the pages ([unread]) with a glyph that reads as no letters, a form it couldn't read,
+     * or nothing it could read at all.
      */
     private class Finder(private val query: String, private val check: () -> Unit) : PDFTextStripper() {
         val matches = ArrayList<List<RedactBox>>()
+
+        /** The pages (zero-based) with text that couldn't be read. */
+        val unread = TreeSet<Int>()
         private var text = PageText.Builder()
         private val glyphs = ArrayList<TextPosition>()
 
         /** The line being read, its glyphs left to right; null between two words. */
         private val line = ArrayList<TextPosition?>()
 
-        override fun startPage(page: PDPage) {
+        /** Whether text extraction read the glyph being shown as something (see [showGlyph]). */
+        private var read = false
+
+        /** A page PDFBox can't read (a font on it naming an encoding it doesn't have, damaged content) is counted as not read, and the next is read. */
+        override fun processPage(page: PDPage) {
+            // Outside the try: what it throws to stop the search is no unreadable page.
             check()
+            try {
+                super.processPage(page)
+            } catch (e: java.util.concurrent.CancellationException) {
+                throw e
+            } catch (_: IOException) {
+                unread += currentPageNo - 1
+            } catch (_: RuntimeException) {
+                unread += currentPageNo - 1
+            }
+        }
+
+        override fun startPage(page: PDPage) {
             text = PageText.Builder()
             glyphs.clear()
             line.clear()
+        }
+
+        /**
+         * Every glyph shown. Text extraction hands on those it reads as something (see
+         * [processTextPosition]) and leaves out, without a word, a composite font's glyph that
+         * reads as nothing.
+         */
+        override fun showGlyph(textRenderingMatrix: Matrix, font: PDFont, code: Int, displacement: Vector) {
+            read = false
+            super.showGlyph(textRenderingMatrix, font, code, displacement)
+            if (!read) unread += currentPageNo - 1
+        }
+
+        /**
+         * A glyph as text extraction read it, with its own list of glyph names besides Adobe's. A
+         * simple font's glyph with no ToUnicode entry and no name it knows is read as the character
+         * with its code, and a control code is no letter: also one [readable] lets pass as a tab
+         * or a line break a PDF maps, such as an old TeX font's "fi" at 12, which would be searched
+         * as a space. PDFBox's own extra names stand for no such code, so asking the font with
+         * Adobe's names alone tells.
+         */
+        override fun processTextPosition(text: TextPosition) {
+            val unicode = text.unicode ?: ""
+            read = readable(unicode) && !(unicode.length == 1 && Character.isISOControl(unicode[0]) && unnamed(text))
+            super.processTextPosition(text)
+        }
+
+        /** Whether [glyph] is a simple font's glyph with no ToUnicode entry and no Adobe glyph name. */
+        private fun unnamed(glyph: TextPosition): Boolean {
+            val font = glyph.font as? PDSimpleFont ?: return false
+            val code = glyph.characterCodes?.singleOrNull() ?: return false
+            return font.toUnicode(code) == null
+        }
+
+        /**
+         * PDFBox gives up on a form placed on the page (a logo, the look of a comment or of a
+         * filled field) that it can't read, such as one with a font naming an encoding it doesn't
+         * have, and goes on with the page: what the form says was not read.
+         */
+        override fun operatorException(operator: Operator, operands: List<COSBase>, e: IOException) {
+            if (operator.name == OperatorName.DRAW_OBJECT && e !is MissingOperandException) unread += currentPageNo - 1
+            super.operatorException(operator, operands, e)
         }
 
         override fun writeString(text: String, textPositions: List<TextPosition>) {
@@ -452,6 +532,20 @@ internal object Redactor {
         Bidi.reorderVisually(levels, 0, order, 0, order.size)
         return order.map { (it as Int).let { i -> line[i] to (levels[i].toInt() and 1 == 1) } }
     }
+
+    /**
+     * Whether [unicode], what text extraction read a glyph as, is letters. Text extraction leaves
+     * out a composite font's glyph that reads as nothing (no ToUnicode map, no CJK encoding or
+     * character collection PDFBox has a table for): that one never gets here. It reads a simple
+     * font's glyph it has no name for as the character with its code, as viewers do, which often
+     * is right: only a control code, no character at all, counts as unread. One that reads as a
+     * space (a tab, a line break) counts as read here, as a PDF may map a glyph to it; Find text
+     * also lists a glyph text extraction read so only for its code (see Finder.processTextPosition).
+     * Neither is a glyph read that the PDF maps to U+FFFD, "no character": a rare Chinese
+     * character the CJK tables can't name, for one.
+     */
+    internal fun readable(unicode: String): Boolean =
+        unicode.none { it == '\uFFFD' || Character.isISOControl(it) && !it.isWhitespace() }
 
     /** U+FFFC, which stands for an object in text. */
     internal val OBJECT_CHARACTER = Char(0xFFFC).toString()
