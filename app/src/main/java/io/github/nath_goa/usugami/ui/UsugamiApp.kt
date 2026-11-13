@@ -46,6 +46,11 @@ import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.SharedFiles
 import io.github.nath_goa.usugami.core.SharedKind
+import io.github.nath_goa.usugami.core.ShortcutPlace
+import io.github.nath_goa.usugami.core.ShortcutRules
+import io.github.nath_goa.usugami.core.ShortcutScene
+import io.github.nath_goa.usugami.core.ShortcutStep
+import io.github.nath_goa.usugami.core.ShortcutTarget
 import io.github.nath_goa.usugami.core.ZipArchive
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
@@ -183,6 +188,9 @@ fun UsugamiApp(
     var discardWork by rememberSaveable { mutableStateOf<String?>(null) }
     // Set when PDFs or documents were shared while a PDF tool had a PDF that would be lost by leaving it.
     var confirmShare by rememberSaveable { mutableStateOf(false) }
+    // The launcher shortcut used (its ShortcutTarget's id) while a PDF tool had work that opening the
+    // shortcut's screen would throw away: asked about first (see shortcutScene).
+    var confirmShortcut by rememberSaveable { mutableStateOf<String?>(null) }
     // The tool showing was opened from Choose a tool, which it goes back to.
     var toolFromShare by rememberSaveable { mutableStateOf(false) }
     // The converter showing was opened for Word, PowerPoint, Excel or EPUB files shared to Usugami.
@@ -210,6 +218,7 @@ fun UsugamiApp(
             stayOnPdf = false
             discardWork = null
             confirmShare = false
+            confirmShortcut = null
         }
     }
     // How many images there were when the list last changed. Restored with the activity, so the list
@@ -502,6 +511,7 @@ fun UsugamiApp(
         discardWork = null
         confirmShare = false
         confirmDiscard = false
+        confirmShortcut = null
         route = target
     }
 
@@ -522,6 +532,86 @@ fun UsugamiApp(
             vm.newScan()
             route = "images"
             scanFromHome = true
+        }
+    }
+
+    /** Where Usugami is for a launcher shortcut used now (see ShortcutRules). The view models are asked as they are now. */
+    fun shortcutScene(): ShortcutScene {
+        // The reader's route gives PdfTool.READER: a tool here, whose file only being read is put away.
+        val tool = PdfTool.entries.firstOrNull { it.name.equals(route, ignoreCase = true) }
+        return ShortcutScene(
+            place = when {
+                tool != null -> ShortcutPlace.TOOL
+                route == "images" -> ShortcutPlace.EDITOR
+                route == "share" -> ShortcutPlace.CHOOSE_TOOL
+                else -> ShortcutPlace.HOME
+            },
+            working = pdfVm.processing.value || vm.progress.value != null,
+            // Files shared are waiting or being copied in, a file opened is on its way to the reader, or a
+            // "Discard?" question shows: those come first.
+            waiting = vm.sharedFiles.value.isNotEmpty() || vm.sharing.value != null || vm.reading.value != null ||
+                confirmShare || confirmLeavePdf || discardWork != null || confirmDiscard || confirmShortcut != null,
+            // As files shared to Usugami ask: over a result not saved yet, or work done on the tool's PDF (in
+            // the reader, Annotate's additions not saved).
+            unsaved = tool != null && (if (pdfVm.result.value != null) !pdfVm.saved.value else pdfVm.hasUnsavedWork(tool)),
+            // No photo is added while a scan's page is still on its way (the camera, the crop screen).
+            editorIdle = route == "images" && vm.result.value == null && !vm.scanUnderWay(),
+        )
+    }
+
+    /**
+     * Opens [target]'s screen for a launcher shortcut, as its Home tile or Scan document's Take photo
+     * does. What showed goes, as Back would let it go; the images in the editor wait there for Back.
+     */
+    fun runShortcut(target: ShortcutTarget) {
+        // Choose a tool's PDFs go, as Back from it lets them go (the screen opened frees them).
+        if (route == "share") vm.dropShares()
+        stayOnPdf = false
+        confirmLeavePdf = false
+        discardWork = null
+        confirmShare = false
+        confirmDiscard = false
+        confirmShortcut = null
+        when (target) {
+            // A scan still going on behind a tool or Choose a tool (the crop screen, the next image of
+            // several) is shown again: a new scan would drop its look, and its photo would skip the crop
+            // screen. Otherwise the camera opens; with no camera app, Usugami says so and stays where it was.
+            ShortcutTarget.SCAN -> if (vm.scanUnderWay()) {
+                toolFromShare = false
+                docsFromShare = false
+                route = "images"
+            } else {
+                startScan()
+            }
+            // A tool left for the editor frees its files once the editor has settled.
+            ShortcutTarget.IMAGES -> {
+                toolFromShare = false
+                docsFromShare = false
+                route = "images"
+            }
+            ShortcutTarget.MERGE -> openTool(PdfTool.MERGE)
+            ShortcutTarget.COMPRESS -> openTool(PdfTool.COMPRESS)
+        }
+    }
+
+    // A launcher shortcut used (see MainActivity.handleShortcut) is acted on once Usugami shows, then
+    // forgotten. Declared after the effect that lets taps open screens again once Usugami is back
+    // (opener), so that the camera the Scan shortcut asks for opens also when Usugami was in the background.
+    LaunchedEffect(vm, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            vm.shortcut.collect { pending ->
+                if (pending == null) return@collect
+                val target = vm.takeShortcut() ?: return@collect
+                when (ShortcutRules.step(target, shortcutScene())) {
+                    ShortcutStep.OPEN -> runShortcut(target)
+                    // As the editor's own Take photo: the photo joins its images.
+                    ShortcutStep.ADD_PHOTO -> takePhoto()
+                    ShortcutStep.ASK -> confirmShortcut = target.id
+                    // Not remembered: it would ask "Discard?" minutes later, when the job ends.
+                    ShortcutStep.BUSY -> vm.showMessage(R.string.shortcut_busy)
+                    ShortcutStep.STAY -> Unit
+                }
+            }
         }
     }
 
@@ -1240,6 +1330,55 @@ fun UsugamiApp(
             },
             dismissButton = { TextButton(onClick = keepPdf) { Text(stringResource(R.string.keep)) } },
         )
+    }
+
+    // A launcher shortcut used over a tool's work not saved yet: Discard opens the shortcut's screen; Keep,
+    // Back or a tap outside leaves everything as it was, and the shortcut is forgotten.
+    ShortcutTarget.of(confirmShortcut)?.let { target ->
+        // Asked over changes made to the tool's PDF, rather than over a PDF made; over images or a text
+        // file made, in words of their own.
+        val changes = pdfResult == null
+        val notPdf = pdfResult?.none { it.isPdf } == true
+        AlertDialog(
+            onDismissRequest = { confirmShortcut = null },
+            title = {
+                Text(
+                    stringResource(
+                        when {
+                            changes -> R.string.tool_discard_title
+                            notPdf -> R.string.files_discard_title
+                            else -> R.string.pdf_discard_title
+                        },
+                    ),
+                )
+            },
+            text = {
+                Text(
+                    stringResource(
+                        when {
+                            changes -> R.string.shortcut_discard_changes
+                            notPdf -> R.string.shortcut_discard_files
+                            else -> R.string.shortcut_discard_body
+                        },
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    // Once: a second tap before the dialog has gone finds it answered.
+                    if (confirmShortcut != null) {
+                        confirmShortcut = null
+                        runShortcut(target)
+                    }
+                }) { Text(stringResource(R.string.discard)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmShortcut = null }) { Text(stringResource(R.string.keep)) } },
+        )
+    }
+    // Files or images shared meanwhile bring their own question, which takes this one's place: two
+    // questions never lie over each other.
+    LaunchedEffect(confirmShare, confirmLeavePdf) {
+        if (confirmShare || confirmLeavePdf) confirmShortcut = null
     }
 
     if (confirmLeavePdf) {

@@ -60,10 +60,12 @@ import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.ShapeKind
 import io.github.nath_goa.usugami.core.SharedKind
+import io.github.nath_goa.usugami.core.ShortcutTarget
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.core.TextSelection
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.AppShortcuts
 import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.Appearances
 import io.github.nath_goa.usugami.data.PdfCompression
@@ -2086,6 +2088,32 @@ class ScreensDeviceTest {
         find("the shared image in the editor") { it.says(app.getString(R.string.convert)) }
         waitUntil("the PDF to be discarded") { onMain { pdfVm.result.value == null && pdfVm.inputs.value.isEmpty() } }
         onMain { vm.clearAll() }
+    }
+
+    /**
+     * A launcher shortcut used over a PDF made and not saved yet asks first. Keep leaves the PDF as it
+     * was; the same shortcut used again, Discard opens its tool, empty. (The second use is what tells
+     * that a shortcut taken by the screen doesn't stop the next one reaching it.)
+     */
+    @Test fun aShortcutOverAnUnsavedPdfAsksFirst() {
+        val activity = launch()
+        val pdfVm = unsavedCompressResult(activity)
+
+        onMain { activity.startActivity(AppShortcuts.intent(activity, ShortcutTarget.MERGE)) }
+        find("the question") { it.says(app.getString(R.string.pdf_discard_title)) }
+        find("what it says") { it.says(app.getString(R.string.shortcut_discard_body)) }
+        click(find("the Keep button") { it.says(app.getString(R.string.keep)) })
+        // Gone before the shortcut is used again: while a question shows, a shortcut does nothing.
+        waitUntil("the question to go") { nodes().none { it.says(app.getString(R.string.pdf_discard_title)) } }
+        find("the result screen, still showing") { it.says(app.getString(R.string.result_heading_one)) }
+        assertTrue("The PDF is kept", onMain { pdfVm.result.value != null })
+
+        onMain { activity.startActivity(AppShortcuts.intent(activity, ShortcutTarget.MERGE)) }
+        find("the question, again") { it.says(app.getString(R.string.pdf_discard_title)) }
+        click(find("the Discard button") { it.says(app.getString(R.string.discard)) })
+        find("Merge PDF") { it.says(app.getString(R.string.tool_merge)) }
+        find("its card to add PDFs, empty") { it.says(app.getString(R.string.add_pdfs)) }
+        waitUntil("the PDF to be discarded") { onMain { pdfVm.result.value == null && pdfVm.inputs.value.isEmpty() } }
     }
 
     /** Files put in Downloads by a test, as another app's files to share; deleted after it. */

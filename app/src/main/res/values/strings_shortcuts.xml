@@ -17,4 +17,17 @@
     <!-- The shortcut that opens Compress PDF. Under a shortcut's icon on the phone's home screen: one
          word, at most about 10 letters. -->
     <string name="shortcut_compress">Compress</string>
+    <!-- Said when a launcher shortcut is used while Usugami is still making something (a PDF, images, a
+         text file): nothing opens and the work goes on. "Usugami" is the app's name, kept as it is. -->
+    <string name="shortcut_busy">Usugami is still working. Use the shortcut again once it is done.</string>
+    <!-- Under "Discard this PDF?", asked when a launcher shortcut is used while a tool shows a PDF it
+         made that isn't saved yet. Discard opens the shortcut's tool; Keep stays with the PDF. -->
+    <string name="shortcut_discard_body">This PDF isn\'t saved yet. Save it first if you want to keep it.</string>
+    <!-- Under "Discard your changes?", asked when a launcher shortcut is used while a tool has changes to
+         its PDF that aren't saved yet. Discard opens the shortcut's tool; Keep stays with the changes. -->
+    <string name="shortcut_discard_changes">Opening another tool discards your changes to this PDF.</string>
+    <!-- Under "Discard what you made?", asked when a launcher shortcut is used while a tool shows images or
+         a text file it made (no PDF) that aren't saved yet. "What you just made" is those files. Discard
+         opens the shortcut's tool; Keep stays with them. -->
+    <string name="shortcut_discard_files">What you just made isn\'t saved yet. Save it first if you want to keep it.</string>
 </resources>
