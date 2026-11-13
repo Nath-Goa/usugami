@@ -19,9 +19,11 @@ import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.ReaderDocument
+import io.github.nath_goa.usugami.data.ReaderFiles
 import io.github.nath_goa.usugami.data.Redactor
 import io.github.nath_goa.usugami.ui.Found
 import io.github.nath_goa.usugami.ui.MainViewModel
+import io.github.nath_goa.usugami.ui.PdfTool
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.Flow
@@ -37,13 +39,16 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.io.IOException
 import kotlin.math.ceil
 import kotlin.math.floor
 
 /**
  * Files opened in the reader ("Open with", Home's Read and annotate), through the view models: what
  * a file is is told by its content, then by its type and name; it is copied in at once and waits for
- * the reader, also when Android restarts Usugami; the file opened last is the one wanted. And the
+ * the reader, also when Android restarts Usugami; the file opened last is the one wanted; a Word file
+ * is made into the PDF the reader shows, which Save as PDF makes a result of; the copy handed to
+ * another app (Share, Open with another app) is whole, named as a PDF, and one PDF's at a time. And the
  * reader's drawing: the sharp part of a page drawn when zoomed lines up with the whole page's picture,
  * as does what Find text finds; a long PDF is searched a few pages at a time from the page showing.
  */
@@ -177,6 +182,77 @@ class ReaderDeviceTest {
         assertEquals(1, inbox.list()!!.size)
     }
 
+    @Test fun aWordFileIsMadeIntoThePdfTheReaderShows() {
+        val vm = main()
+        open(vm, shared("report.docx", "report.docx"))
+        val tools = tools()
+        onMain { tools.addShared(vm.takeSharedFiles()) }
+        waitUntil("the document opened to be taken in") { !tools.importing.value }
+        assertEquals(listOf("report.docx"), onMain { tools.documents.value.map { it.name } })
+
+        // Made into a PDF for the reader, which takes the document's place: not a result, nothing saved.
+        onMain { tools.convertForReader() }
+        waitUntil("the PDF to be made") { !tools.importing.value }
+        val input = onMain { tools.inputs.value }.single()
+        assertEquals("report.pdf", input.name)
+        assertTrue(input.pageCount > 0)
+        assertTrue(input.file.isFile)
+        assertTrue("No document left", onMain { tools.documents.value.isEmpty() })
+        assertEquals(input.id to "report.docx", onMain { tools.reader.source.value })
+        assertNull("Nothing is saved yet", onMain { tools.result.value })
+        // Handed to Choose a tool, it is still the document's PDF.
+        onMain { tools.clearToolWork(PdfTool.READER) }
+        assertEquals(listOf(input), onMain { tools.inputs.value })
+        assertEquals(input.id to "report.docx", onMain { tools.reader.source.value })
+
+        // Save as PDF: a result named after the document, and the reader's PDF stays.
+        onMain { tools.runSaveCopy() }
+        waitUntil("the PDF saved as a result") { tools.result.value != null && !tools.processing.value }
+        val made = onMain { tools.result.value }!!.single()
+        assertEquals("report.pdf", made.name)
+        assertEquals(input.pageCount, made.pageCount)
+        assertTrue(made.file.isFile)
+        assertEquals(listOf(input), onMain { tools.inputs.value })
+        assertTrue("Still there to read", input.file.isFile)
+
+        // An old binary .doc: the converter's own message, and neither document nor PDF.
+        val old = File(picked, "minutes.doc").apply { writeBytes(OLD_DOC + ByteArray(1024)) }
+        open(vm, FileProvider.getUriForFile(app, "${app.packageName}.files", old))
+        val other = tools()
+        onMain { other.addShared(vm.takeSharedFiles()) }
+        assertEquals(strings.getString(R.string.office_legacy_word), next(other.messages))
+        waitUntil("the old document to be put away") { !other.importing.value }
+        assertTrue(onMain { other.documents.value.isEmpty() && other.inputs.value.isEmpty() })
+    }
+
+    @Test fun aCopyForAnotherAppIsWholeNamedAsAPdfAndOnlyTheLastPdfs() {
+        val bytes = ByteArray(200 * 1024) { it.toByte() }
+        val file = File(picked, "opened").apply { parentFile!!.mkdirs(); writeBytes(bytes) }
+        val folder = File(app.cacheDir, "output/reader")
+        try {
+            // A PDF opened as "notes.txt" is handed over as a PDF, with the same bytes.
+            val notes = PdfInput(41, file.path, "notes.txt", 1)
+            val copy = ReaderFiles.shareCopy(app, notes)
+            assertEquals("notes.txt.pdf", copy.name)
+            assertTrue(copy.readBytes().contentEquals(bytes))
+            // The same PDF again: the copy made before, not copied again.
+            assertEquals(copy, ReaderFiles.shareCopy(app, notes) { error("Copied again") })
+
+            // Another PDF, its copy stopped part of the way: the first PDF's copy has gone, and nothing is left of this one.
+            val report = PdfInput(42, file.path, "Report.pdf", 1)
+            var chunks = 0
+            val stopped = runCatching { ReaderFiles.shareCopy(app, report) { if (++chunks == 2) throw IOException("Stopped") } }
+            assertTrue(stopped.exceptionOrNull() is IOException)
+            assertFalse(copy.parentFile!!.exists())
+            assertEquals(emptyList<String>(), File(folder, "42").list()!!.toList())
+            // Made whole, it keeps its name.
+            assertEquals("Report.pdf", ReaderFiles.shareCopy(app, report).name)
+        } finally {
+            ReaderFiles.clear(app)
+        }
+        assertFalse(folder.exists())
+    }
+
     /** The bounds of [bitmap]'s dark pixels within [area], or null when there are none. */
     private fun darkIn(bitmap: Bitmap, area: Rect): Rect? {
         val row = IntArray(area.width())
@@ -305,5 +381,10 @@ class ReaderDeviceTest {
         Thread.sleep(500)
         assertEquals(Found(), onMain { session.found.value })
         assertNull(runBlocking { withTimeoutOrNull(1_000) { tools.messages.first() } })
+    }
+
+    private companion object {
+        /** How an old binary Word file (.doc) starts: an OLE compound file. */
+        val OLD_DOC = byteArrayOf(0xD0.toByte(), 0xCF.toByte(), 0x11, 0xE0.toByte(), 0xA1.toByte(), 0xB1.toByte(), 0x1A, 0xE1.toByte())
     }
 }

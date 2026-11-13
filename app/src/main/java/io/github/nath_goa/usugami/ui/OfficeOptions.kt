@@ -229,10 +229,18 @@ internal fun OptionSwitch(@StringRes title: Int, detail: String, checked: Boolea
  * count isn't known until the end), or the slide, chapter or page out of how many; then the PDF is
  * compressed.
  * Converting [many] files, it also says which of them is being converted ([batch]), and the bar
- * shows how far they all have got.
+ * shows how far they all have got. [title], when given, is said in place of "Creating PDF…" (the
+ * reader's "Making a PDF of this file to show it…").
  */
 @Composable
-internal fun OfficeProgressDialog(progress: OfficeProgress?, kind: OfficeKind, onCancel: () -> Unit, many: Boolean = false, batch: BatchProgress? = null) {
+internal fun OfficeProgressDialog(
+    progress: OfficeProgress?,
+    kind: OfficeKind,
+    onCancel: () -> Unit,
+    many: Boolean = false,
+    batch: BatchProgress? = null,
+    title: String? = null,
+) {
     val done = progress?.done ?: 0
     val total = progress?.takeIf { !it.compressing }?.total?.takeIf { it > 0 }
     // How far the file being converted has got; with several, it counts for its share of them all.
@@ -251,7 +259,7 @@ internal fun OfficeProgressDialog(progress: OfficeProgress?, kind: OfficeKind, o
         // The screen stays on while it shows, as for every job (see ProgressDialog).
         modifier = Modifier.keepScreenOn(),
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-        title = { Text(stringResource(if (many) R.string.creating_pdfs else R.string.creating_pdf)) },
+        title = { Text(title ?: stringResource(if (many) R.string.creating_pdfs else R.string.creating_pdf)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (if (many) batch == null else total == null) {

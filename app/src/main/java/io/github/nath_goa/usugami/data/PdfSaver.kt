@@ -249,6 +249,13 @@ class PdfSaver(private val context: Context) {
         .setDataAndType(uri, type)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
+    /**
+     * Opens [file] in an app the user picks among the others: never Usugami itself, which opens PDFs
+     * too (and may be the phone's PDF app). With no other app, Android's chooser says so itself.
+     */
+    fun viewElsewhereIntent(file: File): Intent = Intent.createChooser(viewIntent(file), null)
+        .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(context, MainActivity::class.java)))
+
     private fun contentUri(file: File): Uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
 
     /** The type of [file], a PDF, image or text file Usugami made, by its name's ending. */

@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,10 +20,19 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Pageview
+import androidx.compose.material.icons.rounded.PictureAsPdf
+import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +50,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -54,6 +65,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -68,27 +83,47 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ReaderGeometry
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
-/** What the reader's buttons do outside the screen. */
+/**
+ * What the reader's buttons do outside the screen. Null: not offered (in a preview, for a PDF made of
+ * a document opened, on a phone that can't print).
+ */
 internal class ReaderActions(
     /** Leaves the reader, as Back does. */
     val back: () -> Unit,
+    /** Android's share sheet, with the file as it was opened. */
+    val share: (() -> Unit)? = null,
+    /** Android's print screen, with the PDF as the reader shows it. */
+    val print: (() -> Unit)? = null,
+    /** Leaves the reader for Choose a tool, with its PDF in it. */
+    val tools: (() -> Unit)? = null,
+    /** Android's chooser of the other apps that open the file. */
+    val openElsewhere: (() -> Unit)? = null,
 )
 
 /**
- * The reader: the tool slot's PDF in one scroll, zoomed by pinching or double-tapping (see
- * ReaderPages), with the page showing counted at the bottom; tapping the count opens Go to page.
+ * The reader ([preview] false): the tool slot's PDF in one scroll, zoomed by pinching or double-tapping
+ * (see ReaderPages), with the page showing counted at the bottom; tapping the count opens Go to page.
  * Find text turns the top bar into a search bar, which searches from the page showing when the
  * keyboard's search key is pressed and moves between the matches; closing it (its arrow, or Back)
- * takes the matches away. [receiving]: a file opened is being copied in, or waits to be shown. While
- * the file comes in, "Opening…" shows with Cancel, which leaves as Back does; a PDF with a password
- * asks for it, and Cancel there leaves too.
+ * takes the matches away. More has Share, Print, Tools, Go to page and Open with another app, those of
+ * [actions] that are given. A Word, Excel, PowerPoint or EPUB file opened is first made into a PDF
+ * (a dialog with Cancel), which shows with a note saying so and Save as PDF. [receiving]: a file opened
+ * is being copied in, or waits to be shown. While the file comes in, "Opening…" shows with Cancel,
+ * which leaves as Back does; a PDF with a password asks for it, and Cancel there leaves too.
+ *
+ * Or a preview ([preview] true): a finished PDF looked at from a result screen (ReaderState.preview),
+ * read-only, with its name in the bar, Find text, and More with Go to page and Open with another app.
+ *
+ * [active]: the screen is the one showing, not one sliding away. Only then does it open the slot's PDF,
+ * make a document into a PDF or ask anything: the slot may meanwhile hold another tool's file.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ReaderScreen(vm: PdfToolsViewModel, receiving: Boolean, snackbar: SnackbarHostState, actions: ReaderActions) {
+internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boolean, receiving: Boolean, snackbar: SnackbarHostState, actions: ReaderActions) {
     val inputs by vm.inputs.collectAsStateWithLifecycle()
     val locked by vm.locked.collectAsStateWithLifecycle()
     val documents by vm.documents.collectAsStateWithLifecycle()
@@ -96,6 +131,12 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, receiving: Boolean, snackbar: S
     val unlocking by vm.unlocking.collectAsStateWithLifecycle()
     val wrongPassword by vm.wrongPassword.collectAsStateWithLifecycle()
     val session by vm.reader.session.collectAsStateWithLifecycle()
+    val previewSession by vm.reader.preview.collectAsStateWithLifecycle()
+    val source by vm.reader.source.collectAsStateWithLifecycle()
+    val convertProgress by vm.convertProgress.collectAsStateWithLifecycle()
+    val processing by vm.processing.collectAsStateWithLifecycle()
+    val markProgress by vm.markProgress.collectAsStateWithLifecycle()
+    val handingOver by vm.reader.handingOver.collectAsStateWithLifecycle()
     // Kept while the result shows and through recreation (the screen's state sits with the tool's).
     val list = rememberLazyListState()
     // How far the pages are zoomed (1: the screen's width) and moved left (screen pixels), and Go to page.
@@ -114,14 +155,30 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, receiving: Boolean, snackbar: S
     // Whether Find text was tapped since this screen was made: only then does the field take the focus and
     // bring up the keyboard, not when the bar shows again after rotation, over what was found.
     var typing by remember { mutableStateOf(false) }
+    // The More menu is open.
+    val menu = remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    val input = inputs.firstOrNull()
-    LaunchedEffect(input?.id) { input?.let(vm.reader::show) }
-    // Leaving for Choose a tool closes the session while the PDF stays in the slot: the screen sliding
-    // away keeps the pages it showed rather than "Opening…".
-    val live = session?.takeIf { it.id == input?.id }
-    val shown = freezeWhen(live == null && input != null, live)?.takeIf { it.id == input?.id }
-    val opening = (inputs.isEmpty() && locked.isEmpty() && documents.isEmpty() && (receiving || importing)) || (input != null && shown == null)
+    // A preview shows nothing of the tool slot: its PDF is a result's, which it reads where it is.
+    val input = if (preview) null else inputs.firstOrNull()
+    // Not while the screen slides away: a file shared to Usugami meanwhile is the next tool's.
+    LaunchedEffect(input?.id, active) { if (active) input?.let(vm.reader::show) }
+    // A document opened is made into the PDF the reader shows; also again after Android closed Usugami
+    // while it was being made (the document's copy is kept in the saved state).
+    LaunchedEffect(preview, active, documents.firstOrNull()?.id, importing) {
+        if (!preview && active && documents.isNotEmpty() && inputs.isEmpty() && !importing) vm.convertForReader()
+    }
+    // Leaving for Choose a tool closes the session while the PDF stays in the slot, and Back closes a
+    // preview at once: the screen sliding away keeps the pages it showed rather than "Opening…". A
+    // preview opened again shows "Opening…" until it is ready (each opening is a screen of its own).
+    val live = if (preview) previewSession else session?.takeIf { it.id == input?.id }
+    val shown = if (preview) freezeWhen(!active, live) else freezeWhen(live == null && input != null, live)?.takeIf { it.id == input?.id }
+    val opening = if (preview) {
+        shown == null
+    } else {
+        (inputs.isEmpty() && locked.isEmpty() && documents.isEmpty() && (receiving || importing)) || (input != null && shown == null)
+    }
+    // The name of the document the PDF showing was made of, if it was ("Report.docx").
+    val document = if (preview) null else source?.takeIf { it.first == input?.id }?.second
     val found by remember(shown) { shown?.found ?: MutableStateFlow(Found()) }.collectAsStateWithLifecycle()
     // The search again, from the page showing, once the PDF shows again after Android closed Usugami.
     LaunchedEffect(live) {
@@ -137,91 +194,139 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, receiving: Boolean, snackbar: S
     }
     // Only while the search bar shows: while the PDF is opened again, Back leaves as it does then.
     BackHandler(enabled = finding && shown != null) { closeSearch() }
-    Scaffold(
-        topBar = {
-            if (finding && shown != null) {
-                SearchBar(
-                    query = query,
-                    onQuery = { query = it },
-                    onSearch = {
-                        searched = query
-                        shown.find(query, pageShowing(list, wentTo))
-                        // The pages, not the keyboard, show what was found.
-                        if (query.isNotBlank()) keyboard?.hide()
-                    },
-                    found = found,
-                    onStep = shown::step,
-                    onClose = ::closeSearch,
-                    takeFocus = typing,
-                )
-            } else {
-                TopAppBar(
-                    title = { BarTitle(input?.name ?: stringResource(R.string.tool_reader)) },
-                    navigationIcon = { IconButton(onClick = actions.back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
-                    actions = {
-                        if (shown != null) {
-                            IconButton(onClick = {
-                                finding = true
-                                typing = true
-                            }) { Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.redact_find)) }
-                        }
-                    },
-                )
-            }
-        },
-        snackbarHost = { SnackbarHost(snackbar) },
-    ) { padding ->
-        val direction = LocalLayoutDirection.current
-        // The pages run under the navigation bar, and clear it at their end.
-        Box(
-            Modifier
-                .fillMaxSize()
-                .padding(top = padding.calculateTopPadding(), start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction)),
-        ) {
-            when {
-                shown != null -> {
-                    ReaderPages(
-                        session = shown,
-                        list = list,
-                        zoom = { zoom },
-                        panX = { panX },
-                        onView = { newZoom, newPan ->
-                            zoom = newZoom
-                            panX = newPan
+    // While a PDF is being made of the one showing (Save as PDF), Back does nothing, as behind its dialog.
+    val working = !preview && processing
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                if (finding && shown != null) {
+                    SearchBar(
+                        query = query,
+                        onQuery = { query = it },
+                        onSearch = {
+                            searched = query
+                            shown.find(query, pageShowing(list, wentTo))
+                            // The pages, not the keyboard, show what was found.
+                            if (query.isNotBlank()) keyboard?.hide()
                         },
                         found = found,
+                        onStep = shown::step,
+                        onClose = ::closeSearch,
+                        takeFocus = typing,
                     )
-                    PageIndicator(list, shown.document.pageCount, wentTo, onClick = { goingToPage = true }, modifier = Modifier.align(Alignment.BottomCenter))
-                    // How far the search has got, under the search bar: over the pages, so they don't move.
-                    if (finding && found.searching) {
-                        LinearProgressIndicator(
-                            progress = { found.pagesDone.toFloat() / maxOf(1, shown.document.pageCount) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(2.dp)
-                                .align(Alignment.TopCenter),
-                        )
-                    }
+                } else {
+                    val title = if (preview) shown?.shown?.name else document ?: input?.name
+                    TopAppBar(
+                        title = { BarTitle(title ?: stringResource(R.string.tool_reader)) },
+                        navigationIcon = { IconButton(onClick = actions.back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
+                        actions = {
+                            if (shown != null) {
+                                IconButton(onClick = {
+                                    finding = true
+                                    typing = true
+                                }) { Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.redact_find)) }
+                                MoreMenu(
+                                    open = menu,
+                                    saveAsPdf = if (document != null) vm::runSaveCopy else null,
+                                    actions = actions,
+                                    goToPage = { goingToPage = true },
+                                )
+                            }
+                        },
+                    )
                 }
-                opening -> Opening(onCancel = actions.back, modifier = Modifier.align(Alignment.Center))
+            },
+            snackbarHost = { SnackbarHost(snackbar) },
+        ) { padding ->
+            val direction = LocalLayoutDirection.current
+            // The pages run under the navigation bar, and clear it at their end.
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(top = padding.calculateTopPadding(), start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction)),
+            ) {
+                when {
+                    shown != null -> Column(Modifier.fillMaxSize()) {
+                        // A PDF made of a document opened says so, for as long as it shows.
+                        if (document != null) ConvertedNote(document, onSave = vm::runSaveCopy)
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                        ) {
+                            ReaderPages(
+                                session = shown,
+                                list = list,
+                                zoom = { zoom },
+                                panX = { panX },
+                                onView = { newZoom, newPan ->
+                                    zoom = newZoom
+                                    panX = newPan
+                                },
+                                found = found,
+                            )
+                            PageIndicator(list, shown.document.pageCount, wentTo, onClick = { goingToPage = true }, modifier = Modifier.align(Alignment.BottomCenter))
+                            // How far the search has got, under the search bar: over the pages, so they don't move.
+                            if (finding && found.searching) {
+                                LinearProgressIndicator(
+                                    progress = { found.pagesDone.toFloat() / maxOf(1, shown.document.pageCount) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(2.dp)
+                                        .align(Alignment.TopCenter),
+                                )
+                            }
+                        }
+                    }
+                    opening -> Opening(onCancel = actions.back, modifier = Modifier.align(Alignment.Center))
+                }
+                // The file is being copied for another app (Share, Open with another app): a thin moving bar under the top bar.
+                if (!preview && handingOver) {
+                    LinearProgressIndicator(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .align(Alignment.TopCenter),
+                    )
+                }
             }
         }
+        // While the PDF is being made, nothing on the screen can be touched, as behind the dialog.
+        if (working) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                        }
+                    },
+            )
+        }
     }
-    locked.firstOrNull()?.let { pending ->
-        PasswordDialog(
-            input = pending,
-            wrongPassword = wrongPassword,
-            unlocking = unlocking,
-            onUnlock = { vm.unlock(pending, it) },
-            onEdit = vm::clearWrongPassword,
-            // Cancel puts the copy away and leaves the reader as Back does: for a file another app
-            // opened, back to that app rather than by way of Home.
-            onDismiss = {
-                vm.dismissPassword(pending)
-                actions.back()
-            },
-        )
+    // Not over the next screen while this one slides away.
+    if (!preview && active) {
+        locked.firstOrNull()?.let { pending ->
+            PasswordDialog(
+                input = pending,
+                wrongPassword = wrongPassword,
+                unlocking = unlocking,
+                onUnlock = { vm.unlock(pending, it) },
+                onEdit = vm::clearWrongPassword,
+                // Cancel puts the copy away and leaves the reader as Back does: for a file another app
+                // opened, back to that app rather than by way of Home.
+                onDismiss = {
+                    vm.dismissPassword(pending)
+                    actions.back()
+                },
+            )
+        }
+        // From the moment the document is in until its PDF shows: Cancel leaves the reader, which puts it away.
+        documents.firstOrNull()?.let { opened ->
+            OfficeProgressDialog(convertProgress, opened.kind, onCancel = actions.back, title = stringResource(R.string.reader_converting))
+        }
     }
+    if (working) WorkingDialog(markProgress, onCancel = vm::cancel)
     // Asked while the pages show; after Android closed Usugami, it comes back once they show again.
     val pageCount = shown?.document?.pageCount
     if (goingToPage && pageCount != null) {
@@ -238,6 +343,88 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, receiving: Boolean, snackbar: S
         )
     }
 }
+
+/**
+ * The reader's More button and its menu: Save as PDF ([saveAsPdf], for a PDF made of a document),
+ * Share, Print, Tools, Go to page and Open with another app, those of [actions] that are given. Each
+ * closes the menu first and acts once: an item tapped again while the menu fades out does nothing.
+ */
+@Composable
+private fun MoreMenu(open: MutableState<Boolean>, saveAsPdf: (() -> Unit)?, actions: ReaderActions, goToPage: () -> Unit) {
+    @Composable
+    fun Item(icon: ImageVector, text: Int, act: (() -> Unit)?) {
+        if (act == null) return
+        DropdownMenuItem(
+            text = { Text(stringResource(text)) },
+            leadingIcon = { Icon(icon, contentDescription = null) },
+            onClick = {
+                if (open.value) {
+                    open.value = false
+                    act()
+                }
+            },
+        )
+    }
+    Box {
+        IconButton(onClick = { open.value = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.reader_more)) }
+        DropdownMenu(expanded = open.value, onDismissRequest = { open.value = false }) {
+            Item(Icons.Rounded.PictureAsPdf, R.string.reader_save_as_pdf, saveAsPdf)
+            Item(Icons.Rounded.Share, R.string.share, actions.share)
+            Item(Icons.Rounded.Print, R.string.print, actions.print)
+            Item(Icons.Rounded.Apps, R.string.reader_tools, actions.tools)
+            Item(Icons.Rounded.Pageview, R.string.reader_go_to_page, goToPage)
+            Item(Icons.AutoMirrored.Rounded.OpenInNew, R.string.reader_open_elsewhere, actions.openElsewhere)
+        }
+    }
+}
+
+/**
+ * Under the bar, for a PDF made of the document [name] opened: it is Usugami's layout, which may look
+ * different in the app that made it, and Save as PDF ([onSave]).
+ */
+@Composable
+private fun ConvertedNote(name: String, onSave: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(stringResource(R.string.reader_converted_note, name), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+            TextButton(onClick = onSave) { Text(stringResource(R.string.reader_save_as_pdf)) }
+        }
+    }
+}
+
+/**
+ * While Save as PDF makes its PDF: after a moment, as in every tool, the working dialog ("Working on
+ * your PDF…"), or, once the Usugami mark goes on it ([marking]), the dialog that says so; Cancel stops it.
+ */
+@Composable
+private fun WorkingDialog(marking: BatchProgress?, onCancel: () -> Unit) {
+    // Most PDFs are done before a dialog could be read: it only shows for one that takes a while.
+    var showing by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(WORKING_DIALOG_DELAY_MS)
+        showing = true
+    }
+    BackHandler {}
+    if (!showing) return
+    AlertDialog(
+        onDismissRequest = {},
+        // The screen stays on while it shows, as for every job (see ProgressDialog).
+        modifier = Modifier.keepScreenOn(),
+        title = { Text(stringResource(if (marking != null) R.string.mark_adding else R.string.pdf_working)) },
+        text = { LinearProgressIndicator(Modifier.fillMaxWidth()) },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** How long Save as PDF works before its dialog shows, as in every tool (PdfToolScreen). */
+private const val WORKING_DIALOG_DELAY_MS = 400L
 
 /** "Opening…" with a moving bar, while a file opened is copied in and read, and Cancel. */
 @Composable

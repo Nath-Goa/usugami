@@ -53,6 +53,7 @@ import io.github.nath_goa.usugami.core.CropQuad
 import io.github.nath_goa.usugami.core.InkItem
 import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.PageLook
+import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.ShapeKind
@@ -88,6 +89,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Assume
 import org.junit.Before
@@ -2159,8 +2161,9 @@ class ScreensDeviceTest {
      * showing. Go to page, from the page showing, shows the page asked for, still after the activity
      * is recreated. Find text, searched with the keyboard's search key, marks the first match from the
      * page showing on and counts the PDF's; Next goes round, and closing the search brings the
-     * reader's bar back. Opened again while Usugami shows, it shows again from its first page, and
-     * Back leaves Usugami for the app that opened it.
+     * reader's bar back. More, Tools leaves for Choose a tool with the PDF, Read and annotate first,
+     * and Back from there goes Home. Opened again while Usugami shows, it shows again from its first
+     * page, and Back leaves Usugami for the app that opened it.
      */
     @Test fun aPdfOpenedFromAnotherAppShowsInTheReaderAndBackLeavesUsugami() {
         val name = "Opened ${System.currentTimeMillis()}.pdf"
@@ -2215,6 +2218,16 @@ class ScreensDeviceTest {
         find("the file's name, back in the bar") { it.says(name) }
         assertTrue(onMain { pdfVm.reader.session.value!!.found.value.matches.isEmpty() })
 
+        // More, Tools: Choose a tool with the PDF, Read and annotate first. Back from there goes Home.
+        click(find("More") { it.says(app.getString(R.string.reader_more)) })
+        click(find("Tools in More") { it.says(app.getString(R.string.reader_tools)) })
+        chooseATool()
+        find("the PDF on Choose a tool") { it.says(name) }
+        waitUntil("Read and annotate to be the first tool") { shownTools().firstOrNull() == app.getString(R.string.tool_reader) }
+        assertEquals(listOf(first), onMain { pdfVm.inputs.value.map { it.id } })
+        backKey()
+        find("Home") { it.says(app.getString(R.string.settings)) }
+
         // Opened again while Usugami shows: the reader shows it anew.
         shareTo(openWith())
         waitUntil("the file opened again to show") { pdfVm.reader.session.value?.id.let { it != null && it != first } }
@@ -2223,6 +2236,43 @@ class ScreensDeviceTest {
         // Back returns to the app that opened it: Usugami steps behind it.
         backKey()
         waitUntil("Usugami to leave") { resumedMain() == null }
+    }
+
+    /**
+     * Home's section View has Read and annotate; a file opened from Home shows in the reader, and Back
+     * returns to Home. A result's Open shows its PDF in a preview, with its name and pages, Go to page and
+     * Open with another app but no Tools, and Back returns to the result as it was, not saved.
+     */
+    @Test fun filesOpenInTheReaderFromHomeAndResultsInAPreview() {
+        val activity = launch()
+        find("the section View") { it.says(app.getString(R.string.home_section_view)) }
+        find("Read and annotate") { it.text?.contains(app.getString(R.string.tool_reader)) == true }
+        // As the file picked with Read and annotate is opened: the picker itself can't be driven.
+        val mainVm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        onMain { mainVm.open(pdf("alpha.pdf"), null, ReadFrom.HOME) }
+        find("the page showing, of three") { it.says(app.getString(R.string.reader_page_of, 1, 3)) }
+        find("the file's name in the bar") { it.says("alpha.pdf") }
+        backKey()
+        find("Home") { it.says(app.getString(R.string.settings)) }
+
+        val pdfVm = unsavedCompressResult(activity)
+        val made = onMain { pdfVm.result.value }!!
+        click(button(R.string.open))
+        find("the preview's pages") { it.says(app.getString(R.string.reader_page_of, 1, 3)) }
+        find("the result's name in the bar") { it.says(made.single().name) }
+        click(find("More") { it.says(app.getString(R.string.reader_more)) })
+        find("Go to page in More") { it.says(app.getString(R.string.reader_go_to_page)) }
+        find("Open with another app in More") { it.says(app.getString(R.string.reader_open_elsewhere)) }
+        assertFalse("No Tools in a preview", texts().contains(app.getString(R.string.reader_tools)))
+        // The menu has the focus: Back closes it.
+        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        waitUntil("the menu to close") { nodes().none { it.says(app.getString(R.string.reader_open_elsewhere)) } }
+
+        backKey()
+        find("the result screen, as it was") { it.says(app.getString(R.string.result_heading_one)) }
+        assertSame(made, onMain { pdfVm.result.value })
+        assertFalse("Not saved", onMain { pdfVm.saved.value })
+        assertNull("The preview is closed", onMain { pdfVm.reader.preview.value })
     }
 
     /** A PDF shared over a PDF not saved yet asks first; kept, the shared PDF opens once the tool is left. */

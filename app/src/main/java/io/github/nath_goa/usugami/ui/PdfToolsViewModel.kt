@@ -51,7 +51,9 @@ import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.PdfWrongPassword
+import io.github.nath_goa.usugami.data.ReaderFiles
 import io.github.nath_goa.usugami.data.ResultZip
+import io.github.nath_goa.usugami.data.saveCopy
 import io.github.nath_goa.usugami.data.SharedFile
 import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.data.ToolJob
@@ -403,6 +405,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
                 engine.clearOutput(keep = stillThere?.map { it.file }.orEmpty())
                 engine.clearScratch()
                 office.clearWork()
+                // The reader's copies handed to other apps (see ReaderFiles), from an earlier session.
+                ReaderFiles.clear(app)
                 // The copies are in the cache, which the system may have cleared while Usugami was away.
                 keep.filterNot { it.file.isFile } to keepDocuments.filterNot { it.file.isFile }
             }
@@ -634,6 +638,82 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         processEach("Converted_PDFs", list.map { it.name }, emptyList(), list) { check, onNext ->
             office.convertEach(jobs, bookPage, sheets, check, onNext) { _convertProgress.value = it }
         }
+    }
+
+    /**
+     * The reader's document: makes the Word, PowerPoint, Excel or EPUB file opened in it into a PDF
+     * with the converters' own choices (a book on A5 pages, a workbook as its converter lays it out),
+     * and puts that PDF in its place as the reader's PDF: not as a result, since nothing is saved yet,
+     * and not among the results, which the next run empties. Busy as an import is, with
+     * [convertProgress]. Leaving the reader (reset) abandons it, and the converter deletes what it
+     * had made; a document that can't be converted is said with the converters' messages and put away.
+     */
+    fun convertForReader() {
+        val document = documents.value.singleOrNull() ?: return
+        if (_processing.value || _importing.value || inputs.value.isNotEmpty()) return
+        _importing.value = true
+        _convertProgress.value = null
+        val generation = ++importGeneration
+        importJob = viewModelScope.launch {
+            val job = coroutineContext[Job]!!
+            fun abandoned() = generation != importGeneration
+            fun failed(text: String) {
+                if (abandoned()) return
+                message(text)
+                removeDocument(document.id)
+            }
+            try {
+                val id = nextId++
+                val input = withContext(fileOps) {
+                    if (!document.file.isFile) return@withContext null
+                    val made = office.convert(document, "Reading", PageSize.A5, SheetOptions(), { job.ensureActive() }) { _convertProgress.value = it }
+                    // Out of the results' folder, which the next tool run empties, into the tool's own.
+                    engine.adopt(made.file, id, "${FileNames.baseName(document.name)}.pdf")
+                }
+                when {
+                    abandoned() -> input?.let { withContext(NonCancellable + fileOps) { engine.delete(it) } }
+                    // Its copy was cleared from the cache meanwhile.
+                    input == null -> forgetDocuments(listOf(document))
+                    else -> {
+                        // Said before the PDF shows, so that it shows with its note from the start.
+                        reader.converted(input.id, document.name)
+                        removeDocument(document.id)
+                        append(input)
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: OfficeFileProblem) {
+                failed(officeMessage(e, document.kind))
+            } catch (e: Exception) {
+                failed(
+                    if (e.isOutOfSpace()) strings.getString(R.string.msg_convert_failed, strings.getString(R.string.msg_out_of_space))
+                    else strings.getString(R.string.office_convert_failed),
+                )
+            } catch (_: OutOfMemoryError) {
+                failed(strings.getString(R.string.office_convert_failed))
+            } catch (_: LinkageError) {
+                failed(strings.getString(R.string.office_convert_failed))
+            } catch (_: StackOverflowError) {
+                failed(strings.getString(R.string.office_convert_failed))
+            } finally {
+                if (!abandoned()) {
+                    _importing.value = false
+                    _convertProgress.value = null
+                }
+            }
+        }
+    }
+
+    /**
+     * The reader's "Save as PDF": the PDF made of the document opened becomes a result, named after it
+     * ("Report.pdf"), as its converter's would be, with the Usugami mark when that is on. The reader's
+     * PDF stays, for "Back to editing".
+     */
+    fun runSaveCopy() {
+        val input = inputs.value.singleOrNull() ?: return
+        val name = FileNames.baseName(input.name)
+        process(name, listOf(input)) { check -> listOf(engine.saveCopy(input, name, check)) }
     }
 
     /** Why a Word, PowerPoint, Excel or EPUB file can't be converted, in the user's language. */
@@ -2176,6 +2256,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     fun shareIntent(files: List<PdfFile>): Intent = saver.shareIntent(files.map { it.file })
     fun viewIntent(file: PdfFile): Intent = saver.viewIntent(file.file)
+
+    /** Opens [file] in an app the user picks among the others, never Usugami (the reader's "Open with another app"). */
+    fun viewElsewhereIntent(file: PdfFile): Intent = saver.viewElsewhereIntent(file.file)
 
     /** The name the ZIP file of the result's PDFs gets, such as "Report_split.zip". */
     fun zipFileName(): String = ResultZip.fileName(resultName)

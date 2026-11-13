@@ -39,8 +39,9 @@ import java.io.File
 
 /**
  * Recent files: each file saved is listed, once however often it is saved, and Home shows it; a file
- * deleted in another app goes from the list, also one saved into a folder the user picked; the list
- * asks another app to open or share a file, with access to read it, and removing a file or clearing
+ * deleted in another app goes from the list, also one saved into a folder the user picked; a PDF on
+ * the list opens in the reader, and the list asks another app to share a file, with access to read it,
+ * and removing a file or clearing
  * the list leaves the files where they are; and a document made with the system's "Save as" screen
  * stays reachable once the screen that gave Usugami access to it has gone, as after a restart, or else
  * says it can't be opened and offers to remove it.
@@ -158,7 +159,11 @@ class RecentFilesDeviceTest {
 
     @Test fun aSavedResultIsListedOnceOpensAndSharesFromHomeAndGoesWhenDeleted() {
         assumeTrue("Android 10 and newer save into Downloads", Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-        val pdf = File(app.cacheDir, "output/images/Recent test.pdf").apply { parentFile!!.mkdirs(); writeText("%PDF-1.4 recent") }
+        // A real PDF, which the reader shows.
+        val pdf = File(app.cacheDir, "output/images/Recent test.pdf").apply {
+            parentFile!!.mkdirs()
+            writeBytes(instrumentation.context.assets.open("alpha.pdf").use { it.readBytes() })
+        }
         val vm = onMain { MainViewModel(app, SavedStateHandle(mapOf(KeptResult.KEY to KeptResult.pack(listOf(PdfFile(pdf, 1, 0)))))) }
         runBlocking { vm.awaitFileWork() }
         // Saved a second time, it is still one file, in Downloads and on the list.
@@ -179,11 +184,12 @@ class RecentFilesDeviceTest {
         launch()
         val heading = find("the list's heading") { it.says(app.getString(R.string.recent_title)) }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) assertTrue("A screen reader can jump to the list", heading.isHeading)
-        // A tap opens it in another app, which may read it.
-        val view = intercepted(Intent.ACTION_VIEW) { click(row(file.name)) }
-        assertEquals(uri, view.data)
-        assertEquals(PdfSaver.PDF_MIME, view.type)
-        assertTrue((view.flags and Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0)
+        // A tap shows it in the reader, with its name in the bar; Back returns to Home.
+        click(row(file.name))
+        find("the reader, showing its pages") { it.says(app.getString(R.string.reader_page_of, 1, 3)) }
+        find("its name in the bar") { it.says(file.name) }
+        onMain { activity!!.onBackPressedDispatcher.onBackPressed() }
+        find("Home, with the list") { it.says(app.getString(R.string.recent_title)) }
         // Another app's screen opens once per burst of taps: the next one is a moment later.
         Thread.sleep(1_100)
         val chooser = intercepted(Intent.ACTION_CHOOSER) { row(file.name).act(app.getString(R.string.share)) }

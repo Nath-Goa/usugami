@@ -1,22 +1,28 @@
 package io.github.nath_goa.usugami.ui
 
+import android.app.Application
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.isOutOfSpace
+import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.ReaderDocument
+import io.github.nath_goa.usugami.data.ReaderFiles
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /** What Find text has found so far in the PDF the reader shows. */
 internal data class Found(
@@ -188,13 +194,14 @@ internal class ReaderSession(val id: Long, val shown: PdfInput, val document: Re
 }
 
 /**
- * The reader's own state in the view model (see ToolState): the PDF showing. It is the tool slot's
- * PDF (PdfToolsViewModel.inputs), drawn from its view; it goes when that PDF is put away.
+ * The reader's own state in the view model (see ToolState): the PDF showing, a finished PDF being
+ * looked at (a preview), and where the PDF came from. The PDF showing is the tool slot's PDF
+ * (PdfToolsViewModel.inputs), drawn from its view; it goes when that PDF is put away.
  */
 internal class ReaderState(
     private val vm: PdfToolsViewModel,
     // What the reader keeps in the saved state goes here, under keys that start with "reader_".
-    @Suppress("unused") private val handle: SavedStateHandle,
+    private val handle: SavedStateHandle,
 ) : ToolState {
     // Nothing of vm is touched here: the view model makes its states before its file work is ready.
 
@@ -206,6 +213,43 @@ internal class ReaderState(
     /** The job getting a PDF ready to draw, and that PDF's number. */
     private var showJob: Job? = null
     private var showing: Long? = null
+
+    private val _preview = MutableStateFlow<ReaderSession?>(null)
+
+    /**
+     * A finished PDF looked at from a result screen (a preview); null when none is. It is not the
+     * tool's PDF: clear() leaves it, and it touches neither the tool's PDF nor its result.
+     */
+    val preview: StateFlow<ReaderSession?> = _preview.asStateFlow()
+
+    /** The job opening a preview, and the path of the file it is (or is being) opened for. */
+    private var previewJob: Job? = null
+    private var previewing: String? = null
+
+    /**
+     * The PDF (by its number) that was made of a document opened in the reader, and that document's
+     * name ("Report.docx"); null when none was. It says so of that PDF only: a PDF with another number
+     * was opened as it is. Not forgotten by clear(): handed to Choose a tool and chosen there again
+     * for the reader, it is still the document's PDF. Kept in the saved state.
+     */
+    val source: StateFlow<Pair<Long, String>?> = handle.getStateFlow(KEY_SOURCE, null)
+
+    /** The PDF [id] was made of the document [name] opened in the reader. */
+    fun converted(id: Long, name: String) {
+        handle[KEY_SOURCE] = id to name
+    }
+
+    private val _handingOver = MutableStateFlow(false)
+
+    /**
+     * A copy of the reader's PDF is being made for another app (see [shareCopy]). It is a real copy,
+     * which takes a moment for a very large PDF: the reader shows a thin moving bar meanwhile, and a
+     * second Share or Open with another app does nothing until it is made.
+     */
+    val handingOver: StateFlow<Boolean> = _handingOver.asStateFlow()
+
+    /** The copy being made for another app; putting the PDF away (clear()) stops it. */
+    private var copyJob: Job? = null
 
     /**
      * Gets [input] ready to draw: its view with the watermark kept (previewView(unmark = false)), its
@@ -277,12 +321,136 @@ internal class ReaderState(
         vm.removeInput(input.id)
     }
 
-    /** The PDF was put away, or handed to Choose a tool (ToolState.clear): the session is closed. */
+    /**
+     * Opens [file], a result's PDF, for a preview: its view with the watermark kept, as the reader's
+     * PDF is shown (when a view can't be made, the file itself). Called again for the same file while
+     * it is open or being opened, it does nothing, so it can be called again after a recreation. When
+     * it can't be shown, the user is told and [failed] runs.
+     */
+    fun openPreview(file: PdfFile, failed: () -> Unit) {
+        val path = file.file.path
+        if (previewing == path && (_preview.value != null || previewJob?.isActive == true)) return
+        stopPreview()
+        previewing = path
+        val input = PdfInput(PREVIEW_ID, path, file.name, file.pageCount)
+        previewJob = vm.viewModelScope.launch {
+            val job = coroutineContext[Job]!!
+            // The document once open, until it is shown: closed in the end if it isn't.
+            var opened: ReaderDocument? = null
+            try {
+                val (view, sizes) = withContext(vm.fileOps) {
+                    val check = { job.ensureActive() }
+                    // A view left from the last preview would show the wrong PDF.
+                    vm.engine.deleteViews(input)
+                    // A result has no password: when its view can't be made, it is drawn as it is.
+                    val view = try {
+                        vm.engine.previewView(input, check, unmark = false)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        input
+                    } catch (_: LinkageError) {
+                        input
+                    } catch (_: StackOverflowError) {
+                        input
+                    } catch (_: OutOfMemoryError) {
+                        input
+                    }
+                    check()
+                    view to vm.engine.shownPageSizes(view)
+                }
+                withContext(NonCancellable + vm.fileOps) {
+                    opened = ReaderDocument.open(view.file, sizes) { vm.engine.load(view.file, "") }
+                }
+                if (job.isActive && previewing == path) {
+                    _preview.value = ReaderSession(PREVIEW_ID, view, opened!!, vm)
+                    opened = null
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                previewFailed(path, failed)
+            } catch (_: LinkageError) {
+                previewFailed(path, failed)
+            } catch (_: StackOverflowError) {
+                previewFailed(path, failed)
+            } catch (_: OutOfMemoryError) {
+                previewFailed(path, failed)
+            } finally {
+                opened?.close()
+            }
+        }
+    }
+
+    /** The preview of [path] can't be shown: said, and [failed] runs. */
+    private fun previewFailed(path: String, failed: () -> Unit) {
+        if (previewing != path) return
+        previewing = null
+        previewJob = null
+        vm.message(vm.strings.getString(R.string.pdf_import_failed))
+        failed()
+    }
+
+    /** Closes the preview, or stops it being opened, and deletes its views with the other file work. */
+    fun closePreview() {
+        stopPreview()
+        vm.viewModelScope.launch(vm.fileOps) { vm.engine.deleteViews(PdfInput(PREVIEW_ID, "", "", 0)) }
+    }
+
+    private fun stopPreview() {
+        previewJob?.cancel()
+        previewJob = null
+        previewing = null
+        _preview.value?.close()
+        _preview.value = null
+    }
+
+    /**
+     * The reader's file [input] under its own name, to hand to another app (ReaderFiles.shareCopy),
+     * made with the other file work; null when it can't be made, or the PDF was put away meanwhile
+     * (clear() stops the copy).
+     */
+    suspend fun shareCopy(input: PdfInput): File? {
+        copyJob?.cancel()
+        _handingOver.value = true
+        val copy = vm.viewModelScope.async(vm.fileOps) { ReaderFiles.shareCopy(vm.getApplication<Application>(), input) { ensureActive() } }
+        copyJob = copy
+        return try {
+            copy.await()
+        } catch (e: CancellationException) {
+            // The one asking went (the screen did): the copy is no longer wanted. Else the PDF was put away.
+            copy.cancel()
+            currentCoroutineContext().ensureActive()
+            null
+        } catch (_: Exception) {
+            null
+        } finally {
+            if (copyJob === copy) {
+                copyJob = null
+                _handingOver.value = false
+            }
+        }
+    }
+
+    /**
+     * The PDF was put away, or handed to Choose a tool (ToolState.clear): the session is closed, and a
+     * copy being made for another app stopped. A preview stays: it is not the tool's PDF.
+     */
     override fun clear() {
         showJob?.cancel()
         showJob = null
         showing = null
         _session.value?.close()
         _session.value = null
+        copyJob?.cancel()
+        copyJob = null
+        _handingOver.value = false
+    }
+
+    private companion object {
+        const val KEY_SOURCE = "reader_source"
+
+        /** The number a preview's PDF goes by: no PDF taken in has a negative number. */
+        const val PREVIEW_ID = -2L
     }
 }

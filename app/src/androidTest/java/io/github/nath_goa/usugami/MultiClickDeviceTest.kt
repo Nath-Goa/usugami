@@ -896,7 +896,10 @@ class MultiClickDeviceTest {
         assertFalse(importing)
     }
 
-    /** Two taps on Share, Open or "Source code" before the screen they open covers Usugami open it once. */
+    /**
+     * Two taps on Share or "Source code" before the screen they open covers Usugami open it once; two
+     * taps on Open show the PDF in one preview inside Usugami, and start no other app.
+     */
     @Test fun doubleTappingShareOpenOrSourceCodeOpensOnce() {
         launch()
         imagesResult("Shared")
@@ -911,8 +914,17 @@ class MultiClickDeviceTest {
         val open = button(R.string.open).tap()
         inOneFrame(open, open)
         compose.waitForIdle()
+        val page = app.getString(R.string.reader_page_of, 1, 1)
+        waitForText(page)
         Thread.sleep(1_500)
-        assertEquals("PDF viewers opened", 1, view.started.size)
+        assertEquals("PDF viewers opened", 0, view.started.size)
+        assertEquals("Previews shown", 1, compose.onAllNodes(hasText(page)).fetchSemanticsNodes().size)
+        assertEquals(mainVm().result.value!!.single().name, toolsVm().reader.preview.value!!.shown.name)
+        // Back closes it, over the result as it was.
+        onMain { activity!!.onBackPressedDispatcher.onBackPressed() }
+        waitForText(text(R.string.result_heading_one))
+        val tools = toolsVm()
+        waitFor("the preview to close") { tools.reader.preview.value == null }
 
         val vm = mainVm()
         onMain { vm.startOver() }
@@ -925,7 +937,7 @@ class MultiClickDeviceTest {
         inOneFrame(source, source)
         compose.waitForIdle()
         Thread.sleep(500)
-        assertEquals("Browser pages opened", 2, view.started.size)
+        assertEquals("Browser pages opened", 1, view.started.size)
     }
 
     /** Changing your mind in the language dialog before Usugami has switched applies the last choice. */
