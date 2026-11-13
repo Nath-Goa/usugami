@@ -1,9 +1,23 @@
 package io.github.nath_goa.usugami
 
 import android.app.Application
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.os.SystemClock
+import android.view.View
+import android.view.ViewGroup
+import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
+import androidx.compose.ui.platform.ViewRootForTest
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsNode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.core.content.FileProvider
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSArray
@@ -33,12 +47,22 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOut
 import io.github.nath_goa.usugami.core.InfoChange
 import io.github.nath_goa.usugami.core.InfoField
 import io.github.nath_goa.usugami.core.XmpPacket
+import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.InfoDate
 import io.github.nath_goa.usugami.data.PageMark
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.documentDetails
 import io.github.nath_goa.usugami.data.setDocumentInfo
+import io.github.nath_goa.usugami.ui.DocumentInfoState
+import io.github.nath_goa.usugami.ui.PdfTool
+import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import io.github.nath_goa.usugami.ui.infoTyped
+import io.github.nath_goa.usugami.ui.loadDocumentInfo
+import io.github.nath_goa.usugami.ui.runDocumentInfo
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -55,20 +79,32 @@ import java.util.IdentityHashMap
 /**
  * Document info's engine: what it reads of a PDF (its /Info first, its XMP packet for what /Info
  * lacks, whether a signature in it still holds), and what it saves (only the fields changed, in /Info
- * and XMP; after Remove all info, none of the info a PDF keeps of its making).
+ * and XMP; after Remove all info, none of the info a PDF keeps of its making); and its form, in the
+ * view model and on the screen.
  */
 class DocumentInfoDeviceTest {
-    private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
+    private val instrumentation = InstrumentationRegistry.getInstrumentation()
+    private val app = instrumentation.targetContext.applicationContext as Application
     private val engine = PdfToolsEngine(app)
     private val marks = PageMark(app)
     private val dir = File(app.cacheDir, "test-docinfo").apply { mkdirs() }
     private val imported = ArrayList<PdfInput>()
     private var nextId = 9101L
+    /** The view models tests 4 and 5 drive, put away after each test. */
+    private val viewModels = ArrayList<PdfToolsViewModel>()
+    private var activity: MainActivity? = null
 
     @After fun tearDown() {
+        activity?.let { onMain { it.finish() } }
+        for (vm in viewModels.asReversed()) {
+            onMain { vm.reset() }
+            // Its cleanup would delete the copies the next test makes.
+            runBlocking { vm.awaitFileWork() }
+        }
         imported.forEach(engine::delete)
         engine.clearOutput()
         dir.deleteRecursively()
+        File(app.cacheDir, "output/test-picked").deleteRecursively()
     }
 
     private fun import(file: File, password: String = ""): PdfInput =
@@ -381,6 +417,212 @@ class DocumentInfoDeviceTest {
             assertEquals("New", info.getString(COSName.TITLE))
             assertEquals(emptyList<String>(), leftovers(doc))
         }
+    }
+
+    /**
+     * 4. The form in the view model, as the screen drives it: a PDF whose copy was cleared from the
+     * cache is put away and that said; nothing is changed while the fields hold the PDF's info; a text
+     * typed is a change until it is the PDF's again; a line break typed is one space; Undo after Remove all info
+     * brings back what was typed; what was typed and Remove all info come back in a view model made
+     * anew from the saved state, as after Android closed Usugami, the PDF's info read again; the PDF
+     * saved is <name>_info.pdf with that info only; and the form goes with its PDF.
+     */
+    @Test fun theFormKeepsWhatWasTypedAndSavesIt() {
+        val handle = SavedStateHandle()
+        val vm = newViewModel(handle)
+        val state = vm.documentInfo
+        // Its copy cleared from the cache while Usugami runs, as the system may do: the PDF is put away
+        // and that said, rather than its info being read for ever. Then it is added again.
+        onMain { vm.addPdfs(listOf(picked()), replace = true) }
+        waitUntil("the PDF to be added") { !vm.importing.value && vm.inputs.value.size == 1 }
+        val gone = onMain { vm.inputs.value.single() }
+        assertTrue(gone.file.delete())
+        onMain { vm.loadDocumentInfo(gone) }
+        waitUntil("the PDF to be put away") { vm.inputs.value.isEmpty() }
+        val cleared = onMain { vm.strings.getQuantityString(R.plurals.msg_files_cleared, 1, 1) }
+        runBlocking { withTimeout(5_000) { vm.messages.first { it == cleared } } }
+        assertNull(onMain { state.details.value })
+        onMain { vm.addPdfs(listOf(picked()), replace = true) }
+        waitUntil("the PDF to be added again") { !vm.importing.value && vm.inputs.value.size == 1 }
+        val input = onMain { vm.inputs.value.single() }
+        onMain { vm.loadDocumentInfo(input) }
+        waitUntil("its info to be read") { state.details.value != null }
+        fun shown(field: InfoField) = onMain { state.shown(field) }
+        fun changed() = onMain { state.changed.value }
+        fun unsaved() = onMain { vm.hasUnsavedWork(PdfTool.DOCUMENT_INFO) }
+        assertEquals("SecretTitle", shown(InfoField.TITLE))
+        assertEquals("SecretAuthor Renée", shown(InfoField.AUTHOR))
+        assertFalse(changed())
+        assertFalse(unsaved())
+
+        onMain { state.setText(InfoField.TITLE, "X") }
+        assertTrue(changed())
+        assertTrue(unsaved())
+        // The PDF's own title again (spaces and a line break around it don't count): nothing changed.
+        onMain { state.setText(InfoField.TITLE, " SecretTitle\n") }
+        assertFalse(changed())
+        assertFalse(unsaved())
+        // A line break typed or pasted is one space in the field, a Windows one and an empty line too.
+        assertEquals("Annual report 2026", infoTyped("Annual report\r\n2026"))
+        assertEquals("a b c ", infoTyped("a\n\nb\rc\n"))
+
+        onMain { state.setText(InfoField.AUTHOR, "Someone") }
+        onMain { state.removeAll() }
+        assertEquals(listOf("", "", "", ""), InfoField.entries.map(::shown))
+        assertTrue(changed())
+        onMain { state.undoRemoveAll() }
+        assertFalse(onMain { state.removeAll.value })
+        assertEquals("Someone", shown(InfoField.AUTHOR))
+        assertEquals("SecretTitle", shown(InfoField.TITLE))
+
+        // A title longer than the field takes, cut where a space follows: changed and put back as it
+        // showed, it is no change (saved, the title would have been cut).
+        onMain {
+            val long = DocumentInfoState(SavedStateHandle())
+            long.begin(input)
+            val details = state.details.value!!
+            long.loaded(details.copy(fields = details.fields + (InfoField.TITLE to "a".repeat(1999) + " "), cut = setOf(InfoField.TITLE)))
+            val cut = long.shown(InfoField.TITLE)
+            long.setText(InfoField.TITLE, cut.dropLast(2))
+            assertTrue(long.changed.value)
+            long.setText(InfoField.TITLE, cut)
+            assertFalse(long.changed.value)
+        }
+
+        onMain {
+            state.removeAll()
+            state.setText(InfoField.TITLE, "New")
+        }
+        // Android closed Usugami: a view model made anew from the saved state.
+        val again = newViewModel(handle)
+        val restored = again.documentInfo
+        assertEquals(input.id, onMain { again.inputs.value.single().id })
+        assertTrue("Leaving asks first, also before the info is read again", onMain { again.hasUnsavedWork(PdfTool.DOCUMENT_INFO) })
+        onMain { again.loadDocumentInfo(again.inputs.value.single()) }
+        waitUntil("the info to be read again") { restored.details.value != null }
+        assertTrue(onMain { restored.removeAll.value })
+        assertEquals("New", onMain { restored.shown(InfoField.TITLE) })
+        assertEquals("", onMain { restored.shown(InfoField.AUTHOR) })
+        assertTrue(onMain { again.hasUnsavedWork(PdfTool.DOCUMENT_INFO) })
+
+        onMain { again.runDocumentInfo(input, again.defaultName(PdfTool.DOCUMENT_INFO, input)) }
+        waitUntil("the PDF to be saved") { again.result.value != null }
+        val made = onMain { again.result.value!!.single() }
+        assertEquals("report_info.pdf", made.name)
+        PDDocument.load(made.file).use { doc ->
+            assertEquals(mapOf("Title" to "New"), info(doc)!!.keySet().associate { it.name to info(doc)!!.getString(it) })
+            assertNull(doc.documentCatalog.cosObject.getDictionaryObject(COSName.METADATA))
+        }
+
+        // Typed, then the PDF removed: nothing is left to lose.
+        onMain { restored.setText(InfoField.SUBJECT, "Y") }
+        assertTrue(onMain { again.hasUnsavedWork(PdfTool.DOCUMENT_INFO) })
+        onMain { again.removeInput(input.id) }
+        assertFalse(onMain { again.hasUnsavedWork(PdfTool.DOCUMENT_INFO) })
+        assertNull(onMain { restored.change() })
+    }
+
+    /**
+     * 5. The screen, run as the app runs it: Document info opened from its card on Home (the last of
+     * Optimize and protect, scrolled to) shows the PDF's title in its field with Save PDF off; Remove
+     * all info empties the field, says "Will be removed" and turns Save PDF on, which saves the PDF and
+     * shows the result.
+     */
+    @Test fun removeAllInfoOnTheScreenSavesThePdf() {
+        if (AppLanguages.reset(app)) Thread.sleep(1_000)
+        AppLanguages.skipChoice(app)
+        val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        val main = (instrumentation.startActivitySync(intent) as MainActivity).also { activity = it }
+        val tool = app.getString(R.string.tool_document_info)
+        waitUntil("Home") { shows(app.getString(R.string.settings)) }
+        // Below View, Create PDF, Organize and Edit and sign: scrolled to, as a screen reader would.
+        var scrolls = 0
+        while (onMain { button(tool) } == null && scrolls++ < 10) {
+            accessibilityNodes().firstOrNull { AccessibilityAction.ACTION_SCROLL_DOWN in it.actionList }
+                ?.performAction(AccessibilityAction.ACTION_SCROLL_DOWN.id)
+            Thread.sleep(500)
+        }
+        press(tool)
+        waitUntil("Home to slide away") { !shows(app.getString(R.string.settings)) }
+        val vm = onMain { ViewModelProvider(main)[PdfToolsViewModel::class.java] }
+        onMain { vm.addPdfs(listOf(picked()), replace = true) }
+
+        val save = app.getString(R.string.pdf_document_info_action)
+        waitUntil("the PDF's title in its field") { "SecretTitle" in fieldTexts() }
+        assertFalse("Nothing to save before anything is changed", onMain { enabled(save) })
+        press(app.getString(R.string.docinfo_remove_all))
+        waitUntil("the fields to be emptied") { fieldTexts().none { it.startsWith("Secret") } }
+        assertTrue(onMain { shows(app.getString(R.string.docinfo_will_be_removed)) })
+        waitUntil("Save PDF to be on") { enabled(save) }
+        press(save)
+        waitUntil("the result screen") { shows(app.getString(R.string.result_heading_one)) }
+        assertEquals("report_info.pdf", onMain { vm.result.value?.single()?.name })
+    }
+
+    private fun <T> onMain(block: () -> T): T {
+        var result: Result<T>? = null
+        instrumentation.runOnMainSync { result = runCatching(block) }
+        return result!!.getOrThrow()
+    }
+
+    /** Waits until [condition], asked on the main thread, holds. */
+    private fun waitUntil(what: String, condition: () -> Boolean) {
+        val deadline = SystemClock.uptimeMillis() + 15_000
+        while (!onMain(condition)) {
+            check(SystemClock.uptimeMillis() < deadline) { "Timed out waiting for $what" }
+            Thread.sleep(100)
+        }
+    }
+
+    private fun newViewModel(handle: SavedStateHandle) = onMain { PdfToolsViewModel(app, handle) }.also { viewModels += it }
+
+    /** The fixture as a file picker gives it: a content:// URI of a PDF named report.pdf. */
+    private fun picked(): Uri {
+        val file = File(app.cacheDir, "output/test-picked/report.pdf").apply { parentFile!!.mkdirs() }
+        return FileProvider.getUriForFile(app, "${app.packageName}.files", infoPdf(file))
+    }
+
+    /** What a screen reader is told of the screen, for scrolling it. */
+    private fun accessibilityNodes(): List<AccessibilityNodeInfo> {
+        val all = ArrayList<AccessibilityNodeInfo>()
+        fun walk(node: AccessibilityNodeInfo) {
+            all += node
+            for (i in 0 until node.childCount) node.getChild(i)?.let(::walk)
+        }
+        instrumentation.uiAutomation.rootInActiveWindow?.let(::walk)
+        return all
+    }
+
+    /** The screen's content as Compose has it now, merged as a screen reader hears it. On the main thread. */
+    private fun semantics(): List<SemanticsNode> {
+        fun find(view: View): ViewRootForTest? = when (view) {
+            is ViewRootForTest -> view
+            is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { find(view.getChildAt(it)) }
+            else -> null
+        }
+        fun SemanticsNode.all(): List<SemanticsNode> = listOf(this) + children.flatMap { it.all() }
+        return checkNotNull(find(activity!!.window.decorView)) { "No Compose content" }.semanticsOwner.rootSemanticsNode.all()
+    }
+
+    private fun SemanticsNode.says(text: String) =
+        config.getOrNull(SemanticsProperties.Text)?.any { it.text == text } == true ||
+            config.getOrNull(SemanticsProperties.ContentDescription)?.contains(text) == true
+
+    /** Whether anything on the screen says [text]. On the main thread. */
+    private fun shows(text: String) = semantics().any { it.says(text) }
+
+    /** The button saying [text], if Compose has it. On the main thread. */
+    private fun button(text: String): SemanticsNode? = semantics().firstOrNull { it.says(text) && SemanticsActions.OnClick in it.config }
+
+    /** What the text fields on the screen hold. On the main thread. */
+    private fun fieldTexts(): List<String> = semantics().mapNotNull { it.config.getOrNull(SemanticsProperties.EditableText)?.text }
+
+    /** Whether the button saying [text] is there and can be pressed. On the main thread. */
+    private fun enabled(text: String) = button(text)?.let { SemanticsProperties.Disabled !in it.config } == true
+
+    private fun press(text: String) = onMain {
+        val click = checkNotNull(button(text)?.config?.getOrNull(SemanticsActions.OnClick)?.action) { "No \"$text\"" }
+        click()
     }
 
     private fun info(doc: PDDocument) = doc.document.trailer.getDictionaryObject(COSName.INFO) as? COSDictionary
