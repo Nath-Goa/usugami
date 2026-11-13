@@ -7,8 +7,11 @@ import android.net.Uri
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -23,16 +26,21 @@ import com.tom_roush.pdfbox.pdmodel.graphics.optionalcontent.PDOptionalContentPr
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotation
 import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAnnotationLink
 import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
+import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.destination.PDPageFitDestination
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDocumentOutline
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
+import io.github.nath_goa.usugami.core.InfoChange
 import io.github.nath_goa.usugami.core.InfoField
+import io.github.nath_goa.usugami.core.XmpPacket
 import io.github.nath_goa.usugami.data.InfoDate
 import io.github.nath_goa.usugami.data.PageMark
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.documentDetails
+import io.github.nath_goa.usugami.data.setDocumentInfo
 import org.junit.After
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -41,10 +49,13 @@ import org.junit.Test
 import java.io.File
 import java.time.Instant
 import java.util.Calendar
+import java.util.Collections
+import java.util.IdentityHashMap
 
 /**
  * Document info's engine: what it reads of a PDF (its /Info first, its XMP packet for what /Info
- * lacks, whether a signature in it still holds).
+ * lacks, whether a signature in it still holds), and what it saves (only the fields changed, in /Info
+ * and XMP; after Remove all info, none of the info a PDF keeps of its making).
  */
 class DocumentInfoDeviceTest {
     private val app = InstrumentationRegistry.getInstrumentation().targetContext.applicationContext as Application
@@ -273,6 +284,154 @@ class DocumentInfoDeviceTest {
         assertTrue(signed.signed)
         assertEquals("SecretTitle", signed.fields[InfoField.TITLE])
     }
+
+    /**
+     * 2. Saving changes only what was changed: from a PDF with a password, a title in three scripts and
+     * an emoji and an emptied author are saved in /Info and in XMP, and every other info entry, the
+     * /ID, XMP's PDF/A identification and rights, the pages, the link and the bookmark are as they
+     * were, in a PDF without a password. A packet that can't be read is dropped and the result says so;
+     * an /ID that isn't two strings becomes a random one.
+     */
+    @Test fun savingChangesOnlyWhatWasChanged() {
+        val source = infoPdf(File(dir, "info.pdf"))
+        val locked = changed(source, "locked.pdf") { it.protect(StandardProtectionPolicy("owner", "user", AccessPermission())) }
+        val title = "नमस्ते 世界 😀"
+        val result = engine.setDocumentInfo(
+            import(locked, password = "user"),
+            InfoChange(mapOf(InfoField.TITLE to title, InfoField.AUTHOR to "")),
+            "changed",
+        )
+        assertFalse(result.droppedXmp)
+        PDDocument.load(source).use { original ->
+            PDDocument.load(result.file.file).use { doc ->
+                assertFalse(doc.isEncrypted)
+                val before = info(original)!!
+                val after = info(doc)!!
+                assertEquals(title, after.getString(COSName.TITLE))
+                assertEquals(before.keySet() - COSName.AUTHOR, after.keySet())
+                for (key in after.keySet() - COSName.TITLE) {
+                    val was = before.getDictionaryObject(key)
+                    val now = after.getDictionaryObject(key)
+                    if (was is COSString) assertArrayEquals(key.name, was.bytes, (now as COSString).bytes) else assertEquals(key.name, was, now)
+                }
+                assertEquals(listOf(ID_BYTES.toList(), ID_BYTES.toList()), idOf(doc).map { it.toList() })
+
+                val stream = doc.documentCatalog.cosObject.getDictionaryObject(COSName.METADATA) as COSStream
+                assertNull(stream.filters)
+                val packet = stream.createInputStream().use { it.readBytes() }
+                val xmp = XmpPacket.read(packet)!!
+                assertEquals(title, xmp.title)
+                assertNull(xmp.author)
+                val text = String(packet, Charsets.UTF_8)
+                assertTrue("pdfaid:part" in text)
+                assertTrue("SecretRights" in text)
+                assertLayoutKept(doc)
+            }
+        }
+
+        // A packet that can't be read, and an /ID of two numbers.
+        val broken = changed(source, "broken.pdf") { doc ->
+            doc.documentCatalog.cosObject.setItem(COSName.METADATA, xmp(doc, "<!DOCTYPE x><x/>"))
+            doc.document.trailer.setItem(COSName.ID, COSArray().apply {
+                add(COSInteger.ONE)
+                add(COSInteger.TWO)
+            })
+        }
+        val dropped = engine.setDocumentInfo(import(broken), InfoChange(mapOf(InfoField.TITLE to "New")), "dropped")
+        assertTrue(dropped.droppedXmp)
+        PDDocument.load(dropped.file.file).use { doc ->
+            assertNull(doc.documentCatalog.cosObject.getDictionaryObject(COSName.METADATA))
+            assertEquals("New", info(doc)!!.getString(COSName.TITLE))
+            assertRandomId(doc)
+        }
+    }
+
+    /**
+     * 3. Remove all info leaves nothing: no /Info, no XMP, /PieceInfo or /CreatorInfo anywhere, no
+     * /LastModified on the page, a random /ID, none of the fixture's secrets in the file's bytes; the
+     * pages, the link and the bookmark as they were. A title typed as well is then the only info.
+     */
+    @Test fun removeAllLeavesNothing() {
+        val source = infoPdf(File(dir, "info.pdf"))
+        // The search below finds each of them in the fixture.
+        PDDocument.load(source).use { assertEquals(setOf("Metadata", "PieceInfo", "CreatorInfo"), leftovers(it).toSet()) }
+        val input = import(source)
+        val result = engine.setDocumentInfo(input, InfoChange(removeAll = true), "removed")
+        assertFalse(result.droppedXmp)
+        val bytes = String(result.file.file.readBytes(), Charsets.ISO_8859_1)
+        for (secret in SECRETS + "SecretXmpTitle" + "SecretXmpAuthor") {
+            assertFalse(secret, secret in bytes)
+            assertFalse(secret, String(secret.toByteArray(Charsets.UTF_16BE), Charsets.ISO_8859_1) in bytes)
+        }
+        // The author with its é, which PDFBox writes in hex.
+        assertFalse(hex("SecretAuthor") in bytes.lowercase())
+        PDDocument.load(result.file.file).use { doc ->
+            assertNull(doc.document.trailer.getDictionaryObject(COSName.INFO))
+            assertEquals(emptyList<String>(), leftovers(doc))
+            assertNull(doc.getPage(0).cosObject.getDictionaryObject(COSName.LAST_MODIFIED))
+            assertFalse(assertRandomId(doc).contentEquals(ID_BYTES))
+            assertLayoutKept(doc)
+        }
+
+        // A title typed after Remove all info: the only info, still no XMP.
+        val titled = engine.setDocumentInfo(input, InfoChange(mapOf(InfoField.TITLE to "New", InfoField.AUTHOR to ""), removeAll = true), "titled")
+        PDDocument.load(titled.file.file).use { doc ->
+            val info = info(doc)!!
+            assertEquals(setOf(COSName.TITLE), info.keySet())
+            assertEquals("New", info.getString(COSName.TITLE))
+            assertEquals(emptyList<String>(), leftovers(doc))
+        }
+    }
+
+    private fun info(doc: PDDocument) = doc.document.trailer.getDictionaryObject(COSName.INFO) as? COSDictionary
+
+    /** The bytes of each part of [doc]'s trailer /ID. */
+    private fun idOf(doc: PDDocument): List<ByteArray> = (doc.document.trailer.getDictionaryObject(COSName.ID) as COSArray).let { id ->
+        List(id.size()) { (id.getObject(it) as COSString).bytes }
+    }
+
+    /** Checks [doc]'s /ID is a new one as Document info makes it (two equal parts of 16 bytes), and returns a part. */
+    private fun assertRandomId(doc: PDDocument): ByteArray {
+        val id = idOf(doc)
+        assertEquals(2, id.size)
+        assertEquals(16, id[0].size)
+        assertArrayEquals(id[0], id[1])
+        return id[0]
+    }
+
+    /** Checks [doc] has the fixture's two pages, the second turned and cropped, and its link and bookmark to it. */
+    private fun assertLayoutKept(doc: PDDocument) {
+        assertEquals(2, doc.numberOfPages)
+        val second = doc.getPage(1)
+        assertEquals(90, second.rotation)
+        second.cropBox.let { assertEquals(listOf(50f, 60f, 550f, 710f), listOf(it.lowerLeftX, it.lowerLeftY, it.upperRightX, it.upperRightY)) }
+        val link = doc.getPage(0).annotations.single() as PDAnnotationLink
+        assertEquals(1, (link.destination as PDPageDestination).retrievePageNumber())
+        val bookmark = doc.documentCatalog.documentOutline.firstChild
+        assertEquals("Chapter TWO", bookmark.title)
+        assertEquals(1, (bookmark.destination as PDPageDestination).retrievePageNumber())
+    }
+
+    /** The names of the /Metadata, /PieceInfo and /CreatorInfo entries of every dictionary reachable from [doc]'s trailer. */
+    private fun leftovers(doc: PDDocument): List<String> {
+        val keys = listOf(COSName.METADATA, COSName.PIECE_INFO, COSName.getPDFName("CreatorInfo"))
+        val found = ArrayList<String>()
+        val seen = Collections.newSetFromMap(IdentityHashMap<COSBase, Boolean>())
+        val pending = ArrayDeque<COSBase?>().apply { add(doc.document.trailer) }
+        while (pending.isNotEmpty()) {
+            val item = pending.removeLast().let { if (it is COSObject) it.getObject() else it }
+            if ((item !is COSDictionary && item !is COSArray) || !seen.add(item)) continue
+            if (item is COSDictionary) {
+                keys.filter { item.containsKey(it) }.mapTo(found) { it.name }
+                pending.addAll(item.values)
+            } else {
+                (item as COSArray).forEach { pending.add(it) }
+            }
+        }
+        return found
+    }
+
+    private fun hex(text: String) = text.toByteArray(Charsets.US_ASCII).joinToString("") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }
 
     private companion object {
         /** The trailer /ID's two parts. */

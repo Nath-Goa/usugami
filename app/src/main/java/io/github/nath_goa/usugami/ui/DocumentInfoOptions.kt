@@ -2,6 +2,7 @@ package io.github.nath_goa.usugami.ui
 
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.SavedStateHandle
+import io.github.nath_goa.usugami.core.InfoChange
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.setDocumentInfo
 
@@ -21,5 +22,5 @@ internal fun DocumentInfoOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsV
 internal fun PdfToolsViewModel.runDocumentInfo(input: PdfInput, fileName: String) {
     // Not for a PDF put away between the screen's last drawing and the tap (see runFromPdf).
     if (inputs.value.singleOrNull()?.id != input.id) return
-    process(fileName, listOf(input)) { check -> listOf(engine.setDocumentInfo(input, fileName, check)) }
+    process(fileName, listOf(input)) { check -> listOf(engine.setDocumentInfo(input, InfoChange(), fileName, check).file) }
 }

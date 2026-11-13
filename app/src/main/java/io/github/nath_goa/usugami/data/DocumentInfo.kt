@@ -4,11 +4,13 @@ import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.cos.COSStream
 import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.filter.Filter
 import com.tom_roush.pdfbox.filter.FilterFactory
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import io.github.nath_goa.usugami.core.InfoChange
 import io.github.nath_goa.usugami.core.InfoField
 import io.github.nath_goa.usugami.core.InfoText
 import io.github.nath_goa.usugami.core.PdfDates
@@ -18,7 +20,11 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.security.SecureRandom
 import java.time.ZoneId
+import java.util.ArrayDeque
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.Locale
 
 /**
@@ -47,7 +53,10 @@ data class DocumentDetails(
     val signed: Boolean,
 )
 
-/** A PDF's info, read with PDFBox: the trailer's /Info first, the catalog's XMP packet for what /Info lacks. */
+/**
+ * A PDF's info, read with PDFBox: the trailer's /Info first, the catalog's XMP packet for what /Info
+ * lacks; and changed, in both, or removed with all the other info a PDF keeps of its making.
+ */
 internal object DocumentInfo {
     /**
      * What [doc], the PDF [input], says of itself. Each of the title, author, subject, keywords,
@@ -84,6 +93,157 @@ internal object DocumentInfo {
             signed = signed,
         )
     }
+
+    /**
+     * Changes [doc] in memory as [change] says, and returns whether an XMP packet that couldn't be
+     * read was dropped.
+     *
+     * Without [InfoChange.removeAll], only the fields in [InfoChange.texts] change, in /Info and in
+     * the catalog's XMP packet (patched by [XmpPacket.withTexts], so everything else in it stays):
+     * a text sets its field, "" removes it. A PDF without XMP gets none; a packet that can't be read
+     * is removed, since it couldn't be kept the same as /Info. Nothing else is touched (the
+     * producer, the creator, the dates and the trailer's /ID stay as they are), but a PDF without a
+     * usable /ID gets a random one: saved without, PDFBox would make one from the clock.
+     *
+     * With [InfoChange.removeAll], /Info, the catalog's /SpiderInfo and, wherever they are in the
+     * PDF, every XMP /Metadata stream, /PieceInfo and /CreatorInfo go, with the /LastModified date
+     * of pages and form XObjects; the /ID is replaced by a random one. The texts in
+     * [InfoChange.texts] that aren't empty are then the PDF's only info, in a new /Info. [check] is
+     * called as the PDF's objects are visited, so Cancel stops it.
+     */
+    fun apply(doc: PDDocument, change: InfoChange, check: () -> Unit): Boolean {
+        val trailer = doc.document.trailer
+        if (change.removeAll) {
+            removeAll(doc, check)
+            setTexts(trailer, change.texts.filterValues { it.isNotEmpty() })
+            return false
+        }
+        if (!hasId(trailer)) trailer.setItem(COSName.ID, randomId())
+        if (change.texts.isEmpty()) return false
+        setTexts(trailer, change.texts)
+        return patchXmp(doc, change.texts)
+    }
+
+    /**
+     * Sets [texts] in the trailer's /Info, made when there is none (or it isn't a dictionary) and a
+     * text isn't empty; "" removes the field, and an /Info left empty is taken out.
+     */
+    private fun setTexts(trailer: COSDictionary, texts: Map<InfoField, String>) {
+        if (texts.isEmpty()) return
+        var info = trailer.getDictionaryObject(COSName.INFO) as? COSDictionary
+        if (info == null) {
+            if (texts.values.all { it.isEmpty() }) return
+            info = COSDictionary()
+            trailer.setItem(COSName.INFO, info)
+        }
+        for ((field, text) in texts) {
+            val key = keyOf(field)
+            if (text.isEmpty()) info.removeItem(key) else info.setItem(key, COSString(InfoText.bytes(text)))
+        }
+        if (info.size() == 0) trailer.removeItem(COSName.INFO)
+    }
+
+    private fun keyOf(field: InfoField): COSName = when (field) {
+        InfoField.TITLE -> COSName.TITLE
+        InfoField.AUTHOR -> COSName.AUTHOR
+        InfoField.SUBJECT -> COSName.SUBJECT
+        InfoField.KEYWORDS -> COSName.KEYWORDS
+    }
+
+    /**
+     * Writes [texts] into the catalog's XMP packet, in a new stream not compressed (as XMP is meant
+     * to be kept), and returns false; a packet that can't be read is removed, and true returned. A
+     * catalog without an XMP stream is left as it is.
+     */
+    private fun patchXmp(doc: PDDocument, texts: Map<InfoField, String>): Boolean {
+        val catalog = doc.documentCatalog.cosObject
+        if (catalog.getDictionaryObject(COSName.METADATA) !is COSStream) return false
+        val patched = packetOf(catalog)?.let { XmpPacket.withTexts(it, texts) }
+        if (patched == null) {
+            catalog.removeItem(COSName.METADATA)
+            return true
+        }
+        val stream = doc.document.createCOSStream()
+        stream.setItem(COSName.TYPE, COSName.METADATA)
+        stream.setItem(COSName.SUBTYPE, XML)
+        stream.createOutputStream().use { it.write(patched) }
+        catalog.setItem(COSName.METADATA, stream)
+        return false
+    }
+
+    /**
+     * Takes out of [doc] everything Remove all info removes (see [apply]) but the texts: /Info, the
+     * catalog's /SpiderInfo, and in every dictionary reachable from the trailer (streams' included)
+     * an XMP /Metadata stream, /PieceInfo, /CreatorInfo, and a page's or form XObject's
+     * /LastModified; the /ID becomes a random one. Each object is visited once, without recursion,
+     * however deep the PDF; [check] is called every [CHECK_EVERY] objects.
+     */
+    private fun removeAll(doc: PDDocument, check: () -> Unit) {
+        val trailer = doc.document.trailer
+        trailer.removeItem(COSName.INFO)
+        (trailer.getDictionaryObject(COSName.ROOT) as? COSDictionary)?.removeItem(SPIDER_INFO)
+        val seen = Collections.newSetFromMap(IdentityHashMap<COSBase, Boolean>())
+        val pending = ArrayDeque<COSBase>()
+        seen.add(trailer)
+        pending.push(trailer)
+        var visited = 0
+        while (pending.isNotEmpty()) {
+            if (++visited % CHECK_EVERY == 0) check()
+            when (val item = pending.pop()) {
+                is COSDictionary -> {
+                    strip(item)
+                    for (value in item.values) push(value, seen, pending)
+                }
+                is COSArray -> for (value in item) push(value, seen, pending)
+            }
+        }
+        trailer.setItem(COSName.ID, randomId())
+    }
+
+    /** Puts what [value] is (a reference followed) on [pending] when it is a dictionary or an array not yet [seen]. */
+    private fun push(value: COSBase?, seen: MutableSet<COSBase>, pending: ArrayDeque<COSBase>) {
+        val item = if (value is COSObject) value.getObject() else value
+        if ((item is COSDictionary || item is COSArray) && seen.add(item)) pending.push(item)
+    }
+
+    /** Removes from [dict] the entries that say how and with what it was made (see [removeAll]). */
+    private fun strip(dict: COSDictionary) {
+        if (dict.getDictionaryObject(COSName.METADATA) is COSStream) dict.removeItem(COSName.METADATA)
+        dict.removeItem(COSName.PIECE_INFO)
+        dict.removeItem(CREATOR_INFO)
+        if (dict.getCOSName(COSName.TYPE) == COSName.PAGE || dict.getCOSName(COSName.SUBTYPE) == COSName.FORM) {
+            dict.removeItem(COSName.LAST_MODIFIED)
+        }
+    }
+
+    /** Whether [trailer]'s /ID is what a PDF must have: an array of two strings. */
+    private fun hasId(trailer: COSDictionary): Boolean {
+        val id = trailer.getDictionaryObject(COSName.ID) as? COSArray ?: return false
+        return id.size() == 2 && id.getObject(0) is COSString && id.getObject(1) is COSString
+    }
+
+    /**
+     * A new /ID: 16 random bytes, twice (both parts are the same in a PDF written for the first time).
+     * Random, so it neither ties the PDF to the one it came from nor gives away when it was saved.
+     */
+    private fun randomId(): COSArray {
+        val id = COSString(ByteArray(ID_BYTES).also { SecureRandom().nextBytes(it) })
+        id.setForceHexForm(true)
+        return COSArray().apply {
+            add(id)
+            add(id)
+        }
+    }
+
+    private val XML = COSName.getPDFName("XML")
+    private val SPIDER_INFO = COSName.getPDFName("SpiderInfo")
+    private val CREATOR_INFO = COSName.getPDFName("CreatorInfo")
+
+    /** How many objects Remove all visits between two calls of its check. */
+    private const val CHECK_EVERY = 1000
+
+    /** The bytes of each half of a new /ID. */
+    private const val ID_BYTES = 16
 
     /**
      * An info entry's text, cleaned, or null when it is empty or neither a string nor a name. A string
@@ -197,6 +357,15 @@ internal object DocumentInfo {
 internal fun PdfToolsEngine.documentDetails(input: PdfInput, marks: PageMark): DocumentDetails =
     load(input.file, input.password).use { doc -> DocumentInfo.read(doc, input, signed = marks.isSigned(doc, input.file)) }
 
-/** Saves [input] with its title, author and the like changed or removed. The lane fills it in: they are saved as they are. */
-internal fun PdfToolsEngine.setDocumentInfo(input: PdfInput, fileName: String, check: () -> Unit = {}): PdfFile =
-    edit(input, fileName, "Document_info", check) { }
+/**
+ * Saves [input] with its info changed as [change] says (see [DocumentInfo.apply]), as [fileName],
+ * without a password. The result says whether an XMP packet that couldn't be read was dropped.
+ */
+internal fun PdfToolsEngine.setDocumentInfo(input: PdfInput, change: InfoChange, fileName: String, check: () -> Unit = {}): InfoResult {
+    var dropped = false
+    val file = edit(input, fileName, "Document_info", check) { doc -> dropped = DocumentInfo.apply(doc, change, check) }
+    return InfoResult(file, dropped)
+}
+
+/** A PDF Document info made: [file], and whether the XMP packet of the PDF it came from was dropped, as it couldn't be read. */
+internal class InfoResult(val file: PdfFile, val droppedXmp: Boolean)
