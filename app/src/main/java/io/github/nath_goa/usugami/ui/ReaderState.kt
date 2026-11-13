@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.PageGlyphs
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.PdfFile
@@ -162,12 +163,68 @@ internal class ReaderSession(val id: Long, val shown: PdfInput, val document: Re
         _found.value = now.copy(current = next, moves = now.moves + 1)
     }
 
-    /** Stops a search and forgets what was found; the PDFBox document the text was read from is closed. */
+    /**
+     * Stops a search and forgets what was found; the PDFBox document the text was read from is closed,
+     * unless text is selected (see [selecting]).
+     */
     fun stopFinding() {
         search?.cancel()
         search = null
         _found.value = Found()
-        document.releaseText()
+        if (!selecting) document.releaseText()
+    }
+
+    /** The text of the pages asked for last (see [glyphs]), the one asked for last at the end. */
+    private val pageGlyphs = LinkedHashMap<Int, PageGlyphs>(GLYPH_PAGES, 0.75f, true)
+
+    /**
+     * Page [page]'s text for selecting, read on the document's own thread (after the lot of pages a
+     * search reads now, if one runs); kept for the GLYPH_PAGES pages asked for last. Null when it
+     * can't be read (a page PDFBox can't read, a font naming an encoding it doesn't have).
+     */
+    suspend fun glyphs(page: Int): PageGlyphs? {
+        pageGlyphs[page]?.let { return it }
+        val read = try {
+            document.glyphs(page)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return null
+        } catch (_: LinkageError) {
+            return null
+        } catch (_: StackOverflowError) {
+            return null
+        } catch (_: OutOfMemoryError) {
+            return null
+        }
+        pageGlyphs[page] = read
+        while (pageGlyphs.size > GLYPH_PAGES) pageGlyphs.remove(pageGlyphs.keys.first())
+        return read
+    }
+
+    /**
+     * Whether text is selected on the pages: while it is, closing the search keeps the PDFBox document
+     * the text is read from open. Set by the reader's selection (ReaderSelection).
+     */
+    var selecting = false
+        private set
+
+    /** Text is selected now. */
+    fun startSelecting() {
+        selecting = true
+    }
+
+    /**
+     * Text is no longer selected, or a page's text was read and nothing was selected (a long-press on
+     * blank paper or a page without text, the screen reader's Copy the text of this page): the text
+     * read for selecting is forgotten (dense pages hold megabytes of it), and the PDFBox document it
+     * was read from is closed, unless Find text still has a search (it is closed when the search is,
+     * see [stopFinding]). Closing a document that isn't open does nothing.
+     */
+    fun stopSelecting() {
+        selecting = false
+        pageGlyphs.clear()
+        if (search == null && _found.value.query.isEmpty()) document.releaseText()
     }
 
     fun close() {
@@ -182,6 +239,9 @@ internal class ReaderSession(val id: Long, val shown: PdfInput, val document: Re
 
         /** The most matches kept. */
         const val MAX_MATCHES = 2000
+
+        /** How many pages' text for selecting is kept. */
+        const val GLYPH_PAGES = 24
 
         /** A PDF of [pageCount] pages from page [start] to its end, then from its first page up to [start], CHUNK pages at a time. */
         fun chunks(start: Int, pageCount: Int): List<IntRange> {

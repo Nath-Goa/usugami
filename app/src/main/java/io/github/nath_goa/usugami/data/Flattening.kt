@@ -279,7 +279,7 @@ internal object Flattening {
     /**
      * Draws into [page]'s content the annotations seen on it (form fields, comments, stamps; not
      * links) that overlap any of [areas], each a rectangle in the page's own coordinates (left,
-     * bottom, right, top), and takes them off the page. What Edit PDF and Sign PDF then add there
+     * bottom, right, top), and takes them off the page. What Annotate and Sign PDF then add there
      * goes on top of them, as their previews show it: viewers draw annotations over the page, but
      * the previews have every annotation drawn into its page, since Android's renderer leaves them
      * out. A form field drawn in this way can't be filled in there any more. Its widgets on other

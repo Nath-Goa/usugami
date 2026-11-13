@@ -79,4 +79,14 @@
     <string name="reader_back_to_reading">Back to reading</string>
     <!-- Under Annotate's page and controls, above the name of the PDF it saves. -->
     <string name="reader_save_note">Saving makes a new PDF with what you added. The file you opened stays as it is.</string>
+    <!-- The one button in a bar under the reader's pages while text is selected on them: puts the text selected on the clipboard. -->
+    <string name="reader_copy">Copy</string>
+    <!-- What a screen reader offers on a page of the reader: copies all the text of that page, with no selecting. -->
+    <string name="reader_copy_page">Copy the text of this page</string>
+    <!-- When the text selected in the reader is too long to copy. "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
+    <string name="reader_copy_too_long">That is too much text to copy in one go. Select less, or use PDF to images or text to get all of it.</string>
+    <!-- When Copy is tapped in the reader and the text selected runs over a page whose text couldn't be read (a font that doesn't say which letters its shapes stand for): nothing is copied, so that no page is missing from the text. %1$d is that page's number, from 1. -->
+    <string name="reader_copy_unread">The text on page %1$d couldn\'t be read, so nothing was copied.</string>
+    <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
+    <string name="reader_no_text">This page has no text to select. If it is a scan, PDF to images or text can read it.</string>
 </resources>

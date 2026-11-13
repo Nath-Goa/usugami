@@ -20,7 +20,7 @@ import kotlin.math.min
 /**
  * Form field values PDFBox can't draw in the field's own font (Hindi or Polish in a Latin-only
  * font, say), and that have no look of their own or only one their form says is out of date (see
- * [Flattening.redrawFields]), drawn by Android instead, as Edit PDF draws text ([PageText]), for
+ * [Flattening.redrawFields]), drawn by Android instead, as Annotate draws text ([PageText]), for
  * the copy the previews draw and Redact PDF searches and draws its pictures from: otherwise the
  * field would look empty there (or show an older value), Find text couldn't find its value, and a
  * redacted page would lose it. It is real text, so it can be found.

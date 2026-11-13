@@ -8,7 +8,7 @@ import java.io.File
 
 /**
  * How the picture in an image file is turned, as an EXIF orientation from 1 (upright) to 8. Images
- * to PDF and Edit PDF read it the same way, so a photo shows the same way up in both. Android's
+ * to PDF and Annotate read it the same way, so a photo shows the same way up in both. Android's
  * decoders give the pixels as stored: whoever draws them turns them.
  */
 internal object ImageOrientation {

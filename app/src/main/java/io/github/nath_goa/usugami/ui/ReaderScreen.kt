@@ -55,6 +55,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
@@ -74,9 +75,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.keepScreenOn
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
@@ -134,8 +137,13 @@ internal class ReaderActions(
  * result, which has Share and Print for it; meanwhile More hides Share, Print and Open with another
  * app, which would give the file without them, and a PDF made of a document hides its Save as PDF.
  *
+ * A long-press on a word selects it (ReaderSelection), with a handle at each end to drag; while text
+ * is selected, a bar under the pages has Copy, and a tap elsewhere, Back or Annotate lets go of it. A
+ * screen reader's "Copy the text of this page" on a page copies it whole.
+ *
  * Or a preview ([preview] true): a finished PDF looked at from a result screen (ReaderState.preview),
- * read-only, with its name in the bar, Find text, and More with Go to page and Open with another app.
+ * read-only, with its name in the bar, Find text, text to select and copy, and More with Go to page and
+ * Open with another app.
  *
  * [active]: the screen is the one showing, not one sliding away. Only then does it open the slot's PDF,
  * make a document into a PDF or ask anything: the slot may meanwhile hold another tool's file.
@@ -208,6 +216,13 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
     // The name of the document the PDF showing was made of, if it was ("Report.docx").
     val document = if (preview) null else source?.takeIf { it.first == input?.id }?.second
     val found by remember(shown) { shown?.found ?: MutableStateFlow(Found()) }.collectAsStateWithLifecycle()
+    // Text selected on the pages: one selection for each PDF shown, not kept through rotation, and let
+    // go when the screen goes (the session may then close the text's document).
+    val selection = remember(shown) { shown?.let { ReaderSelection(it, vm, scope) } }
+    DisposableEffect(selection) { onDispose { selection?.letGo() } }
+    val haptic = LocalHapticFeedback.current
+    // What the text copied is called on the clipboard: the name in the bar.
+    val copyLabel = (if (preview) shown?.shown?.name else document ?: input?.name).orEmpty()
     // The search again, from the page showing, once the PDF shows again after Android closed Usugami.
     LaunchedEffect(live) {
         if (finding && searched.isNotBlank() && live != null && live.found.value.query != searched) live.find(searched, pageShowing(list, wentTo))
@@ -226,6 +241,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
     val annotate = !preview && annotating && shown != null
     fun startAnnotating() {
         annotatePage = pageShowing(list, wentTo)
+        selection?.letGo()
         if (finding) closeSearch()
         annotating = true
     }
@@ -235,11 +251,14 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
         backTo = annotatePage
     }
     BackHandler(enabled = annotate, onBack = ::backToReading)
+    // While text is selected, Back lets go of it first (also before closing the search).
+    val selecting = !annotate && shown != null && selection?.active == true
+    BackHandler(enabled = selecting) { selection?.letGo() }
     // Save PDF: once something was added to the PDF's pages, while reading and in Annotate.
     val canSave = !preview && input != null && shown != null && editItems.any { it.page < input.pageCount }
     // Annotate, and the pages above Save PDF, end where the bars do; the pages alone run under the
     // navigation bar and clear it at their end.
-    val aboveBar = annotate || canSave
+    val aboveBar = annotate || canSave || selecting
     // While a PDF is being made of the one showing (Save as PDF, Save PDF), Back does nothing, as behind its dialog.
     val working = !preview && processing
     Box(Modifier.fillMaxSize()) {
@@ -296,17 +315,21 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                 }
             },
             bottomBar = {
-                if (canSave) {
-                    Button(
-                        onClick = { vm.runEdit(fileName) },
-                        enabled = !importing && !processing,
-                        // Edge to edge: clear of the navigation bar, as every tool's button.
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.navigationBars)
-                            .padding(horizontal = 20.dp, vertical = 10.dp),
-                    ) {
-                        Text(stringResource(R.string.pdf_edit_action))
+                Column {
+                    // While text is selected: Copy, over Save PDF when that shows too, which then clears the navigation bar.
+                    if (selecting) ReaderCopyBar(onCopy = { selection?.copy(copyLabel) }, clearNavigationBar = !canSave)
+                    if (canSave) {
+                        Button(
+                            onClick = { vm.runEdit(fileName) },
+                            enabled = !importing && !processing,
+                            // Edge to edge: clear of the navigation bar, as every tool's button.
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .windowInsetsPadding(WindowInsets.navigationBars)
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                        ) {
+                            Text(stringResource(R.string.pdf_edit_action))
+                        }
                     }
                 }
             },
@@ -369,7 +392,17 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                                 },
                                 found = found,
                                 items = if (preview) emptyList() else editItems,
-                                barBelow = canSave,
+                                barBelow = canSave || selecting,
+                                selection = selection,
+                                onLongPress = { page, x, y, reach ->
+                                    selection?.select(
+                                        page, x, y, reach,
+                                        noText = { vm.message(vm.strings.getString(R.string.reader_no_text)) },
+                                        selected = { haptic.performHapticFeedback(HapticFeedbackType.LongPress) },
+                                    )
+                                },
+                                onTap = { selection?.letGo() },
+                                onCopyPage = { page -> selection?.copyPage(page, copyLabel) },
                             )
                             PageIndicator(list, shown.document.pageCount, wentTo, onClick = { goingToPage = true }, modifier = Modifier.align(Alignment.BottomCenter))
                             // How far the search has got, under the search bar: over the pages, so they don't move.

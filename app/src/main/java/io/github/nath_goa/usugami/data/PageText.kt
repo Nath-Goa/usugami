@@ -12,7 +12,7 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Edit PDF's text: laid out and drawn by Android, on the screen and in the PDF alike, so the PDF
+ * Annotate's text: laid out and drawn by Android, on the screen and in the PDF alike, so the PDF
  * has the text exactly where the preview showed it. As with watermarks ([WatermarkText]), the PDF's
  * text is drawn through Android's own PDF backend, which shapes every script the phone has fonts
  * for and embeds just the letters used, then put on the page as a form: it stays real text that can

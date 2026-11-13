@@ -57,9 +57,9 @@ import org.junit.Test
 import java.io.File
 
 /**
- * Edit PDF: text, strokes, shapes and pictures land where the preview put them on pages as shown
- * (turned and cropped too), look as they should, leave other pages untouched, and survive Undo,
- * Redo and Android saving the screen's state.
+ * Annotate (the reader's, Edit PDF until 2.0.0): text, strokes, shapes and pictures land where the
+ * preview put them on pages as shown (turned and cropped too), look as they should, leave other
+ * pages untouched, and survive Undo, Redo and Android saving the screen's state.
  */
 class PageEditsDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext

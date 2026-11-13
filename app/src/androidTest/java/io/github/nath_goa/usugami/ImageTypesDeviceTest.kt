@@ -118,7 +118,7 @@ class ImageTypesDeviceTest {
         assertTrue("Blue corner", Color.blue(pixels.getPixel(10, 10)) > 180 && Color.red(pixels.getPixel(10, 10)) < 80)
         assertTrue("Red elsewhere", Color.red(pixels.getPixel(400, 300)) > 180 && Color.blue(pixels.getPixel(400, 300)) < 80)
         assertTrue("Took ${(peak - before) / 1024} MB", peak - before < 200 * 1024)
-        // Edit PDF reads it the same way, for a picture put on a page.
+        // Annotate reads it the same way, for a picture put on a page.
         val picture = checkNotNull(PagePictures.decode(checkNotNull(uri.path), 1, 1024))
         assertEquals(1024 to 768, picture.width to picture.height)
         assertTrue("Blue corner", Color.blue(picture.getPixel(10, 10)) > 180 && Color.red(picture.getPixel(10, 10)) < 80)
@@ -167,7 +167,7 @@ class ImageTypesDeviceTest {
         assertTrue("$name: off by $average on average, $worst at most", average <= 1 && worst <= 24)
     }
 
-    /** A picture put on a page in Edit PDF is turned the way Images to PDF turns the same photo. */
+    /** A picture put on a page in Annotate is turned the way Images to PDF turns the same photo. */
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.P)
     @Test fun editPdfTurnsHeicPicturesTheSameWay() {
         val pictures = PagePictures(app)

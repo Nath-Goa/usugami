@@ -27,6 +27,7 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import androidx.core.content.FileProvider
@@ -61,6 +62,7 @@ import io.github.nath_goa.usugami.core.ShapeKind
 import io.github.nath_goa.usugami.core.SharedKind
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.TextItem
+import io.github.nath_goa.usugami.core.TextSelection
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.Appearances
@@ -1018,6 +1020,44 @@ class ScreensDeviceTest {
         for (hidden in listOf(R.string.share, R.string.print, R.string.reader_open_elsewhere)) {
             assertFalse("No ${app.getString(hidden)} while additions aren't saved", offered.contains(app.getString(hidden)))
         }
+    }
+
+    @Test fun textIsSelectedAndCopiedInTheReader() {
+        val activity = launch()
+        val pdfVm = alphaInTheReader(activity)
+        val session = onMain { pdfVm.reader.session.value!! }
+        // The first word of the first page, as the reader reads it, and where it is on the page.
+        val glyphs = checkNotNull(runBlocking(Dispatchers.Main) { session.glyphs(0) }) { "The first page's text can't be read" }
+        val first = glyphs.glyphs.indexOfFirst { it.wordStart && it.text.first().isLetter() }
+        val box = glyphs.glyphs[first].box
+        val word = checkNotNull(TextSelection.wordAt(glyphs, (box.left + box.right) / 2, (box.top + box.bottom) / 2, reach = 0f))
+        val expected = TextSelection.text(glyphs, word)
+        // The page, with the screen reader's Copy the text of this page; at the top of the list, so its
+        // left and top edges show, and its scale is its width over the page's.
+        val page = find("the first page") { it.action(app.getString(R.string.reader_copy_page)) != null && it.says(app.getString(R.string.reader_page_of_spoken, 1, 3)) }
+        val bounds = Rect().also(page::getBoundsInScreen)
+        val scale = bounds.width() / session.document.sizes[0].first
+        val x = bounds.left + (box.left + box.right) / 2 * scale
+        val y = bounds.top + (box.top + box.bottom) / 2 * scale
+        // Something else on the clipboard first, so that only the copy can put the word there. Read
+        // while Usugami is in front: from Android 10 only the app in front may read the clipboard.
+        val clipboard = onMain { app.getSystemService(ClipboardManager::class.java) }
+        onMain { clipboard.setPrimaryClip(ClipData.newPlainText("test", "Not copied yet")) }
+
+        // A long-press on the word: the bar with Copy shows.
+        val down = SystemClock.uptimeMillis()
+        touch(down, MotionEvent.ACTION_DOWN, x, y)
+        Thread.sleep(ViewConfiguration.getLongPressTimeout() + 400L)
+        touch(down, MotionEvent.ACTION_UP, x, y)
+        click(find("Copy") { it.says(app.getString(R.string.reader_copy)) })
+        // Copy puts the word on the clipboard, and the bar goes.
+        waitUntil("the word on the clipboard") { onMain { clipboard.primaryClip?.getItemAt(0)?.text?.toString() } == expected }
+        waitUntil("the bar to go") { nodes().none { it.says(app.getString(R.string.reader_copy)) } }
+
+        // A screen reader's "Copy the text of this page" copies the whole page, with no selecting.
+        val pageNow = find("the first page") { it.action(app.getString(R.string.reader_copy_page)) != null && it.says(app.getString(R.string.reader_page_of_spoken, 1, 3)) }
+        assertTrue(pageNow.performAction(pageNow.action(app.getString(R.string.reader_copy_page))!!.id))
+        waitUntil("the page's text on the clipboard") { onMain { clipboard.primaryClip?.getItemAt(0)?.text?.toString() } == TextSelection.text(glyphs, glyphs.glyphs.indices) }
     }
 
     @Test fun flattenSaysWhatItDoesAndWhenThereIsNothingToFlatten() {

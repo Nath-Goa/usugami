@@ -757,7 +757,7 @@ class PageToolsDeviceTest {
         assertTrue(onMain { vm.pages.value.isEmpty() && vm.locked.value.isEmpty() && !vm.importing.value })
         waitUntil("the copies to be deleted") { inputDir.list().isNullOrEmpty() }
 
-        // Edit PDF's picture.
+        // Annotate's picture.
         onMain { vm.addPdfs(listOf(picked(asset("alpha.pdf"))), replace = true) }
         waitUntil("alpha to be added again") { vm.inputs.value.size == 1 && !vm.importing.value }
         val picture = File(app.cacheDir, "output/test-picked/picture.png").apply {
