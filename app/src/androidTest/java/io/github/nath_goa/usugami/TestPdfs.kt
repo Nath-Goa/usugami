@@ -37,9 +37,11 @@ import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDCheckBox
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDXFAResource
+import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.data.PdfPageRef
 import java.io.File
 
-// Made-up PDFs for Delete pages, Reorganize PDF and Flatten PDF, built here rather than stored.
+// Made-up PDFs for Reorganize PDF and Flatten PDF, built here rather than stored.
 
 /** The words written on page [index] (zero-based) of [chapters]: "PAGE ONE", "PAGE TWO"... */
 val PAGE_WORDS = listOf("ONE", "TWO", "THREE", "FOUR", "FIVE")
@@ -507,3 +509,6 @@ fun cjkFont(encoding: String, ordering: String, supplement: Int, subtype: String
         setItem(COSName.DESCENDANT_FONTS, COSArray().apply { add(descendant) })
     }
 }
+
+/** Pages [indexes] (zero-based) of [input], not turned: a page list for PdfToolsEngine.reorganize. */
+fun pagesOf(input: PdfInput, vararg indexes: Int): List<PdfPageRef> = indexes.map { PdfPageRef(input.id, it) }

@@ -33,6 +33,21 @@ object PdfPageSelection {
         return result.toList()
     }
 
+    /** The pages [text] names (zero-based, in the order typed); none when it is blank, null while it can't be read. */
+    fun read(text: String, pageCount: Int): List<Int>? = if (text.isBlank()) emptyList() else try {
+        selected(text, pageCount)
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+
+    /** Why [text] can't be read as pages of a PDF with [pageCount]; null when it is blank or can be. */
+    fun problem(text: String, pageCount: Int): PageSelectionException? = if (text.isBlank() || pageCount <= 0) null else try {
+        selected(text, pageCount)
+        null
+    } catch (e: PageSelectionException) {
+        e
+    }
+
     /**
      * The pages to delete, zero-based and in order, typed like "2,5-7". Throws
      * [PageSelectionException] for input it can't use, and with [PageSelectionException.Problem.ALL_PAGES]

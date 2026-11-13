@@ -57,7 +57,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.io.File
 
-/** Delete pages, Reorganize PDF and Flatten PDF, checked by reading the result back and by rendering it. */
+/** Reorganize PDF and Flatten PDF, checked by reading the result back and by rendering it. */
 class PageToolsDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val app = instrumentation.targetContext.applicationContext as Application
@@ -121,8 +121,8 @@ class PageToolsDeviceTest {
     @Test fun deletedPagesAreGoneFromTheFile() {
         val source = import(chapters(made("chapters.pdf")))
         assertTrue("The fixture holds the words checked below", everythingIn(source.file).contains("SECRET VALUE"))
-        val result = engine.deletePages(source, listOf(3, 1), "chapters_pages_deleted")
-        assertEquals("chapters_pages_deleted.pdf", result.file.name)
+        val result = engine.reorganize(source, emptyList(), pagesOf(source, 0, 2, 4), "chapters_reorganized")
+        assertEquals("chapters_reorganized.pdf", result.file.name)
         val deleted = save(result.file, "pages_deleted.pdf")
         assertEquals(listOf("PAGE ONE", "PAGE THREE", "PAGE FIVE"), pageTexts(deleted))
 
@@ -348,9 +348,9 @@ class PageToolsDeviceTest {
                 }
             }
 
-            val deleted = engine.deletePages(source, listOf(1), "deleted").file
+            val deleted = engine.reorganize(source, emptyList(), pagesOf(source, 0, 2), "deleted").file
             assertEquals(listOf("PAGE ONE", "PAGE THREE"), pageTexts(deleted))
-            assertImages(deleted, listOf(0, 2), "Delete pages")
+            assertImages(deleted, listOf(0, 2), "Pages removed")
             assertDrawn(deleted, 2)
 
             val reorganized = engine.reorganize(source, emptyList(), listOf(PdfPageRef(source.id, 2), PdfPageRef(source.id, 0)), "reorganized").file
@@ -421,7 +421,8 @@ class PageToolsDeviceTest {
             for (item in items) item.cosObject.setItem(COSName.FIRST, items[0].cosObject)
             doc.save(file)
         }
-        val deleted = engine.deletePages(import(file), listOf(1), "loop_deleted")
+        val input = import(file)
+        val deleted = engine.reorganize(input, emptyList(), pagesOf(input, 0), "loop_deleted")
         assertEquals(1, deleted.pageCount)
     }
 
@@ -430,8 +431,8 @@ class PageToolsDeviceTest {
         val source = import(taggedPages(made("tagged.pdf")))
         assertTrue(everythingIn(source.file).contains("SECRET ALT 2"))
         for ((what, result) in listOf(
-            "Delete pages" to { engine.deletePages(source, listOf(1), "tagged_deleted").file },
-            "Reorganize" to { engine.reorganize(source, emptyList(), listOf(PdfPageRef(source.id, 2), PdfPageRef(source.id, 0)), "tagged_reorganized").file },
+            "Pages removed" to { engine.reorganize(source, emptyList(), pagesOf(source, 0, 2), "tagged_deleted").file },
+            "Pages moved" to { engine.reorganize(source, emptyList(), listOf(PdfPageRef(source.id, 2), PdfPageRef(source.id, 0)), "tagged_reorganized").file },
         )) {
             val file = save(result(), "tagged_${what.replace(' ', '_')}.pdf")
             val everything = everythingIn(file)
@@ -454,8 +455,8 @@ class PageToolsDeviceTest {
     @Test fun pagesKeepTheirLabels() {
         val book = import(labelledPages(made("book.pdf")))
         assertEquals(listOf("i", "ii", "iii", "1", "2", "3"), pageLabels(book.file))
-        assertEquals(listOf("ii", "iii", "1", "2", "3"), pageLabels(engine.deletePages(book, listOf(0), "no_cover").file))
-        assertEquals(listOf("i", "iii", "2", "3"), pageLabels(engine.deletePages(book, listOf(1, 3), "fewer").file))
+        assertEquals(listOf("ii", "iii", "1", "2", "3"), pageLabels(engine.reorganize(book, emptyList(), pagesOf(book, 1, 2, 3, 4, 5), "no_cover").file))
+        assertEquals(listOf("i", "iii", "2", "3"), pageLabels(engine.reorganize(book, emptyList(), pagesOf(book, 0, 2, 4, 5), "fewer").file))
         // Reversed, with a blank page at the end, which goes on from the page before it.
         val reversed = (5 downTo 0).map { PdfPageRef(book.id, it) } + PdfPageRef.blank(0, 300f, 400f)
         assertEquals(listOf("3", "2", "1", "iii", "ii", "i", "ii"), pageLabels(engine.reorganize(book, emptyList(), reversed, "reversed").file))
@@ -476,17 +477,77 @@ class PageToolsDeviceTest {
 
         // Labels that are just the pages' places follow the new places, as if there were none.
         val plain = import(labelledPages(made("plain.pdf"), plain = true))
-        assertEquals(listOf("1", "2", "3", "4", "5"), pageLabels(engine.deletePages(plain, listOf(2), "plain_deleted").file))
+        assertEquals(listOf("1", "2", "3", "4", "5"), pageLabels(engine.reorganize(plain, emptyList(), pagesOf(plain, 0, 1, 3, 4, 5), "plain_deleted").file))
     }
 
-    @Test fun deletingEveryPageIsRefused() {
+    @Test fun aPdfWithNoPagesLeftIsRefused() {
         val source = import(asset("alpha.pdf"))
         try {
-            engine.deletePages(source, listOf(0, 1, 2), "none")
+            engine.reorganize(source, emptyList(), emptyList(), "none")
             fail("A PDF must keep a page")
         } catch (_: IllegalArgumentException) {
         }
         assertTrue(File(app.cacheDir, "output/tools").listFiles().isNullOrEmpty())
+    }
+
+    /**
+     * Pages only turned, or turned and removed, are saved in place, as Rotate PDF and Delete pages
+     * saved them: the page tree stays as it was, nested, and the pages keep what they inherit from it.
+     */
+    @Test fun pagesOnlyTurnedOrRemovedLeaveTheRestOfTheFileAsItWas() {
+        val main = import(nestedPages(made("nested_in_place.pdf")))
+        fun kids(doc: PDDocument) = (doc.pages.cosObject.getDictionaryObject(COSName.KIDS) as COSArray).size()
+        PDDocument.load(main.file).use { doc ->
+            assertEquals("The fixture's root holds the node and page 3", 2, kids(doc))
+            for (page in doc.pages.take(2)) assertFalse(page.cosObject.containsKey(COSName.MEDIA_BOX) || page.cosObject.containsKey(COSName.ROTATE))
+        }
+
+        // Page 3 turned, nothing else.
+        val turned = save(engine.reorganize(main, emptyList(), pagesOf(main, 0, 1) + PdfPageRef(main.id, 2, 90), "nested_turned").file, "nested_turned.pdf")
+        PDDocument.load(turned).use { doc ->
+            assertEquals("The page tree is still nested", 2, kids(doc))
+            val pages = doc.pages.toList()
+            for ((index, page) in pages.take(2).withIndex()) {
+                assertFalse("Page ${index + 1} has no size of its own", page.cosObject.containsKey(COSName.MEDIA_BOX))
+                assertFalse("Page ${index + 1} has no turn of its own", page.cosObject.containsKey(COSName.ROTATE))
+                // Still shown as it inherits it: US Letter, a quarter turn.
+                assertEquals(90, page.rotation)
+                assertEquals(PDRectangle.LETTER.width, page.mediaBox.width, 0.01f)
+                assertEquals(PDRectangle.LETTER.height, page.mediaBox.height, 0.01f)
+            }
+            assertEquals(90, pages[2].rotation)
+            val link = pages[0].annotations.filterIsInstance<PDAnnotationLink>().single()
+            assertSame(pages[2].cosObject, (link.destination as PDPageDestination).page.cosObject)
+        }
+
+        // Page 2 left out and page 1 turned, in one save.
+        val fewer = save(engine.reorganize(main, emptyList(), listOf(PdfPageRef(main.id, 0, 90), PdfPageRef(main.id, 2)), "nested_fewer").file, "nested_fewer.pdf")
+        PDDocument.load(fewer).use { doc ->
+            assertEquals(2, doc.numberOfPages)
+            val first = doc.getPage(0)
+            assertEquals("The quarter turn it inherited, and one more", 180, first.rotation)
+            assertFalse(first.cosObject.containsKey(COSName.MEDIA_BOX))
+            assertEquals(PDRectangle.LETTER.width, first.mediaBox.width, 0.01f)
+        }
+        assertFalse("The page left out is gone", everythingIn(fewer).contains("MAIN TWO"))
+    }
+
+    /**
+     * A damaged PDF whose page tree lists one page twice shows it twice. Taking out the second one
+     * keeps the pages in their order: PDFBox would take out the first.
+     */
+    @Test fun aPageListedTwiceIsRemovedWhereChosen() {
+        val twice = made("listed_twice.pdf")
+        PDDocument().use { doc ->
+            val pages = listOf("ONE", "TWO").map { word -> PDPage(PDRectangle.A4).also { doc.addPage(it); writeText(doc, it, "PAGE $word") } }
+            doc.pages.cosObject.setItem(COSName.KIDS, COSArray().apply { add(pages[0].cosObject); add(pages[1].cosObject); add(pages[0].cosObject) })
+            doc.pages.cosObject.setInt(COSName.COUNT, 3)
+            doc.save(twice)
+        }
+        val main = import(twice)
+        assertEquals(3, main.pageCount)
+        val left = engine.reorganize(main, emptyList(), pagesOf(main, 0, 1), "listed_twice").file
+        assertEquals(listOf("PAGE ONE", "PAGE TWO"), pageTexts(left))
     }
 
     @Test fun reorganizeKeepsOrderTurnsAddedAndBlankPages() {
@@ -589,6 +650,51 @@ class PageToolsDeviceTest {
             assertEquals(90, doc.getPage(5).rotation)
             assertEquals(a4.height, doc.getPage(6).mediaBox.width, 0.5f)
         }
+    }
+
+    /**
+     * Reorganize PDF's selection: the pages selected are turned or removed together, each time as one
+     * change for Undo, but never every page; it follows a page moved and comes back with the saved state.
+     */
+    @Test fun theSelectedPagesAreTurnedAndRemovedTogetherAndOneIsKept() {
+        val handle = SavedStateHandle()
+        val vm = onMain { PdfToolsViewModel(app, handle) }.also { vm = it }
+        onMain { vm.addPdfs(listOf(picked(asset("alpha.pdf"))), replace = true) }
+        waitUntil("alpha to be added") { vm.inputs.value.size == 1 && !vm.importing.value }
+        val alpha = onMain { vm.pages.value }
+        assertEquals(3, alpha.size)
+
+        onMain { vm.choosePages(alpha.mapTo(HashSet()) { it.key }) }
+        onMain { vm.rotateChosen(-90) }
+        assertEquals(listOf(270, 270, 270), onMain { vm.pages.value.map { it.rotation } })
+        onMain { vm.undo() }
+        assertEquals(listOf(0, 0, 0), onMain { vm.pages.value.map { it.rotation } })
+        assertFalse("Every page selected: none is removed", onMain { vm.removeChosen() })
+        assertEquals(alpha, onMain { vm.pages.value })
+
+        // Two pages tapped before the screen redraws are both selected.
+        onMain {
+            vm.choosePages(emptySet())
+            vm.toggleChosenPage(alpha[1])
+            vm.toggleChosenPage(alpha[2])
+        }
+        assertEquals(setOf(alpha[1].key, alpha[2].key), onMain { vm.chosenPages.value })
+        assertTrue(onMain { vm.removeChosen() })
+        assertEquals(listOf(alpha[0]), onMain { vm.pages.value })
+        assertTrue("The pages removed leave the selection", onMain { vm.chosenPages.value.isEmpty() })
+        onMain { vm.undo() }
+        assertEquals(alpha, onMain { vm.pages.value })
+
+        onMain { vm.choosePages(setOf(alpha[2].key)) }
+        onMain { vm.movePageBy(alpha[2], -1) }
+        assertEquals(listOf(alpha[0], alpha[2], alpha[1]), onMain { vm.pages.value })
+        assertEquals("The page moved stays selected", setOf(alpha[2].key), onMain { vm.chosenPages.value })
+
+        // Android brings Usugami back with the same saved state.
+        val again = onMain { PdfToolsViewModel(app, handle) }
+        assertEquals(setOf(alpha[2].key), onMain { again.chosenPages.value })
+        // The cleanup it started with would delete what the next test makes; tearDown waits for vm's only.
+        runBlocking { again.awaitFileWork() }
     }
 
     /**
@@ -701,6 +807,9 @@ class PageToolsDeviceTest {
         onMain { vm.addBlankPage(pages[0]) }
         waitUntil("the blank page") { vm.pages.value[1].isBlank }
         assertTrue("Changed pages: ${savedBytes()} bytes", savedBytes() < 100_000)
+        // Reorganize PDF's Select all: every page selected is kept as its places.
+        onMain { vm.choosePages(vm.pages.value.mapTo(HashSet()) { it.key }) }
+        assertTrue("Every page selected: ${savedBytes()} bytes", savedBytes() < 100_000)
 
         // Android brings Usugami back with the same saved state.
         val changed = onMain { vm.pages.value }
@@ -708,6 +817,7 @@ class PageToolsDeviceTest {
         assertEquals(changed, onMain { again.pages.value })
         assertEquals(90, onMain { again.pages.value[6].rotation })
         assertTrue(onMain { again.pages.value[1].let { it.isBlank && it.width > 0f && it.height > 0f } })
+        assertEquals(changed.size, onMain { again.chosenPages.value.size })
         // The cleanup it started with would delete what the next test makes; tearDown waits for vm's only.
         runBlocking { again.awaitFileWork() }
     }

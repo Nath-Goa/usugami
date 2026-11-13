@@ -39,6 +39,7 @@ import io.github.nath_goa.usugami.data.PageMark
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.SettingsStore
 import io.github.nath_goa.usugami.ui.MainViewModel
@@ -306,7 +307,7 @@ class PageMarkDeviceTest {
         assertTrue(old.renameTo(file))
     }
 
-    /** A page turned since it was marked, as Rotate PDF turns one, has the mark put back in its corner. */
+    /** A page turned since it was marked, as Reorganize PDF turns one, has the mark put back in its corner. */
     @Test fun aPageTurnedSinceItWasMarkedIsMarkedAgain() {
         val file = pdf()
         val style = MarkStyle()
@@ -334,7 +335,8 @@ class PageMarkDeviceTest {
         val parts = engine.split(input, listOf(listOf(0), listOf(1), listOf(2)), "part")
         assertEquals(listOf(listOf(0), listOf(0), listOf(0)), marksOn(parts))
         for (i in parts.indices) assertArrayEquals("Part ${i + 1}'s content", before[i].first, pages(parts[i].file).single().first)
-        assertEquals(listOf(listOf(0, 0, 0)), marksOn(listOf(engine.rotate(input, mapOf(1 to 90), "turned"))))
+        val turned = listOf(PdfPageRef(input.id, 0), PdfPageRef(input.id, 1, 90), PdfPageRef(input.id, 2))
+        assertEquals(listOf(listOf(0, 0, 0)), marksOn(listOf(engine.reorganize(input, emptyList(), turned, "turned"))))
         val compressed = engine.compress(input, PdfCompression.RECOMMENDED, "compressed")
         assertFalse(compressed.keptOriginal)
         assertEquals(listOf(listOf(0, 0, 0)), marksOn(listOf(compressed)))

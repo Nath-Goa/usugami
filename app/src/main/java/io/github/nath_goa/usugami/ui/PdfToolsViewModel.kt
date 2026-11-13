@@ -168,6 +168,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      */
     private val _pages = MutableStateFlow(restoredPages())
     val pages: StateFlow<List<PdfPageRef>> = _pages.asStateFlow()
+    /** Reorganize PDF's selected pages, by key (see [ChosenPages]). */
+    private val chosen = ChosenPages(handle, _pages.value)
+    val chosenPages: StateFlow<Set<String>> = chosen.keys
     /** Picked PDFs that need a password, in the order they were picked. The dialog asks for the first. */
     val locked: StateFlow<List<PdfInput>> = handle.getStateFlow(KEY_LOCKED, ArrayList<PdfInput>())
 
@@ -1058,6 +1061,37 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setPages(pages.value.filterNot { it.key == ref.key })
     }
 
+    /** Makes the pages with [keys] Reorganize PDF's selection. */
+    fun choosePages(keys: Set<String>) = chosen.set(keys, pages.value)
+
+    /** Puts [ref] into the selection, or takes it out: read and written at once, so two pages tapped before the screen redraws are both selected. */
+    fun toggleChosenPage(ref: PdfPageRef) = chosen.keys.value.let { now -> chosen.set(if (ref.key in now) now - ref.key else now + ref.key, pages.value) }
+
+    /** Turns every selected page by [degrees] more, as one change for Undo. */
+    fun rotateChosen(degrees: Int) {
+        val keys = chosen.keys.value
+        if (keys.isEmpty()) return
+        pushUndo(pages.value)
+        setPages(pages.value.map { if (it.key in keys) it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) else it })
+    }
+
+    /**
+     * Takes the selected pages out, as one change for Undo. Returns false, changing nothing, when
+     * that would leave no page: a PDF keeps at least one. With nothing selected it does nothing.
+     */
+    fun removeChosen(): Boolean {
+        val keys = chosen.keys.value
+        if (keys.isEmpty()) return true
+        val left = pages.value.filterNot { it.key in keys }
+        if (left.isEmpty()) return false
+        pushUndo(pages.value)
+        setPages(left)
+        return true
+    }
+
+    /** Why [text] can't be read as pages of [pageCount], in the user's language; null when it can be, or is blank. */
+    fun pagesProblem(text: String, pageCount: Int): String? = PdfPageSelection.problem(text, pageCount)?.let(::pageSelectionMessage)
+
     fun resetPages() {
         pushUndo(pages.value)
         setPages(allPages())
@@ -1199,7 +1233,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         val input = inputs.value.singleOrNull() ?: return
         val rotations = pages.value.filter { it.inputId == input.id && it.rotation != 0 }.associate { it.page to it.rotation }
         if (rotations.isEmpty()) return
-        process(fileName, listOf(input)) { check -> listOf(engine.rotate(input, rotations, fileName, check)) }
+        // The PDF's own pages in their order: reorganize leaves the rest of the file as it is.
+        val own = (0 until input.pageCount).map { PdfPageRef(input.id, it, rotations[it] ?: 0) }
+        process(fileName, listOf(input)) { check -> listOf(engine.reorganize(input, emptyList(), own, fileName, check)) }
     }
 
     /** [skip] lists pages to leave without a number, like "1" or "1-2,5"; it may be blank. */
@@ -1277,12 +1313,14 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun runDeletePages(text: String, fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
         val doomed = try {
-            PdfPageSelection.toDelete(text, input.pageCount)
+            PdfPageSelection.toDelete(text, input.pageCount).toHashSet()
         } catch (e: PageSelectionException) {
             message(pageSelectionMessage(e))
             return
         }
-        process(fileName, listOf(input)) { check -> listOf(engine.deletePages(input, doomed, fileName, check)) }
+        // The pages kept, in their order: reorganize takes the others out and leaves the rest of the file as it is.
+        val kept = (0 until input.pageCount).filter { it !in doomed }.map { PdfPageRef(input.id, it) }
+        process(fileName, listOf(input)) { check -> listOf(engine.reorganize(input, emptyList(), kept, fileName, check)) }
     }
 
     /** Saves the first PDF with the pages as [pages] lists them, from it, from PDFs added and blank. */
@@ -2029,6 +2067,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             _wrongPassword.value = false
             added.forEach { input -> viewModelScope.launch(fileOps) { engine.delete(input) } }
         }
+        // The PDF stays for the next tool; what the last one selected doesn't.
+        chosen.set(emptySet(), pages.value)
         setPages(allPages())
         handle[KEY_INSERT_AFTER] = null
         handle[KEY_PICTURE_PAGE] = null
@@ -2356,6 +2396,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
 
     private fun setPages(list: List<PdfPageRef>) {
         _pages.value = list
+        chosen.follow(list)
         savePages()
     }
 

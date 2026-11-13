@@ -362,7 +362,7 @@ class PdfToolsDeviceTest {
         val input = engine.import(Uri.fromFile(damaged), 1015)
         assertEquals(3, input.pageCount)
         ParcelFileDescriptor.open(input.file, ParcelFileDescriptor.MODE_READ_ONLY).use { assertEquals(3, PdfRenderer(it).use { renderer -> renderer.pageCount }) }
-        val left = engine.deletePages(input, listOf(1), "damaged_tree").file
+        val left = engine.reorganize(input, emptyList(), pagesOf(input, 0, 2), "damaged_tree").file
         val texts = PDDocument.load(left).use { doc -> (1..doc.numberOfPages).map { n -> PDFTextStripper().apply { startPage = n; endPage = n }.getText(doc).trim() } }
         assertEquals(listOf("PAGE ONE", "PAGE THREE"), texts)
     }

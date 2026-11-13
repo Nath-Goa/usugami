@@ -30,6 +30,7 @@ import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.NothingToNumber
 import io.github.nath_goa.usugami.data.NumberingJob
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.Signature
@@ -53,7 +54,7 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-/** Rotate, page numbers, watermarks and signatures, checked by reading the result back and by rendering it. */
+/** Pages turned (Reorganize PDF), page numbers, watermarks and signatures, checked by reading the result back and by rendering it. */
 class PdfEditingDeviceTest {
     private val context = InstrumentationRegistry.getInstrumentation().targetContext
     private val engine = PdfToolsEngine(context)
@@ -142,21 +143,38 @@ class PdfEditingDeviceTest {
         }
     }
 
-    @Test fun rotateTurnsOnlyTheChosenPages() {
+    @Test fun turningPagesChangesOnlyTheirTurn() {
         val source = import(mixedPages("mixed.pdf"))
-        val rotated = save(engine.rotate(source, mapOf(0 to 90, 1 to 90, 3 to -90), "rotated").file, "rotated.pdf")
+        val id = source.id
+        val pages = listOf(PdfPageRef(id, 0, 90), PdfPageRef(id, 1, 90), PdfPageRef(id, 2), PdfPageRef(id, 3, 270))
+        val rotated = save(engine.reorganize(source, emptyList(), pages, "rotated").file, "rotated.pdf")
         PDDocument.load(rotated).use { doc ->
             assertEquals(listOf(90, 180, 0, 180), doc.pages.map { it.rotation })
             // The content isn't touched: only the page's turn changes.
             assertEquals(PDRectangle.A4.width, doc.getPage(0).mediaBox.width, 0.01f)
             assertEquals(100f, doc.getPage(2).cropBox.lowerLeftX, 0.01f)
+            PDDocument.load(source.file).use { before ->
+                for ((index, page) in doc.pages.withIndex()) {
+                    // Each page keeps what its dictionary had, and only a page turned gets a /Rotate it may not have had.
+                    val keys = before.getPage(index).cosObject.keySet()
+                    val expected = if (pages[index].rotation != 0) keys + COSName.ROTATE else keys
+                    assertEquals("Page ${index + 1}'s entries", expected, page.cosObject.keySet())
+                }
+                // The page not turned is as it was.
+                val (was, now) = before.getPage(2) to doc.getPage(2)
+                assertFalse(now.cosObject.containsKey(COSName.ROTATE))
+                assertEquals(was.mediaBox.toString(), now.mediaBox.toString())
+                assertEquals(was.cropBox.toString(), now.cropBox.toString())
+                assertEquals(was.resources.cosObject.keySet(), now.resources.cosObject.keySet())
+                assertArrayEquals(contentOf(was), contentOf(now))
+            }
         }
         assertEquals("CAPTIONACAPTIONBCAPTIONCCAPTIOND", text(rotated))
         // Shown sideways now: PdfRenderer gives the page its turned size.
         assertTrue(render(rotated, 0, 1f).let { it.width > it.height })
     }
 
-    @Test fun rotatingAProtectedPdfRemovesThePassword() {
+    @Test fun turningAPageOfAProtectedPdfRemovesThePassword() {
         val pending = try {
             import(asset("protected.pdf"))
             fail("Password request expected")
@@ -165,7 +183,8 @@ class PdfEditingDeviceTest {
             e.input
         }
         val unlocked = engine.unlock(pending, "test123")
-        val rotated = save(engine.rotate(unlocked, mapOf(1 to 180), "protected_rotated").file, "protected_rotated.pdf")
+        val turned = listOf(PdfPageRef(unlocked.id, 0), PdfPageRef(unlocked.id, 1, 180), PdfPageRef(unlocked.id, 2))
+        val rotated = save(engine.reorganize(unlocked, emptyList(), turned, "protected_rotated").file, "protected_rotated.pdf")
         PDDocument.load(rotated).use { doc ->
             assertFalse(doc.isEncrypted)
             assertEquals(listOf(0, 180, 0), doc.pages.map { it.rotation })

@@ -113,8 +113,8 @@ class FlattenResult(val file: PdfFile, val droppedDynamicXfa: Boolean, val keptF
 class TextSearch(val matches: List<List<RedactBox>>, val unread: List<Int>)
 
 /**
- * Split, merge, compress, rotate, delete pages, reorganize, flatten, page numbers, watermarks,
- * signatures, the reader's additions (Annotate) and redaction. Input copies, results and PDFBox's scratch files all live in
+ * Split, merge, compress, reorganize (pages moved, turned, removed or added), flatten, page numbers,
+ * watermarks, signatures, the reader's additions (Annotate) and redaction. Input copies, results and PDFBox's scratch files all live in
  * the cache, so the system can reclaim them (and "Clear cache" removes them); callers must cope with
  * a file that has gone. PDF to images or text, Page layout and Document info are extension functions
  * in files of their own (FromPdf.kt, PdfPageLayout.kt and DocumentInfo.kt).
@@ -373,81 +373,101 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     /**
-     * Turns pages clockwise by [rotations] (page index to degrees, a multiple of 90), on top of the
-     * turn they already have. Only the pages' /Rotate changes; their content is left as it is.
-     */
-    fun rotate(input: PdfInput, rotations: Map<Int, Int>, fileName: String, check: () -> Unit = {}): PdfFile =
-        edit(input, fileName, "Rotated", check) { doc ->
-            for ((index, degrees) in rotations) {
-                check()
-                require(index in 0 until doc.numberOfPages && degrees % 90 == 0)
-                val page = doc.getPage(index)
-                page.rotation = Math.floorMod(page.rotation + degrees, 360)
-            }
-        }
-
-    /**
-     * Saves [input] without [pages] (zero-based), which must leave at least one page. Their
-     * bookmarks, form fields and links to them go too, so nothing of them stays in the file. The
-     * pages left keep their labels (see [PageLabeling]).
-     */
-    fun deletePages(input: PdfInput, pages: Collection<Int>, fileName: String, check: () -> Unit = {}): PdfFile =
-        edit(input, fileName, "Pages_deleted", check) { doc ->
-            val doomed = pages.toSortedSet()
-            require(doomed.isNotEmpty() && doomed.size < doc.numberOfPages && doomed.all { it in 0 until doc.numberOfPages })
-            val labels = PageLabeling.of(doc)?.let { PageLabeling.byPage(doc.pages.toList(), it) }
-            val removed = doomed.map(doc::getPage)
-            for (page in removed) {
-                check()
-                doc.removePage(page)
-            }
-            PageCleanup.dropRemovedPages(doc, removed, check)
-            labels?.let { PageLabeling.restore(doc, it) }
-        }
-
-    /**
      * Saves [main] with the pages in [pages]' order: its own pages, pages of [extras] (other PDFs
-     * the user added) and blank pages, each turned as it says. Pages left out are dropped as
-     * [deletePages] drops them. [main]'s bookmarks, form, tags and document details are kept; an
-     * extra PDF's come along with its pages, as in Merge. Each page keeps its label.
+     * the user added) and blank pages, each turned as it says. Pages left out are really gone: their
+     * bookmarks, form fields and links to them go too. [main]'s bookmarks, form, tags and document
+     * details are kept; an extra PDF's come along with its pages, as in Merge. Each page keeps its label.
+     *
+     * While [pages] are [main]'s own pages in the order they have there (some turned, some left out,
+     * none moved or added) and its page tree lists each page once, the page tree is left as it is:
+     * only the turned pages' /Rotate changes, and the pages left out are taken out of it. Their
+     * content, sizes and crop boxes aren't touched.
      */
     fun reorganize(main: PdfInput, extras: List<PdfInput>, pages: List<PdfPageRef>, fileName: String, check: () -> Unit = {}): PdfFile =
         edit(main, fileName, "Reorganized", check) { doc ->
             require(pages.isNotEmpty() && pages.map { it.key }.toSet().size == pages.size)
-            val sources = HashMap<Long, List<PDPage>>()
-            sources[main.id] = doc.pages.toList()
-            // Each PDF's own page labels, read before an extra one is joined (see merge).
-            val labels = PageLabeling.of(doc)?.let { PageLabeling.byPage(doc.pages.toList(), it) }
-            val merger = PDFMergerUtility()
-            for (extra in extras) {
-                if (extra.id in sources || pages.none { it.inputId == extra.id }) continue
-                check()
-                val start = doc.numberOfPages
-                loadUnmarked(extra.file, extra.password).use { source ->
-                    val own = PageLabeling.of(source)
-                    CjkFormFonts.append(merger, doc, source)
-                    sources[extra.id] = (start until doc.numberOfPages).map(doc::getPage)
-                    if (own != null) labels?.putAll(PageLabeling.byPage(sources.getValue(extra.id), own))
-                }
-            }
-            val before = doc.pages.toList()
-            val order = pages.map { ref ->
-                check()
-                val page = if (ref.isBlank) {
-                    require(ref.width > 0f && ref.height > 0f)
-                    PDPage(PDRectangle(ref.width, ref.height)).apply { resources = PDResources() }
-                } else {
-                    val source = sources.getValue(ref.inputId)
-                    require(ref.page in source.indices)
-                    source[ref.page]
-                }
-                page.rotation = Math.floorMod(page.rotation + ref.rotation, 360)
-                page
-            }
-            setPages(doc, order)
-            PageCleanup.dropRemovedPages(doc, before, check)
+            val all = doc.pages.toList()
+            if (inOwnOrder(main, pages) && eachOnce(all)) turnAndRemove(doc, all, pages, check) else rearrange(doc, main, extras, pages, check)
+        }
+
+    /** Whether [pages] are pages of [main] only, in the order they have in it. */
+    private fun inOwnOrder(main: PdfInput, pages: List<PdfPageRef>): Boolean =
+        pages.all { it.inputId == main.id } && pages.zipWithNext().all { (a, b) -> a.page < b.page }
+
+    /**
+     * Whether the page tree lists each page of [all] once. Only a damaged one lists a page twice, and
+     * PDFBox would take such a page out where the tree first lists it, not where the user chose.
+     */
+    private fun eachOnce(all: List<PDPage>): Boolean =
+        all.mapTo(Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>())) { it.cosObject }.size == all.size
+
+    /**
+     * The in-place path, what Rotate PDF and Delete pages did: the pages of [doc] ([all]) that [pages] leaves
+     * out are taken out of its page tree, their bookmarks, form fields and links to them with them,
+     * and the pages it turns get their /Rotate changed. Nothing else of a page or of the page tree
+     * changes. The pages left keep their labels (see [PageLabeling]).
+     */
+    private fun turnAndRemove(doc: PDDocument, all: List<PDPage>, pages: List<PdfPageRef>, check: () -> Unit) {
+        require(pages.all { it.page in all.indices && it.rotation % 90 == 0 })
+        val kept = pages.associateBy { it.page }
+        val removed = all.filterIndexed { index, _ -> index !in kept }
+        // Read before pages go, given back once they have (see PageLabeling).
+        val labels = if (removed.isEmpty()) null else PageLabeling.of(doc)?.let { PageLabeling.byPage(all, it) }
+        for ((index, ref) in kept) {
+            if (ref.rotation == 0) continue // a page not turned keeps its dictionary as it is
+            check()
+            all[index].rotation = Math.floorMod(all[index].rotation + ref.rotation, 360)
+        }
+        for (page in removed) {
+            check()
+            doc.removePage(page)
+        }
+        if (removed.isNotEmpty()) {
+            PageCleanup.dropRemovedPages(doc, removed, check)
             labels?.let { PageLabeling.restore(doc, it) }
         }
+    }
+
+    /**
+     * The other path, for pages moved or added: [main]'s pages, [extras]' and blank ones laid out
+     * flat in [pages]' order (see [setPages]), each turned as it says, and the pages left out
+     * dropped with their bookmarks, form fields and links to them.
+     */
+    private fun rearrange(doc: PDDocument, main: PdfInput, extras: List<PdfInput>, pages: List<PdfPageRef>, check: () -> Unit) {
+        val sources = HashMap<Long, List<PDPage>>()
+        sources[main.id] = doc.pages.toList()
+        // Each PDF's own page labels, read before an extra one is joined (see merge).
+        val labels = PageLabeling.of(doc)?.let { PageLabeling.byPage(doc.pages.toList(), it) }
+        val merger = PDFMergerUtility()
+        for (extra in extras) {
+            if (extra.id in sources || pages.none { it.inputId == extra.id }) continue
+            check()
+            val start = doc.numberOfPages
+            loadUnmarked(extra.file, extra.password).use { source ->
+                val own = PageLabeling.of(source)
+                CjkFormFonts.append(merger, doc, source)
+                sources[extra.id] = (start until doc.numberOfPages).map(doc::getPage)
+                if (own != null) labels?.putAll(PageLabeling.byPage(sources.getValue(extra.id), own))
+            }
+        }
+        val before = doc.pages.toList()
+        val order = pages.map { ref ->
+            check()
+            val page = if (ref.isBlank) {
+                require(ref.width > 0f && ref.height > 0f)
+                PDPage(PDRectangle(ref.width, ref.height)).apply { resources = PDResources() }
+            } else {
+                val source = sources.getValue(ref.inputId)
+                require(ref.page in source.indices)
+                source[ref.page]
+            }
+            page.rotation = Math.floorMod(page.rotation + ref.rotation, 360)
+            page
+        }
+        setPages(doc, order)
+        PageCleanup.dropRemovedPages(doc, before, check)
+        labels?.let { PageLabeling.restore(doc, it) }
+    }
 
     /**
      * Makes [pages] the document's pages, in order, all straight under the page tree's root. Each
