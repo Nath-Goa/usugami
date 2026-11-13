@@ -875,6 +875,97 @@ class ScreensDeviceTest {
         }
     }
 
+    /**
+     * Like [findBelow], reading each node afresh: after the options changed the screen in place,
+     * the tree as read here may still say what it said before, the screen's scrolling among it
+     * (see relabelledButton).
+     */
+    private fun freshBelow(what: String, match: (AccessibilityNodeInfo) -> Boolean): AccessibilityNodeInfo {
+        val down = AccessibilityAction.ACTION_SCROLL_DOWN
+        repeat(10) {
+            nodes().firstOrNull { it.refresh() && match(it) }?.let { return it }
+            val scroller = nodes().firstOrNull { it.refresh() && down in it.actionList } ?: return find(what) { it.refresh() && match(it) }
+            scroller.performAction(down.id)
+            Thread.sleep(500)
+        }
+        return find(what) { it.refresh() && match(it) }
+    }
+
+    /**
+     * Page layout's Crop: its button is off until the box crops something; five presses of a step
+     * button crop 5% off the left of the page; Some pages starts with the page shown; the box, the
+     * choice and the pages typed survive the activity being recreated, as on rotation; and only the
+     * page typed gets the narrower crop box.
+     */
+    @Test fun pageLayoutCropsWithButtonsAndKeepsItsChoicesThroughRecreation() {
+        val first = launch()
+        openToolWithAlpha(R.string.tool_page_layout, first)
+        val cropPdf = app.getString(R.string.pdf_layout_crop_action)
+        // The options give the button its words in place, which the tree as read here may not have caught up with.
+        find("the \"$cropPdf\" button, off") {
+            it.refresh() && it.says(cropPdf) && ancestor(it) { node -> node.isClickable }?.isEnabled == false
+        }
+        // Each press steps on from the last, even before the screen has caught up.
+        val more = app.getString(R.string.layout_crop_more_left)
+        repeat(5) { click(freshBelow("the step button") { it.says(more) }) }
+        val some = app.getString(R.string.layout_pages_some)
+        click(freshBelow("Some pages") { it.says(some) })
+        waitUntil("Some pages to be chosen") { radio(some).chosen }
+        find("the pages field, with the page shown") { it.refresh() && it.isEditable && it.text?.toString() == "1" }
+
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+        freshBelow("Some pages, still") { it.says(some) }
+        assertTrue("Some pages, still chosen", radio(some).chosen)
+        find("the pages field, still") { it.refresh() && it.isEditable && it.text?.toString() == "1" }
+        click(relabelledButton(R.string.pdf_layout_crop_action))
+
+        val result = resultFile(pdfVm)
+        assertEquals("alpha_layout.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            val cropped = doc.getPage(0).cropBox
+            // 5% of an A4 page's 595 points, after five steps of 1%.
+            assertEquals(29.75f, cropped.lowerLeftX, 0.5f)
+            assertEquals(595f, cropped.upperRightX, 0.01f)
+            assertEquals(0f, cropped.lowerLeftY, 0.01f)
+            assertEquals(842f, cropped.upperRightY, 0.01f)
+            for (index in 1..2) {
+                val page = doc.getPage(index)
+                assertNull("Page ${index + 1} isn't cropped", page.cosObject.getDictionaryObject(COSName.CROP_BOX))
+                assertEquals(595f, page.cropBox.width, 0.01f)
+            }
+            assertEquals(listOf(0, 0, 0), doc.pages.map { it.rotation })
+        }
+    }
+
+    /**
+     * Page layout's Pages per sheet: with 4 to a sheet the preview of the first sheet holds alpha.pdf's
+     * three pages and says there will be one sheet, and the PDF saved is that one sheet, an A4
+     * page upright, with the three pages' text still text.
+     */
+    @Test fun pagesPerSheetShowsItsFirstSheetAndSaves() {
+        val activity = launch()
+        val pdfVm = openToolWithAlpha(R.string.tool_page_layout, activity)
+        click(radio(app.getString(R.string.layout_mode_sheets)))
+        click(freshBelow("4 pages per sheet") { it.says(app.resources.getQuantityString(R.plurals.layout_sheets_count, 4, 4)) })
+        val preview = app.resources.getQuantityString(R.plurals.layout_sheets_preview_description, 3, 3)
+        freshBelow("the first sheet, with the three pages") { it.says(preview) }
+        val oneSheet = app.resources.getQuantityString(R.plurals.layout_sheets_made, 1, 1)
+        freshBelow("the number of sheets") { it.says(oneSheet) }
+        click(relabelledButton(R.string.pdf_page_layout_action))
+
+        val result = resultFile(pdfVm)
+        assertEquals("alpha_layout.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            assertEquals(1, doc.numberOfPages)
+            val sheet = doc.getPage(0).mediaBox
+            assertTrue("An A4 sheet, upright: ${sheet.width} x ${sheet.height}", sheet.width in 594f..596f && sheet.height in 841f..843f)
+            val text = PDFTextStripper().getText(doc)
+            assertTrue(text, listOf("ALPHA ONE", "ALPHA TWO", "ALPHA THREE").all { it in text })
+        }
+    }
+
     /** Page [index] of [file] as shown, a pixel per point, on white. */
     private fun renderPage(file: File, index: Int): Bitmap =
         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor ->

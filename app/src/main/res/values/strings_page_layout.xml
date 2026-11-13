@@ -14,4 +14,58 @@
     <string name="search_keywords_page_layout">crop, trim, cut off, margins, edges, border, n-up, 2-up, 4-up, pages per sheet, side by side, handout, print, paper</string>
     <!-- The button that saves the PDF with its pages laid out as chosen. -->
     <string name="pdf_page_layout_action">Save PDF</string>
+    <!-- The two things Page layout does (crop pages: choose the part of each page that shows; or put several pages on one sheet of paper), on a two-part switch at its top. -->
+    <string name="layout_mode_crop">Crop</string>
+    <string name="layout_mode_sheets">Pages per sheet</string>
+    <string name="layout_crop_note">Cropping only hides what is outside the box, which stays in the file. To remove it for good, use Redact PDF.</string>
+    <!-- Over the row of pages: the page tapped is the one the preview shows. -->
+    <string name="layout_crop_page">Page shown</string>
+    <string name="layout_crop_box">Crop box</string>
+    <string name="layout_crop_box_hint">Drag the sides or corners of the box. It takes the same share of every page you crop.</string>
+    <!-- Read out by screen readers for the preview. %1$d is a page number (1 or more). -->
+    <string name="layout_crop_preview_description" tools:ignore="PluralsCandidate">Page %1$d with the crop box</string>
+    <!-- Read out by screen readers for the preview. %1$d and %2$d are percentages from 5 to 100; %% is the percent sign. -->
+    <string name="layout_crop_preview_state">Keeps %1$d%% of the width and %2$d%% of the height</string>
+    <!-- The four sides of the crop box, each with a button to crop more and one to crop less. -->
+    <string name="layout_crop_left">Left</string>
+    <string name="layout_crop_top">Top</string>
+    <string name="layout_crop_right">Right</string>
+    <string name="layout_crop_bottom">Bottom</string>
+    <string name="layout_crop_more_left">Crop more off the left</string>
+    <string name="layout_crop_less_left">Crop less off the left</string>
+    <string name="layout_crop_more_top">Crop more off the top</string>
+    <string name="layout_crop_less_top">Crop less off the top</string>
+    <string name="layout_crop_more_right">Crop more off the right</string>
+    <string name="layout_crop_less_right">Crop less off the right</string>
+    <string name="layout_crop_more_bottom">Crop more off the bottom</string>
+    <string name="layout_crop_less_bottom">Crop less off the bottom</string>
+    <!-- Puts the crop box back round the whole page. -->
+    <string name="layout_crop_whole">Whole page</string>
+    <string name="layout_crop_pages">Pages to crop</string>
+    <string name="layout_pages_all">All pages</string>
+    <string name="layout_pages_some">Some pages</string>
+    <string name="layout_pages_field">Pages</string>
+    <string name="layout_pages_hint" tools:ignore="TypographyDashes">For example: 2,5-7</string>
+    <string name="pdf_layout_crop_action">Crop PDF</string>
+    <!-- Pages per sheet. A4 and US Letter (existing size_a4, size_letter) are the papers. -->
+    <string name="layout_sheets_paper">Paper size</string>
+    <string name="layout_sheets_auto_note">Usugami turns the sheet whichever way the pages come out bigger.</string>
+    <string name="layout_sheets_border">Border around each page</string>
+    <string name="layout_sheets_preview">First sheet</string>
+    <string name="layout_sheets_note">Text stays sharp and can still be selected and searched. Comments and filled-in form fields are drawn as they look. Links, bookmarks and form fields don\'t work on the sheets.</string>
+    <!-- Read out for each choice of how many pages go on a sheet: %d is 2, 4, 6 or 9, never 0 or 1. -->
+    <plurals name="layout_sheets_count">
+        <item quantity="one">%d page per sheet</item>
+        <item quantity="other">%d pages per sheet</item>
+    </plurals>
+    <!-- Under the preview: how many sheets the new PDF will have. %d is 1 or more, never 0. -->
+    <plurals name="layout_sheets_made">
+        <item quantity="one">Your PDF will have %d sheet.</item>
+        <item quantity="other">Your PDF will have %d sheets.</item>
+    </plurals>
+    <!-- Read out by screen readers for the preview of the first sheet. %d is the number of pages on it, 1 to 9, never 0. -->
+    <plurals name="layout_sheets_preview_description">
+        <item quantity="one">The first sheet, with %d page</item>
+        <item quantity="other">The first sheet, with %d pages</item>
+    </plurals>
 </resources>
