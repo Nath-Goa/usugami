@@ -33,6 +33,7 @@ import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.SharedFiles
 import io.github.nath_goa.usugami.core.SharedKind
+import io.github.nath_goa.usugami.core.ShortcutTarget
 import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.AppLanguages
@@ -1756,6 +1757,26 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }.start()
     }
 
+    // ---- Launcher shortcuts ----
+
+    /**
+     * The launcher shortcut just used, by its [ShortcutTarget.id], until the screen acts on it (see
+     * UsugamiApp). Kept in the saved state, so it outlives the activity being recreated, as it is
+     * when the first launch's language screen has a language chosen.
+     */
+    val shortcut: StateFlow<String?> = handle.getStateFlow<String?>(KEY_SHORTCUT, null)
+
+    /** A launcher shortcut was used: [id] names its target (see MainActivity.handleShortcut). */
+    fun openShortcut(id: String) {
+        handle[KEY_SHORTCUT] = id
+    }
+
+    /** The shortcut used and not acted on yet, which is then forgotten; null when there is none. */
+    fun takeShortcut(): ShortcutTarget? =
+        // Set to null, never removed: removing a key also cuts the flow read from it (shortcut) off the
+        // handle for good, and the next shortcut used would never reach the screen.
+        ShortcutTarget.of(handle.get<String>(KEY_SHORTCUT)).also { handle[KEY_SHORTCUT] = null }
+
     companion object {
         private const val KEY_ITEMS = "items"
         private const val KEY_SAVED = "saved"
@@ -1772,6 +1793,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_MAKING = "making"
         private const val KEY_READING = "reading"
         private const val KEY_OPENING = "opening"
+        private const val KEY_SHORTCUT = "shortcut"
 
         /**
          * [list] for the saved state, in a few bytes per image: a list of [ImageItem]s took hundreds,

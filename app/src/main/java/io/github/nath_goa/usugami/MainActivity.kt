@@ -15,14 +15,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.core.content.IntentCompat
+import androidx.lifecycle.lifecycleScope
 import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.AppShortcuts
 import io.github.nath_goa.usugami.data.Appearances
 import io.github.nath_goa.usugami.data.PdfPrinting
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.UsugamiApp
 import io.github.nath_goa.usugami.ui.UsugamiTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.InputStream
 
 class MainActivity : ComponentActivity() {
@@ -51,11 +55,16 @@ class MainActivity : ComponentActivity() {
         // keeps it for Usugami.
         AppLanguages.handOver(this)
         Appearances.handOver(this)
+        // The launcher shortcuts, labelled in the language picked: published at every creation, so
+        // after the language changes (which recreates the activity) they follow. One at a time, in the
+        // order the activities were created: the labels of the newest win.
+        lifecycleScope.launch(shortcutWork) { AppShortcuts.publish(this@MainActivity) }
         // On recreation the shared files were already taken in (and are in the saved state), and so
-        // was a file opened.
+        // were a file opened and a shortcut used.
         if (savedInstanceState == null) {
             handleShare(intent)
             handleView(intent)
+            handleShortcut(intent)
         }
         setContent {
             UsugamiTheme(Appearances.forTheme(this)) {
@@ -87,6 +96,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         handleShare(intent)
         handleView(intent)
+        handleShortcut(intent)
     }
 
     /**
@@ -132,6 +142,13 @@ class MainActivity : ComponentActivity() {
         viewModel.open(uri, type = intent.type, from = ReadFrom.OUTSIDE)
     }
 
+    /** A launcher shortcut used (see AppShortcuts): the screen opens its tool (see MainViewModel.shortcut). */
+    private fun handleShortcut(intent: Intent) {
+        // Reopened from the recent apps, the intent is the one Usugami was started with: already acted on.
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        AppShortcuts.targetOf(intent)?.let { viewModel.openShortcut(it.id) }
+    }
+
     private fun sharedUris(intent: Intent): List<Uri>? = when (intent.action) {
         // Below API 34 these extras are not type-checked, so a sender can put anything there.
         // Filter by type instead of trusting the generic signature.
@@ -145,5 +162,10 @@ class MainActivity : ComponentActivity() {
         // Some apps only put the files in ClipData.
         val clip = intent.clipData ?: return null
         (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+    }
+
+    private companion object {
+        /** Shortcuts are published one at a time (see onCreate). */
+        val shortcutWork = Dispatchers.IO.limitedParallelism(1)
     }
 }
