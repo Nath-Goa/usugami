@@ -16,6 +16,14 @@ dependencies {
 tasks.test {
     // Optional end-to-end fixture run: ./gradlew :core:test -PusugamiFixtures=<dir>
     systemProperty("usugami.fixtures", providers.gradleProperty("usugamiFixtures").orElse("").get())
+    // TranslationsTest reads the app's strings and the store texts: a change to one of them alone
+    // runs the tests again.
+    inputs.files(fileTree("../app/src") { include("*/res/values*/*.xml") })
+        .withPropertyName("appStrings").withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(
+        fileTree("../fastlane/metadata") { include("**/*.txt") },
+        fileTree("../src/lite/fastlane/metadata") { include("**/*.txt") },
+    ).withPropertyName("storeTexts").withPathSensitivity(PathSensitivity.RELATIVE)
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
