@@ -372,7 +372,11 @@
         <item quantity="other">%d form fields have text that Usugami can\'t draw with their font, so they were left fillable to keep that text.</item>
     </plurals>
     <string name="flatten_fields_kept_many">Some form fields have text that Usugami can\'t draw with their font, so they were left fillable to keep that text.</string>
-    <!-- Edit PDF: text, drawings, highlights, shapes and pictures put on top of a PDF's pages. "Redact PDF" is the name of another tool. -->
+    <!-- Edit PDF was a tool until 2.0.0; it is now Annotate in Read and annotate: text, drawings,
+         highlights, shapes and pictures put on top of a PDF's pages, with the strings below. "Redact
+         PDF" is the name of another tool. Edit PDF's name, description (the next two strings) and
+         hidden words (search_keywords_edit) are never shown: they are kept as hidden words that find
+         Read and annotate in Home's search, so translate them as what people would type to find it. -->
     <string name="tool_edit">Edit PDF</string>
     <string name="tool_edit_detail">Add text, drawings, shapes and pictures</string>
     <string name="pdf_edit_action">Save PDF</string>

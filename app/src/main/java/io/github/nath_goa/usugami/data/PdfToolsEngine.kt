@@ -114,7 +114,7 @@ class TextSearch(val matches: List<List<RedactBox>>, val unread: List<Int>)
 
 /**
  * Split, merge, compress, rotate, delete pages, reorganize, flatten, page numbers, watermarks,
- * signatures, Edit PDF's additions and redaction. Input copies, results and PDFBox's scratch files all live in
+ * signatures, the reader's additions (Annotate) and redaction. Input copies, results and PDFBox's scratch files all live in
  * the cache, so the system can reclaim them (and "Clear cache" removes them); callers must cope with
  * a file that has gone. PDF to images or text, Page layout and Document info are extension functions
  * in files of their own (FromPdf.kt, PdfPageLayout.kt and DocumentInfo.kt).
@@ -760,8 +760,8 @@ class PdfToolsEngine(private val context: Context) {
     }
 
     /**
-     * Draws Edit PDF's [items] (text, strokes, shapes and pictures) on [input]'s pages, exactly where
-     * the preview showed them on each page as shown. Pages without items are left as they are.
+     * Draws what Annotate added, [items] (text, strokes, shapes and pictures), on [input]'s pages,
+     * exactly where the screen showed them on each page as shown. Pages without items are left as they are.
      * Throws [WatermarkFontMissing] if no font on the phone can draw some of the text.
      */
     fun editPages(input: PdfInput, items: List<PageItem>, fileName: String, check: () -> Unit = {}): PdfFile {

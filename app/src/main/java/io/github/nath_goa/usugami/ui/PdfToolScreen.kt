@@ -129,7 +129,6 @@ fun PdfToolScreen(
     pickSingle: () -> Unit,
     pickMultiple: () -> Unit,
     pickAdd: () -> Unit,
-    pickPicture: () -> Unit,
 ) {
     val inputs by vm.inputs.collectAsStateWithLifecycle()
     val pages by vm.pages.collectAsStateWithLifecycle()
@@ -143,7 +142,6 @@ fun PdfToolScreen(
     val signature by vm.signature.collectAsStateWithLifecycle()
     val documents by vm.documents.collectAsStateWithLifecycle()
     val convertProgress by vm.convertProgress.collectAsStateWithLifecycle()
-    val editItems by vm.editItems.collectAsStateWithLifecycle()
         val redactBoxes by vm.redactBoxes.collectAsStateWithLifecycle()
     val finding by vm.finding.collectAsStateWithLifecycle()
     val previewView by vm.previewView.collectAsStateWithLifecycle()
@@ -211,7 +209,6 @@ fun PdfToolScreen(
         PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> documents.isNotEmpty() && documents.all { it.kind == officeKind }
         PdfTool.DELETE_PAGES -> inputs.size == 1 && deleteText.isNotBlank()
         PdfTool.REORGANIZE -> reorganized
-        PdfTool.EDIT -> inputs.size == 1 && editItems.any { it.page < inputs[0].pageCount }
         PdfTool.REDACT -> inputs.size == 1 && redactBoxes.isNotEmpty() && !finding
         PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO -> inputs.size == 1 && toolAction.ready
         // The reader has a screen of its own (ReaderScreen); this screen is never shown for it.
@@ -230,7 +227,6 @@ fun PdfToolScreen(
         PdfTool.DELETE_PAGES -> R.string.pdf_delete_pages_action
         PdfTool.REORGANIZE -> R.string.pdf_reorganize_action
         PdfTool.FLATTEN -> R.string.pdf_flatten_action
-        PdfTool.EDIT -> R.string.pdf_edit_action
         PdfTool.REDACT -> R.string.pdf_redact_action
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.pdf_to_images_or_text_action
         PdfTool.PAGE_LAYOUT -> R.string.pdf_page_layout_action
@@ -277,7 +273,6 @@ fun PdfToolScreen(
                             PdfTool.DELETE_PAGES -> vm.runDeletePages(deleteText, fileName)
                             PdfTool.REORGANIZE -> vm.runReorganize(fileName)
                             PdfTool.FLATTEN -> vm.runFlattenAll()
-                            PdfTool.EDIT -> vm.runEdit(fileName)
                             PdfTool.EPUB -> vm.runConvertAll(bookPage)
                             PdfTool.EXCEL -> vm.runConvertAll(sheets = sheetOptions)
                             PdfTool.REDACT -> vm.runRedact(fileName)
@@ -468,10 +463,6 @@ fun PdfToolScreen(
                                 },
                             )
                             PdfTool.FLATTEN -> FlattenOptions()
-                            PdfTool.EDIT -> EditPdfOptions(shown ?: inputs[0], vm, importing, onPickPicture = { page ->
-                                vm.prepareEditPicture(page)
-                                pickPicture()
-                            })
                             PdfTool.REDACT -> RedactOptions(inputs[0], vm)
                             PdfTool.PDF_TO_IMAGES_OR_TEXT -> FromPdfOptions(inputs[0], drawn(inputs[0]), vm, toolAction)
                             PdfTool.PAGE_LAYOUT -> PageLayoutOptions(inputs[0], drawn(inputs[0]), vm, toolAction)
@@ -703,7 +694,7 @@ private const val WORKING_DIALOG_DELAY_MS = 400L
 
 /** The tools that draw the PDF's pages for the user to work on. Redact PDF prepares its own. */
 private val PREVIEWED = setOf(
-    PdfTool.SPLIT, PdfTool.ROTATE, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.DELETE_PAGES, PdfTool.REORGANIZE, PdfTool.EDIT,
+    PdfTool.SPLIT, PdfTool.ROTATE, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.DELETE_PAGES, PdfTool.REORGANIZE,
     PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT,
 )
 

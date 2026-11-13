@@ -399,7 +399,6 @@ class ScreensDeviceTest {
                 R.string.tool_page_layout,
             ),
             listOf(
-                R.string.tool_edit,
                 R.string.tool_sign,
                 R.string.tool_page_numbers,
                 R.string.tool_watermark,
@@ -460,7 +459,6 @@ class ScreensDeviceTest {
         R.string.tool_delete_pages,
         R.string.tool_rotate,
         R.string.tool_page_layout,
-        R.string.tool_edit,
         R.string.tool_sign,
         R.string.tool_page_numbers,
         R.string.tool_watermark,
@@ -543,6 +541,12 @@ class ScreensDeviceTest {
         waitUntil("tools named with \"page\" first") {
             shownTools(english).let { it.indexOf(numbers) in 0 until it.indexOf(merge) }
         }
+        // Read and annotate, by what found it and what found Edit PDF, which is its Annotate.
+        val reader = english.getString(R.string.tool_reader)
+        for (word in listOf("edit", "annotate", "draw", "highlight", "text", "open", "view", "read")) {
+            type(searchField(), word)
+            waitUntil("\"$word\" to find Read and annotate") { reader in shownTools(english) }
+        }
 
         type(searchField(), "zebra")
         val none = find("the empty state") { it.says(english.getString(R.string.home_search_none, "zebra")) }
@@ -593,6 +597,11 @@ class ScreensDeviceTest {
         // "réduire" and "taille" are Compress PDF's.
         type(searchField(), "REDUIRE taille")
         waitForTools(french.getString(R.string.tool_compress), resources = french)
+        // Edit PDF's French words find Read and annotate, whose Annotate it is now.
+        for (word in listOf("annoter", "modifier")) {
+            type(searchField(), word)
+            waitUntil("\"$word\" to find Read and annotate") { french.getString(R.string.tool_reader) in shownTools(french) }
+        }
         type(searchField(), "zèbre")
         find("the empty state in French") { it.says(french.getString(R.string.home_search_none, "zèbre")) }
     }
@@ -881,7 +890,7 @@ class ScreensDeviceTest {
         return all.count(match)
     }
 
-    /** A tool button of Edit PDF, by its name, once it can be pressed; the screen scrolls up to it. */
+    /** A tool button of Annotate, by its name, once it can be pressed; the screen scrolls up to it. */
     private fun editTool(label: Int) = findAbove("the \"${app.getString(label)}\" tool") {
         it.says(app.getString(label)) && ancestor(it) { node -> node.isClickable }?.isEnabled == true
     }
@@ -893,11 +902,26 @@ class ScreensDeviceTest {
         waitUntil("the menu to close") { nodes().any { it.says(app.getString(R.string.pdf_edit_action)) } }
     }
 
-    @Test fun editPdfAddsWithButtonsUndoesAndKeepsItThroughRecreation() {
+    /** alpha.pdf (three pages) opened in the reader, as a file picked with Read and annotate is, and its first page showing. */
+    private fun alphaInTheReader(activity: MainActivity): PdfToolsViewModel {
+        val mainVm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        onMain { mainVm.open(pdf("alpha.pdf"), null, ReadFrom.HOME) }
+        find("the page showing, of three") { it.says(app.getString(R.string.reader_page_of, 1, 3)) }
+        return onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
+    }
+
+    @Test fun annotateAddsWithButtonsUndoesAndKeepsItThroughRecreation() {
         val first = launch()
-        val firstVm = openToolWithAlpha(R.string.tool_edit, first)
-        assertFalse("Nothing to save yet", clickable(button(R.string.pdf_edit_action)).isEnabled)
+        val firstVm = alphaInTheReader(first)
+        // With nothing added, More offers Share (the file as it was opened, which the pages show).
+        click(find("More") { it.says(app.getString(R.string.reader_more)) })
+        find("Share in More") { it.says(app.getString(R.string.share)) }
+        instrumentation.sendKeyDownUpSync(KeyEvent.KEYCODE_BACK)
+        waitUntil("the menu to close") { nodes().none { it.says(app.getString(R.string.share)) } }
+        click(find("Annotate") { it.says(app.getString(R.string.reader_annotate)) })
         find("what to do first") { it.says(app.getString(R.string.edit_hint_start)) }
+        find("Annotate's title") { it.says(app.getString(R.string.reader_annotate)) }
+        assertTrue("No Save PDF before anything is added", nodes().none { it.says(app.getString(R.string.pdf_edit_action)) })
         fun items() = onMain { firstVm.editItems.value }
 
         // Text is typed in a dialog, then put in the middle of the page and chosen; a screen reader hears so.
@@ -949,7 +973,7 @@ class ScreensDeviceTest {
 
         click(actionButton(R.string.pdf_edit_action))
         val result = resultFile(pdfVm)
-        assertEquals("alpha_edited.pdf", result.name)
+        assertEquals("alpha_annotated.pdf", result.name)
         PDDocument.load(result).use { doc ->
             val firstPage = PDFTextStripper().apply {
                 startPage = 1
@@ -972,11 +996,27 @@ class ScreensDeviceTest {
         assertEquals(0, count(third, ::blue))
         original.delete()
 
-        // Back from the result, everything is still there to change.
+        // Back from the result, Annotate is as it was left, page 2 showing, everything still there to change.
         click(find("the back button") { it.says(app.getString(R.string.back_to_editing)) })
         waitUntil("the result to slide away") { nodes().none { it.says(app.getString(R.string.result_heading_one)) } }
+        findBelow("page 2, as it was left") { it.says(app.getString(R.string.edit_preview_description, 2)) }
         assertEquals(4, onMain { pdfVm.editItems.value.size })
         assertTrue(clickable(actionButton(R.string.pdf_edit_action)).isEnabled)
+
+        // Back to reading: page 2 of the pages, with what was added, and Save PDF still there.
+        click(find("Back to reading") { it.says(app.getString(R.string.reader_back_to_reading)) })
+        find("page 2 showing") { it.says(app.getString(R.string.reader_page_of, 2, 3)) }
+        assertEquals(4, onMain { pdfVm.editItems.value.size })
+        assertTrue(clickable(actionButton(R.string.pdf_edit_action)).isEnabled)
+        assertTrue("Annotate is still offered", nodes().any { it.says(app.getString(R.string.reader_annotate)) })
+        // The file as it was opened hasn't the additions the pages show: More doesn't offer to share,
+        // print or hand it over meanwhile. Save PDF's result does, with them.
+        click(find("More") { it.says(app.getString(R.string.reader_more)) })
+        find("Tools in More") { it.says(app.getString(R.string.reader_tools)) }
+        val offered = texts()
+        for (hidden in listOf(R.string.share, R.string.print, R.string.reader_open_elsewhere)) {
+            assertFalse("No ${app.getString(hidden)} while additions aren't saved", offered.contains(app.getString(hidden)))
+        }
     }
 
     @Test fun flattenSaysWhatItDoesAndWhenThereIsNothingToFlatten() {
@@ -2071,7 +2111,6 @@ class ScreensDeviceTest {
             R.string.tool_delete_pages,
             R.string.tool_rotate,
             R.string.tool_page_layout,
-            R.string.tool_edit,
             R.string.tool_sign,
             R.string.tool_page_numbers,
             R.string.tool_watermark,
@@ -2114,7 +2153,6 @@ class ScreensDeviceTest {
             R.string.tool_reorganize,
             R.string.tool_rotate,
             R.string.tool_sign,
-            R.string.tool_edit,
             R.string.tool_redact,
         ).map(app::getString)
         val forSeveral = listOf(

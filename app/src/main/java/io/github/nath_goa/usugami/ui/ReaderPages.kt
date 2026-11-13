@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -70,6 +71,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.PageItem
 import io.github.nath_goa.usugami.core.ReaderGeometry
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.data.ReaderDocument
@@ -134,7 +136,9 @@ private fun pageHeight(shownWidth: Float, shownHeight: Float, ownWidth: Int): In
  * pages stop moving, the part of each page that shows is drawn again sharp when its picture is
  * coarser than the screen (see [ReaderTiles]). [zoom] and [panX] are read where they are used, so a
  * pinch lays the list out again without composing it again. What Find text [found] is marked on the
- * pages, and the pages move to show the match marked whenever another one is.
+ * pages, and the pages move to show the match marked whenever another one is. What Annotate added
+ * ([items]) is drawn on its page as the PDF will have it; no touch reaches it here. [barBelow]:
+ * something under the pages (Save PDF) already clears the navigation bar, so the list's end needn't.
  */
 @Composable
 internal fun ReaderPages(
@@ -145,6 +149,8 @@ internal fun ReaderPages(
     onView: (zoom: Float, panX: Float) -> Unit,
     found: Found,
     modifier: Modifier = Modifier,
+    items: List<PageItem> = emptyList(),
+    barBelow: Boolean = false,
 ) {
     val document = session.document
     // The pictures of this PDF's pages, and the sharp parts: all recycled once it no longer shows.
@@ -175,7 +181,7 @@ internal fun ReaderPages(
         list.dispatchRawDelta(zoomed.scrollBy)
     }
 
-    val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val bottom = if (barBelow) 0.dp else WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     BoxWithConstraints(
         modifier
             .fillMaxSize()
@@ -290,8 +296,9 @@ internal fun ReaderPages(
                 currentOnView(zoomNow, ReaderGeometry.clampPan(left * zoomNow - width / 4f, zoomNow, width.toFloat()))
             }
         }
-        // The matches by page.
+        // The matches by page, and what Annotate added.
         val marks = remember(found.matches) { found.matches.withIndex().groupBy { it.value.first().page } }
+        val added = remember(items) { items.groupBy { it.page } }
 
         // Behind the list, so touched only where it isn't: beside the pages, zoomed out.
         Box(
@@ -330,6 +337,7 @@ internal fun ReaderPages(
                     matches = onPage.filter { it.index != found.current }.flatMap { it.value },
                     current = onPage.firstOrNull { it.index == found.current }?.value.orEmpty(),
                     onZoom = { larger -> zoomStep(index, larger) },
+                    items = added[index].orEmpty(),
                 )
             }
         }
@@ -402,7 +410,8 @@ private suspend fun drawTiles(
 
 /**
  * Page [index] of [document], white, in its shape, with its picture once drawn, its sharp part over it,
- * and Find text's [matches] on it marked, the match marked last ([current], its boxes) in another colour.
+ * what Annotate added to it ([items]), and Find text's [matches] on it marked, the match marked last
+ * ([current], its boxes) in another colour.
  */
 @Composable
 private fun ReaderPage(
@@ -414,8 +423,12 @@ private fun ReaderPage(
     matches: List<RedactBox>,
     current: List<RedactBox>,
     onZoom: (larger: Boolean) -> Boolean,
+    items: List<PageItem>,
 ) {
     val (shownWidth, shownHeight) = document.sizes[index]
+    // What was added, drawn as Annotate draws it, its pictures decoded as the page shows.
+    val pictures = rememberItemPictures(items)
+    val painter = remember(document, index) { PageItemsPainter() }
     val spoken = stringResource(R.string.reader_page_of_spoken, index + 1, document.pageCount)
     val zoomIn = stringResource(R.string.reader_zoom_in)
     val zoomOut = stringResource(R.string.reader_zoom_out)
@@ -488,6 +501,15 @@ private fun ReaderPage(
                         scale(tile.width / tile.pixelWidth, tile.height / tile.pixelHeight, pivot = Offset.Zero)
                     }) {
                         drawImage(drawn.image)
+                    }
+                }
+                // What was added, in points on the page as shown, cut at the page's edges as the PDF cuts it.
+                if (items.isNotEmpty()) {
+                    val scale = size.width / shownWidth
+                    clipRect {
+                        withTransform({ scale(scale, scale, pivot = Offset.Zero) }) {
+                            with(painter) { draw(items, pictures) }
+                        }
                     }
                 }
                 // Find text's matches, each box a share of the page as shown.

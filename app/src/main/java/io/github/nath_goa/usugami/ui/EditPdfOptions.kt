@@ -57,7 +57,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -102,15 +101,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.min
 
-// Edit PDF: one page at a time, large, with what was added drawn on it. A row of tools adds text,
-// shapes and pictures (each put in the middle of the page and chosen, ready to move) or turns on
-// drawing with a pen or highlighter. The chosen item's controls sit under the page. Everything but
-// drawing itself also works with buttons, for those who can't drag.
+// The reader's Annotate (ReaderAnnotate hosts it; Edit PDF was this screen's tool until 2.0.0): one
+// page at a time, large, with what was added drawn on it. A row of tools adds text, shapes and
+// pictures (each put in the middle of the page and chosen, ready to move) or turns on drawing with a
+// pen or highlighter. The chosen item's controls sit under the page. Everything but drawing itself
+// also works with buttons, for those who can't drag.
 
 /** What a touch on the page does: choose and move what was added, or draw. */
 internal enum class EditMode { SELECT, PEN, HIGHLIGHTER }
 
-/** Edit PDF's colours, as ARGB. */
+/** Annotate's colours, as ARGB. */
 internal enum class EditColor(val argb: Int) {
     BLACK(0xFF000000.toInt()),
     BLUE(0xFF1565C0.toInt()),
@@ -136,16 +136,29 @@ private const val NEW_TEXT = -1L
 /** Each move button moves the chosen item by this share of the page's shorter side. */
 private const val NUDGE = 0.02f
 
+/**
+ * Annotate's tools and page for [input], the PDF as it is drawn (its view). The page showing
+ * ([pageShown], zero-based; [onPage] asks for another) and the style the next item gets ([style],
+ * [onStyle]) are kept by the caller, so Annotate comes back to them. [onPickPicture] opens the photo
+ * picker for a picture on the page given; [importing]: a picture is being copied in.
+ */
 @Composable
-internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: Boolean, onPickPicture: (Int) -> Unit) {
+internal fun EditPdfOptions(
+    input: PdfInput,
+    vm: PdfToolsViewModel,
+    importing: Boolean,
+    pageShown: Int,
+    onPage: (Int) -> Unit,
+    style: EditStyle,
+    onStyle: (EditStyle) -> Unit,
+    onPickPicture: (Int) -> Unit,
+) {
     val items by vm.editItems.collectAsStateWithLifecycle()
     val selectedId by vm.editSelected.collectAsStateWithLifecycle()
     val canUndo by vm.canUndoEdit.collectAsStateWithLifecycle()
     val canRedo by vm.canRedoEdit.collectAsStateWithLifecycle()
-    var pageIndex by rememberSaveable(input.id) { mutableIntStateOf(0) }
-    val page = pageIndex.coerceIn(0, input.pageCount - 1)
+    val page = pageShown.coerceIn(0, input.pageCount - 1)
     var mode by rememberSaveable { mutableStateOf(EditMode.SELECT) }
-    var style by rememberSaveable { mutableStateOf(EditStyle()) }
     // Open with NEW_TEXT or the id of the text being changed.
     var textDialog by rememberSaveable { mutableStateOf<Long?>(null) }
     // Once Save is tapped, nothing more goes on the pages: the PDF is made from them as they were.
@@ -170,7 +183,7 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
     val onPage = items.filter { it.page == page }
     val selected = onPage.firstOrNull { it.id == selectedId }
     fun showPage(index: Int) {
-        pageIndex = index
+        onPage(index)
         if (items.firstOrNull { it.id == selectedId }?.page != index) vm.selectEditItem(null)
     }
 
@@ -269,7 +282,7 @@ internal fun EditPdfOptions(input: PdfInput, vm: PdfToolsViewModel, importing: B
         onEnd = vm::endEditChange,
         onDelete = { selected?.let { vm.removeEditItem(it.id) } },
         onEditText = { selected?.let { textDialog = it.id } },
-        onStyle = { style = it },
+        onStyle = onStyle,
     )
 
     val editing = textDialog
@@ -353,7 +366,7 @@ private data class ShapeChoice(val kind: ShapeKind, val filled: Boolean, @param:
  * that acts at once, and says whether a tool that stays on (drawing) is on.
  */
 @Composable
-private fun EditToolButton(icon: ImageVector, label: String, active: Boolean?, enabled: Boolean, onClick: () -> Unit, modifier: Modifier) {
+internal fun EditToolButton(icon: ImageVector, label: String, active: Boolean?, enabled: Boolean, onClick: () -> Unit, modifier: Modifier) {
     val on = active == true
     val pill by animateColorAsState(if (on) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent, Motion.short(), label = "tool pill")
     val content = when {

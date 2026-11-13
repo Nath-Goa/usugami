@@ -75,8 +75,75 @@ import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-// Edit PDF's page: what was added drawn as the PDF will have it, and the touches that choose,
-// move, resize and draw.
+// Annotate's page (Edit PDF's until 2.0.0): what was added drawn as the PDF will have it, and the
+// touches that choose, move, resize and draw. What was added is drawn by PageItemsPainter, which the
+// reader's pages use too.
+
+/**
+ * Draws what was added to a page as the PDF will have it, in points on the page as shown (the caller
+ * scales the canvas). Keeps the text layouts and outlines it has made; one painter per page drawn, as
+ * it forgets them by that page's count of items. Used on the main thread.
+ */
+internal class PageItemsPainter {
+    private val textPaint = PageText.paint(0)
+    private val layouts = HashMap<String, PageText.Layout>()
+    private val paths = HashMap<PageItem, Path>()
+
+    /** Draws [items] in order, the last on top, each picture from [pictures] by its path once it is decoded. */
+    fun DrawScope.draw(items: List<PageItem>, pictures: Map<String, ImageBitmap>) {
+        if (paths.size > 4 * items.size + 16) paths.clear()
+        for (item in items) {
+            when (item) {
+                is TextItem -> drawIntoCanvas { canvas ->
+                    val layout = layouts.getOrPut(item.text) { PageText.layout(item.text, textPaint) }
+                    textPaint.color = item.color
+                    canvas.nativeCanvas.withTranslation(item.x, item.y) {
+                        scale(item.size / PageText.REFERENCE, item.size / PageText.REFERENCE)
+                        PageText.draw(this, layout, textPaint)
+                    }
+                }
+                is PictureItem -> pictures[item.path]?.let { bitmap ->
+                    drawIntoCanvas { canvas ->
+                        canvas.nativeCanvas.drawBitmap(
+                            bitmap.asAndroidBitmap(),
+                            null,
+                            android.graphics.RectF(item.x, item.y, item.x + item.width, item.y + item.height),
+                            android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG),
+                        )
+                    }
+                }
+                is InkItem -> drawInk(paths.getOrPut(item) { EditLayout.outline(item).toPath() }, item.color, item.width, item.highlighter)
+                is ShapeItem -> {
+                    val path = paths.getOrPut(item) { EditLayout.outline(item).toPath() }
+                    if (item.isBox && item.filled) drawPath(path, Color(item.color), style = Fill)
+                    else drawInk(path, item.color, item.width, highlighter = false)
+                }
+            }
+        }
+    }
+}
+
+/** The pictures of [items], by path, decoded off the main thread as they are needed (PagePictures.decode). */
+@Composable
+internal fun rememberItemPictures(items: List<PageItem>): Map<String, ImageBitmap> {
+    val pictures = remember { mutableStateMapOf<String, ImageBitmap>() }
+    val wanted = items.filterIsInstance<PictureItem>().filter { it.path !in pictures }
+    LaunchedEffect(wanted.map { it.path }) {
+        for (picture in wanted) {
+            val bitmap = withContext(Dispatchers.IO) {
+                try {
+                    PagePictures.decode(picture.path, picture.orientation, 1024)
+                } catch (_: Exception) {
+                    null
+                } catch (_: OutOfMemoryError) {
+                    null
+                }
+            }
+            if (bitmap != null) pictures[picture.path] = bitmap.asImageBitmap()
+        }
+    }
+    return pictures
+}
 
 /**
  * The page with [items] drawn on it as the PDF will have them. In [EditMode.SELECT], touching an
@@ -115,25 +182,8 @@ internal fun EditPreview(
     val latestHeight by rememberUpdatedState(pageHeight)
     // The stroke being drawn, in points on the page: x, y, x, y, …
     val live = remember { mutableStateListOf<Float>() }
-    val pictures = remember { mutableStateMapOf<String, ImageBitmap>() }
-    val wanted = items.filterIsInstance<PictureItem>().filter { it.path !in pictures }
-    LaunchedEffect(wanted.map { it.path }) {
-        for (picture in wanted) {
-            val bitmap = withContext(Dispatchers.IO) {
-                try {
-                    PagePictures.decode(picture.path, picture.orientation, 1024)
-                } catch (_: Exception) {
-                    null
-                } catch (_: OutOfMemoryError) {
-                    null
-                }
-            }
-            if (bitmap != null) pictures[picture.path] = bitmap.asImageBitmap()
-        }
-    }
-    val textPaint = remember { PageText.paint(0) }
-    val layouts = remember { HashMap<String, PageText.Layout>() }
-    val paths = remember { HashMap<PageItem, Path>() }
+    val pictures = rememberItemPictures(items)
+    val painter = remember { PageItemsPainter() }
     val frame = MaterialTheme.colorScheme.primary
     val density = LocalDensity.current
     val window = LocalWindowInfo.current.containerSize
@@ -263,36 +313,8 @@ internal fun EditPreview(
                     },
             ) {
                 page?.let { drawImage(it.image, dstSize = IntSize(size.width.toInt(), size.height.toInt())) }
-                if (paths.size > 4 * items.size + 16) paths.clear()
                 withTransform({ scale(pxPerPoint, pxPerPoint, pivot = Offset.Zero) }) {
-                    for (item in items) {
-                        when (item) {
-                            is TextItem -> drawIntoCanvas { canvas ->
-                                val layout = layouts.getOrPut(item.text) { PageText.layout(item.text, textPaint) }
-                                textPaint.color = item.color
-                                canvas.nativeCanvas.withTranslation(item.x, item.y) {
-                                    scale(item.size / PageText.REFERENCE, item.size / PageText.REFERENCE)
-                                    PageText.draw(this, layout, textPaint)
-                                }
-                            }
-                            is PictureItem -> pictures[item.path]?.let { bitmap ->
-                                drawIntoCanvas { canvas ->
-                                    canvas.nativeCanvas.drawBitmap(
-                                        bitmap.asAndroidBitmap(),
-                                        null,
-                                        android.graphics.RectF(item.x, item.y, item.x + item.width, item.y + item.height),
-                                        android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG),
-                                    )
-                                }
-                            }
-                            is InkItem -> drawInk(paths.getOrPut(item) { EditLayout.outline(item).toPath() }, item.color, item.width, item.highlighter)
-                            is ShapeItem -> {
-                                val path = paths.getOrPut(item) { EditLayout.outline(item).toPath() }
-                                if (item.isBox && item.filled) drawPath(path, Color(item.color), style = Fill)
-                                else drawInk(path, item.color, item.width, highlighter = false)
-                            }
-                        }
-                    }
+                    with(painter) { draw(items, pictures) }
                     if (live.isNotEmpty()) {
                         val highlighter = mode == EditMode.HIGHLIGHTER
                         val points = live.toFloatArray()

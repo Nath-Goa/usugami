@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Edit PDF's items and the one chosen, kept in the saved state so they survive rotation and Android
+ * What Annotate (the reader) added and the item chosen, kept in the saved state so they survive rotation and Android
  * closing Usugami in the background. Undo and Redo go back and forth over whole changes; they are
  * kept in memory only, as Reorganize PDF's Undo is.
  */

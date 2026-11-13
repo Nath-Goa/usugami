@@ -28,11 +28,11 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** A picture picked for Edit PDF, copied into the cache: its size as it shows upright, in pixels. */
+/** A picture picked in Annotate, copied into the cache: its size as it shows upright, in pixels. */
 class PickedPicture(val path: String, val width: Int, val height: Int, val orientation: Int, val jpeg: Boolean)
 
 /**
- * Pictures put on pages in Edit PDF. Each picked picture is copied into the cache first, like the
+ * Pictures put on pages in Annotate (the reader). Each picked picture is copied into the cache first, like the
  * PDFs the tools work on, so it is still there after the picker's access ends or Android restarts
  * Usugami; the items refer to the copy by its path.
  */

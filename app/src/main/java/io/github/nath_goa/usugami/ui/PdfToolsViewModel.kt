@@ -94,19 +94,18 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * The PDF tools. Each has a screen at its lowercase name. All but MERGE work on one PDF, except WORD,
  * POWERPOINT, EXCEL and EPUB, which turn one Word, PowerPoint, Excel or EPUB file into a PDF.
- * REORGANIZE works on one PDF and can take pages from others. EDIT puts text, drawings, shapes and
- * pictures on a PDF's pages. REDACT removes what is under its boxes for good. COMPRESS, PAGE_NUMBERS,
+ * REORGANIZE works on one PDF and can take pages from others. REDACT removes what is under its boxes for good. COMPRESS, PAGE_NUMBERS,
  * WATERMARK and FLATTEN also work on several PDFs, and WORD, POWERPOINT, EXCEL and EPUB on several
  * files, one after another, each into a PDF of its own (see [isBatch]). PDF_TO_IMAGES_OR_TEXT saves a
  * PDF's pages as images or its text, PAGE_LAYOUT crops pages or puts several on a sheet, and
  * DOCUMENT_INFO shows and changes a PDF's title, author and the like; each lives in files of its own
  * (see [ToolAction]). READER opens a PDF to read: its pages in one scroll, text to find, select and
- * copy, and, as Edit PDF did, text, drawings, shapes and pictures put on its pages. It has a screen
- * of its own (ReaderScreen).
+ * copy, and, in Annotate (Edit PDF until 2.0.0), text, drawings, shapes and pictures put on its pages.
+ * It has a screen of its own (ReaderScreen).
  */
 enum class PdfTool {
     SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB,
-    DELETE_PAGES, REORGANIZE, FLATTEN, EDIT, REDACT, EXCEL,
+    DELETE_PAGES, REORGANIZE, FLATTEN, REDACT, EXCEL,
     PDF_TO_IMAGES_OR_TEXT, PAGE_LAYOUT, DOCUMENT_INFO,
     READER,
 }
@@ -255,10 +254,10 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     private val _canUndo = MutableStateFlow(false)
     val canUndo = _canUndo.asStateFlow()
 
-    /** Edit PDF's items on the PDF's pages, in the order they are drawn (the last on top). */
+    /** What Annotate (the reader) added to the PDF's pages, in the order they are drawn (the last on top). */
     val editItems: StateFlow<List<PageItem>> = history.items
 
-    /** The id of the item chosen in Edit PDF, or null. */
+    /** The id of the item chosen in Annotate (the reader), or null. */
     val editSelected: StateFlow<Long?> = history.selected
     val canUndoEdit = history.canUndo
     val canRedoEdit = history.canRedo
@@ -940,8 +939,8 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /**
-     * Whether leaving [tool] would throw away work done on its PDF: Edit PDF's additions, Redact
-     * PDF's boxes, what a tool kept in files of its own says it would (see [ToolState]), or pages
+     * Whether leaving [tool] would throw away work done on its PDF: the reader's additions (Annotate),
+     * Redact PDF's boxes, what a tool kept in files of its own says it would (see [ToolState]), or pages
      * turned or moved. Merge's pages start as all its PDFs' pages, in order; the other tools' as the
      * first PDF's (Reorganize PDF's pages added from others count). Not
      * whether Undo has something: Undo is forgotten when Android closes Usugami in the background,
@@ -1340,9 +1339,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     fun selectEditItem(id: Long?) = history.select(id)
 
     /**
-     * Edit PDF is saving: its items stay as they were when Save was tapped, which the PDF is made
-     * from. The screen is covered meanwhile, but not a dialog or menu opened by a tap in the same
-     * moment, or a finger still drawing or dragging: what they do would be left out of the PDF.
+     * Annotate (the reader) is saving: its items stay as they were when Save PDF was tapped, which the
+     * PDF is made from. The screen is covered meanwhile, but not a dialog or menu opened by a tap in
+     * the same moment, or a finger still drawing or dragging: what they do would be left out of the PDF.
      */
     private val editSaving: Boolean get() = _processing.value
 
@@ -1478,9 +1477,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 
     /**
-     * Saves the PDF with Edit PDF's items drawn on its pages. It is busy from the tap, as every tool
-     * is, even while the pictures are looked for: nothing can be added meanwhile that the PDF would
-     * leave out, and leaving the tool stops it.
+     * Saves the PDF with what Annotate (the reader) added drawn on its pages: Save PDF. It is busy from
+     * the tap, as every tool is, even while the pictures are looked for: nothing can be added meanwhile
+     * that the PDF would leave out, and leaving the reader stops it.
      */
     fun runEdit(fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
@@ -1582,7 +1581,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
      * Puts [box] in the place of box [was], at [index] when the change began (a drag, say), wherever
      * it is now: a box before it deleted meanwhile moves it up the list. Once [was] itself has gone,
      * deleted or changed by another finger (a move or size button pressed during a drag), nothing
-     * changes: what the other finger did stays, as in Edit PDF, and the box now in its place isn't
+     * changes: what the other finger did stays, as in Annotate, and the box now in its place isn't
      * replaced.
      */
     fun changeRedactBox(index: Int, was: RedactBox, box: RedactBox) {
@@ -2336,7 +2335,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.DELETE_PAGES -> named("_pages_deleted")
             PdfTool.REORGANIZE -> named("_reorganized")
             PdfTool.FLATTEN -> named("_flattened")
-            PdfTool.EDIT -> named("_edited")
             PdfTool.REDACT -> named("_redacted")
             // Each image adds its page after this name; the text file is named just this.
             PdfTool.PDF_TO_IMAGES_OR_TEXT -> FileNames.sanitize(base, "Usugami")
@@ -2440,7 +2438,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         const val MAX_UNDO = 50
 
         /**
-         * Edit PDF's items are kept in the saved state, which must stay well under the size Android
+         * Annotate's items are kept in the saved state, which must stay well under the size Android
          * allows it: at most this many items, with at most this many points in their strokes.
          */
         const val MAX_EDIT_ITEMS = 300
@@ -2453,7 +2451,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     }
 }
 
-/** Pictures put on Edit PDF's pages whose copies the system has cleared from the cache. */
+/** Pictures put on pages in Annotate whose copies the system has cleared from the cache. */
 private class PicturesCleared(val paths: List<String>) : Exception()
 
 /** No PDF of a batch could be made: [failures] are the files that failed, by name, and why. */

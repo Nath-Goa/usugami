@@ -44,7 +44,6 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Draw
-import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Image
@@ -143,7 +142,6 @@ private val OrganizeTools = listOf(
 
 /** The tools under "Edit and sign" on Home, in order: those that add to the pages. */
 private val EditTools = listOf(
-    PdfTool.EDIT,
     PdfTool.SIGN,
     PdfTool.PAGE_NUMBERS,
     PdfTool.WATERMARK,
@@ -188,7 +186,6 @@ internal val PdfTool.title: Int
         PdfTool.DELETE_PAGES -> R.string.tool_delete_pages
         PdfTool.REORGANIZE -> R.string.tool_reorganize
         PdfTool.FLATTEN -> R.string.tool_flatten
-        PdfTool.EDIT -> R.string.tool_edit
         PdfTool.EPUB -> R.string.tool_epub
         PdfTool.REDACT -> R.string.tool_redact
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.tool_pdf_to_images_or_text
@@ -214,7 +211,6 @@ internal val PdfTool.detail: Int
         PdfTool.DELETE_PAGES -> R.string.tool_delete_pages_detail
         PdfTool.REORGANIZE -> R.string.tool_reorganize_detail
         PdfTool.FLATTEN -> R.string.tool_flatten_detail
-        PdfTool.EDIT -> R.string.tool_edit_detail
         PdfTool.EPUB -> R.string.tool_epub_detail
         PdfTool.REDACT -> R.string.tool_redact_detail
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.tool_pdf_to_images_or_text_detail
@@ -238,7 +234,6 @@ internal val PdfTool.icon: ImageVector
         PdfTool.DELETE_PAGES -> Icons.Rounded.Delete
         PdfTool.REORGANIZE -> Icons.Rounded.GridView
         PdfTool.FLATTEN -> Icons.Rounded.Layers
-        PdfTool.EDIT -> Icons.Rounded.EditNote
         PdfTool.EPUB -> Icons.Rounded.AutoStories
         PdfTool.REDACT -> Icons.Rounded.VisibilityOff
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> Icons.Rounded.Image
@@ -264,7 +259,6 @@ private val PdfTool.keywords: Int
         PdfTool.DELETE_PAGES -> R.string.search_keywords_delete_pages
         PdfTool.REORGANIZE -> R.string.search_keywords_reorganize
         PdfTool.FLATTEN -> R.string.search_keywords_flatten
-        PdfTool.EDIT -> R.string.search_keywords_edit
         PdfTool.EPUB -> R.string.search_keywords_epub
         PdfTool.REDACT -> R.string.search_keywords_redact
         PdfTool.PDF_TO_IMAGES_OR_TEXT -> R.string.search_keywords_pdf_to_images_or_text
@@ -276,7 +270,8 @@ private val PdfTool.keywords: Int
 /**
  * A card on Home: Images to PDF, Documents to PDF or Scan document, which have no [tool], or one of
  * the PDF tools. The search also finds it by the texts of the tools it stands for, [alsoFoundAs]:
- * their names as its name, their descriptions and keywords as its other text.
+ * their names as its name, their descriptions and keywords as its other text; and by the texts
+ * [alsoFoundBy] (string resources), as its other text, never its name.
  */
 private class HomeCard(
     val tool: PdfTool?,
@@ -285,9 +280,22 @@ private class HomeCard(
     @param:StringRes val detail: Int,
     @param:StringRes val keywords: Int,
     val alsoFoundAs: List<PdfTool> = emptyList(),
+    val alsoFoundBy: List<Int> = emptyList(),
 )
 
-private fun cards(tools: List<PdfTool>) = tools.map { HomeCard(it, it.icon, it.title, it.detail, it.keywords) }
+/**
+ * Edit PDF's name, description and hidden words: Edit PDF, a tool until 2.0.0, is the reader's
+ * Annotate, so what found it finds Read and annotate, in every language.
+ */
+private val EditPdfWords = listOf(
+    R.string.tool_edit,
+    R.string.tool_edit_detail,
+    R.string.search_keywords_edit,
+)
+
+private fun cards(tools: List<PdfTool>) = tools.map {
+    HomeCard(it, it.icon, it.title, it.detail, it.keywords, alsoFoundBy = if (it == PdfTool.READER) EditPdfWords else emptyList())
+}
 
 /** Scan document, as the search finds it: it shows with its two buttons, as at the top of Home. */
 private val ScanCard = HomeCard(null, Icons.Rounded.DocumentScanner, R.string.scan_title, R.string.scan_detail, R.string.search_keywords_scan)
@@ -495,6 +503,8 @@ private fun SearchResults(query: String, open: (HomeCard) -> Unit, scanCard: @Co
         val names = listOf(stringResource(card.title)) + card.alsoFoundAs.map { stringResource(it.title) }
         val more = listOf(stringResource(card.detail), stringResource(card.keywords)) +
             card.alsoFoundAs.flatMap { listOf(stringResource(it.detail), stringResource(it.keywords)) } +
+            // Edit PDF, a tool until 2.0.0, is the reader's Annotate: what found it finds the reader, in every language.
+            card.alsoFoundBy.map { stringResource(it) } +
             if (card.tool?.isBatch == true || card.alsoFoundAs.any { it.isBatch }) listOf(batch) else emptyList()
         names.joinToString(" ") to more.joinToString(" ")
     }

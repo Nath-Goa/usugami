@@ -10,14 +10,15 @@ import kotlin.math.min
 import kotlin.math.sign
 import kotlin.math.sin
 
-// Edit PDF: text, pen and highlighter strokes, shapes and pictures put on top of a page. The
-// preview on the screen and the saved PDF both draw them from what is here, so they match.
+// The reader's Annotate (Edit PDF until 2.0.0): text, pen and highlighter strokes, shapes and
+// pictures put on top of a page. The screen and the saved PDF both draw them from what is here, so
+// they match.
 
 /** What a [ShapeItem] draws. */
 enum class ShapeKind { RECTANGLE, ELLIPSE, LINE, ARROW }
 
 /**
- * Something Edit PDF puts on top of page [page] (zero-based). Its coordinates are points on the page
+ * Something Annotate puts on top of page [page] (zero-based). Its coordinates are points on the page
  * as it is shown, from the shown page's top-left corner with y down, as on a screen: the preview
  * draws them as they are, and [PageFrame.topLeftMatrix] takes them to the page's own coordinates.
  *

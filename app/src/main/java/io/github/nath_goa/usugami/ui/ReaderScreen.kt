@@ -6,14 +6,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
@@ -22,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.MoreVert
@@ -31,6 +36,7 @@ import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,12 +60,14 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -82,6 +90,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.EditStyle
 import io.github.nath_goa.usugami.core.ReaderGeometry
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -89,7 +98,8 @@ import kotlinx.coroutines.launch
 
 /**
  * What the reader's buttons do outside the screen. Null: not offered (in a preview, for a PDF made of
- * a document opened, on a phone that can't print).
+ * a document opened, on a phone that can't print). Share, Print and Open with another app are not
+ * offered either while Annotate's additions can be saved: the pages show them and the file doesn't.
  */
 internal class ReaderActions(
     /** Leaves the reader, as Back does. */
@@ -102,6 +112,8 @@ internal class ReaderActions(
     val tools: (() -> Unit)? = null,
     /** Android's chooser of the other apps that open the file. */
     val openElsewhere: (() -> Unit)? = null,
+    /** Opens the photo picker for Annotate's Picture. */
+    val pickPicture: () -> Unit = {},
 )
 
 /**
@@ -114,6 +126,13 @@ internal class ReaderActions(
  * (a dialog with Cancel), which shows with a note saying so and Save as PDF. [receiving]: a file opened
  * is being copied in, or waits to be shown. While the file comes in, "Opening…" shows with Cancel,
  * which leaves as Back does; a PDF with a password asks for it, and Cancel there leaves too.
+ *
+ * Annotate (what Edit PDF was until 2.0.0, see ReaderAnnotate) shows the page that was showing with
+ * Edit PDF's tools; Back to reading (its arrow, or Back) returns to that page, with what was added
+ * drawn on the pages. Once something is added, Save PDF shows at the bottom, while reading and in
+ * Annotate: it makes a new PDF with the additions, named as Annotate's File name says, and shows the
+ * result, which has Share and Print for it; meanwhile More hides Share, Print and Open with another
+ * app, which would give the file without them, and a PDF made of a document hides its Save as PDF.
  *
  * Or a preview ([preview] true): a finished PDF looked at from a result screen (ReaderState.preview),
  * read-only, with its name in the bar, Find text, and More with Go to page and Open with another app.
@@ -137,6 +156,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
     val processing by vm.processing.collectAsStateWithLifecycle()
     val markProgress by vm.markProgress.collectAsStateWithLifecycle()
     val handingOver by vm.reader.handingOver.collectAsStateWithLifecycle()
+    val editItems by vm.editItems.collectAsStateWithLifecycle()
     // Kept while the result shows and through recreation (the screen's state sits with the tool's).
     val list = rememberLazyListState()
     // How far the pages are zoomed (1: the screen's width) and moved left (screen pixels), and Go to page.
@@ -157,9 +177,17 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
     var typing by remember { mutableStateOf(false) }
     // The More menu is open.
     val menu = remember { mutableStateOf(false) }
+    // Annotate: whether it shows, the page it shows (zero-based), and the style the next item added gets.
+    var annotating by rememberSaveable { mutableStateOf(false) }
+    var annotatePage by rememberSaveable { mutableIntStateOf(0) }
+    var editStyle by rememberSaveable { mutableStateOf(EditStyle()) }
+    // The page Back to reading returns to, once the pages show again.
+    var backTo by rememberSaveable { mutableStateOf<Int?>(null) }
     val scope = rememberCoroutineScope()
     // A preview shows nothing of the tool slot: its PDF is a result's, which it reads where it is.
     val input = if (preview) null else inputs.firstOrNull()
+    // The name of the PDF Save PDF makes ("Report_annotated"), taken once the PDF is in.
+    var fileName by rememberSaveable(input?.id) { mutableStateOf(vm.defaultName(PdfTool.READER)) }
     // Not while the screen slides away: a file shared to Usugami meanwhile is the next tool's.
     LaunchedEffect(input?.id, active) { if (active) input?.let(vm.reader::show) }
     // A document opened is made into the PDF the reader shows; also again after Android closed Usugami
@@ -194,12 +222,37 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
     }
     // Only while the search bar shows: while the PDF is opened again, Back leaves as it does then.
     BackHandler(enabled = finding && shown != null) { closeSearch() }
-    // While a PDF is being made of the one showing (Save as PDF), Back does nothing, as behind its dialog.
+    // Annotate shows over the pages once they show: after Android closed Usugami, "Opening…" first.
+    val annotate = !preview && annotating && shown != null
+    fun startAnnotating() {
+        annotatePage = pageShowing(list, wentTo)
+        if (finding) closeSearch()
+        annotating = true
+    }
+    fun backToReading() {
+        vm.selectEditItem(null)
+        annotating = false
+        backTo = annotatePage
+    }
+    BackHandler(enabled = annotate, onBack = ::backToReading)
+    // Save PDF: once something was added to the PDF's pages, while reading and in Annotate.
+    val canSave = !preview && input != null && shown != null && editItems.any { it.page < input.pageCount }
+    // Annotate, and the pages above Save PDF, end where the bars do; the pages alone run under the
+    // navigation bar and clear it at their end.
+    val aboveBar = annotate || canSave
+    // While a PDF is being made of the one showing (Save as PDF, Save PDF), Back does nothing, as behind its dialog.
     val working = !preview && processing
     Box(Modifier.fillMaxSize()) {
         Scaffold(
             topBar = {
-                if (finding && shown != null) {
+                if (annotate) {
+                    TopAppBar(
+                        title = { BarTitle(stringResource(R.string.reader_annotate)) },
+                        navigationIcon = {
+                            IconButton(onClick = ::backToReading) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.reader_back_to_reading)) }
+                        },
+                    )
+                } else if (finding && shown != null) {
                     SearchBar(
                         query = query,
                         onQuery = { query = it },
@@ -225,10 +278,16 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                                     finding = true
                                     typing = true
                                 }) { Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.redact_find)) }
+                                if (!preview) {
+                                    IconButton(onClick = ::startAnnotating) { Icon(Icons.Rounded.EditNote, contentDescription = stringResource(R.string.reader_annotate)) }
+                                }
                                 MoreMenu(
                                     open = menu,
-                                    saveAsPdf = if (document != null) vm::runSaveCopy else null,
-                                    actions = actions,
+                                    // Hidden while the additions can be saved: Save PDF saves the PDF with them.
+                                    saveAsPdf = if (document != null && !canSave) vm::runSaveCopy else null,
+                                    // So are Share, Print and Open with another app, which give the file without the
+                                    // additions the pages show: Save PDF's result has Share and Print for it.
+                                    actions = if (canSave) ReaderActions(back = actions.back, tools = actions.tools, pickPicture = actions.pickPicture) else actions,
                                     goToPage = { goingToPage = true },
                                 )
                             }
@@ -236,19 +295,64 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                     )
                 }
             },
+            bottomBar = {
+                if (canSave) {
+                    Button(
+                        onClick = { vm.runEdit(fileName) },
+                        enabled = !importing && !processing,
+                        // Edge to edge: clear of the navigation bar, as every tool's button.
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(horizontal = 20.dp, vertical = 10.dp),
+                    ) {
+                        Text(stringResource(R.string.pdf_edit_action))
+                    }
+                }
+            },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { padding ->
             val direction = LocalLayoutDirection.current
-            // The pages run under the navigation bar, and clear it at their end.
+            // The pages alone run under the navigation bar, and clear it at their end.
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(top = padding.calculateTopPadding(), start = padding.calculateStartPadding(direction), end = padding.calculateEndPadding(direction)),
+                    .padding(
+                        top = padding.calculateTopPadding(),
+                        start = padding.calculateStartPadding(direction),
+                        end = padding.calculateEndPadding(direction),
+                        bottom = if (aboveBar) padding.calculateBottomPadding() else 0.dp,
+                    )
+                    .then(if (aboveBar) Modifier.consumeWindowInsets(padding) else Modifier),
             ) {
                 when {
+                    annotate -> ReaderAnnotate(
+                        shown = shown!!.shown,
+                        vm = vm,
+                        importing = importing,
+                        page = annotatePage,
+                        onPage = { annotatePage = it },
+                        style = editStyle,
+                        onStyle = { editStyle = it },
+                        fileName = fileName,
+                        onFileName = { fileName = it },
+                        onPickPicture = { page ->
+                            vm.prepareEditPicture(page)
+                            actions.pickPicture()
+                        },
+                    )
                     shown != null -> Column(Modifier.fillMaxSize()) {
-                        // A PDF made of a document opened says so, for as long as it shows.
-                        if (document != null) ConvertedNote(document, onSave = vm::runSaveCopy)
+                        // Back from Annotate: the page it showed, once the pages are laid out again.
+                        LaunchedEffect(backTo) {
+                            val page = (backTo ?: return@LaunchedEffect).coerceIn(0, maxOf(0, shown.document.pageCount - 1))
+                            withFrameNanos {}
+                            list.scrollToItem(page)
+                            wentTo = intArrayOf(page, list.firstVisibleItemIndex, list.firstVisibleItemScrollOffset)
+                            backTo = null
+                        }
+                        // A PDF made of a document opened says so, for as long as it shows; its Save as PDF
+                        // hides while the additions can be saved (Save PDF).
+                        if (document != null) ConvertedNote(document, onSave = if (canSave) null else vm::runSaveCopy)
                         Box(
                             Modifier
                                 .fillMaxWidth()
@@ -264,6 +368,8 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                                     panX = newPan
                                 },
                                 found = found,
+                                items = if (preview) emptyList() else editItems,
+                                barBelow = canSave,
                             )
                             PageIndicator(list, shown.document.pageCount, wentTo, onClick = { goingToPage = true }, modifier = Modifier.align(Alignment.BottomCenter))
                             // How far the search has got, under the search bar: over the pages, so they don't move.
@@ -346,7 +452,8 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
 
 /**
  * The reader's More button and its menu: Save as PDF ([saveAsPdf], for a PDF made of a document),
- * Share, Print, Tools, Go to page and Open with another app, those of [actions] that are given. Each
+ * Share, Print, Tools, Go to page and Open with another app, those of [actions] that are given (not
+ * Share, Print and Open with another app while Annotate's additions can be saved). Each
  * closes the menu first and acts once: an item tapped again while the menu fades out does nothing.
  */
 @Composable
@@ -380,10 +487,10 @@ private fun MoreMenu(open: MutableState<Boolean>, saveAsPdf: (() -> Unit)?, acti
 
 /**
  * Under the bar, for a PDF made of the document [name] opened: it is Usugami's layout, which may look
- * different in the app that made it, and Save as PDF ([onSave]).
+ * different in the app that made it, and Save as PDF ([onSave]; not there when null).
  */
 @Composable
-private fun ConvertedNote(name: String, onSave: () -> Unit) {
+private fun ConvertedNote(name: String, onSave: (() -> Unit)?) {
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
         Row(
             Modifier
@@ -393,14 +500,15 @@ private fun ConvertedNote(name: String, onSave: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(stringResource(R.string.reader_converted_note, name), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-            TextButton(onClick = onSave) { Text(stringResource(R.string.reader_save_as_pdf)) }
+            if (onSave != null) TextButton(onClick = onSave) { Text(stringResource(R.string.reader_save_as_pdf)) }
         }
     }
 }
 
 /**
- * While Save as PDF makes its PDF: after a moment, as in every tool, the working dialog ("Working on
- * your PDF…"), or, once the Usugami mark goes on it ([marking]), the dialog that says so; Cancel stops it.
+ * While Save as PDF or Save PDF makes its PDF: after a moment, as in every tool, the working dialog
+ * ("Working on your PDF…"), or, once the Usugami mark goes on it ([marking]), the dialog that says so;
+ * Cancel stops it.
  */
 @Composable
 private fun WorkingDialog(marking: BatchProgress?, onCancel: () -> Unit) {
@@ -423,7 +531,7 @@ private fun WorkingDialog(marking: BatchProgress?, onCancel: () -> Unit) {
     )
 }
 
-/** How long Save as PDF works before its dialog shows, as in every tool (PdfToolScreen). */
+/** How long Save as PDF or Save PDF works before its dialog shows, as in every tool (PdfToolScreen). */
 private const val WORKING_DIALOG_DELAY_MS = 400L
 
 /** "Opening…" with a moving bar, while a file opened is copied in and read, and Cancel. */

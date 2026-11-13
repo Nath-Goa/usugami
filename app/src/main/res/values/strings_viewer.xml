@@ -73,4 +73,10 @@
     <string name="reader_converted_note">This is %1$s as Usugami lays it out as a PDF. It may look different in the app that made it.</string>
     <!-- A button in that note, and in the reader's menu: makes the PDF shown a file of its own, to share or save. -->
     <string name="reader_save_as_pdf">Save as PDF</string>
+    <!-- A button at the top of the reader, and the title of the screen it opens: text, drawings, highlights, shapes and pictures are added to the PDF's pages there. -->
+    <string name="reader_annotate">Annotate</string>
+    <!-- What a screen reader calls the arrow at the top of Annotate: it returns to reading the PDF, with what was added drawn on its pages. -->
+    <string name="reader_back_to_reading">Back to reading</string>
+    <!-- Under Annotate's page and controls, above the name of the PDF it saves. -->
+    <string name="reader_save_note">Saving makes a new PDF with what you added. The file you opened stays as it is.</string>
 </resources>

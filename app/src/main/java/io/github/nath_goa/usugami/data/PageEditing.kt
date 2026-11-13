@@ -17,7 +17,7 @@ import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.core.topLeftMatrix
 
 /**
- * Draws Edit PDF's items into the pages as ordinary page content, in the order they were added,
+ * Draws what Annotate (the reader) added into the pages as ordinary page content, in the order they were added,
  * exactly where the preview showed them on each page as it is shown (turned or cropped too).
  * Strokes and shapes become vector paths with round ends and corners, text becomes real text (see
  * [PageText]) and pictures become images. Form fields and comments under an item's ink (not those

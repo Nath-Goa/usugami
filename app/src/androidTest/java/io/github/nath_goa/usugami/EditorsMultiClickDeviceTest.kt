@@ -33,12 +33,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.ShapeKind
 import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -63,8 +65,8 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.EmptyCoroutineContext
 
 /**
- * Taps that come faster than the screen updates, in Redact PDF, Edit PDF, Sign PDF's pad and the page
- * tools: a double tap, two buttons or pages in the same frame, a menu entry tapped while the menu
+ * Taps that come faster than the screen updates, in Redact PDF, the reader's Annotate, Sign PDF's pad
+ * and the page tools: a double tap, two buttons or pages in the same frame, a menu entry tapped while the menu
  * fades away, controls used while they fade away, a button pressed while a finger drags or draws,
  * a tap while saving or adding a page waits for other file work, a button tapped over and over with
  * pages it can't use.
@@ -247,7 +249,7 @@ class EditorsMultiClickDeviceTest {
         assertEquals(c.top, moved.top, 1e-4f)
         assertEquals(c.width, moved.width, 1e-4f)
 
-        // A button pressed with another finger mid-drag wins, as in Edit PDF: the drag is over.
+        // A button pressed with another finger mid-drag wins, as in Annotate: the drag is over.
         startDrag(moved, 1)
         rule.onNode(hasContentDescription(string(R.string.redact_wider)) and hasClickAction()).performSemanticsAction(SemanticsActions.OnClick)
         rule.waitForIdle()
@@ -259,10 +261,23 @@ class EditorsMultiClickDeviceTest {
         assertEquals(listOf(b, Redaction.clamp(Redaction.resized(moved, Redaction.STEP, 0f))), vm.redactBoxes.value)
     }
 
-    // Edit PDF
+    // Annotate, in the reader
+
+    /** Starts Usugami, opens alpha.pdf (three pages) in the reader, as a file picked on Home is, and taps Annotate. */
+    private fun annotateAlpha(): PdfToolsViewModel {
+        AppLanguages.skipChoice(app)
+        val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        val main = (instrumentation.startActivitySync(intent) as MainActivity).also { activity = it }
+        val mainVm = onMain { ViewModelProvider(main)[MainViewModel::class.java] }
+        onMain { mainVm.open(pdf("alpha.pdf"), null, ReadFrom.HOME) }
+        val annotate = hasContentDescription(string(R.string.reader_annotate)) and hasClickAction()
+        waitFor(annotate)
+        rule.onNode(annotate).performClick()
+        return onMain { ViewModelProvider(main)[PdfToolsViewModel::class.java] }
+    }
 
     private fun editWithAlpha(): PdfToolsViewModel {
-        val vm = openWithAlpha(R.string.tool_edit)
+        val vm = annotateAlpha()
         // The tools work once the page's size is known.
         waitFor(hasText(string(R.string.edit_shape)) and hasClickAction() and isEnabled())
         return vm
@@ -586,7 +601,7 @@ class EditorsMultiClickDeviceTest {
         }
     }
 
-    // Edit PDF, continued
+    // Annotate, continued
 
     private fun editWithFilledRectangle(): Pair<PdfToolsViewModel, ShapeItem> {
         val vm = editWithAlpha()

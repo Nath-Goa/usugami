@@ -282,7 +282,7 @@ fun UsugamiApp(
     val pdfAddPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null && route == pickingFor) pdfVm.addPdfs(listOf(uri), replace = false)
     }
-    // Edit PDF's pictures, from the system photo picker (or the file picker where there is none).
+    // Annotate's pictures (the reader's), from the system photo picker (or the file picker where there is none).
     val picturePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null && route == pickingFor) pdfVm.addPicture(uri)
     }
@@ -1051,6 +1051,12 @@ fun UsugamiApp(
                                         },
                                         tools = { if (pdfVm.hasUnsavedWork(tool)) discardWork = "tools" else openTools() },
                                         openElsewhere = plain?.let { pdf -> { handOver(pdf) { pdfVm.viewElsewhereIntent(it) to R.string.msg_no_pdf_app } } },
+                                        pickPicture = {
+                                            launch(R.string.msg_no_picker) {
+                                                pickingFor = current
+                                                picturePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                            }
+                                        },
                                     ),
                                 )
                             } else PdfToolScreen(
@@ -1079,12 +1085,6 @@ fun UsugamiApp(
                                     launch(R.string.msg_no_picker) {
                                         pickingFor = current
                                         pdfAddPicker.launch(arrayOf(PdfSaver.PDF_MIME))
-                                    }
-                                },
-                                pickPicture = {
-                                    launch(R.string.msg_no_picker) {
-                                        pickingFor = current
-                                        picturePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                                     }
                                 },
                             )
