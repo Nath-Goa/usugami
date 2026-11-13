@@ -1,1 +1,1 @@
-Escanea y convierte a PDF; edita, une y firma PDF, con OCR sin conexión
+Escanea a PDF; lee, anota, une y firma PDF, con OCR sin conexión. Sin anuncios

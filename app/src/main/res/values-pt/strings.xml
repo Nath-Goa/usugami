@@ -64,7 +64,7 @@
     <string name="tool_sign">Assinar PDF</string>
     <string name="tool_sign_detail">Desenhe sua assinatura e coloque-a na página</string>
     <string name="tool_redact">Censurar PDF</string>
-    <string name="tool_redact_detail">Cubra textos e imagens com tarja preta para sempre</string>
+    <string name="tool_redact_detail">Cubra textos e imagens com tarja preta permanente</string>
     <string name="pick_pdf">Escolher PDF</string>
     <string name="add_pdfs">Adicionar PDFs</string>
     <string name="pick_pdfs">Escolher PDFs</string>
@@ -92,7 +92,7 @@
     <string name="pdf_pages_range" tools:ignore="PluralsCandidate">Os números de página devem ficar entre 1 e %1$d.</string>
     <string name="pdf_pages_reversed" tools:ignore="TypographyDashes">Escreva os intervalos do menor para o maior, como 3-8.</string>
     <string name="pdf_pages_chunk" tools:ignore="PluralsCandidate">O número de páginas por PDF deve ficar entre 1 e %1$d.</string>
-    <string name="pdf_process_failed">Não foi possível processar este PDF. Confira o arquivo e o espaço livre.</string>
+    <string name="pdf_process_failed">Não foi possível processar este PDF. Verifique o arquivo e o espaço livre.</string>
     <string name="pdf_saved_downloads">Salvo em Downloads</string>
     <string name="pdf_working">Processando seu PDF…</string>
     <string name="pdf_working_many">Processando seus PDFs…</string>
@@ -475,7 +475,7 @@
     <!-- The two things Page layout does (crop pages: choose the part of each page that shows; or put several pages on one sheet of paper), on a two-part switch at its top. -->
     <string name="layout_mode_crop">Cortar</string>
     <string name="layout_mode_sheets">Páginas por folha</string>
-    <string name="layout_crop_note">O corte só oculta o que está fora da caixa, mas isso continua no arquivo. Para remover isso de vez, use Censurar PDF.</string>
+    <string name="layout_crop_note">O corte só oculta o que está fora da caixa; esse conteúdo continua no arquivo. Para removê-lo de vez, use Censurar PDF.</string>
     <!-- Over the row of pages: the page tapped is the one the preview shows. -->
     <string name="layout_crop_page">Página exibida</string>
     <string name="layout_crop_box">Caixa de corte</string>
@@ -715,16 +715,16 @@
     <string name="reader_opening">Abrindo…</string>
     <!-- %1$s is the file's name, as it is (for example "notes.txt"). -->
     <string name="reader_cant_open">O Usugami não consegue abrir %1$s. Ele abre arquivos PDF, Word, Excel, PowerPoint e EPUB.</string>
-    <string name="reader_unreadable">O Usugami não conseguiu ler esse arquivo. Por favor, abra-o novamente.</string>
+    <string name="reader_unreadable">O Usugami não conseguiu ler esse arquivo. Abra-o novamente.</string>
     <!-- Said when a file is opened while Usugami makes a PDF: the file opens once the PDF is made. -->
     <string name="reader_open_waits">Seu arquivo será aberto quando isto terminar.</string>
     <!-- Under "Discard your changes?", when a file was opened while a tool's PDF had changes not saved. -->
-    <string name="reader_open_discard_changes">O arquivo que você abriu está pronto. Ao abri-lo, suas alterações neste PDF serão descartadas.</string>
+    <string name="reader_open_discard_changes">O arquivo que você abriu está pronto. Abri-lo descarta as alterações feitas neste PDF.</string>
     <!-- Under "Discard this PDF?", when a file was opened while a PDF made by a tool wasn't saved yet. -->
     <string name="reader_open_discard_body">O arquivo que você abriu está pronto, mas este PDF ainda não foi salvo. Salve-o primeiro se quiser mantê-lo.</string>
     <!-- Under "Discard what you made?", when a file was opened while images or a text file made from a PDF weren't saved yet. -->
     <string name="reader_open_discard_files">O arquivo que você abriu está pronto, mas o que você acabou de criar ainda não foi salvo. Salve-o primeiro se quiser mantê-lo.</string>
-    <string name="reader_open_interrupted">O Usugami foi fechado antes de abrir seu arquivo. Por favor, abra-o novamente.</string>
+    <string name="reader_open_interrupted">O Usugami foi fechado antes de abrir seu arquivo. Abra-o novamente.</string>
     <!-- On a small label at the bottom of the reader: the page showing (%1$d) of how many pages (%2$d), as in "3 of 12". -->
     <string name="reader_page_of">%1$d de %2$d</string>
     <!-- What a screen reader says of a page, and of that label: "Page 3 of 12". -->
@@ -831,7 +831,7 @@
     <string name="edit_fill">Preenchimento</string>
     <string name="color_yellow">Amarelo</string>
     <string name="color_white">Branco</string>
-    <string name="edit_cover_hint">Uma forma preenchida só cobre o que está embaixo dela, que continua no arquivo. Para remover isso de vez, use Censurar PDF.</string>
+    <string name="edit_cover_hint">Uma forma preenchida só cobre o que está embaixo dela; esse conteúdo continua no arquivo. Para removê-lo de vez, use Censurar PDF.</string>
     <string name="edit_picture_failed">Não foi possível ler essa imagem.</string>
     <string name="edit_full">Este PDF não aceita mais adições. Salve-o e depois edite o novo PDF para adicionar mais.</string>
     <!-- Said by a screen reader for a page in the row of pages that has something added to it. -->
@@ -843,7 +843,7 @@
     <string name="pick_epub">Escolher arquivos EPUB</string>
     <string name="add_epub">Adicionar arquivos EPUB</string>
     <string name="document_epub">E-book EPUB</string>
-    <string name="office_note_epub">Capítulos, títulos, estilos de texto, listas, tabelas e imagens são convertidos, e o sumário passa a ser marcadores. São usadas as fontes do seu celular.</string>
+    <string name="office_note_epub">Capítulos, títulos, estilos de texto, listas, tabelas e imagens são convertidos, e o sumário se transforma em marcadores. São usadas as fontes do seu celular.</string>
     <string name="book_page_note">A5 é mais ou menos o tamanho de um livro de bolso; A4 é melhor para imprimir.</string>
     <string name="epub_protected">Este livro é protegido por DRM (proteção contra cópia), então o Usugami não consegue lê-lo. Só livros sem DRM podem ser convertidos.</string>
     <string name="epub_protected_many">Estes livros são protegidos por DRM (proteção contra cópia), então o Usugami não consegue lê-los. Só livros sem DRM podem ser convertidos.</string>
@@ -906,7 +906,7 @@
     <string name="about_license_detail">GNU GPL v3 ou posterior</string>
     <string name="about_source">Código-fonte</string>
     <string name="about_document_missing">Este texto não está incluído nesta cópia do Usugami. Você pode lê-lo em github.com/Nath-Goa/usugami.</string>
-    <string name="msg_no_browser">Nenhum app neste celular consegue abrir links da web.</string>
+    <string name="msg_no_browser">Nenhum app neste celular pode abrir links da web.</string>
 
     <!-- Editor -->
     <string name="editor_title">Imagens para PDF</string>
@@ -1142,9 +1142,9 @@
     <!-- Asked when files are shared to Usugami while images or a text file it made aren't saved yet. "What you made" is those files. -->
     <string name="files_discard_title">Descartar o que você criou?</string>
     <!-- Under that question when the files shared are PDFs, Word, PowerPoint, Excel or EPUB files. -->
-    <string name="share_discard_body_files">Os arquivos que você compartilhou estão prontos para abrir, mas o que você acabou de criar ainda não foi salvo. Salve primeiro se quiser mantê-lo.</string>
+    <string name="share_discard_body_files">Os arquivos que você compartilhou estão prontos para abrir, mas o que você acabou de criar ainda não foi salvo. Salve-o primeiro se quiser mantê-lo.</string>
     <!-- Under that question when the files shared are images. -->
-    <string name="files_discard_shared_body">As imagens que você compartilhou estão prontas para converter, mas o que você acabou de criar ainda não foi salvo. Salve primeiro se quiser mantê-lo.</string>
+    <string name="files_discard_shared_body">As imagens que você compartilhou estão prontas para converter, mas o que você acabou de criar ainda não foi salvo. Salve-o primeiro se quiser mantê-lo.</string>
     <!-- A button and a menu item for a PDF, on the result screen and in Recent files: opens Android's
          own print screen (preview, printer, copies, paper size, "Save as PDF") with the PDF. -->
     <string name="print">Imprimir</string>
@@ -1287,14 +1287,14 @@
     <string name="shortcut_busy">O Usugami ainda está trabalhando. Use o atalho de novo quando ele terminar.</string>
     <!-- Under "Discard this PDF?", asked when a launcher shortcut is used while a tool shows a PDF it
          made that isn't saved yet. Discard opens the shortcut's tool; Keep stays with the PDF. -->
-    <string name="shortcut_discard_body">Este PDF ainda não foi salvo. Salve primeiro se quiser mantê-lo.</string>
+    <string name="shortcut_discard_body">Este PDF ainda não foi salvo. Salve-o primeiro se quiser mantê-lo.</string>
     <!-- Under "Discard your changes?", asked when a launcher shortcut is used while a tool has changes to
          its PDF that aren't saved yet. Discard opens the shortcut's tool; Keep stays with the changes. -->
     <string name="shortcut_discard_changes">Abrir outra ferramenta descarta suas alterações neste PDF.</string>
     <!-- Under "Discard what you made?", asked when a launcher shortcut is used while a tool shows images or
          a text file it made (no PDF) that aren't saved yet. "What you just made" is those files. Discard
          opens the shortcut's tool; Keep stays with them. -->
-    <string name="shortcut_discard_files">O que você acabou de criar ainda não foi salvo. Salve primeiro se quiser mantê-lo.</string>
+    <string name="shortcut_discard_files">O que você acabou de criar ainda não foi salvo. Salve-o primeiro se quiser mantê-lo.</string>
 
     <!-- Searching for a tool on Home -->
     <string name="home_search_hint">Buscar ferramentas</string>

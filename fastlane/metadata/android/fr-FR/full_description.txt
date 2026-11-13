@@ -1,32 +1,39 @@
-<i>Usugami</i> (薄紙, « papier fin » en japonais) transforme vos photos, scans à l'appareil photo, documents Word, présentations PowerPoint, classeurs Excel et livres EPUB en PDF, et réunit les outils dont vous avez besoin pour vos PDF existants. Tout se passe sur votre téléphone : Usugami n'a pas l'autorisation d'accéder à Internet, rien n'est donc jamais envoyé.
+<i>Usugami</i> (薄紙, « papier fin » en japonais) transforme vos photos, scans à l'appareil photo, cartes d'identité, documents Word, présentations PowerPoint, classeurs Excel et livres EPUB en PDF, ouvre les PDF et les documents dans son propre lecteur, et réunit les outils dont vous avez besoin pour vos PDF existants. Tout se passe sur votre téléphone : Usugami n'a pas l'autorisation d'accéder à Internet, rien n'est donc jamais envoyé.
 
 <b>Créer des PDF</b>
 <ul>
-<li><b>Numériser un document :</b> prenez des photos avec l'application d'appareil photo de votre téléphone, ou importez des images. Recadrez chaque page bien droite (Usugami peut la trouver, même une page blanche sur un bureau blanc) et faites-la pivoter, puis choisissez son aspect : original, éclairci, amélioré, très amélioré, niveaux de gris, noir et blanc (environ 10 Ko par page) ou économie d'encre, avec sa luminosité et son contraste. Appliquer à toutes les pages donne à chacune les mêmes réglages.</li>
-<li><b>Images en PDF :</b> des images JPG, PNG, HEIC, AVIF, WebP, BMP et GIF de votre galerie ou de vos fichiers, recadrées et améliorées de la même façon si vous le souhaitez. Choisissez le format, l'orientation et la marge, et faites un seul PDF ou un PDF par image. Les images sont toujours compressées, et leur position et les autres métadonnées cachées sont supprimées.</li>
-<li><b>Reconnaissance de texte (OCR) :</b> rend le PDF recherchable, en anglais, français, espagnol et hindi. Elle est open source et intégrée (modèles PP-OCRv5 de PaddleOCR, exécutés par ncnn de Tencent) : elle fonctionne hors ligne, toujours.</li>
-<li><b>Word, PowerPoint, Excel et EPUB en PDF :</b> fichiers .docx, .pptx, .xlsx et .epub convertis sur votre téléphone, avec leurs styles, tableaux et images, en-têtes et pieds de page, et la table des matières du livre en signets. Les classeurs sont mis en pages feuille par feuille, comme à l'impression dans Excel, avec leurs formats de nombres et de dates.</li>
+<li><b>Numériser un document :</b> prenez des photos avec l'application d'appareil photo de votre téléphone, ou importez des images. Recadrez chaque page bien droite (Usugami peut la trouver, même une page blanche sur un bureau blanc), puis choisissez son aspect : original, éclairci, amélioré, très amélioré, niveaux de gris, noir et blanc ou économie d'encre.</li>
+<li><b>Carte d'identité :</b> le recto et le verso d'une carte sur une même page, à la taille réelle de la carte.</li>
+<li><b>Images en PDF :</b> des images JPG, PNG, HEIC, AVIF, WebP, BMP et GIF, recadrées et améliorées de la même façon si vous le souhaitez, en un seul PDF ou un PDF par image. Les images sont toujours compressées, et leur position et les autres métadonnées cachées sont supprimées.</li>
+<li><b>Reconnaissance de texte (OCR) :</b> rend le PDF recherchable, en anglais, français, espagnol, hindi, allemand, portugais et indonésien. Elle est open source et intégrée (modèles PP-OCRv5 de PaddleOCR, exécutés par ncnn de Tencent) : elle fonctionne hors ligne, toujours.</li>
+<li><b>Documents en PDF :</b> fichiers Word, PowerPoint, Excel et EPUB convertis sur votre téléphone, avec leurs styles, tableaux et images.</li>
+</ul>
+
+<b>Lire et annoter</b>
+<ul>
+<li>Ouvrir les PDF et les fichiers Word, Excel, PowerPoint et EPUB depuis toute application avec « Ouvrir avec »</li>
+<li>Zoomer, rechercher, sélectionner et copier du texte, partager et imprimer</li>
+<li>Annoter avec du texte, des dessins, du surlignage, des formes et des images, le tout enregistré dans un nouveau PDF</li>
 </ul>
 
 <b>Outils PDF</b>
 <ul>
-<li>Diviser, fusionner, réorganiser et faire pivoter des PDF, supprimer des pages</li>
-<li>Compresser des PDF (sans jamais les rendre plus gros)</li>
-<li>Modifier des PDF : ajouter du texte, des dessins, du surlignage, des formes et des images</li>
-<li>Signer avec votre signature manuscrite</li>
-<li>Numéroter les pages ou ajouter un filigrane</li>
+<li>Diviser, fusionner et réorganiser des PDF : déplacer, faire pivoter, supprimer et ajouter des pages</li>
+<li>Mise en page : recadrer les pages, ou mettre 2, 4, 6 ou 9 pages sur une feuille</li>
+<li>Compresser des PDF, ou les passer en noir et blanc</li>
+<li>Signer, numéroter les pages ou ajouter un filigrane</li>
 <li>Aplatir les formulaires et les commentaires</li>
-<li>Caviarder pour de vrai : ce qui est sous les cadres noirs est retiré du fichier, pas seulement masqué</li>
-<li>Ouvrir les PDF protégés par mot de passe</li>
+<li>Caviarder pour de vrai : ce qui est sous les cadres noirs est retiré, pas seulement masqué</li>
+<li>Infos du document : voir, modifier ou effacer le titre, l'auteur, etc.</li>
+<li>PDF en images ou texte : les pages en JPG ou PNG, ou leur texte, même celui des scans</li>
+<li>Imprimer, et ouvrir les PDF protégés par mot de passe</li>
 </ul>
 
-<b>Traitement par lots :</b> compressez, numérotez, ajoutez un filigrane ou aplatissez plusieurs PDF à la fois, ou convertissez plusieurs fichiers Word, PowerPoint, Excel ou EPUB, chacun en un PDF. Enregistrez ou partagez les nouveaux PDF un par un ou dans un seul fichier ZIP.
+<b>Traitement par lots :</b> compressez, numérotez, ajoutez un filigrane, aplatissez ou convertissez plusieurs fichiers à la fois, et enregistrez ou partagez les nouveaux PDF dans un seul fichier ZIP.
 
-<b>Partager vers Usugami :</b> partagez des images, des PDF ou des fichiers Word, PowerPoint, Excel ou EPUB depuis n'importe quelle application, et ils s'ouvrent dans le bon outil.
+<b>Partagez vers Usugami</b> depuis toute application : les fichiers s'ouvrent dans le bon outil. La liste <b>Fichiers récents</b> garde à portée de main ce que vous avez enregistré, et un appui prolongé sur l'icône d'Usugami ouvre directement quatre outils.
 
-<b>Fichiers récents :</b> les fichiers que vous enregistrez apparaissent sur l'accueil, pour les rouvrir ou les partager.
-
-<b>Filigrane Usugami :</b> pour soutenir l'application, un interrupteur ajoute un petit « Usugami » dans le coin de chaque page de vos nouveaux PDF ; il reste désactivé tant que vous ne l'activez pas.
+<b>Filigrane Usugami :</b> pour soutenir l'application, un interrupteur ajoute un petit « Usugami » à vos nouveaux PDF. Il reste désactivé tant que vous ne l'activez pas.
 
 <b>Confidentiel par conception</b>
 <ul>
@@ -36,6 +43,6 @@
 <li>Libre et open source (GPL-3.0 ou ultérieure)</li>
 </ul>
 
-En français, anglais, espagnol et hindi, avec thèmes clair et sombre. Nécessite Android 8.0 ou version ultérieure.
+En français, anglais, espagnol, hindi, allemand, portugais du Brésil et indonésien, avec thèmes clair et sombre. Nécessite Android 8.0 ou version ultérieure.
 
 Pas besoin de reconnaissance de texte ? <i>Usugami Lite</i> a tous les autres outils et est encore plus légère.

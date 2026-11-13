@@ -62,7 +62,7 @@
     <string name="tool_watermark">Tambahkan tanda air</string>
     <string name="tool_watermark_detail">Bubuhkan teks melintang di setiap halaman</string>
     <string name="tool_sign">Tanda tangani PDF</string>
-    <string name="tool_sign_detail">Gambar tanda tangan Anda, lalu letakkan</string>
+    <string name="tool_sign_detail">Buat tanda tangan Anda, lalu letakkan</string>
     <string name="tool_redact">Sensor PDF</string>
     <string name="tool_redact_detail">Hitamkan teks dan gambar secara permanen</string>
     <string name="pick_pdf">Pilih PDF</string>
@@ -185,9 +185,9 @@
     <string name="pdf_need_page">Sisakan minimal satu halaman.</string>
     <string name="pdf_discard_title">Buang PDF ini?</string>
     <string name="tool_discard_title">Buang perubahan?</string>
-    <string name="pdf_discard_shared_body">Gambar yang Anda bagikan siap dikonversi, tetapi PDF ini belum disimpan. Simpan terlebih dahulu jika Anda ingin mempertahankannya.</string>
+    <string name="pdf_discard_shared_body">Gambar yang Anda bagikan siap dikonversi, tetapi PDF ini belum disimpan. Simpan dulu jika ingin mempertahankannya.</string>
     <string name="pdf_discard_shared_changes">Gambar yang Anda bagikan siap dikonversi. Membukanya akan membuang perubahan pada PDF ini.</string>
-    <string name="share_discard_body">File yang Anda bagikan siap dibuka, tetapi PDF ini belum disimpan. Simpan terlebih dahulu jika Anda ingin mempertahankannya.</string>
+    <string name="share_discard_body">File yang Anda bagikan siap dibuka, tetapi PDF ini belum disimpan. Simpan dulu jika ingin mempertahankannya.</string>
     <string name="share_discard_changes">File yang Anda bagikan siap dibuka. Membukanya akan membuang perubahan pada PDF ini.</string>
     <string name="share_waits">File yang Anda bagikan akan terbuka setelah proses ini selesai.</string>
     <!-- The screen that opens with PDFs shared to Usugami from another app, listing the tools that take them. -->
@@ -251,7 +251,7 @@
     <string name="sign_done">Selesai</string>
     <string name="sign_page">Halaman untuk ditandatangani</string>
     <string name="sign_place">Letakkan tanda tangan</string>
-    <string name="sign_place_hint">Seret tanda tangan, atau ketuk tempat untuk meletakkannya.</string>
+    <string name="sign_place_hint">Tarik tanda tangan, atau ketuk tempat untuk meletakkannya.</string>
     <string name="sign_preview_description">Tanda tangan Anda di halaman %1$d</string>
     <string name="sign_size">Ukuran</string>
     <string name="sign_size_description">Ukuran tanda tangan</string>
@@ -265,7 +265,7 @@
     <string name="redact_find">Cari teks</string>
     <string name="redact_find_hint">Setiap hasil di setiap halaman diberi kotak untuk Anda periksa.</string>
     <string name="redact_find_action">Cari</string>
-    <string name="redact_find_none">Tidak ada yang ditemukan. Teks dalam pindaian dan gambar tidak dapat dicari: buat kotak di atasnya secara manual.</string>
+    <string name="redact_find_none">Tidak ada yang ditemukan. Teks dalam hasil pindaian dan gambar tidak dapat dicari: buat kotak di atasnya secara manual.</string>
     <!-- %1$d is the most boxes Usugami keeps (2000). -->
     <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Terlalu banyak hasil: Usugami menyimpan maksimal %1$d kotak. Coba frasa yang lebih panjang.</string>
     <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami menyimpan maksimal %1$d kotak.</string>
@@ -282,7 +282,7 @@
     <string name="redact_page">Halaman</string>
     <string name="redact_page_marked">Berisi kotak</string>
     <string name="redact_mark">Tandai yang ingin disembunyikan</string>
-    <string name="redact_mark_hint">Seret di halaman untuk membuat kotak. Ketuk kotak untuk mengubahnya.</string>
+    <string name="redact_mark_hint">Tarik jari di halaman untuk membuat kotak. Ketuk kotak untuk mengubahnya.</string>
     <string name="redact_page_failed">Halaman ini tidak dapat ditampilkan, jadi tidak dapat disensor.</string>
     <!-- %1$d is a page number, %2$d the number of boxes on it. -->
     <plurals name="redact_preview_description">
@@ -296,7 +296,7 @@
     <string name="redact_remove_all_title">Hapus semua kotak?</string>
     <!-- Counts boxes, so never 0: the question is only asked when there are some. In French and Hindi "one" may leave the number out. -->
     <plurals name="redact_remove_all_body">
-        <item quantity="other">%1$d kotak di semua halaman akan dihapus.</item>
+        <item quantity="other">Semua kotak di setiap halaman akan dihapus (%1$d kotak).</item>
     </plurals>
     <string name="redact_move_left">Geser kotak ke kiri</string>
     <string name="redact_move_up">Geser kotak ke atas</string>
@@ -663,9 +663,9 @@
     <!-- Under "Discard your changes?", when a file was opened while a tool's PDF had changes not saved. -->
     <string name="reader_open_discard_changes">File yang Anda buka sudah siap. Membukanya akan membuang perubahan pada PDF ini.</string>
     <!-- Under "Discard this PDF?", when a file was opened while a PDF made by a tool wasn't saved yet. -->
-    <string name="reader_open_discard_body">File yang Anda buka sudah siap, tetapi PDF ini belum disimpan. Simpan terlebih dahulu jika ingin mempertahankannya.</string>
+    <string name="reader_open_discard_body">File yang Anda buka sudah siap, tetapi PDF ini belum disimpan. Simpan dulu jika ingin mempertahankannya.</string>
     <!-- Under "Discard what you made?", when a file was opened while images or a text file made from a PDF weren't saved yet. -->
-    <string name="reader_open_discard_files">File yang Anda buka sudah siap, tetapi hasil yang baru Anda buat belum disimpan. Simpan terlebih dahulu jika ingin mempertahankannya.</string>
+    <string name="reader_open_discard_files">File yang Anda buka sudah siap, tetapi hasil yang baru Anda buat belum disimpan. Simpan dulu jika ingin mempertahankannya.</string>
     <string name="reader_open_interrupted">Usugami ditutup sebelum selesai membuka file Anda. Silakan buka lagi.</string>
     <!-- On a small label at the bottom of the reader: the page showing (%1$d) of how many pages (%2$d), as in "3 of 12". -->
     <string name="reader_page_of">%1$d dari %2$d</string>
@@ -692,7 +692,7 @@
     <string name="reader_find_count">%1$d dari %2$d</string>
     <!-- What a screen reader says of that count: "Match 3 of 17". -->
     <string name="reader_find_count_spoken">Hasil %1$d dari %2$d</string>
-    <string name="reader_find_none">Tidak ada hasil. Teks dalam hasil pindaian dan gambar tidak dapat dicari.</string>
+    <string name="reader_find_none">Tidak ada yang ditemukan. Teks dalam hasil pindaian dan gambar tidak dapat dicari.</string>
     <!-- %1$d is the most matches the reader keeps (2000): there were more. -->
     <string name="reader_find_capped" tools:ignore="PluralsCandidate">Menampilkan %1$d hasil pertama. Coba frasa yang lebih panjang.</string>
     <!-- After a search, when some pages' text couldn't be read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0. -->
@@ -744,7 +744,7 @@
     <string name="redo">Ulangi</string>
     <string name="edit_hint_start">Tambahkan teks, coretan, bentuk, atau gambar ke halaman ini.</string>
     <string name="edit_hint_select">Ketuk sesuatu yang Anda tambahkan untuk memindahkan atau mengubahnya.</string>
-    <string name="edit_hint_selected">Seret, atau pindahkan dengan tombol di bawah.</string>
+    <string name="edit_hint_selected">Tarik, atau pindahkan dengan tombol di bawah.</string>
     <string name="edit_hint_draw">Gunakan jari untuk menggambar. Untuk menggulir, geser di samping halaman.</string>
     <!-- %1$d is the page number. -->
     <string name="edit_preview_description">Halaman %1$d, dengan tambahan Anda</string>
@@ -812,7 +812,7 @@
     <string name="ocr_problem_no_play_services">Layanan Google Play tidak tersedia di ponsel ini.</string>
     <string name="ocr_problem_outdated">Layanan Google Play di ponsel ini perlu diperbarui terlebih dahulu.</string>
     <string name="ocr_problem_download">Pengenalan teks tidak dapat didownload. Periksa koneksi internet, lalu coba lagi.</string>
-    <string name="ocr_problem_storage">Ruang penyimpanan kosong tidak cukup untuk mendownload pengenalan teks. Kosongkan sebagian ruang penyimpanan, lalu coba lagi.</string>
+    <string name="ocr_problem_storage">Ruang penyimpanan kosong tidak cukup untuk mendownload pengenalan teks. Kosongkan sebagian ruang, lalu coba lagi.</string>
     <string name="ocr_problem_failed">Pengenalan teks tidak dapat dimulai karena terjadi kesalahan yang tidak terduga. Jika ini terus terjadi, silakan laporkan di github.com/Nath-Goa/usugami.</string>
     <string name="ocr_problem_help">Di edisi Usugami ini, pengenalan teks berasal dari layanan Google Play, yang mendownloadnya saat setiap bahasa pertama kali digunakan. Proses ini memerlukan koneksi internet. Edisi Usugami OCR sudah memiliki pengenalan teks bawaan.</string>
     <string name="ocr_problem_retry">Untuk membuat PDF sekarang, nonaktifkan OCR, lalu coba lagi.</string>
@@ -864,7 +864,7 @@
     <plurals name="convert_many">
         <item quantity="other">Konversi %d file ke PDF</item>
     </plurals>
-    <string name="reorder_hint">Tekan lama halaman, lalu tarik untuk mengubah urutannya</string>
+    <string name="reorder_hint">Sentuh lama halaman, lalu tarik untuk mengubah urutannya</string>
     <string name="adding_images">Menambahkan gambar…</string>
     <string name="sort">Urutkan</string>
     <string name="sort_name_az">Nama (A ke Z)</string>
@@ -1214,7 +1214,7 @@
     <string name="search_keywords_split">pisah, pisahkan, pecah, pecahkan, potong, bagi, ekstrak, ambil halaman, split</string>
     <string name="search_keywords_reorganize">urutkan, urutan, susun, susun ulang, pindah, geser, sisipkan, halaman kosong, putar, rotasi, rotate, balik, balikkan, miring, terbalik, lanskap, landscape, potret, portrait, orientasi, hapus, buang, hilangkan, singkirkan, delete</string>
     <string name="search_keywords_edit">anotasi, tulis, ketik, pena, pulpen, gambar, coret, sorot, highlight, stabilo, tandai, markup, panah, foto</string>
-    <string name="search_keywords_sign">tanda tangan, ttd, teken, paraf, inisial, e-sign</string>
+    <string name="search_keywords_sign">tanda tangan, ttd, teken, paraf, inisial, gambar, e-sign</string>
     <string name="search_keywords_page_numbers">penomoran, angka, paginasi, header, footer, kepala halaman, kaki halaman</string>
     <string name="search_keywords_watermark">watermark, stempel, cap, rahasia, konfidensial, draf, draft, contoh, salinan, hak cipta, copyright</string>
     <string name="search_keywords_compress">perkecil, kecilkan, kurangi ukuran, ukuran file, optimalkan, ringankan, email, compress, hitam putih, skala abu-abu, abu-abu, grayscale, monokrom</string>

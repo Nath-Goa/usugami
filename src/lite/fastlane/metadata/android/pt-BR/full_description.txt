@@ -1,0 +1,47 @@
+O <i>Usugami Lite</i> transforma fotos, digitalizações pela câmera, documentos de identidade, documentos do Word, slides do PowerPoint, planilhas do Excel e e-books EPUB em PDFs, abre PDFs e documentos em um leitor próprio e reúne as ferramentas de que você precisa para os PDFs que já tem. Ele tem todas as ferramentas do <i>Usugami</i> (薄紙, "papel fino" em japonês), exceto o reconhecimento de texto, por isso é ainda menor. Tudo acontece no seu celular: o Usugami Lite não tem permissão de acesso à internet, então nunca envia nada.
+
+<b>Criar PDFs</b>
+<ul>
+<li><b>Digitalizar documento:</b> tire fotos com o app de câmera do celular ou importe imagens. Corte cada página e deixe-a reta (o Usugami Lite consegue encontrá-la, até uma folha branca sobre uma mesa branca) e depois escolha o estilo: original, clareado, melhorado, muito melhorado, escala de cinza, preto e branco ou economia de tinta.</li>
+<li><b>Documento de identidade:</b> a frente e o verso de um documento em uma só página, no tamanho real dele.</li>
+<li><b>Imagens para PDF:</b> imagens JPG, PNG, HEIC, AVIF, WebP, BMP e GIF, cortadas e melhoradas do mesmo jeito, se você quiser, em um único PDF ou um por imagem. As imagens são sempre compactadas, e a localização e outros metadados ocultos delas são removidos.</li>
+<li><b>Documentos para PDF:</b> arquivos Word, PowerPoint, Excel e EPUB convertidos no seu celular, com seus estilos, tabelas e imagens.</li>
+</ul>
+
+<b>Ler e anotar</b>
+<ul>
+<li>Abra PDFs e arquivos Word, Excel, PowerPoint e EPUB de qualquer app com "Abrir com"</li>
+<li>Dê zoom, busque, selecione e copie texto, compartilhe e imprima</li>
+<li>Faça anotações com texto, desenhos, destaques, formas e imagens, salvas em um novo PDF</li>
+</ul>
+
+<b>Ferramentas de PDF</b>
+<ul>
+<li>Divida, junte e reorganize PDFs: mova, gire, exclua e adicione páginas</li>
+<li>Layout da página: corte páginas ou coloque 2, 4, 6 ou 9 páginas em uma folha</li>
+<li>Compacte PDFs ou deixe-os em preto e branco</li>
+<li>Assine, numere páginas ou adicione uma marca-d'água</li>
+<li>Achate formulários e comentários, incorporando-os à página</li>
+<li>Censure de verdade: o que fica sob as tarjas pretas é removido, e não só coberto</li>
+<li>Informações do documento: veja, altere ou remova título, autor e mais</li>
+<li>PDF para imagens ou texto: páginas em JPG ou PNG, ou o texto delas</li>
+<li>Imprima e abra PDFs protegidos por senha</li>
+</ul>
+
+<b>Modo em lote:</b> compacte, numere, aplique marca-d'água, achate ou converta vários arquivos de uma vez e salve ou compartilhe os novos PDFs em um único arquivo ZIP.
+
+<b>Compartilhe com o Usugami Lite</b> de qualquer app, e os arquivos abrem na ferramenta certa. <b>Arquivos recentes</b> deixa à mão o que você salvou, e manter pressionado o ícone do app dá acesso direto a quatro ferramentas.
+
+<b>Marca-d'água do Usugami:</b> para apoiar o app, uma chave adiciona um pequeno "Usugami" aos seus novos PDFs. Ela fica desligada até você ligá-la.
+
+<b>Privacidade desde a concepção</b>
+<ul>
+<li>Sem permissão de acesso à internet e sem permissões para conceder</li>
+<li>Sem anúncios, sem rastreamento, sem conta</li>
+<li>Sem código do Google: o Google Play Services não é necessário</li>
+<li>Livre e de código aberto (GPL-3.0 ou posterior)</li>
+</ul>
+
+Em inglês, francês, espanhol, hindi, alemão, português do Brasil e indonésio, com temas claro e escuro. Requer Android 8.0 ou mais recente.
+
+Quer digitalizações pesquisáveis? O <i>Usugami</i> tem as mesmas ferramentas e também reconhecimento de texto (OCR) de código aberto em sete idiomas. O Usugami Lite é um app separado, então os dois podem ser instalados lado a lado.

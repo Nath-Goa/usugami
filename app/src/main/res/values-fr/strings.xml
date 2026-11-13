@@ -26,7 +26,7 @@
     <!-- On the screen that asks for an ID card's front side, under the heading "Front side" (card_front). -->
     <string name="card_front_hint">Posez la carte sur une surface unie et sombre. Tenez le téléphone à plat juste au-dessus, assez près pour que la carte remplisse presque toute la photo.</string>
     <!-- A smaller note under card_front_hint: the PDF has one page with both sides of the card on it, each at the card's real size when printed. -->
-    <string name="card_note">Le recto et le verso vont sur une même page, à la taille réelle de la carte.</string>
+    <string name="card_note">Le recto et le verso sont placés sur une même page, à la taille réelle de la carte.</string>
     <!-- On the screen that asks for an ID card's back side, under the heading "Back side" (card_back). "No back side" is the name of a button on the same screen (card_no_back): use the same words as there. -->
     <string name="card_back_hint">Retournez la carte et faites de même. Si la carte n\'a qu\'une face, choisissez « Pas de verso ».</string>
     <!-- A button on the screens that ask for an ID card's sides: picks one image of the side from the phone, in place of taking a photo. -->
@@ -100,8 +100,8 @@
     <!-- %1$d counts the files that failed (never 0), %2$s lists their names. -->
     <plurals name="batch_failed" tools:ignore="ImpliedQuantity">
         <item quantity="one">Impossible de traiter %2$s. Vérifiez le fichier et l\'espace de stockage disponible.</item>
-        <item quantity="many">Impossible de traiter %1$d fichiers : %2$s. Vérifiez les fichiers et l\'espace de stockage disponible.</item>
-        <item quantity="other">Impossible de traiter %1$d fichiers : %2$s. Vérifiez les fichiers et l\'espace de stockage disponible.</item>
+        <item quantity="many">Impossible de traiter %1$d fichiers : %2$s. Vérifiez les fichiers et l\'espace de stockage disponible.</item>
+        <item quantity="other">Impossible de traiter %1$d fichiers : %2$s. Vérifiez les fichiers et l\'espace de stockage disponible.</item>
     </plurals>
     <!-- A file's name, then what is wrong with it or what happened to it, as said of one file. %1$s may also list several names. -->
     <string name="file_problem">%1$s : %2$s</string>
@@ -130,7 +130,7 @@
     <string name="pdf_reset_pages">Réinitialiser les pages</string>
     <string name="merge_page_line">%1$d. %2$s, page %3$d</string>
     <string name="pdf_selected">Sélection</string>
-    <string name="pdf_selected_hint" tools:ignore="TypographyDashes">Par exemple : 1,3,5-8. Appuyez sur les aperçus des pages pour les sélectionner.</string>
+    <string name="pdf_selected_hint" tools:ignore="TypographyDashes">Par exemple : 1,3,5-8. Touchez les aperçus des pages pour les sélectionner.</string>
     <string name="pdf_custom">Plages personnalisées</string>
     <string name="pdf_custom_hint" tools:ignore="TypographyDashes">Par exemple : 1-3;5-7;9</string>
     <string name="pdf_fixed">Plages fixes</string>
@@ -160,7 +160,7 @@
     <string name="compression_for_all">Compression de tous les PDF</string>
     <string name="compression_for_all_hint">Changez-en un ci-dessous pour lui donner son propre niveau.</string>
     <!-- Shown under a PDF that Compress PDF couldn't make smaller. -->
-    <string name="original_kept">Déjà compact : l\'original a été conservé</string>
+    <string name="original_kept">Déjà compact : l\'original a été conservé</string>
     <!-- Compress PDF: a switch under the levels. The PDF comes out in shades of gray, not in pure black and white. Not the scanner's "Black & white" look. -->
     <string name="compress_gray">Noir et blanc</string>
     <string name="compress_gray_detail">Convertir les couleurs en niveaux de gris</string>
@@ -440,11 +440,11 @@
     <string name="flatten_xfa_dropped">Ce PDF contenait un formulaire XFA dynamique, qui a été retiré. Ses autres champs de formulaire et ses commentaires ont été aplatis.</string>
     <string name="flatten_xfa_dropped_many">Ces PDF contenaient un formulaire XFA dynamique, qui a été retiré. Leurs autres champs de formulaire et leurs commentaires ont été aplatis.</string>
     <plurals name="flatten_fields_kept">
-        <item quantity="one">%d champ de formulaire contient du texte qu\'Usugami ne peut pas dessiner avec sa police : il est resté remplissable pour garder ce texte.</item>
-        <item quantity="many">%d champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</item>
-        <item quantity="other">%d champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</item>
+        <item quantity="one">%d champ de formulaire contient du texte qu\'Usugami ne peut pas dessiner avec sa police : il est resté remplissable pour garder ce texte.</item>
+        <item quantity="many">%d champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</item>
+        <item quantity="other">%d champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</item>
     </plurals>
-    <string name="flatten_fields_kept_many">Des champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</string>
+    <string name="flatten_fields_kept_many">Des champs de formulaire contiennent du texte qu\'Usugami ne peut pas dessiner avec leur police : ils sont restés remplissables pour garder ce texte.</string>
     <!-- Page layout -->
     <!-- A tool's name on Home and at the top of its screen. -->
     <string name="tool_page_layout">Mise en page</string>
@@ -591,9 +591,9 @@
     <string name="export_size_medium">Moyenne</string>
     <string name="export_size_large">Grande</string>
     <!-- Under the size chosen. dpi (dots per inch) says how sharp the images are: keep it as it is. -->
-    <string name="export_size_small_summary">Convient à l\'écran, fichiers les plus légers (100 ppp)</string>
-    <string name="export_size_medium_summary">Bonne netteté à l\'écran et à l\'impression (200 ppp)</string>
-    <string name="export_size_large_summary">Idéal pour l\'impression et le zoom, fichiers les plus lourds (300 ppp)</string>
+    <string name="export_size_small_summary">Convient à l\'écran, fichiers les plus légers (100 ppp)</string>
+    <string name="export_size_medium_summary">Bonne netteté à l\'écran et à l\'impression (200 ppp)</string>
+    <string name="export_size_large_summary">Idéal pour l\'impression et le zoom, fichiers les plus lourds (300 ppp)</string>
     <!-- Under the file name field. %1$s is the name a page's image gets, such as Report_p3.jpg: it is made from the name typed. -->
     <string name="export_images_name_hint">Le numéro de page s\'ajoute au nom de chaque image : %1$s</string>
     <!-- The button that makes the pages into images. -->
@@ -819,7 +819,7 @@
     <string name="office_note_epub">Les chapitres, les titres, les styles de texte, les listes, les tableaux et les images sont convertis, et la table des matières devient des signets. Les polices de votre téléphone sont utilisées.</string>
     <string name="book_page_note">Le format A5 est à peu près celui d\'un livre de poche ; le A4 convient mieux à l\'impression.</string>
     <string name="epub_protected">Ce livre est protégé par des DRM (protection contre la copie) : Usugami ne peut donc pas le lire. Seuls les livres sans DRM peuvent être convertis.</string>
-    <string name="epub_protected_many">Ces livres sont protégés par des DRM (protection contre la copie) : Usugami ne peut donc pas les lire. Seuls les livres sans DRM peuvent être convertis.</string>
+    <string name="epub_protected_many">Ces livres sont protégés par des DRM (protection contre la copie) : Usugami ne peut donc pas les lire. Seuls les livres sans DRM peuvent être convertis.</string>
     <string name="epub_not_recognized">Ce fichier n\'est pas un livre numérique EPUB, ou il est endommagé.</string>
     <string name="epub_not_recognized_many">Ces fichiers ne sont pas des livres numériques EPUB, ou ils sont endommagés.</string>
     <string name="epub_empty">Ce livre ne contient rien à convertir.</string>
@@ -922,7 +922,7 @@
     <!-- Above the photo when the page was found on it automatically. -->
     <string name="crop_found">Usugami a trouvé la page. Faites glisser les coins ou les bords pour l\'ajuster.</string>
     <string name="crop_not_found">Faites glisser les coins ou les bords sur le contour de la page.</string>
-    <string name="crop_not_a_page">Les coins ne forment pas une page : placez chacun sur un coin de la page.</string>
+    <string name="crop_not_a_page">Les coins ne forment pas une page : placez chacun sur un coin de la page.</string>
     <string name="crop_reset">Réinitialiser</string>
     <string name="crop_whole">Image entière</string>
     <string name="crop_done">Terminé</string>
@@ -1066,7 +1066,7 @@
     <string name="back_to_editing">Retour à l\'édition</string>
     <string name="start_over">Recommencer</string>
     <string name="start_over_title">Recommencer ?</string>
-    <string name="not_saved_note">Pas encore enregistré. Recommencer le supprime : enregistrez-le d\'abord si vous voulez le conserver.</string>
+    <string name="not_saved_note">Pas encore enregistré. Recommencer le supprime : enregistrez-le d\'abord si vous voulez le conserver.</string>
     <string name="mark_title">Filigrane Usugami</string>
     <string name="mark_detail">Ajoute un petit « Usugami » dans le coin de chaque page, pour soutenir l\'application.</string>
     <string name="mark_adjust">Taille et opacité du filigrane</string>
@@ -1118,7 +1118,7 @@
          for example). -->
     <string name="msg_no_printing">L\'impression n\'est pas disponible sur ce téléphone.</string>
     <!-- Shown by Android's print screen when the PDF being printed can't be read. -->
-    <string name="print_failed">Impossible d\'envoyer ce PDF à l\'impression. Il a peut-être été déplacé ou supprimé, ou l\'espace de stockage du téléphone est plein.</string>
+    <string name="print_failed">Impossible d\'envoyer ce PDF à l\'impression. Il a peut-être été déplacé ou supprimé, ou l\'espace de stockage du téléphone est peut-être plein.</string>
 
     <!-- Dialogs -->
     <string name="discard_title">Supprimer ces images ?</string>
@@ -1150,9 +1150,9 @@
         <item quantity="other">Impossible de lire %d images.</item>
     </plurals>
     <plurals name="msg_import_no_space">
-        <item quantity="one">Impossible d\'ajouter %d image : l\'espace de stockage disponible est insuffisant.</item>
-        <item quantity="many">Impossible d\'ajouter %d images : l\'espace de stockage disponible est insuffisant.</item>
-        <item quantity="other">Impossible d\'ajouter %d images : l\'espace de stockage disponible est insuffisant.</item>
+        <item quantity="one">Impossible d\'ajouter %d image : l\'espace de stockage disponible est insuffisant.</item>
+        <item quantity="many">Impossible d\'ajouter %d images : l\'espace de stockage disponible est insuffisant.</item>
+        <item quantity="other">Impossible d\'ajouter %d images : l\'espace de stockage disponible est insuffisant.</item>
     </plurals>
     <plurals name="share_unsupported" tools:ignore="ImpliedQuantity">
         <item quantity="one">Usugami ne peut pas ouvrir %2$s, qui a été laissé de côté.</item>

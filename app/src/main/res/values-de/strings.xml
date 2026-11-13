@@ -300,31 +300,31 @@
     <string name="redact_page_failed">Diese Seite kann nicht angezeigt und daher nicht geschwärzt werden.</string>
     <!-- %1$d is a page number, %2$d the number of boxes on it. -->
     <plurals name="redact_preview_description">
-        <item quantity="one">Seite %1$d, %2$d Box</item>
-        <item quantity="other">Seite %1$d, %2$d Boxen</item>
+        <item quantity="one">Seite %1$d, %2$d Kasten</item>
+        <item quantity="other">Seite %1$d, %2$d Kästen</item>
     </plurals>
     <!-- %1$d is the box's number, %2$d how many boxes the page has. -->
-    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Box %1$d von %2$d ausgewählt</string>
-    <string name="redact_next_box">Nächste Box auswählen</string>
-    <string name="redact_add_box">Box hinzufügen</string>
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Kasten %1$d von %2$d ausgewählt</string>
+    <string name="redact_next_box">Nächsten Kasten auswählen</string>
+    <string name="redact_add_box">Kasten hinzufügen</string>
     <string name="redact_remove_all">Alle entfernen</string>
-    <string name="redact_remove_all_title">Alle Boxen entfernen?</string>
+    <string name="redact_remove_all_title">Alle Kästen entfernen?</string>
     <!-- Counts boxes, so never 0: the question is only asked when there are some. In French and Hindi "one" may leave the number out. -->
     <plurals name="redact_remove_all_body">
-        <item quantity="one">Die Box wird entfernt.</item>
-        <item quantity="other">Alle %1$d Boxen auf allen Seiten werden entfernt.</item>
+        <item quantity="one">Der Kasten wird entfernt.</item>
+        <item quantity="other">Alle %1$d Kästen auf allen Seiten werden entfernt.</item>
     </plurals>
-    <string name="redact_move_left">Box nach links verschieben</string>
-    <string name="redact_move_up">Box nach oben verschieben</string>
-    <string name="redact_move_down">Box nach unten verschieben</string>
-    <string name="redact_move_right">Box nach rechts verschieben</string>
+    <string name="redact_move_left">Kasten nach links verschieben</string>
+    <string name="redact_move_up">Kasten nach oben verschieben</string>
+    <string name="redact_move_down">Kasten nach unten verschieben</string>
+    <string name="redact_move_right">Kasten nach rechts verschieben</string>
     <string name="redact_width">Breite</string>
     <string name="redact_height">Höhe</string>
-    <string name="redact_narrower">Box schmaler machen</string>
-    <string name="redact_wider">Box breiter machen</string>
-    <string name="redact_shorter">Box niedriger machen</string>
-    <string name="redact_taller">Box höher machen</string>
-    <string name="redact_delete_box">Box löschen</string>
+    <string name="redact_narrower">Kasten schmaler machen</string>
+    <string name="redact_wider">Kasten breiter machen</string>
+    <string name="redact_shorter">Kasten niedriger machen</string>
+    <string name="redact_taller">Kasten höher machen</string>
+    <string name="redact_delete_box">Kasten löschen</string>
     <!-- Word and PowerPoint to PDF. Word and PowerPoint are the names of Microsoft's apps, kept as they are;
          .docx, .pptx, .doc and .ppt are file extensions. -->
     <!-- A tool's name on Home: the one tile for Word, PowerPoint, Excel and EPUB files, which opens the
@@ -441,7 +441,7 @@
     <string name="flatten_xfa_dropped_many">Diese PDFs hatten ein dynamisches XFA-Formular, das entfernt wurde. Ihre übrigen Formularfelder und Kommentare wurden geglättet.</string>
     <!-- After Flatten PDF: fields whose text the form's own font can't draw (Hindi or the rupee sign in a Latin-only font, say) are left as fields rather than come out blank. -->
     <plurals name="flatten_fields_kept">
-        <item quantity="one">%d Formularfeld enthält Text, den Usugami mit seiner Schriftart nicht darstellen kann. Es bleibt deshalb ausfüllbar, damit dieser Text erhalten bleibt.</item>
+        <item quantity="one">%d Formularfeld enthält Text, den Usugami mit der Schriftart des Felds nicht darstellen kann. Es bleibt deshalb ausfüllbar, damit dieser Text erhalten bleibt.</item>
         <item quantity="other">%d Formularfelder enthalten Text, den Usugami mit ihrer Schriftart nicht darstellen kann. Sie bleiben deshalb ausfüllbar, damit dieser Text erhalten bleibt.</item>
     </plurals>
     <string name="flatten_fields_kept_many">Einige Formularfelder enthalten Text, den Usugami mit ihrer Schriftart nicht darstellen kann. Sie bleiben deshalb ausfüllbar, damit dieser Text erhalten bleibt.</string>
@@ -649,7 +649,7 @@
 
     <!-- Notes on the result. %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. Usugami Lite is the app's name: keep it as it is. -->
     <plurals name="export_no_text_lite">
-        <item quantity="one">Seite %2$s enthält keinen kopierbaren Text. Möglicherweise ist sie ein Scan, den Usugami Lite nicht lesen kann.</item>
+        <item quantity="one">Seite %2$s enthält keinen kopierbaren Text. Möglicherweise ist es ein Scan, den Usugami Lite nicht lesen kann.</item>
         <item quantity="other">%1$d Seiten enthalten keinen kopierbaren Text: %2$s. Möglicherweise sind es Scans, die Usugami Lite nicht lesen kann.</item>
     </plurals>
     <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
@@ -688,7 +688,7 @@
     <string name="reader_cant_open">Usugami kann %1$s nicht öffnen. Unterstützt werden PDF-, Word-, Excel-, PowerPoint- und EPUB-Dateien.</string>
     <string name="reader_unreadable">Usugami konnte die Datei nicht lesen. Bitte öffne sie noch einmal.</string>
     <!-- Said when a file is opened while Usugami makes a PDF: the file opens once the PDF is made. -->
-    <string name="reader_open_waits">Deine Datei wird geöffnet, sobald das fertig ist.</string>
+    <string name="reader_open_waits">Deine Datei wird geöffnet, sobald dieser Vorgang abgeschlossen ist.</string>
     <!-- Under "Discard your changes?", when a file was opened while a tool's PDF had changes not saved. -->
     <string name="reader_open_discard_changes">Die Datei, die du geöffnet hast, ist bereit. Wenn du sie öffnest, werden deine Änderungen an diesem PDF verworfen.</string>
     <!-- Under "Discard this PDF?", when a file was opened while a PDF made by a tool wasn't saved yet. -->
@@ -721,9 +721,9 @@
     <string name="reader_find_count">%1$d von %2$d</string>
     <!-- What a screen reader says of that count: "Match 3 of 17". -->
     <string name="reader_find_count_spoken">Treffer %1$d von %2$d</string>
-    <string name="reader_find_none">Nichts gefunden. Text in Scans und Bildern kann nicht durchsucht werden.</string>
+    <string name="reader_find_none">Nichts gefunden. Text in Scans und Bildern lässt sich nicht durchsuchen.</string>
     <!-- %1$d is the most matches the reader keeps (2000): there were more. -->
-    <string name="reader_find_capped" tools:ignore="PluralsCandidate">Die ersten %1$d Treffer werden angezeigt. Versuch es mit einem längeren Suchbegriff.</string>
+    <string name="reader_find_capped" tools:ignore="PluralsCandidate">Die ersten %1$d Treffer werden angezeigt. Versuche es mit einem längeren Suchbegriff.</string>
     <!-- After a search, when some pages' text couldn't be read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0. -->
     <plurals name="reader_find_unread">
         <item quantity="one">Der Text auf %d Seite konnte nicht gelesen werden und wurde daher nicht durchsucht.</item>
@@ -752,11 +752,11 @@
     <!-- What a screen reader offers on a page of the reader: copies all the text of that page, with no selecting. -->
     <string name="reader_copy_page">Text dieser Seite kopieren</string>
     <!-- When the text selected in the reader is too long to copy. "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
-    <string name="reader_copy_too_long">Das ist zu viel Text, um ihn auf einmal zu kopieren. Wähle weniger aus oder hol dir den ganzen Text mit dem Tool PDF in Bilder oder Text.</string>
+    <string name="reader_copy_too_long">Das ist zu viel Text, um ihn auf einmal zu kopieren. Wähle weniger aus oder nutze „PDF in Bilder oder Text“, um den ganzen Text zu erhalten.</string>
     <!-- When Copy is tapped in the reader and the text selected runs over a page whose text couldn't be read (a font that doesn't say which letters its shapes stand for): nothing is copied, so that no page is missing from the text. %1$d is that page's number, from 1. -->
     <string name="reader_copy_unread">Der Text auf Seite %1$d konnte nicht gelesen werden, daher wurde nichts kopiert.</string>
     <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
-    <string name="reader_no_text">Diese Seite enthält keinen Text zum Auswählen. Falls es ein Scan ist, kann das Tool PDF in Bilder oder Text ihn lesen.</string>
+    <string name="reader_no_text">Diese Seite enthält keinen Text zum Auswählen. Falls es ein Scan ist, kann ihn „PDF in Bilder oder Text“ lesen.</string>
     <!-- Edit PDF was a tool until 2.0.0; it is now Annotate in Read and annotate: text, drawings,
          highlights, shapes and pictures put on top of a PDF's pages, with the strings below. "Redact
          PDF" is the name of another tool. Edit PDF's name, description (the next two strings) and
@@ -876,7 +876,7 @@
     <string name="about_license_detail">GNU GPL v3 oder später</string>
     <string name="about_source">Quellcode</string>
     <string name="about_document_missing">Dieser Text ist in dieser Kopie von Usugami nicht enthalten. Du kannst ihn unter github.com/Nath-Goa/usugami lesen.</string>
-    <string name="msg_no_browser">Keine App auf diesem Smartphone kann Weblinks öffnen.</string>
+    <string name="msg_no_browser">Auf diesem Smartphone gibt es keine App, die Weblinks öffnen kann.</string>
 
     <!-- Editor -->
     <string name="editor_title">Bilder in PDF</string>
@@ -1094,7 +1094,7 @@
     <!-- Said when images or text files were to be shared, as "No app on this phone can share PDFs." is for PDFs. -->
     <string name="msg_no_share_app_files">Auf diesem Smartphone gibt es keine App, die Dateien teilen kann.</string>
     <!-- Said when images or text files couldn't be saved, as "Couldn't save the PDF…" is for PDFs. -->
-    <string name="msg_save_failed_files">Speichern fehlgeschlagen. Prüfe, ob genügend freier Speicherplatz vorhanden ist.</string>
+    <string name="msg_save_failed_files">Speichern fehlgeschlagen. Prüfe, ob genug freier Speicherplatz vorhanden ist.</string>
     <!-- Counts images or text files, so never 0: in French and Hindi "one" may leave the number out. -->
     <plurals name="msg_result_files_cleared">
         <item quantity="one">Die Datei wurde aus dem temporären Speicher gelöscht. Bitte erstelle sie noch einmal.</item>
@@ -1147,8 +1147,8 @@
         <item quantity="other">%d Bilder konnten nicht gelesen werden.</item>
     </plurals>
     <plurals name="msg_import_no_space">
-        <item quantity="one">%d Bild konnte nicht hinzugefügt werden: Es ist nicht genügend freier Speicherplatz vorhanden.</item>
-        <item quantity="other">%d Bilder konnten nicht hinzugefügt werden: Es ist nicht genügend freier Speicherplatz vorhanden.</item>
+        <item quantity="one">%d Bild konnte nicht hinzugefügt werden: Es ist nicht genug freier Speicherplatz vorhanden.</item>
+        <item quantity="other">%d Bilder konnten nicht hinzugefügt werden: Es ist nicht genug freier Speicherplatz vorhanden.</item>
     </plurals>
     <!-- Files shared to Usugami that it can't use: %1$d counts them (never 0), %2$s lists their names. -->
     <plurals name="share_unsupported">
@@ -1179,13 +1179,13 @@
         <item quantity="one">%d PDF im Ordner gespeichert</item>
         <item quantity="other">%d PDFs im Ordner gespeichert</item>
     </plurals>
-    <string name="msg_save_failed">Das PDF konnte nicht gespeichert werden. Prüfe, ob genügend freier Speicherplatz vorhanden ist.</string>
-    <string name="zip_failed">Die ZIP-Datei konnte nicht erstellt werden. Prüfe, ob genügend freier Speicherplatz vorhanden ist.</string>
+    <string name="msg_save_failed">Das PDF konnte nicht gespeichert werden. Prüfe, ob genug freier Speicherplatz vorhanden ist.</string>
+    <string name="zip_failed">Die ZIP-Datei konnte nicht erstellt werden. Prüfe, ob genug freier Speicherplatz vorhanden ist.</string>
     <string name="zip_busy">Es wird bereits eine ZIP-Datei erstellt. Versuche es noch einmal, sobald sie fertig ist.</string>
     <string name="msg_convert_failed">Das PDF konnte nicht erstellt werden: %1$s</string>
     <string name="msg_image_unreadable">„%1$s“ konnte nicht gelesen werden</string>
     <string name="msg_out_of_memory">nicht genug Arbeitsspeicher für ein so großes Bild</string>
-    <string name="msg_out_of_space">nicht genügend freier Speicherplatz</string>
+    <string name="msg_out_of_space">nicht genug freier Speicherplatz</string>
     <string name="msg_unknown_error">ein unerwarteter Fehler ist aufgetreten</string>
     <string name="msg_no_pdf_app">Auf diesem Smartphone gibt es keine App, die PDFs öffnen kann.</string>
     <string name="msg_no_zip_app">Auf diesem Smartphone gibt es keine App, die ZIP-Dateien öffnen kann.</string>

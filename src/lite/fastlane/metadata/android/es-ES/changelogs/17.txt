@@ -1,0 +1,8 @@
+• Lee PDF y documentos en Usugami: zoom, busca y copia texto, imprime
+• Editar PDF es ahora Anotar, en el lector
+• Nuevo: PDF a imágenes o texto, Diseño de página (recortar, páginas por hoja), Información del documento
+• Blanco y negro en Comprimir PDF, y escaneo de documentos de identidad
+• Reorganizar gira y elimina muchas páginas a la vez
+• Imprimir, accesos directos y Documentos a PDF en un solo botón
+• Alemán, portugués de Brasil e indonesio
+• Censurar halla texto chino, japonés y coreano

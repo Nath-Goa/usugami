@@ -5,5 +5,5 @@
     <string name="tool_images_detail">Kamerascans und Bilder in ein PDF oder ein PDF pro Bild</string>
     <string name="search_keywords_images">Foto, Fotos, Bild, JPEG, JPG, PNG, HEIC, WebP, scannen, Scan, Scanner, Kamera, Galerie, Dokument, schwarz-weiß, Schwarzweiß, schwarz-weiss</string>
     <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). Usugami Lite has no text recognition to read it. -->
-    <string name="reader_no_text">Diese Seite enthält keinen Text zum Auswählen. Vielleicht ist es ein Scan, den Usugami Lite nicht lesen kann.</string>
+    <string name="reader_no_text">Diese Seite enthält keinen Text zum Auswählen. Möglicherweise ist es ein Scan, den Usugami Lite nicht lesen kann.</string>
 </resources>

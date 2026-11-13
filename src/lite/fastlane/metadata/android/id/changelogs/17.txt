@@ -1,0 +1,8 @@
+• Buka PDF dan dokumen di pembaca Usugami: zoom, cari dan salin teks, cetak
+• Anotasi di pembaca menggantikan Edit PDF
+• Alat baru: PDF ke gambar atau teks, Tata letak halaman (pangkas, halaman per lembar), Info dokumen
+• Hitam putih di Kompres PDF dan pindaian kartu identitas
+• Atur ulang PDF memutar dan menghapus banyak halaman sekaligus
+• Cetak, pintasan aplikasi, dan alat Dokumen ke PDF
+• Bahasa Jerman, Portugis Brasil, dan Indonesia
+• Sensor PDF menemukan teks Tionghoa, Jepang, dan Korea

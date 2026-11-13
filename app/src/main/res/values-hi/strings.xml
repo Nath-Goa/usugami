@@ -342,8 +342,8 @@
     <string name="office_not_powerpoint_many">ये PowerPoint प्रेज़ेंटेशन (.pptx) नहीं हैं, या फ़ाइलें खराब हैं।</string>
     <string name="office_no_slides">इस प्रेज़ेंटेशन में बदलने के लिए कोई स्लाइड नहीं है। छिपी हुई स्लाइड छोड़ दी जाती हैं।</string>
     <string name="office_no_slides_many">इन प्रेज़ेंटेशन में बदलने के लिए कोई स्लाइड नहीं है। छिपी हुई स्लाइड छोड़ दी जाती हैं।</string>
-    <string name="office_embedded_content">इस दस्तावेज़ का टेक्स्ट उसके अंदर रखे वेब पेज या RTF फ़ाइल में है, जिसे Usugami नहीं बदल सकता। इसे Word में खोलें, सेव करें और फिर से कोशिश करें।</string>
-    <string name="office_embedded_content_many">इन दस्तावेज़ों का टेक्स्ट उनके अंदर रखे वेब पेज या RTF फ़ाइल में है, जिसे Usugami नहीं बदल सकता। इन्हें Word में खोलें, सेव करें और फिर से कोशिश करें।</string>
+    <string name="office_embedded_content">इस डॉक्यूमेंट का टेक्स्ट उसके अंदर रखे वेब पेज या RTF फ़ाइल में है, जिसे Usugami नहीं बदल सकता। इसे Word में खोलें, सेव करें और फिर से कोशिश करें।</string>
+    <string name="office_embedded_content_many">इन डॉक्यूमेंट का टेक्स्ट उनके अंदर रखे वेब पेज या RTF फ़ाइल में है, जिसे Usugami नहीं बदल सकता। इन्हें Word में खोलें, सेव करें और फिर से कोशिश करें।</string>
     <string name="office_convert_failed">यह फ़ाइल बदली नहीं जा सकी। फ़ाइल और स्टोरेज में खाली जगह जांचें।</string>
     <plurals name="progress_slides">
         <item quantity="one">%2$d में से %1$d स्लाइड</item>
@@ -435,7 +435,7 @@
     <!-- The two things Page layout does (crop pages: choose the part of each page that shows; or put several pages on one sheet of paper), on a two-part switch at its top. -->
     <string name="layout_mode_crop">क्रॉप करें</string>
     <string name="layout_mode_sheets">हर शीट पर पेज</string>
-    <string name="layout_crop_note">क्रॉप करने से बॉक्स के बाहर का हिस्सा सिर्फ़ छिपता है, वह फ़ाइल में बना रहता है। उसे हमेशा के लिए हटाने के लिए PDF रिडैक्ट करें टूल इस्तेमाल करें।</string>
+    <string name="layout_crop_note">क्रॉप करने से बॉक्स के बाहर का हिस्सा सिर्फ़ छिपता है, वह फ़ाइल में बना रहता है। उसे हमेशा के लिए हटाने के लिए \"PDF रिडैक्ट करें\" टूल इस्तेमाल करें।</string>
     <!-- Over the row of pages: the page tapped is the one the preview shows. -->
     <string name="layout_crop_page">दिखाया गया पेज</string>
     <string name="layout_crop_box">क्रॉप बॉक्स</string>
@@ -625,7 +625,7 @@
     <string name="msg_text_too_long">यह टेक्स्ट एक बार में कॉपी करने के लिए बहुत लंबा है। इसके बजाय फ़ाइल खोलें, शेयर करें या सेव करें।</string>
     <string name="msg_copy_failed">टेक्स्ट कॉपी नहीं किया जा सका। इसके बजाय फ़ाइल खोलें, शेयर करें या सेव करें।</string>
     <!-- A note on the result: what the text file leaves out. Flatten PDF is a tool's name: use its name in this language. -->
-    <string name="export_forms_left_out">फ़ॉर्म फ़ील्ड और टिप्पणियों का टेक्स्ट शामिल नहीं है। पेजों पर उसका जो हिस्सा दिखता है, उसे शामिल करने के लिए पहले PDF फ़्लैटन करें टूल इस्तेमाल करें।</string>
+    <string name="export_forms_left_out">फ़ॉर्म फ़ील्ड और टिप्पणियों का टेक्स्ट शामिल नहीं है। पेजों पर उसका जो हिस्सा दिखता है, उसे शामिल करने के लिए पहले \"PDF फ़्लैटन करें\" टूल इस्तेमाल करें।</string>
 
     <!-- Notes on the result. %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. Usugami Lite is the app's name: keep it as it is. -->
     <plurals name="export_no_text_lite" tools:ignore="ImpliedQuantity">
@@ -732,11 +732,11 @@
     <!-- What a screen reader offers on a page of the reader: copies all the text of that page, with no selecting. -->
     <string name="reader_copy_page">इस पेज का टेक्स्ट कॉपी करें</string>
     <!-- When the text selected in the reader is too long to copy. "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
-    <string name="reader_copy_too_long">एक बार में कॉपी करने के लिए यह टेक्स्ट बहुत ज़्यादा है। कम टेक्स्ट चुनें, या पूरा टेक्स्ट पाने के लिए PDF से इमेज या टेक्स्ट टूल इस्तेमाल करें।</string>
+    <string name="reader_copy_too_long">एक बार में कॉपी करने के लिए यह टेक्स्ट बहुत ज़्यादा है। कम टेक्स्ट चुनें, या पूरा टेक्स्ट पाने के लिए \"PDF से इमेज या टेक्स्ट\" टूल इस्तेमाल करें।</string>
     <!-- When Copy is tapped in the reader and the text selected runs over a page whose text couldn't be read (a font that doesn't say which letters its shapes stand for): nothing is copied, so that no page is missing from the text. %1$d is that page's number, from 1. -->
     <string name="reader_copy_unread">पेज %1$d का टेक्स्ट पढ़ा नहीं जा सका, इसलिए कुछ भी कॉपी नहीं किया गया।</string>
     <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
-    <string name="reader_no_text">इस पेज पर चुनने के लिए कोई टेक्स्ट नहीं है। अगर यह स्कैन है, तो PDF से इमेज या टेक्स्ट टूल इसे पढ़ सकता है।</string>
+    <string name="reader_no_text">इस पेज पर चुनने के लिए कोई टेक्स्ट नहीं है। अगर यह स्कैन है, तो \"PDF से इमेज या टेक्स्ट\" टूल इसे पढ़ सकता है।</string>
     <!-- Edit PDF was a tool until 2.0.0; it is now Annotate in Read and annotate: text, drawings,
          highlights, shapes and pictures put on top of a PDF's pages, with the strings below. "Redact
          PDF" is the name of another tool. Edit PDF's name, description (the next two strings) and
@@ -777,7 +777,7 @@
     <string name="edit_fill">भरा हुआ</string>
     <string name="color_yellow">पीला</string>
     <string name="color_white">सफ़ेद</string>
-    <string name="edit_cover_hint">भरी हुई आकृति नीचे की चीज़ को सिर्फ़ ढकती है, वह फ़ाइल में बनी रहती है। उसे हमेशा के लिए हटाने के लिए PDF रिडैक्ट करें टूल इस्तेमाल करें।</string>
+    <string name="edit_cover_hint">भरी हुई आकृति नीचे की चीज़ को सिर्फ़ ढकती है, वह फ़ाइल में बनी रहती है। उसे हमेशा के लिए हटाने के लिए \"PDF रिडैक्ट करें\" टूल इस्तेमाल करें।</string>
     <string name="edit_picture_failed">वह तस्वीर पढ़ी नहीं जा सकी।</string>
     <string name="edit_full">इस PDF में और कुछ नहीं जोड़ा जा सकता। इसे सेव करें, फिर नई PDF को एडिट करके और जोड़ें।</string>
     <string name="edit_page_edited">बदला गया</string>
@@ -1041,7 +1041,7 @@
     <string name="mark_adding">Usugami वॉटरमार्क जोड़ा जा रहा है…</string>
     <string name="mark_failed">Usugami वॉटरमार्क बदला नहीं जा सका। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
     <plurals name="mark_refused" tools:ignore="ImpliedQuantity">
-        <item quantity="one">इस PDF के डिजिटल हस्ताक्षर कोई बदलाव नहीं करने देते, इसलिए इस पर Usugami वॉटरमार्क नहीं लगा।</item>
+        <item quantity="one">इस PDF का डिजिटल हस्ताक्षर कोई बदलाव नहीं करने देता, इसलिए इस पर Usugami वॉटरमार्क नहीं लगा।</item>
         <item quantity="other">%d PDF के डिजिटल हस्ताक्षर कोई बदलाव नहीं करने देते, इसलिए उन पर Usugami वॉटरमार्क नहीं लगा।</item>
     </plurals>
     <!-- The heading over what a tool made, when it made pictures (JPG or PNG files) from a PDF's pages: one picture. -->

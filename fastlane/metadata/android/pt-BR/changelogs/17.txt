@@ -1,0 +1,8 @@
+• Leitor de PDFs e documentos: zoom, buscar e copiar texto, imprimir
+• Anotar, no leitor, substitui Editar PDF
+• Novo: PDF para imagens ou texto, Layout da página (cortar, páginas por folha), Informações do documento
+• Preto e branco em Compactar PDF e digitalizar documento de identidade
+• Reorganizar gira e exclui várias páginas por vez
+• Imprimir, atalhos do app e um só item Documentos para PDF
+• Alemão, português do Brasil e indonésio
+• Censurar busca texto em chinês, japonês e coreano

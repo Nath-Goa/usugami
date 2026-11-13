@@ -5,5 +5,5 @@
     <string name="tool_images_detail">Digitalizações pela câmera e imagens em um só PDF ou em um PDF por imagem</string>
     <string name="search_keywords_images">foto, fotos, imagem, figura, JPEG, JPG, PNG, HEIC, WebP, escanear, digitalizar, scanner, câmera, galeria, documento, preto e branco</string>
     <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). Usugami Lite has no text recognition to read it. -->
-    <string name="reader_no_text">Esta página não tem texto para selecionar. Ela pode ser uma digitalização, que o Usugami Lite não consegue ler.</string>
+    <string name="reader_no_text">Esta página não tem texto para selecionar. Pode ser uma digitalização, que o Usugami Lite não consegue ler.</string>
 </resources>

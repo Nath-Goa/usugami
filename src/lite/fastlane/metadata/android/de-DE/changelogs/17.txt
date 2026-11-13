@@ -1,0 +1,8 @@
+• Eigener Reader für PDFs und Dokumente: zoomen, suchen, Text kopieren, drucken
+• Annotieren im Reader statt „PDF bearbeiten“
+• Neu: PDF in Bilder oder Text, Seitenlayout (Zuschnitt, Seiten pro Blatt), Dokumentinfo
+• Schwarz-Weiß beim Komprimieren, Ausweis-Scans
+• Neu anordnen: viele Seiten zugleich drehen und löschen
+• Drucken, App-Verknüpfungen, eine Kachel „Dokumente in PDF“
+• Deutsch, Portugiesisch (Brasilien) und Indonesisch
+• Schwärzen findet chinesischen, japanischen, koreanischen Text

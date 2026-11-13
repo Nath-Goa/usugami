@@ -1,0 +1,48 @@
+<i>Usugami</i> (薄紙, bahasa Jepang untuk "kertas tipis") mengubah foto, hasil pindaian kamera, kartu identitas, dokumen Word, slide PowerPoint, spreadsheet Excel, dan e-book EPUB menjadi PDF, membuka PDF dan dokumen di pembacanya sendiri, serta menyediakan alat yang Anda perlukan untuk PDF yang sudah Anda miliki. Semuanya berlangsung di ponsel Anda: Usugami tidak memiliki izin akses internet, jadi tidak ada yang pernah diupload.
+
+<b>Buat PDF</b>
+<ul>
+<li><b>Pindai dokumen:</b> ambil foto dengan aplikasi kamera ponsel Anda, atau impor gambar. Pangkas setiap halaman agar lurus (Usugami dapat menemukannya, bahkan halaman putih di atas meja putih), lalu pilih tampilannya: asli, dicerahkan, ditingkatkan, sangat ditingkatkan, skala abu-abu, hitam putih, atau hemat tinta.</li>
+<li><b>Kartu identitas:</b> sisi depan dan belakang kartu di satu halaman, dalam ukuran asli kartu.</li>
+<li><b>Gambar ke PDF:</b> gambar JPG, PNG, HEIC, AVIF, WebP, BMP, dan GIF, dipangkas dan dirapikan dengan cara yang sama jika Anda mau, dalam satu PDF atau satu PDF per gambar. Gambar selalu dikompres, dan lokasi serta metadata tersembunyi lainnya dihapus.</li>
+<li><b>Pengenalan teks (OCR)</b> membuat PDF dapat ditelusuri, dalam bahasa Inggris, Prancis, Spanyol, Hindi, Jerman, Portugis, dan Indonesia. Fitur ini open source dan bawaan aplikasi (model PP-OCRv5 dari PaddleOCR, dijalankan oleh ncnn dari Tencent), jadi selalu berfungsi offline.</li>
+<li><b>Dokumen ke PDF:</b> file Word, PowerPoint, Excel, dan EPUB dikonversi di ponsel Anda, lengkap dengan gaya, tabel, dan gambarnya.</li>
+</ul>
+
+<b>Baca dan beri anotasi</b>
+<ul>
+<li>Buka PDF serta file Word, Excel, PowerPoint, dan EPUB dari aplikasi apa pun dengan "Buka dengan"</li>
+<li>Zoom, cari teks, pilih dan salin teks, bagikan, dan cetak</li>
+<li>Beri anotasi dengan teks, coretan, sorotan, bentuk, dan gambar, lalu simpan sebagai PDF baru</li>
+</ul>
+
+<b>Alat PDF</b>
+<ul>
+<li>Pisahkan, gabungkan, dan atur ulang PDF: pindahkan, putar, hapus, dan tambahkan halaman</li>
+<li>Tata letak halaman: pangkas halaman, atau letakkan 2, 4, 6, atau 9 halaman di satu lembar</li>
+<li>Kompres PDF, atau jadikan hitam putih</li>
+<li>Tanda tangani, dan tambahkan nomor halaman atau tanda air</li>
+<li>Ratakan formulir dan komentar</li>
+<li>Sensor sungguhan: isi di bawah kotak hitam dihapus, bukan sekadar ditutupi</li>
+<li>Info dokumen: lihat, ubah, atau hapus judul, penulis, dan lainnya</li>
+<li>PDF ke gambar atau teks: halaman sebagai JPG atau PNG, atau teksnya, juga dari hasil pindaian</li>
+<li>Cetak, dan buka PDF yang dilindungi sandi</li>
+</ul>
+
+<b>Proses massal:</b> kompres, beri nomor halaman, beri tanda air, ratakan, atau konversi banyak file sekaligus, lalu simpan atau bagikan PDF barunya sebagai satu file ZIP.
+
+<b>Bagikan ke Usugami</b> dari aplikasi apa pun, dan file terbuka di alat yang tepat. <b>File terbaru</b> membuat file yang Anda simpan selalu mudah dijangkau, dan dengan menekan lama ikon Usugami, empat alat dapat langsung dibuka.
+
+<b>Tanda air Usugami:</b> untuk mendukung aplikasi ini, sebuah tombol menambahkan tulisan "Usugami" kecil pada PDF baru Anda. Tanda air ini nonaktif sampai Anda mengaktifkannya.
+
+<b>Dirancang untuk privasi</b>
+<ul>
+<li>Tanpa izin akses internet, dan tanpa izin yang perlu diberikan</li>
+<li>Tanpa iklan, tanpa pelacakan, tanpa akun</li>
+<li>Tanpa kode Google: layanan Google Play tidak diperlukan</li>
+<li>Gratis dan open source (GPL-3.0-or-later)</li>
+</ul>
+
+Tersedia dalam bahasa Indonesia, Inggris, Prancis, Spanyol, Hindi, Jerman, dan Portugis Brasil, dengan tema terang dan gelap. Memerlukan Android 8.0 atau yang lebih baru.
+
+Tidak memerlukan pengenalan teks? <i>Usugami Lite</i> memiliki semua alat lainnya dan ukurannya lebih kecil lagi.

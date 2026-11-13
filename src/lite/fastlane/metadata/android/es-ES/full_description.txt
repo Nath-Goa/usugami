@@ -1,31 +1,38 @@
-<i>Usugami Lite</i> convierte fotos, escaneos con la cámara, documentos de Word, presentaciones de PowerPoint, hojas de cálculo de Excel y libros EPUB en PDF, y reúne las herramientas que necesitas para los PDF que ya tienes. Tiene todas las herramientas de <i>Usugami</i> (薄紙, «papel fino» en japonés) menos el reconocimiento de texto, así que es aún más ligera. Todo ocurre en tu teléfono: Usugami Lite no tiene permiso de acceso a Internet, así que nunca se sube nada.
+<i>Usugami Lite</i> convierte fotos, escaneos con la cámara, documentos de identidad, archivos de Word, presentaciones de PowerPoint, hojas de cálculo de Excel y libros EPUB en PDF, abre PDF y documentos en su propio lector, y reúne las herramientas que necesitas para los PDF que ya tienes. Tiene todas las herramientas de <i>Usugami</i> (薄紙, «papel fino» en japonés) menos el reconocimiento de texto, así que es aún más ligera. Todo ocurre en tu teléfono: Usugami Lite no tiene permiso de acceso a Internet, así que nunca se sube nada.
 
 <b>Crear PDF</b>
 <ul>
-<li><b>Escanear documento:</b> toma fotos con la aplicación de cámara de tu teléfono o importa imágenes. Recorta cada página bien recta (Usugami Lite puede encontrarla, incluso una hoja blanca sobre una mesa blanca) y gírala, y luego elige su aspecto: original, aclarado, mejorado, muy mejorado, escala de grises, blanco y negro (unos 10 KB por página) o ahorro de tinta, con su brillo y su contraste. Aplicar a todas las páginas da los mismos ajustes a cada una.</li>
-<li><b>Imágenes a PDF:</b> imágenes JPG, PNG, HEIC, AVIF, WebP, BMP y GIF de tu galería o tus archivos, recortadas y mejoradas del mismo modo si quieres. Elige el tamaño de página, la orientación y el margen, y crea un solo PDF o uno por imagen. Las imágenes siempre se comprimen, y se eliminan su ubicación y otros metadatos ocultos.</li>
-<li><b>Word, PowerPoint, Excel y EPUB a PDF:</b> archivos .docx, .pptx, .xlsx y .epub convertidos en tu teléfono, con sus estilos, tablas e imágenes, encabezados y pies de página, y el índice del libro como marcadores. Las hojas de cálculo salen hoja por hoja, como al imprimir en Excel, con sus formatos de números y fechas.</li>
+<li><b>Escanear documento:</b> toma fotos con la aplicación de cámara de tu teléfono o importa imágenes. Recorta cada página bien recta (Usugami Lite puede encontrarla, incluso una hoja blanca sobre una mesa blanca) y luego elige su aspecto: original, aclarado, mejorado, muy mejorado, escala de grises, blanco y negro o ahorro de tinta.</li>
+<li><b>Documento de identidad:</b> el anverso y el reverso de un documento en una página, a su tamaño real.</li>
+<li><b>Imágenes a PDF:</b> imágenes JPG, PNG, HEIC, AVIF, WebP, BMP y GIF, recortadas y mejoradas del mismo modo si quieres, en un solo PDF o uno por imagen. Las imágenes siempre se comprimen, y se eliminan su ubicación y otros metadatos ocultos.</li>
+<li><b>Documentos a PDF:</b> archivos de Word, PowerPoint, Excel y EPUB convertidos en tu teléfono, con sus estilos, tablas e imágenes.</li>
+</ul>
+
+<b>Leer y anotar</b>
+<ul>
+<li>Abrir PDF y archivos de Word, Excel, PowerPoint y EPUB desde cualquier aplicación con «Abrir con»</li>
+<li>Ampliar, buscar texto, seleccionar y copiar texto, compartir e imprimir</li>
+<li>Anotar con texto, dibujos, resaltados, formas e imágenes, que se guardan en un PDF nuevo</li>
 </ul>
 
 <b>Herramientas PDF</b>
 <ul>
-<li>Dividir, unir, reorganizar y girar PDF, y eliminar páginas</li>
-<li>Comprimir PDF (nunca lo hace más grande)</li>
-<li>Editar PDF: añadir texto, dibujos, resaltados, formas e imágenes</li>
-<li>Firmar con tu firma manuscrita</li>
-<li>Numerar páginas o añadir una marca de agua</li>
+<li>Dividir, unir y reorganizar PDF: mover, girar, eliminar y añadir páginas</li>
+<li>Diseño de página: recortar páginas o poner 2, 4, 6 o 9 páginas en una hoja</li>
+<li>Comprimir PDF o pasarlos a blanco y negro</li>
+<li>Firmar, numerar páginas o añadir una marca de agua</li>
 <li>Acoplar formularios y comentarios</li>
-<li>Censurar de verdad: lo que queda bajo los recuadros negros se elimina del archivo, no solo se tapa</li>
-<li>Abrir PDF protegidos con contraseña</li>
+<li>Censurar de verdad: lo que queda bajo los recuadros negros se elimina, no solo se tapa</li>
+<li>Información del documento: consultar, cambiar o quitar el título, el autor y más</li>
+<li>PDF a imágenes o texto: páginas como JPG o PNG, o su texto</li>
+<li>Imprimir y abrir PDF protegidos con contraseña</li>
 </ul>
 
-<b>Modo por lotes:</b> comprime, numera, añade una marca de agua o acopla varios PDF a la vez, o convierte varios archivos de Word, PowerPoint, Excel o EPUB, cada uno en su propio PDF. Guarda o comparte los PDF nuevos uno por uno o en un solo archivo ZIP.
+<b>Modo por lotes:</b> comprime, numera, añade una marca de agua, acopla o convierte varios archivos a la vez, y guarda o comparte los PDF nuevos en un solo archivo ZIP.
 
-<b>Compartir con Usugami Lite:</b> comparte imágenes, PDF o archivos de Word, PowerPoint, Excel o EPUB desde cualquier aplicación y se abren en la herramienta adecuada.
+<b>Comparte con Usugami Lite</b> desde cualquier aplicación y los archivos se abren en la herramienta adecuada. <b>Archivos recientes</b> tiene a mano lo que guardaste y, si mantienes pulsado el icono de la aplicación, puedes abrir cuatro herramientas directamente.
 
-<b>Archivos recientes:</b> los archivos que guardas aparecen en la pantalla principal para que puedas volver a abrirlos o compartirlos.
-
-<b>Marca de agua de Usugami:</b> para apoyar la aplicación, un interruptor añade un pequeño «Usugami» en la esquina de cada página de tus PDF nuevos; está desactivado hasta que lo actives.
+<b>Marca de agua de Usugami:</b> para apoyar la aplicación, un interruptor añade un pequeño «Usugami» a tus PDF nuevos. Está desactivado hasta que lo actives.
 
 <b>Privado por diseño</b>
 <ul>
@@ -35,6 +42,6 @@
 <li>Libre y de código abierto (GPL-3.0 o posterior)</li>
 </ul>
 
-En español, inglés, francés e hindi, con tema claro y oscuro. Requiere Android 8.0 o posterior.
+En español, inglés, francés, hindi, alemán, portugués de Brasil e indonesio, con tema claro y oscuro. Requiere Android 8.0 o posterior.
 
-¿Quieres escaneos en los que buscar? <i>Usugami</i> tiene las mismas herramientas y, además, reconocimiento de texto (OCR) de código abierto en inglés, francés, español e hindi. Usugami Lite es una aplicación aparte, así que puedes tener las dos instaladas.
+¿Quieres escaneos en los que buscar? <i>Usugami</i> tiene las mismas herramientas y, además, reconocimiento de texto (OCR) de código abierto en siete idiomas. Usugami Lite es una aplicación aparte, así que puedes tener las dos instaladas.

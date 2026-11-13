@@ -1,0 +1,8 @@
+• Lecteur de PDF et documents : zoom, recherche et copie de texte, impression
+• Annoter, dans le lecteur, remplace Modifier un PDF
+• Nouveau : PDF en images ou texte, Mise en page, Infos du document
+• Compresser un PDF en noir et blanc, scan de cartes d'identité
+• Réorganiser fait pivoter et supprime plusieurs pages d'un coup
+• Impression, raccourcis d'appli, un seul outil Documents en PDF
+• En allemand, portugais du Brésil et indonésien
+• Caviarder trouve le texte chinois, japonais et coréen
