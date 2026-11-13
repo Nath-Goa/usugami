@@ -53,15 +53,22 @@ class EditionDeviceTest {
         assertEquals(BuildConfig.HAS_OCR, "UsugamiOcr-Regular.ttf" in app.assets.list("fonts").orEmpty())
     }
 
-    /** Home's card and hidden search words for Images to PDF mention text recognition only where there is some. */
+    /**
+     * Home's card and hidden search words for Images to PDF mention text recognition only where there
+     * is some, in every language: so each language's texts, Usugami Lite's own among them, are in the APK.
+     */
     @Test fun homeMentionsTextRecognitionOnlyWhereThereIsSome() {
         val words = mapOf(
             AppLanguage.ENGLISH to "text recognition",
             AppLanguage.FRENCH to "reconnaissance de texte",
             AppLanguage.SPANISH to "reconocimiento de texto",
             AppLanguage.HINDI to "टेक्स्ट पहचान",
+            AppLanguage.GERMAN to "Texterkennung",
+            AppLanguage.PORTUGUESE to "reconhecimento de texto",
+            AppLanguage.INDONESIAN to "pengenalan teks",
         )
-        for ((language, phrase) in words) {
+        for (language in AppLanguage.entries) {
+            val phrase = words.getValue(language)
             val resources = app.createConfigurationContext(
                 Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag(language.tag)) },
             ).resources

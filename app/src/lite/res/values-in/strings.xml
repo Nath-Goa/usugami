@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Usugami Lite has no text recognition, so Home's card and search for Images to PDF don't
+         mention it (app/src/main has the other editions' texts). -->
+    <string name="tool_images_detail">Pindaian kamera dan gambar ke satu PDF, atau satu PDF per gambar</string>
+    <string name="search_keywords_images">foto, gambar, JPEG, JPG, PNG, HEIC, WebP, pindai, scan, scanner, pemindai, kamera, galeri, dokumen, hitam putih</string>
+    <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). Usugami Lite has no text recognition to read it. -->
+    <string name="reader_no_text">Halaman ini tidak memiliki teks untuk dipilih. Mungkin ini hasil pindaian, yang tidak dapat dibaca oleh Usugami Lite.</string>
+</resources>

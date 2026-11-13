@@ -115,6 +115,48 @@ class ToolSearchTest {
         assertEquals(listOf("Imágenes a PDF", "Comprimir PDF"), find(spanish, "imagenes"))
     }
 
+    @Test fun keywordsInGerman() {
+        val german = listOf(
+            Tool("Bilder in PDF", "Kamerascans und Bilder in PDF, mit Texterkennung", "Foto, Bild, scannen, Scanner, Kamera, Galerie"),
+            Tool("PDF zusammenfügen", "Dateien kombinieren und einzelne Seiten anordnen", "verbinden, zusammenführen, zusammenlegen, kombinieren, anhängen, merge"),
+            Tool("PDF komprimieren", "Bilder verkleinern, Text bleibt scharf", "verkleinern, kleiner, Größe reduzieren, Dateigröße, schrumpfen"),
+        )
+        assertEquals(listOf("PDF zusammenfügen"), find(german, "zusammen"))
+        assertEquals(listOf("PDF zusammenfügen"), find(german, "MERGE"))
+        assertEquals(listOf("PDF zusammenfügen"), find(german, "zusammenfugen"))
+        assertEquals(listOf("PDF komprimieren"), find(german, "KLEINER"))
+        assertEquals(listOf("Bilder in PDF"), find(german, "kamera"))
+        assertEquals(listOf("Bilder in PDF", "PDF komprimieren"), find(german, "bilder"))
+    }
+
+    @Test fun keywordsInPortuguese() {
+        val portuguese = listOf(
+            Tool("Censurar PDF", "Cubra textos e imagens com tarja preta para sempre", "tarja, tarjar, ocultar, esconder, censurar, confidencial"),
+            Tool("Juntar PDF", "Combine arquivos e organize páginas individuais", "juntar, unir, combinar, mesclar, agrupar, anexar"),
+            Tool("Compactar PDF", "Reduza as imagens e mantenha o texto nítido", "comprimir, reduzir tamanho, diminuir, menor, mais leve, peso"),
+        )
+        assertEquals(listOf("Censurar PDF"), find(portuguese, "tarja"))
+        assertEquals(listOf("Juntar PDF"), find(portuguese, "MESCLAR"))
+        assertEquals(listOf("Juntar PDF"), find(portuguese, "paginas"))
+        assertEquals(listOf("Compactar PDF"), find(portuguese, "reduzir tamanho"))
+        assertEquals(listOf("Compactar PDF"), find(portuguese, "mais leve"))
+        assertEquals(listOf("Censurar PDF", "Compactar PDF"), find(portuguese, "imagens"))
+    }
+
+    @Test fun keywordsInIndonesian() {
+        val indonesian = listOf(
+            Tool("Gambar ke PDF", "Pindaian kamera dan gambar ke PDF, dengan pengenalan teks", "foto, gambar, pindai, scan, pemindai, kamera, galeri"),
+            Tool("Gabungkan PDF", "Satukan file dan atur tiap halaman", "gabung, gabungkan, satukan, jadikan satu, sambungkan, merge"),
+            Tool("Kompres PDF", "Perkecil gambar, teks tetap tajam", "perkecil, kecilkan, kurangi ukuran, ukuran file, optimalkan, ringankan"),
+        )
+        assertEquals(listOf("Gabungkan PDF"), find(indonesian, "gabung"))
+        assertEquals(listOf("Gabungkan PDF"), find(indonesian, "jadikan satu"))
+        assertEquals(listOf("Kompres PDF"), find(indonesian, "kecil"))
+        assertEquals(listOf("Kompres PDF"), find(indonesian, "KURANGI UKURAN"))
+        assertEquals(listOf("Gambar ke PDF"), find(indonesian, "pindai"))
+        assertEquals(listOf("Gambar ke PDF", "Kompres PDF"), find(indonesian, "gambar"))
+    }
+
     /**
      * Home adds words for working on several files at once to the hidden words of the tools that do,
      * such as Compress PDF, and not to the others, such as Merge PDF, which makes one PDF of several.
@@ -141,11 +183,29 @@ class ToolSearchTest {
             Tool("PDF कंप्रेस करें", "इमेज छोटी करें, टेक्स्ट साफ़ रखें", "छोटा करें, साइज़ घटाएं, कम करें, compress, shrink, reduce size"),
             "एक साथ, कई, कई सारी, बहुत सारी, सभी, बैच, batch, many, several, multiple, bulk",
         )
+        val german = tools(
+            Tool("PDF zusammenfügen", "Dateien kombinieren und einzelne Seiten anordnen", "verbinden, zusammenführen, zusammenlegen, kombinieren, anhängen, merge"),
+            Tool("PDF komprimieren", "Bilder verkleinern, Text bleibt scharf", "verkleinern, kleiner, Größe reduzieren, Dateigröße, E-Mail"),
+            "Stapel, Stapelverarbeitung, Batch, mehrere, viele, auf einmal, alle auf einmal, gleichzeitig",
+        )
+        val portuguese = tools(
+            Tool("Juntar PDF", "Combine arquivos e organize páginas individuais", "juntar, unir, combinar, mesclar, agrupar, anexar"),
+            Tool("Compactar PDF", "Reduza as imagens e mantenha o texto nítido", "comprimir, reduzir tamanho, diminuir, menor, peso, e-mail"),
+            "lote, lotes, em lote, vários, várias, muitos, muitas, múltiplos, múltiplas, em massa, de uma vez, todos de uma vez, ao mesmo tempo",
+        )
+        val indonesian = tools(
+            Tool("Gabungkan PDF", "Satukan file dan atur tiap halaman", "gabung, gabungkan, satukan, jadikan satu, sambungkan, merge"),
+            Tool("Kompres PDF", "Perkecil gambar, teks tetap tajam", "perkecil, kecilkan, kurangi ukuran, ukuran file, optimalkan, email"),
+            "batch, banyak, beberapa, sekaligus, massal, semua sekaligus, bersamaan, serentak, bulk",
+        )
         for ((tools, queries) in listOf(
             english to listOf("batch", "Many", "several", "multiple", "all at once"),
             french to listOf("lot", "par lots", "plusieurs", "beaucoup", "a la fois", "nombreux"),
             spanish to listOf("lote", "muchos", "varios", "multiples", "a la vez", "de una vez"),
             hindi to listOf("कई", "एक साथ", "बहुत सारी", "बैच", "batch", "several"),
+            german to listOf("Stapel", "mehrere", "viele", "auf einmal", "gleichzeitig", "batch"),
+            portuguese to listOf("lote", "em lote", "varios", "muitas", "multiplos", "de uma vez", "ao mesmo tempo"),
+            indonesian to listOf("banyak", "beberapa", "sekaligus", "massal", "bersamaan", "batch"),
         )) {
             for (query in queries) assertEquals("\"$query\"", listOf(tools[1].name), find(tools, query))
         }

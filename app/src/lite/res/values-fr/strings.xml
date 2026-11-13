@@ -2,4 +2,6 @@
 <resources>
     <string name="tool_images_detail">Scans à l\'appareil photo et images en un seul PDF, ou un PDF par image</string>
     <string name="search_keywords_images">photo, image, JPEG, JPG, PNG, HEIC, WebP, scanner, scan, numériser, appareil photo, caméra, galerie, document, noir et blanc</string>
+    <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). Usugami Lite has no text recognition to read it. -->
+    <string name="reader_no_text">Cette page ne contient aucun texte à sélectionner. Il s\'agit peut-être d\'une numérisation, qu\'Usugami Lite ne peut pas lire.</string>
 </resources>

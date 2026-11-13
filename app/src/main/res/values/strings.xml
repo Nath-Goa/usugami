@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Usugami 2.0.0: the strings new in this release are English only until their translations are
-     in. tools:ignore="MissingTranslation" is taken away with them, so that lint checks every
-     string again. -->
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">Usugami</string>
     <!-- The name under the launcher icon and in Android's list of apps. Usugami Lite is a separate
          app (its own app ID) and has its own name (app/src/lite). -->

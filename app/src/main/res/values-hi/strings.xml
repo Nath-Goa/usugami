@@ -11,16 +11,52 @@
     <string name="scan_detail">फ़ोटो लें या इमेज चुनें, फिर उन्हें क्रॉप और साफ़ करें</string>
     <!-- Picks images from the phone's gallery: nothing leaves the phone. -->
     <string name="scan_upload">इमेज चुनें</string>
+    <!-- The name of a page in Images to PDF that holds both sides of an identity document (an ID card, driving licence, bank card or passport page), one above the other. Stands for any identity document, not only a national ID card. -->
+    <string name="card_title">आईडी कार्ड</string>
+    <!-- One of the two sides of an ID card: the side with the photo and name. -->
+    <string name="card_front">आगे का हिस्सा</string>
+    <!-- The other side of an ID card. -->
+    <string name="card_back">पीछे का हिस्सा</string>
+    <!-- A menu item on an ID card's page: opens the crop screen for the card's front side. -->
+    <string name="card_crop_front">आगे का हिस्सा क्रॉप करें</string>
+    <!-- A menu item on an ID card's page: opens the crop screen for the card's back side. -->
+    <string name="card_crop_back">पीछे का हिस्सा क्रॉप करें</string>
+    <!-- A quieter button on Home's Scan document card, under Take photo and Upload images: scans the front and the back of an identity document (an ID card, driving licence, bank card or passport page) onto one page of the PDF. -->
+    <string name="scan_id_card">आईडी कार्ड: दोनों हिस्से एक पेज पर</string>
+    <!-- On the screen that asks for an ID card's front side, under the heading "Front side" (card_front). -->
+    <string name="card_front_hint">कार्ड को किसी सादी, गहरे रंग की सतह पर रखें। फ़ोन को उसके ठीक ऊपर सीधा पकड़ें, इतना पास कि कार्ड फ़ोटो का ज़्यादातर हिस्सा भर दे।</string>
+    <!-- A smaller note under card_front_hint: the PDF has one page with both sides of the card on it, each at the card's real size when printed. -->
+    <string name="card_note">दोनों हिस्से कार्ड के असली साइज़ में एक ही पेज पर आते हैं।</string>
+    <!-- On the screen that asks for an ID card's back side, under the heading "Back side" (card_back). "No back side" is the name of a button on the same screen (card_no_back): use the same words as there. -->
+    <string name="card_back_hint">कार्ड को पलटें और यही दोहराएं। अगर कार्ड में सिर्फ़ आगे का हिस्सा है, तो \"पीछे का हिस्सा नहीं\" चुनें।</string>
+    <!-- A button on the screens that ask for an ID card's sides: picks one image of the side from the phone, in place of taking a photo. -->
+    <string name="card_choose_image">इमेज चुनें</string>
+    <!-- A button on the screen that asks for an ID card's back side (also the description of its close button): the card is kept with its front side alone. Quoted in card_back_hint. -->
+    <string name="card_no_back">पीछे का हिस्सा नहीं</string>
+    <!-- Beside a progress ring on the screens that ask for an ID card's sides, while the photo just taken or the image chosen is being added. -->
+    <string name="card_adding">इमेज जोड़ी जा रही है…</string>
+    <!-- Above the photo on the crop screen of an ID card's side, when Usugami found the card on it. -->
+    <string name="card_crop_found">Usugami को कार्ड मिल गया। उसे ठीक करने के लिए कोनों या किनारों को खींचें।</string>
+    <!-- Above the photo on the crop screen of an ID card's side, when Usugami didn't find the card on it. -->
+    <string name="card_crop_not_found">कोनों या किनारों को खींचकर कार्ड के किनारों पर रखें।</string>
+    <!-- On the crop screen of an ID card's side, in place of the hint, while the four corners dragged don't make the outline of a card. -->
+    <string name="card_crop_not_a_card">ये कोने कार्ड नहीं बनाते: हर कोने को कार्ड के किसी कोने पर रखें।</string>
+    <!-- A button on an ID card's page in Images to PDF, when the card has its front side only: asks for its back side. -->
+    <string name="card_add_back">पीछे का हिस्सा जोड़ें</string>
     <string name="tool_split">PDF स्प्लिट करें</string>
     <string name="tool_split_detail">पेज निकालें या छोटी फ़ाइलों में बांटें</string>
     <string name="tool_merge">PDF मर्ज करें</string>
     <string name="tool_merge_detail">फ़ाइलें मिलाएं और अलग-अलग पेज क्रम में लगाएं</string>
     <string name="tool_compress">PDF कंप्रेस करें</string>
     <string name="tool_compress_detail">इमेज छोटी करें, टेक्स्ट साफ़ रखें</string>
+    <!-- A heading on Home, first of all, over the tool that opens a file to read it. -->
+    <string name="home_section_view">देखें</string>
     <string name="home_section_create">PDF बनाएं</string>
     <string name="home_section_edit">एडिट और साइन करें</string>
     <string name="home_section_organize">व्यवस्थित करें</string>
     <string name="home_section_optimize">ऑप्टिमाइज़ और सुरक्षित करें</string>
+    <!-- A heading on Home, over the tools that make other files of a PDF. -->
+    <string name="home_section_from_pdf">PDF से कन्वर्ट करें</string>
     <string name="tool_page_numbers">पेज नंबर जोड़ें</string>
     <string name="tool_page_numbers_detail">पेज के ऊपर या नीचे नंबर लगाएं</string>
     <string name="tool_watermark">वॉटरमार्क जोड़ें</string>
@@ -119,6 +155,30 @@
     <string name="compression_for_all_hint">किसी एक को उसका अपना स्तर देने के लिए उसे नीचे बदलें।</string>
     <!-- Shown under a PDF that Compress PDF couldn't make smaller. -->
     <string name="original_kept">पहले से छोटी है: मूल फ़ाइल रखी गई</string>
+    <!-- Compress PDF: a switch under the levels. The PDF comes out in shades of gray, not in pure black and white. Not the scanner's "Black & white" look. -->
+    <string name="compress_gray">ब्लैक एंड व्हाइट</string>
+    <string name="compress_gray_detail">रंगों को स्लेटी शेड में बदलें</string>
+    <!-- The same, with several PDFs picked. -->
+    <string name="compress_gray_detail_many">सभी PDF के रंगों को स्लेटी शेड में बदलें</string>
+    <!-- Compress PDF with Black and white on: the new PDF is gray, and no smaller than the PDF picked. -->
+    <string name="pdf_gray_not_smaller">यह PDF अब ब्लैक एंड व्हाइट है, लेकिन इसे और छोटा नहीं किया जा सका।</string>
+    <!-- The same with several PDFs: %1$d counts them (never 0), %2$s lists their names. -->
+    <plurals name="batch_gray_not_smaller" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s अब ब्लैक एंड व्हाइट है, लेकिन इसे और छोटा नहीं किया जा सका।</item>
+        <item quantity="other">%1$d PDF अब ब्लैक एंड व्हाइट हैं, लेकिन इन्हें और छोटा नहीं किया जा सका: %2$s।</item>
+    </plurals>
+    <!-- Compress PDF with Black and white on: a picture or drawing in the PDF couldn't be turned gray, and was left as it was. -->
+    <string name="pdf_gray_partial">इस PDF के कुछ हिस्से स्लेटी नहीं किए जा सके और अब भी रंगीन हैं।</string>
+    <!-- The same with several PDFs: %1$d counts the PDFs it happened to (never 0), %2$s lists their names. -->
+    <plurals name="batch_gray_partial" tools:ignore="ImpliedQuantity">
+        <item quantity="one">%2$s के कुछ हिस्से स्लेटी नहीं किए जा सके और अब भी रंगीन हैं।</item>
+        <item quantity="other">%1$d PDF के कुछ हिस्से स्लेटी नहीं किए जा सके और अब भी रंगीन हैं: %2$s।</item>
+    </plurals>
+    <!-- Under such a PDF on the result screen: %1$d counts its pages that still have color (never 0), %2$s lists them, such as 2,5-7. -->
+    <plurals name="gray_color_left" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s अब भी कुछ हद तक रंगीन है</item>
+        <item quantity="other">%1$d पेज अब भी कुछ हद तक रंगीन हैं: %2$s</item>
+    </plurals>
     <plurals name="pdf_password_removed" tools:ignore="ImpliedQuantity">
         <item quantity="one">नई PDF में कोई पासवर्ड नहीं है।</item>
         <item quantity="other">नई PDF फ़ाइलों में कोई पासवर्ड नहीं है।</item>
@@ -210,6 +270,13 @@
     <string name="redact_find_too_many" tools:ignore="PluralsCandidate">बहुत ज़्यादा नतीजे: Usugami ज़्यादा से ज़्यादा %1$d बॉक्स रखता है। कोई लंबा वाक्यांश खोजकर देखें।</string>
     <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami ज़्यादा से ज़्यादा %1$d बॉक्स रखता है।</string>
     <string name="redact_find_failed">इस PDF में खोजा नहीं जा सका।</string>
+    <!-- Under Find text, once a search met text it can't read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0; %1$s lists them as page lists are typed, such as "3" or "2, 5-7". -->
+    <plurals name="redact_find_unread" tools:ignore="ImpliedQuantity">
+        <item quantity="one">\"टेक्स्ट खोजें\" पेज %1$s का कुछ टेक्स्ट नहीं पढ़ पाता। उस पेज को खुद जांचें और जहां ज़रूरत हो, वहां बॉक्स बनाएं।</item>
+        <item quantity="other">\"टेक्स्ट खोजें\" पेज %1$s का कुछ टेक्स्ट नहीं पढ़ पाता। उन पेजों को खुद जांचें और जहां ज़रूरत हो, वहां बॉक्स बनाएं।</item>
+    </plurals>
+    <!-- The same, when it is so on every page of the PDF. -->
+    <string name="redact_find_unread_all">\"टेक्स्ट खोजें\" इस PDF का कुछ टेक्स्ट नहीं पढ़ पाता। हर पेज को खुद जांचें और जहां ज़रूरत हो, वहां बॉक्स बनाएं।</string>
     <plurals name="redact_found">
         <item quantity="one">%1$d नतीजा मिला और उस पर बॉक्स लगा दिया गया। सेव करने से पहले जांच लें।</item>
         <item quantity="other">%1$d नतीजे मिले और उन पर बॉक्स लगा दिए गए। सेव करने से पहले जांच लें।</item>
@@ -243,6 +310,14 @@
     <string name="redact_shorter">बॉक्स की ऊंचाई घटाएं</string>
     <string name="redact_taller">बॉक्स की ऊंचाई बढ़ाएं</string>
     <string name="redact_delete_box">बॉक्स हटाएं</string>
+    <!-- Word and PowerPoint to PDF. Word and PowerPoint are the names of Microsoft's apps, kept as they are;
+         .docx, .pptx, .doc and .ppt are file extensions. -->
+    <!-- A tool's name on Home: the one tile for Word, PowerPoint, Excel and EPUB files, which opens the
+         converter for the files picked (Word to PDF and the others). -->
+    <string name="tool_documents">डॉक्यूमेंट से PDF</string>
+    <!-- What the tile takes. Word, PowerPoint and Excel are the names of Microsoft's apps, and EPUB
+         the name of the e-book format: keep them as they are. -->
+    <string name="tool_documents_detail">Word, PowerPoint, Excel और EPUB फ़ाइलें इसी फ़ोन पर PDF में बदलें</string>
     <string name="tool_word">Word से PDF</string>
     <string name="tool_word_detail">डॉक्यूमेंट (.docx) इसी फ़ोन पर PDF में बदलें</string>
     <string name="tool_powerpoint">PowerPoint से PDF</string>
@@ -312,6 +387,28 @@
     <string name="reorganize_page_from">पेज %1$d, %2$s से</string>
     <string name="reorganize_page_blank">पेज %1$d, खाली</string>
     <string name="undo">पहले जैसा करें</string>
+    <!-- Reorganize PDF: a button beside the page count that selects every page in the grid. -->
+    <string name="reorganize_select_all">सभी चुनें</string>
+    <!-- The same button while every page is selected: it takes them all out of the selection. -->
+    <string name="reorganize_select_none">कोई न चुनें</string>
+    <!-- The label of a field where the selected pages are typed as numbers and ranges, like 2,5-7. -->
+    <string name="reorganize_pages_field">चुने गए पेज</string>
+    <!-- Read by a screen reader: the button at the end of that field, which empties it and the selection. -->
+    <string name="reorganize_pages_clear">पेजों का चयन मिटाएं</string>
+    <!-- In the bar above the pages while none is selected. -->
+    <string name="reorganize_tap_pages">पेज चुनने के लिए उन पर टैप करें</string>
+    <!-- In the same bar while two or more pages are selected: %1$d pages are selected, out of the %2$d pages in the list. -->
+    <string name="reorganize_selected_count">चुने गए: %2$d में से %1$d</string>
+    <!-- Under the pages. Pages added with "Add pages" go after the selected page that comes last. -->
+    <string name="reorganize_move_hint">किसी पेज को खिसकाने के लिए उसे दबाकर रखें और खींचें। आप जो पेज जोड़ेंगे, वे आखिरी चुने गए पेज के बाद आएंगे।</string>
+    <!-- Read by a screen reader: buttons in the bar that turn every selected page a quarter turn. -->
+    <string name="rotate_selected_left">चुने गए पेजों को बाईं ओर घुमाएं</string>
+    <string name="rotate_selected_right">चुने गए पेजों को दाईं ओर घुमाएं</string>
+    <!-- Read by a screen reader: the button in the bar that takes the selected pages out (never fewer than 2). -->
+    <plurals name="remove_selected_pages">
+        <item quantity="one">%d पेज हटाएं</item>
+        <item quantity="other">%d पेज हटाएं</item>
+    </plurals>
     <string name="pdf_flatten_action">PDF फ़्लैटन करें</string>
     <plurals name="pdf_flatten_action_many">
         <item quantity="one">%d PDF फ़्लैटन करें</item>
@@ -328,6 +425,323 @@
         <item quantity="other">%d फ़ॉर्म फ़ील्ड में ऐसा टेक्स्ट है जिसे Usugami उनके फ़ॉन्ट से नहीं बना सकता, इसलिए वह टेक्स्ट बचाने के लिए उन्हें भरने लायक ही छोड़ दिया गया।</item>
     </plurals>
     <string name="flatten_fields_kept_many">कुछ फ़ॉर्म फ़ील्ड में ऐसा टेक्स्ट है जिसे Usugami उनके फ़ॉन्ट से नहीं बना सकता, इसलिए वह टेक्स्ट बचाने के लिए उन्हें भरने लायक ही छोड़ दिया गया।</string>
+    <!-- Page layout -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_page_layout">पेज लेआउट</string>
+    <!-- Not "several": that word finds the tools that work on several files at once. -->
+    <string name="tool_page_layout_detail">पेज क्रॉप करें, या हर शीट पर दो या ज़्यादा पेज लगाएं</string>
+    <!-- The button that saves the PDF with its pages laid out as chosen. -->
+    <string name="pdf_page_layout_action">PDF सेव करें</string>
+    <!-- The two things Page layout does (crop pages: choose the part of each page that shows; or put several pages on one sheet of paper), on a two-part switch at its top. -->
+    <string name="layout_mode_crop">क्रॉप करें</string>
+    <string name="layout_mode_sheets">हर शीट पर पेज</string>
+    <string name="layout_crop_note">क्रॉप करने से बॉक्स के बाहर का हिस्सा सिर्फ़ छिपता है, वह फ़ाइल में बना रहता है। उसे हमेशा के लिए हटाने के लिए PDF रिडैक्ट करें टूल इस्तेमाल करें।</string>
+    <!-- Over the row of pages: the page tapped is the one the preview shows. -->
+    <string name="layout_crop_page">दिखाया गया पेज</string>
+    <string name="layout_crop_box">क्रॉप बॉक्स</string>
+    <string name="layout_crop_box_hint">बॉक्स के किनारों या कोनों को खींचें। आप जो भी पेज क्रॉप करेंगे, उनमें से हर पेज पर यह उतना ही हिस्सा घेरेगा।</string>
+    <!-- Read out by screen readers for the preview. %1$d is a page number (1 or more). -->
+    <string name="layout_crop_preview_description" tools:ignore="PluralsCandidate">क्रॉप बॉक्स के साथ पेज %1$d</string>
+    <!-- Read out by screen readers for the preview. %1$d and %2$d are percentages from 5 to 100; %% is the percent sign. -->
+    <string name="layout_crop_preview_state">चौड़ाई का %1$d%% और ऊंचाई का %2$d%% रखा जाएगा</string>
+    <!-- The four sides of the crop box, each with a button to crop more and one to crop less. -->
+    <string name="layout_crop_left">बाएं</string>
+    <string name="layout_crop_top">ऊपर</string>
+    <string name="layout_crop_right">दाएं</string>
+    <string name="layout_crop_bottom">नीचे</string>
+    <string name="layout_crop_more_left">बाईं ओर से ज़्यादा क्रॉप करें</string>
+    <string name="layout_crop_less_left">बाईं ओर से कम क्रॉप करें</string>
+    <string name="layout_crop_more_top">ऊपर से ज़्यादा क्रॉप करें</string>
+    <string name="layout_crop_less_top">ऊपर से कम क्रॉप करें</string>
+    <string name="layout_crop_more_right">दाईं ओर से ज़्यादा क्रॉप करें</string>
+    <string name="layout_crop_less_right">दाईं ओर से कम क्रॉप करें</string>
+    <string name="layout_crop_more_bottom">नीचे से ज़्यादा क्रॉप करें</string>
+    <string name="layout_crop_less_bottom">नीचे से कम क्रॉप करें</string>
+    <!-- Puts the crop box back round the whole page. -->
+    <string name="layout_crop_whole">पूरा पेज</string>
+    <string name="layout_crop_pages">किन पेजों को क्रॉप करें</string>
+    <string name="layout_pages_all">सभी पेज</string>
+    <string name="layout_pages_some">कुछ पेज</string>
+    <string name="layout_pages_field">पेज</string>
+    <string name="layout_pages_hint" tools:ignore="TypographyDashes">उदाहरण के लिए: 2,5-7</string>
+    <string name="pdf_layout_crop_action">PDF क्रॉप करें</string>
+    <!-- Pages per sheet. A4 and US Letter (existing size_a4, size_letter) are the papers. -->
+    <string name="layout_sheets_paper">पेपर का साइज़</string>
+    <string name="layout_sheets_auto_note">Usugami शीट को उस तरह घुमाता है जिससे पेज ज़्यादा बड़े आएं।</string>
+    <string name="layout_sheets_border">हर पेज के चारों ओर बॉर्डर</string>
+    <string name="layout_sheets_preview">पहली शीट</string>
+    <string name="layout_sheets_note">टेक्स्ट साफ़ रहता है और उसे अब भी चुना और खोजा जा सकता है। टिप्पणियां और भरे हुए फ़ॉर्म फ़ील्ड जैसे दिखते हैं, वैसे ही बनाए जाते हैं। शीट पर लिंक, बुकमार्क और फ़ॉर्म फ़ील्ड काम नहीं करते।</string>
+    <!-- Read out for each choice of how many pages go on a sheet: %d is 2, 4, 6 or 9, never 0 or 1. -->
+    <plurals name="layout_sheets_count">
+        <item quantity="one">हर शीट पर %d पेज</item>
+        <item quantity="other">हर शीट पर %d पेज</item>
+    </plurals>
+    <!-- Under the preview: how many sheets the new PDF will have. %d is 1 or more, never 0. -->
+    <plurals name="layout_sheets_made">
+        <item quantity="one">आपकी PDF में %d शीट होगी।</item>
+        <item quantity="other">आपकी PDF में %d शीट होंगी।</item>
+    </plurals>
+    <!-- Read out by screen readers for the preview of the first sheet. %d is the number of pages on it, 1 to 9, never 0. -->
+    <plurals name="layout_sheets_preview_description">
+        <item quantity="one">पहली शीट, %d पेज के साथ</item>
+        <item quantity="other">पहली शीट, %d पेजों के साथ</item>
+    </plurals>
+    <!-- Document info -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_document_info">डॉक्यूमेंट की जानकारी</string>
+    <!-- Under the tool's name on Home. In French, no word that begins with "supprimer": Home's search
+         finds Reorganize PDF alone with it ("effacer" or "retirer" can say it here). -->
+    <string name="tool_document_info_detail">शीर्षक, लेखक और बाकी जानकारी देखें, बदलें या हटाएं</string>
+    <!-- The button that saves the PDF with its title, author and the like as chosen. -->
+    <string name="pdf_document_info_action">PDF सेव करें</string>
+
+    <!-- Shown under a progress bar for the moment it takes to read the PDF's title, author and the like. -->
+    <string name="docinfo_reading">इस PDF की जानकारी पढ़ी जा रही है…</string>
+    <!-- Labels of the four fields that can be changed: the PDF's title, its author (a person's or
+         an organisation's name), its subject (what it is about) and its keywords. -->
+    <string name="docinfo_title">शीर्षक</string>
+    <string name="docinfo_author">लेखक</string>
+    <string name="docinfo_subject">विषय</string>
+    <string name="docinfo_keywords">कीवर्ड</string>
+    <!-- Under the Keywords field. -->
+    <string name="docinfo_keywords_hint">कीवर्ड को कॉमा से अलग करें।</string>
+    <!-- Under a field whose value in the PDF is longer than the field shows: left alone, the whole
+         value stays in the new PDF; changed, only what the field shows is kept. -->
+    <string name="docinfo_cut">यह पूरा दिखाने के लिए बहुत लंबा है। अगर आप इसे बदलते हैं, तो सिर्फ़ उतना ही रखा जाएगा जितना यहां दिखता है।</string>
+    <!-- Heading over what else the PDF says of itself, which can't be changed here. -->
+    <string name="docinfo_about">इस PDF के बारे में</string>
+    <!-- Labels of the rows under "About this PDF": when the PDF was made, when it was last changed. -->
+    <string name="docinfo_created">बनाई गई</string>
+    <string name="docinfo_changed">बदली गई</string>
+    <!-- Label of the row naming the apps that made the PDF (such as "Microsoft Word · macOS Quartz PDFContext"). -->
+    <string name="docinfo_made_with">बनाने वाले ऐप</string>
+    <!-- Label of the row giving the number of pages. -->
+    <string name="docinfo_pages">पेज</string>
+    <!-- Label of the row giving the PDF's version, such as 1.7. -->
+    <string name="docinfo_version">PDF वर्शन</string>
+    <!-- Label of the row giving how much storage the PDF takes, such as 2.4 MB. -->
+    <string name="docinfo_size">फ़ाइल का साइज़</string>
+    <!-- In a row under "About this PDF" when the PDF doesn't say it. -->
+    <string name="docinfo_not_set">सेट नहीं है</string>
+    <!-- A button. Nothing is removed until the PDF is saved. -->
+    <string name="docinfo_remove_all">सारी जानकारी हटाएं</string>
+    <!-- Under the Remove all info button. -->
+    <string name="docinfo_remove_all_hint">शीर्षक, लेखक, विषय, कीवर्ड, तारीखें और ऐप के नाम हटाता है, और वह छिपी जानकारी भी जो दूसरे ऐप PDF में रखते हैं। पेज, टिप्पणियां, फ़ॉर्म फ़ील्ड और हस्ताक्षर वैसे ही रहते हैं।</string>
+    <!-- In the Created, Changed and Made with rows once Remove all info is chosen, in place of their value. -->
+    <string name="docinfo_will_be_removed">हटा दिया जाएगा</string>
+    <!-- Replaces the Remove all info button once it is tapped, above an Undo button. -->
+    <string name="docinfo_removing">सेव करने पर सारी जानकारी हटा दी जाएगी। आप अब भी नया शीर्षक, लेखक, विषय या कीवर्ड लिख सकते हैं।</string>
+    <!-- Above the fields, for a PDF with a digital signature that still holds. -->
+    <string name="docinfo_signed_note">इस PDF पर डिजिटल हस्ताक्षर है। सेव करने पर एक नई PDF बनती है, जिसमें यह हस्ताक्षर मान्य नहीं रहेगा। आपकी मूल फ़ाइल में कोई बदलाव नहीं होता।</string>
+    <!-- Said after saving, when part of the PDF's info (its XMP metadata) was damaged or in a form
+         Usugami can't read, and so isn't in the new PDF. -->
+    <string name="docinfo_xmp_dropped">इस PDF की कुछ अतिरिक्त जानकारी पढ़ी नहीं जा सकी, इसलिए वह नई PDF में नहीं है।</string>
+    <!-- PDF to images or text -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_pdf_to_images_or_text">PDF से इमेज या टेक्स्ट</string>
+    <!-- JPG and PNG are names of image formats: keep them as they are. -->
+    <string name="tool_pdf_to_images_or_text_detail">पेजों को JPG या PNG के रूप में सेव करें, या टेक्स्ट कॉपी करें</string>
+    <!-- The button that makes the images or the text. -->
+    <string name="pdf_to_images_or_text_action">कन्वर्ट करें</string>
+    <!-- The options of PDF to images or text. A heading over two choices: what the PDF's pages become. -->
+    <string name="export_kind_title">किसमें कन्वर्ट करें</string>
+    <!-- The pages become pictures, one for each page. -->
+    <string name="export_kind_images">इमेज</string>
+    <!-- The pages' text becomes a text file. -->
+    <string name="export_kind_text">टेक्स्ट</string>
+    <!-- A field for the page numbers to convert. -->
+    <string name="export_pages">पेज</string>
+    <string name="export_pages_hint" tools:ignore="TypographyDashes">सभी पेजों के लिए खाली छोड़ें। या कुछ पेज लिखें, जैसे 1,3,5-8, या उनकी झलक पर टैप करें।</string>
+    <!-- Under the pages field while it is empty: every page is converted. -->
+    <string name="export_pages_all">कन्वर्ट होंगे: सभी पेज</string>
+    <!-- %1$d pages are chosen, out of the %2$d pages in the PDF. -->
+    <string name="export_pages_count">कन्वर्ट होंगे: %2$d में से %1$d</string>
+    <!-- A heading over the image formats to choose from. -->
+    <string name="export_format">फ़ॉर्मैट</string>
+    <!-- What JPG images are good for, under the choice. -->
+    <string name="export_format_jpg_summary">छोटी फ़ाइलें। फ़ोटो और स्कैन के लिए सबसे अच्छा।</string>
+    <!-- What PNG images are good for, under the choice. -->
+    <string name="export_format_png_summary">सबसे साफ़ टेक्स्ट और ड्रॉइंग। बड़ी फ़ाइलें।</string>
+    <!-- A heading over the image sizes to choose from. -->
+    <string name="export_size">इमेज का साइज़</string>
+    <string name="export_size_small">छोटा</string>
+    <string name="export_size_medium">मध्यम</string>
+    <string name="export_size_large">बड़ा</string>
+    <!-- Under the size chosen. dpi (dots per inch) says how sharp the images are: keep it as it is. -->
+    <string name="export_size_small_summary">स्क्रीन के लिए ठीक, सबसे छोटी फ़ाइलें (100 dpi)</string>
+    <string name="export_size_medium_summary">स्क्रीन पर और प्रिंट में साफ़ (200 dpi)</string>
+    <string name="export_size_large_summary">प्रिंट करने और ज़ूम करने के लिए सबसे अच्छा, सबसे बड़ी फ़ाइलें (300 dpi)</string>
+    <!-- Under the file name field. %1$s is the name a page's image gets, such as Report_p3.jpg: it is made from the name typed. -->
+    <string name="export_images_name_hint">हर इमेज के नाम में उसका पेज नंबर जुड़ता है: %1$s</string>
+    <!-- The button that makes the pages into images. -->
+    <string name="export_images_action">इमेज में कन्वर्ट करें</string>
+    <!-- .txt is the ending of a text file's name: keep it as it is. -->
+    <string name="export_text_note">आपको पेजों का टेक्स्ट पढ़ने के क्रम में मिलता है, जिसे आप कॉपी कर सकते हैं या .txt फ़ाइल के रूप में सेव कर सकते हैं।</string>
+    <!-- A switch: pages that are pictures of text (scans) are read with text recognition. -->
+    <string name="export_text_read_scans">बिना टेक्स्ट वाले पेज पढ़ें</string>
+    <string name="export_text_read_scans_detail">स्कैन किए गए पेज टेक्स्ट पहचान से पढ़े जाते हैं।</string>
+    <!-- Shown in Usugami Lite in place of the switch "Read pages without text". Usugami Lite is the app's name: keep it as it is. -->
+    <string name="export_text_lite_note">Usugami Lite में टेक्स्ट पहचान नहीं है, इसलिए यह स्कैन किए गए पेज नहीं पढ़ सकता।</string>
+    <!-- The button that makes the pages' text into a text file. -->
+    <string name="export_text_action">टेक्स्ट में कन्वर्ट करें</string>
+
+    <!-- Under the bar while the images are made: the one being made (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_image" tools:ignore="PluralsCandidate">%2$d में से इमेज %1$d</string>
+    <!-- Under the bar while the pages' text is read: the page being read (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_text" tools:ignore="PluralsCandidate">टेक्स्ट निकाला जा रहा है: %2$d में से पेज %1$d</string>
+    <!-- Under the bar while pages without text are read with text recognition: the one being read (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_scans" tools:ignore="PluralsCandidate">बिना टेक्स्ट वाले पेज पढ़े जा रहे हैं: %2$d में से %1$d</string>
+
+    <!-- No page chosen has text that can be copied, in Usugami Lite. Usugami Lite is the app's name: keep it as it is. -->
+    <string name="export_none_lite">इन पेजों पर ऐसा कोई टेक्स्ट नहीं है जिसे कॉपी किया जा सके। हो सकता है कि ये स्कैन हों, जिन्हें Usugami Lite नहीं पढ़ सकता।</string>
+    <!-- No page chosen has text, and the switch "Read pages without text" is off: use that switch's own words. -->
+    <string name="export_none_off">इन पेजों पर ऐसा कोई टेक्स्ट नहीं है जिसे कॉपी किया जा सके। इन्हें पढ़ने के लिए \"बिना टेक्स्ट वाले पेज पढ़ें\" चालू करें।</string>
+    <!-- Text recognition read the pages and found no text on any of them. -->
+    <string name="export_none_found">इन पेजों पर कोई टेक्स्ट नहीं मिला।</string>
+    <string name="export_none_failed">टेक्स्ट पहचान काम नहीं कर पाई, इसलिए ये पेज पढ़े नहीं जा सके। कृपया फिर से कोशिश करें।</string>
+    <!-- %1$d is a page number. -->
+    <string name="export_page_failed" tools:ignore="PluralsCandidate">पेज %1$d नहीं बनाया जा सका। उसे छोड़कर फिर से कोशिश करें।</string>
+    <string name="export_no_space">स्टोरेज में काफ़ी खाली जगह नहीं है। कुछ जगह खाली करें, या कम पेज या छोटा साइज़ चुनें।</string>
+
+    <!-- The last line of the "Text recognition isn't available" dialog over PDF to images or text. "Read pages without text" is a switch: use its own words. -->
+    <string name="export_text_ocr_retry">सिर्फ़ वह टेक्स्ट पाने के लिए जिसे कॉपी किया जा सकता है, \"बिना टेक्स्ट वाले पेज पढ़ें\" बंद करें और फिर से कोशिश करें।</string>
+    <!-- Said when Usugami opens again after Android closed it while it was making images or a text file of a PDF. -->
+    <string name="export_interrupted">काम पूरा होने से पहले ही Usugami बंद हो गया। कृपया फिर से कोशिश करें।</string>
+
+    <!-- The result screen of PDF to images or text. The title of a card showing the text of the text file made. -->
+    <string name="result_text_title">टेक्स्ट</string>
+    <!-- A button on that card: puts the text on the clipboard. -->
+    <string name="copy">कॉपी करें</string>
+    <!-- What a screen reader says for the Copy button. -->
+    <string name="copy_text">टेक्स्ट कॉपी करें</string>
+    <!-- Under the first lines of the text: shows the rest of it. -->
+    <string name="show_more">ज़्यादा दिखाएं</string>
+    <!-- Under the whole text: shows only its first lines again. -->
+    <string name="show_less">कम दिखाएं</string>
+    <!-- At the end of the text shown, when the file has more of it than the card shows. -->
+    <string name="result_text_more">यह सिर्फ़ शुरुआती हिस्सा है। पूरा टेक्स्ट फ़ाइल में है।</string>
+    <!-- Said once the text is on the clipboard (Android 13 and later say so themselves). -->
+    <string name="msg_text_copied">टेक्स्ट कॉपी किया गया</string>
+    <string name="msg_text_too_long">यह टेक्स्ट एक बार में कॉपी करने के लिए बहुत लंबा है। इसके बजाय फ़ाइल खोलें, शेयर करें या सेव करें।</string>
+    <string name="msg_copy_failed">टेक्स्ट कॉपी नहीं किया जा सका। इसके बजाय फ़ाइल खोलें, शेयर करें या सेव करें।</string>
+    <!-- A note on the result: what the text file leaves out. Flatten PDF is a tool's name: use its name in this language. -->
+    <string name="export_forms_left_out">फ़ॉर्म फ़ील्ड और टिप्पणियों का टेक्स्ट शामिल नहीं है। पेजों पर उसका जो हिस्सा दिखता है, उसे शामिल करने के लिए पहले PDF फ़्लैटन करें टूल इस्तेमाल करें।</string>
+
+    <!-- Notes on the result. %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. Usugami Lite is the app's name: keep it as it is. -->
+    <plurals name="export_no_text_lite" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s पर ऐसा कोई टेक्स्ट नहीं है जिसे कॉपी किया जा सके। हो सकता है कि यह स्कैन हो, जिसे Usugami Lite नहीं पढ़ सकता।</item>
+        <item quantity="other">%1$d पेजों पर ऐसा कोई टेक्स्ट नहीं है जिसे कॉपी किया जा सके: %2$s। हो सकता है कि ये स्कैन हों, जिन्हें Usugami Lite नहीं पढ़ सकता।</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_no_text_off" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s पर ऐसा कोई टेक्स्ट नहीं है जिसे कॉपी किया जा सके, इसलिए उसे छोड़ दिया गया।</item>
+        <item quantity="other">%1$d पेजों पर ऐसा कोई टेक्स्ट नहीं है जिसे कॉपी किया जा सके, इसलिए उन्हें छोड़ दिया गया: %2$s।</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_no_text_found" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s पर कोई टेक्स्ट नहीं मिला।</item>
+        <item quantity="other">%1$d पेजों पर कोई टेक्स्ट नहीं मिला: %2$s।</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_ocr_failed_pages" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s पर टेक्स्ट पहचान काम नहीं कर पाई, इसलिए उसे छोड़ दिया गया।</item>
+        <item quantity="other">%1$d पेजों पर टेक्स्ट पहचान काम नहीं कर पाई, इसलिए उन्हें छोड़ दिया गया: %2$s।</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_scans_read" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s टेक्स्ट पहचान से पढ़ा गया, इसलिए उसमें कुछ गलतियां हो सकती हैं।</item>
+        <item quantity="other">%1$d पेज टेक्स्ट पहचान से पढ़े गए, इसलिए उनमें कुछ गलतियां हो सकती हैं: %2$s।</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_images_reduced" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s बहुत बड़ा है, इसलिए उसकी इमेज में उतने पिक्सल नहीं हैं जितने इस साइज़ में होते हैं।</item>
+        <item quantity="other">%1$d पेज बहुत बड़े हैं, इसलिए उनकी इमेज में उतने पिक्सल नहीं हैं जितने इस साइज़ में होते हैं: %2$s।</item>
+    </plurals>
+    <!-- Read and annotate -->
+    <!-- A tool's name on Home and at the top of its screen: it opens a PDF, or a Word, Excel, PowerPoint or EPUB file, to read it and to add to it. -->
+    <string name="tool_reader">पढ़ें और एनोटेट करें</string>
+    <!-- What the tool does, under its name on Home. -->
+    <string name="tool_reader_detail">PDF या डॉक्यूमेंट खोलकर खोजें, टेक्स्ट कॉपी करें, ड्रॉ और हाइलाइट करें</string>
+    <!-- Shown in the middle of the screen while a file opened is copied in and read, with a moving bar and Cancel. -->
+    <string name="reader_opening">फ़ाइल खोली जा रही है…</string>
+    <!-- %1$s is the file's name, as it is (for example "notes.txt"). -->
+    <string name="reader_cant_open">Usugami %1$s को नहीं खोल सकता। यह PDF, Word, Excel, PowerPoint और EPUB फ़ाइलें खोलता है।</string>
+    <string name="reader_unreadable">Usugami वह फ़ाइल नहीं पढ़ सका। कृपया उसे फिर से खोलें।</string>
+    <!-- Said when a file is opened while Usugami makes a PDF: the file opens once the PDF is made. -->
+    <string name="reader_open_waits">आपकी फ़ाइल यह काम पूरा होने के बाद खुलेगी।</string>
+    <!-- Under "Discard your changes?", when a file was opened while a tool's PDF had changes not saved. -->
+    <string name="reader_open_discard_changes">आपकी खोली गई फ़ाइल तैयार है। उसे खोलने पर इस PDF में किए गए आपके बदलाव खारिज हो जाएंगे।</string>
+    <!-- Under "Discard this PDF?", when a file was opened while a PDF made by a tool wasn't saved yet. -->
+    <string name="reader_open_discard_body">आपकी खोली गई फ़ाइल तैयार है, लेकिन यह PDF अभी सेव नहीं हुई है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
+    <!-- Under "Discard what you made?", when a file was opened while images or a text file made from a PDF weren't saved yet. -->
+    <string name="reader_open_discard_files">आपकी खोली गई फ़ाइल तैयार है, लेकिन आपने अभी जो बनाया है, वह अब तक सेव नहीं हुआ है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
+    <string name="reader_open_interrupted">आपकी फ़ाइल खुलने से पहले ही Usugami बंद हो गया। कृपया उसे फिर से खोलें।</string>
+    <!-- On a small label at the bottom of the reader: the page showing (%1$d) of how many pages (%2$d), as in "3 of 12". -->
+    <string name="reader_page_of">%2$d में से %1$d</string>
+    <!-- What a screen reader says of a page, and of that label: "Page 3 of 12". -->
+    <string name="reader_page_of_spoken">%2$d में से पेज %1$d</string>
+    <!-- On a page Android couldn't draw, in place of the page. -->
+    <string name="reader_page_failed">यह पेज दिखाया नहीं जा सकता।</string>
+    <!-- The title of a small window that asks for a page number and shows that page; also what tapping the page label at the bottom of the reader does, as a screen reader says it. -->
+    <string name="reader_go_to_page">पेज पर जाएं</string>
+    <!-- The label of the page number field in "Go to page". %1$d is the PDF's number of pages (at least 1): "Page number, 1 to 12". -->
+    <string name="reader_page_field">पेज नंबर, 1 से %1$d तक</string>
+    <!-- The button in "Go to page" that shows the page typed. -->
+    <string name="reader_go">जाएं</string>
+    <!-- Actions a screen reader offers on a page of the reader: they make the pages larger or smaller, as pinching does. -->
+    <string name="reader_zoom_in">ज़ूम इन करें</string>
+    <string name="reader_zoom_out">ज़ूम आउट करें</string>
+    <!-- Find text in the reader: the hint in the search field that takes the reader's top bar. -->
+    <string name="reader_find_hint">इस फ़ाइल में खोजें</string>
+    <!-- Buttons beside the search field: they move to the match before or after the one marked, and close the search. -->
+    <string name="reader_find_previous">पिछला नतीजा</string>
+    <string name="reader_find_next">अगला नतीजा</string>
+    <string name="reader_find_close">खोज बंद करें</string>
+    <!-- Beside the search field: the match marked (%1$d) of how many were found (%2$d), as in "3 of 17". -->
+    <string name="reader_find_count">%2$d में से %1$d</string>
+    <!-- What a screen reader says of that count: "Match 3 of 17". -->
+    <string name="reader_find_count_spoken">%2$d में से नतीजा %1$d</string>
+    <string name="reader_find_none">कुछ नहीं मिला। स्कैन और तस्वीरों का टेक्स्ट खोजा नहीं जा सकता।</string>
+    <!-- %1$d is the most matches the reader keeps (2000): there were more. -->
+    <string name="reader_find_capped" tools:ignore="PluralsCandidate">पहले %1$d नतीजे दिखाए जा रहे हैं। कोई लंबा वाक्यांश खोजकर देखें।</string>
+    <!-- After a search, when some pages' text couldn't be read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0. -->
+    <plurals name="reader_find_unread">
+        <item quantity="one">%d पेज का टेक्स्ट पढ़ा नहीं जा सका, इसलिए उसमें खोजा नहीं गया।</item>
+        <item quantity="other">%d पेजों का टेक्स्ट पढ़ा नहीं जा सका, इसलिए उनमें खोजा नहीं गया।</item>
+    </plurals>
+    <!-- The reader's menu of more actions (three dots at the top), as a screen reader names its button. -->
+    <string name="reader_more">ज़्यादा विकल्प</string>
+    <!-- The title of a window that shows while a Word, Excel, PowerPoint or EPUB file opened in the reader is made into a PDF, with how far it has got and Cancel. -->
+    <string name="reader_converting">दिखाने के लिए इस फ़ाइल की PDF बनाई जा रही है…</string>
+    <!-- In the reader's menu: leaves the reader for the list of tools, with this PDF in it. -->
+    <string name="reader_tools">टूल</string>
+    <!-- In the reader's menu: Android's list of the other apps that open this file. -->
+    <string name="reader_open_elsewhere">किसी दूसरे ऐप में खोलें</string>
+    <!-- A note under the reader's top bar for a Word, Excel, PowerPoint or EPUB file, which the reader shows as a PDF Usugami made of it. %1$s is the file's name, as it is (for example "Report.docx"). -->
+    <string name="reader_converted_note">यह %1$s है, जैसा Usugami इसे PDF के रूप में तैयार करता है। जिस ऐप में यह फ़ाइल बनी थी, उसमें यह अलग दिख सकती है।</string>
+    <!-- A button in that note, and in the reader's menu: makes the PDF shown a file of its own, to share or save. -->
+    <string name="reader_save_as_pdf">PDF के रूप में सेव करें</string>
+    <!-- A button at the top of the reader, and the title of the screen it opens: text, drawings, highlights, shapes and pictures are added to the PDF's pages there. -->
+    <string name="reader_annotate">एनोटेट करें</string>
+    <!-- What a screen reader calls the arrow at the top of Annotate: it returns to reading the PDF, with what was added drawn on its pages. -->
+    <string name="reader_back_to_reading">पढ़ने पर वापस जाएं</string>
+    <!-- Under Annotate's page and controls, above the name of the PDF it saves. -->
+    <string name="reader_save_note">सेव करने पर आपकी जोड़ी गई चीज़ों के साथ एक नई PDF बनती है। आपकी खोली गई फ़ाइल जैसी है, वैसी ही रहती है।</string>
+    <!-- The one button in a bar under the reader's pages while text is selected on them: puts the text selected on the clipboard. -->
+    <string name="reader_copy">कॉपी करें</string>
+    <!-- What a screen reader offers on a page of the reader: copies all the text of that page, with no selecting. -->
+    <string name="reader_copy_page">इस पेज का टेक्स्ट कॉपी करें</string>
+    <!-- When the text selected in the reader is too long to copy. "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
+    <string name="reader_copy_too_long">एक बार में कॉपी करने के लिए यह टेक्स्ट बहुत ज़्यादा है। कम टेक्स्ट चुनें, या पूरा टेक्स्ट पाने के लिए PDF से इमेज या टेक्स्ट टूल इस्तेमाल करें।</string>
+    <!-- When Copy is tapped in the reader and the text selected runs over a page whose text couldn't be read (a font that doesn't say which letters its shapes stand for): nothing is copied, so that no page is missing from the text. %1$d is that page's number, from 1. -->
+    <string name="reader_copy_unread">पेज %1$d का टेक्स्ट पढ़ा नहीं जा सका, इसलिए कुछ भी कॉपी नहीं किया गया।</string>
+    <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
+    <string name="reader_no_text">इस पेज पर चुनने के लिए कोई टेक्स्ट नहीं है। अगर यह स्कैन है, तो PDF से इमेज या टेक्स्ट टूल इसे पढ़ सकता है।</string>
+    <!-- Edit PDF was a tool until 2.0.0; it is now Annotate in Read and annotate: text, drawings,
+         highlights, shapes and pictures put on top of a PDF's pages, with the strings below. "Redact
+         PDF" is the name of another tool. Edit PDF's name, description (the next two strings) and
+         hidden words (search_keywords_edit) are never shown: they are kept as hidden words that find
+         Read and annotate in Home's search, so translate them as what people would type to find it. -->
     <string name="tool_edit">PDF एडिट करें</string>
     <string name="tool_edit_detail">टेक्स्ट, ड्रॉइंग, आकृतियां और तस्वीरें जोड़ें</string>
     <string name="pdf_edit_action">PDF सेव करें</string>
@@ -389,6 +803,10 @@
     <string name="ocr_french">फ़्रेंच</string>
     <string name="ocr_spanish">स्पैनिश</string>
     <string name="ocr_hindi">हिंदी</string>
+    <!-- Names of text-recognition languages, shown in the app's language. -->
+    <string name="ocr_german">जर्मन</string>
+    <string name="ocr_portuguese">पुर्तगाली</string>
+    <string name="ocr_indonesian">इंडोनेशियाई</string>
     <string name="ocr_no_text">कोई टेक्स्ट नहीं पहचाना गया। PDF बिना टेक्स्ट लेयर के बनाई गई।</string>
     <string name="ocr_failed">टेक्स्ट पहचान काम नहीं कर पाई, इसलिए PDF बिना खोजने लायक टेक्स्ट के बनाई गई।</string>
     <string name="ocr_failed_no_space">खोजने लायक टेक्स्ट जोड़ने के लिए स्टोरेज में काफ़ी खाली जगह नहीं थी, इसलिए PDF उसके बिना बनाई गई।</string>
@@ -626,6 +1044,42 @@
         <item quantity="one">इस PDF के डिजिटल हस्ताक्षर कोई बदलाव नहीं करने देते, इसलिए इस पर Usugami वॉटरमार्क नहीं लगा।</item>
         <item quantity="other">%d PDF के डिजिटल हस्ताक्षर कोई बदलाव नहीं करने देते, इसलिए उन पर Usugami वॉटरमार्क नहीं लगा।</item>
     </plurals>
+    <!-- The heading over what a tool made, when it made pictures (JPG or PNG files) from a PDF's pages: one picture. -->
+    <string name="result_heading_image_one">आपकी इमेज तैयार है</string>
+    <!-- The same, for several pictures. -->
+    <string name="result_heading_image_many">आपकी इमेज तैयार हैं</string>
+    <!-- The heading over what a tool made, when it made a plain text file (.txt) from a PDF: one file. -->
+    <string name="result_heading_text_one">आपकी टेक्स्ट फ़ाइल तैयार है</string>
+    <!-- The same, for several text files. -->
+    <string name="result_heading_text_many">आपकी टेक्स्ट फ़ाइलें तैयार हैं</string>
+    <string name="msg_no_image_app">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो इमेज खोल सके।</string>
+    <string name="msg_no_text_app">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो टेक्स्ट फ़ाइलें खोल सके।</string>
+    <!-- Said when images or text files were to be shared, as "No app on this phone can share PDFs." is for PDFs. -->
+    <string name="msg_no_share_app_files">इस फ़ोन पर ऐसा कोई ऐप नहीं है जो फ़ाइलें शेयर कर सके।</string>
+    <!-- Said when images or text files couldn't be saved, as "Couldn't save the PDF…" is for PDFs. -->
+    <string name="msg_save_failed_files">सेव नहीं किया जा सका। जांचें कि स्टोरेज में काफ़ी खाली जगह है।</string>
+    <!-- Counts images or text files, so never 0: in French and Hindi "one" may leave the number out. -->
+    <plurals name="msg_result_files_cleared" tools:ignore="ImpliedQuantity">
+        <item quantity="one">फ़ाइल को अस्थायी स्टोरेज से हटा दिया गया। कृपया इसे फिर से बनाएं।</item>
+        <item quantity="other">फ़ाइलों को अस्थायी स्टोरेज से हटा दिया गया। कृपया उन्हें फिर से बनाएं।</item>
+    </plurals>
+    <!-- Asked when files are shared to Usugami while images or a text file it made aren't saved yet. "What you made" is those files. -->
+    <string name="files_discard_title">आपने जो बनाया है, उसे खारिज करें?</string>
+    <!-- Under that question when the files shared are PDFs, Word, PowerPoint, Excel or EPUB files. -->
+    <string name="share_discard_body_files">आपकी शेयर की गई फ़ाइलें खोलने के लिए तैयार हैं, लेकिन आपने अभी जो बनाया है, वह अब तक सेव नहीं हुआ है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
+    <!-- Under that question when the files shared are images. -->
+    <string name="files_discard_shared_body">आपकी शेयर की गई इमेज कन्वर्ट करने के लिए तैयार हैं, लेकिन आपने अभी जो बनाया है, वह अब तक सेव नहीं हुआ है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
+    <!-- A button and a menu item for a PDF, on the result screen and in Recent files: opens Android's
+         own print screen (preview, printer, copies, paper size, "Save as PDF") with the PDF. -->
+    <string name="print">प्रिंट करें</string>
+    <!-- The screen reader's label for one PDF's own Print button, among several PDFs, like
+         "Open %1$s" and "Share %1$s". %1$s is the PDF's file name, such as "Report.pdf". -->
+    <string name="print_file">%1$s प्रिंट करें</string>
+    <!-- Shown when the phone has printing but it can't be started (its print service is turned off,
+         for example). -->
+    <string name="msg_no_printing">इस फ़ोन पर प्रिंटिंग उपलब्ध नहीं है।</string>
+    <!-- Shown by Android's print screen when the PDF being printed can't be read. -->
+    <string name="print_failed">यह PDF प्रिंट के लिए नहीं भेजी जा सकी। हो सकता है कि इसे कहीं और ले जाया गया हो या मिटा दिया गया हो, या फ़ोन का स्टोरेज भर गया हो।</string>
 
     <!-- Dialogs -->
     <string name="discard_title">इन इमेज को खारिज करें?</string>
@@ -718,6 +1172,35 @@
     <string name="recent_lost_title">यह फ़ाइल नहीं खुल सकती</string>
     <string name="recent_lost_body">Usugami अब %1$s को नहीं खोल सकता। अगर फ़ाइल अब भी मौजूद है, तो आप उसे अपने फ़ोन के Files ऐप से ढूंढ सकते हैं।</string>
 
+    <!-- Launcher shortcuts -->
+    <!-- The short labels of the four shortcuts a long-press on Usugami's icon shows; their long labels
+         are the names of Home's tiles. -->
+    <!-- The shortcut that opens the camera for a new scan, as Scan document does. Under a shortcut's
+         icon on the phone's home screen: one word, at most about 10 letters. -->
+    <string name="shortcut_scan">स्कैन</string>
+    <!-- The shortcut that opens Images to PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_images">इमेज</string>
+    <!-- The shortcut that opens Merge PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_merge">मर्ज</string>
+    <!-- The shortcut that opens Compress PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_compress">कंप्रेस</string>
+    <!-- Said when a launcher shortcut is used while Usugami is still making something (a PDF, images, a
+         text file): nothing opens and the work goes on. "Usugami" is the app's name, kept as it is. -->
+    <string name="shortcut_busy">Usugami अभी भी काम कर रहा है। काम पूरा होने के बाद शॉर्टकट फिर से इस्तेमाल करें।</string>
+    <!-- Under "Discard this PDF?", asked when a launcher shortcut is used while a tool shows a PDF it
+         made that isn't saved yet. Discard opens the shortcut's tool; Keep stays with the PDF. -->
+    <string name="shortcut_discard_body">यह PDF अभी सेव नहीं हुई है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
+    <!-- Under "Discard your changes?", asked when a launcher shortcut is used while a tool has changes to
+         its PDF that aren't saved yet. Discard opens the shortcut's tool; Keep stays with the changes. -->
+    <string name="shortcut_discard_changes">दूसरा टूल खोलने पर इस PDF में किए गए आपके बदलाव खारिज हो जाएंगे।</string>
+    <!-- Under "Discard what you made?", asked when a launcher shortcut is used while a tool shows images or
+         a text file it made (no PDF) that aren't saved yet. "What you just made" is those files. Discard
+         opens the shortcut's tool; Keep stays with them. -->
+    <string name="shortcut_discard_files">आपने अभी जो बनाया है, वह अब तक सेव नहीं हुआ है। अगर आप इसे रखना चाहते हैं, तो पहले इसे सेव करें।</string>
+
     <!-- Searching for a tool on Home -->
     <string name="home_search_hint">टूल खोजें</string>
     <string name="home_search_clear">खोज मिटाएं</string>
@@ -727,7 +1210,7 @@
     </plurals>
     <string name="home_search_none">\"%1$s\" से मेल खाता कोई टूल नहीं मिला</string>
     <string name="search_keywords_images">फ़ोटो, तस्वीर, स्कैन, स्कैनर, कैमरा, गैलरी, डॉक्यूमेंट, ब्लैक एंड व्हाइट, photo, image, scan, scanner, camera, JPEG, JPG, PNG, HEIC, WebP, OCR</string>
-    <string name="search_keywords_scan">स्कैन, स्कैनर, कैमरा, फ़ोटो, डॉक्यूमेंट, दस्तावेज़, कागज़, रसीद, बिल, क्रॉप, फ़िल्टर, ब्राइटनेस, चमक, कंट्रास्ट, ब्लैक एंड व्हाइट, scan, scanner, CamScanner, camera, photo, document, receipt, crop, enhance, filter, brightness, contrast</string>
+    <string name="search_keywords_scan">स्कैन, स्कैनर, कैमरा, फ़ोटो, डॉक्यूमेंट, दस्तावेज़, कागज़, रसीद, बिल, क्रॉप, फ़िल्टर, ब्राइटनेस, चमक, कंट्रास्ट, ब्लैक एंड व्हाइट, आईडी कार्ड, पहचान पत्र, आधार कार्ड, पैन कार्ड, वोटर आईडी, पासपोर्ट, ड्राइविंग लाइसेंस, लाइसेन्स, scan, scanner, CamScanner, camera, photo, document, receipt, crop, enhance, filter, brightness, contrast, ID card, identity card, Aadhaar, Aadhar, PAN card, voter ID, passport, driving licence, driver\'s license</string>
     <string name="search_keywords_word">डॉक्यूमेंट, दस्तावेज़, doc, docx, document, Office</string>
     <string name="search_keywords_powerpoint">स्लाइड, प्रेज़ेंटेशन, ppt, pptx, slides, presentation</string>
     <string name="search_keywords_excel">स्प्रेडशीट, शीट, टेबल, तालिका, वर्कबुक, सेल, xls, xlsx, spreadsheet, sheet, table, workbook, cells, Office, Google Sheets</string>
@@ -738,9 +1221,30 @@
     <string name="search_keywords_sign">हस्ताक्षर, दस्तख़त, साइन, sign, signature</string>
     <string name="search_keywords_page_numbers">नंबर, क्रमांक, पेज संख्या, page numbers, numbering</string>
     <string name="search_keywords_watermark">मुहर, स्टैम्प, गोपनीय, watermark, stamp</string>
-    <string name="search_keywords_compress">छोटा करें, साइज़ घटाएं, कम करें, compress, shrink, reduce size</string>
+    <string name="search_keywords_compress">छोटा करें, साइज़ घटाएं, कम करें, ब्लैक एंड व्हाइट, श्वेत-श्याम, ग्रेस्केल, ग्रे, स्लेटी, मोनोक्रोम, compress, shrink, reduce size, black and white, grayscale, gray, grey, monochrome</string>
     <string name="search_keywords_flatten">फ़ॉर्म, फ़ील्ड, टिप्पणी, लॉक, flatten, form</string>
     <string name="search_keywords_epub">ई-बुक, किताब, पुस्तक, epub, ebook, book</string>
     <string name="search_keywords_redact">छिपाएं, काला करें, गोपनीय, सेंसर, redact, hide, censor</string>
+    <!-- Hidden words that also find Read and annotate when searched for on Home, separated by commas.
+         They are never shown: use the words people would type in this language for what the tool
+         does. No word that begins with batch, many, several, multiple or bulk: those find the tools
+         that work on several files at once. -->
+    <string name="search_keywords_reader">खोलें, खोलना, देखें, देखना, व्यूअर, रीडर, पढ़ना, एडिट, संपादित, एनोटेशन, टिप्पणी, नोट, लिखें, टाइप, पेन, मार्कअप, निशान, शेप, तीर, ऐरो, तस्वीर, सिलेक्ट, ढूंढें, ज़ूम, open, view, viewer, reader, look at, edit, annotation, note, write, type, pen, markup, shape, arrow, picture, select, find, zoom</string>
+    <!-- Hidden words that also find Page layout when searched for on Home, separated by commas. They
+         are never shown: use the words people would type in this language for what the tool does.
+         No word that begins with batch, many, several, multiple or bulk: those find the tools that
+         work on several files at once. -->
+    <string name="search_keywords_page_layout">क्रॉप, ट्रिम, काटें, मार्जिन, हाशिया, किनारा, किनारे, बॉर्डर, शीट, हर शीट पर पेज, प्रति शीट पेज, दो पेज, चार पेज, अगल-बगल, हैंडआउट, प्रिंट, छपाई, कागज़, पेपर, crop, trim, cut off, margins, edges, border, n-up, 2-up, 4-up, pages per sheet, side by side, handout, print, paper</string>
+    <!-- Hidden words that also find Document info when searched for on Home, separated by commas.
+         They are never shown: use the words people would type in this language for what the tool
+         does. No word that begins with batch, many, several, multiple or bulk: those find the tools
+         that work on several files at once. In French, no word that begins with "supprimer": Home's
+         search finds Reorganize PDF alone with it ("effacer" or "retirer" can say it here). -->
+    <string name="search_keywords_document_info">मेटाडेटा, मेटाडाटा, प्रॉपर्टीज़, विवरण, डिटेल, शीर्षक, टाइटल, लेखक, ऑथर, विषय, कीवर्ड, टैग, क्रिएटर, प्रोड्यूसर, तारीख़, दिनांक, निजता, प्राइवेसी, गुमनाम, अनाम, साफ़ करें, जानकारी हटाएं, metadata, properties, details, title, author, subject, keywords, tags, creator, producer, date, privacy, anonymous, clean, remove info, XMP</string>
+    <!-- Hidden words that also find PDF to images or text when searched for on Home, separated by
+         commas. They are never shown: use the words people would type in this language for what the
+         tool does. No word that begins with batch, many, several, multiple or bulk: those find the
+         tools that work on several files at once. -->
+    <string name="search_keywords_pdf_to_images_or_text">तस्वीर, फ़ोटो, एक्सपोर्ट, निकालें, कन्वर्ट, इमेज में बदलें, शब्द, कॉपी, स्क्रीनशॉट, JPG, JPEG, PNG, picture, photo, image, export, extract, convert, text, txt, copy, words, screenshot</string>
     <string name="search_keywords_batch">एक साथ, कई, कई सारी, बहुत सारी, सभी, बैच, batch, many, several, multiple, bulk</string>
 </resources>

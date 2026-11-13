@@ -2,4 +2,6 @@
 <resources>
     <string name="tool_images_detail">Escaneos con la cámara e imágenes en un solo PDF, o un PDF por imagen</string>
     <string name="search_keywords_images">foto, imagen, JPEG, JPG, PNG, HEIC, WebP, escanear, escaneo, escáner, cámara, galería, documento, blanco y negro</string>
+    <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). Usugami Lite has no text recognition to read it. -->
+    <string name="reader_no_text">Esta página no tiene texto que seleccionar. Puede ser un escaneo, que Usugami Lite no puede leer.</string>
 </resources>

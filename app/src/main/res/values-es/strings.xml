@@ -11,16 +11,52 @@
     <string name="scan_detail">Toma fotos o importa imágenes, y luego recórtalas y mejóralas</string>
     <!-- Picks images from the phone's gallery: nothing leaves the phone. -->
     <string name="scan_upload">Importar imágenes</string>
+    <!-- The name of a page in Images to PDF that holds both sides of an identity document (an ID card, driving licence, bank card or passport page), one above the other. Stands for any identity document, not only a national ID card. -->
+    <string name="card_title">Documento de identidad</string>
+    <!-- One of the two sides of an ID card: the side with the photo and name. -->
+    <string name="card_front">Anverso</string>
+    <!-- The other side of an ID card. -->
+    <string name="card_back">Reverso</string>
+    <!-- A menu item on an ID card's page: opens the crop screen for the card's front side. -->
+    <string name="card_crop_front">Recortar el anverso</string>
+    <!-- A menu item on an ID card's page: opens the crop screen for the card's back side. -->
+    <string name="card_crop_back">Recortar el reverso</string>
+    <!-- A quieter button on Home's Scan document card, under Take photo and Upload images: scans the front and the back of an identity document (an ID card, driving licence, bank card or passport page) onto one page of the PDF. -->
+    <string name="scan_id_card">Documento de identidad: ambas caras en una página</string>
+    <!-- On the screen that asks for an ID card's front side, under the heading "Front side" (card_front). -->
+    <string name="card_front_hint">Coloca el documento sobre una superficie lisa y oscura. Mantén el teléfono recto justo encima, lo bastante cerca para que el documento ocupe casi toda la foto.</string>
+    <!-- A smaller note under card_front_hint: the PDF has one page with both sides of the card on it, each at the card's real size when printed. -->
+    <string name="card_note">Ambas caras van en una página, al tamaño real del documento.</string>
+    <!-- On the screen that asks for an ID card's back side, under the heading "Back side" (card_back). "No back side" is the name of a button on the same screen (card_no_back): use the same words as there. -->
+    <string name="card_back_hint">Dale la vuelta al documento y haz lo mismo. Si el documento solo tiene una cara, elige Sin reverso.</string>
+    <!-- A button on the screens that ask for an ID card's sides: picks one image of the side from the phone, in place of taking a photo. -->
+    <string name="card_choose_image">Elegir imagen</string>
+    <!-- A button on the screen that asks for an ID card's back side (also the description of its close button): the card is kept with its front side alone. Quoted in card_back_hint. -->
+    <string name="card_no_back">Sin reverso</string>
+    <!-- Beside a progress ring on the screens that ask for an ID card's sides, while the photo just taken or the image chosen is being added. -->
+    <string name="card_adding">Añadiendo la imagen…</string>
+    <!-- Above the photo on the crop screen of an ID card's side, when Usugami found the card on it. -->
+    <string name="card_crop_found">Usugami encontró el documento. Arrastra las esquinas o los bordes para ajustarlo.</string>
+    <!-- Above the photo on the crop screen of an ID card's side, when Usugami didn't find the card on it. -->
+    <string name="card_crop_not_found">Arrastra las esquinas o los bordes sobre el contorno del documento.</string>
+    <!-- On the crop screen of an ID card's side, in place of the hint, while the four corners dragged don't make the outline of a card. -->
+    <string name="card_crop_not_a_card">Las esquinas no forman un documento: coloca cada una en una esquina del documento.</string>
+    <!-- A button on an ID card's page in Images to PDF, when the card has its front side only: asks for its back side. -->
+    <string name="card_add_back">Añadir reverso</string>
     <string name="tool_split">Dividir PDF</string>
     <string name="tool_split_detail">Extrae páginas o divide en archivos pequeños</string>
     <string name="tool_merge">Unir PDF</string>
     <string name="tool_merge_detail">Combina archivos y ordena páginas individuales</string>
     <string name="tool_compress">Comprimir PDF</string>
     <string name="tool_compress_detail">Reduce las imágenes y mantén el texto nítido</string>
+    <!-- A heading on Home, first of all, over the tool that opens a file to read it. -->
+    <string name="home_section_view">Ver</string>
     <string name="home_section_create">Crear PDF</string>
     <string name="home_section_edit">Editar y firmar</string>
     <string name="home_section_organize">Organizar</string>
     <string name="home_section_optimize">Optimizar y proteger</string>
+    <!-- A heading on Home, over the tools that make other files of a PDF. -->
+    <string name="home_section_from_pdf">Convertir desde PDF</string>
     <string name="tool_page_numbers">Numerar páginas</string>
     <string name="tool_page_numbers_detail">Números arriba o abajo de cada página</string>
     <string name="tool_watermark">Añadir marca de agua</string>
@@ -125,6 +161,33 @@
     <string name="compression_for_all_hint">Cambia uno de abajo para darle su propio nivel.</string>
     <!-- Shown under a PDF that Compress PDF couldn't make smaller. -->
     <string name="original_kept">Ya es compacto: se conservó el original</string>
+    <!-- Compress PDF: a switch under the levels. The PDF comes out in shades of gray, not in pure black and white. Not the scanner's "Black & white" look. -->
+    <string name="compress_gray">Blanco y negro</string>
+    <string name="compress_gray_detail">Convierte los colores en tonos de gris</string>
+    <!-- The same, with several PDFs picked. -->
+    <string name="compress_gray_detail_many">Convierte los colores de todos los PDF en tonos de gris</string>
+    <!-- Compress PDF with Black and white on: the new PDF is gray, and no smaller than the PDF picked. -->
+    <string name="pdf_gray_not_smaller">Este PDF ahora está en blanco y negro, pero no se pudo reducir más.</string>
+    <!-- The same with several PDFs: %1$d counts them (never 0), %2$s lists their names. -->
+    <plurals name="batch_gray_not_smaller">
+        <item quantity="one">%2$s ahora está en blanco y negro, pero no se pudo reducir más.</item>
+        <item quantity="many">%1$d PDF ahora están en blanco y negro, pero no se pudieron reducir más: %2$s.</item>
+        <item quantity="other">%1$d PDF ahora están en blanco y negro, pero no se pudieron reducir más: %2$s.</item>
+    </plurals>
+    <!-- Compress PDF with Black and white on: a picture or drawing in the PDF couldn't be turned gray, and was left as it was. -->
+    <string name="pdf_gray_partial">Algunas partes de este PDF no se pudieron pasar a gris y siguen en color.</string>
+    <!-- The same with several PDFs: %1$d counts the PDFs it happened to (never 0), %2$s lists their names. -->
+    <plurals name="batch_gray_partial">
+        <item quantity="one">Algunas partes de %2$s no se pudieron pasar a gris y siguen en color.</item>
+        <item quantity="many">Algunas partes de %1$d PDF no se pudieron pasar a gris y siguen en color: %2$s.</item>
+        <item quantity="other">Algunas partes de %1$d PDF no se pudieron pasar a gris y siguen en color: %2$s.</item>
+    </plurals>
+    <!-- Under such a PDF on the result screen: %1$d counts its pages that still have color (never 0), %2$s lists them, such as 2,5-7. -->
+    <plurals name="gray_color_left">
+        <item quantity="one">La página %2$s aún tiene partes en color</item>
+        <item quantity="many">%1$d páginas aún tienen partes en color: %2$s</item>
+        <item quantity="other">%1$d páginas aún tienen partes en color: %2$s</item>
+    </plurals>
     <plurals name="pdf_password_removed">
         <item quantity="one">El nuevo PDF no tiene contraseña.</item>
         <item quantity="many">Los nuevos PDF no tienen contraseña.</item>
@@ -219,6 +282,14 @@
     <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Demasiadas coincidencias: Usugami guarda hasta %1$d recuadros. Prueba con una frase más larga.</string>
     <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami guarda hasta %1$d recuadros.</string>
     <string name="redact_find_failed">No se pudo buscar en este PDF.</string>
+    <!-- Under Find text, once a search met text it can't read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0; %1$s lists them as page lists are typed, such as "3" or "2, 5-7". -->
+    <plurals name="redact_find_unread">
+        <item quantity="one">Buscar texto no puede leer parte del texto de la página %1$s. Revisa esa página por tu cuenta y dibuja recuadros donde haga falta.</item>
+        <item quantity="many">Buscar texto no puede leer parte del texto de las páginas %1$s. Revisa esas páginas por tu cuenta y dibuja recuadros donde haga falta.</item>
+        <item quantity="other">Buscar texto no puede leer parte del texto de las páginas %1$s. Revisa esas páginas por tu cuenta y dibuja recuadros donde haga falta.</item>
+    </plurals>
+    <!-- The same, when it is so on every page of the PDF. -->
+    <string name="redact_find_unread_all">Buscar texto no puede leer parte del texto de este PDF. Revisa todas las páginas por tu cuenta y dibuja recuadros donde haga falta.</string>
     <plurals name="redact_found">
         <item quantity="one">Se encontró %1$d coincidencia y se marcó con un recuadro. Revísala antes de guardar.</item>
         <item quantity="many">Se encontraron %1$d coincidencias y se marcaron con recuadros. Revísalas antes de guardar.</item>
@@ -255,6 +326,14 @@
     <string name="redact_shorter">Hacer el recuadro más bajo</string>
     <string name="redact_taller">Hacer el recuadro más alto</string>
     <string name="redact_delete_box">Eliminar el recuadro</string>
+    <!-- Word and PowerPoint to PDF. Word and PowerPoint are the names of Microsoft's apps, kept as they are;
+         .docx, .pptx, .doc and .ppt are file extensions. -->
+    <!-- A tool's name on Home: the one tile for Word, PowerPoint, Excel and EPUB files, which opens the
+         converter for the files picked (Word to PDF and the others). -->
+    <string name="tool_documents">Documentos a PDF</string>
+    <!-- What the tile takes. Word, PowerPoint and Excel are the names of Microsoft's apps, and EPUB
+         the name of the e-book format: keep them as they are. -->
+    <string name="tool_documents_detail">Archivos de Word, PowerPoint, Excel y EPUB, convertidos en este teléfono</string>
     <string name="tool_word">Word a PDF</string>
     <string name="tool_word_detail">Documentos (.docx), convertidos en este teléfono</string>
     <string name="tool_powerpoint">PowerPoint a PDF</string>
@@ -313,7 +392,7 @@
     <string name="sheet_gridlines">Líneas de cuadrícula</string>
     <string name="sheet_gridlines_detail">Líneas gris claro entre las celdas, como en pantalla. Los bordes siempre se ven, igual que las líneas de cuadrícula de una hoja configurada para imprimirlas.</string>
     <string name="tool_reorganize">Reorganizar PDF</string>
-    <string name="tool_reorganize_detail">Mueve, gira, quita y añade páginas</string>
+    <string name="tool_reorganize_detail">Mueve, gira, elimina y añade páginas</string>
     <string name="tool_flatten">Acoplar PDF</string>
     <string name="tool_flatten_detail">Integra formularios y comentarios en la página</string>
     <string name="reorganize_pages_hint" tools:ignore="TypographyDashes">Por ejemplo: 2,5-7. O toca las páginas de abajo.</string>
@@ -325,6 +404,29 @@
     <string name="reorganize_page_from">Página %1$d, de %2$s</string>
     <string name="reorganize_page_blank">Página %1$d, en blanco</string>
     <string name="undo">Deshacer</string>
+    <!-- Reorganize PDF: a button beside the page count that selects every page in the grid. -->
+    <string name="reorganize_select_all">Seleccionar todo</string>
+    <!-- The same button while every page is selected: it takes them all out of the selection. -->
+    <string name="reorganize_select_none">Deseleccionar todo</string>
+    <!-- The label of a field where the selected pages are typed as numbers and ranges, like 2,5-7. -->
+    <string name="reorganize_pages_field">Páginas seleccionadas</string>
+    <!-- Read by a screen reader: the button at the end of that field, which empties it and the selection. -->
+    <string name="reorganize_pages_clear">Borrar la selección de páginas</string>
+    <!-- In the bar above the pages while none is selected. -->
+    <string name="reorganize_tap_pages">Toca las páginas para seleccionarlas</string>
+    <!-- In the same bar while two or more pages are selected: %1$d pages are selected, out of the %2$d pages in the list. -->
+    <string name="reorganize_selected_count">Seleccionadas: %1$d de %2$d</string>
+    <!-- Under the pages. Pages added with "Add pages" go after the selected page that comes last. -->
+    <string name="reorganize_move_hint">Mantén presionada una página y arrástrala para moverla. Las páginas que añadas van después de la última página seleccionada.</string>
+    <!-- Read by a screen reader: buttons in the bar that turn every selected page a quarter turn. -->
+    <string name="rotate_selected_left">Girar las páginas seleccionadas a la izquierda</string>
+    <string name="rotate_selected_right">Girar las páginas seleccionadas a la derecha</string>
+    <!-- Read by a screen reader: the button in the bar that takes the selected pages out (never fewer than 2). -->
+    <plurals name="remove_selected_pages">
+        <item quantity="one">Quitar %d página</item>
+        <item quantity="many">Quitar %d páginas</item>
+        <item quantity="other">Quitar %d páginas</item>
+    </plurals>
     <string name="pdf_flatten_action">Acoplar PDF</string>
     <plurals name="pdf_flatten_action_many">
         <item quantity="one">Acoplar %d PDF</item>
@@ -343,6 +445,333 @@
         <item quantity="other">%d campos de formulario tienen texto que Usugami no puede dibujar con su fuente, así que se dejaron rellenables para conservar ese texto.</item>
     </plurals>
     <string name="flatten_fields_kept_many">Algunos campos de formulario tienen texto que Usugami no puede dibujar con su fuente, así que se dejaron rellenables para conservar ese texto.</string>
+    <!-- Page layout -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_page_layout">Diseño de página</string>
+    <!-- Not "several": that word finds the tools that work on several files at once. -->
+    <string name="tool_page_layout_detail">Recorta páginas o pon dos o más en una hoja</string>
+    <!-- The button that saves the PDF with its pages laid out as chosen. -->
+    <string name="pdf_page_layout_action">Guardar PDF</string>
+    <!-- The two things Page layout does (crop pages: choose the part of each page that shows; or put several pages on one sheet of paper), on a two-part switch at its top. -->
+    <string name="layout_mode_crop">Recortar</string>
+    <string name="layout_mode_sheets">Páginas por hoja</string>
+    <string name="layout_crop_note">Recortar solo oculta lo que queda fuera del recuadro, que sigue en el archivo. Para quitarlo del todo, usa Censurar PDF.</string>
+    <!-- Over the row of pages: the page tapped is the one the preview shows. -->
+    <string name="layout_crop_page">Página que se muestra</string>
+    <string name="layout_crop_box">Recuadro de recorte</string>
+    <string name="layout_crop_box_hint">Arrastra los bordes o las esquinas del recuadro. Abarca la misma proporción de cada página que recortes.</string>
+    <!-- Read out by screen readers for the preview. %1$d is a page number (1 or more). -->
+    <string name="layout_crop_preview_description" tools:ignore="PluralsCandidate">Página %1$d con el recuadro de recorte</string>
+    <!-- Read out by screen readers for the preview. %1$d and %2$d are percentages from 5 to 100; %% is the percent sign. -->
+    <string name="layout_crop_preview_state">Conserva el %1$d %% del ancho y el %2$d %% del alto</string>
+    <!-- The four sides of the crop box, each with a button to crop more and one to crop less. -->
+    <string name="layout_crop_left">Izquierda</string>
+    <string name="layout_crop_top">Arriba</string>
+    <string name="layout_crop_right">Derecha</string>
+    <string name="layout_crop_bottom">Abajo</string>
+    <string name="layout_crop_more_left">Recortar más por la izquierda</string>
+    <string name="layout_crop_less_left">Recortar menos por la izquierda</string>
+    <string name="layout_crop_more_top">Recortar más por arriba</string>
+    <string name="layout_crop_less_top">Recortar menos por arriba</string>
+    <string name="layout_crop_more_right">Recortar más por la derecha</string>
+    <string name="layout_crop_less_right">Recortar menos por la derecha</string>
+    <string name="layout_crop_more_bottom">Recortar más por abajo</string>
+    <string name="layout_crop_less_bottom">Recortar menos por abajo</string>
+    <!-- Puts the crop box back round the whole page. -->
+    <string name="layout_crop_whole">Página completa</string>
+    <string name="layout_crop_pages">Páginas que recortar</string>
+    <string name="layout_pages_all">Todas las páginas</string>
+    <string name="layout_pages_some">Algunas páginas</string>
+    <string name="layout_pages_field">Páginas</string>
+    <string name="layout_pages_hint" tools:ignore="TypographyDashes">Por ejemplo: 2,5-7</string>
+    <string name="pdf_layout_crop_action">Recortar PDF</string>
+    <!-- Pages per sheet. A4 and US Letter (existing size_a4, size_letter) are the papers. -->
+    <string name="layout_sheets_paper">Tamaño del papel</string>
+    <string name="layout_sheets_auto_note">Usugami pone la hoja en la orientación en la que las páginas quedan más grandes.</string>
+    <string name="layout_sheets_border">Borde alrededor de cada página</string>
+    <string name="layout_sheets_preview">Primera hoja</string>
+    <string name="layout_sheets_note">El texto se mantiene nítido y se puede seleccionar y buscar. Los comentarios y los campos de formulario rellenados se dibujan tal como se ven. Los enlaces, los marcadores y los campos de formulario no funcionan en las hojas.</string>
+    <!-- Read out for each choice of how many pages go on a sheet: %d is 2, 4, 6 or 9, never 0 or 1. -->
+    <plurals name="layout_sheets_count">
+        <item quantity="one">%d página por hoja</item>
+        <item quantity="many">%d páginas por hoja</item>
+        <item quantity="other">%d páginas por hoja</item>
+    </plurals>
+    <!-- Under the preview: how many sheets the new PDF will have. %d is 1 or more, never 0. -->
+    <plurals name="layout_sheets_made">
+        <item quantity="one">Tu PDF tendrá %d hoja.</item>
+        <item quantity="many">Tu PDF tendrá %d hojas.</item>
+        <item quantity="other">Tu PDF tendrá %d hojas.</item>
+    </plurals>
+    <!-- Read out by screen readers for the preview of the first sheet. %d is the number of pages on it, 1 to 9, never 0. -->
+    <plurals name="layout_sheets_preview_description">
+        <item quantity="one">La primera hoja, con %d página</item>
+        <item quantity="many">La primera hoja, con %d páginas</item>
+        <item quantity="other">La primera hoja, con %d páginas</item>
+    </plurals>
+    <!-- Document info -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_document_info">Información del documento</string>
+    <!-- Under the tool's name on Home. In French, no word that begins with "supprimer": Home's search
+         finds Reorganize PDF alone with it ("effacer" or "retirer" can say it here). -->
+    <string name="tool_document_info_detail">Consulta, cambia o quita el título, el autor y más</string>
+    <!-- The button that saves the PDF with its title, author and the like as chosen. -->
+    <string name="pdf_document_info_action">Guardar PDF</string>
+
+    <!-- Shown under a progress bar for the moment it takes to read the PDF's title, author and the like. -->
+    <string name="docinfo_reading">Leyendo la información de este PDF…</string>
+    <!-- Labels of the four fields that can be changed: the PDF's title, its author (a person's or
+         an organisation's name), its subject (what it is about) and its keywords. -->
+    <string name="docinfo_title">Título</string>
+    <string name="docinfo_author">Autor</string>
+    <string name="docinfo_subject">Asunto</string>
+    <string name="docinfo_keywords">Palabras clave</string>
+    <!-- Under the Keywords field. -->
+    <string name="docinfo_keywords_hint">Separa las palabras clave con comas.</string>
+    <!-- Under a field whose value in the PDF is longer than the field shows: left alone, the whole
+         value stays in the new PDF; changed, only what the field shows is kept. -->
+    <string name="docinfo_cut">Es demasiado largo para mostrarlo entero. Si lo cambias, solo se conserva lo que ves aquí.</string>
+    <!-- Heading over what else the PDF says of itself, which can't be changed here. -->
+    <string name="docinfo_about">Acerca de este PDF</string>
+    <!-- Labels of the rows under "About this PDF": when the PDF was made, when it was last changed. -->
+    <string name="docinfo_created">Creado</string>
+    <string name="docinfo_changed">Modificado</string>
+    <!-- Label of the row naming the apps that made the PDF (such as "Microsoft Word · macOS Quartz PDFContext"). -->
+    <string name="docinfo_made_with">Hecho con</string>
+    <!-- Label of the row giving the number of pages. -->
+    <string name="docinfo_pages">Páginas</string>
+    <!-- Label of the row giving the PDF's version, such as 1.7. -->
+    <string name="docinfo_version">Versión de PDF</string>
+    <!-- Label of the row giving how much storage the PDF takes, such as 2.4 MB. -->
+    <string name="docinfo_size">Tamaño del archivo</string>
+    <!-- In a row under "About this PDF" when the PDF doesn't say it. -->
+    <string name="docinfo_not_set">Sin especificar</string>
+    <!-- A button. Nothing is removed until the PDF is saved. -->
+    <string name="docinfo_remove_all">Quitar toda la información</string>
+    <!-- Under the Remove all info button. -->
+    <string name="docinfo_remove_all_hint">Quita el título, el autor, el asunto, las palabras clave, las fechas y los nombres de las apps, y la información oculta que otras apps guardan en un PDF. Se conservan las páginas, los comentarios, los campos de formulario y las firmas.</string>
+    <!-- In the Created, Changed and Made with rows once Remove all info is chosen, in place of their value. -->
+    <string name="docinfo_will_be_removed">Se quitará</string>
+    <!-- Replaces the Remove all info button once it is tapped, above an Undo button. -->
+    <string name="docinfo_removing">Se quitará toda la información al guardar. Aún puedes escribir un nuevo título, autor, asunto o palabras clave.</string>
+    <!-- Above the fields, for a PDF with a digital signature that still holds. -->
+    <string name="docinfo_signed_note">Este PDF tiene una firma digital. Al guardar se crea un PDF nuevo, y en él la firma no será válida. Tu archivo original no cambia.</string>
+    <!-- Said after saving, when part of the PDF's info (its XMP metadata) was damaged or in a form
+         Usugami can't read, and so isn't in the new PDF. -->
+    <string name="docinfo_xmp_dropped">No se pudo leer parte de la información adicional de este PDF, así que el PDF nuevo no la incluye.</string>
+    <!-- PDF to images or text -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_pdf_to_images_or_text">PDF a imágenes o texto</string>
+    <!-- JPG and PNG are names of image formats: keep them as they are. -->
+    <string name="tool_pdf_to_images_or_text_detail">Guarda páginas como JPG o PNG, o copia el texto</string>
+    <!-- The button that makes the images or the text. -->
+    <string name="pdf_to_images_or_text_action">Convertir</string>
+    <!-- The options of PDF to images or text. A heading over two choices: what the PDF's pages become. -->
+    <string name="export_kind_title">Convertir a</string>
+    <!-- The pages become pictures, one for each page. -->
+    <string name="export_kind_images">Imágenes</string>
+    <!-- The pages' text becomes a text file. -->
+    <string name="export_kind_text">Texto</string>
+    <!-- A field for the page numbers to convert. -->
+    <string name="export_pages">Páginas</string>
+    <string name="export_pages_hint" tools:ignore="TypographyDashes">Déjalo vacío para todas las páginas. O escribe algunas, como 1,3,5-8, o toca las vistas previas.</string>
+    <!-- Under the pages field while it is empty: every page is converted. -->
+    <string name="export_pages_all">Páginas a convertir: todas</string>
+    <!-- %1$d pages are chosen, out of the %2$d pages in the PDF. -->
+    <string name="export_pages_count">Páginas a convertir: %1$d de %2$d</string>
+    <!-- A heading over the image formats to choose from. -->
+    <string name="export_format">Formato</string>
+    <!-- What JPG images are good for, under the choice. -->
+    <string name="export_format_jpg_summary">Archivos más pequeños. Ideal para fotos y escaneos.</string>
+    <!-- What PNG images are good for, under the choice. -->
+    <string name="export_format_png_summary">Texto y dibujos más nítidos. Archivos más grandes.</string>
+    <!-- A heading over the image sizes to choose from. -->
+    <string name="export_size">Tamaño de imagen</string>
+    <string name="export_size_small">Pequeño</string>
+    <string name="export_size_medium">Mediano</string>
+    <string name="export_size_large">Grande</string>
+    <!-- Under the size chosen. dpi (dots per inch) says how sharp the images are: keep it as it is. -->
+    <string name="export_size_small_summary">Bien en pantalla, los archivos más pequeños (100 ppp)</string>
+    <string name="export_size_medium_summary">Nítido en pantalla y al imprimir (200 ppp)</string>
+    <string name="export_size_large_summary">Ideal para imprimir y ampliar, los archivos más grandes (300 ppp)</string>
+    <!-- Under the file name field. %1$s is the name a page's image gets, such as Report_p3.jpg: it is made from the name typed. -->
+    <string name="export_images_name_hint">El nombre de cada imagen lleva su número de página: %1$s</string>
+    <!-- The button that makes the pages into images. -->
+    <string name="export_images_action">Convertir a imágenes</string>
+    <!-- .txt is the ending of a text file's name: keep it as it is. -->
+    <string name="export_text_note">Obtienes el texto de las páginas, en orden de lectura, para copiarlo o guardarlo como archivo .txt.</string>
+    <!-- A switch: pages that are pictures of text (scans) are read with text recognition. -->
+    <string name="export_text_read_scans">Leer páginas sin texto</string>
+    <string name="export_text_read_scans_detail">Las páginas escaneadas se leen con reconocimiento de texto.</string>
+    <!-- Shown in Usugami Lite in place of the switch "Read pages without text". Usugami Lite is the app's name: keep it as it is. -->
+    <string name="export_text_lite_note">Usugami Lite no tiene reconocimiento de texto, así que no puede leer páginas escaneadas.</string>
+    <!-- The button that makes the pages' text into a text file. -->
+    <string name="export_text_action">Convertir a texto</string>
+
+    <!-- Under the bar while the images are made: the one being made (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_image" tools:ignore="PluralsCandidate">Imagen %1$d de %2$d</string>
+    <!-- Under the bar while the pages' text is read: the page being read (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_text" tools:ignore="PluralsCandidate">Extrayendo el texto: página %1$d de %2$d</string>
+    <!-- Under the bar while pages without text are read with text recognition: the one being read (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_scans" tools:ignore="PluralsCandidate">Leyendo páginas sin texto: %1$d de %2$d</string>
+
+    <!-- No page chosen has text that can be copied, in Usugami Lite. Usugami Lite is the app's name: keep it as it is. -->
+    <string name="export_none_lite">Estas páginas no tienen texto que se pueda copiar. Puede que sean escaneos, que Usugami Lite no puede leer.</string>
+    <!-- No page chosen has text, and the switch "Read pages without text" is off: use that switch's own words. -->
+    <string name="export_none_off">Estas páginas no tienen texto que se pueda copiar. Activa \"Leer páginas sin texto\" para leerlas.</string>
+    <!-- Text recognition read the pages and found no text on any of them. -->
+    <string name="export_none_found">No se encontró texto en estas páginas.</string>
+    <string name="export_none_failed">Falló el reconocimiento de texto, así que no se pudieron leer estas páginas. Vuelve a intentarlo.</string>
+    <!-- %1$d is a page number. -->
+    <string name="export_page_failed" tools:ignore="PluralsCandidate">No se pudo convertir la página %1$d en imagen. Déjala fuera y vuelve a intentarlo.</string>
+    <string name="export_no_space">No hay suficiente almacenamiento libre. Libera espacio, o elige menos páginas o un tamaño más pequeño.</string>
+
+    <!-- The last line of the "Text recognition isn't available" dialog over PDF to images or text. "Read pages without text" is a switch: use its own words. -->
+    <string name="export_text_ocr_retry">Para obtener solo el texto que se puede copiar, desactiva \"Leer páginas sin texto\" y vuelve a intentarlo.</string>
+    <!-- Said when Usugami opens again after Android closed it while it was making images or a text file of a PDF. -->
+    <string name="export_interrupted">Usugami se cerró antes de terminar. Vuelve a intentarlo.</string>
+
+    <!-- The result screen of PDF to images or text. The title of a card showing the text of the text file made. -->
+    <string name="result_text_title">Texto</string>
+    <!-- A button on that card: puts the text on the clipboard. -->
+    <string name="copy">Copiar</string>
+    <!-- What a screen reader says for the Copy button. -->
+    <string name="copy_text">Copiar el texto</string>
+    <!-- Under the first lines of the text: shows the rest of it. -->
+    <string name="show_more">Mostrar más</string>
+    <!-- Under the whole text: shows only its first lines again. -->
+    <string name="show_less">Mostrar menos</string>
+    <!-- At the end of the text shown, when the file has more of it than the card shows. -->
+    <string name="result_text_more">Este es el principio. El archivo tiene el texto completo.</string>
+    <!-- Said once the text is on the clipboard (Android 13 and later say so themselves). -->
+    <string name="msg_text_copied">Texto copiado</string>
+    <string name="msg_text_too_long">Este texto es demasiado largo para copiarlo de una vez. En su lugar, abre, comparte o guarda el archivo.</string>
+    <string name="msg_copy_failed">No se pudo copiar el texto. En su lugar, abre, comparte o guarda el archivo.</string>
+    <!-- A note on the result: what the text file leaves out. Flatten PDF is a tool's name: use its name in this language. -->
+    <string name="export_forms_left_out">No se incluye el texto de los campos de formulario ni de los comentarios. Para incluir lo que las páginas muestran de ese texto, usa primero Acoplar PDF.</string>
+
+    <!-- Notes on the result. %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. Usugami Lite is the app's name: keep it as it is. -->
+    <plurals name="export_no_text_lite">
+        <item quantity="one">La página %2$s no tiene texto que se pueda copiar. Puede que sea un escaneo, que Usugami Lite no puede leer.</item>
+        <item quantity="many">%1$d páginas no tienen texto que se pueda copiar: %2$s. Puede que sean escaneos, que Usugami Lite no puede leer.</item>
+        <item quantity="other">%1$d páginas no tienen texto que se pueda copiar: %2$s. Puede que sean escaneos, que Usugami Lite no puede leer.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_no_text_off">
+        <item quantity="one">La página %2$s no tiene texto que se pueda copiar, así que se dejó fuera.</item>
+        <item quantity="many">%1$d páginas no tienen texto que se pueda copiar, así que se dejaron fuera: %2$s.</item>
+        <item quantity="other">%1$d páginas no tienen texto que se pueda copiar, así que se dejaron fuera: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_no_text_found">
+        <item quantity="one">No se encontró texto en la página %2$s.</item>
+        <item quantity="many">No se encontró texto en %1$d páginas: %2$s.</item>
+        <item quantity="other">No se encontró texto en %1$d páginas: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_ocr_failed_pages">
+        <item quantity="one">Falló el reconocimiento de texto en la página %2$s, así que se dejó fuera.</item>
+        <item quantity="many">Falló el reconocimiento de texto en %1$d páginas, así que se dejaron fuera: %2$s.</item>
+        <item quantity="other">Falló el reconocimiento de texto en %1$d páginas, así que se dejaron fuera: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_scans_read">
+        <item quantity="one">La página %2$s se leyó con reconocimiento de texto, que puede cometer errores.</item>
+        <item quantity="many">%1$d páginas se leyeron con reconocimiento de texto, que puede cometer errores: %2$s.</item>
+        <item quantity="other">%1$d páginas se leyeron con reconocimiento de texto, que puede cometer errores: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_images_reduced">
+        <item quantity="one">La página %2$s es muy grande, así que su imagen tiene menos píxeles de los que corresponden a este tamaño.</item>
+        <item quantity="many">%1$d páginas son muy grandes, así que sus imágenes tienen menos píxeles de los que corresponden a este tamaño: %2$s.</item>
+        <item quantity="other">%1$d páginas son muy grandes, así que sus imágenes tienen menos píxeles de los que corresponden a este tamaño: %2$s.</item>
+    </plurals>
+    <!-- Read and annotate -->
+    <!-- A tool's name on Home and at the top of its screen: it opens a PDF, or a Word, Excel, PowerPoint or EPUB file, to read it and to add to it. -->
+    <string name="tool_reader">Leer y anotar</string>
+    <!-- What the tool does, under its name on Home. -->
+    <string name="tool_reader_detail">Abre un PDF o documento para buscar, copiar texto, dibujar y resaltar</string>
+    <!-- Shown in the middle of the screen while a file opened is copied in and read, with a moving bar and Cancel. -->
+    <string name="reader_opening">Abriendo…</string>
+    <!-- %1$s is the file's name, as it is (for example "notes.txt"). -->
+    <string name="reader_cant_open">Usugami no puede abrir %1$s. Abre archivos PDF, Word, Excel, PowerPoint y EPUB.</string>
+    <string name="reader_unreadable">Usugami no pudo leer ese archivo. Vuelve a abrirlo.</string>
+    <!-- Said when a file is opened while Usugami makes a PDF: the file opens once the PDF is made. -->
+    <string name="reader_open_waits">Tu archivo se abrirá cuando esto termine.</string>
+    <!-- Under "Discard your changes?", when a file was opened while a tool's PDF had changes not saved. -->
+    <string name="reader_open_discard_changes">El archivo que abriste está listo. Abrirlo descarta tus cambios en este PDF.</string>
+    <!-- Under "Discard this PDF?", when a file was opened while a PDF made by a tool wasn't saved yet. -->
+    <string name="reader_open_discard_body">El archivo que abriste está listo, pero este PDF aún no se ha guardado. Guárdalo primero si quieres conservarlo.</string>
+    <!-- Under "Discard what you made?", when a file was opened while images or a text file made from a PDF weren't saved yet. -->
+    <string name="reader_open_discard_files">El archivo que abriste está listo, pero lo que acabas de crear aún no se ha guardado. Guárdalo primero si quieres conservarlo.</string>
+    <string name="reader_open_interrupted">Usugami se cerró antes de abrir tu archivo. Vuelve a abrirlo.</string>
+    <!-- On a small label at the bottom of the reader: the page showing (%1$d) of how many pages (%2$d), as in "3 of 12". -->
+    <string name="reader_page_of">%1$d de %2$d</string>
+    <!-- What a screen reader says of a page, and of that label: "Page 3 of 12". -->
+    <string name="reader_page_of_spoken">Página %1$d de %2$d</string>
+    <!-- On a page Android couldn't draw, in place of the page. -->
+    <string name="reader_page_failed">Esta página no se puede mostrar.</string>
+    <!-- The title of a small window that asks for a page number and shows that page; also what tapping the page label at the bottom of the reader does, as a screen reader says it. -->
+    <string name="reader_go_to_page">Ir a la página</string>
+    <!-- The label of the page number field in "Go to page". %1$d is the PDF's number of pages (at least 1): "Page number, 1 to 12". -->
+    <string name="reader_page_field">Número de página, de 1 a %1$d</string>
+    <!-- The button in "Go to page" that shows the page typed. -->
+    <string name="reader_go">Ir</string>
+    <!-- Actions a screen reader offers on a page of the reader: they make the pages larger or smaller, as pinching does. -->
+    <string name="reader_zoom_in">Acercar</string>
+    <string name="reader_zoom_out">Alejar</string>
+    <!-- Find text in the reader: the hint in the search field that takes the reader's top bar. -->
+    <string name="reader_find_hint">Buscar en este archivo</string>
+    <!-- Buttons beside the search field: they move to the match before or after the one marked, and close the search. -->
+    <string name="reader_find_previous">Coincidencia anterior</string>
+    <string name="reader_find_next">Siguiente coincidencia</string>
+    <string name="reader_find_close">Cerrar búsqueda</string>
+    <!-- Beside the search field: the match marked (%1$d) of how many were found (%2$d), as in "3 of 17". -->
+    <string name="reader_find_count">%1$d de %2$d</string>
+    <!-- What a screen reader says of that count: "Match 3 of 17". -->
+    <string name="reader_find_count_spoken">Coincidencia %1$d de %2$d</string>
+    <string name="reader_find_none">No se encontró nada. El texto de los escaneos y las imágenes no se puede buscar.</string>
+    <!-- %1$d is the most matches the reader keeps (2000): there were more. -->
+    <string name="reader_find_capped" tools:ignore="PluralsCandidate">Se muestran las primeras %1$d coincidencias. Prueba con una frase más larga.</string>
+    <!-- After a search, when some pages' text couldn't be read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0. -->
+    <plurals name="reader_find_unread">
+        <item quantity="one">No se pudo leer el texto de %d página, así que no se incluyó en la búsqueda.</item>
+        <item quantity="many">No se pudo leer el texto de %d páginas, así que no se incluyeron en la búsqueda.</item>
+        <item quantity="other">No se pudo leer el texto de %d páginas, así que no se incluyeron en la búsqueda.</item>
+    </plurals>
+    <!-- The reader's menu of more actions (three dots at the top), as a screen reader names its button. -->
+    <string name="reader_more">Más opciones</string>
+    <!-- The title of a window that shows while a Word, Excel, PowerPoint or EPUB file opened in the reader is made into a PDF, with how far it has got and Cancel. -->
+    <string name="reader_converting">Creando un PDF de este archivo para mostrarlo…</string>
+    <!-- In the reader's menu: leaves the reader for the list of tools, with this PDF in it. -->
+    <string name="reader_tools">Herramientas</string>
+    <!-- In the reader's menu: Android's list of the other apps that open this file. -->
+    <string name="reader_open_elsewhere">Abrir con otra app</string>
+    <!-- A note under the reader's top bar for a Word, Excel, PowerPoint or EPUB file, which the reader shows as a PDF Usugami made of it. %1$s is the file's name, as it is (for example "Report.docx"). -->
+    <string name="reader_converted_note">Esto es %1$s tal como Usugami lo convierte a PDF. Puede verse distinto en la app con la que se creó.</string>
+    <!-- A button in that note, and in the reader's menu: makes the PDF shown a file of its own, to share or save. -->
+    <string name="reader_save_as_pdf">Guardar como PDF</string>
+    <!-- A button at the top of the reader, and the title of the screen it opens: text, drawings, highlights, shapes and pictures are added to the PDF's pages there. -->
+    <string name="reader_annotate">Anotar</string>
+    <!-- What a screen reader calls the arrow at the top of Annotate: it returns to reading the PDF, with what was added drawn on its pages. -->
+    <string name="reader_back_to_reading">Volver a la lectura</string>
+    <!-- Under Annotate's page and controls, above the name of the PDF it saves. -->
+    <string name="reader_save_note">Al guardar se crea un PDF nuevo con lo que añadiste. El archivo que abriste se queda como está.</string>
+    <!-- The one button in a bar under the reader's pages while text is selected on them: puts the text selected on the clipboard. -->
+    <string name="reader_copy">Copiar</string>
+    <!-- What a screen reader offers on a page of the reader: copies all the text of that page, with no selecting. -->
+    <string name="reader_copy_page">Copiar el texto de esta página</string>
+    <!-- When the text selected in the reader is too long to copy. "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
+    <string name="reader_copy_too_long">Es demasiado texto para copiarlo de una vez. Selecciona menos o usa la herramienta PDF a imágenes o texto para obtenerlo todo.</string>
+    <!-- When Copy is tapped in the reader and the text selected runs over a page whose text couldn't be read (a font that doesn't say which letters its shapes stand for): nothing is copied, so that no page is missing from the text. %1$d is that page's number, from 1. -->
+    <string name="reader_copy_unread">No se pudo leer el texto de la página %1$d, así que no se copió nada.</string>
+    <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
+    <string name="reader_no_text">Esta página no tiene texto que seleccionar. Si es un escaneo, la herramienta PDF a imágenes o texto puede leerlo.</string>
+    <!-- Edit PDF was a tool until 2.0.0; it is now Annotate in Read and annotate: text, drawings,
+         highlights, shapes and pictures put on top of a PDF's pages, with the strings below. "Redact
+         PDF" is the name of another tool. Edit PDF's name, description (the next two strings) and
+         hidden words (search_keywords_edit) are never shown: they are kept as hidden words that find
+         Read and annotate in Home's search, so translate them as what people would type to find it. -->
     <string name="tool_edit">Editar PDF</string>
     <string name="tool_edit_detail">Añade texto, dibujos, formas e imágenes</string>
     <string name="pdf_edit_action">Guardar PDF</string>
@@ -404,6 +833,10 @@
     <string name="ocr_french">Francés</string>
     <string name="ocr_spanish">Español</string>
     <string name="ocr_hindi">Hindi</string>
+    <!-- Names of text-recognition languages, shown in the app's language. -->
+    <string name="ocr_german">Alemán</string>
+    <string name="ocr_portuguese">Portugués</string>
+    <string name="ocr_indonesian">Indonesio</string>
     <string name="ocr_no_text">No se reconoció ningún texto. El PDF se creó sin capa de texto.</string>
     <string name="ocr_failed">Falló el reconocimiento de texto, así que el PDF se creó sin texto buscable.</string>
     <string name="ocr_failed_no_space">No había suficiente almacenamiento libre para añadir texto buscable, así que el PDF se creó sin él.</string>
@@ -649,6 +1082,43 @@
         <item quantity="many">%d PDF tienen una firma digital que no permite cambios, así que no llevan la marca de agua de Usugami.</item>
         <item quantity="other">%d PDF tienen una firma digital que no permite cambios, así que no llevan la marca de agua de Usugami.</item>
     </plurals>
+    <!-- The heading over what a tool made, when it made pictures (JPG or PNG files) from a PDF's pages: one picture. -->
+    <string name="result_heading_image_one">Tu imagen está lista</string>
+    <!-- The same, for several pictures. -->
+    <string name="result_heading_image_many">Tus imágenes están listas</string>
+    <!-- The heading over what a tool made, when it made a plain text file (.txt) from a PDF: one file. -->
+    <string name="result_heading_text_one">Tu archivo de texto está listo</string>
+    <!-- The same, for several text files. -->
+    <string name="result_heading_text_many">Tus archivos de texto están listos</string>
+    <string name="msg_no_image_app">Ninguna aplicación de este teléfono puede abrir imágenes.</string>
+    <string name="msg_no_text_app">Ninguna aplicación de este teléfono puede abrir archivos de texto.</string>
+    <!-- Said when images or text files were to be shared, as "No app on this phone can share PDFs." is for PDFs. -->
+    <string name="msg_no_share_app_files">Ninguna aplicación de este teléfono puede compartir archivos.</string>
+    <!-- Said when images or text files couldn't be saved, as "Couldn't save the PDF…" is for PDFs. -->
+    <string name="msg_save_failed_files">No se pudo guardar. Comprueba que haya suficiente almacenamiento libre.</string>
+    <!-- Counts images or text files, so never 0: in French and Hindi "one" may leave the number out. -->
+    <plurals name="msg_result_files_cleared">
+        <item quantity="one">El archivo se borró del almacenamiento temporal. Vuelve a crearlo.</item>
+        <item quantity="many">Los archivos se borraron del almacenamiento temporal. Vuelve a crearlos.</item>
+        <item quantity="other">Los archivos se borraron del almacenamiento temporal. Vuelve a crearlos.</item>
+    </plurals>
+    <!-- Asked when files are shared to Usugami while images or a text file it made aren't saved yet. "What you made" is those files. -->
+    <string name="files_discard_title">¿Descartar lo que creaste?</string>
+    <!-- Under that question when the files shared are PDFs, Word, PowerPoint, Excel or EPUB files. -->
+    <string name="share_discard_body_files">Los archivos que compartiste están listos para abrirse, pero lo que acabas de crear aún no se ha guardado. Guárdalo primero si quieres conservarlo.</string>
+    <!-- Under that question when the files shared are images. -->
+    <string name="files_discard_shared_body">Las imágenes que compartiste están listas para convertir, pero lo que acabas de crear aún no se ha guardado. Guárdalo primero si quieres conservarlo.</string>
+    <!-- A button and a menu item for a PDF, on the result screen and in Recent files: opens Android's
+         own print screen (preview, printer, copies, paper size, "Save as PDF") with the PDF. -->
+    <string name="print">Imprimir</string>
+    <!-- The screen reader's label for one PDF's own Print button, among several PDFs, like
+         "Open %1$s" and "Share %1$s". %1$s is the PDF's file name, such as "Report.pdf". -->
+    <string name="print_file">Imprimir %1$s</string>
+    <!-- Shown when the phone has printing but it can't be started (its print service is turned off,
+         for example). -->
+    <string name="msg_no_printing">La impresión no está disponible en este teléfono.</string>
+    <!-- Shown by Android's print screen when the PDF being printed can't be read. -->
+    <string name="print_failed">No se pudo enviar este PDF a imprimir. Puede que se haya movido o eliminado, o que el almacenamiento del teléfono esté lleno.</string>
 
     <!-- Dialogs -->
     <string name="discard_title">¿Descartar estas imágenes?</string>
@@ -753,6 +1223,35 @@
     <string name="recent_lost_title">No se puede abrir este archivo</string>
     <string name="recent_lost_body">Usugami ya no puede abrir %1$s. Si el archivo aún existe, puedes encontrarlo con la app Archivos de tu teléfono.</string>
 
+    <!-- Launcher shortcuts -->
+    <!-- The short labels of the four shortcuts a long-press on Usugami's icon shows; their long labels
+         are the names of Home's tiles. -->
+    <!-- The shortcut that opens the camera for a new scan, as Scan document does. Under a shortcut's
+         icon on the phone's home screen: one word, at most about 10 letters. -->
+    <string name="shortcut_scan">Escanear</string>
+    <!-- The shortcut that opens Images to PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_images">Imágenes</string>
+    <!-- The shortcut that opens Merge PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_merge">Unir</string>
+    <!-- The shortcut that opens Compress PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_compress">Comprimir</string>
+    <!-- Said when a launcher shortcut is used while Usugami is still making something (a PDF, images, a
+         text file): nothing opens and the work goes on. "Usugami" is the app's name, kept as it is. -->
+    <string name="shortcut_busy">Usugami sigue trabajando. Vuelve a usar el acceso directo cuando termine.</string>
+    <!-- Under "Discard this PDF?", asked when a launcher shortcut is used while a tool shows a PDF it
+         made that isn't saved yet. Discard opens the shortcut's tool; Keep stays with the PDF. -->
+    <string name="shortcut_discard_body">Este PDF aún no se ha guardado. Guárdalo primero si quieres conservarlo.</string>
+    <!-- Under "Discard your changes?", asked when a launcher shortcut is used while a tool has changes to
+         its PDF that aren't saved yet. Discard opens the shortcut's tool; Keep stays with the changes. -->
+    <string name="shortcut_discard_changes">Abrir otra herramienta descarta tus cambios en este PDF.</string>
+    <!-- Under "Discard what you made?", asked when a launcher shortcut is used while a tool shows images or
+         a text file it made (no PDF) that aren't saved yet. "What you just made" is those files. Discard
+         opens the shortcut's tool; Keep stays with them. -->
+    <string name="shortcut_discard_files">Lo que acabas de crear aún no se ha guardado. Guárdalo primero si quieres conservarlo.</string>
+
     <!-- Searching for a tool on Home -->
     <string name="home_search_hint">Buscar herramientas</string>
     <string name="home_search_clear">Borrar búsqueda</string>
@@ -763,7 +1262,7 @@
     </plurals>
     <string name="home_search_none">Ninguna herramienta coincide con \"%1$s\"</string>
     <string name="search_keywords_images">foto, imagen, JPEG, JPG, PNG, HEIC, WebP, escanear, escaneo, escáner, cámara, galería, documento, blanco y negro, OCR</string>
-    <string name="search_keywords_scan">escanear, escaneo, escáner, CamScanner, cámara, foto, documento, papel, hoja, recibo, ticket, factura, recortar, mejorar, filtro, brillo, contraste, blanco y negro</string>
+    <string name="search_keywords_scan">escanear, escaneo, escáner, CamScanner, cámara, foto, documento, papel, hoja, recibo, ticket, factura, recortar, mejorar, filtro, brillo, contraste, blanco y negro, documento de identidad, DNI, carné de identidad, carnet, tarjeta de identidad, cédula, INE, identificación, pasaporte, carné de conducir, licencia de conducir, permiso de conducir</string>
     <string name="search_keywords_word">doc, docx, documento, Office, convertir</string>
     <string name="search_keywords_powerpoint">ppt, pptx, diapositivas, presentación, Office, convertir</string>
     <string name="search_keywords_excel">xls, xlsx, hoja de cálculo, planilla, hoja, tabla, libro, celdas, Office, Google Sheets, convertir</string>
@@ -774,9 +1273,30 @@
     <string name="search_keywords_sign">firma, firmar, rúbrica, rubricar, iniciales</string>
     <string name="search_keywords_page_numbers">numeración, paginación, número, pie de página, encabezado</string>
     <string name="search_keywords_watermark">sello, confidencial, borrador, copyright, marca</string>
-    <string name="search_keywords_compress">reducir, achicar, tamaño, más pequeño, optimizar, peso, correo</string>
+    <string name="search_keywords_compress">reducir, achicar, tamaño, más pequeño, optimizar, peso, correo, blanco y negro, escala de grises, gris, monocromo, monocromático</string>
     <string name="search_keywords_flatten">formulario, campos, anotaciones, comentarios, bloquear, aplanar</string>
     <string name="search_keywords_epub">epub, libro electrónico, ebook, e-book, libro, novela</string>
     <string name="search_keywords_redact">censurar, tachar, ocultar, tapar, esconder, anonimizar, confidencial</string>
+    <!-- Hidden words that also find Read and annotate when searched for on Home, separated by commas.
+         They are never shown: use the words people would type in this language for what the tool
+         does. No word that begins with batch, many, several, multiple or bulk: those find the tools
+         that work on several files at once. -->
+    <string name="search_keywords_reader">abrir, ver, visor, visualizar, lector, leer, mirar, editar, anotación, anotar, notas, escribir, teclear, lápiz, bolígrafo, marcar, resaltar, formas, flechas, imagen, seleccionar, buscar, zoom, ampliar</string>
+    <!-- Hidden words that also find Page layout when searched for on Home, separated by commas. They
+         are never shown: use the words people would type in this language for what the tool does.
+         No word that begins with batch, many, several, multiple or bulk: those find the tools that
+         work on several files at once. -->
+    <string name="search_keywords_page_layout">recortar, cortar, márgenes, bordes, n-up, 2-up, 4-up, páginas por hoja, dos por hoja, cuatro por hoja, lado a lado, apuntes, imprimir, impresión, papel, hoja</string>
+    <!-- Hidden words that also find Document info when searched for on Home, separated by commas.
+         They are never shown: use the words people would type in this language for what the tool
+         does. No word that begins with batch, many, several, multiple or bulk: those find the tools
+         that work on several files at once. In French, no word that begins with "supprimer": Home's
+         search finds Reorganize PDF alone with it ("effacer" or "retirer" can say it here). -->
+    <string name="search_keywords_document_info">metadatos, propiedades, detalles, título, autor, asunto, tema, palabras clave, etiquetas, creador, productor, fecha, privacidad, anónimo, anonimizar, limpiar, quitar información, borrar datos, eliminar metadatos, XMP</string>
+    <!-- Hidden words that also find PDF to images or text when searched for on Home, separated by
+         commas. They are never shown: use the words people would type in this language for what the
+         tool does. No word that begins with batch, many, several, multiple or bulk: those find the
+         tools that work on several files at once. -->
+    <string name="search_keywords_pdf_to_images_or_text">JPG, JPEG, PNG, imagen, foto, fotos, exportar, extraer, convertir, pasar, texto, txt, copiar, palabras, captura de pantalla, pantallazo</string>
     <string name="search_keywords_batch">lote, lotes, por lotes, muchos, varios, múltiples, en bloque, a la vez, de una vez, todos juntos</string>
 </resources>

@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Usugami 2.0.0: the strings new in this release are English only until their translations are
-     in. tools:ignore="MissingTranslation" is taken away with them, so that lint checks every
-     string again. -->
-<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+<resources>
     <!-- Usugami Lite is an app of its own, next to Usugami (see app/build.gradle.kts). The name is
          the same in every language. -->
     <string name="app_label" translatable="false">Usugami Lite</string>

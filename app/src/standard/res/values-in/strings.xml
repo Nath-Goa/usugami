@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
+    <string name="ocr_detail">Mengenali kata pada gambar ini, lalu menambahkan teks yang dapat ditelusuri ke PDF. Pengenalan teks untuk setiap bahasa didownload saat bahasa itu pertama kali digunakan, sehingga memerlukan koneksi internet.</string>
+</resources>

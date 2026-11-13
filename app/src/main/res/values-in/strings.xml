@@ -1,0 +1,1248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="back">Kembali</string>
+
+    <!-- Home and PDF tools -->
+    <string name="home_subtitle">File Anda tetap di ponsel ini. Tanpa iklan, akun, atau upload.</string>
+    <string name="tool_images">Gambar ke PDF</string>
+    <string name="tool_images_detail">Pindaian kamera dan gambar ke PDF, dengan pengenalan teks</string>
+    <!-- The large card at the top of Home: take photos of a paper document, or pick images of one, then crop and clean up each page. -->
+    <string name="scan_title">Pindai dokumen</string>
+    <string name="scan_detail">Ambil foto atau impor gambar, lalu pangkas dan rapikan</string>
+    <!-- Picks images from the phone's gallery: nothing leaves the phone. -->
+    <string name="scan_upload">Impor gambar</string>
+    <!-- The name of a page in Images to PDF that holds both sides of an identity document (an ID card, driving licence, bank card or passport page), one above the other. Stands for any identity document, not only a national ID card. -->
+    <string name="card_title">Kartu identitas</string>
+    <!-- One of the two sides of an ID card: the side with the photo and name. -->
+    <string name="card_front">Sisi depan</string>
+    <!-- The other side of an ID card. -->
+    <string name="card_back">Sisi belakang</string>
+    <!-- A menu item on an ID card's page: opens the crop screen for the card's front side. -->
+    <string name="card_crop_front">Pangkas sisi depan</string>
+    <!-- A menu item on an ID card's page: opens the crop screen for the card's back side. -->
+    <string name="card_crop_back">Pangkas sisi belakang</string>
+    <!-- A quieter button on Home's Scan document card, under Take photo and Upload images: scans the front and the back of an identity document (an ID card, driving licence, bank card or passport page) onto one page of the PDF. -->
+    <string name="scan_id_card">Kartu identitas: dua sisi di satu halaman</string>
+    <!-- On the screen that asks for an ID card's front side, under the heading "Front side" (card_front). -->
+    <string name="card_front_hint">Letakkan kartu di atas permukaan yang polos dan gelap. Pegang ponsel lurus tepat di atasnya, cukup dekat agar kartu memenuhi sebagian besar foto.</string>
+    <!-- A smaller note under card_front_hint: the PDF has one page with both sides of the card on it, each at the card's real size when printed. -->
+    <string name="card_note">Kedua sisi ada di satu halaman, sesuai ukuran asli kartu.</string>
+    <!-- On the screen that asks for an ID card's back side, under the heading "Back side" (card_back). "No back side" is the name of a button on the same screen (card_no_back): use the same words as there. -->
+    <string name="card_back_hint">Balik kartu dan lakukan hal yang sama. Untuk kartu yang hanya satu sisi, pilih \"Tanpa sisi belakang\".</string>
+    <!-- A button on the screens that ask for an ID card's sides: picks one image of the side from the phone, in place of taking a photo. -->
+    <string name="card_choose_image">Pilih gambar</string>
+    <!-- A button on the screen that asks for an ID card's back side (also the description of its close button): the card is kept with its front side alone. Quoted in card_back_hint. -->
+    <string name="card_no_back">Tanpa sisi belakang</string>
+    <!-- Beside a progress ring on the screens that ask for an ID card's sides, while the photo just taken or the image chosen is being added. -->
+    <string name="card_adding">Menambahkan gambar…</string>
+    <!-- Above the photo on the crop screen of an ID card's side, when Usugami found the card on it. -->
+    <string name="card_crop_found">Usugami menemukan kartu. Tarik sudut atau sisinya untuk menyesuaikan.</string>
+    <!-- Above the photo on the crop screen of an ID card's side, when Usugami didn't find the card on it. -->
+    <string name="card_crop_not_found">Tarik sudut atau sisi ke tepi kartu.</string>
+    <!-- On the crop screen of an ID card's side, in place of the hint, while the four corners dragged don't make the outline of a card. -->
+    <string name="card_crop_not_a_card">Sudut-sudutnya tidak membentuk kartu: letakkan masing-masing di sudut kartu.</string>
+    <!-- A button on an ID card's page in Images to PDF, when the card has its front side only: asks for its back side. -->
+    <string name="card_add_back">Tambahkan sisi belakang</string>
+    <string name="tool_split">Pisahkan PDF</string>
+    <string name="tool_split_detail">Ekstrak halaman atau pisahkan menjadi file lebih kecil</string>
+    <string name="tool_merge">Gabungkan PDF</string>
+    <string name="tool_merge_detail">Satukan file dan atur tiap halaman</string>
+    <string name="tool_compress">Kompres PDF</string>
+    <string name="tool_compress_detail">Perkecil gambar, teks tetap tajam</string>
+    <!-- A heading on Home, first of all, over the tool that opens a file to read it. -->
+    <string name="home_section_view">Lihat</string>
+    <string name="home_section_create">Buat PDF</string>
+    <string name="home_section_edit">Edit dan tanda tangani</string>
+    <string name="home_section_organize">Atur</string>
+    <string name="home_section_optimize">Optimalkan dan lindungi</string>
+    <!-- A heading on Home, over the tools that make other files of a PDF. -->
+    <string name="home_section_from_pdf">Konversi dari PDF</string>
+    <string name="tool_page_numbers">Tambahkan nomor halaman</string>
+    <string name="tool_page_numbers_detail">Beri nomor halaman di atas atau bawah</string>
+    <string name="tool_watermark">Tambahkan tanda air</string>
+    <string name="tool_watermark_detail">Bubuhkan teks melintang di setiap halaman</string>
+    <string name="tool_sign">Tanda tangani PDF</string>
+    <string name="tool_sign_detail">Gambar tanda tangan Anda, lalu letakkan</string>
+    <string name="tool_redact">Sensor PDF</string>
+    <string name="tool_redact_detail">Hitamkan teks dan gambar secara permanen</string>
+    <string name="pick_pdf">Pilih PDF</string>
+    <string name="add_pdfs">Tambahkan PDF</string>
+    <string name="pick_pdfs">Pilih PDF</string>
+    <string name="pick_several_hint">Anda dapat memilih beberapa sekaligus.</string>
+    <!-- %1$s is a file name. -->
+    <string name="move_file_earlier">Pindahkan %1$s ke atas</string>
+    <string name="move_file_later">Pindahkan %1$s ke bawah</string>
+    <string name="remove_file">Hapus %1$s</string>
+    <string name="pdf_import_failed">PDF itu tidak dapat dibuka. Mungkin file rusak atau tidak didukung.</string>
+    <!-- Said of several files at once, after their names (see file_problem): worded for all of them. Likewise the other strings ending in _many. -->
+    <string name="pdf_import_failed_many">Semua PDF ini tidak dapat dibuka. Mungkin file rusak atau tidak didukung.</string>
+    <string name="open_no_space">Ruang penyimpanan kosong tidak cukup untuk membuka file itu. Kosongkan sebagian ruang, lalu coba lagi.</string>
+    <string name="open_no_space_many">Ruang penyimpanan kosong tidak cukup untuk membuka semua file ini. Kosongkan sebagian ruang, lalu coba lagi.</string>
+    <string name="pdf_certificate_unsupported">PDF ini dikunci dengan sertifikat (ID digital). Usugami hanya dapat membuka PDF yang dikunci dengan sandi.</string>
+    <string name="pdf_certificate_unsupported_many">Semua PDF ini dikunci dengan sertifikat (ID digital). Usugami hanya dapat membuka PDF yang dikunci dengan sandi.</string>
+    <string name="pdf_wrong_password">PDF tidak dapat dibuka dengan sandi itu.</string>
+    <string name="pdf_password_title">Sandi PDF</string>
+    <string name="pdf_password_body">\"%1$s\" dilindungi sandi. Masukkan sandinya untuk melanjutkan.</string>
+    <string name="pdf_password_hint">Sandi</string>
+    <string name="pdf_unlock">Buka PDF</string>
+    <string name="pdf_invalid_pages">Periksa nomor halaman, lalu coba lagi.</string>
+    <string name="pdf_pages_format" tools:ignore="TypographyDashes">Gunakan nomor halaman seperti 1,3-5.</string>
+    <string name="pdf_ranges_format" tools:ignore="TypographyDashes">Gunakan rentang seperti 1-3;5;7-9.</string>
+    <!-- %1$d is the number of pages in the PDF: the highest page number allowed. -->
+    <string name="pdf_pages_range" tools:ignore="PluralsCandidate">Nomor halaman harus antara 1 dan %1$d.</string>
+    <string name="pdf_pages_reversed" tools:ignore="TypographyDashes">Tulis rentang dari angka kecil ke besar, seperti 3-8.</string>
+    <string name="pdf_pages_chunk" tools:ignore="PluralsCandidate">Jumlah halaman per PDF harus antara 1 dan %1$d.</string>
+    <string name="pdf_process_failed">PDF ini tidak dapat diproses. Periksa file dan ruang penyimpanan kosong.</string>
+    <string name="pdf_saved_downloads">Disimpan ke Download</string>
+    <string name="pdf_working">Memproses PDF Anda…</string>
+    <string name="pdf_working_many">Memproses semua PDF Anda…</string>
+    <!-- A tool working on several PDFs, one after another: which one it is on, and how many there are. -->
+    <string name="batch_progress" tools:ignore="PluralsCandidate">PDF %1$d dari %2$d</string>
+    <!-- %1$d counts the files that failed (never 0), %2$s lists their names. -->
+    <plurals name="batch_failed">
+        <item quantity="other">%1$d file tidak dapat diproses: %2$s. Periksa file dan ruang penyimpanan kosong.</item>
+    </plurals>
+    <!-- A file's name, then what is wrong with it or what happened to it, as said of one file. %1$s may also list several names. -->
+    <string name="file_problem">%1$s: %2$s</string>
+    <!-- A list of file names cut short, in place of the names in a message: %1$s lists the first few, %2$d counts the rest (always 2 or more). -->
+    <plurals name="names_and_more">
+        <item quantity="other">%1$s dan %2$d lainnya</item>
+    </plurals>
+    <!-- Add page numbers with several PDFs: %1$d counts the PDFs whose every page was to be skipped (never 0), %2$s lists their names. -->
+    <plurals name="batch_nothing_to_number">
+        <item quantity="other">Tidak ada halaman tersisa untuk diberi nomor dalam %1$d PDF, jadi PDF tersebut tidak disertakan: %2$s.</item>
+    </plurals>
+    <!-- Flatten PDF with several PDFs: %1$d counts the PDFs with nothing to flatten (never 0), %2$s lists their names. -->
+    <plurals name="batch_nothing_to_flatten">
+        <item quantity="other">%1$d PDF tidak memiliki kolom formulir atau komentar untuk diratakan, jadi tidak disertakan: %2$s.</item>
+    </plurals>
+    <string name="pdf_file_mode">File</string>
+    <string name="pdf_page_mode">Halaman</string>
+    <string name="pdf_file_mode_hint">Pindahkan PDF secara utuh ke urutan yang diinginkan.</string>
+    <string name="pdf_page_mode_hint">Atur, putar, atau hapus halaman satu per satu.</string>
+    <string name="pdf_sort_az">Urutkan A ke Z</string>
+    <string name="pdf_sort_za">Urutkan Z ke A</string>
+    <string name="pdf_reset_pages">Setel ulang halaman</string>
+    <!-- A page in Merge PDF's page list: its place in the merged PDF, the PDF it is from, and its page number there. -->
+    <string name="merge_page_line">%1$d. %2$s, halaman %3$d</string>
+    <string name="pdf_selected">Halaman terpilih</string>
+    <!-- The examples use the hyphen people type, not an en dash. -->
+    <string name="pdf_selected_hint" tools:ignore="TypographyDashes">Contoh: 1,3,5-8. Ketuk pratinjau halaman untuk memilihnya.</string>
+    <string name="pdf_custom">Rentang kustom</string>
+    <string name="pdf_custom_hint" tools:ignore="TypographyDashes">Contoh: 1-3;5-7;9</string>
+    <string name="pdf_fixed">Bagian tetap</string>
+    <string name="pdf_fixed_hint">Halaman per PDF</string>
+    <string name="pdf_fixed_example">Contoh: 5</string>
+    <string name="pdf_every_page">Tiap halaman</string>
+    <string name="pdf_page_mode_switch">Atur halaman satu per satu</string>
+    <string name="pdf_page_number">Halaman %1$d</string>
+    <string name="pdf_combine_selected">Gabungkan halaman terpilih menjadi satu PDF</string>
+    <string name="pdf_combine_ranges">Gabungkan semua rentang menjadi satu PDF</string>
+    <string name="pdf_split_action">Pisahkan PDF</string>
+    <string name="pdf_merge_action">Gabungkan PDF</string>
+    <string name="pdf_compress_action">Kompres PDF</string>
+    <plurals name="pdf_compress_action_many">
+        <item quantity="other">Kompres %d PDF</item>
+    </plurals>
+    <string name="pdf_no_reduction">PDF ini sudah ringkas; ukuran aslinya dipertahankan.</string>
+    <!-- Compress PDF with a PDF that had a password, or with the Usugami watermark on: it couldn't keep the original, and the new PDF is no smaller. -->
+    <string name="pdf_not_smaller">PDF ini tidak dapat diperkecil lagi.</string>
+    <!-- Compress PDF with several PDFs: %1$d counts those that had a password, or got the Usugami watermark, and came out no smaller (never 0), %2$s lists their names. -->
+    <plurals name="batch_not_smaller">
+        <item quantity="other">%1$d PDF tidak dapat diperkecil lagi: %2$s.</item>
+    </plurals>
+    <string name="pdf_compress_note">Teks dan grafis tetap tajam. Gambar diperkecil jika dapat menghemat ruang.</string>
+    <string name="compression_for_all">Kompresi untuk semua PDF</string>
+    <string name="compression_for_all_hint">Ubah salah satu di bawah untuk memberinya tingkat tersendiri.</string>
+    <!-- Shown under a PDF that Compress PDF couldn't make smaller. -->
+    <string name="original_kept">Sudah ringkas: file asli dipertahankan</string>
+    <!-- Compress PDF: a switch under the levels. The PDF comes out in shades of gray, not in pure black and white. Not the scanner's "Black & white" look. -->
+    <string name="compress_gray">Hitam putih</string>
+    <string name="compress_gray_detail">Ubah warna menjadi skala abu-abu</string>
+    <!-- The same, with several PDFs picked. -->
+    <string name="compress_gray_detail_many">Ubah warna semua PDF menjadi skala abu-abu</string>
+    <!-- Compress PDF with Black and white on: the new PDF is gray, and no smaller than the PDF picked. -->
+    <string name="pdf_gray_not_smaller">PDF ini sekarang hitam putih, tetapi tidak dapat diperkecil lagi.</string>
+    <!-- The same with several PDFs: %1$d counts them (never 0), %2$s lists their names. -->
+    <plurals name="batch_gray_not_smaller">
+        <item quantity="other">%1$d PDF sekarang hitam putih, tetapi tidak dapat diperkecil lagi: %2$s.</item>
+    </plurals>
+    <!-- Compress PDF with Black and white on: a picture or drawing in the PDF couldn't be turned gray, and was left as it was. -->
+    <string name="pdf_gray_partial">Beberapa bagian PDF ini tidak dapat dijadikan abu-abu dan masih berwarna.</string>
+    <!-- The same with several PDFs: %1$d counts the PDFs it happened to (never 0), %2$s lists their names. -->
+    <plurals name="batch_gray_partial">
+        <item quantity="other">Beberapa bagian dari %1$d PDF tidak dapat dijadikan abu-abu dan masih berwarna: %2$s.</item>
+    </plurals>
+    <!-- Under such a PDF on the result screen: %1$d counts its pages that still have color (never 0), %2$s lists them, such as 2,5-7. -->
+    <plurals name="gray_color_left">
+        <item quantity="other">%1$d halaman masih berwarna sebagian: %2$s</item>
+    </plurals>
+    <!-- Counts PDFs, so never 0: in French and Hindi "one" may leave the number out. -->
+    <plurals name="pdf_password_removed">
+        <item quantity="other">PDF baru tidak memiliki sandi.</item>
+    </plurals>
+    <string name="pdf_need_two">Tambahkan minimal dua PDF untuk digabungkan.</string>
+    <string name="pdf_need_page">Sisakan minimal satu halaman.</string>
+    <string name="pdf_discard_title">Buang PDF ini?</string>
+    <string name="tool_discard_title">Buang perubahan?</string>
+    <string name="pdf_discard_shared_body">Gambar yang Anda bagikan siap dikonversi, tetapi PDF ini belum disimpan. Simpan terlebih dahulu jika Anda ingin mempertahankannya.</string>
+    <string name="pdf_discard_shared_changes">Gambar yang Anda bagikan siap dikonversi. Membukanya akan membuang perubahan pada PDF ini.</string>
+    <string name="share_discard_body">File yang Anda bagikan siap dibuka, tetapi PDF ini belum disimpan. Simpan terlebih dahulu jika Anda ingin mempertahankannya.</string>
+    <string name="share_discard_changes">File yang Anda bagikan siap dibuka. Membukanya akan membuang perubahan pada PDF ini.</string>
+    <string name="share_waits">File yang Anda bagikan akan terbuka setelah proses ini selesai.</string>
+    <!-- The screen that opens with PDFs shared to Usugami from another app, listing the tools that take them. -->
+    <string name="share_title">Pilih alat</string>
+    <string name="share_several_hint">Gabungkan, atau proses semuanya sekaligus. Untuk alat lain, sisakan satu PDF saja.</string>
+    <!-- Turned pages, page numbers and watermark -->
+    <string name="pdf_page_numbers_action">Tambahkan nomor halaman</string>
+    <string name="pdf_watermark_action">Tambahkan tanda air</string>
+    <!-- The buttons of Add page numbers and Add watermark with several PDFs (never fewer than 2). -->
+    <plurals name="pdf_page_numbers_action_many">
+        <item quantity="other">Tambahkan nomor halaman ke %d PDF</item>
+    </plurals>
+    <plurals name="pdf_watermark_action_many">
+        <item quantity="other">Tambahkan tanda air ke %d PDF</item>
+    </plurals>
+    <string name="rotated_right">Diputar ke kanan</string>
+    <string name="rotated_left">Diputar ke kiri</string>
+    <string name="rotated_upside_down">Terbalik</string>
+    <string name="page_numbers_position">Posisi</string>
+    <string name="position_top_left">Kiri atas</string>
+    <string name="position_top_center">Tengah atas</string>
+    <string name="position_top_right">Kanan atas</string>
+    <string name="position_bottom_left">Kiri bawah</string>
+    <string name="position_bottom_center">Tengah bawah</string>
+    <string name="position_bottom_right">Kanan bawah</string>
+    <string name="page_numbers_size">Ukuran</string>
+    <string name="number_size_small">Kecil</string>
+    <string name="number_size_medium">Sedang</string>
+    <string name="number_size_large">Besar</string>
+    <string name="page_numbers_skip">Halaman yang dilewati</string>
+    <string name="page_numbers_skip_hint" tools:ignore="TypographyDashes">Opsional. Contoh: 1 atau 1-2,5</string>
+    <string name="page_numbers_note">Setiap halaman tetap memakai nomornya sendiri: jika halaman 1 dilewati, halaman 2 diberi nomor 2.</string>
+    <string name="page_numbers_all_skipped">Sisakan setidaknya satu halaman untuk diberi nomor.</string>
+    <string name="page_numbers_for_all_hint">Setiap PDF diberi nomor dengan cara yang sama. Halaman yang dilewati tidak diberi nomor di setiap PDF yang memilikinya.</string>
+    <string name="watermark_text">Teks tanda air</string>
+    <string name="watermark_text_hint">Ditulis besar melintang di tengah setiap halaman</string>
+    <string name="watermark_color">Warna</string>
+    <string name="color_gray">Abu-abu</string>
+    <string name="color_black">Hitam</string>
+    <string name="color_red">Merah</string>
+    <string name="color_blue">Biru</string>
+    <string name="color_green">Hijau</string>
+    <string name="watermark_opacity">Opasitas</string>
+    <string name="opacity_translucent">Transparan</string>
+    <string name="opacity_semi">Sedang</string>
+    <string name="opacity_opaque">Pekat</string>
+    <string name="watermark_preview">Pratinjau</string>
+    <string name="watermark_preview_description">Halaman 1 dengan tanda air</string>
+    <string name="watermark_for_all_hint">Setiap PDF mendapat tanda air ini. Pratinjau menampilkan PDF pertama.</string>
+    <string name="watermark_no_font">Ponsel ini tidak memiliki font untuk sebagian karakter ini. Coba teks lain.</string>
+    <!-- Sign PDF: a picture of a handwritten signature, never a certified digital one -->
+    <string name="pdf_sign_action">Tanda tangani PDF</string>
+    <string name="sign_signature">Tanda tangan</string>
+    <string name="sign_draw">Buat tanda tangan</string>
+    <string name="sign_change">Ganti tanda tangan</string>
+    <string name="sign_note">Tanda tangan Anda ditambahkan ke halaman sebagai gambar. Ini bukan tanda tangan digital bersertifikat.</string>
+    <string name="sign_pad">Area tanda tangan</string>
+    <string name="sign_pad_hint">Buat tanda tangan di atas garis dengan jari.</string>
+    <string name="sign_ink">Tinta</string>
+    <string name="sign_clear">Hapus</string>
+    <string name="sign_done">Selesai</string>
+    <string name="sign_page">Halaman untuk ditandatangani</string>
+    <string name="sign_place">Letakkan tanda tangan</string>
+    <string name="sign_place_hint">Seret tanda tangan, atau ketuk tempat untuk meletakkannya.</string>
+    <string name="sign_preview_description">Tanda tangan Anda di halaman %1$d</string>
+    <string name="sign_size">Ukuran</string>
+    <string name="sign_size_description">Ukuran tanda tangan</string>
+    <string name="sign_move_left">Geser tanda tangan ke kiri</string>
+    <string name="sign_move_up">Geser tanda tangan ke atas</string>
+    <string name="sign_move_down">Geser tanda tangan ke bawah</string>
+    <string name="sign_move_right">Geser tanda tangan ke kanan</string>
+    <!-- Redact PDF: what is boxed is removed for good, as the redacted pages become pictures -->
+    <string name="pdf_redact_action">Sensor PDF</string>
+    <string name="redact_note">Halaman yang disensor disimpan sebagai gambar, jadi teksnya tidak dapat dipilih lagi.</string>
+    <string name="redact_find">Cari teks</string>
+    <string name="redact_find_hint">Setiap hasil di setiap halaman diberi kotak untuk Anda periksa.</string>
+    <string name="redact_find_action">Cari</string>
+    <string name="redact_find_none">Tidak ada yang ditemukan. Teks dalam pindaian dan gambar tidak dapat dicari: buat kotak di atasnya secara manual.</string>
+    <!-- %1$d is the most boxes Usugami keeps (2000). -->
+    <string name="redact_find_too_many" tools:ignore="PluralsCandidate">Terlalu banyak hasil: Usugami menyimpan maksimal %1$d kotak. Coba frasa yang lebih panjang.</string>
+    <string name="redact_too_many" tools:ignore="PluralsCandidate">Usugami menyimpan maksimal %1$d kotak.</string>
+    <string name="redact_find_failed">Tidak dapat mencari di PDF ini.</string>
+    <!-- Under Find text, once a search met text it can't read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0; %1$s lists them as page lists are typed, such as "3" or "2, 5-7". -->
+    <plurals name="redact_find_unread">
+        <item quantity="other">Pencarian tidak dapat membaca sebagian teks di halaman %1$s. Periksa sendiri halaman tersebut dan buat kotak jika perlu.</item>
+    </plurals>
+    <!-- The same, when it is so on every page of the PDF. -->
+    <string name="redact_find_unread_all">Pencarian tidak dapat membaca sebagian teks di PDF ini. Periksa sendiri setiap halaman dan buat kotak jika perlu.</string>
+    <plurals name="redact_found">
+        <item quantity="other">Ditemukan %1$d hasil dan sudah diberi kotak. Periksa sebelum menyimpan.</item>
+    </plurals>
+    <string name="redact_page">Halaman</string>
+    <string name="redact_page_marked">Berisi kotak</string>
+    <string name="redact_mark">Tandai yang ingin disembunyikan</string>
+    <string name="redact_mark_hint">Seret di halaman untuk membuat kotak. Ketuk kotak untuk mengubahnya.</string>
+    <string name="redact_page_failed">Halaman ini tidak dapat ditampilkan, jadi tidak dapat disensor.</string>
+    <!-- %1$d is a page number, %2$d the number of boxes on it. -->
+    <plurals name="redact_preview_description">
+        <item quantity="other">Halaman %1$d, %2$d kotak</item>
+    </plurals>
+    <!-- %1$d is the box's number, %2$d how many boxes the page has. -->
+    <string name="redact_box_chosen" tools:ignore="PluralsCandidate">Kotak %1$d dari %2$d dipilih</string>
+    <string name="redact_next_box">Pilih kotak berikutnya</string>
+    <string name="redact_add_box">Tambahkan kotak</string>
+    <string name="redact_remove_all">Hapus semua</string>
+    <string name="redact_remove_all_title">Hapus semua kotak?</string>
+    <!-- Counts boxes, so never 0: the question is only asked when there are some. In French and Hindi "one" may leave the number out. -->
+    <plurals name="redact_remove_all_body">
+        <item quantity="other">%1$d kotak di semua halaman akan dihapus.</item>
+    </plurals>
+    <string name="redact_move_left">Geser kotak ke kiri</string>
+    <string name="redact_move_up">Geser kotak ke atas</string>
+    <string name="redact_move_down">Geser kotak ke bawah</string>
+    <string name="redact_move_right">Geser kotak ke kanan</string>
+    <string name="redact_width">Lebar</string>
+    <string name="redact_height">Tinggi</string>
+    <string name="redact_narrower">Persempit kotak</string>
+    <string name="redact_wider">Perlebar kotak</string>
+    <string name="redact_shorter">Kurangi tinggi kotak</string>
+    <string name="redact_taller">Tambah tinggi kotak</string>
+    <string name="redact_delete_box">Hapus kotak</string>
+    <!-- Word and PowerPoint to PDF. Word and PowerPoint are the names of Microsoft's apps, kept as they are;
+         .docx, .pptx, .doc and .ppt are file extensions. -->
+    <!-- A tool's name on Home: the one tile for Word, PowerPoint, Excel and EPUB files, which opens the
+         converter for the files picked (Word to PDF and the others). -->
+    <string name="tool_documents">Dokumen ke PDF</string>
+    <!-- What the tile takes. Word, PowerPoint and Excel are the names of Microsoft's apps, and EPUB
+         the name of the e-book format: keep them as they are. -->
+    <string name="tool_documents_detail">File Word, PowerPoint, Excel, dan EPUB, dikonversi di ponsel ini</string>
+    <string name="tool_word">Word ke PDF</string>
+    <string name="tool_word_detail">Dokumen (.docx), dikonversi di ponsel ini</string>
+    <string name="tool_powerpoint">PowerPoint ke PDF</string>
+    <string name="tool_powerpoint_detail">Slide (.pptx), satu halaman per slide</string>
+    <string name="pick_word">Pilih file Word</string>
+    <string name="pick_powerpoint">Pilih file PowerPoint</string>
+    <string name="add_word">Tambahkan file Word</string>
+    <string name="add_powerpoint">Tambahkan file PowerPoint</string>
+    <string name="document_word">Dokumen Word</string>
+    <string name="document_powerpoint">Presentasi PowerPoint</string>
+    <string name="office_note_word">Teks, judul, daftar, tabel, dan gambar ikut dikonversi. Font di ponsel Anda menggantikan font dokumen, jadi pergantian baris di beberapa tempat mungkin berbeda.</string>
+    <string name="office_note_powerpoint">Setiap slide menjadi satu halaman; slide tersembunyi tidak disertakan. Font di ponsel Anda menggantikan font presentasi, dan grafik ditampilkan sebagai kotak abu-abu.</string>
+    <string name="office_legacy_word">Ini file Word versi lama (.doc). Simpan sebagai .docx di Word atau aplikasi lain, lalu coba lagi.</string>
+    <string name="office_legacy_word_many">Ini file-file Word versi lama (.doc). Simpan semuanya sebagai .docx di Word atau aplikasi lain, lalu coba lagi.</string>
+    <string name="office_legacy_powerpoint">Ini file PowerPoint versi lama (.ppt). Simpan sebagai .pptx di PowerPoint atau aplikasi lain, lalu coba lagi.</string>
+    <string name="office_legacy_powerpoint_many">Ini file-file PowerPoint versi lama (.ppt). Simpan semuanya sebagai .pptx di PowerPoint atau aplikasi lain, lalu coba lagi.</string>
+    <string name="office_encrypted">File ini dilindungi sandi. Hapus sandinya di Word atau PowerPoint, simpan file, lalu coba lagi.</string>
+    <string name="office_encrypted_many">File-file ini dilindungi sandi. Hapus sandinya di Word atau PowerPoint, simpan semua file, lalu coba lagi.</string>
+    <string name="office_not_word">File ini bukan dokumen Word (.docx), atau sudah rusak.</string>
+    <string name="office_not_word_many">File-file ini bukan dokumen Word (.docx), atau sudah rusak.</string>
+    <string name="office_not_powerpoint">File ini bukan presentasi PowerPoint (.pptx), atau sudah rusak.</string>
+    <string name="office_not_powerpoint_many">File-file ini bukan presentasi PowerPoint (.pptx), atau sudah rusak.</string>
+    <string name="office_no_slides">Presentasi ini tidak memiliki slide untuk dikonversi. Slide tersembunyi tidak disertakan.</string>
+    <string name="office_no_slides_many">Presentasi-presentasi ini tidak memiliki slide untuk dikonversi. Slide tersembunyi tidak disertakan.</string>
+    <string name="office_embedded_content">Teks dalam dokumen ini tersimpan sebagai halaman web atau file RTF yang disematkan, dan Usugami tidak dapat mengonversinya. Buka dokumen di Word, simpan, lalu coba lagi.</string>
+    <string name="office_embedded_content_many">Teks dalam dokumen-dokumen ini tersimpan sebagai halaman web atau file RTF yang disematkan, dan Usugami tidak dapat mengonversinya. Buka semuanya di Word, simpan, lalu coba lagi.</string>
+    <string name="office_convert_failed">Tidak dapat mengonversi file ini. Periksa file dan ruang penyimpanan kosong.</string>
+    <plurals name="progress_slides">
+        <item quantity="other">%1$d dari %2$d slide</item>
+    </plurals>
+    <!-- Excel to PDF. Excel is the name of Microsoft's app, kept as it is; .xlsx and .xls are file
+         extensions. A workbook is an Excel file; a sheet is one of its tabs. -->
+    <string name="tool_excel">Excel ke PDF</string>
+    <string name="tool_excel_detail">Spreadsheet (.xlsx), sheet demi sheet</string>
+    <string name="pick_excel">Pilih file Excel</string>
+    <string name="add_excel">Tambahkan file Excel</string>
+    <string name="document_excel">Buku kerja Excel</string>
+    <string name="office_note_excel">Setiap sheet dimulai di halaman baru, seperti saat dicetak di Excel; sheet tersembunyi tidak disertakan. Font di ponsel Anda menggantikan font buku kerja, dan grafik tidak disertakan.</string>
+    <string name="office_legacy_excel">Ini file Excel versi lama (.xls). Simpan sebagai .xlsx di Excel atau aplikasi lain, lalu coba lagi.</string>
+    <string name="office_legacy_excel_many">Ini file-file Excel versi lama (.xls). Simpan semuanya sebagai .xlsx di Excel atau aplikasi lain, lalu coba lagi.</string>
+    <string name="office_encrypted_excel">File ini dilindungi sandi. Hapus sandinya di Excel, simpan file, lalu coba lagi.</string>
+    <string name="office_encrypted_excel_many">File-file ini dilindungi sandi. Hapus sandinya di Excel, simpan semua file, lalu coba lagi.</string>
+    <string name="office_not_excel">File ini bukan buku kerja Excel (.xlsx), atau sudah rusak.</string>
+    <string name="office_not_excel_many">File-file ini bukan buku kerja Excel (.xlsx), atau sudah rusak.</string>
+    <string name="office_no_sheets">Tidak ada yang dapat dikonversi di buku kerja ini. Sheet tersembunyi tidak disertakan.</string>
+    <string name="office_no_sheets_many">Tidak ada yang dapat dikonversi di buku-buku kerja ini. Sheet tersembunyi tidak disertakan.</string>
+    <string name="office_too_large">Buku kerja ini terlalu besar untuk dikonversi di ponsel. Atur area cetak untuk bagian yang Anda perlukan di Excel atau aplikasi lain, lalu coba lagi.</string>
+    <string name="office_too_large_many">Buku-buku kerja ini terlalu besar untuk dikonversi di ponsel. Atur area cetak untuk bagian yang Anda perlukan di Excel atau aplikasi lain, lalu coba lagi.</string>
+    <!-- Excel to PDF's choices. "As in the file" keeps the paper size or orientation each sheet was set to print on. -->
+    <string name="sheet_as_file">Sesuai file</string>
+    <string name="sheet_fit_width">Paskan kolom ke lebar halaman</string>
+    <string name="sheet_fit_width_on">Sheet yang lebar diperkecil agar kolomnya muat di lebar halaman, tetapi tidak pernah lebih kecil dari setengah ukuran aslinya.</string>
+    <string name="sheet_fit_width_off">Kolom yang tidak muat ditempatkan di halaman tambahan, seperti saat dicetak di Excel.</string>
+    <string name="sheet_gridlines">Garis kisi</string>
+    <string name="sheet_gridlines_detail">Garis abu-abu muda di antara sel, seperti di layar. Batas sel selalu ditampilkan, begitu juga garis kisi yang diatur untuk dicetak di sheet.</string>
+    <!-- Reorganize PDF and Flatten PDF. "Flatten" makes form fields and comments part of the page. -->
+    <string name="tool_reorganize">Atur ulang PDF</string>
+    <string name="tool_reorganize_detail">Pindahkan, putar, hapus, dan tambahkan halaman</string>
+    <string name="tool_flatten">Ratakan PDF</string>
+    <string name="tool_flatten_detail">Jadikan formulir dan komentar bagian dari halaman</string>
+    <string name="reorganize_pages_hint" tools:ignore="TypographyDashes">Contoh: 2,5-7. Atau ketuk halaman di bawah.</string>
+    <string name="pdf_reorganize_action">Simpan PDF</string>
+    <string name="reorganize_add">Tambahkan halaman</string>
+    <string name="reorganize_add_pdf">Halaman dari PDF</string>
+    <string name="reorganize_add_blank">Halaman kosong</string>
+    <!-- On a blank page's picture in the page grid. -->
+    <string name="reorganize_blank">Kosong</string>
+    <!-- %1$d is the page's place in the new PDF, %2$s the name of the PDF it comes from. -->
+    <string name="reorganize_page_from">Halaman %1$d, dari %2$s</string>
+    <string name="reorganize_page_blank">Halaman %1$d, kosong</string>
+    <string name="undo">Urungkan</string>
+    <!-- Reorganize PDF: a button beside the page count that selects every page in the grid. -->
+    <string name="reorganize_select_all">Pilih semua</string>
+    <!-- The same button while every page is selected: it takes them all out of the selection. -->
+    <string name="reorganize_select_none">Batalkan pilihan</string>
+    <!-- The label of a field where the selected pages are typed as numbers and ranges, like 2,5-7. -->
+    <string name="reorganize_pages_field">Halaman yang dipilih</string>
+    <!-- Read by a screen reader: the button at the end of that field, which empties it and the selection. -->
+    <string name="reorganize_pages_clear">Kosongkan pilihan halaman</string>
+    <!-- In the bar above the pages while none is selected. -->
+    <string name="reorganize_tap_pages">Ketuk halaman untuk memilihnya</string>
+    <!-- In the same bar while two or more pages are selected: %1$d pages are selected, out of the %2$d pages in the list. -->
+    <string name="reorganize_selected_count">Dipilih: %1$d dari %2$d</string>
+    <!-- Under the pages. Pages added with "Add pages" go after the selected page that comes last. -->
+    <string name="reorganize_move_hint">Sentuh lama halaman, lalu tarik untuk memindahkannya. Halaman yang ditambahkan diletakkan setelah halaman terakhir yang dipilih.</string>
+    <!-- Read by a screen reader: buttons in the bar that turn every selected page a quarter turn. -->
+    <string name="rotate_selected_left">Putar halaman yang dipilih ke kiri</string>
+    <string name="rotate_selected_right">Putar halaman yang dipilih ke kanan</string>
+    <!-- Read by a screen reader: the button in the bar that takes the selected pages out (never fewer than 2). -->
+    <plurals name="remove_selected_pages">
+        <item quantity="other">Hapus %d halaman</item>
+    </plurals>
+    <string name="pdf_flatten_action">Ratakan PDF</string>
+    <plurals name="pdf_flatten_action_many">
+        <item quantity="other">Ratakan %d PDF</item>
+    </plurals>
+    <string name="flatten_note">Kolom formulir, komentar, dan coretan menjadi bagian dari halaman, sehingga tidak dapat diubah atau diisi lagi. Link tetap berfungsi.</string>
+    <string name="flatten_nothing">PDF ini tidak memiliki kolom formulir atau komentar untuk diratakan.</string>
+    <!-- XFA is a kind of PDF form; keep the name. -->
+    <string name="flatten_xfa_only">Formulir di PDF ini adalah formulir XFA dinamis, yang tidak dapat diratakan oleh Usugami.</string>
+    <string name="flatten_xfa_only_many">Formulir di semua PDF ini adalah formulir XFA dinamis, yang tidak dapat diratakan oleh Usugami.</string>
+    <string name="flatten_xfa_dropped">Formulir XFA dinamis di PDF ini telah dihapus. Kolom formulir dan komentar lainnya telah diratakan.</string>
+    <string name="flatten_xfa_dropped_many">Formulir XFA dinamis di semua PDF ini telah dihapus. Kolom formulir dan komentar lainnya telah diratakan.</string>
+    <!-- After Flatten PDF: fields whose text the form's own font can't draw (Hindi or the rupee sign in a Latin-only font, say) are left as fields rather than come out blank. -->
+    <plurals name="flatten_fields_kept">
+        <item quantity="other">%d kolom formulir berisi teks yang tidak dapat digambar Usugami dengan font formulirnya, sehingga dibiarkan tetap dapat diisi agar teks itu tidak hilang.</item>
+    </plurals>
+    <string name="flatten_fields_kept_many">Beberapa kolom formulir berisi teks yang tidak dapat digambar Usugami dengan font formulirnya, sehingga dibiarkan tetap dapat diisi agar teks itu tidak hilang.</string>
+    <!-- Page layout -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_page_layout">Tata letak halaman</string>
+    <!-- Not "several": that word finds the tools that work on several files at once. -->
+    <string name="tool_page_layout_detail">Pangkas halaman, atau letakkan dua atau lebih di satu lembar</string>
+    <!-- The button that saves the PDF with its pages laid out as chosen. -->
+    <string name="pdf_page_layout_action">Simpan PDF</string>
+    <!-- The two things Page layout does (crop pages: choose the part of each page that shows; or put several pages on one sheet of paper), on a two-part switch at its top. -->
+    <string name="layout_mode_crop">Pangkas</string>
+    <string name="layout_mode_sheets">Halaman per lembar</string>
+    <string name="layout_crop_note">Pemangkasan hanya menyembunyikan bagian di luar kotak, yang tetap ada di dalam file. Untuk menghapusnya secara permanen, gunakan Sensor PDF.</string>
+    <!-- Over the row of pages: the page tapped is the one the preview shows. -->
+    <string name="layout_crop_page">Halaman yang ditampilkan</string>
+    <string name="layout_crop_box">Kotak pangkas</string>
+    <string name="layout_crop_box_hint">Tarik sisi atau sudut kotak. Kotak ini mencakup bagian yang sama di setiap halaman yang dipangkas.</string>
+    <!-- Read out by screen readers for the preview. %1$d is a page number (1 or more). -->
+    <string name="layout_crop_preview_description" tools:ignore="PluralsCandidate">Halaman %1$d dengan kotak pangkas</string>
+    <!-- Read out by screen readers for the preview. %1$d and %2$d are percentages from 5 to 100; %% is the percent sign. -->
+    <string name="layout_crop_preview_state">Menyisakan %1$d%% lebar dan %2$d%% tinggi</string>
+    <!-- The four sides of the crop box, each with a button to crop more and one to crop less. -->
+    <string name="layout_crop_left">Kiri</string>
+    <string name="layout_crop_top">Atas</string>
+    <string name="layout_crop_right">Kanan</string>
+    <string name="layout_crop_bottom">Bawah</string>
+    <string name="layout_crop_more_left">Pangkas lebih banyak dari sisi kiri</string>
+    <string name="layout_crop_less_left">Pangkas lebih sedikit dari sisi kiri</string>
+    <string name="layout_crop_more_top">Pangkas lebih banyak dari sisi atas</string>
+    <string name="layout_crop_less_top">Pangkas lebih sedikit dari sisi atas</string>
+    <string name="layout_crop_more_right">Pangkas lebih banyak dari sisi kanan</string>
+    <string name="layout_crop_less_right">Pangkas lebih sedikit dari sisi kanan</string>
+    <string name="layout_crop_more_bottom">Pangkas lebih banyak dari sisi bawah</string>
+    <string name="layout_crop_less_bottom">Pangkas lebih sedikit dari sisi bawah</string>
+    <!-- Puts the crop box back round the whole page. -->
+    <string name="layout_crop_whole">Seluruh halaman</string>
+    <string name="layout_crop_pages">Halaman yang akan dipangkas</string>
+    <string name="layout_pages_all">Semua halaman</string>
+    <string name="layout_pages_some">Halaman tertentu</string>
+    <string name="layout_pages_field">Halaman</string>
+    <string name="layout_pages_hint" tools:ignore="TypographyDashes">Contoh: 2,5-7</string>
+    <string name="pdf_layout_crop_action">Pangkas PDF</string>
+    <!-- Pages per sheet. A4 and US Letter (existing size_a4, size_letter) are the papers. -->
+    <string name="layout_sheets_paper">Ukuran kertas</string>
+    <string name="layout_sheets_auto_note">Usugami memutar lembar ke arah yang membuat halaman tampil lebih besar.</string>
+    <string name="layout_sheets_border">Bingkai di sekeliling setiap halaman</string>
+    <string name="layout_sheets_preview">Lembar pertama</string>
+    <string name="layout_sheets_note">Teks tetap tajam dan masih dapat dipilih serta ditelusuri. Komentar dan kolom formulir yang sudah diisi digambar sesuai tampilannya. Link, bookmark, dan kolom formulir tidak berfungsi di lembar tersebut.</string>
+    <!-- Read out for each choice of how many pages go on a sheet: %d is 2, 4, 6 or 9, never 0 or 1. -->
+    <plurals name="layout_sheets_count">
+        <item quantity="other">%d halaman per lembar</item>
+    </plurals>
+    <!-- Under the preview: how many sheets the new PDF will have. %d is 1 or more, never 0. -->
+    <plurals name="layout_sheets_made">
+        <item quantity="other">PDF baru akan berisi %d lembar.</item>
+    </plurals>
+    <!-- Read out by screen readers for the preview of the first sheet. %d is the number of pages on it, 1 to 9, never 0. -->
+    <plurals name="layout_sheets_preview_description">
+        <item quantity="other">Lembar pertama, dengan %d halaman</item>
+    </plurals>
+    <!-- Document info -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_document_info">Info dokumen</string>
+    <!-- Under the tool's name on Home. In French, no word that begins with "supprimer": Home's search
+         finds Reorganize PDF alone with it ("effacer" or "retirer" can say it here). -->
+    <string name="tool_document_info_detail">Lihat, ubah, atau hapus judul, penulis, dan lainnya</string>
+    <!-- The button that saves the PDF with its title, author and the like as chosen. -->
+    <string name="pdf_document_info_action">Simpan PDF</string>
+
+    <!-- Shown under a progress bar for the moment it takes to read the PDF's title, author and the like. -->
+    <string name="docinfo_reading">Membaca info PDF ini…</string>
+    <!-- Labels of the four fields that can be changed: the PDF's title, its author (a person's or
+         an organisation's name), its subject (what it is about) and its keywords. -->
+    <string name="docinfo_title">Judul</string>
+    <string name="docinfo_author">Penulis</string>
+    <string name="docinfo_subject">Subjek</string>
+    <string name="docinfo_keywords">Kata kunci</string>
+    <!-- Under the Keywords field. -->
+    <string name="docinfo_keywords_hint">Pisahkan kata kunci dengan koma.</string>
+    <!-- Under a field whose value in the PDF is longer than the field shows: left alone, the whole
+         value stays in the new PDF; changed, only what the field shows is kept. -->
+    <string name="docinfo_cut">Teks ini terlalu panjang untuk ditampilkan seluruhnya. Jika diubah, hanya bagian yang terlihat di sini yang dipertahankan.</string>
+    <!-- Heading over what else the PDF says of itself, which can't be changed here. -->
+    <string name="docinfo_about">Tentang PDF ini</string>
+    <!-- Labels of the rows under "About this PDF": when the PDF was made, when it was last changed. -->
+    <string name="docinfo_created">Dibuat</string>
+    <string name="docinfo_changed">Diubah</string>
+    <!-- Label of the row naming the apps that made the PDF (such as "Microsoft Word · macOS Quartz PDFContext"). -->
+    <string name="docinfo_made_with">Dibuat dengan</string>
+    <!-- Label of the row giving the number of pages. -->
+    <string name="docinfo_pages">Halaman</string>
+    <!-- Label of the row giving the PDF's version, such as 1.7. -->
+    <string name="docinfo_version">Versi PDF</string>
+    <!-- Label of the row giving how much storage the PDF takes, such as 2.4 MB. -->
+    <string name="docinfo_size">Ukuran file</string>
+    <!-- In a row under "About this PDF" when the PDF doesn't say it. -->
+    <string name="docinfo_not_set">Tidak disetel</string>
+    <!-- A button. Nothing is removed until the PDF is saved. -->
+    <string name="docinfo_remove_all">Hapus semua info</string>
+    <!-- Under the Remove all info button. -->
+    <string name="docinfo_remove_all_hint">Menghapus judul, penulis, subjek, kata kunci, tanggal, dan nama aplikasi, serta info tersembunyi yang disimpan aplikasi lain di dalam PDF. Halaman, komentar, kolom formulir, dan tanda tangan dipertahankan.</string>
+    <!-- In the Created, Changed and Made with rows once Remove all info is chosen, in place of their value. -->
+    <string name="docinfo_will_be_removed">Akan dihapus</string>
+    <!-- Replaces the Remove all info button once it is tapped, above an Undo button. -->
+    <string name="docinfo_removing">Semua info akan dihapus saat PDF disimpan. Judul, penulis, subjek, atau kata kunci baru masih dapat diketik.</string>
+    <!-- Above the fields, for a PDF with a digital signature that still holds. -->
+    <string name="docinfo_signed_note">PDF ini memiliki tanda tangan digital. Menyimpan akan membuat PDF baru, dan tanda tangannya tidak akan valid di PDF tersebut. File asli tidak diubah.</string>
+    <!-- Said after saving, when part of the PDF's info (its XMP metadata) was damaged or in a form
+         Usugami can't read, and so isn't in the new PDF. -->
+    <string name="docinfo_xmp_dropped">Sebagian info tambahan di PDF ini tidak dapat dibaca, jadi tidak ada di PDF baru.</string>
+    <!-- PDF to images or text -->
+    <!-- A tool's name on Home and at the top of its screen. -->
+    <string name="tool_pdf_to_images_or_text">PDF ke gambar atau teks</string>
+    <!-- JPG and PNG are names of image formats: keep them as they are. -->
+    <string name="tool_pdf_to_images_or_text_detail">Simpan halaman sebagai JPG atau PNG, atau salin teksnya</string>
+    <!-- The button that makes the images or the text. -->
+    <string name="pdf_to_images_or_text_action">Konversi</string>
+    <!-- The options of PDF to images or text. A heading over two choices: what the PDF's pages become. -->
+    <string name="export_kind_title">Konversi ke</string>
+    <!-- The pages become pictures, one for each page. -->
+    <string name="export_kind_images">Gambar</string>
+    <!-- The pages' text becomes a text file. -->
+    <string name="export_kind_text">Teks</string>
+    <!-- A field for the page numbers to convert. -->
+    <string name="export_pages">Halaman</string>
+    <string name="export_pages_hint" tools:ignore="TypographyDashes">Kosongkan untuk semua halaman. Atau ketik beberapa, misalnya 1,3,5-8, atau ketuk pratinjaunya.</string>
+    <!-- Under the pages field while it is empty: every page is converted. -->
+    <string name="export_pages_all">Akan dikonversi: semua halaman</string>
+    <!-- %1$d pages are chosen, out of the %2$d pages in the PDF. -->
+    <string name="export_pages_count">Akan dikonversi: %1$d dari %2$d</string>
+    <!-- A heading over the image formats to choose from. -->
+    <string name="export_format">Format</string>
+    <!-- What JPG images are good for, under the choice. -->
+    <string name="export_format_jpg_summary">File lebih kecil. Paling cocok untuk foto dan hasil pindaian.</string>
+    <!-- What PNG images are good for, under the choice. -->
+    <string name="export_format_png_summary">Teks dan ilustrasi paling tajam. File lebih besar.</string>
+    <!-- A heading over the image sizes to choose from. -->
+    <string name="export_size">Ukuran gambar</string>
+    <string name="export_size_small">Kecil</string>
+    <string name="export_size_medium">Sedang</string>
+    <string name="export_size_large">Besar</string>
+    <!-- Under the size chosen. dpi (dots per inch) says how sharp the images are: keep it as it is. -->
+    <string name="export_size_small_summary">Cukup untuk layar, file paling kecil (100 dpi)</string>
+    <string name="export_size_medium_summary">Tajam di layar dan saat dicetak (200 dpi)</string>
+    <string name="export_size_large_summary">Paling cocok untuk dicetak dan diperbesar, file paling besar (300 dpi)</string>
+    <!-- Under the file name field. %1$s is the name a page's image gets, such as Report_p3.jpg: it is made from the name typed. -->
+    <string name="export_images_name_hint">Nama setiap gambar diberi nomor halamannya: %1$s</string>
+    <!-- The button that makes the pages into images. -->
+    <string name="export_images_action">Konversi ke gambar</string>
+    <!-- .txt is the ending of a text file's name: keep it as it is. -->
+    <string name="export_text_note">Teks halaman diambil sesuai urutan baca, untuk disalin atau disimpan sebagai file .txt.</string>
+    <!-- A switch: pages that are pictures of text (scans) are read with text recognition. -->
+    <string name="export_text_read_scans">Baca halaman tanpa teks</string>
+    <string name="export_text_read_scans_detail">Halaman hasil pindaian dibaca dengan pengenalan teks.</string>
+    <!-- Shown in Usugami Lite in place of the switch "Read pages without text". Usugami Lite is the app's name: keep it as it is. -->
+    <string name="export_text_lite_note">Usugami Lite tidak memiliki pengenalan teks, jadi tidak dapat membaca halaman hasil pindaian.</string>
+    <!-- The button that makes the pages' text into a text file. -->
+    <string name="export_text_action">Konversi ke teks</string>
+
+    <!-- Under the bar while the images are made: the one being made (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_image" tools:ignore="PluralsCandidate">Gambar %1$d dari %2$d</string>
+    <!-- Under the bar while the pages' text is read: the page being read (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_text" tools:ignore="PluralsCandidate">Mengambil teks: halaman %1$d dari %2$d</string>
+    <!-- Under the bar while pages without text are read with text recognition: the one being read (%1$d) and how many there are (%2$d). -->
+    <string name="export_progress_scans" tools:ignore="PluralsCandidate">Membaca halaman tanpa teks: %1$d dari %2$d</string>
+
+    <!-- No page chosen has text that can be copied, in Usugami Lite. Usugami Lite is the app's name: keep it as it is. -->
+    <string name="export_none_lite">Tidak ada teks yang dapat disalin di halaman ini. Mungkin berupa hasil pindaian, yang tidak dapat dibaca Usugami Lite.</string>
+    <!-- No page chosen has text, and the switch "Read pages without text" is off: use that switch's own words. -->
+    <string name="export_none_off">Tidak ada teks yang dapat disalin di halaman ini. Aktifkan \"Baca halaman tanpa teks\" untuk membacanya.</string>
+    <!-- Text recognition read the pages and found no text on any of them. -->
+    <string name="export_none_found">Tidak ada teks yang ditemukan di halaman ini.</string>
+    <string name="export_none_failed">Pengenalan teks gagal, jadi halaman ini tidak dapat dibaca. Silakan coba lagi.</string>
+    <!-- %1$d is a page number. -->
+    <string name="export_page_failed" tools:ignore="PluralsCandidate">Tidak dapat membuat gambar halaman %1$d. Jangan sertakan halaman itu, lalu coba lagi.</string>
+    <string name="export_no_space">Ruang penyimpanan kosong tidak cukup. Kosongkan sebagian ruang, atau pilih lebih sedikit halaman atau ukuran yang lebih kecil.</string>
+
+    <!-- The last line of the "Text recognition isn't available" dialog over PDF to images or text. "Read pages without text" is a switch: use its own words. -->
+    <string name="export_text_ocr_retry">Untuk mengambil teks yang dapat disalin saja, nonaktifkan \"Baca halaman tanpa teks\", lalu coba lagi.</string>
+    <!-- Said when Usugami opens again after Android closed it while it was making images or a text file of a PDF. -->
+    <string name="export_interrupted">Usugami ditutup sebelum selesai. Silakan coba lagi.</string>
+
+    <!-- The result screen of PDF to images or text. The title of a card showing the text of the text file made. -->
+    <string name="result_text_title">Teks</string>
+    <!-- A button on that card: puts the text on the clipboard. -->
+    <string name="copy">Salin</string>
+    <!-- What a screen reader says for the Copy button. -->
+    <string name="copy_text">Salin teks</string>
+    <!-- Under the first lines of the text: shows the rest of it. -->
+    <string name="show_more">Selengkapnya</string>
+    <!-- Under the whole text: shows only its first lines again. -->
+    <string name="show_less">Lebih sedikit</string>
+    <!-- At the end of the text shown, when the file has more of it than the card shows. -->
+    <string name="result_text_more">Ini bagian awalnya. Teks lengkapnya ada di file.</string>
+    <!-- Said once the text is on the clipboard (Android 13 and later say so themselves). -->
+    <string name="msg_text_copied">Teks disalin</string>
+    <string name="msg_text_too_long">Teks ini terlalu panjang untuk disalin sekaligus. Sebagai gantinya, buka, bagikan, atau simpan file tersebut.</string>
+    <string name="msg_copy_failed">Tidak dapat menyalin teks. Sebagai gantinya, buka, bagikan, atau simpan file tersebut.</string>
+    <!-- A note on the result: what the text file leaves out. Flatten PDF is a tool's name: use its name in this language. -->
+    <string name="export_forms_left_out">Teks di kolom formulir dan komentar tidak disertakan. Untuk menyertakan bagian yang terlihat di halaman, gunakan Ratakan PDF terlebih dahulu.</string>
+
+    <!-- Notes on the result. %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. Usugami Lite is the app's name: keep it as it is. -->
+    <plurals name="export_no_text_lite">
+        <item quantity="other">%1$d halaman tidak memiliki teks yang dapat disalin: %2$s. Mungkin berupa hasil pindaian, yang tidak dapat dibaca Usugami Lite.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_no_text_off">
+        <item quantity="other">%1$d halaman tidak memiliki teks yang dapat disalin, jadi tidak disertakan: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_no_text_found">
+        <item quantity="other">Tidak ada teks yang ditemukan di %1$d halaman: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_ocr_failed_pages">
+        <item quantity="other">Pengenalan teks gagal di %1$d halaman, jadi tidak disertakan: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_scans_read">
+        <item quantity="other">%1$d halaman dibaca dengan pengenalan teks, yang hasilnya mungkin keliru: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="export_images_reduced">
+        <item quantity="other">%1$d halaman sangat besar, jadi gambarnya memiliki piksel lebih sedikit daripada biasanya untuk ukuran ini: %2$s.</item>
+    </plurals>
+    <!-- Read and annotate -->
+    <!-- A tool's name on Home and at the top of its screen: it opens a PDF, or a Word, Excel, PowerPoint or EPUB file, to read it and to add to it. -->
+    <string name="tool_reader">Baca dan beri anotasi</string>
+    <!-- What the tool does, under its name on Home. -->
+    <string name="tool_reader_detail">Buka PDF atau dokumen untuk mencari, menyalin teks, menggambar, dan menyorot</string>
+    <!-- Shown in the middle of the screen while a file opened is copied in and read, with a moving bar and Cancel. -->
+    <string name="reader_opening">Membuka…</string>
+    <!-- %1$s is the file's name, as it is (for example "notes.txt"). -->
+    <string name="reader_cant_open">Usugami tidak dapat membuka %1$s. File yang didukung: PDF, Word, Excel, PowerPoint, dan EPUB.</string>
+    <string name="reader_unreadable">Usugami tidak dapat membaca file itu. Silakan buka lagi.</string>
+    <!-- Said when a file is opened while Usugami makes a PDF: the file opens once the PDF is made. -->
+    <string name="reader_open_waits">File Anda akan dibuka setelah proses ini selesai.</string>
+    <!-- Under "Discard your changes?", when a file was opened while a tool's PDF had changes not saved. -->
+    <string name="reader_open_discard_changes">File yang Anda buka sudah siap. Membukanya akan membuang perubahan pada PDF ini.</string>
+    <!-- Under "Discard this PDF?", when a file was opened while a PDF made by a tool wasn't saved yet. -->
+    <string name="reader_open_discard_body">File yang Anda buka sudah siap, tetapi PDF ini belum disimpan. Simpan terlebih dahulu jika ingin mempertahankannya.</string>
+    <!-- Under "Discard what you made?", when a file was opened while images or a text file made from a PDF weren't saved yet. -->
+    <string name="reader_open_discard_files">File yang Anda buka sudah siap, tetapi hasil yang baru Anda buat belum disimpan. Simpan terlebih dahulu jika ingin mempertahankannya.</string>
+    <string name="reader_open_interrupted">Usugami ditutup sebelum selesai membuka file Anda. Silakan buka lagi.</string>
+    <!-- On a small label at the bottom of the reader: the page showing (%1$d) of how many pages (%2$d), as in "3 of 12". -->
+    <string name="reader_page_of">%1$d dari %2$d</string>
+    <!-- What a screen reader says of a page, and of that label: "Page 3 of 12". -->
+    <string name="reader_page_of_spoken">Halaman %1$d dari %2$d</string>
+    <!-- On a page Android couldn't draw, in place of the page. -->
+    <string name="reader_page_failed">Halaman ini tidak dapat ditampilkan.</string>
+    <!-- The title of a small window that asks for a page number and shows that page; also what tapping the page label at the bottom of the reader does, as a screen reader says it. -->
+    <string name="reader_go_to_page">Buka halaman</string>
+    <!-- The label of the page number field in "Go to page". %1$d is the PDF's number of pages (at least 1): "Page number, 1 to 12". -->
+    <string name="reader_page_field">Nomor halaman, 1 sampai %1$d</string>
+    <!-- The button in "Go to page" that shows the page typed. -->
+    <string name="reader_go">Buka</string>
+    <!-- Actions a screen reader offers on a page of the reader: they make the pages larger or smaller, as pinching does. -->
+    <string name="reader_zoom_in">Perbesar</string>
+    <string name="reader_zoom_out">Perkecil</string>
+    <!-- Find text in the reader: the hint in the search field that takes the reader's top bar. -->
+    <string name="reader_find_hint">Cari di file ini</string>
+    <!-- Buttons beside the search field: they move to the match before or after the one marked, and close the search. -->
+    <string name="reader_find_previous">Hasil sebelumnya</string>
+    <string name="reader_find_next">Hasil berikutnya</string>
+    <string name="reader_find_close">Tutup pencarian</string>
+    <!-- Beside the search field: the match marked (%1$d) of how many were found (%2$d), as in "3 of 17". -->
+    <string name="reader_find_count">%1$d dari %2$d</string>
+    <!-- What a screen reader says of that count: "Match 3 of 17". -->
+    <string name="reader_find_count_spoken">Hasil %1$d dari %2$d</string>
+    <string name="reader_find_none">Tidak ada hasil. Teks dalam hasil pindaian dan gambar tidak dapat dicari.</string>
+    <!-- %1$d is the most matches the reader keeps (2000): there were more. -->
+    <string name="reader_find_capped" tools:ignore="PluralsCandidate">Menampilkan %1$d hasil pertama. Coba frasa yang lebih panjang.</string>
+    <!-- After a search, when some pages' text couldn't be read (a font that doesn't say which letters its shapes stand for). Counts the pages, so never 0. -->
+    <plurals name="reader_find_unread">
+        <item quantity="other">Teks pada %d halaman tidak dapat dibaca, sehingga tidak ikut dicari.</item>
+    </plurals>
+    <!-- The reader's menu of more actions (three dots at the top), as a screen reader names its button. -->
+    <string name="reader_more">Lainnya</string>
+    <!-- The title of a window that shows while a Word, Excel, PowerPoint or EPUB file opened in the reader is made into a PDF, with how far it has got and Cancel. -->
+    <string name="reader_converting">Membuat PDF dari file ini untuk menampilkannya…</string>
+    <!-- In the reader's menu: leaves the reader for the list of tools, with this PDF in it. -->
+    <string name="reader_tools">Alat</string>
+    <!-- In the reader's menu: Android's list of the other apps that open this file. -->
+    <string name="reader_open_elsewhere">Buka dengan aplikasi lain</string>
+    <!-- A note under the reader's top bar for a Word, Excel, PowerPoint or EPUB file, which the reader shows as a PDF Usugami made of it. %1$s is the file's name, as it is (for example "Report.docx"). -->
+    <string name="reader_converted_note">Ini adalah %1$s yang ditata oleh Usugami sebagai PDF. Tampilannya mungkin berbeda di aplikasi yang membuatnya.</string>
+    <!-- A button in that note, and in the reader's menu: makes the PDF shown a file of its own, to share or save. -->
+    <string name="reader_save_as_pdf">Simpan sebagai PDF</string>
+    <!-- A button at the top of the reader, and the title of the screen it opens: text, drawings, highlights, shapes and pictures are added to the PDF's pages there. -->
+    <string name="reader_annotate">Anotasi</string>
+    <!-- What a screen reader calls the arrow at the top of Annotate: it returns to reading the PDF, with what was added drawn on its pages. -->
+    <string name="reader_back_to_reading">Kembali membaca</string>
+    <!-- Under Annotate's page and controls, above the name of the PDF it saves. -->
+    <string name="reader_save_note">Menyimpan akan membuat PDF baru dengan apa yang Anda tambahkan. File yang Anda buka tetap seperti semula.</string>
+    <!-- The one button in a bar under the reader's pages while text is selected on them: puts the text selected on the clipboard. -->
+    <string name="reader_copy">Salin</string>
+    <!-- What a screen reader offers on a page of the reader: copies all the text of that page, with no selecting. -->
+    <string name="reader_copy_page">Salin teks halaman ini</string>
+    <!-- When the text selected in the reader is too long to copy. "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
+    <string name="reader_copy_too_long">Teks terlalu banyak untuk disalin sekaligus. Pilih lebih sedikit teks, atau gunakan alat PDF ke gambar atau teks untuk mendapatkan semuanya.</string>
+    <!-- When Copy is tapped in the reader and the text selected runs over a page whose text couldn't be read (a font that doesn't say which letters its shapes stand for): nothing is copied, so that no page is missing from the text. %1$d is that page's number, from 1. -->
+    <string name="reader_copy_unread">Teks pada halaman %1$d tidak dapat dibaca, sehingga tidak ada yang disalin.</string>
+    <!-- After a long press on a page of the reader that has no text in it, only a picture of a page (a scan, a photo). "PDF to images or text" is the name of one of Usugami's tools, as Home shows it: keep it as that tool is called. -->
+    <string name="reader_no_text">Halaman ini tidak memiliki teks untuk dipilih. Jika ini hasil pindaian, alat PDF ke gambar atau teks dapat membacanya.</string>
+    <!-- Edit PDF was a tool until 2.0.0; it is now Annotate in Read and annotate: text, drawings,
+         highlights, shapes and pictures put on top of a PDF's pages, with the strings below. "Redact
+         PDF" is the name of another tool. Edit PDF's name, description (the next two strings) and
+         hidden words (search_keywords_edit) are never shown: they are kept as hidden words that find
+         Read and annotate in Home's search, so translate them as what people would type to find it. -->
+    <string name="tool_edit">Edit PDF</string>
+    <string name="tool_edit_detail">Tambahkan teks, coretan, bentuk, dan gambar</string>
+    <string name="pdf_edit_action">Simpan PDF</string>
+    <!-- The five tool buttons share one row: keep them short. -->
+    <string name="edit_text">Teks</string>
+    <string name="edit_draw">Pena</string>
+    <string name="edit_highlight">Sorot</string>
+    <string name="edit_shape">Bentuk</string>
+    <string name="edit_picture">Gambar</string>
+    <string name="redo">Ulangi</string>
+    <string name="edit_hint_start">Tambahkan teks, coretan, bentuk, atau gambar ke halaman ini.</string>
+    <string name="edit_hint_select">Ketuk sesuatu yang Anda tambahkan untuk memindahkan atau mengubahnya.</string>
+    <string name="edit_hint_selected">Seret, atau pindahkan dengan tombol di bawah.</string>
+    <string name="edit_hint_draw">Gunakan jari untuk menggambar. Untuk menggulir, geser di samping halaman.</string>
+    <!-- %1$d is the page number. -->
+    <string name="edit_preview_description">Halaman %1$d, dengan tambahan Anda</string>
+    <string name="edit_text_add">Tambahkan teks</string>
+    <string name="edit_text_change">Edit teks</string>
+    <!-- What a screen reader calls each thing added to a page. %1$s is the text itself. -->
+    <string name="edit_item_text">Teks: %1$s</string>
+    <string name="edit_item_drawing">Coretan</string>
+    <string name="edit_item_highlight">Sorotan</string>
+    <string name="edit_item_rectangle">Persegi panjang</string>
+    <string name="edit_item_filled_rectangle">Persegi panjang terisi</string>
+    <string name="edit_item_ellipse">Elips</string>
+    <string name="edit_item_filled_ellipse">Elips terisi</string>
+    <string name="edit_item_line">Garis</string>
+    <string name="edit_item_arrow">Panah</string>
+    <!-- %1$s is what is chosen, such as "Rectangle" or "Text: Hello". -->
+    <string name="edit_selected">Dipilih: %1$s</string>
+    <string name="edit_delete">Hapus</string>
+    <string name="edit_move_left">Geser ke kiri</string>
+    <string name="edit_move_up">Geser ke atas</string>
+    <string name="edit_move_down">Geser ke bawah</string>
+    <string name="edit_move_right">Geser ke kanan</string>
+    <string name="edit_thickness">Ketebalan</string>
+    <string name="edit_fill">Isi warna</string>
+    <string name="color_yellow">Kuning</string>
+    <string name="color_white">Putih</string>
+    <string name="edit_cover_hint">Bentuk yang diisi warna hanya menutupi apa yang ada di bawahnya, yang tetap tersimpan di file. Untuk menghapusnya secara permanen, gunakan Sensor PDF.</string>
+    <string name="edit_picture_failed">Gambar itu tidak dapat dibaca.</string>
+    <string name="edit_full">PDF ini tidak dapat menampung tambahan lagi. Simpan PDF ini, lalu edit PDF yang baru untuk menambahkan lagi.</string>
+    <!-- Said by a screen reader for a page in the row of pages that has something added to it. -->
+    <string name="edit_page_edited">Diedit</string>
+    <!-- EPUB to PDF. EPUB is the name of the e-book format, kept as it is; .epub is its file extension.
+         DRM is the copy protection stores put on many books they sell. A5 and A4 are paper sizes. -->
+    <string name="tool_epub">EPUB ke PDF</string>
+    <string name="tool_epub_detail">E-book (.epub), ditata menjadi halaman</string>
+    <string name="pick_epub">Pilih file EPUB</string>
+    <string name="add_epub">Tambahkan file EPUB</string>
+    <string name="document_epub">E-book EPUB</string>
+    <string name="office_note_epub">Bab, judul, gaya teks, daftar, tabel, dan gambar ikut dikonversi, dan daftar isi menjadi bookmark. Teks memakai font yang ada di ponsel Anda.</string>
+    <string name="book_page_note">A5 kira-kira seukuran buku novel; A4 cocok untuk dicetak.</string>
+    <string name="epub_protected">Buku ini dilindungi DRM (perlindungan dari penyalinan), jadi Usugami tidak dapat membacanya. Hanya buku tanpa DRM yang dapat dikonversi.</string>
+    <string name="epub_protected_many">Buku-buku ini dilindungi DRM (perlindungan dari penyalinan), jadi Usugami tidak dapat membacanya. Hanya buku tanpa DRM yang dapat dikonversi.</string>
+    <string name="epub_not_recognized">File ini bukan e-book EPUB, atau file ini rusak.</string>
+    <string name="epub_not_recognized_many">File-file ini bukan e-book EPUB, atau file-file ini rusak.</string>
+    <string name="epub_empty">Buku ini tidak berisi apa pun yang dapat dikonversi.</string>
+    <string name="epub_empty_many">Buku-buku ini tidak berisi apa pun yang dapat dikonversi.</string>
+    <string name="progress_chapter">Bab %1$d dari %2$d</string>
+
+    <string name="ocr_title">Buat teks dapat ditelusuri (OCR)</string>
+    <string name="ocr_detail">Mengenali kata pada gambar ini, lalu menambahkan teks yang dapat ditelusuri ke PDF.</string>
+    <string name="ocr_language">Bahasa teks</string>
+    <string name="ocr_english">Inggris</string>
+    <string name="ocr_french">Prancis</string>
+    <string name="ocr_spanish">Spanyol</string>
+    <string name="ocr_hindi">Hindi</string>
+    <!-- Names of text-recognition languages, shown in the app's language. -->
+    <string name="ocr_german">Jerman</string>
+    <string name="ocr_portuguese">Portugis</string>
+    <string name="ocr_indonesian">Indonesia</string>
+    <string name="ocr_no_text">Tidak ada teks yang dikenali. PDF dibuat tanpa lapisan teks.</string>
+    <string name="ocr_failed">Pengenalan teks gagal, jadi PDF dibuat tanpa teks yang dapat ditelusuri.</string>
+    <string name="ocr_failed_no_space">Ruang penyimpanan kosong tidak cukup untuk menambahkan teks yang dapat ditelusuri, jadi PDF dibuat tanpa teks tersebut.</string>
+    <string name="ocr_not_ready">Pengenalan teks belum siap, jadi PDF dibuat tanpa teks yang dapat ditelusuri. Silakan coba lagi.</string>
+    <string name="ocr_problem_title">Pengenalan teks tidak tersedia</string>
+    <string name="ocr_problem_no_play_services">Layanan Google Play tidak tersedia di ponsel ini.</string>
+    <string name="ocr_problem_outdated">Layanan Google Play di ponsel ini perlu diperbarui terlebih dahulu.</string>
+    <string name="ocr_problem_download">Pengenalan teks tidak dapat didownload. Periksa koneksi internet, lalu coba lagi.</string>
+    <string name="ocr_problem_storage">Ruang penyimpanan kosong tidak cukup untuk mendownload pengenalan teks. Kosongkan sebagian ruang penyimpanan, lalu coba lagi.</string>
+    <string name="ocr_problem_failed">Pengenalan teks tidak dapat dimulai karena terjadi kesalahan yang tidak terduga. Jika ini terus terjadi, silakan laporkan di github.com/Nath-Goa/usugami.</string>
+    <string name="ocr_problem_help">Di edisi Usugami ini, pengenalan teks berasal dari layanan Google Play, yang mendownloadnya saat setiap bahasa pertama kali digunakan. Proses ini memerlukan koneksi internet. Edisi Usugami OCR sudah memiliki pengenalan teks bawaan.</string>
+    <string name="ocr_problem_retry">Untuk membuat PDF sekarang, nonaktifkan OCR, lalu coba lagi.</string>
+
+    <!-- Language and settings. The language names themselves are written in each language, in code. -->
+    <string name="language_title">Pilih bahasa</string>
+    <string name="language_subtitle">Bahasa dapat diubah nanti di Setelan.</string>
+    <string name="settings">Setelan</string>
+    <string name="settings_language">Bahasa</string>
+    <string name="settings_appearance">Tampilan</string>
+    <string name="appearance_system">Default sistem</string>
+    <string name="appearance_light">Terang</string>
+    <string name="appearance_dark">Gelap</string>
+    <string name="settings_github">Kode sumber di GitHub</string>
+    <string name="settings_about_detail">Versi, kebijakan privasi, dan lisensi</string>
+
+    <!-- About -->
+    <string name="about">Tentang Usugami</string>
+    <string name="about_title">Tentang</string>
+    <string name="about_version">Versi %1$s</string>
+    <!-- Under the edition's name (Usugami, Usugami Lite or Usugami OCR) on the About screen. -->
+    <string name="about_edition_standard">Pengenalan teks melalui layanan Google Play</string>
+    <string name="about_edition_lite">Tanpa pengenalan teks dan tanpa kode Google</string>
+    <string name="about_edition_ocr">Pengenalan teks open source bawaan, berfungsi offline</string>
+    <string name="about_privacy">Tanpa iklan, tanpa pelacakan, tanpa akun. Usugami tidak memiliki izin akses internet, dan file Anda tidak pernah keluar dari ponsel.</string>
+    <string name="about_privacy_standard">Pengenalan teks berasal dari layanan Google Play, yang mendownload model untuk setiap bahasa saat bahasa itu pertama kali digunakan. Layanan Google Play juga dapat mengirimkan statistik ke Google tentang cara pengenalan teks digunakan, tetapi tidak pernah mengirimkan gambar Anda atau teks yang dikenali. Usugami Lite dan Usugami OCR tidak menggunakan layanan Google Play.</string>
+    <string name="about_privacy_policy">Kebijakan privasi</string>
+    <string name="about_licenses">Lisensi open source</string>
+    <string name="about_licenses_detail">Library dan font yang dipakai untuk membuat Usugami</string>
+    <string name="about_license">Lisensi</string>
+    <string name="about_license_detail">GNU GPL v3 atau versi yang lebih baru</string>
+    <string name="about_source">Kode sumber</string>
+    <string name="about_document_missing">Teks ini tidak disertakan dalam salinan Usugami ini, tetapi dapat dibaca di github.com/Nath-Goa/usugami.</string>
+    <string name="msg_no_browser">Tidak ada aplikasi di ponsel ini yang dapat membuka link web.</string>
+
+    <!-- Editor -->
+    <string name="editor_title">Gambar ke PDF</string>
+    <string name="empty_title">Ubah gambar menjadi PDF</string>
+    <string name="empty_body">Pilih gambar, atur urutannya, lalu konversi. Semuanya diproses di ponsel ini. Tidak ada yang diupload.</string>
+    <string name="empty_share_hint">Tips: gambar juga dapat dibagikan ke Usugami dari galeri.</string>
+    <string name="add_from_photos">Foto</string>
+    <string name="add_from_files">File</string>
+    <string name="add_from_camera">Ambil foto</string>
+    <!-- Beside "Convert to PDF" on a phone-wide bar; a translation can be just the verb ("Add"). -->
+    <string name="add_images">Tambahkan</string>
+    <string name="add_more">Tambahkan lagi</string>
+    <string name="convert">Konversi ke PDF</string>
+    <!-- Word, PowerPoint, Excel or EPUB to PDF with several files (never fewer than 2). -->
+    <plurals name="convert_many">
+        <item quantity="other">Konversi %d file ke PDF</item>
+    </plurals>
+    <string name="reorder_hint">Tekan lama halaman, lalu tarik untuk mengubah urutannya</string>
+    <string name="adding_images">Menambahkan gambar…</string>
+    <string name="sort">Urutkan</string>
+    <string name="sort_name_az">Nama (A ke Z)</string>
+    <string name="sort_name_za">Nama (Z ke A)</string>
+    <string name="sort_reverse">Balikkan urutan</string>
+    <string name="clear_all">Hapus semua</string>
+    <!-- %1$d is a page number, not a count, so these are not plurals. -->
+    <string name="rotate_page_left" tools:ignore="PluralsCandidate">Putar halaman %1$d ke kiri</string>
+    <string name="rotate_page_right" tools:ignore="PluralsCandidate">Putar halaman %1$d ke kanan</string>
+    <string name="remove_page">Hapus halaman %1$d</string>
+    <string name="crop_page" tools:ignore="PluralsCandidate">Pangkas halaman %1$d</string>
+    <string name="cropping_page" tools:ignore="PluralsCandidate">Memangkas halaman %1$d…</string>
+    <string name="move_page_earlier" tools:ignore="PluralsCandidate">Pindahkan halaman %1$d ke posisi sebelumnya</string>
+    <string name="move_page_later" tools:ignore="PluralsCandidate">Pindahkan halaman %1$d ke posisi berikutnya</string>
+    <plurals name="image_count">
+        <item quantity="other">%d gambar</item>
+    </plurals>
+
+    <!-- Cropping a page out of a photo -->
+    <string name="crop_title">Pangkas halaman</string>
+    <!-- Above the photo when the page was found on it automatically. -->
+    <string name="crop_found">Usugami menemukan halamannya. Tarik sudut atau sisinya untuk menyesuaikan.</string>
+    <string name="crop_not_found">Tarik sudut atau sisi ke tepi halaman.</string>
+    <string name="crop_not_a_page">Sudut-sudutnya tidak membentuk halaman: letakkan masing-masing di sudut halaman.</string>
+    <string name="crop_reset">Setel ulang</string>
+    <string name="crop_whole">Seluruh gambar</string>
+    <string name="crop_done">Selesai</string>
+    <!-- Crops this photo and opens the camera for the next page. -->
+    <string name="crop_take_another">Ambil lagi</string>
+    <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
+    <string name="crop_discard">Buang foto</string>
+    <string name="crop_image_description">Gambar, dengan garis tepi halaman</string>
+    <!-- The handles a screen reader names; each is moved with the "Move left" etc. actions. -->
+    <string name="crop_corner_top_left">Sudut kiri atas</string>
+    <string name="crop_corner_top_right">Sudut kanan atas</string>
+    <string name="crop_corner_bottom_right">Sudut kanan bawah</string>
+    <string name="crop_corner_bottom_left">Sudut kiri bawah</string>
+    <!-- Handles in the middle of each side of the page's outline: dragging one moves that whole side. -->
+    <string name="crop_side_top">Sisi atas</string>
+    <string name="crop_side_right">Sisi kanan</string>
+    <string name="crop_side_bottom">Sisi bawah</string>
+    <string name="crop_side_left">Sisi kiri</string>
+    <!-- Turn the image (and the page's outline on it) a quarter turn. -->
+    <string name="crop_rotate_left">Putar ke kiri</string>
+    <string name="crop_rotate_right">Putar ke kanan</string>
+    <!-- Goes on from cropping the page to choosing its look; during a scan of several images, also on to the next image. -->
+    <string name="crop_next">Berikutnya</string>
+    <!-- The crop screen's close button while several uploaded images are cropped one after another: the images not cropped yet stay as they are. -->
+    <string name="crop_stop">Berhenti memangkas</string>
+    <string name="crop_failed">Tidak dapat memangkas halaman. Halaman dibiarkan seperti semula.</string>
+    <!-- The second step of cropping a page: its look, brightness and contrast. -->
+    <string name="filter_title">Filter</string>
+    <string name="filter_preview_description">Halaman, seperti yang akan tampil di PDF</string>
+    <string name="filter_brightness">Kecerahan</string>
+    <string name="filter_contrast">Kontras</string>
+    <!-- Puts the slider back in the middle, at 0. -->
+    <string name="filter_reset_brightness">Setel ulang kecerahan</string>
+    <string name="filter_reset_contrast">Setel ulang kontras</string>
+    <!-- Under the title while several uploaded images are cropped one after another, e.g. "Page 2 of 5". -->
+    <string name="scan_place">Halaman %1$d dari %2$d</string>
+    <!-- What a screen reader says as each image of such a scan comes in: the step's name (Crop page, or Filters), then which image it is, e.g. "Crop page, Page 2 of 5". -->
+    <string name="scan_pane_title">%1$s, %2$s</string>
+    <!-- How the page looks in the PDF, chosen on the filters step: a heading over the looks. -->
+    <string name="look_title">Tampilan</string>
+    <string name="look_original">Asli</string>
+    <!-- The paper made white and the print darker, in colour. -->
+    <string name="look_enhanced">Ditingkatkan</string>
+    <string name="look_grayscale">Skala abu-abu</string>
+    <string name="look_black_white">Hitam putih</string>
+    <!-- Brighter, with shadows softened and the colours kept close to the photo's. -->
+    <string name="look_lighten">Dicerahkan</string>
+    <!-- The strongest clean-up: whiter paper, richer colours, darker and crisper print. -->
+    <string name="look_super_enhanced">Sangat ditingkatkan</string>
+    <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
+    <string name="look_ink_saver">Hemat tinta</string>
+    <string name="look_all_pages">Terapkan ke semua halaman</string>
+
+    <!-- Options -->
+    <!-- An option and its current value on the editor's chips, e.g. "Margin: Small". -->
+    <string name="option_value">%1$s: %2$s</string>
+    <string name="option_page_size">Ukuran halaman</string>
+    <string name="option_orientation">Orientasi</string>
+    <string name="option_margin">Margin</string>
+    <string name="size_fit">Sesuaikan (sama dengan gambar)</string>
+    <string name="size_fit_short">Sesuaikan</string>
+    <string name="size_letter">Letter AS</string>
+    <string name="size_legal">Legal AS</string>
+    <string name="orientation_auto">Otomatis</string>
+    <string name="orientation_portrait">Potret</string>
+    <string name="orientation_landscape">Lanskap</string>
+    <string name="orientation_fit_note">Sama dengan gambar</string>
+    <string name="margin_none">Tanpa margin</string>
+    <string name="margin_small">Kecil</string>
+    <string name="margin_big">Besar</string>
+    <string name="margin_small_long">Margin kecil</string>
+    <string name="margin_big_long">Margin besar</string>
+
+    <!-- Convert sheet -->
+    <string name="convert_title">Buat PDF</string>
+    <string name="merge_title">Gabungkan semua gambar menjadi satu PDF</string>
+    <string name="merge_on_summary">Satu PDF dengan satu halaman untuk tiap gambar</string>
+    <string name="merge_off_summary">PDF terpisah untuk tiap gambar, dinamai sesuai gambarnya</string>
+    <string name="file_name">Nama file</string>
+    <string name="create_pdf">Buat PDF</string>
+    <string name="compression_title">Kompresi</string>
+    <string name="compression_less">Rendah</string>
+    <string name="compression_recommended">Disarankan</string>
+    <string name="compression_extreme">Ekstrem</string>
+    <string name="compression_less_summary">Kualitas terbaik, file lebih kecil (200 dpi)</string>
+    <string name="compression_recommended_summary">Kualitas bagus, file jauh lebih kecil (150 dpi)</string>
+    <string name="compression_extreme_summary">File terkecil, kualitas lebih rendah (100 dpi)</string>
+    <string name="compressed_from">Dikompres dari %1$s (%2$d%% lebih kecil)</string>
+    <plurals name="create_pdfs">
+        <item quantity="other">Buat %d PDF</item>
+    </plurals>
+
+    <!-- Progress -->
+    <string name="creating_pdf">Membuat dan mengompres PDF…</string>
+    <string name="creating_pdfs">Membuat dan mengompres PDF…</string>
+    <plurals name="progress_images">
+        <item quantity="other">%1$d dari %2$d gambar</item>
+    </plurals>
+    <string name="ocr_downloading">Mendownload pengenalan teks…</string>
+    <string name="ocr_download_percent">%1$d%% didownload</string>
+    <string name="ocr_download_note">Ini terjadi saat pertama kali Anda menggunakan tiap bahasa dan memerlukan koneksi internet.</string>
+    <string name="ocr_reading">Membaca teks…</string>
+    <string name="ocr_adding_text">Menambahkan teks yang dapat ditelusuri…</string>
+    <plurals name="progress_pages">
+        <item quantity="other">%1$d dari %2$d halaman</item>
+    </plurals>
+    <plurals name="progress_files">
+        <item quantity="other">%1$d dari %2$d file</item>
+    </plurals>
+    <string name="cancel">Batal</string>
+    <string name="cancelling">Membatalkan…</string>
+
+    <!-- Result -->
+    <string name="result_title">Selesai</string>
+    <string name="result_heading_one">PDF Anda sudah siap</string>
+    <string name="result_heading_many">Semua PDF Anda sudah siap</string>
+    <plurals name="page_count">
+        <item quantity="other">%d halaman</item>
+    </plurals>
+    <string name="open">Buka</string>
+    <string name="open_file">Buka %1$s</string>
+    <string name="share_file">Bagikan %1$s</string>
+    <string name="save_file">Simpan %1$s</string>
+    <string name="save">Simpan</string>
+    <string name="share">Bagikan</string>
+    <string name="share_all">Bagikan semua</string>
+    <string name="save_to_downloads">Simpan ke Download</string>
+    <string name="save_as">Simpan sebagai…</string>
+    <string name="save_all_to_folder">Simpan ke folder…</string>
+    <string name="zip_button">Bagikan atau simpan sebagai ZIP</string>
+    <string name="zip_share">Bagikan ZIP</string>
+    <string name="zip_save">Simpan ZIP sebagai…</string>
+    <string name="zip_making">Membuat file ZIP…</string>
+    <string name="back_to_editing">Kembali mengedit</string>
+    <string name="start_over">Mulai dari awal</string>
+    <string name="start_over_title">Mulai dari awal?</string>
+    <string name="not_saved_note">Belum disimpan. Memulai dari awal akan menghapusnya, jadi simpan dulu jika ingin mempertahankannya.</string>
+    <!-- The Usugami watermark on the result screen: a switch that puts a small "Usugami" on the PDFs' pages, and an arrow on its row that opens its size and opacity. "Usugami" is the app's name and stays as it is in every language. -->
+    <string name="mark_title">Tanda air Usugami</string>
+    <string name="mark_detail">Menambahkan \"Usugami\" kecil di sudut tiap halaman, untuk mendukung aplikasi ini.</string>
+    <string name="mark_adjust">Ukuran dan opasitas tanda air</string>
+    <string name="mark_size">Ukuran</string>
+    <string name="mark_opacity">Opasitas</string>
+    <!-- A slider's value, such as "20%". -->
+    <string name="mark_percent">%1$d%%</string>
+    <string name="mark_preview_description">Halaman 1 dengan tanda air Usugami</string>
+    <string name="mark_working">Memperbarui tanda air…</string>
+    <!-- Over the progress bar once the PDFs are made, while the watermark goes on them. -->
+    <string name="mark_adding">Menambahkan tanda air Usugami…</string>
+    <string name="mark_failed">Tanda air Usugami tidak dapat diubah. Pastikan ruang penyimpanan kosong cukup.</string>
+    <!-- Once, when the watermark can't go on PDFs whose digital signature allows no changes at all (a certification): they are left as they are. -->
+    <plurals name="mark_refused">
+        <item quantity="other">%d PDF memiliki tanda tangan digital yang tidak mengizinkan perubahan apa pun, jadi tidak diberi tanda air Usugami.</item>
+    </plurals>
+    <!-- The heading over what a tool made, when it made pictures (JPG or PNG files) from a PDF's pages: one picture. -->
+    <string name="result_heading_image_one">Gambar Anda sudah siap</string>
+    <!-- The same, for several pictures. -->
+    <string name="result_heading_image_many">Semua gambar Anda sudah siap</string>
+    <!-- The heading over what a tool made, when it made a plain text file (.txt) from a PDF: one file. -->
+    <string name="result_heading_text_one">File teks Anda sudah siap</string>
+    <!-- The same, for several text files. -->
+    <string name="result_heading_text_many">Semua file teks Anda sudah siap</string>
+    <string name="msg_no_image_app">Tidak ada aplikasi di ponsel ini yang dapat membuka gambar.</string>
+    <string name="msg_no_text_app">Tidak ada aplikasi di ponsel ini yang dapat membuka file teks.</string>
+    <!-- Said when images or text files were to be shared, as "No app on this phone can share PDFs." is for PDFs. -->
+    <string name="msg_no_share_app_files">Tidak ada aplikasi di ponsel ini yang dapat membagikan file.</string>
+    <!-- Said when images or text files couldn't be saved, as "Couldn't save the PDF…" is for PDFs. -->
+    <string name="msg_save_failed_files">Tidak dapat menyimpan. Pastikan ruang penyimpanan kosong cukup.</string>
+    <!-- Counts images or text files, so never 0: in French and Hindi "one" may leave the number out. -->
+    <plurals name="msg_result_files_cleared">
+        <item quantity="other">File sudah dihapus dari penyimpanan sementara. Silakan buat lagi.</item>
+    </plurals>
+    <!-- Asked when files are shared to Usugami while images or a text file it made aren't saved yet. "What you made" is those files. -->
+    <string name="files_discard_title">Buang hasil yang Anda buat?</string>
+    <!-- Under that question when the files shared are PDFs, Word, PowerPoint, Excel or EPUB files. -->
+    <string name="share_discard_body_files">File yang Anda bagikan siap dibuka, tetapi hasil yang baru Anda buat belum disimpan. Simpan dulu jika ingin mempertahankannya.</string>
+    <!-- Under that question when the files shared are images. -->
+    <string name="files_discard_shared_body">Gambar yang Anda bagikan siap dikonversi, tetapi hasil yang baru Anda buat belum disimpan. Simpan dulu jika ingin mempertahankannya.</string>
+    <!-- A button and a menu item for a PDF, on the result screen and in Recent files: opens Android's
+         own print screen (preview, printer, copies, paper size, "Save as PDF") with the PDF. -->
+    <string name="print">Cetak</string>
+    <!-- The screen reader's label for one PDF's own Print button, among several PDFs, like
+         "Open %1$s" and "Share %1$s". %1$s is the PDF's file name, such as "Report.pdf". -->
+    <string name="print_file">Cetak %1$s</string>
+    <!-- Shown when the phone has printing but it can't be started (its print service is turned off,
+         for example). -->
+    <string name="msg_no_printing">Pencetakan tidak tersedia di ponsel ini.</string>
+    <!-- Shown by Android's print screen when the PDF being printed can't be read. -->
+    <string name="print_failed">PDF ini tidak dapat dikirim untuk dicetak. Mungkin PDF sudah dipindahkan atau dihapus, atau penyimpanan ponsel penuh.</string>
+
+    <!-- Dialogs -->
+    <string name="discard_title">Buang gambar-gambar ini?</string>
+    <string name="discard_body">Gambar yang Anda pilih beserta urutannya akan dihapus. Foto asli Anda tidak terpengaruh.</string>
+    <string name="discard">Buang</string>
+    <string name="clear_title">Hapus semua gambar?</string>
+    <string name="keep">Pertahankan</string>
+    <string name="ok">Oke</string>
+
+    <!-- Messages -->
+    <!-- The images Android 12 and later can read. -->
+    <plurals name="msg_skipped_unsupported">
+        <item quantity="other">%d file dilewati: hanya gambar JPG, PNG, HEIC, AVIF, WebP, BMP, dan GIF yang didukung.</item>
+    </plurals>
+    <!-- Android 9 to 11 can't read AVIF images. -->
+    <plurals name="msg_skipped_unsupported_no_avif">
+        <item quantity="other">%d file dilewati: hanya gambar JPG, PNG, HEIC, WebP, BMP, dan GIF yang didukung di versi Android ini.</item>
+    </plurals>
+    <!-- Android 8 can't read HEIC or AVIF images. -->
+    <plurals name="msg_skipped_unsupported_no_heic">
+        <item quantity="other">%d file dilewati: hanya gambar JPG, PNG, WebP, BMP, dan GIF yang didukung di versi Android ini.</item>
+    </plurals>
+    <plurals name="msg_failed_import">
+        <item quantity="other">Tidak dapat membaca %d gambar.</item>
+    </plurals>
+    <plurals name="msg_import_no_space">
+        <item quantity="other">Tidak dapat menambahkan %d gambar: ruang penyimpanan kosong tidak cukup.</item>
+    </plurals>
+    <!-- Files shared to Usugami that it can't use: %1$d counts them (never 0), %2$s lists their names. -->
+    <plurals name="share_unsupported">
+        <item quantity="other">Usugami tidak dapat membuka %1$d file, jadi file tersebut tidak disertakan: %2$s.</item>
+    </plurals>
+    <!-- Files shared to Usugami together with more files of another kind, which it took instead: %1$d counts them (never 0), %2$s lists their names. -->
+    <plurals name="share_other_kind">
+        <item quantity="other">%1$d file tidak disertakan: %2$s. Usugami hanya membuka satu jenis file dalam satu waktu.</item>
+    </plurals>
+    <plurals name="msg_share_unreadable">
+        <item quantity="other">Tidak dapat membaca %d file yang dibagikan.</item>
+    </plurals>
+    <!-- Android stopped Usugami in the background while it was copying in files shared to it, which are gone. -->
+    <string name="msg_share_interrupted">Usugami ditutup sebelum sempat menerima file yang Anda bagikan. Silakan bagikan lagi.</string>
+    <string name="msg_picks_interrupted">Usugami ditutup sebelum selesai menambahkan semua gambar Anda. Silakan tambahkan lagi gambar yang belum masuk.</string>
+    <string name="msg_making_interrupted">Usugami ditutup sebelum PDF Anda selesai. Silakan coba lagi.</string>
+    <string name="msg_saved_downloads">Disimpan ke Download sebagai %1$s</string>
+    <plurals name="msg_saved_downloads_many">
+        <item quantity="other">%d PDF disimpan ke Download</item>
+    </plurals>
+    <string name="msg_saved">Disimpan</string>
+    <string name="msg_not_saved">Tidak disimpan</string>
+    <plurals name="msg_saved_folder">
+        <item quantity="other">%d PDF disimpan ke folder</item>
+    </plurals>
+    <string name="msg_save_failed">Tidak dapat menyimpan PDF. Pastikan ruang penyimpanan kosong cukup.</string>
+    <string name="zip_failed">Tidak dapat membuat file ZIP. Pastikan ruang penyimpanan kosong cukup.</string>
+    <string name="zip_busy">File ZIP sedang dibuat. Coba lagi setelah selesai.</string>
+    <string name="msg_convert_failed">Tidak dapat membuat PDF: %1$s</string>
+    <string name="msg_image_unreadable">\"%1$s\" tidak dapat dibaca</string>
+    <string name="msg_out_of_memory">memori tidak cukup untuk gambar sebesar ini</string>
+    <string name="msg_out_of_space">ruang penyimpanan kosong tidak cukup</string>
+    <string name="msg_unknown_error">terjadi kesalahan yang tidak terduga</string>
+    <string name="msg_no_pdf_app">Tidak ada aplikasi di ponsel ini yang dapat membuka PDF.</string>
+    <string name="msg_no_zip_app">Tidak ada aplikasi di ponsel ini yang dapat membuka file ZIP.</string>
+    <string name="msg_no_share_app">Tidak ada aplikasi di ponsel ini yang dapat membagikan PDF.</string>
+    <string name="msg_no_file_picker">Ponsel ini tidak memiliki pemilih file untuk menyimpan.</string>
+    <string name="msg_no_picker">Ponsel ini tidak memiliki aplikasi untuk memilih file.</string>
+    <string name="msg_no_camera">Ponsel ini tidak memiliki aplikasi kamera untuk mengambil foto.</string>
+    <plurals name="msg_files_cleared">
+        <item quantity="other">%d file dikeluarkan karena salinan sementaranya sudah dihapus. Silakan tambahkan lagi.</item>
+    </plurals>
+    <!-- Counts PDFs, so never 0: in French and Hindi "one" may leave the number out. -->
+    <plurals name="msg_result_cleared">
+        <item quantity="other">PDF sudah dihapus dari penyimpanan sementara. Silakan buat lagi.</item>
+    </plurals>
+
+    <!-- Recent files: the files saved with Usugami, newest first, on Home under Scan document and on a screen of their own, to open or share again. -->
+    <string name="recent_title">File terbaru</string>
+    <string name="recent_see_all">Lihat semua</string>
+    <!-- Takes a file off the list. The file itself isn't deleted. -->
+    <string name="recent_remove">Hapus dari daftar</string>
+    <string name="recent_clear">Kosongkan daftar</string>
+    <string name="recent_clear_title">Kosongkan daftar?</string>
+    <string name="recent_clear_body">File tetap berada di tempat Anda menyimpannya. Hanya daftar ini yang dikosongkan.</string>
+    <string name="recent_empty">File yang Anda simpan muncul di sini, agar dapat dibuka dan dibagikan lagi.</string>
+    <!-- A listed file Usugami can no longer reach: its access to the file has ended, or the place it is in (an SD card, say) is out of reach. %1$s is the file's name. -->
+    <string name="recent_lost_title">Tidak dapat membuka file ini</string>
+    <string name="recent_lost_body">Usugami tidak dapat lagi membuka %1$s. Jika file masih ada, Anda dapat menemukannya dengan aplikasi File di ponsel Anda.</string>
+
+    <!-- Launcher shortcuts -->
+    <!-- The short labels of the four shortcuts a long-press on Usugami's icon shows; their long labels
+         are the names of Home's tiles. -->
+    <!-- The shortcut that opens the camera for a new scan, as Scan document does. Under a shortcut's
+         icon on the phone's home screen: one word, at most about 10 letters. -->
+    <string name="shortcut_scan">Pindai</string>
+    <!-- The shortcut that opens Images to PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_images">Gambar</string>
+    <!-- The shortcut that opens Merge PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_merge">Gabungkan</string>
+    <!-- The shortcut that opens Compress PDF. Under a shortcut's icon on the phone's home screen: one
+         word, at most about 10 letters. -->
+    <string name="shortcut_compress">Kompres</string>
+    <!-- Said when a launcher shortcut is used while Usugami is still making something (a PDF, images, a
+         text file): nothing opens and the work goes on. "Usugami" is the app's name, kept as it is. -->
+    <string name="shortcut_busy">Usugami masih memproses. Gunakan pintasan ini lagi setelah selesai.</string>
+    <!-- Under "Discard this PDF?", asked when a launcher shortcut is used while a tool shows a PDF it
+         made that isn't saved yet. Discard opens the shortcut's tool; Keep stays with the PDF. -->
+    <string name="shortcut_discard_body">PDF ini belum disimpan. Simpan dulu jika ingin mempertahankannya.</string>
+    <!-- Under "Discard your changes?", asked when a launcher shortcut is used while a tool has changes to
+         its PDF that aren't saved yet. Discard opens the shortcut's tool; Keep stays with the changes. -->
+    <string name="shortcut_discard_changes">Membuka alat lain akan membuang perubahan Anda pada PDF ini.</string>
+    <!-- Under "Discard what you made?", asked when a launcher shortcut is used while a tool shows images or
+         a text file it made (no PDF) that aren't saved yet. "What you just made" is those files. Discard
+         opens the shortcut's tool; Keep stays with them. -->
+    <string name="shortcut_discard_files">Hasil yang baru Anda buat belum disimpan. Simpan dulu jika ingin mempertahankannya.</string>
+
+    <!-- Searching for a tool on Home -->
+    <string name="home_search_hint">Cari alat</string>
+    <string name="home_search_clear">Hapus pencarian</string>
+    <!-- Over the tools a search found, and read out by screen readers as the user types. Never 0. -->
+    <plurals name="home_search_results">
+        <item quantity="other">%d alat ditemukan</item>
+    </plurals>
+    <string name="home_search_none">Tidak ada alat yang cocok dengan \"%1$s\"</string>
+    <!-- Hidden words that also find a tool when searched for on Home, separated by commas. They are
+         never shown: use the words people would type in this language for what the tool does. -->
+    <string name="search_keywords_images">foto, gambar, JPEG, JPG, PNG, HEIC, WebP, pindai, scan, scanner, pemindai, kamera, galeri, dokumen, hitam putih, OCR</string>
+    <string name="search_keywords_scan">pindai, scan, scanner, pemindai, CamScanner, kamera, foto, dokumen, kertas, struk, nota, kuitansi, kwitansi, faktur, pangkas, crop, tingkatkan, perjelas, filter, kecerahan, kontras, hitam putih, kartu identitas, ID card, KTP, e-KTP, eKTP, depan belakang, paspor, SIM, surat izin mengemudi</string>
+    <string name="search_keywords_word">doc, docx, dokumen, Office, konversi, ubah, convert</string>
+    <string name="search_keywords_powerpoint">ppt, pptx, slide, presentasi, Office, konversi, ubah, convert</string>
+    <!-- For the Excel to PDF card, which joins Home in this release. -->
+    <string name="search_keywords_excel">xls, xlsx, spreadsheet, sheet, lembar kerja, tabel, sel, Office, Google Sheets, konversi, ubah, convert</string>
+    <string name="search_keywords_merge">gabung, gabungkan, satukan, jadikan satu, kombinasikan, sambung, sambungkan, merge</string>
+    <string name="search_keywords_split">pisah, pisahkan, pecah, pecahkan, potong, bagi, ekstrak, ambil halaman, split</string>
+    <string name="search_keywords_reorganize">urutkan, urutan, susun, susun ulang, pindah, geser, sisipkan, halaman kosong, putar, rotasi, rotate, balik, balikkan, miring, terbalik, lanskap, landscape, potret, portrait, orientasi, hapus, buang, hilangkan, singkirkan, delete</string>
+    <string name="search_keywords_edit">anotasi, tulis, ketik, pena, pulpen, gambar, coret, sorot, highlight, stabilo, tandai, markup, panah, foto</string>
+    <string name="search_keywords_sign">tanda tangan, ttd, teken, paraf, inisial, e-sign</string>
+    <string name="search_keywords_page_numbers">penomoran, angka, paginasi, header, footer, kepala halaman, kaki halaman</string>
+    <string name="search_keywords_watermark">watermark, stempel, cap, rahasia, konfidensial, draf, draft, contoh, salinan, hak cipta, copyright</string>
+    <string name="search_keywords_compress">perkecil, kecilkan, kurangi ukuran, ukuran file, optimalkan, ringankan, email, compress, hitam putih, skala abu-abu, abu-abu, grayscale, monokrom</string>
+    <string name="search_keywords_flatten">formulir, kolom, isian, anotasi, komentar, kunci, flatten</string>
+    <!-- For the EPUB to PDF and Redact PDF cards, which join Home in this release. -->
+    <string name="search_keywords_epub">epub, ebook, e-book, buku, buku digital, buku elektronik, novel</string>
+    <string name="search_keywords_redact">sensor, hitamkan, tutupi, sembunyikan, samarkan, rahasia, pribadi, sensitif, redaksi</string>
+    <!-- Hidden words that also find Read and annotate when searched for on Home, separated by commas.
+         They are never shown: use the words people would type in this language for what the tool
+         does. No word that begins with batch, many, several, multiple or bulk: those find the tools
+         that work on several files at once. -->
+    <string name="search_keywords_reader">buka, lihat, tampilkan, penampil, viewer, pembaca, reader, edit, anotasi, catatan, tulis, ketik, pena, markup, bentuk, panah, gambar, pilih, cari, temukan, zoom, perbesar</string>
+    <!-- Hidden words that also find Page layout when searched for on Home, separated by commas. They
+         are never shown: use the words people would type in this language for what the tool does.
+         No word that begins with batch, many, several, multiple or bulk: those find the tools that
+         work on several files at once. -->
+    <string name="search_keywords_page_layout">layout, pangkas, crop, potong, margin, tepi, pinggir, border, n-up, 2-up, 4-up, halaman per lembar, berdampingan, bersebelahan, handout, cetak, print, kertas</string>
+    <!-- Hidden words that also find Document info when searched for on Home, separated by commas.
+         They are never shown: use the words people would type in this language for what the tool
+         does. No word that begins with batch, many, several, multiple or bulk: those find the tools
+         that work on several files at once. In French, no word that begins with "supprimer": Home's
+         search finds Reorganize PDF alone with it ("effacer" or "retirer" can say it here). -->
+    <string name="search_keywords_document_info">metadata, properti, detail, informasi, judul, penulis, pengarang, subjek, kata kunci, tag, pembuat, produser, tanggal, privasi, anonim, bersihkan, hapus info, XMP</string>
+    <!-- Hidden words that also find PDF to images or text when searched for on Home, separated by
+         commas. They are never shown: use the words people would type in this language for what the
+         tool does. No word that begins with batch, many, several, multiple or bulk: those find the
+         tools that work on several files at once. -->
+    <string name="search_keywords_pdf_to_images_or_text">JPG, JPEG, PNG, gambar, foto, ekspor, export, ekstrak, konversi, ubah, convert, teks, txt, salin, copy, kata, tangkapan layar, screenshot</string>
+    <!-- Also find the tools that work on several files at once. -->
+    <string name="search_keywords_batch">batch, banyak, beberapa, sekaligus, massal, semua sekaligus, bersamaan, serentak, bulk</string>
+</resources>
