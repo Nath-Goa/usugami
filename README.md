@@ -64,12 +64,16 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.6.5
+## What's new in 1.6.6
 
-The scanner's crop step finds the page more steadily. A table, a box or a picture printed on a
-page is no longer taken for the page, a streak in a wooden desk is no longer taken for the page's
-edge, and a page that runs off one side of the photo, such as a book's page photographed close,
-is found as far as it shows.
+Settings has a **Donate** link, which opens
+[buymeacoffee.com/nath_goa](https://buymeacoffee.com/nath_goa) in your browser. Usugami itself
+still has no internet permission.
+
+1.6.5, two days before: the scanner's crop step finds the page more steadily. A table, a box or a
+picture printed on a page is no longer taken for the page, a streak in a wooden desk is no longer
+taken for the page's edge, and a page that runs off one side of the photo, such as a book's page
+photographed close, is found as far as it shows.
 
 1.6.4, the day before, four fixes: Excel to PDF starts Arabic and Hebrew text at the right of its
 cell, a ZIP file made just as the Usugami watermark is switched holds every PDF with it, the
@@ -81,7 +85,7 @@ scanner's crop step upright, Excel to PDF groups digits as the phone's region do
 India) and no longer shows -0.00, Recent files drops a PDF deleted or renamed in the Files app,
 and Compress PDF and the Usugami watermark keep what another app added to a signed PDF.
 
-1.6.2, two days before:
+1.6.2, the day before:
 
 - **Footnotes and endnotes** in Word to PDF, numbered and placed as in Word: footnotes at the foot
   of their page, endnotes at the end of the document or of each section
