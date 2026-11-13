@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
 import android.provider.MediaStore
 import androidx.core.content.FileProvider
@@ -15,8 +16,11 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.GrayOutcome
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.ui.KeptResult
@@ -38,7 +42,8 @@ import java.io.File
 /**
  * Compress PDF with several PDFs, through the view model: each PDF's level and name, kept through
  * the process being restarted, the PDFs compressed in turn (one that fails named, the others made),
- * PDFs with a password asked for in turn, and each PDF of the result saved on its own.
+ * PDFs with a password asked for in turn, each PDF of the result saved on its own, and Black and
+ * white for all of them.
  */
 class BatchCompressDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -89,6 +94,41 @@ class BatchCompressDeviceTest {
     /** A PDF that can't get smaller (see [compactPdf]), the way a picker gives it. */
     private fun compact(name: String): Uri {
         val file = compactPdf(File(picked, name).apply { parentFile!!.mkdirs() }, "ALREADY COMPACT")
+        return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+    }
+
+    /**
+     * A one-page PDF of red text, the way a picker gives it: forty lines of it, so that the colour is
+     * a few bytes of a page that Black and white can't make 1% smaller.
+     */
+    private fun redText(name: String): Uri {
+        val file = File(picked, name).apply { parentFile!!.mkdirs() }
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4).also(doc::addPage)
+            PDPageContentStream(doc, page).use { content ->
+                content.beginText()
+                content.setNonStrokingColor(0.8f, 0.1f, 0.1f)
+                content.setFont(PDType1Font.HELVETICA, 12f)
+                content.setLeading(16f)
+                content.newLineAtOffset(72f, 780f)
+                for (line in 1..40) {
+                    content.showText("Note $line: ${line * 7919} red words, ${line * 104729 % 9973} of them about ${"abcdefghij".repeat(line % 4 + 1)}")
+                    content.newLine()
+                }
+                content.endText()
+            }
+            doc.save(file)
+        }
+        return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
+    }
+
+    /** A one-page PDF of a gradient Black and white can't turn gray ([addUnconvertibleMeshPage]), the way a picker gives it. */
+    private fun mesh(name: String): Uri {
+        val file = File(picked, name).apply { parentFile!!.mkdirs() }
+        PDDocument().use { doc ->
+            addUnconvertibleMeshPage(doc)
+            doc.save(file)
+        }
         return FileProvider.getUriForFile(app, "${app.packageName}.files", file)
     }
 
@@ -236,6 +276,35 @@ class BatchCompressDeviceTest {
         assertEquals(listOf("alpha_compressed.pdf", "statement_compressed.pdf"), files.map { it.name })
         assertTrue("The note says the new PDFs have no password", onMain { vm.passwordRemoved.value })
         PDDocument.load(files[1].file).use { assertFalse(it.isEncrypted) }
+    }
+
+    /**
+     * Black and white for all the PDFs: the one with a part it couldn't turn gray is named, and so is
+     * one made gray that came out no smaller; what each kept in colour comes back with the result after
+     * Android restarted Usugami, and a result kept by 1.6.5, without it, comes back with none.
+     */
+    @Test fun blackAndWhiteSaysWhatStayedInColorAndIsKeptWithTheResult() {
+        val vm = newViewModel()
+        add(vm, redText("red.pdf"), mesh("mesh.pdf"))
+        onMain { vm.runCompressAll(gray = true) }
+        waitUntil("the PDFs to be compressed") { !vm.processing.value }
+
+        val files = onMain { vm.result.value!! }
+        assertEquals(listOf("red_compressed.pdf", "mesh_compressed.pdf"), files.map { it.name })
+        assertEquals("The red text is gray", GrayOutcome(changed = true, colorPages = emptyList()), files[0].gray)
+        assertEquals("The mesh's page is still partly in color", listOf(0), files[1].gray?.colorPages)
+        assertEquals(strings.getQuantityString(R.plurals.batch_gray_partial, 1, 1, "mesh.pdf"), nextMessage(vm))
+        assertNull("The red text is no smaller", Compressor.savedPercent(files[0].originalBytes, files[0].sizeBytes))
+        assertEquals(strings.getQuantityString(R.plurals.batch_gray_not_smaller, 1, 1, "red.pdf"), nextMessage(vm))
+
+        // Android restarts Usugami while the result shows.
+        val kept = KeptResult.pack(files)
+        val restored = newViewModel(SavedStateHandle(mapOf(KeptResult.KEY to kept)))
+        assertEquals(files.map { it.gray }, onMain { restored.result.value!!.map { it.gray } })
+        // As 1.6.5 kept a result.
+        val older = newViewModel(SavedStateHandle(mapOf(KeptResult.KEY to Bundle(kept).apply { remove("gray") })))
+        assertEquals(files.map { it.name }, onMain { older.result.value!!.map { it.name } })
+        assertTrue(onMain { older.result.value!!.all { it.gray == null } })
     }
 
     /** Each PDF of the result has its own Save: into Downloads, or into a document "Save as" made. */

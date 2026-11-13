@@ -160,6 +160,8 @@ fun PdfToolScreen(
     var pageMode by rememberSaveable(tool) { mutableStateOf(false) }
     var numberPosition by rememberSaveable(tool) { mutableStateOf(PageNumberPosition.BOTTOM_CENTER) }
     var numberSize by rememberSaveable(tool) { mutableStateOf(PageNumberSize.MEDIUM) }
+    // Compress PDF's Black and white, for one PDF or all: off each time the tool opens.
+    var blackAndWhite by rememberSaveable(tool) { mutableStateOf(false) }
     var skipText by rememberSaveable(tool) { mutableStateOf("") }
     var watermarkText by rememberSaveable(tool) { mutableStateOf("") }
     var watermarkColor by rememberSaveable(tool) { mutableStateOf(WatermarkColor.GRAY) }
@@ -263,7 +265,7 @@ fun PdfToolScreen(
                             PdfTool.SPLIT -> vm.runSplit(splitMode, pageText, combine, fileName)
                             PdfTool.MERGE -> vm.runMerge(pageMode, fileName)
                             // Each PDF at its level, into a PDF of its name.
-                            PdfTool.COMPRESS -> vm.runCompressAll()
+                            PdfTool.COMPRESS -> vm.runCompressAll(blackAndWhite)
                             PdfTool.ROTATE -> vm.runRotate(fileName)
                             // These too, each PDF or document into a PDF of its name.
                             PdfTool.PAGE_NUMBERS -> vm.runPageNumbersAll(numberPosition, numberSize, skipText)
@@ -381,7 +383,7 @@ fun PdfToolScreen(
                             }
                         } else if (many) {
                             when (tool) {
-                                PdfTool.COMPRESS -> CompressBatch(inputs, vm, batch, drawn, importing, pickMultiple)
+                                PdfTool.COMPRESS -> CompressBatch(inputs, vm, batch, drawn, importing, pickMultiple, blackAndWhite, onBlackAndWhite = { blackAndWhite = it })
                                 // The same choices for every PDF come first, then each PDF with its name.
                                 PdfTool.PAGE_NUMBERS -> {
                                     PageNumberOptions(
@@ -423,7 +425,10 @@ fun PdfToolScreen(
                             )
                             PdfTool.MERGE -> Unit
                             // Its level is the one for all: a PDF added gets it too.
-                            PdfTool.COMPRESS -> CompressOptions(batch.compressionOf(inputs[0].id), onLevel = { vm.setBatchChoiceForAll(it.ordinal) })
+                            PdfTool.COMPRESS -> CompressOptions(
+                                batch.compressionOf(inputs[0].id), onLevel = { vm.setBatchChoiceForAll(it.ordinal) },
+                                blackAndWhite, onBlackAndWhite = { blackAndWhite = it },
+                            )
                             PdfTool.ROTATE -> RotateOptions(shown ?: inputs[0], pages, vm)
                             PdfTool.PAGE_NUMBERS -> PageNumberOptions(
                                 numberPosition, onPosition = { numberPosition = it },
@@ -607,8 +612,9 @@ private fun ToolProgressText(progress: ToolProgress?) {
 }
 
 /**
- * Compress PDF with several PDFs: a level for all of them at once, then each PDF with a level and a
- * name of its own (see [BatchList]), and a button to add more.
+ * Compress PDF with several PDFs: a level for all of them at once and Black and white ([blackAndWhite])
+ * for all of them, then each PDF with a level and a name of its own (see [BatchList]), and a button to
+ * add more.
  */
 @Composable
 private fun CompressBatch(
@@ -618,6 +624,8 @@ private fun CompressBatch(
     drawn: (PdfInput) -> PdfInput,
     importing: Boolean,
     pickMultiple: () -> Unit,
+    blackAndWhite: Boolean,
+    onBlackAndWhite: (Boolean) -> Unit,
 ) {
     val common = batch.common?.let { PdfCompression.entries.getOrNull(it) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -629,6 +637,8 @@ private fun CompressBatch(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        // One switch for all the PDFs: none has one of its own.
+        OptionSwitch(R.string.compress_gray, stringResource(R.string.compress_gray_detail_many), blackAndWhite, onBlackAndWhite)
     }
     PdfBatchList(PdfTool.COMPRESS, inputs, vm, drawn, importing, pickMultiple) { id ->
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -963,12 +973,14 @@ private fun SplitOptions(
     }
 }
 
+/** Compress PDF with one PDF: its level, and Black and white ([blackAndWhite]), which turns its colours gray. */
 @Composable
-private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> Unit) {
+private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> Unit, blackAndWhite: Boolean, onBlackAndWhite: (Boolean) -> Unit) {
     Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.titleMedium)
     CompressionLevels(level, onLevel)
     Text(stringResource(R.string.pdf_compress_note), style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
+    OptionSwitch(R.string.compress_gray, stringResource(R.string.compress_gray_detail), blackAndWhite, onBlackAndWhite)
 }
 
 /** Less, Recommended and Extreme, with [level] chosen (none when it is null). */

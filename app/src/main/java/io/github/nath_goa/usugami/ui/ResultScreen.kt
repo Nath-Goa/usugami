@@ -93,6 +93,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.OutputType
+import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.PdfFile
@@ -515,6 +516,20 @@ private fun FileDetails(file: PdfFile, modifier: Modifier = Modifier, saved: Boo
             )
         } else if (file.keptOriginal) {
             Text(stringResource(R.string.original_kept), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // Compress PDF's Black and white left these pages partly in colour: said for as long as the
+        // result shows, the pages as "2,5-7", cut after eight of those with "…".
+        val colorPages = file.gray?.colorPages.orEmpty()
+        if (colorPages.isNotEmpty()) {
+            val pages = remember(colorPages) {
+                val parts = PdfPageSelection.format(colorPages).split(',')
+                if (parts.size > 8) parts.take(8).joinToString(",") + "…" else parts.joinToString(",")
+            }
+            Text(
+                pluralStringResource(R.plurals.gray_color_left, colorPages.size, colorPages.size, pages),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
         }
         AnimatedVisibility(visible = saved, enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()), label = "saved mark") {
             Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {

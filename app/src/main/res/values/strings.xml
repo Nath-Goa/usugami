@@ -825,7 +825,7 @@
     <string name="search_keywords_sign">signature, initials, autograph, e-sign</string>
     <string name="search_keywords_page_numbers">numbering, paginate, pagination, footer, header</string>
     <string name="search_keywords_watermark">stamp, confidential, draft, copyright, overlay</string>
-    <string name="search_keywords_compress">shrink, reduce size, smaller, optimize, file size, email</string>
+    <string name="search_keywords_compress">shrink, reduce size, smaller, optimize, file size, email, black and white, grayscale, gray, grey, monochrome</string>
     <string name="search_keywords_flatten">form, fields, annotations, comments, lock, fillable</string>
     <!-- For the EPUB to PDF and Redact PDF cards, which join Home in this release. -->
     <string name="search_keywords_epub">epub, ebook, e-book, book, novel</string>

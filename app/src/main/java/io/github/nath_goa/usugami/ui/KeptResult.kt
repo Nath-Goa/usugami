@@ -5,6 +5,8 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.os.bundleOf
 import androidx.lifecycle.SavedStateHandle
 import io.github.nath_goa.usugami.core.MarkStyle
+import io.github.nath_goa.usugami.core.PdfPageSelection
+import io.github.nath_goa.usugami.data.GrayOutcome
 import io.github.nath_goa.usugami.data.PdfFile
 import java.io.File
 
@@ -26,9 +28,14 @@ internal class KeptResult(private val handle: SavedStateHandle) {
         // Kept by Compress PDF; a result kept by an older version has none.
         val keptOriginals = kept.getBooleanArray("kept_originals")?.takeIf { it.size == pages.size }
         val marks = kept.getIntArray("marks")?.takeIf { it.size == pages.size }
+        // Kept by Compress PDF with Black and white, from 2.0.0.
+        val grays = kept.getByteArray("gray")?.decodeToString()?.split(SEPARATOR)?.takeIf { it.size == pages.size }
         return files.indices.map { i ->
             val file = if ('/' in files[i]) File(files[i]) else File(folder, files[i])
-            PdfFile(file, pages[i], originals[i], keptOriginal = keptOriginals?.get(i) == true, mark = marks?.get(i)?.let(::unpackMark))
+            PdfFile(
+                file, pages[i], originals[i], keptOriginal = keptOriginals?.get(i) == true, mark = marks?.get(i)?.let(::unpackMark),
+                gray = grays?.get(i)?.let { unpackGray(it, pages[i]) },
+            )
         }
     }
 
@@ -62,7 +69,35 @@ internal class KeptResult(private val handle: SavedStateHandle) {
                 "originals" to LongArray(files.size) { files[it].originalBytes },
                 "kept_originals" to BooleanArray(files.size) { files[it].keptOriginal },
                 "marks" to IntArray(files.size) { i -> files[i].mark?.let { it.size shl 8 or it.opacity } ?: NO_MARK },
+                "gray" to files.joinToString(SEPARATOR.toString()) { file -> file.gray?.let(::packGray).orEmpty() }.encodeToByteArray(),
             )
+        }
+
+        /**
+         * What Black and white did to a PDF, in a few bytes: 1 when it turned something gray (0 when
+         * not), then a colon, then the pages left in colour as they are typed ("1:2,5-7", "1:").
+         */
+        private fun packGray(outcome: GrayOutcome): String =
+            (if (outcome.changed) "1:" else "0:") + PdfPageSelection.format(outcome.colorPages)
+
+        /**
+         * The outcome [packGray] kept as [packed], for a PDF of [pageCount] pages; none for an empty
+         * text. Pages it can't read are left out: the PDF is still shown, without the line naming them.
+         */
+        private fun unpackGray(packed: String, pageCount: Int): GrayOutcome? {
+            val colon = packed.indexOf(':')
+            if (colon < 0) return null
+            val pages = packed.substring(colon + 1)
+            val colorPages = if (pages.isEmpty() || pageCount <= 0) {
+                emptyList()
+            } else {
+                try {
+                    PdfPageSelection.selected(pages, pageCount)
+                } catch (_: IllegalArgumentException) {
+                    emptyList()
+                }
+            }
+            return GrayOutcome(packed.substring(0, colon) == "1", colorPages)
         }
 
         /** No Usugami mark, in [pack]'s "marks". */

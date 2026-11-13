@@ -43,6 +43,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.common.PDStream
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
@@ -2815,6 +2816,77 @@ class ScreensDeviceTest {
         } finally {
             downloads(stamp).forEach { app.contentResolver.delete(it.first, null, null) }
         }
+    }
+
+    /** A one-page PDF of [text] in blue, the way a picker gives it; or of a gradient Black and white can't turn gray ([addUnconvertibleMeshPage]). */
+    private fun coloredPdf(name: String, text: String? = null): Uri {
+        val out = java.io.ByteArrayOutputStream()
+        PDDocument().use { doc ->
+            if (text == null) {
+                addUnconvertibleMeshPage(doc)
+            } else {
+                val page = PDPage(PDRectangle.A4).also(doc::addPage)
+                PDPageContentStream(doc, page).use { content ->
+                    content.beginText()
+                    content.setNonStrokingColor(0.1f, 0.2f, 0.8f)
+                    content.setFont(PDType1Font.HELVETICA, 24f)
+                    content.newLineAtOffset(72f, 700f)
+                    content.showText(text)
+                    content.endText()
+                }
+            }
+            doc.save(out)
+        }
+        return picked(name, out.toByteArray())
+    }
+
+    /**
+     * Compress PDF's Black and white: off at first, on with a tap and still on after the activity is
+     * recreated; with a second PDF it shows once, for both, and both come out gray. Back from the
+     * result it is still on, and a PDF with a part it can't turn gray says so on its card.
+     */
+    @Test fun compressHasABlackAndWhiteSwitchForAllPdfs() {
+        val first = launch()
+        val pdfVm = openTool(R.string.tool_compress, first)
+        onMain { pdfVm.addPdfs(listOf(coloredPdf("blue.pdf", "BLUE")), replace = false) }
+        waitUntil("the PDF to be added") { onMain { pdfVm.inputs.value.size } == 1 }
+        val title = app.getString(R.string.compress_gray)
+        // The row, which flips the switch: under the levels, so above the file name.
+        fun blackAndWhite() = checkNotNull(ancestor(findAbove("the Black and white row") { it.says(title) }) { it.isCheckable })
+        find("what it does") { it.says(app.getString(R.string.compress_gray_detail)) }
+        assertFalse("Off at first", blackAndWhite().chosen)
+        click(blackAndWhite())
+        waitUntil("Black and white to be on") { blackAndWhite().chosen }
+
+        // As on rotation.
+        onMain { first.recreate() }
+        recreatedFrom(first)
+        assertTrue("Still on after the activity is recreated", blackAndWhite().chosen)
+
+        onMain { pdfVm.addPdfs(listOf(coloredPdf("navy.pdf", "NAVY")), replace = false) }
+        waitUntil("the PDFs to be added") { onMain { pdfVm.inputs.value.size } == 2 }
+        // Read afresh: the detail changes in place.
+        find("what it does for all") { it.refresh() && it.says(app.getString(R.string.compress_gray_detail_many)) }
+        assertEquals("One switch for both", 1, nodes().count { it.refresh() && it.says(title) })
+        assertTrue("Still on with two PDFs", blackAndWhite().chosen)
+        val compress = app.resources.getQuantityString(R.plurals.pdf_compress_action_many, 2, 2)
+        click(find("the enabled button") { it.refresh() && it.says(compress) && ancestor(it) { node -> node.isClickable }?.isEnabled == true })
+        find("the result screen") { it.says(app.getString(R.string.result_heading_many)) }
+        val files = onMain { pdfVm.result.value!! }
+        assertEquals(listOf("blue_compressed.pdf", "navy_compressed.pdf"), files.map { it.name })
+        assertTrue("Both are gray: ${files.map { it.gray }}", files.all { it.gray?.changed == true && it.gray?.colorPages?.isEmpty() == true })
+
+        // Back at the tool, still on; a PDF it can't turn gray all through.
+        backKey()
+        assertTrue("Still on after the result", blackAndWhite().chosen)
+        onMain { pdfVm.addPdfs(listOf(coloredPdf("mesh.pdf")), replace = true) }
+        waitUntil("the PDF to replace them") { onMain { pdfVm.inputs.value.map { it.name } } == listOf("mesh.pdf") }
+        find("what it does for one") { it.refresh() && it.says(app.getString(R.string.compress_gray_detail)) }
+        click(relabelledButton(R.string.pdf_compress_action))
+        find("the result screen") { it.says(app.getString(R.string.result_heading_one)) }
+        assertEquals(listOf(0), onMain { pdfVm.result.value!!.single().gray?.colorPages })
+        find("the line under the PDF") { it.says(app.resources.getQuantityString(R.plurals.gray_color_left, 1, 1, "1")) }
+        find("the message") { it.says(app.getString(R.string.pdf_gray_partial)) }
     }
 
     /**

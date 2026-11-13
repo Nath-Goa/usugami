@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Usugami 2.0.0: Black and white in Compress PDF. English only for now. The translations lane
+     translates these strings, moves them where they belong and takes tools:ignore away, so that
+     lint checks them as it checks the rest. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <!-- Compress PDF: a switch under the levels. The PDF comes out in shades of gray, not in pure black and white. Not the scanner's "Black & white" look. -->
+    <string name="compress_gray">Black and white</string>
+    <string name="compress_gray_detail">Turn colors into shades of gray</string>
+    <!-- The same, with several PDFs picked. -->
+    <string name="compress_gray_detail_many">Turn the colors of all PDFs into shades of gray</string>
+    <!-- Compress PDF with Black and white on: the new PDF is gray, and no smaller than the PDF picked. -->
+    <string name="pdf_gray_not_smaller">This PDF is black and white now, but it couldn\'t be made any smaller.</string>
+    <!-- The same with several PDFs: %1$d counts them (never 0), %2$s lists their names. -->
+    <plurals name="batch_gray_not_smaller">
+        <item quantity="one">%2$s is black and white now, but it couldn\'t be made any smaller.</item>
+        <item quantity="other">%1$d PDFs are black and white now, but they couldn\'t be made any smaller: %2$s.</item>
+    </plurals>
+    <!-- Compress PDF with Black and white on: a picture or drawing in the PDF couldn't be turned gray, and was left as it was. -->
+    <string name="pdf_gray_partial">Some parts of this PDF couldn\'t be made gray and are still in color.</string>
+    <!-- The same with several PDFs: %1$d counts the PDFs it happened to (never 0), %2$s lists their names. -->
+    <plurals name="batch_gray_partial">
+        <item quantity="one">Some parts of %2$s couldn\'t be made gray and are still in color.</item>
+        <item quantity="other">Some parts of %1$d PDFs couldn\'t be made gray and are still in color: %2$s.</item>
+    </plurals>
+    <!-- Under such a PDF on the result screen: %1$d counts its pages that still have color (never 0), %2$s lists them, such as 2,5-7. -->
+    <plurals name="gray_color_left">
+        <item quantity="one">Page %2$s is still partly in color</item>
+        <item quantity="other">%1$d pages are still partly in color: %2$s</item>
+    </plurals>
+</resources>

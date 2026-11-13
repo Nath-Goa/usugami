@@ -1152,39 +1152,66 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         process(fileName, source) { check -> listOf(engine.merge(source, selected, fileName, check)) }
     }
 
-    fun runCompress(level: PdfCompression, fileName: String) {
+    /**
+     * Compresses the one PDF at [level] into [fileName]. With [gray] (Black and white) its colours are
+     * turned gray too, and the gray PDF is the result once anything was, smaller or not.
+     */
+    fun runCompress(level: PdfCompression, fileName: String, gray: Boolean = false) {
         val input = inputs.value.singleOrNull() ?: return
         // The engine keeps the original file when re-encoding would not make an unprotected PDF
         // smaller. Say so, otherwise the result looks like nothing happened. A PDF with a password
         // can't be kept (no tool's PDF has one), and without it may come out bigger: that is said too.
         // Told of the PDF as it comes out, with the Usugami mark when it is on: the original isn't
         // kept once the mark goes on it, which adds a little too.
+        // With Black and white, a part left in colour is said first (its card also names the pages),
+        // and a PDF made gray that is no smaller says it is gray now, rather than only that it isn't smaller.
         process(fileName, listOf(input), afterResult = { files ->
             val file = files.single()
-            if (!madeSmaller(file)) message(strings.getString(if (file.keptOriginal) R.string.pdf_no_reduction else R.string.pdf_not_smaller))
-        }) { check -> listOf(engine.compress(input, level, fileName, check)) }
+            if (colorLeft(file)) message(strings.getString(R.string.pdf_gray_partial))
+            if (!madeSmaller(file)) {
+                message(strings.getString(when {
+                    file.keptOriginal -> R.string.pdf_no_reduction
+                    madeGray(file) -> R.string.pdf_gray_not_smaller
+                    else -> R.string.pdf_not_smaller
+                }))
+            }
+        }) { check -> listOf(engine.compress(input, level, fileName, check, gray)) }
     }
 
     /** Whether Compress PDF made [file] at least 1% smaller than the PDF it was made of. */
     private fun madeSmaller(file: PdfFile) = Compressor.savedPercent(file.originalBytes, file.sizeBytes) != null
 
+    /** Whether Black and white left some part of [file] in colour, on the pages its outcome names. */
+    private fun colorLeft(file: PdfFile) = file.gray?.colorPages?.isNotEmpty() == true
+
+    /** Whether Black and white turned [file]'s colours gray, all of them. */
+    private fun madeGray(file: PdfFile) = file.gray?.changed == true && !colorLeft(file)
+
     /**
      * Compresses every PDF, each at its own level ([compressionOf]) into a PDF of its own name
-     * ([outputName]), one after another. One PDF is compressed as [runCompress] does.
+     * ([outputName]), one after another, all of them turned gray with [gray] (Black and white). One PDF
+     * is compressed as [runCompress] does.
      */
-    fun runCompressAll() {
+    fun runCompressAll(gray: Boolean = false) {
         val list = inputs.value
         if (list.size <= 1) {
-            list.firstOrNull()?.let { runCompress(compressionOf(it), outputName(PdfTool.COMPRESS, it)) }
+            list.firstOrNull()?.let { runCompress(compressionOf(it), outputName(PdfTool.COMPRESS, it), gray) }
             return
         }
-        val jobs = list.map { CompressJob(it, compressionOf(it), outputName(PdfTool.COMPRESS, it)) }
+        val jobs = list.map { CompressJob(it, compressionOf(it), outputName(PdfTool.COMPRESS, it), gray) }
         // Those not made smaller and not kept as they were, as they come out (see runCompress), by the
-        // name of the PDF each was made of. A PDF kept says so under its name.
+        // name of the PDF each was made of. A PDF kept says so under its name. With Black and white,
+        // first those with parts left in colour, then those made gray that are no smaller.
         val names = HashMap<File, String>()
         processEach("Compressed_PDFs", list.map { it.name }, list, afterResult = { files ->
-            val notSmaller = files.filter { !it.keptOriginal && !madeSmaller(it) }.mapNotNull { names[it.file] }
-            if (notSmaller.isNotEmpty()) message(strings.getQuantityString(R.plurals.batch_not_smaller, notSmaller.size, notSmaller.size, strings.listOfNames(notSmaller)))
+            fun named(@PluralsRes res: Int, of: List<PdfFile>) {
+                val named = of.mapNotNull { names[it.file] }
+                if (named.isNotEmpty()) message(strings.getQuantityString(res, named.size, named.size, strings.listOfNames(named)))
+            }
+            named(R.plurals.batch_gray_partial, files.filter(::colorLeft))
+            val notSmaller = files.filter { !it.keptOriginal && !madeSmaller(it) }
+            named(R.plurals.batch_gray_not_smaller, notSmaller.filter(::madeGray))
+            named(R.plurals.batch_not_smaller, notSmaller.filterNot(::madeGray))
         }) { check, onNext ->
             engine.compressEach(jobs, check, onNext).also { outcomes ->
                 for ((i, outcome) in outcomes.withIndex()) outcome.getOrNull()?.let { names[it.file] = list[i].name }
