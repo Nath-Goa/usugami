@@ -166,10 +166,11 @@ the app has no internet permission.
   components it includes.
 
 Usugami ships these PDFBox data files: the 14 Adobe Font Metrics (AFM) files for the standard PDF
-fonts, the Identity-H and Identity-V CMaps, the Adobe Glyph List, the ITC Zapf Dingbats Glyph
-List, PDFBox's additional glyph list, the Unicode file BidiMirroring.txt, and the font
-Liberation Sans (see section 3). The other CMaps and Scripts.txt are left out. BouncyCastle, an
-optional dependency of PdfBox-Android, is not included.
+fonts, Adobe's CMaps for PDF fonts (the tables of Chinese, Japanese and Korean encodings and
+character collections, with which Usugami reads the text of PDFs in those languages, as Find text
+and selecting text do), the Adobe Glyph List, the ITC Zapf Dingbats Glyph List, PDFBox's additional
+glyph list, the Unicode file BidiMirroring.txt, and the font Liberation Sans (see section 3).
+Scripts.txt is left out. BouncyCastle, an optional dependency of PdfBox-Android, is not included.
 
 ### NOTICE file of PdfBox-Android
 
@@ -503,7 +504,7 @@ By the PaddlePaddle Authors, https://github.com/PaddlePaddle/PaddleOCR. License:
 Version 2.0 (full text in section 7).
 
 - PP-OCRv5_mobile_det: finds the lines of text
-- latin_PP-OCRv5_mobile_rec: reads English, French and Spanish
+- latin_PP-OCRv5_mobile_rec: reads English, French, Spanish, German, Portuguese and Indonesian
 - devanagari_PP-OCRv5_mobile_rec: reads Hindi, and English words in Hindi text
 
 Taken from PaddlePaddle's official ONNX exports on Hugging Face
@@ -539,8 +540,9 @@ Under the Android Software Development Kit License (https://developer.android.co
   play-services-tasks 18.2.0
 - com.google.android.odml: image 1.0.0-beta1
 
-The text-recognition models are not part of Usugami. Google Play services downloads each
-language's model the first time it is used, under Google's own terms.
+The text-recognition models are not part of Usugami. Google Play services downloads each model
+(one for English, French, Spanish, German, Portuguese and Indonesian, one for Hindi) the first time
+it is used, under Google's own terms.
 
 Google's API terms: https://developers.google.com/terms
 

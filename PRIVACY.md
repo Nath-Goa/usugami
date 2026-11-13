@@ -3,9 +3,10 @@
 Effective date: 9 November 2026
 
 Usugami is an Android app that turns images, Word documents, PowerPoint presentations, Excel
-workbooks and EPUB e-books into PDFs, and splits, merges, reorganizes, compresses, edits, signs and
-redacts PDFs. It works on your phone. It has no ads, no analytics, no tracking, no accounts and no
-in-app purchases, and it does not collect, share or sell any data about you.
+workbooks and EPUB e-books into PDFs; opens, annotates, prints, splits, merges, reorganizes,
+compresses, signs and redacts PDFs; and turns PDFs into images or text. It works on your phone. It
+has no ads, no analytics, no tracking, no accounts and no in-app purchases, and it does not collect,
+share or sell any data about you.
 
 This policy covers all three editions of Usugami: "Usugami" (the main edition), "Usugami Lite"
 and "Usugami OCR". The only difference that matters for privacy is text recognition (OCR),
@@ -23,8 +24,9 @@ public, so please don't include personal details. To report a security problem p
 ## What Usugami can access
 
 - Only the images, PDFs, Word, PowerPoint and Excel files, and EPUB books you choose. You pick them
-  with Android's photo picker or file picker, or you share them to Usugami from another app.
-  Android then gives Usugami access to those files only, and to a folder you pick to save into (see
+  with Android's photo picker or file picker, you share them to Usugami from another app, or you
+  open them with Usugami from another app ("Open with"). Android then gives Usugami access to those
+  files only, and to a folder you pick to save into (see
   Recent files below). Usugami cannot browse your photos or any other files or folders.
 - Usugami asks for no permissions: no storage, camera, location, contacts or microphone access.
 - **Take photo** opens your phone's own camera app, which saves just that one photo for Usugami.
@@ -32,21 +34,23 @@ public, so please don't include personal details. To report a security problem p
   until you make it into a PDF or remove it.
 - Usugami has no internet permission, so Android does not let it connect to the internet, and it
   cannot upload your files.
-- When you save a PDF, it goes where you choose: the Downloads folder or a folder you pick with
-  the system file picker. When you tap Share or Open, the PDF goes to the app you pick, and that
-  app's own privacy policy applies.
+- When you save a file, it goes where you choose: the Downloads folder or a folder you pick with
+  the system file picker. When you tap Share or Open with another app, the file goes to the app you
+  pick, and that app's own privacy policy applies. When you tap Print, the PDF goes to Android's
+  print screen and then to the printer or print service you choose there.
 
 ## What Usugami stores on your phone
 
-- Working copies: while you work, Usugami keeps copies of the files you picked and the PDFs it
-  makes in its private cache on your phone, where other apps can't read them. Usugami deletes
-  them automatically once they are no longer needed (for example, when you start over), and
+- Working copies: while you work, Usugami keeps copies of the files you picked or opened and the
+  files it makes in its private cache on your phone, where other apps can't read them. Usugami
+  deletes them automatically once they are no longer needed (for example, when you start over), and
   Android may also clear the cache when storage runs low.
 - Signatures: a signature you draw for "Sign PDF" is kept only while Usugami is open, in its
   memory and in the screen state Android keeps for it, so you can use it again. It is never saved
   in a file of its own, only in the PDFs you sign.
-- Edit PDF: the text, drawings and shapes you add to a PDF are kept the same way, until you leave
-  the tool, and only end up in the PDF you save. Pictures you add are working copies, as above.
+- Annotate: the text, drawings and shapes you add to a PDF in the reader are kept the same way,
+  until you close it, and only end up in the PDF you save. Pictures you add are working copies, as
+  above. The file you opened is never changed.
 - Settings: your last choices (such as page size, margins and compression level), stored
   privately on your phone.
 - Recent files: the name, type, size and place of the last 50 files you saved with Usugami, and
@@ -63,18 +67,20 @@ Nothing is stored anywhere else. Usugami has no servers.
 ## Text recognition (OCR)
 
 Text recognition is optional. It only runs when you turn on "Make text searchable (OCR)" while
-converting images, and the recognition itself happens on your phone. Your images and the
+converting images, or "Read pages without text" in PDF to images or text, and the recognition
+itself happens on your phone. Your images and the
 recognized text are never sent to Google or anyone else. How it works depends on the edition.
 
 ### Usugami (the main edition)
 
 - Text recognition uses Google ML Kit, a library made by Google, and runs through Google Play
   services, a separate app from Google that is installed on most Android phones.
-- The first time you use a text language, Google Play services downloads Google's
-  text-recognition model for it (one model covers English, French and Spanish; Hindi has its own). This needs an internet connection at that time. Google
-  Play services then keeps the model for later use; if it removes a model, it downloads it again
-  the next time you use that language. Google Play services does these downloads, not Usugami,
-  and Google's Privacy Policy applies to them: https://policies.google.com/privacy
+- The first time you use a text language, Google Play services downloads Google's text-recognition
+  model for it (one model covers English, French, Spanish, German, Portuguese and Indonesian; Hindi
+  has its own). This needs an internet connection at that time. Google Play services then keeps the
+  model for later use; if it removes a model, it downloads it again the next time you use that
+  language. Google Play services does these downloads, not Usugami, and Google's Privacy Policy
+  applies to them: https://policies.google.com/privacy
 - To download and run text recognition, Google's libraries inside Usugami talk to Google Play
   services on your phone. Google Play services may report to Google how these Google APIs were
   used (for example, whether a call succeeded).
@@ -87,8 +93,8 @@ recognized text are never sent to Google or anyone else. How it works depends on
   that would upload ML Kit's metrics from inside Usugami, so those metrics are dropped. Google
   Play services is a separate app, and what it sends is covered by Google's policies, not by
   Usugami.
-- Everything else in Usugami (images, Word, PowerPoint, Excel and EPUB to PDF, and all the PDF
-  tools) works without Google Play services and without internet.
+- Everything else in Usugami (the reader, images, Word, PowerPoint, Excel and EPUB to PDF, and all
+  the PDF tools) works without Google Play services and without internet.
 
 ### Usugami OCR
 
@@ -96,7 +102,8 @@ recognized text are never sent to Google or anyone else. How it works depends on
   models, run on your phone's processor by Tencent's ncnn. It works with no internet connection and
   doesn't need Google Play services.
 - The page images are read in the app's memory and only the recognized text is kept, as the PDF's
-  invisible text layer. Nothing is sent anywhere or stored anywhere else.
+  invisible text layer or in the text file PDF to images or text makes. Nothing is sent anywhere or
+  stored anywhere else.
 - Usugami OCR contains no Google libraries and makes no network connections at all.
 
 ### Usugami Lite

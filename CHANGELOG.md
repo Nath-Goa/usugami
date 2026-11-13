@@ -6,6 +6,186 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- **Usugami opens files.** It is in Android's "Open with" list, once and under its own name, for
+  PDFs and for Word (.docx), Excel (.xlsx), PowerPoint (.pptx) and EPUB files, also when the app
+  that has them gives them no telling type but their name ends that way (in small letters or in
+  capitals). What a file is is decided by its content, so a PDF called scan.bin still opens. Inside
+  Usugami, Home has a new first section, **View**, with **Read and annotate**, which picks a PDF or
+  document to open; Choose a tool, for one PDF shared to Usugami, starts with it too, and PDFs on
+  Recent files open in the reader. To stop Usugami being the phone's PDF app after choosing
+  "Always": Settings, Apps, Usugami, Open by default, Clear defaults.
+- **The reader** shows the pages one under another at the screen's width, in their own colours
+  (white in the dark theme too), turned and cropped as viewers show them, with comments and form
+  fields drawn, and the page you are on at the bottom ("3 of 12"; tap it to go to a page). Pinch to
+  zoom from half size to five times, or double-tap to zoom in on a spot and back; zoomed in, one
+  finger moves the page any way, and the part on the screen is then drawn again sharp, so small
+  print can be read at any zoom. A password-protected PDF asks for its password once, and "Opening…"
+  with Cancel shows while a large file is copied in. With a screen reader, each page has the
+  actions Zoom in, Zoom out and Copy the text of this page, and the page number is a button. Back
+  returns to the app that opened the file, or to Home; a file opened while something unsaved is
+  open asks first, and one opened while a PDF is being made waits for it. Files opened are copied
+  into Usugami first, are never changed and don't go on Recent files.
+- **Find text in the reader:** the magnifier turns the bar into a search field. The keyboard's
+  search key searches from the page showing; every match is marked in yellow and the current one in
+  orange, scrolled into view, with "3 of 17" (heard as "Match 3 of 17") and arrows that go round
+  the matches. A long PDF is searched a few pages at a time, with matches showing as they are found
+  and a thin bar for how far it has got. The search ignores case and accents, finds phrases across
+  line breaks, reads Hebrew and Arabic the right way, and finds Chinese, Japanese and Korean as
+  written, also down the page. It says when nothing was found, when it kept only the first 2,000
+  matches, and how many pages had text it couldn't read. A search comes back after the phone is
+  turned or Android closes Usugami.
+- **Select and copy text** in the reader and in a result's preview: a long-press on a word selects
+  it (the phone ticks), and round handles at each end drag it over lines and on to other pages,
+  scrolling the pages when held near the top or bottom of the screen. Copy, on a bar that shows
+  while text is selected, puts the text on the clipboard with spaces between words but none
+  between Chinese or Japanese characters, each line on its own line, right-to-left text in reading
+  order and ligatures as plain letters; below Android 13 it says "Text copied". More than 200,000
+  characters is too much for one copy. A page with no text says so when long-pressed and suggests
+  PDF to images or text (Usugami Lite says it can't read it). Text selected near the bottom of the
+  screen moves up above the Copy bar, and when the text of a page in the selection can't be read,
+  Copy copies nothing and names that page.
+- **Word, Excel, PowerPoint and EPUB files in the reader:** they show as Usugami lays them out as a
+  PDF, under their own name, with a note that they may look different in the app that made them,
+  and **Save as PDF** leads to the usual result screen.
+- **The reader's More menu:** Share, Print, Tools (Choose a tool, with this PDF), Go to page and
+  Open with another app. Share and Open with another app hand over the file as it was opened, under
+  its own name and with its password if it has one; such a file is copied once more first, which
+  takes a moment, and the storage, for a very large one.
+- **PDF to images or text**, a new tool in a new last section of Home, **Convert from PDF** (also
+  offered when one PDF is shared to Usugami). **Images** saves the pages as JPG or PNG pictures,
+  Small, Medium or Large (100, 200 or 300 dpi; a very large page gets fewer pixels, and a note says
+  so), drawn as PDF viewers show them, comments, stamps and filled-in forms included, named after
+  the PDF with the page number (Report_p3.jpg), each to open, share or save, or all together as
+  Report_images.zip. **Text** makes one .txt file of the pages' text in reading order: Hebrew and
+  Arabic lines in reading order, Chinese and Japanese without stray spaces, writing down the page a
+  column to a line, and only what a cropped page shows. The result screen shows the text in a card
+  with Show more and Show less (up to 20,000 characters) and a **Copy** button (up to 200,000). In
+  Usugami and Usugami OCR, **Read pages without text** (on at first) reads scanned pages with text
+  recognition in the text language chosen, and notes say which pages it read or failed on; Usugami
+  Lite takes the text the PDF holds and says which pages had none. Pages are chosen by typing them
+  (1,3,5-8) or tapping their previews, all of them when none are chosen. Password-protected PDFs
+  work, and Cancel leaves nothing behind.
+- **Page layout**, a new tool under Organize (also offered when one PDF is shared to Usugami), with
+  two modes. **Crop**: drag the sides or corners of a box on a page, or crop each side 1% more or
+  less with buttons, and Whole page to start again; the box takes the same share of every page
+  cropped, all pages or the ones typed like 2,5-7, also of pages turned sideways. Crop PDF saves a
+  copy in which what is outside the box is hidden, not removed (Redact PDF removes it), and links,
+  form fields and bookmarks stay as they were. **Pages per sheet**: 2, 4, 6 or 9 pages on each A4 or
+  US Letter sheet (US Letter first when the PDF's first page is), across then down, with an
+  optional thin border round each page, on sheets turned whichever way the pages come out bigger,
+  with a preview of the first sheet and how many sheets there will be. Text stays sharp and
+  selectable, comments and filled-in fields are drawn as they look, and links, bookmarks and form
+  fields don't carry over. The new PDF is named like Report_layout.pdf.
+- **Document info**, a new tool last under Optimize and protect (also offered when one PDF is shared
+  to Usugami): a PDF's title, author, subject and keywords, when it was created and last changed (in
+  the phone's time zone), the apps that made it, its pages, PDF version and file size. The title,
+  author, subject and keywords can be changed or emptied, in any language; Save PDF makes a new PDF
+  (Report_info.pdf) in which only what was changed is written, in both the PDF's info and its XMP
+  metadata, and everything else stays as it was. **Remove all info** clears them, with the dates and
+  app names, and the hidden details other apps keep in a PDF (extra metadata on the document, its
+  pages and pictures, editing apps' private data, the app that made each layer, the file's ID, which
+  gets a new random one), so the PDF's own info no longer says who made it or with what; Undo takes
+  it back, and a new title or the like can still be typed. Pages, comments, form fields, attachments
+  and signatures aren't touched. A digitally signed PDF says before saving that its signature won't
+  be valid in the new PDF, a password-protected PDF is saved without its password, and extra info
+  that can't be read is said to be left out. What was typed survives turning the phone, the result
+  screen and Android closing Usugami, and leaving with changes asks first.
+- **Black and white** in Compress PDF: a switch under the levels (one switch for all PDFs when there
+  are several), off each time the tool opens, turns every colour into a shade of gray at any level.
+  Text stays real, selectable text and drawings stay drawings: pages are never turned into
+  pictures. Pictures (JPEG, JPEG 2000 and CMYK pictures among them), gradients, patterns, form
+  fields and comments turn gray too, and a photo Compress PDF shrinks comes out as a smaller gray
+  JPEG. With the switch on, a PDF with colour always comes out gray, also when it is no smaller, and
+  the message says so; a PDF with no colour is treated as before. What can't be turned gray (a rare
+  kind of gradient, a picture Android's renderer can't draw, or a JPEG 2000 that carries its own
+  transparency) is left as it was, a message says so, and the PDF's card on the result screen names
+  the pages still partly in colour. Home's search finds Compress PDF for "black and white",
+  "grayscale", "gray", "grey" and "monochrome".
+- **ID card scan:** Scan document has a third, quieter button, "ID card: both sides on one page".
+  It asks for the card's front, a photo taken with the phone's camera app or one image chosen, then
+  its back; each side has its own crop screen, the front starting on Original and the back with the
+  front's look. Both sides go on one page of the PDF, the front above the back, at the card's real
+  size (85.6 mm wide, a passport page 125 mm), centred, and kept sharp enough for small print. **No
+  back side** keeps a card with one side, whose page has **Add back side** to add it later. In
+  Images to PDF a card is one tile showing the sheet as it will print: it moves as one page, its
+  crop button crops either side again, and its remove button removes the whole card. With text
+  recognition on, the text of both sides can be searched and copied. Made one PDF per image, a card
+  is one PDF, named after its front. Home's search finds Scan document for "ID card", "identity
+  card", "passport", "driving licence" and "driver's license". Still no camera permission.
+- **Print:** a Print button for every PDF on the result screen (each PDF's own when there are
+  several), in Recent files and in the reader, opening Android's own print screen with its preview,
+  printer, copies, paper size, pages and "Save as PDF". The PDF is sent as it is, so text stays
+  text, and forms and signatures print as they look. No permission, and nothing leaves the phone
+  except to the printer chosen. A phone that can't print shows no Print.
+- **App shortcuts:** long-press Usugami's icon for Scan document, Images to PDF, Merge PDF and
+  Compress PDF, in the language chosen in Usugami, each with its tile's icon (Usugami Lite has its
+  own). They act wherever Usugami is: over changes not saved, or a PDF, images or a text file made
+  and not saved yet, Usugami asks first ("Discard your changes?", "Discard this PDF?" or "Discard
+  what you made?"); in Images to PDF, Scan document adds a photo, and Merge PDF and Compress PDF open
+  over the images, Back returning to them; while Usugami is making something, the shortcut says it
+  is still working. Scan document's shortcut used while a scan is going on brings that scan back.
+- **German, Brazilian Portuguese and Indonesian**: pick one on the first-launch screen, in Settings
+  → Language, or on Android 13 and newer in the phone's own language settings for Usugami. A phone
+  set to any Portuguese gets the Portuguese texts. Home's search knows the words German, Portuguese
+  and Indonesian speakers use for each tool.
+- **Text recognition in German, Portuguese and Indonesian**, umlauts and accents included (ä, ö,
+  ü, ß, ã, õ, ç): in Usugami with the same download as English, in Usugami OCR built in. It starts
+  on the app's language.
+
+### Changed
+
+- **Annotate replaces Edit PDF.** The Annotate button at the top of the reader opens Edit PDF's
+  tools (text, drawings, highlights, shapes, pictures, six colours, Undo and Redo) on the page
+  showing, and Back to reading returns to that page with what was added drawn. Once something is
+  added, Save PDF makes a new PDF (Report_annotated.pdf) and shows the result screen; the file
+  opened stays as it is. Until then, the reader's More menu has no Share, Print or Open with another
+  app, which would hand over the file without the additions, and a document's Save as PDF is
+  hidden. Every word that found Edit PDF, in every language, finds Read and annotate.
+- **Reorganize PDF** does what Rotate PDF and Delete pages did: pages are selected by tapping them
+  (each a check box), by typing them like 2,5-7 in Selected pages, or with Select all, and the bar
+  above the pages turns all the selected pages left or right or removes them, saying how many are
+  selected ("Selected: 3 of 12"); with one page selected it still moves it earlier or later. A PDF
+  keeps at least one page ("Keep at least one page."), and pages typed that can't be used are
+  explained once typing is done. Pages added go after the last selected page. Pages only turned or
+  removed are saved exactly as the two old tools saved them. PDFs made by turning or removing pages
+  are named like Report_reorganized.pdf. Searching Home for "rotate", "turn", "delete" or "remove"
+  finds Reorganize PDF.
+- **Documents to PDF**: Home's Create PDF section has one tile in place of Word to PDF, PowerPoint
+  to PDF, Excel to PDF and EPUB to PDF. It opens the file picker with all four kinds together
+  (several can be picked) and Usugami opens the right converter by itself, which works as before.
+  Picked files of several kinds: the kind most of them are is converted and the others are named as
+  left out, as are files Usugami can't convert. A document whose type the phone doesn't know is
+  recognised by its content. The search finds the tile by every word that found the four converters.
+- **Open** on a result screen shows the new PDF inside Usugami, in a preview with Find text, Go to
+  page and Open with another app; Back returns to the result as it was.
+- **Redact PDF**: Find text finds Chinese, Japanese and Korean as they are written: a word wrapped
+  onto the next line at any character, with a box on each line; writing that runs down the page,
+  with a box down each column; a name with or without its space; full-width letters and digits by
+  plain ones, and half-width katakana and ordinary katakana by each other. A notice under Find text
+  names the pages with text it couldn't read, so they can be checked by hand.
+- The result screen, Save to Downloads, Save as…, Save to folder, Share, Open and Recent files
+  handle images and text files as well as PDFs, each as what it is, with its own heading, icon and
+  type; the Usugami watermark is offered only when there is a PDF.
+- The text language for text recognition is chosen from a menu, now that there are seven.
+- Long jobs on one PDF show how far they have got ("Page 3 of 40").
+- Usugami carries PDFBox's tables for Chinese, Japanese and Korean fonts again (all 90 CMaps, about
+  1.2 MB in each app), with which it reads the text of such PDFs.
+
+### Removed
+
+- **Rotate PDF**, **Delete pages** and **Edit PDF** are no longer tools on Home and in Choose a
+  tool: what they did is in Reorganize PDF and in Annotate. After the update, a tool screen of
+  theirs that Android kept opens Home.
+
+### Fixed
+
+- **Redact PDF**'s Find text reads PDFs whose Chinese, Japanese or Korean fonts carry no list of
+  their letters (no ToUnicode map), as invoices and reports from TCPDF, FPDF and iText and older
+  Acrobat files often have them, where it said "Couldn't search this PDF." or found nothing. A page
+  it can't read no longer stops the search of the others.
+
 ## [1.6.5] - 2026-11-11
 
 ### Changed

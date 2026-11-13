@@ -1,0 +1,8 @@
+• Open PDFs and documents in Usugami's own reader: zoom, find and copy text, print
+• Annotate in the reader replaces Edit PDF
+• New tools: PDF to images or text, Page layout (crop, pages per sheet), Document info
+• Black and white in Compress PDF, and ID card scans
+• Reorganize turns and removes many pages at once
+• Print, app shortcuts and one Documents to PDF tile
+• German, Brazilian Portuguese and Indonesian
+• Redact finds Chinese, Japanese and Korean text

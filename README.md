@@ -1,8 +1,9 @@
 # Usugami
 
-**Turn photos, Word documents, PowerPoint slides, Excel spreadsheets and EPUB e-books into PDFs,
-and split, merge, reorganize, rotate, edit, number, watermark, sign, compress, flatten and redact
-PDFs, right on your Android phone. No ads, no tracking, no account, no uploads.**
+**Turn photos, ID cards, Word documents, PowerPoint slides, Excel spreadsheets and EPUB e-books
+into PDFs; read, annotate, print, split, merge, reorganize, rotate, crop, number, watermark, sign,
+compress, flatten and redact PDFs, and turn them into images or text, right on your Android phone.
+No ads, no tracking, no account, no uploads.**
 
 *Usugami* (薄紙, oo-soo-GAH-mee) is Japanese for "thin paper": a light app for making light PDFs.
 It was called PDFer before version 1.2.0.
@@ -20,7 +21,7 @@ and helps other people find the app.
 <a href="https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk"><img src="docs/badges/get-it-on-github.png" alt="Get Usugami on GitHub" height="80"></a>
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22io.github.nath_goa.usugami%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2FNath-Goa%2Fusugami%22%2C%22author%22%3A%22Nath-Goa%22%2C%22name%22%3A%22Usugami%22%2C%22additionalSettings%22%3A%22%7B%5C%22apkFilterRegEx%5C%22%3A%5C%22%5EUsugami%5C%5C%5C%5C.apk%24%5C%22%2C%5C%22autoApkFilterByArch%5C%22%3Afalse%2C%5C%22allowedSigningCertHashes%5C%22%3A%5C%226F%3A4F%3A23%3AAD%3AE0%3A3E%3A63%3A6A%3A7C%3AC3%3A68%3A16%3A89%3A44%3AD0%3ACC%3AFC%3A81%3A32%3AEF%3A34%3AC5%3A0B%3AC5%3AA4%3A6B%3A0C%3AA4%3ACB%3ABD%3AF4%3AED%5C%22%7D%22%7D"><img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" height="80"></a>
 
-On your phone, tap **Get it on GitHub** to download **Usugami.apk** (about 3 MB), then follow the
+On your phone, tap **Get it on GitHub** to download **Usugami.apk** (about 4.8 MB), then follow the
 [install steps](#install). Usugami comes in three editions, compared below; if you're not sure,
 take this one.
 
@@ -29,11 +30,11 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 
 | | **Usugami** (recommended) | **Usugami Lite** | **Usugami OCR** |
 |---|---|---|---|
-| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 3 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 2.8 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 14 MB: the recognition engine and models are inside |
+| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 4.8 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 4.5 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 16 MB: the recognition engine and models are inside |
 | Downloads | [![Usugami downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) | [![Usugami Lite downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-lite.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) | [![Usugami OCR downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-ocr.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) |
-| Images, Word, PowerPoint, Excel and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
-| Text recognition (OCR) for searchable PDFs | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app ([PaddleOCR](#how-usugami-ocr-reads-text) models). Works with no internet, forever. |
-| Internet needed | Only for text recognition, the first time you use each language | Never | Never |
+| The reader, images, Word, PowerPoint, Excel and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
+| Text recognition (OCR) for searchable PDFs and scanned pages | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app ([PaddleOCR](#how-usugami-ocr-reads-text) models). Works with no internet, forever. |
+| Internet needed | Only for text recognition, the first time you use it (and the first time you use Hindi) | Never | Never |
 | Needs Google Play services | Only for text recognition | No | No |
 | Google code inside | Google's ML Kit and Play services libraries, for text recognition | None | None |
 | Works on | Android 8.0 or newer | Android 8.0 or newer | Android 8.0 or newer, ARM phones (virtually all phones) |
@@ -42,8 +43,9 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 > [!NOTE]
 > **About internet access:** Usugami itself has **no internet permission** and uploads nothing.
 > The main **Usugami.apk** needs an internet connection **only for text recognition (OCR)**: the
-> first time you use each language, Google Play services downloads its recognition model (and
-> again if Play services has removed it since). Everything else works offline. If you want text
+> first time you use it, Google Play services downloads its recognition model (one model reads
+> English, French, Spanish, German, Portuguese and Indonesian, and Hindi has a second one), and
+> again if Play services has removed it since. Everything else works offline. If you want text
 > recognition built in, with no download ever, get **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**
 > instead. If you don't need text recognition at all, **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**
 > is the smallest.
@@ -64,60 +66,43 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 1.6.5
+## What's new in 2.0.0
 
-The scanner's crop step finds the page more steadily. A table, a box or a picture printed on a
-page is no longer taken for the page, a streak in a wooden desk is no longer taken for the page's
-edge, and a page that runs off one side of the photo, such as a book's page photographed close,
-is found as far as it shows.
+The biggest update yet:
 
-1.6.4, the day before, four fixes: Excel to PDF starts Arabic and Hebrew text at the right of its
-cell, a ZIP file made just as the Usugami watermark is switched holds every PDF with it, the
-message about a certified PDF getting no watermark is said once, and a PDF with a damaged
-signature can get the watermark.
+- **Read and annotate:** Usugami is now in Android's "Open with" list for PDF, Word, Excel,
+  PowerPoint and EPUB files, and opens them in its own reader: pages in one scroll, pinch or
+  double-tap to zoom, go to a page, find text, select and copy text, share and print.
+  **Annotate**, in the reader, does everything Edit PDF did (text, drawings, highlights, shapes and
+  pictures) and saves what you add as a new PDF.
+- **PDF to images or text:** save pages as JPG or PNG pictures, or get a PDF's text as a .txt file
+  with a Copy button. Usugami and Usugami OCR read scanned pages with text recognition.
+- **Page layout:** crop pages, or put 2, 4, 6 or 9 pages on each sheet.
+- **Document info:** see, change or remove a PDF's title, author, subject and keywords, or remove
+  all of its info.
+- **Black and white** in Compress PDF turns every colour into a shade of gray, while text stays
+  sharp, selectable text.
+- **ID card scan:** both sides of a card on one page, at the card's real size.
+- **Reorganize PDF** turns and removes several pages at once, and takes over from Rotate PDF and
+  Delete pages.
+- **Documents to PDF:** one tile for Word, PowerPoint, Excel and EPUB files, which opens the right
+  converter.
+- **Print** any PDF from the result screen, Recent files or the reader, through Android's own print
+  screen.
+- **App shortcuts:** long-press Usugami's icon for Scan document, Images to PDF, Merge PDF and
+  Compress PDF.
+- **Redact PDF** finds Chinese, Japanese and Korean text as it is written, also down the page, and
+  says which pages it couldn't read.
+- **German, Brazilian Portuguese and Indonesian**, for the app and for text recognition.
+- Still no permissions, and nothing leaves your phone. The tables that read Chinese, Japanese and
+  Korean fonts add about 1.2 MB to each app.
 
-1.6.3, the same day as 1.6.4, five fixes: a page lying tilted on a tall photo comes out of the
-scanner's crop step upright, Excel to PDF groups digits as the phone's region does (12,34,567 in
-India) and no longer shows -0.00, Recent files drops a PDF deleted or renamed in the Files app,
-and Compress PDF and the Usugami watermark keep what another app added to a signed PDF.
+1.6.0 to 1.6.5, before it: Scan document at the top of Home with seven page looks, Excel to PDF,
+Recent files, HEIC, AVIF, WebP, BMP and GIF images, the optional Usugami watermark, footnotes and
+endnotes in Word to PDF, a steadier crop step, and many fixes.
 
-1.6.2, two days before:
-
-- **Footnotes and endnotes** in Word to PDF, numbered and placed as in Word: footnotes at the foot
-  of their page, endnotes at the end of the document or of each section
-- **The screen stays on** while a job shows its progress, such as reading text (OCR) or converting
-  a long document
-- **Split PDF** names each PDF by its pages, such as Report_p3.pdf or Report_p3-5.pdf
-- **Page numbers** grow and shrink with the page: as before on A4 and Letter, small on a label,
-  large on a poster
-- **Usugami watermark** drawn as shapes, not text, so searching or copying a PDF's text no longer
-  finds it, and digitally signed PDFs keep their signatures
-- **Far less memory** for very large HEIC and AVIF photos, and for Word, PowerPoint, EPUB and Excel
-  files with very long unbroken words
-- Messages about many files left out name the first three and count the rest
-
-1.6.1, earlier that day: HEIC, AVIF, WebP, BMP and GIF images, the optional Usugami watermark,
-photos from Photos named by their date, better Word, PowerPoint and EPUB layout, Redact PDF finding
-letter-spaced and hyphenated words, Usugami OCR reading very large words, and about 40 fixes.
-
-1.6.0, the big update that same day:
-
-- **Scan document** at the top of Home: take photos with your phone's camera app, or upload images
-  from your gallery
-- **Two steps for each page:** crop it, now also by its sides and turned a quarter at a time, then
-  choose its look, brightness and contrast
-- **Seven looks**, with the new **Lighten**, **Super enhanced** and **Ink saver**, plus
-  **Brightness** and **Contrast** sliders and **Apply to all pages**
-- **Finds the page by its edges** too, so it can find a white page on a white desk, or one held in
-  your hand
-- **Excel to PDF:** .xlsx workbooks, each sheet on pages as Excel prints it, with its number and
-  date formats, borders, merged cells, pictures, and headers and footers
-- **Recent files** on Home: open, share or remove the files you saved, without searching through
-  Downloads
-- Still no permissions, not even for the camera, and nothing leaves your phone
-
-1.5.0 to 1.5.3, before it: three editions (Usugami, Usugami Lite and Usugami OCR), camera scans,
-batch mode, sharing files straight to Usugami, safer redaction, Usugami's own
+1.5.0 to 1.5.3: three editions (Usugami, Usugami Lite and Usugami OCR), camera scans, batch mode,
+sharing files straight to Usugami, safer redaction, Usugami's own
 [F-Droid repository](https://nathank.me/usugami/), and well over 100 fixes.
 
 [Full changelog](CHANGELOG.md)
@@ -156,7 +141,8 @@ works on Android 8.0 or newer. Menu names differ a little between phones.
 
 Once it's installed, Usugami is also in other apps' **Share** menu: share images, PDFs, Word,
 PowerPoint, Excel or EPUB files to it from Files, Photos, a mail app or a chat, and they open in the
-right tool (see *Share to Usugami* under [Features](#features)).
+right tool (see *Share to Usugami* under [Features](#features)). It is in their **Open with** list
+too, for PDF, Word, Excel, PowerPoint and EPUB files, which open in its reader.
 
 <details>
 <summary><b>Where is "Install unknown apps"? (Samsung and other phones)</b></summary>
@@ -207,6 +193,18 @@ old "PDFer".
   **Next**, and **Done** on the last; close part way, and the images not cropped yet stay in the
   page list as they are.
 - Then the pages are in Images to PDF, where you reorder them and make the PDF as usual.
+- **ID card: both sides on one page**, the quieter button under Take photo and Upload images: take a
+  photo of the card's front with the camera app or choose one image, crop it and give it a look
+  (it starts on Original), then the same for the back, which starts with the front's look. **No
+  back side** keeps a card with one side, and its page has **Add back side** to add the back later.
+  Leaving a side's crop screen asks for that side again; Cancel on the front's screen goes back
+  without adding anything.
+- Both sides go on one page of the PDF, the front above the back, at the card's real size (85.6 mm
+  wide; a passport page at its own, 125 mm), centred on the page size and margin chosen, and kept
+  sharp enough for small print. In Images to PDF the card is one tile showing the sheet as it will
+  print: it moves as one page, its crop button crops either side again, and its remove button
+  removes the whole card. With text recognition on, the text of both sides can be searched and
+  copied. Made one PDF per image, a card is one PDF, named after its front.
 
 **Images to PDF**
 
@@ -249,15 +247,26 @@ old "PDFer".
 - **Private by default:** location (GPS), camera details and other hidden metadata, and the video
   part of "motion photos", are removed from the images.
 - Optional **searchable PDF** with text recognition (OCR) in **English**, **French**,
-  **Spanish** or **Hindi**. Hindi mode also keeps any English text. Text is read from your
+  **Spanish**, **Hindi**, **German**, **Portuguese** or **Indonesian**, chosen from a menu. Hindi
+  mode also keeps any English text. Text is read from your
   original images (cropped pages as cropped, in colour whatever their look), not the compressed
   copies, so small print is found even at Extreme. (In Usugami and Usugami OCR; Usugami Lite has
   no text recognition.)
 
+**Documents to PDF**
+
+- One tile on Home for Word (.docx), PowerPoint (.pptx), Excel (.xlsx) and EPUB (.epub) files. It
+  opens the file picker with all four kinds at once; pick one file or several, and Usugami opens the
+  right converter (below) by itself. Picked together, files of several kinds: the kind most of them
+  are is converted, and the others are named as left out, as are files Usugami can't convert. A file
+  whose type the phone doesn't know is recognised by its content.
+- Opened in the reader (see *Read and annotate*), these files show as Usugami lays them out, with
+  **Save as PDF** one tap away.
+
 **Word to PDF**
 
-- Turns **.docx** documents into PDFs on your phone. Nothing is uploaded. Pick them, or share them
-  to Usugami from another app.
+- Turns **.docx** documents into PDFs on your phone. Nothing is uploaded. Pick them with Documents
+  to PDF, or share them to Usugami from another app.
 - Keeps the page size and margins, headings and other styles, bold, italic, underlined, colored and
   highlighted text, bulleted and numbered lists, tables (split across pages, with their header row
   repeated), pictures, page breaks, landscape pages, and headers and footers with page numbers.
@@ -272,7 +281,8 @@ old "PDFer".
 **PowerPoint to PDF**
 
 - Turns **.pptx** presentations into PDFs: one page per slide, in order, the size of the slides.
-  Hidden slides are left out. Pick them, or share them to Usugami from another app.
+  Hidden slides are left out. Pick them with Documents to PDF, or share them to Usugami from
+  another app.
 - Keeps backgrounds, text and bullets in the presentation's own styles, shapes, pictures and tables.
   Text too long for its box is shrunk to fit, as PowerPoint does.
 - Pictures are compressed, and only the letters the slides use of your phone's fonts go into the
@@ -284,7 +294,7 @@ old "PDFer".
 **Excel to PDF**
 
 - Turns **.xlsx** workbooks into PDFs on your phone, each visible sheet on pages as Excel prints it.
-  Pick them, or share them to Usugami from another app.
+  Pick them with Documents to PDF, or share them to Usugami from another app.
 - Follows each sheet's print setup: its print area (or everything from A1), title rows and columns
   repeated on every page, page breaks, paper size, orientation, margins, scale and Fit to. Pages
   are numbered through the whole workbook, and pages with nothing on them are left out.
@@ -305,7 +315,8 @@ old "PDFer".
 **EPUB to PDF**
 
 - Turns **.epub** e-books into PDFs on your phone, on **A5** pages (about the size of a paperback)
-  or **A4** for printing. Pick them, or share them to Usugami from another app.
+  or **A4** for printing. Pick them with Documents to PDF, or share them to Usugami from another
+  app.
 - The cover comes first, then the chapters in the book's reading order, each on a new page.
 - Keeps headings, paragraphs, bold, italic and underlined text, lists, quotes, simple tables and
   pictures, and the simple parts of the book's style: alignment, indents, spacing, font sizes and
@@ -318,6 +329,68 @@ old "PDFer".
   under [Questions and troubleshooting](#questions-and-troubleshooting).
 - **Several at once:** pick several books for one PDF of each, all on the page size you choose, each
   named as you like.
+
+**Read and annotate**
+
+- **Open with Usugami:** Usugami is in Android's "Open with" list, once, for PDF, Word (.docx),
+  Excel (.xlsx), PowerPoint (.pptx) and EPUB files, also when the app that has them gives them no
+  telling type but their name ends that way (in small letters or capitals, such as .pdf or .PDF).
+  What a file is is told by its content, so a PDF called scan.bin still opens. Inside Usugami, open
+  one with **Read and annotate** on Home, tap a PDF in **Recent files**, or choose Read and annotate
+  in Choose a tool for a PDF shared to Usugami.
+- The pages show one under another in one scroll, at the screen's width, in their own colours (white
+  in the dark theme too), turned and cropped as viewers show them, with comments and filled-in form
+  fields drawn. "3 of 12" at the bottom says where you are; tap it to go to a page. A
+  password-protected PDF asks for its password once.
+- **Zoom:** pinch with two fingers, from half size to five times, or double-tap to zoom in on a spot
+  and again to go back. Zoomed in, one finger moves the page any way, and once it stops the part on
+  the screen is drawn again sharp, so small print can be read at any zoom.
+- **Find text** (the magnifier) searches from the page showing and marks every match in yellow, the
+  current one in orange ("3 of 17"), with arrows to go round them. It ignores capitals and accents,
+  finds phrases across line breaks, reads Hebrew and Arabic the right way, and finds Chinese,
+  Japanese and Korean as written, also down the page. A long PDF is searched a few pages at a time,
+  with matches showing as they are found; Usugami says when it kept only the first 2,000 matches,
+  and how many pages had text it couldn't read.
+- **Select and copy text:** long-press a word (the phone ticks), drag the round handles over lines
+  and on to other pages (held near the top or bottom of the screen, the pages scroll under them),
+  and tap **Copy**. Words keep their spaces (none between Chinese or Japanese characters), each
+  line its own line, right-to-left text its reading order, and ligatures come out as plain letters.
+  Up to 200,000 characters go in one copy. A page with no text, such as a scan, says so when
+  long-pressed: PDF to images or text can read it with text recognition (not in Usugami Lite).
+- **More** has **Share**, **Print**, **Tools** (Choose a tool, with this PDF), **Go to page** and
+  **Open with another app**. Share and Open with another app hand over the file as it was opened,
+  under its own name and with its password if it has one.
+- **Word, Excel, PowerPoint and EPUB files** show as Usugami lays them out as a PDF, under their own
+  name, with a note that they may look different in the app that made them, and **Save as PDF** one
+  tap away.
+- **Annotate**, at the top of the reader, opens on the page you're reading. It adds **text**,
+  **drawings** with your finger, **highlights**, **shapes** (rectangles, filled or not, ellipses,
+  lines and arrows) and **pictures** from your phone on top of any page. **Back to reading** shows
+  what you added on the pages.
+- Each addition goes in the middle of the page, ready to drag into place, resize with its handles or
+  the size slider, or move a step at a time with arrow buttons. Six colors, and a thickness for
+  lines.
+- Tap something you added to change or delete it. **Undo** and **Redo** take back or redo one
+  change at a time.
+- Everything lands exactly where the screen shows it, also on pages turned sideways or cropped.
+  Text stays real, searchable text in any language your phone has fonts for, Hindi included;
+  drawings and shapes stay sharp at any zoom; photos are compressed. Pages you don't change are left
+  exactly as they were.
+- Annotate adds to the page; it doesn't change the text already there. A filled box only hides
+  what's under it: see *Can Annotate change or remove the text already in a PDF?* under
+  [Questions and troubleshooting](#questions-and-troubleshooting).
+- Once something is added, **Save PDF** shows at the bottom. It makes a new PDF (such as
+  Report_annotated.pdf) and shows the result screen, with Share, Save and Print for it; the file you
+  opened is never changed. Until then, More has no Share, Print or Open with another app, which
+  would hand over the file without your additions, and a Word, Excel, PowerPoint or EPUB file's
+  Save as PDF is hidden.
+- **Back** returns to the app that opened the file, or to Home. A file opened while you have
+  something unsaved asks first.
+- Files you open are copied into Usugami first, which takes a moment, and that much free storage,
+  for a very large one (and once more when you share it or open it in another app). They are never
+  changed and aren't added to Recent files. Links, bookmarks and form fields don't work in the
+  reader, and Find text and selecting read the PDF's own text, so a scan needs PDF to images or
+  text.
 
 **Split PDF**
 
@@ -337,26 +410,55 @@ old "PDFer".
 
 **Reorganize PDF**
 
-- See a PDF's pages in a grid. Tap a page to choose it, then move it earlier or later, turn it or
-  remove it with the buttons above the grid; or long-press a page and drag it.
-- **Add pages** after the chosen page (or at the end): the pages of another PDF, which you can then
-  arrange like the rest, or a blank page the size of the page before it.
+- See a PDF's pages in a grid. Tap pages to select them, type them like `2,5-7`, or use
+  **Select all**.
+- Turn the selected pages left or right and watch them turn, or remove them; Usugami shows how
+  many are selected ("Selected: 3 of 12"). A PDF keeps at least one page.
+- With one page selected, move it earlier or later with the buttons; or long-press any page and
+  drag it.
+- **Add pages** after the last selected page (or at the end): the pages of another PDF, which you
+  can then arrange like the rest, or a blank page the size of the page before it.
 - **Undo** takes back one change at a time.
+- Pages you only turn are otherwise left exactly as they were: only the way each is shown
+  changes, not its text, images or quality.
+- Removed pages are really gone: their text, pictures, form fields and bookmarks aren't left
+  hidden in the file. (This is also true of the pages you remove in Merge PDF.)
 - The bookmarks, links and form fields of the pages you keep stay as they were.
+- This is also where to rotate pages or delete them: searching Home for "rotate", "turn",
+  "delete" or "remove" finds Reorganize PDF.
 
-**Delete pages**
+**Page layout**
 
-- Tap the pages to delete, or type them like `2,5-7`; Usugami shows how many will go. A PDF keeps
-  at least one page.
-- Deleted pages are really gone: their text, pictures, form fields and bookmarks aren't left
-  hidden in the file. (This is also true of the pages you remove in Reorganize PDF and Merge PDF.)
+- Two modes at the top: **Crop** and **Pages per sheet**.
+- **Crop:** drag the sides or corners of a box on a preview of a page, or move them a step at a time
+  with buttons (**Whole page** starts again). The box is used on all pages or on the ones you type,
+  like `2,5-7`, and takes the same share of each page, so pages of different sizes, and pages turned
+  sideways, are cropped alike.
+- Cropping only hides what is outside the box: it stays in the file, and bookmarks, links and form
+  fields stay as they were. To remove something for good, use Redact PDF.
+- **Pages per sheet:** 2, 4, 6 or 9 pages on each A4 or US Letter sheet (US Letter first when the
+  PDF's first page is), across then down, with an optional thin border. Usugami turns the sheet
+  whichever way the pages come out bigger and shows the first sheet, and how many sheets there will
+  be, as you choose.
+- The pages are placed on the sheets as they are, not as pictures: text stays sharp and can be
+  selected and searched. Comments and filled-in form fields are drawn as they look; links, bookmarks
+  and fillable fields don't work on the sheets.
+- The new PDF is named like Report_layout.pdf.
 
 **Compress PDF**
 
 - **Less**, **Recommended** or **Extreme**.
 - Text stays selectable and drawings stay sharp; only images are reduced.
 - Never makes a PDF bigger: if compressing can't save space, you keep the original. (Except
-  for password-protected PDFs, which are always saved again without the password.)
+  for password-protected PDFs, which are always saved again without the password, and with **Black
+  and white** on, which gives you the gray PDF whenever the PDF had color.)
+- **Black and white**, a switch under the levels (off each time you open the tool), turns every
+  colour into a shade of gray, at any level, and for all the PDFs when you compress several. Text
+  stays real, sharp, selectable text and drawings stay drawings; pages are never turned into
+  pictures. Pictures, gradients, patterns, form fields and comments turn gray too, and a photo
+  Compress PDF shrinks comes out as a smaller gray JPEG. If part of a PDF can't be turned gray (a
+  rare kind of gradient or picture), Usugami says so, that part stays in colour, and the PDF's card
+  names the pages ("Page 3 is still partly in color").
 - **Many PDFs at once:** pick several, then add more or remove one at any time. Set the level for
   all of them in one go, or give a PDF a level of its own, and name each new PDF as you like.
   They're compressed one after another; if one can't be read, Usugami names it and still makes the
@@ -375,11 +477,6 @@ old "PDFer".
 - If a PDF has nothing to flatten, Usugami tells you instead of saving a copy.
 - **Many PDFs at once:** each is flattened into a PDF of its own, named as you like. One with
   nothing to flatten is left out, and Usugami names it.
-
-**Rotate PDF**
-
-- Turn single pages left or right, or all of them at once, and watch them turn.
-- Only the way each page is shown changes: text, images and quality stay exactly as they were.
 
 **Add page numbers**
 
@@ -403,22 +500,6 @@ old "PDFer".
 - **Many PDFs at once:** the same watermark goes on each (the preview shows the first), each into a
   PDF of its own named as you like.
 
-**Edit PDF**
-
-- Add **text**, **drawings** with your finger, **highlights**, **shapes** (rectangles, filled or
-  not, ellipses, lines and arrows) and **pictures** from your phone on top of any page.
-- Each goes in the middle of the page, ready to drag into place, resize with its handles or the
-  size slider, or move a step at a time with arrow buttons. Six colors, and a thickness for lines.
-- Tap something you added to change or delete it. **Undo** and **Redo** take back or redo one
-  change at a time.
-- Everything lands exactly where the preview shows it, also on pages turned sideways or cropped.
-  Text stays real, searchable text in any language your phone has fonts for, Hindi included;
-  drawings and shapes stay sharp at any zoom; photos are compressed. Pages you don't change are left
-  exactly as they were.
-- It adds to the page; it doesn't change the text already there. A filled box only hides what's
-  under it: see *Can Edit PDF change or remove the text already in a PDF?* under
-  [Questions and troubleshooting](#questions-and-troubleshooting).
-
 **Sign PDF**
 
 - Draw your signature with a finger, in black or blue ink.
@@ -433,7 +514,11 @@ old "PDFer".
 **Redact PDF**
 
 - Black out names, numbers or anything else for good. Drag on a page to draw a box over it, or type
-  a word or phrase in **Find text** to box it on every page (capitals and accents don't matter).
+  a word or phrase in **Find text** to box it on every page (capitals and accents don't matter;
+  Chinese, Japanese and Korean are found across line ends and in writing down the page, with a box
+  down each column).
+- When Find text can't read some of the text, a notice under it names the pages, so you can look
+  through them yourself and draw boxes where needed.
 - Check the boxes before saving: they're see-through on the screen, and solid black in the PDF.
   Tap a box to move, resize or delete it, also with buttons, or add one with **Add box**.
 - **True removal, not a black box on top:** each page with a box is saved as a picture of itself
@@ -446,10 +531,46 @@ old "PDFer".
   selected or searched any more. See *How does Redact PDF work?* under
   [Questions and troubleshooting](#questions-and-troubleshooting).
 
+**Document info**
+
+- See a PDF's title, author, subject and keywords, when it was created and last changed (in your
+  phone's time zone), the apps that made it, its pages, PDF version and file size.
+- Change or empty the title, author, subject or keywords, in any language. **Save PDF**, on once
+  something differs, makes a new PDF (Report_info.pdf) in which only what you changed is written:
+  everything else stays exactly as it was.
+- **Remove all info** clears them all, with the dates and app names, along with the hidden details
+  other apps keep in a PDF (extra metadata on the document, its pages and pictures, editing apps'
+  private data, the file's ID), so the PDF's own info no longer says who made the file or with
+  what. Pages, comments, form fields, attachments and signatures aren't touched: a comment still
+  names its author, a digital signature its signer. **Undo** takes it back, and a new title or the
+  like can still be typed.
+- A digitally signed PDF says before saving that its signature won't be valid in the new PDF.
+  Usugami adds no name or date of its own.
+
+**PDF to images or text**
+
+- **Images:** save pages as **JPG** or **PNG** pictures, **Small**, **Medium** or **Large** (100,
+  200 or 300 dpi; a very large page gets fewer pixels, and Usugami says so), drawn as PDF viewers
+  show them, with comments, stamps and filled-in forms, and turned and cropped pages as you see
+  them. Each is named after the PDF with its page number (Report_p3.jpg), to open, share or save one
+  by one, or all together as a ZIP file (Report_images.zip).
+- **Text:** the text of the pages in reading order, as one .txt file, shown on the result screen
+  with **Show more** and a **Copy** button (up to 200,000 characters). Right-to-left text reads from
+  the right, Chinese and Japanese come without stray spaces, and writing down the page comes a
+  column to a line.
+- **Read pages without text** (Usugami and Usugami OCR; on at first) reads scanned pages with text
+  recognition, in the text language you choose; notes under the result say which pages it read (it
+  can make mistakes). Usugami Lite takes the text the PDF holds and says which pages had none.
+- Choose the pages by typing them (such as `1,3,5-8`) or tapping their previews; with none chosen,
+  every page is converted.
+- Text in form fields and comments isn't included: Flatten PDF first to include what the pages
+  show of it.
+
 **Everywhere**
 
 - Home starts with **Scan document** and, once you've saved a file, **Recent files**, then groups
-  the tools under **Create PDF**, **Organize**, **Edit and sign** and **Optimize and protect**.
+  the tools under **View**, **Create PDF**, **Organize**, **Edit and sign**, **Optimize and
+  protect** and **Convert from PDF**.
 - **Search** on Home finds a tool as you type, by its name, what it does or a word you
   might use for it ("combine", "shrink", "scan"), in the app's language. Case and accents don't
   matter. "Batch", "many" or "several" finds the tools that work on several files at once.
@@ -460,7 +581,8 @@ old "PDFer".
   made, Usugami names it, says why, and still makes the others. One file works just as before.
 - **Share to Usugami** from another app (Files, a mail app, a chat): images open Images to PDF,
   Word, PowerPoint, Excel and EPUB files their converter, and PDFs **Choose a tool**, which lists
-  every PDF tool for one PDF, and Merge PDF and the tools for several files for more. The tool you
+  Read and annotate and every PDF tool for one PDF, and Merge PDF and the tools for several files
+  for more. The tool you
   choose opens with them in it, and goes back to Choose a tool when you leave it. They're copied in
   at once, so they're still there if Android stops Usugami in the background (if it stops Usugami
   while they're still being copied in, Usugami tells you to share them again).
@@ -477,32 +599,49 @@ old "PDFer".
   have no password, and Usugami tells you so.
 - **Open**, **Share**, **Save to Downloads** (Android 10 and newer) or **Save as…** to any
   folder. When a PDF tool makes several PDFs, each one also has its own **Open**, **Share** and
-  **Save**.
-- **Usugami watermark**, off unless you turn it on: to support the app, the switch at the top of
-  the result screen, above Open, Share and Save, puts the word "Usugami" in the bottom-right corner
-  of every page of the PDFs just made, small and light grey unless you change it, upright and in the
+  **Save**. **Open** shows a new PDF inside Usugami, with Find text, Go to page and **Open with
+  another app**; Back returns to the result as it was. Images and text files are opened, shared
+  and saved as what they are (galleries list the images saved to Downloads).
+- **Print** every PDF on the result screen (each PDF has its own Print when there are several), in
+  Recent files and in the reader, through Android's own print screen, with its preview, printer,
+  copies, paper size, pages and "Save as PDF". The PDF is sent as it is, so text stays text and
+  forms and signatures print as they look. No permission is needed, and nothing leaves the phone
+  except to the printer you choose. A phone that can't print shows no Print button.
+- **App shortcuts:** long-press Usugami's icon on the home screen for **Scan document**, **Images to
+  PDF**, **Merge PDF** and **Compress PDF** (they appear once Usugami has been opened after
+  installing or updating, and can be dragged to the home screen). A shortcut opens its tool wherever
+  Usugami is; over changes or a new PDF you haven't saved, Usugami asks first, and while Usugami is
+  making something, it says so and the work goes on. In Images to PDF, Scan document adds a photo to
+  the images, and a scan still going on comes back instead of a new one starting.
+- **Usugami watermark**, off unless you turn it on: to support the app, the switch at the top of the
+  result screen, above Open, Share and Save, puts the word "Usugami" in the bottom-right corner of
+  every page of the PDFs just made, small and light grey unless you change it, upright and in the
   corner you see, also on turned or cropped pages. Turn it off and the mark comes off those same
-  PDFs, without making them again. The arrow on the switch opens **Size** (from barely visible up
-  to half the page's width) and **Opacity** (from faint to solid) sliders, with a live preview.
-  Usugami remembers the switch and the sliders, so once it's on, every PDF you make gets the mark
-  until you turn it off. It goes on every page, also those a tool otherwise leaves as they were,
-  such as the original Compress PDF keeps or pages Rotate PDF only turns. A copy you saved before a
-  change stays as it was; save again to keep the new version. With the switch off, nothing is added.
-  The mark is drawn as the shapes of its letters, not written as text, so searching, selecting or
-  copying the PDF's text doesn't find it, and screen readers don't read it out. On a digitally
-  signed PDF it is added after the signed part, so the signatures stay valid, and turning it off
-  gives back the PDF exactly as it was signed. A PDF whose certification allows no changes gets no
-  mark, and Usugami says so.
+  PDFs, without making them again. The arrow on the switch opens **Size** (from barely visible up to
+  half the page's width) and **Opacity** (from faint to solid) sliders, with a live preview. Usugami
+  remembers the switch and the sliders, so once it's on, every PDF you make gets the mark until you
+  turn it off. It goes on every page, also those a tool otherwise leaves as they were, such as the
+  original Compress PDF keeps or pages Reorganize PDF only turns. It is offered only for PDFs, not
+  for images or text files. A copy you saved before a change stays as it was; save again to keep the
+  new version. With the switch off, nothing is added. The mark is drawn as the shapes of its
+  letters, not written as text, so searching, selecting or copying the PDF's text doesn't find it,
+  and screen readers don't read it out. On a digitally signed PDF it is added after the signed part,
+  so the signatures stay valid, and turning it off gives back the PDF exactly as it was signed. A
+  PDF whose certification allows no changes gets no mark, and Usugami says so.
 - When a tool makes several PDFs (Split PDF in parts, a tool working on several files, or one PDF
   per image), **Share or save as ZIP** puts them all in one ZIP file, named after them, to share
   or save in one go.
-- **Recent files** lists the files you save from any tool, newest first: the last three on Home,
-  and all of them (up to 50) under **See all**. Tap one to open it, or use its menu to **Share** it
-  or **Remove from list**; **Clear list** empties the list. The files themselves stay where you
-  saved them. A file you delete in another app leaves the list by itself, and one renamed in
-  Downloads shows its new name. Files you only share aren't listed.
-- Comes in **English**, **French**, **Spanish** and **Hindi**: pick one the first time you open
-  Usugami, and change it any time in **Settings**. Text recognition starts on the same language.
+- **Recent files** lists the files you save from any tool (PDFs, images, text files and ZIP files,
+  each with its own icon), newest first: the last three on Home, and all of them (up to 50) under
+  **See all**. Tap one to open it (a PDF opens in Usugami's reader), or use its menu to **Share**
+  it, **Print** it (a PDF) or **Remove from list**; **Clear list** empties the list. The files
+  themselves stay where you saved them. A file you delete in another app leaves the list by itself,
+  and one renamed in Downloads shows its new name. Files you only share aren't listed.
+- Comes in **English**, **French**, **Spanish**, **Hindi**, **German**, **Brazilian Portuguese**
+  and **Indonesian**: pick one the first time you open Usugami, and change it any time in
+  **Settings** (on Android 13 and newer, also in the phone's own language settings for Usugami). A
+  phone set to any Portuguese gets the Portuguese texts. Text recognition starts on the same
+  language.
 - Light and dark theme follow your phone, or pick **Light** or **Dark** in **Settings** →
   **Appearance**.
 
@@ -512,9 +651,9 @@ old "PDFer".
   upload your files.
 - **No ads, no analytics, no tracking, no accounts, no in-app purchases.**
 - **Only the files you pick.** Usugami asks for no permissions; Android gives it access to just the
-  images, PDFs and documents you choose or share. **Take photo** opens your phone's camera app,
-  which Usugami lets save just that one photo into its private storage; Usugami can't use the
-  camera itself.
+  images, PDFs and documents you choose, share or open with Usugami. **Take photo** opens your
+  phone's camera app, which Usugami lets save just that one photo into its private storage; Usugami
+  can't use the camera itself.
 - **Temporary copies are cleaned up.** While you work, copies live in Usugami's private cache and
   are deleted automatically.
 - **Recent files stays on your phone.** To open the files on the list again, Usugami keeps read
@@ -654,10 +793,11 @@ Can't find your answer below? Ask in [Discussions](https://github.com/Nath-Goa/u
 <details>
 <summary><b>My phone doesn't have Google Play services</b></summary>
 
-For example Huawei phones, or phones running LineageOS or /e/OS without Google apps. Images to
-PDF and all the PDF tools work in every edition. Text recognition in the main edition
+For example Huawei phones, or phones running LineageOS or /e/OS without Google apps. The reader,
+Images to PDF and all the PDF tools work in every edition. Text recognition in the main edition
 (Usugami.apk) needs Google Play services; without it, Usugami tells you that text recognition
-isn't available, and you can still create the PDF with OCR turned off.
+isn't available, and you can still create the PDF with OCR turned off (or, in PDF to images or
+text, get the text the PDF holds with "Read pages without text" turned off).
 
 For text recognition on such a phone, install
 **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**
@@ -669,8 +809,8 @@ over your current Usugami: it has text recognition built in.
 <summary><b>Text recognition is stuck downloading, or I have no internet</b></summary>
 
 In Usugami (the main edition), Google Play services downloads text recognition the first time
-you use each language (English, French and Spanish share one download; Hindi is a second one),
-and again if it has removed it since.
+you use it (English, French, Spanish, German, Portuguese and Indonesian share one download; Hindi
+is a second one), and again if it has removed it since.
 If it doesn't finish:
 
 - Check that you have a working Wi-Fi or mobile data connection.
@@ -680,8 +820,8 @@ If it doesn't finish:
 - Try again in a few minutes. Your images stay in Usugami, and you can also create the PDF with OCR
   turned off.
 
-Going somewhere without internet? Run text recognition once in each language you need while you're
-still online.
+Going somewhere without internet? Run text recognition once while you're still online (once in
+Hindi too, if you need it).
 
 If you often have no internet, or want no download at all, install
 **[Usugami OCR](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**
@@ -690,16 +830,18 @@ over your current Usugami.
 </details>
 
 <details>
-<summary><b>Recognizing French, Spanish or Hindi text</b></summary>
+<summary><b>Recognizing text in other languages</b></summary>
 
-When you create the PDF, turn on **Make text searchable (OCR)** and choose the text language:
-English, French, Spanish or Hindi. It starts on the language you picked for the app. French and
-Spanish keep their accents (é, ç, ñ). Hindi mode reads Devanagari and also keeps English words and
-numbers, so mixed text works.
+When you create the PDF, turn on **Make text searchable (OCR)** and choose the text language from
+the menu: English, French, Spanish, Hindi, German, Portuguese or Indonesian. It starts on the
+language you picked for the app. Accents and umlauts are kept: é, ç and ñ in French and Spanish,
+ä, ö, ü and ß in German, ã, õ and ç in Portuguese. Hindi mode reads Devanagari and also keeps
+English words and numbers, so mixed text works. PDF to images or text reads scanned pages in the
+text language you choose there, in the same way.
 
-In Usugami (the main edition), English, French and Spanish use one model and Hindi another, so the
-first recognition with each of those needs an internet connection. Usugami Lite has no text
-recognition.
+In Usugami (the main edition), English, French, Spanish, German, Portuguese and Indonesian use one
+model and Hindi another, so the first recognition with each of those two needs an internet
+connection. Usugami Lite has no text recognition.
 
 </details>
 
@@ -710,10 +852,10 @@ recognition.
 Usugami OCR has its own text recognition, open source and inside the app: the
 [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) PP-OCRv5 mobile models, run on your phone's
 processor by Tencent's [ncnn](https://github.com/Tencent/ncnn). One model finds the lines of text
-on each page; then English, French and Spanish are read by PaddleOCR's Latin-script model, and
-Hindi by its Devanagari model, which also reads English words. Nothing is downloaded and nothing
-leaves your phone, so it works in flight mode too. The engine and models are what make
-Usugami-ocr.apk about 11 MB bigger than Usugami.apk.
+on each page; then English, French, Spanish, German, Portuguese and Indonesian are read by
+PaddleOCR's Latin-script model, and Hindi by its Devanagari model, which also reads English words.
+Nothing is downloaded and nothing leaves your phone, so it works in flight mode too. The engine and
+models are what make Usugami-ocr.apk about 11 MB bigger than Usugami.apk.
 
 - It reads printed text best: worksheets, letters, book pages, notices, including photos taken at an
   angle. Columns are read one after the other.
@@ -812,12 +954,13 @@ Usugami reads the book itself and lays its pages out again, as an e-reader does:
 </details>
 
 <details>
-<summary><b>Can Edit PDF change or remove the text already in a PDF?</b></summary>
+<summary><b>Can Annotate change or remove the text already in a PDF?</b></summary>
 
-No. Edit PDF adds text, drawings, shapes and pictures on top of the page; the PDF's own text stays
-as it was. You can cover something with a filled rectangle (white, say) and write over it, but the
-covered text is still in the file: anyone can select, copy or search it, or remove the rectangle in
-another app. To remove text or pictures for good, use Redact PDF instead.
+No. Annotate, in the reader, adds text, drawings, shapes and pictures on top of the page (it is what
+Edit PDF did before 2.0.0); the PDF's own text stays as it was. You can cover something with a
+filled rectangle (white, say) and write over it, but the covered text is still in the file: anyone
+can select, copy or search it, or remove the rectangle in another app. To remove text or pictures
+for good, use Redact PDF instead.
 
 </details>
 
@@ -840,9 +983,12 @@ text of the rest of that page (it is still there to read, as a picture).
   PDFs, form fields that were only on redacted pages, and images that only redacted pages showed.
 - **Find text** finds text the PDF stores as text, and what comments say (a comment that has it
   gets a box over it, only a small one at the corner of a highlight or drawing, so it goes with its
-  page). It can't find words in scans or photos (draw boxes over those yourself), and it may miss
-  text in PDFs whose text doesn't copy out correctly, such as some PDFs in Hindi and other scripts
-  with joined letters. Always look through the pages before you save.
+  page). It can't find words in scans or photos (draw boxes over those yourself). When a page has
+  text it can't read as letters, it tells you which pages to look through yourself. It may also
+  miss text in PDFs whose text doesn't copy out correctly, such as some PDFs in Hindi and other
+  scripts with joined letters. Chinese, Japanese and Korean are found as they are written: across
+  the end of a line, down the page, with or without the space in a name, and in full-width or
+  half-width letters. Always look through the pages before you save.
 - A digital (certificate) signature in the PDF no longer matches once anything is redacted, so
   what it says of the signer (name, reason, certificate) is removed too.
 
@@ -858,7 +1004,9 @@ Nowhere until you choose. When a PDF is ready you can:
 - **Share** it to another app, or **Open** it in a PDF viewer.
 
 Several PDFs at once (from Split PDF, or one PDF per image) can also go into one **ZIP** file, to
-share or save with **Share or save as ZIP**. The PDFs go in exactly as they are.
+share or save with **Share or save as ZIP**. The PDFs go in exactly as they are. The images and
+text files PDF to images or text makes are saved and shared the same way, under their own names
+and types.
 
 Until you save or share it, the PDF stays in Usugami's private storage and is cleaned up
 automatically. Every file you save also shows under **Recent files** on Home, to open or share
@@ -869,11 +1017,26 @@ again.
 <details>
 <summary><b>How much storage does Usugami use?</b></summary>
 
-The app takes about 3 MB to download (Usugami OCR about 14 MB, since its recognition engine and
-models are inside).
+The app takes about 4.8 MB to download (Usugami Lite about 4.5 MB, and Usugami OCR about 16 MB,
+since its recognition engine and models are inside). A file you open in the reader is copied into
+Usugami's cache while it is open, so a very large one needs that much free storage.
 While you work, Usugami keeps temporary copies of your files in its cache and deletes them
 automatically; you can also clear it in Settings → Apps → Usugami → Storage. In the main edition,
 the text-recognition models are stored and managed by Google Play services, not by Usugami.
+
+</details>
+
+<details>
+<summary><b>How do I make Usugami my PDF app, or stop it being that?</b></summary>
+
+Open a PDF from the Files app, a mail app or a chat, choose **Usugami** in the "Open with" list and
+tap **Always**: from then on PDFs open in Usugami's reader. The same goes for Word, Excel,
+PowerPoint and EPUB files. **Open with another app**, in the reader's More menu, still offers your
+other apps.
+
+To stop it, go to the phone's **Settings → Apps → Usugami → Open by default** and tap **Clear
+defaults** (the names differ a little between phones). Android then asks again the next time you
+open such a file.
 
 </details>
 
@@ -992,8 +1155,9 @@ F-Droid can ship the APKs signed by the developer; see *Reproducible builds and 
 
 ```text
 app/                  Android app (Kotlin, Jetpack Compose, Material 3)
-  src/main/           shared code: screens, PDF tools, Word, PowerPoint, Excel and EPUB
-                      conversion, OCR text layer, saving and sharing, Recent files
+  src/main/           shared code: screens, the reader, PDF tools, Word, PowerPoint, Excel and
+                      EPUB conversion, OCR text layer, saving, sharing and printing, Recent
+                      files, app shortcuts
   src/standard/       Usugami: text recognition with Google ML Kit through Google Play services
   src/lite/           Usugami Lite: no text recognition
   src/ocr/            Usugami OCR: built-in, open-source text recognition (PaddleOCR's models
@@ -1002,20 +1166,26 @@ app/                  Android app (Kotlin, Jetpack Compose, Material 3)
                       src/androidTestOcr: Usugami OCR's)
 core/                 plain-Kotlin PDF engine with JVM unit tests: PDF writer, page layout,
                       JPEG/PNG handling, metadata removal, compression sizing, page ranges,
-                      where stamps, signatures and Edit PDF's additions go on a page, the
+                      where stamps, signatures and Annotate's additions go on a page, the
                       Word and PowerPoint helpers (units, colors, list numbers), the Excel
                       helpers (number, date and time formats, cell references, pages,
                       headers and footers), the EPUB helpers (links, HTML characters,
                       simple CSS), font subsetting, the Recent files list,
                       Usugami OCR's post-processing (text boxes, reading order, decoding),
-                      finding a page on a photo and where its corners go to crop it, and the
-                      page looks with their CCITT G4 and grey JPEG encoders
+                      finding a page on a photo and where its corners go to crop it, the
+                      page looks with their CCITT G4 and grey JPEG encoders, the reader's
+                      zoom and text selection, page images and text for PDF to images or
+                      text, crop boxes and pages per sheet, where an ID card's sides go,
+                      Document info's metadata reader and writer, and Black and white's
+                      colour maths
 ocr-native/           Usugami OCR's native library: ncnn built from source with a small JNI
                       bridge (only the ocr edition contains it)
 tools/                validate_pdfs.py (checks output with independent PDF tools),
                       make_ocr_font.py (builds the OCR font), make_ocr_models.py (converts
                       Usugami OCR's models), make_ocr_test_fixtures.py, make_office_fixtures.py
-                      (the made-up Word and PowerPoint test files), google_notices.py
+                      (the made-up Word and PowerPoint test files), make_gray_fixtures.py
+                      (Black and white's JPEG 2000 and CMYK JPEG test pictures),
+                      google_notices.py
 third_party/          ncnn (git submodule) and the license notices that Google ships in its
                       libraries
 docs/                 testing guide, badges, screenshots, icon

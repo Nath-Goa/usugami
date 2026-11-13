@@ -1,32 +1,39 @@
-<i>Usugami</i> (薄紙, Japanese for "thin paper") turns photos, camera scans, Word documents, PowerPoint slides, Excel spreadsheets and EPUB e-books into PDFs, and has the tools you need for the PDFs you already have. Everything happens on your phone: Usugami has no internet permission, so nothing is ever uploaded.
+<i>Usugami</i> (薄紙, Japanese for "thin paper") turns photos, camera scans, ID cards, Word documents, PowerPoint slides, Excel spreadsheets and EPUB e-books into PDFs, opens PDFs and documents in its own reader, and has the tools you need for the PDFs you already have. Everything happens on your phone: Usugami has no internet permission, so nothing is ever uploaded.
 
 <b>Create PDFs</b>
 <ul>
-<li><b>Scan document:</b> take photos with your phone's camera app, or upload images. Crop each page straight (Usugami can find it, even a white page on a white desk) and turn it, then give it a look: original, lighten, enhanced, super enhanced, grayscale, black &amp; white (about 10 KB a page) or ink saver, with its brightness and contrast. Apply to all pages gives every page the same look, brightness and contrast.</li>
-<li><b>Images to PDF:</b> JPG, PNG, HEIC, AVIF, WebP, BMP and GIF images from your gallery or files, cropped and cleaned up the same way if you like. Choose the page size, orientation and margin, and make one PDF or one per image. Images are always compressed, and their location and other hidden metadata are removed.</li>
-<li><b>Text recognition (OCR)</b> makes the PDF searchable, in English, French, Spanish and Hindi. It is open source and built in (PaddleOCR's PP-OCRv5 models, run by Tencent's ncnn), so it works offline, always.</li>
-<li><b>Word, PowerPoint, Excel and EPUB to PDF:</b> .docx, .pptx, .xlsx and .epub files converted on your phone, with their styles, tables and pictures, headers and footers, and the book's table of contents as bookmarks. Spreadsheets come out sheet by sheet as Excel prints them, with their number and date formats.</li>
+<li><b>Scan document:</b> take photos with your phone's camera app, or upload images. Crop each page straight (Usugami can find it, even a white page on a white desk), then give it a look: original, lighten, enhanced, super enhanced, grayscale, black &amp; white or ink saver.</li>
+<li><b>ID card:</b> the front and the back of a card on one page, at the card's real size.</li>
+<li><b>Images to PDF:</b> JPG, PNG, HEIC, AVIF, WebP, BMP and GIF images, cropped and cleaned up the same way if you like, in one PDF or one per image. Images are always compressed, and their location and other hidden metadata are removed.</li>
+<li><b>Text recognition (OCR)</b> makes the PDF searchable, in English, French, Spanish, Hindi, German, Portuguese and Indonesian. It is open source and built in (PaddleOCR's PP-OCRv5 models, run by Tencent's ncnn), so it works offline, always.</li>
+<li><b>Documents to PDF:</b> Word, PowerPoint, Excel and EPUB files converted on your phone, with their styles, tables and pictures.</li>
+</ul>
+
+<b>Read and annotate</b>
+<ul>
+<li>Open PDFs and Word, Excel, PowerPoint and EPUB files from any app with "Open with"</li>
+<li>Zoom, find text, select and copy text, share and print</li>
+<li>Annotate with text, drawings, highlights, shapes and pictures, saved as a new PDF</li>
 </ul>
 
 <b>PDF tools</b>
 <ul>
-<li>Split, merge, reorganize and rotate PDFs, and delete pages</li>
-<li>Compress PDFs (it never makes a PDF bigger)</li>
-<li>Edit PDFs: add text, drawings, highlights, shapes and pictures</li>
-<li>Sign with your handwritten signature</li>
-<li>Add page numbers or a watermark</li>
+<li>Split, merge and reorganize PDFs: move, turn, delete and add pages</li>
+<li>Page layout: crop pages, or put 2, 4, 6 or 9 pages on a sheet</li>
+<li>Compress PDFs, or turn them black and white</li>
+<li>Sign, and add page numbers or a watermark</li>
 <li>Flatten forms and comments</li>
-<li>Redact for real: what is under the black boxes is removed from the file, not just covered</li>
-<li>Open password-protected PDFs</li>
+<li>Redact for real: what is under the black boxes is removed, not just covered</li>
+<li>Document info: see, change or remove the title, author and more</li>
+<li>PDF to images or text: pages as JPG or PNG, or their text, also of scans</li>
+<li>Print, and open password-protected PDFs</li>
 </ul>
 
-<b>Batch mode:</b> compress, number, watermark or flatten many PDFs at once, or convert many Word, PowerPoint, Excel or EPUB files, each into a PDF of its own. Save or share the new PDFs one by one or as one ZIP file.
+<b>Batch mode:</b> compress, number, watermark, flatten or convert many files at once, and save or share the new PDFs as one ZIP file.
 
-<b>Share to Usugami:</b> share images, PDFs, Word, PowerPoint, Excel or EPUB files from any app, and they open in the right tool.
+<b>Share to Usugami</b> from any app, and files open in the right tool. <b>Recent files</b> keeps what you saved at hand, and a long-press on Usugami's icon opens four tools straight away.
 
-<b>Recent files:</b> the files you save are listed on Home, to open or share again.
-
-<b>Usugami watermark:</b> to support the app, one switch adds a small "Usugami" to the corner of each page of your new PDFs; it stays off until you turn it on.
+<b>Usugami watermark:</b> to support the app, a switch adds a small "Usugami" to your new PDFs. It is off until you turn it on.
 
 <b>Private by design</b>
 <ul>
@@ -36,6 +43,6 @@
 <li>Free and open source (GPL-3.0-or-later)</li>
 </ul>
 
-In English, French, Spanish and Hindi, with light and dark themes. Needs Android 8.0 or newer.
+In English, French, Spanish, Hindi, German, Brazilian Portuguese and Indonesian, with light and dark themes. Needs Android 8.0 or newer.
 
 Don't need text recognition? <i>Usugami Lite</i> has every other tool and is even smaller.

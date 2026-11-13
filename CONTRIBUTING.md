@@ -20,8 +20,9 @@ accepted:
 - new proprietary libraries
 
 Text recognition in the main edition (Usugami) is the one exception to "no network": Google Play
-services, a separate app, downloads the model the first time each language is used. Usugami
-itself never connects. Usugami Lite and Usugami OCR must stay free of Google libraries.
+services, a separate app, downloads a model the first time it is needed (one for the six
+Latin-script languages, one for Hindi). Usugami itself never connects. Usugami Lite and Usugami OCR
+must stay free of Google libraries.
 
 ## Building
 
@@ -65,6 +66,31 @@ Shared code lives in `app/src/main` and should work in all three. Each edition p
 `ocrEngine(context)` (null in Usugami Lite); `BuildConfig.EDITION` and `BuildConfig.HAS_OCR` tell
 them apart. Release builds are only signed when a key is configured (see the README), so you don't
 need one to contribute. [docs/TESTING.md](docs/TESTING.md) explains the tests.
+
+## Translations
+
+Usugami comes in English, French, Spanish, Hindi, German, Brazilian Portuguese and Indonesian.
+English is in `app/src/main/res/values/strings.xml`, and each language has its own copy next to
+it; the editions' own texts are in the same folders under `app/src/standard/res` and
+`app/src/lite/res`. The store texts are in `fastlane/metadata/android/<locale>/` for Usugami and
+`src/lite/fastlane/metadata/android/<locale>/` for Usugami Lite. Each language's folders and tags:
+
+| Language | Resource folder | App tag (`locales_config.xml`) | Store folder |
+|---|---|---|---|
+| French | `values-fr` | `fr` | `fr-FR` |
+| Spanish | `values-es` | `es` | `es-ES` |
+| Hindi | `values-hi` | `hi` | `hi-IN` |
+| German | `values-de` | `de` | `de-DE` |
+| Brazilian Portuguese | `values-pt` (for every Portuguese) | `pt-BR` | `pt-BR` |
+| Indonesian | `values-in` (Android's code; not `values-id`) | `id` | `id` |
+
+`./gradlew :core:test` checks the translations (`TranslationsTest`): every language has each
+English text that can be translated and no other, with the same placeholders (`%1$s`, `%1$d`),
+plural forms and line breaks, apostrophes and quotes escaped with a backslash, and the store texts
+of both apps within F-Droid's limits (80 characters for the short description, 4000 for the full
+one, 500 for a changelog). To fix or add a translation, change the language's `strings.xml` and
+run it. The search words in each `search_keywords_*` string are the words people of that language
+would type for the tool, not a word-for-word translation of the English list.
 
 ## Reproducible builds and F-Droid
 
@@ -141,7 +167,8 @@ To submit or update the apps, copy the two recipes into fdroiddata as
 - Run `:core:test`, the three lint tasks and, for anything touching PDFs or text recognition, the
   device tests for each edition.
 - Follow the existing style: Kotlin official code style (`kotlin.code.style=official`), Jetpack
-  Compose and Material 3 for UI, and user-facing text in `app/src/main/res/values/strings.xml`.
+  Compose and Material 3 for UI, and user-facing text in `app/src/main/res/values/strings.xml`
+  (see *Translations* for the other languages).
 - Write plain, short UI text and comments.
 - If you add or update a dependency, update [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). For
   Google libraries, regenerate `third_party/google-notices.txt` with `tools/google_notices.py`. For
