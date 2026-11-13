@@ -35,6 +35,8 @@ data class ImageItem(
     val original: OriginalImage? = null,
     val look: PageLook = PageLook.ORIGINAL,
     val adjustments: LookAdjustments = LookAdjustments.NONE,
+    /** 0: a page of its own. Otherwise the ID card this image is a side of: see PageGroups. */
+    val card: Long = 0,
 ) : Parcelable {
 
     /** Whether the page shows otherwise than its image: with a look, or with brightness or contrast changed. */

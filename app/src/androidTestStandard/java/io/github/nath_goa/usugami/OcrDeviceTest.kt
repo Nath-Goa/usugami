@@ -145,6 +145,11 @@ class OcrDeviceTest {
         BlackAndWhiteOcrCheck.run(context, engine, File(context.filesDir, "ocr_black_and_white"))
     }
 
+    /** An ID card's two sides on one page are both read, the page reported once, each side's text over it. */
+    @Test fun ocrOfAnIdCardReadsBothSides() = runBlocking {
+        IdCardOcrCheck.run(context, engine, File(context.filesDir, "ocr_id_card"))
+    }
+
     /** A one-page PDF that holds [lines] only as a picture, like a scan. */
     private fun scannedText(lines: List<String>, file: File): File {
         val bitmap = Bitmap.createBitmap(1240, 1754, Bitmap.Config.ARGB_8888)

@@ -66,11 +66,15 @@ import io.github.nath_goa.usugami.data.Edition
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrProblem
 
-/** The last step before converting: one PDF or one per image, the file name, compression and OCR. */
+/**
+ * The last step before converting: one PDF or one per page, the file name, compression and OCR.
+ * [imageCount] images make [pageCount] pages: an ID card's two sides share one.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConvertSheet(
     imageCount: Int,
+    pageCount: Int,
     layout: LayoutSettings,
     initialMerge: Boolean,
     initialCompression: Compression,
@@ -92,7 +96,7 @@ fun ConvertSheet(
     // Text recognition reads the app's language unless the user picked another one for these images.
     val appOcrLanguage = AppLanguage.shownIn(LocalContext.current).ocr
     var ocrLanguage by rememberSaveable { mutableStateOf(initialChoices.ocrLanguage ?: appOcrLanguage) }
-    val oneFile = merge || imageCount == 1
+    val oneFile = merge || pageCount == 1
     val create = { onCreate(merge, name, compression, if (BuildConfig.HAS_OCR && ocrEnabled) ocrLanguage else null) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
@@ -109,7 +113,7 @@ fun ConvertSheet(
             Spacer(Modifier.height(4.dp))
             Text(summary(imageCount, layout), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-            if (imageCount > 1) {
+            if (pageCount > 1) {
                 Spacer(Modifier.height(16.dp))
                 Row(
                     Modifier
@@ -235,7 +239,7 @@ fun ConvertSheet(
                 ) { single ->
                     Text(
                         if (single) stringResource(R.string.create_pdf)
-                        else pluralStringResource(R.plurals.create_pdfs, imageCount, imageCount),
+                        else pluralStringResource(R.plurals.create_pdfs, pageCount, pageCount),
                     )
                 }
             }

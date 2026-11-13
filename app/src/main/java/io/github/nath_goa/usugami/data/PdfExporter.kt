@@ -11,6 +11,7 @@ import io.github.nath_goa.usugami.core.Compression
 import io.github.nath_goa.usugami.core.Compressor
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.GrayJpeg
+import io.github.nath_goa.usugami.core.IdCardLayout
 import io.github.nath_goa.usugami.core.ImagePdfBuilder
 import io.github.nath_goa.usugami.core.ImagePlacement
 import io.github.nath_goa.usugami.core.InvalidJpegException
@@ -18,6 +19,8 @@ import io.github.nath_goa.usugami.core.Jpeg
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.OutputType
+import io.github.nath_goa.usugami.core.PageDrawing
+import io.github.nath_goa.usugami.core.PageGroups
 import io.github.nath_goa.usugami.core.PageImage
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.PixelSource
@@ -30,8 +33,9 @@ import java.io.File
 /**
  * A finished file in the app's cache, ready to save or share: a PDF, unless [type] says otherwise.
  * [pageCount] is 1 for an image, and the pages read for a text file. [originalBytes] is the size of its source images.
- * [images] are, for a PDF just made from images, the image on each page and where it is drawn: text
- * recognition reads those rather than the compressed copies in the PDF. Empty for other PDFs.
+ * [images] are, for a PDF just made from images, the images on its pages and where each is drawn
+ * (an ID card's page has two): text recognition reads those rather than the compressed copies in the
+ * PDF. Empty for other PDFs.
  * [keptOriginal]: Compress PDF couldn't make it smaller, so it is the PDF picked, as it was.
  * [mark]: the Usugami mark [PageMark] put on its pages, which tells the file apart from itself before.
  * [gray]: what Compress PDF's Black and white did to it (whether colour was turned gray, and the
@@ -54,15 +58,17 @@ data class PdfFile(
     val isPdf: Boolean get() = type == OutputType.PDF
 }
 
-/** The picked image [item], drawn on its page as [placement] says. */
-data class PlacedImage(val item: ImageItem, val placement: ImagePlacement)
+/** The picked image [item], drawn on the page [page] (its index in its PDF) as [placement] says. */
+data class PlacedImage(val item: ImageItem, val placement: ImagePlacement, val page: Int)
 
 class ImageUnreadableException(val imageName: String) : Exception("Unreadable image: $imageName")
 
 /**
  * Builds PDFs from the picked images, always compressed: each image is shrunk to the
  * [Compression] level's resolution for the space it fills on the page and stored as JPEG,
- * unless keeping the original is smaller. A page with a look of its own ([ImageItem.look]) or
+ * unless keeping the original is smaller. An image is a page of its own, but for an ID card's
+ * sides ([ImageItem.card]), which share one page at the card's real size ([IdCardLayout]) and keep
+ * [IdCardLayout.DETAIL] times the level's resolution, their print being small. A page with a look of its own ([ImageItem.look]) or
  * brightness and contrast ([ImageItem.adjustments]) is given them at that size and stored as it
  * needs: black and white a bit a pixel, grey as a grey JPEG.
  * Output lives in the cache (output/images) until the next export.
@@ -80,8 +86,9 @@ class PdfExporter(private val context: Context) {
 
     /**
      * Writes one PDF with all [items] (named [mergedName].pdf) or, when [merge] is false, one PDF per
-     * image named after it. Blocking and cancellable: call from a background coroutine.
-     * [onProgress] receives the number of images done so far.
+     * page named after its first image (an ID card's sides make one page: see [PageGroups]).
+     * Blocking and cancellable: call from a background coroutine. [onProgress] receives the number
+     * of images done so far.
      */
     suspend fun export(
         items: List<ImageItem>,
@@ -96,22 +103,27 @@ class PdfExporter(private val context: Context) {
         val job = currentCoroutineContext().job
         val checkCancelled = { job.ensureActive() }
         val options = Options(settings, compression, producer, checkCancelled)
+        val pages = PageGroups.pages(items) { it.card }
         clearOutput()
         outputDir.mkdirs()
         try {
             return if (merge) {
                 val name = FileNames.sanitize(mergedName, DEFAULT_NAME)
                 val file = File(outputDir, "$name.pdf")
-                val images = writePdf(file, name, items, options) { onProgress(it) }
-                listOf(PdfFile(file, items.size, items.sumOf { File(it.path).length() }, images))
+                val images = writePdf(file, name, pages, options) { onProgress(it) }
+                listOf(PdfFile(file, pages.size, items.sumOf { File(it.path).length() }, images))
             } else {
                 val taken = HashSet<String>()
-                items.mapIndexed { index, item ->
-                    val name = FileNames.unique(FileNames.sanitize(FileNames.baseName(item.name), DEFAULT_NAME), taken)
+                // The images done in the PDFs written before, so that the count goes on across them.
+                var done = 0
+                pages.map { page ->
+                    val name = FileNames.unique(FileNames.sanitize(FileNames.baseName(page[0].name), DEFAULT_NAME), taken)
                     taken += name
                     val file = File(outputDir, "$name.pdf")
-                    val images = writePdf(file, name, listOf(item), options) { onProgress(index + 1) }
-                    PdfFile(file, 1, File(item.path).length(), images)
+                    val before = done
+                    val images = writePdf(file, name, listOf(page), options) { onProgress(before + it) }
+                    done += page.size
+                    PdfFile(file, 1, page.sumOf { File(it.path).length() }, images)
                 }
             }
         } catch (t: Throwable) {
@@ -127,20 +139,31 @@ class PdfExporter(private val context: Context) {
         val checkCancelled: () -> Unit,
     )
 
-    /** Returns each page's image and where it went. */
-    private fun writePdf(file: File, title: String, items: List<ImageItem>, options: Options, onPageDone: (Int) -> Unit): List<PlacedImage> {
+    /**
+     * Writes [pages] (each one image, or an ID card's sides) and returns the images on them and
+     * where each went. [onImagesDone] receives the number of this PDF's images done so far.
+     */
+    private fun writePdf(file: File, title: String, pages: List<List<ImageItem>>, options: Options, onImagesDone: (Int) -> Unit): List<PlacedImage> {
         val placed = ArrayList<PlacedImage>()
+        var done = 0
         file.outputStream().use { out ->
             val builder = ImagePdfBuilder(out, options.layout, title, options.producer)
-            items.forEachIndexed { index, item ->
+            pages.forEachIndexed { index, images ->
                 options.checkCancelled()
-                val page = loadPage(item, options)
-                try {
-                    placed += PlacedImage(item, builder.addPage(page.image, item.exifOrientation, item.rotation, options.checkCancelled))
-                } finally {
-                    page.release()
+                if (images[0].card != 0L) {
+                    writeCard(builder, images, options).forEachIndexed { side, placement -> placed += PlacedImage(images[side], placement, index) }
+                } else {
+                    val item = images.single()
+                    val scale = Compressor.scaleFor(item.shownWidth, item.shownHeight, options.layout, options.compression)
+                    val page = loadPage(item, options, scale)
+                    try {
+                        placed += PlacedImage(item, builder.addPage(page.image, item.exifOrientation, item.rotation, options.checkCancelled), index)
+                    } finally {
+                        page.release()
+                    }
                 }
-                onPageDone(index + 1)
+                done += images.size
+                onImagesDone(done)
             }
             builder.finish()
             out.fd.sync()
@@ -148,13 +171,36 @@ class PdfExporter(private val context: Context) {
         return placed
     }
 
+    /**
+     * Adds the page of an ID card with [sides] (front first; one or two) at the card's real size,
+     * each side shrunk for the room it takes there. Returns where each side went. The sides are
+     * held, shrunk, until their page is written.
+     */
+    private fun writeCard(builder: ImagePdfBuilder, sides: List<ImageItem>, options: Options): List<ImagePlacement> {
+        val places = IdCardLayout.compute(sides.map { it.shownWidth to it.shownHeight }, options.layout)
+        val loaded = ArrayList<LoadedPage>(sides.size)
+        try {
+            sides.forEachIndexed { i, item ->
+                options.checkCancelled()
+                val scale = Compressor.scaleFor(item.shownWidth, places[i].imageWidth, options.compression, IdCardLayout.DETAIL)
+                loaded += loadPage(item, options, scale)
+            }
+            val drawings = sides.mapIndexed { i, item -> PageDrawing(loaded[i].image, item.exifOrientation, item.rotation, places[i]) }
+            return builder.addPage(drawings, options.checkCancelled)
+        } finally {
+            loaded.forEach { it.release() }
+        }
+    }
+
     private class LoadedPage(val image: PageImage, val release: () -> Unit = {})
 
-    /** The smaller of the compressed image and the original (when the original can be kept as is). */
-    private fun loadPage(item: ImageItem, options: Options): LoadedPage {
+    /**
+     * The smaller of the image shrunk by [scale] and compressed, and the original (when the original
+     * can be kept as is).
+     */
+    private fun loadPage(item: ImageItem, options: Options, scale: Double): LoadedPage {
         val file = File(item.path)
         if (!file.isFile) throw ImageUnreadableException(item.name)
-        val scale = Compressor.scaleFor(item.shownWidth, item.shownHeight, options.layout, options.compression)
         if (item.styled) return LoadedPage(withLook(item, scale, options))
         val compressed = compressToJpeg(item, scale, options.compression.jpegQuality)
         options.checkCancelled()

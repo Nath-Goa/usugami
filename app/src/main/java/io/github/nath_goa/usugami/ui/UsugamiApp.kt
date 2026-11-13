@@ -42,6 +42,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.OutputType
+import io.github.nath_goa.usugami.core.PageGroups
 import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.SharedFiles
@@ -939,7 +940,7 @@ fun UsugamiApp(
                             changeLayout = vm::setLayout,
                             rotate = vm::rotate,
                             crop = vm::openCrop,
-                            remove = vm::remove,
+                            remove = vm::removePage,
                             move = vm::move,
                             moveBy = vm::moveBy,
                             sort = vm::sort,
@@ -1206,6 +1207,7 @@ fun UsugamiApp(
     if (showConvertSheet && screen == "images" && items.isNotEmpty()) {
         ConvertSheet(
             imageCount = items.size,
+            pageCount = PageGroups.pages(items) { it.card }.size,
             layout = layout,
             initialMerge = merge,
             initialCompression = compression,

@@ -217,6 +217,11 @@ class BuiltInOcrDeviceTest {
         BlackAndWhiteOcrCheck.run(context, engine, File(dir, "black-and-white"))
     }
 
+    /** An ID card's two sides on one page are both read, the page reported once, each side's text over it. */
+    @Test fun readsBothSidesOfAnIdCard() = runBlocking {
+        IdCardOcrCheck.run(context, engine, File(dir, "id-card"))
+    }
+
     /** The native bridge turns bad input into exceptions instead of crashing the app. */
     /**
      * Every character the models' dictionaries can give has a glyph in the text layer's font, rather

@@ -41,10 +41,10 @@ data class OcrOutput(val files: List<PdfFile>, val lineCount: Int)
  */
 class PdfOcr(private val context: Context) {
     /**
-     * One recognized line, in pixels of the [pixelWidth] × [pixelHeight] image read: the page's own
-     * image, drawn on the page as [placement] says, or else the whole page rendered. [corners] are the
-     * text's top-left, top-right, bottom-right and bottom-left corners, which also give its angle;
-     * without them the upright [bounds] are used.
+     * One recognized line, in pixels of the [pixelWidth] × [pixelHeight] image read: one of the page's
+     * own images, drawn on the page as [placement] says, or else the whole page rendered. [corners]
+     * are the text's top-left, top-right, bottom-right and bottom-left corners, which also give its
+     * angle; without them the upright [bounds] are used.
      */
     @VisibleForTesting
     internal data class Line(
@@ -75,7 +75,7 @@ class PdfOcr(private val context: Context) {
                 files.map { source ->
                     currentCoroutineContext().ensureActive()
                     // The pages as rendered also when the system has cleared a picked image from the cache.
-                    val lines = if (source.images.size == source.pageCount && source.images.all { File(it.item.path).isFile }) {
+                    val lines = if (readsImages(source)) {
                         recognize(source.images, recognizer) { onPage(++pagesDone) }
                     } else {
                         recognize(source.file, recognizer) { onPage(++pagesDone) }
@@ -94,21 +94,31 @@ class PdfOcr(private val context: Context) {
     }
 
     /**
+     * Whether [source] is read from the images it was just made from: every page has its images
+     * there, and each of them is still in the cache.
+     */
+    private fun readsImages(source: PdfFile): Boolean =
+        source.images.isNotEmpty() &&
+            source.images.mapTo(HashSet()) { it.page } == (0 until source.pageCount).toSet() &&
+            source.images.all { File(it.item.path).isFile }
+
+    /**
      * Reads the images a PDF was just made from as they were picked, not as compressed into it: small
-     * print reads far better (at Extreme, the PDF keeps 100 dpi). Each line goes where the page draws it.
+     * print reads far better (at Extreme, the PDF keeps 100 dpi). Each line goes where its page draws
+     * its image; [onPageDone] is called once a page's last image (an ID card's page has two) is read.
      */
     private suspend fun recognize(images: List<PlacedImage>, recognizer: OcrRecognizer, onPageDone: () -> Unit): List<Line> {
         val lines = ArrayList<Line>()
-        images.forEachIndexed { page, image ->
+        images.forEachIndexed { index, image ->
             currentCoroutineContext().ensureActive()
             val bitmap = shownImage(image.item, image.placement.transform)
             val width = bitmap.width
             val height = bitmap.height
             // The recognizer recycles the bitmap once it is done with it.
             for (line in recognizer.recognize(bitmap)) {
-                if (line.text.isNotBlank()) lines += Line(page, line.text, line.corners.bounds(), width, height, line.corners, image.placement)
+                if (line.text.isNotBlank()) lines += Line(image.page, line.text, line.corners.bounds(), width, height, line.corners, image.placement)
             }
-            onPageDone()
+            if (images.getOrNull(index + 1)?.page != image.page) onPageDone()
         }
         return lines
     }

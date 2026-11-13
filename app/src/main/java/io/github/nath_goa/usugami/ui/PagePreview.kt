@@ -8,10 +8,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -19,8 +19,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -40,18 +42,7 @@ fun PagePreview(item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails,
     val geometry = remember(item.shownWidth, item.shownHeight, layout) {
         PageLayout.compute(item.shownWidth, item.shownHeight, layout)
     }
-    var thumbnail by remember { mutableStateOf(thumbnails.cached(item)?.asImageBitmap()) }
-    // A page cropped again, or given another look or adjustments, keeps showing its last picture until
-    // the new one is ready.
-    LaunchedEffect(item.path, item.look, item.adjustments) {
-        thumbnails.load(item)?.asImageBitmap()?.let { thumbnail = it }
-    }
-    // A thumbnail that has to be decoded fades in over the placeholder; a cached one shows at once.
-    val thumbnailAlpha by animateFloatAsState(
-        targetValue = if (thumbnail != null) 1f else 0f,
-        animationSpec = Motion.short(),
-        label = "thumbnail fade",
-    )
+    val thumbnail = rememberThumbnail(item, thumbnails)
     val placeholder = MaterialTheme.colorScheme.surfaceVariant
     val rotation = item.rotation
 
@@ -68,28 +59,69 @@ fun PagePreview(item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails,
             val top = geometry.imageTop.toFloat() * scale
             val width = geometry.imageWidth.toFloat() * scale
             val height = geometry.imageHeight.toFloat() * scale
-            val image = thumbnail
-            val imageAlpha = thumbnailAlpha
-            if (image == null || imageAlpha < 1f) {
-                drawRect(placeholder, Offset(left, top), Size(width, height))
-            }
-            if (image == null) return@Canvas
-            // The thumbnail is upright; turn it by the user's rotation around the image centre.
-            val sideways = rotation % 180 != 0
-            val drawW = if (sideways) height else width
-            val drawH = if (sideways) width else height
-            val center = Offset(left + width / 2, top + height / 2)
-            rotate(rotation.toFloat(), pivot = center) {
-                drawImage(
-                    image,
-                    srcOffset = IntOffset.Zero,
-                    srcSize = IntSize(image.width, image.height),
-                    dstOffset = IntOffset((center.x - drawW / 2).roundToInt(), (center.y - drawH / 2).roundToInt()),
-                    dstSize = IntSize(drawW.roundToInt().coerceAtLeast(1), drawH.roundToInt().coerceAtLeast(1)),
-                    alpha = imageAlpha,
-                    filterQuality = FilterQuality.Medium,
-                )
-            }
+            drawPageImage(thumbnail.image, thumbnail.alpha, rotation, placeholder, left, top, width, height)
         }
+    }
+}
+
+/** A page's thumbnail as it loads, and how far it has faded in: see [rememberThumbnail]. */
+internal class PageThumbnail(image: State<ImageBitmap?>, alpha: State<Float>) {
+    val image by image
+    val alpha by alpha
+}
+
+/**
+ * [item]'s thumbnail, upright. A page cropped again, or given another look or adjustments, keeps
+ * showing its last picture until the new one is ready. Read it while drawing, so that its fade
+ * only redraws.
+ */
+@Composable
+internal fun rememberThumbnail(item: ImageItem, thumbnails: Thumbnails): PageThumbnail {
+    val thumbnail = remember { mutableStateOf(thumbnails.cached(item)?.asImageBitmap()) }
+    LaunchedEffect(item.path, item.look, item.adjustments) {
+        thumbnails.load(item)?.asImageBitmap()?.let { thumbnail.value = it }
+    }
+    // A thumbnail that has to be decoded fades in over the placeholder; a cached one shows at once.
+    val alpha = animateFloatAsState(
+        targetValue = if (thumbnail.value != null) 1f else 0f,
+        animationSpec = Motion.short(),
+        label = "thumbnail fade",
+    )
+    return PageThumbnail(thumbnail, alpha)
+}
+
+/**
+ * Draws a page's upright thumbnail [image] at [imageAlpha], turned by the user's [rotation], in the
+ * rectangle at [left], [top] of [width] × [height], over [placeholder] until it is there.
+ */
+internal fun DrawScope.drawPageImage(
+    image: ImageBitmap?,
+    imageAlpha: Float,
+    rotation: Int,
+    placeholder: Color,
+    left: Float,
+    top: Float,
+    width: Float,
+    height: Float,
+) {
+    if (image == null || imageAlpha < 1f) {
+        drawRect(placeholder, Offset(left, top), Size(width, height))
+    }
+    if (image == null) return
+    // The thumbnail is upright; turn it by the user's rotation around the image centre.
+    val sideways = rotation % 180 != 0
+    val drawW = if (sideways) height else width
+    val drawH = if (sideways) width else height
+    val center = Offset(left + width / 2, top + height / 2)
+    rotate(rotation.toFloat(), pivot = center) {
+        drawImage(
+            image,
+            srcOffset = IntOffset.Zero,
+            srcSize = IntSize(image.width, image.height),
+            dstOffset = IntOffset((center.x - drawW / 2).roundToInt(), (center.y - drawH / 2).roundToInt()),
+            dstSize = IntSize(drawW.roundToInt().coerceAtLeast(1), drawH.roundToInt().coerceAtLeast(1)),
+            alpha = imageAlpha,
+            filterQuality = FilterQuality.Medium,
+        )
     }
 }

@@ -29,6 +29,7 @@ import io.github.nath_goa.usugami.core.OpenedFiles
 import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.core.PageCrop
+import io.github.nath_goa.usugami.core.PageGroups
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.ReadFrom
 import io.github.nath_goa.usugami.core.SharedFiles
@@ -371,10 +372,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** The result's first page, which the result screen shows the mark on while it is changed. */
     val markPreview: StateFlow<MarkPreview?> = marker.preview
 
-    // Cropped pages' files are numbered from the same count.
+    // Cropped pages' files and ID cards are numbered from the same count, so a new card never takes
+    // the number of one kept in the saved state, even after the phone's clock was turned back.
     private var nextId = maxOf(
         System.currentTimeMillis(),
-        (items.value.maxOfOrNull { maxOf(it.id, File(it.path).nameWithoutExtension.toLongOrNull() ?: 0L) } ?: 0L) + 1,
+        (items.value.maxOfOrNull { maxOf(it.id, it.card, File(it.path).nameWithoutExtension.toLongOrNull() ?: 0L) } ?: 0L) + 1,
     )
     private var conversion: Job? = null
 
@@ -907,6 +909,18 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         viewModelScope.launch(fileOps) { store.delete(item) }
     }
 
+    /** Removes the page that holds the image [id]: that image, or both sides of an ID card. */
+    fun removePage(id: Long) {
+        val page = pages().firstOrNull { page -> page.any { it.id == id } } ?: return
+        val ids = page.mapTo(HashSet()) { it.id }
+        setItems(items.value.filterNot { it.id in ids })
+        page.forEach(thumbnails::remove)
+        viewModelScope.launch(fileOps) { page.forEach(store::delete) }
+    }
+
+    /** The pages the images make: one image each, but for an ID card's sides, which share one. */
+    private fun pages(list: List<ImageItem> = items.value): List<List<ImageItem>> = PageGroups.pages(list) { it.card }
+
     /** Removes every image, including those still being imported. */
     fun clearAll() {
         importGeneration++
@@ -928,34 +942,35 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         }
     }
 
-    /** Moves the image [fromId] to where [toId] is (drag and drop). */
+    /** Moves the page that holds the image [fromId] to where the page holding [toId] is (drag and drop). */
     fun move(fromId: Long, toId: Long) {
-        val list = items.value.toMutableList()
-        val from = list.indexOfFirst { it.id == fromId }
-        val to = list.indexOfFirst { it.id == toId }
+        val list = pages().toMutableList()
+        val from = list.indexOfFirst { page -> page.any { it.id == fromId } }
+        val to = list.indexOfFirst { page -> page.any { it.id == toId } }
         if (from < 0 || to < 0 || from == to) return
         list.add(to, list.removeAt(from))
-        setItems(list)
+        setItems(list.flatten())
     }
 
-    /** Moves an image one place earlier (-1) or later (+1). */
+    /** Moves the page that holds the image [id] one place earlier (-1) or later (+1). */
     fun moveBy(id: Long, offset: Int) {
-        val list = items.value.toMutableList()
-        val from = list.indexOfFirst { it.id == id }
+        val list = pages().toMutableList()
+        val from = list.indexOfFirst { page -> page.any { it.id == id } }
         val to = from + offset
         if (from < 0 || to !in list.indices) return
         list.add(to, list.removeAt(from))
-        setItems(list)
+        setItems(list.flatten())
     }
 
+    /** Sorts the pages, each by its first image's name; an ID card's front stays above its back. */
     fun sort(mode: SortMode) {
-        val list = items.value
+        val list = pages()
         setItems(
             when (mode) {
-                SortMode.NAME_ASC -> list.sortedWith(compareBy(NaturalOrder) { it.name })
-                SortMode.NAME_DESC -> list.sortedWith(compareBy(NaturalOrder) { it.name }).reversed()
+                SortMode.NAME_ASC -> list.sortedWith(compareBy(NaturalOrder) { it[0].name })
+                SortMode.NAME_DESC -> list.sortedWith(compareBy(NaturalOrder) { it[0].name }).reversed()
                 SortMode.REVERSE -> list.reversed()
-            },
+            }.flatten(),
         )
     }
 
@@ -1295,6 +1310,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val crops = restoredCrops(saved, ids)
         val looks = saved.getByteArray("looks")?.takeIf { it.size == ids.size }
         val adjustments = saved.getIntArray("adjustments")?.takeIf { it.size == ids.size }
+        val cards = saved.getLongArray("cards")?.takeIf { it.size == ids.size }
         return ids.indices.map { i ->
             val format = ImageFormat.entries[details[i] shr 16]
             val crop = crops[i]
@@ -1310,6 +1326,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 original = crop?.second,
                 look = looks?.getOrNull(i)?.toInt()?.let { PageLook.entries.getOrNull(it) } ?: PageLook.ORIGINAL,
                 adjustments = adjustments?.getOrNull(i)?.let(::unpackAdjustments) ?: LookAdjustments.NONE,
+                card = cards?.get(i) ?: 0L,
             )
         }
     }
@@ -1378,10 +1395,13 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     /** What the Convert sheet starts with: the last attempt's choices if it made no PDF, otherwise the defaults. */
     fun initialChoices(): ConvertChoices = lastChoices ?: ConvertChoices(defaultFileName(), ocrLanguage = null)
 
-    /** Suggested name for a merged PDF: the image's own name for one image, otherwise a timestamp. */
+    /**
+     * Suggested name for a merged PDF: the image's own name for one page (an ID card's: its front's),
+     * otherwise a timestamp.
+     */
     private fun defaultFileName(): String {
         val list = items.value
-        if (list.size == 1) return FileNames.sanitize(FileNames.baseName(list[0].name), PdfExporter.DEFAULT_NAME)
+        if (pages(list).size == 1) return FileNames.sanitize(FileNames.baseName(list[0].name), PdfExporter.DEFAULT_NAME)
         return "Usugami_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT))
     }
 
@@ -1394,7 +1414,9 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // Not while a page's crop screen shows or is opening, as it does for a photo just taken: the
         // page would go into the PDF uncropped, and closing that screen later would remove it.
         if (_crop.value != null || _openingCrop.value) return
-        if (snapshot.size > 1) {
+        // The setting and the sheet count pages: an ID card's sides make one.
+        val single = pages(snapshot).size == 1
+        if (!single) {
             _merge.value = merge
             settingsStore.merge = merge
         }
@@ -1422,7 +1444,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                         }
                         _progress.value = Progress(0, snapshot.size)
                     }
-                    val files = exporter.export(pages, layout, compression, merge || snapshot.size == 1, fileName, strings.getString(R.string.app_name)) { done ->
+                    val files = exporter.export(pages, layout, compression, merge || single, fileName, strings.getString(R.string.app_name)) { done ->
                         _progress.value = Progress(done, snapshot.size)
                     }
                     made = files
@@ -1801,7 +1823,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
          * it went to the background. The copies' paths follow from their ids (see [ImageStore.fileFor]),
          * and names never contain "/" (they are what follows the last one). A cropped page's file has
          * a number of its own, and the image it was cropped from has the page's id. Each page's look
-         * is a byte, and its brightness and contrast a number.
+         * is a byte, and its brightness and contrast a number. Each image's ID card number (0 for a
+         * page of its own) is kept as it is.
          */
         @VisibleForTesting
         internal fun packItems(list: List<ImageItem>): Bundle {
@@ -1819,6 +1842,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 "cropCorners" to FloatArray(8 * cropped.size) { i -> original(i / 8).corners[i % 8 / 2].let { if (i % 2 == 0) it.x else it.y } },
                 "looks" to ByteArray(list.size) { list[it].look.ordinal.toByte() },
                 "adjustments" to IntArray(list.size) { packAdjustments(list[it].adjustments) },
+                "cards" to LongArray(list.size) { list[it].card },
             )
         }
 

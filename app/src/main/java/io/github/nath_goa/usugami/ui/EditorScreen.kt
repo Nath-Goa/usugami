@@ -108,6 +108,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.LayoutSettings
+import io.github.nath_goa.usugami.core.PageGroups
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
@@ -127,6 +128,8 @@ class EditorActions(
     val sort: (SortMode) -> Unit,
     val clearAll: () -> Unit,
     val convert: () -> Unit,
+    /** Add back side on a one-sided card's tile. */
+    val addCardBack: (card: Long) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -142,6 +145,8 @@ fun EditorScreen(
     cropping: Set<Long> = emptySet(),
 ) {
     var confirmClear by rememberSaveable { mutableStateOf(false) }
+    // An ID card's two sides are one page.
+    val pages = remember(items) { PageGroups.pages(items) { it.card } }
     // The bar takes a tint of its own once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -177,7 +182,7 @@ fun EditorScreen(
                 },
                 actions = {
                     AnimatedVisibility(
-                        visible = items.size > 1,
+                        visible = pages.size > 1,
                         enter = fadeIn(Motion.short()),
                         exit = fadeOut(Motion.short()),
                         label = "sort action",
@@ -245,11 +250,11 @@ fun EditorScreen(
                     }
                 } else {
                     // Keeps showing the last pages while they fade out after the last image goes.
-                    val shownItems = freezeWhen(items.isEmpty(), items)
+                    val shownPages = freezeWhen(items.isEmpty(), pages)
                     val bottom = freezeWhen(items.isEmpty(), padding.calculateBottomPadding())
                     Column(Modifier.fillMaxSize().padding(bottom = bottom)) {
                         OptionsRow(layout, actions.changeLayout, Modifier.padding(top = 4.dp, bottom = 4.dp))
-                        PageGrid(shownItems, layout, thumbnails, actions, cropping)
+                        PageGrid(shownPages, layout, thumbnails, actions, cropping)
                     }
                 }
             }
@@ -272,14 +277,18 @@ fun EditorScreen(
     }
 }
 
+/**
+ * The [pages] (each one image, or an ID card's sides, see [PageGroups]) as tiles that can be dragged
+ * into another order, a page at a time.
+ */
 @Composable
-private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails: Thumbnails, actions: EditorActions, cropping: Set<Long>) {
+private fun PageGrid(pages: List<List<ImageItem>>, layout: LayoutSettings, thumbnails: Thumbnails, actions: EditorActions, cropping: Set<Long>) {
     val haptic = LocalHapticFeedback.current
     val gridState = rememberLazyGridState()
-    // The reorder hint is inserted above the first page when the second image arrives. The grid
+    // The reorder hint is inserted above the first page when the second page arrives. The grid
     // keeps the first page in place, which would leave the hint scrolled out of view, so stay at
     // the top when the grid was already there.
-    val showHint = items.size > 1
+    val showHint = pages.size > 1
     val hintWasShown = remember { booleanArrayOf(showHint) }
     if (showHint && !hintWasShown[0]) {
         val atTop = Snapshot.withoutReadObservation {
@@ -288,6 +297,7 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
         if (atTop) gridState.requestScrollToItem(0)
     }
     hintWasShown[0] = showHint
+    // A page's key is its first image's id.
     val reorderState = rememberReorderableLazyGridState(gridState) { from, to ->
         val fromId = from.key as? Long ?: return@rememberReorderableLazyGridState
         val toId = to.key as? Long ?: return@rememberReorderableLazyGridState
@@ -312,16 +322,25 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
                 )
             }
         }
-        itemsIndexed(items, key = { _, item -> item.id }) { index, item ->
+        itemsIndexed(pages, key = { _, page -> page[0].id }) { index, page ->
+            val item = page[0]
             ReorderableItem(reorderState, key = item.id) { isDragging ->
                 val elevation by animateDpAsState(if (isDragging) 10.dp else 1.dp, label = "drag elevation")
                 val moveEarlier = stringResource(R.string.move_page_earlier, index + 1)
                 val moveLater = stringResource(R.string.move_page_later, index + 1)
+                val card = item.card != 0L
                 // The page is only drawn turned, and with its look: a screen reader hears both, also
-                // right after Rotate.
-                val turned = turnedLabel(item.rotation)?.let { stringResource(it) }
-                val look = if (item.look == PageLook.ORIGINAL) null else stringResource(lookName(item.look))
-                val state = listOfNotNull(turned, look).joinToString(", ").ifEmpty { null }
+                // right after Rotate. An ID card's are each side's ("Front side: Grayscale").
+                val sideStates = page.map { side ->
+                    val turned = turnedLabel(side.rotation)?.let { stringResource(it) }
+                    val look = if (side.look == PageLook.ORIGINAL) null else stringResource(lookName(side.look))
+                    listOfNotNull(turned, look).joinToString(", ")
+                }
+                val sideNames = listOf(stringResource(R.string.card_front), stringResource(R.string.card_back))
+                val state = if (!card) sideStates[0].ifEmpty { null }
+                else sideStates.mapIndexedNotNull { i, sideState ->
+                    if (sideState.isEmpty()) null else stringResource(R.string.option_value, sideNames[i], sideState)
+                }.joinToString(", ").ifEmpty { null }
                 ElevatedCard(
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation),
                     modifier = Modifier
@@ -334,12 +353,13 @@ private fun PageGrid(items: List<ImageItem>, layout: LayoutSettings, thumbnails:
                         .semantics(mergeDescendants = true) {
                             customActions = buildList {
                                 if (index > 0) add(CustomAccessibilityAction(moveEarlier) { actions.moveBy(item.id, -1); true })
-                                if (index < items.lastIndex) add(CustomAccessibilityAction(moveLater) { actions.moveBy(item.id, 1); true })
+                                if (index < pages.lastIndex) add(CustomAccessibilityAction(moveLater) { actions.moveBy(item.id, 1); true })
                             }
                             if (state != null) stateDescription = state
                         },
                 ) {
-                    PageCardContent(index + 1, item, layout, thumbnails, actions, cropping = item.id in cropping)
+                    if (card) IdCardTile(index + 1, page, layout, thumbnails, actions, cropping)
+                    else PageCardContent(index + 1, item, layout, thumbnails, actions, cropping = item.id in cropping)
                 }
             }
         }
@@ -360,22 +380,7 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
                 .padding(12.dp),
         ) {
             PagePreview(item, layout, thumbnails, Modifier.fillMaxSize())
-            val pageLabel = stringResource(R.string.pdf_page_number, pageNumber)
-            Surface(
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                shape = RoundedCornerShape(50),
-                modifier = Modifier.align(Alignment.TopStart),
-            ) {
-                // A screen reader says "Page 3" rather than a bare "3".
-                Text(
-                    pageNumber.toString(),
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier
-                        .semantics { contentDescription = pageLabel }
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
-                )
-            }
+            PageNumberBadge(pageNumber, Modifier.align(Alignment.TopStart))
             // On the picture, as the bar below has room for three buttons on a narrow card. Off
             // while the page is being cropped, which a crop would start from.
             FilledTonalIconButton(
@@ -409,6 +414,26 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, pageNumber))
             }
         }
+    }
+}
+
+/** A page's number on its tile, which a screen reader says as "Page 3" rather than a bare "3". */
+@Composable
+internal fun PageNumberBadge(pageNumber: Int, modifier: Modifier = Modifier) {
+    val pageLabel = stringResource(R.string.pdf_page_number, pageNumber)
+    Surface(
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shape = RoundedCornerShape(50),
+        modifier = modifier,
+    ) {
+        Text(
+            pageNumber.toString(),
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier
+                .semantics { contentDescription = pageLabel }
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+        )
     }
 }
 
