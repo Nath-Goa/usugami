@@ -1956,6 +1956,111 @@ class ScreensDeviceTest {
     }
 
     /**
+     * Waits for the crop screen of an ID card's [side] (its name under the title, as a screen reader
+     * hears it with the title, and the hint speaking of the card), running [meanwhile] at each look.
+     */
+    private fun cardCropScreen(side: String, meanwhile: (List<AccessibilityNodeInfo>) -> Unit = {}) {
+        val pane = app.getString(R.string.scan_pane_title, app.getString(R.string.crop_title), side)
+        waitUntil("the crop screen of the card's $side") {
+            val shown = nodes()
+            meanwhile(shown)
+            shown.any { it.says(app.getString(R.string.card_crop_found)) } && shown.any { it.says(side) } &&
+                (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || shown.any { it.paneTitle?.toString() == pane })
+        }
+    }
+
+    /**
+     * Home's ID card button: the front's prompt, Take photo, the front's crop screen (the prompt never
+     * says "Back side" before it has come in), Next, Next, the back's prompt, Take photo, the back's
+     * crop screen, Next, Done: the editor with one page, the card, whose two images share its number.
+     */
+    @Test fun anIdCardIsScannedFrontAndBackOntoOnePage() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        val front = app.getString(R.string.card_front)
+        val back = app.getString(R.string.card_back)
+        click(button(R.string.scan_id_card))
+        // Its heading: Home has left the tree by then, with its own Take photo.
+        find("the front's prompt") { it.says(front) }
+        val camera = Camera(PagePhotos.photo())
+        withCamera(camera) {
+            press(R.string.add_from_camera)
+            cardCropScreen(front) { shown ->
+                assertTrue("The front's prompt said \"$back\" before its crop screen came in", shown.none { it.says(back) })
+            }
+            press(R.string.crop_next)
+            find("the front's filters step") { it.says(app.getString(R.string.filter_title)) }
+            press(R.string.crop_next)
+
+            find("the back's prompt") { it.says(back) }
+            press(R.string.add_from_camera)
+            cardCropScreen(back)
+            press(R.string.crop_next)
+            find("the back's filters step") { it.says(app.getString(R.string.filter_title)) }
+            press(R.string.crop_done)
+        }
+        assertEquals(2, camera.taken)
+        find("the editor") { it.says(app.getString(R.string.convert)) }
+        find("the card's page") { it.says(app.getString(R.string.crop_page, 1)) }
+        assertEquals(1, nodes().count { it.says(app.getString(R.string.card_title)) })
+        assertTrue(nodes().none { it.says(app.getString(R.string.crop_page, 2)) })
+        val sides = onMain { vm.items.value }
+        assertEquals(2, sides.size)
+        assertTrue("$sides", sides[0].card != 0L && sides[0].card == sides[1].card)
+        assertNull(onMain { vm.card.value })
+        waitUntil("the sides to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 } }
+        onMain { vm.clearAll() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    /**
+     * Cancel on the ID card's front prompt goes back Home, not by way of the empty editor, with
+     * nothing added. A card whose back is skipped with No back side is kept with its front alone: its
+     * Add back side asks for the back, and Back from there leaves the card as it was.
+     */
+    @Test fun aCardWithoutABackIsKeptAndCancelFromTheFrontGoesHome() {
+        val activity = launch()
+        val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
+        val front = app.getString(R.string.card_front)
+        val back = app.getString(R.string.card_back)
+        click(button(R.string.scan_id_card))
+        find("the front's prompt") { it.says(front) }
+        click(button(R.string.cancel))
+        waitUntil("Home") {
+            val shown = nodes()
+            assertTrue("The empty editor showed on the way Home", shown.none { it.says(app.getString(R.string.empty_title)) })
+            shown.any { it.says(app.getString(R.string.scan_title)) }
+        }
+        assertTrue(onMain { vm.items.value.isEmpty() && vm.card.value == null })
+
+        click(button(R.string.scan_id_card))
+        find("the front's prompt, again") { it.says(front) }
+        withCamera(Camera(PagePhotos.photo())) {
+            press(R.string.add_from_camera)
+            cardCropScreen(front)
+            press(R.string.crop_next)
+            find("the front's filters step") { it.says(app.getString(R.string.filter_title)) }
+            press(R.string.crop_next)
+        }
+        find("the back's prompt") { it.says(back) }
+        press(R.string.card_no_back)
+        val add = find("the card's Add back side") { it.says(app.getString(R.string.card_add_back)) }
+        val card = onMain { vm.items.value.single() }
+        assertNotEquals(0L, card.card)
+        assertNull(onMain { vm.card.value })
+
+        click(add)
+        find("the back's prompt, again") { it.says(back) }
+        backKey()
+        find("the editor, again") { it.says(app.getString(R.string.card_add_back)) }
+        assertNull(onMain { vm.card.value })
+        assertEquals(listOf(card.id to card.card), onMain { vm.items.value.map { it.id to it.card } })
+        waitUntil("the front to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 } }
+        onMain { vm.clearAll() }
+        runBlocking { vm.awaitFileWork() }
+    }
+
+    /**
      * A document shared to Usugami while a scan from Home is on the crop screen opens its converter,
      * and Back from there returns to the scan, still from Home: its photo discarded, Home shows again.
      */

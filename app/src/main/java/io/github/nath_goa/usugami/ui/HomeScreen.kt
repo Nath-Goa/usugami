@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.ViewQuilt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Compress
@@ -308,9 +309,10 @@ private val HomeSections = listOf(
 
 /**
  * Home: Scan document at the top, whose two buttons take a photo ([onScanPhoto]) or pick images
- * ([onScanUpload]) to make pages of, then the files saved last ([recentFiles], if any), then the tools
- * in their sections, and a search field above them. Documents to PDF picks files ([onDocuments]), and
- * Read and annotate a file to open in the reader ([onOpenFile]).
+ * ([onScanUpload]) to make pages of, and a quieter one scans an ID card's two sides onto one page
+ * ([onScanCard]), then the files saved last ([recentFiles], if any), then the tools in their
+ * sections, and a search field above them. Documents to PDF picks files ([onDocuments]), and Read
+ * and annotate a file to open in the reader ([onOpenFile]).
  * While something is typed, what it finds (Scan document too) shows in one list instead, without the
  * sections, and Scan document and the files leave the top.
  */
@@ -322,6 +324,7 @@ fun HomeScreen(
     onQueryChange: (String) -> Unit,
     onScanPhoto: () -> Unit,
     onScanUpload: () -> Unit,
+    onScanCard: () -> Unit,
     recentFiles: List<RecentFile>,
     recentActions: RecentFileActions,
     onAllRecentFiles: () -> Unit,
@@ -377,7 +380,7 @@ fun HomeScreen(
                 exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
                 label = "scan card",
             ) {
-                ScanDocumentCard(onScanPhoto, onScanUpload, Modifier.padding(top = 16.dp))
+                ScanDocumentCard(onScanPhoto, onScanUpload, onScanCard, Modifier.padding(top = 16.dp))
             }
             AnimatedVisibility(
                 visible = query.isBlank() && recentFiles.isNotEmpty(),
@@ -393,7 +396,7 @@ fun HomeScreen(
                 if (searching) {
                     // Once the search is cleared, the results fade out as they were (not as "no tools
                     // match", which a screen reader would also read out).
-                    SearchResults(freezeWhen(query.isBlank(), query), open) { ScanDocumentCard(onScanPhoto, onScanUpload) }
+                    SearchResults(freezeWhen(query.isBlank(), query), open) { ScanDocumentCard(onScanPhoto, onScanUpload, onScanCard) }
                 } else {
                     // To add a tool, add its card to its section.
                     Column {
@@ -520,10 +523,11 @@ private fun SearchResults(query: String, open: (HomeCard) -> Unit, scanCard: @Co
 
 /**
  * Scan document: a card larger than the tools', in the theme's main colour, with a button that takes
- * a photo and one that picks images, each starting at once.
+ * a photo and one that picks images, each starting at once, and under them a quieter one that scans
+ * an ID card's front and back ([onIdCard]).
  */
 @Composable
-private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, modifier: Modifier = Modifier) {
+private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onIdCard: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -531,7 +535,7 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, modi
         ),
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 16.dp)) {
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.DocumentScanner, contentDescription = null, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.width(16.dp))
@@ -554,6 +558,18 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, modi
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.scan_upload), textAlign = TextAlign.Center)
                 }
+            }
+            Spacer(Modifier.height(4.dp))
+            // Quieter than the two above, in the card's own colour.
+            TextButton(
+                onClick = onIdCard,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
+                contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
+            ) {
+                Icon(Icons.Rounded.Badge, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.scan_id_card), textAlign = TextAlign.Center)
             }
         }
     }

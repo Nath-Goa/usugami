@@ -157,8 +157,10 @@ class CropActions(
  * right in the bar turn the image, the corners with it. Back on the second step goes back to the
  * first, with the corners kept. A photo just taken can be finished with Take another, and leaving
  * discards it; the images of a scan ([scan]) come one after another, and while the next is awaited
- * the screen says so. What the steps chose is kept through rotation, Android stopping Usugami, and a
- * tool opened over the screen for files shared to Usugami (UsugamiApp keeps it then).
+ * the screen says so. An ID card's side says which side it is, and speaks of the card; one the ID
+ * card flow is adding is discarded when left, and goes on to the back with Next, or ends with Done.
+ * What the steps chose is kept through rotation, Android stopping Usugami, and a tool opened over
+ * the screen for files shared to Usugami (UsugamiApp keeps it then).
  * [active] is false while the screen animates away: it then takes no Back. [arrived] is true once it
  * has come in.
  */
@@ -252,22 +254,30 @@ private fun CropSteps(
         val stepLive = transition.targetState == EnterExitState.Visible
         val here = settled && stepLive && transition.currentState == EnterExitState.Visible
         val title = stringResource(if (filters) R.string.filter_title else R.string.crop_title)
-        // Which image of a scan this is goes with the name, so the next image is heard coming in.
-        val pane = if (scan == null) title else stringResource(R.string.scan_pane_title, title, stringResource(R.string.scan_place, scan.place, scan.total))
+        // Which side of an ID card, or which image of a scan, this is goes with the name, so the next
+        // one is heard coming in.
+        val place = when {
+            session.side != null -> stringResource(if (session.side == CardSide.FRONT) R.string.card_front else R.string.card_back)
+            scan != null -> stringResource(R.string.scan_place, scan.place, scan.total)
+            else -> null
+        }
+        val pane = if (place == null) title else stringResource(R.string.scan_pane_title, title, place)
         // Each step is a pane, which a screen reader names once it has come in. While it fades in, a
         // screen reader leaves it out, and only a change, such as this, makes it look again.
         Inert(!stepLive, Modifier.semantics { if (here) paneTitle = pane }) {
             Scaffold(
                 topBar = {
                     TopAppBar(
-                        title = { StepTitle(title, scan) },
+                        title = { StepTitle(title, place) },
                         navigationIcon = {
                             when {
                                 filters -> IconButton(onClick = { state.step = CropStep.CROP }) {
                                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                                 }
-                                session.fromCamera || session.queued -> IconButton(onClick = actions.close) {
-                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(if (session.fromCamera) R.string.crop_discard else R.string.crop_stop))
+                                // A photo just taken, or an ID card's side being added, goes when left.
+                                session.fromCamera || session.cardScan || session.queued -> IconButton(onClick = actions.close) {
+                                    val discard = session.fromCamera || session.cardScan
+                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(if (discard) R.string.crop_discard else R.string.crop_stop))
                                 }
                                 else -> IconButton(onClick = actions.close) {
                                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -304,6 +314,11 @@ private fun CropSteps(
                             onAllPages = { state.allPages = it },
                             buttons = {
                                 when {
+                                    // An ID card's side being added: the front goes on to the back's prompt.
+                                    session.cardScan && session.side == CardSide.FRONT -> StepButtons(
+                                        StepButton(R.string.crop_next, Icons.AutoMirrored.Rounded.ArrowForward, iconAfter = true) { actions.done(choices()) },
+                                    )
+                                    session.cardScan -> StepButtons(StepButton(R.string.crop_done, Icons.Rounded.Check) { actions.done(choices()) })
                                     session.fromCamera -> StepButtons(
                                         main = StepButton(R.string.crop_done, Icons.Rounded.Check) { actions.done(choices()) },
                                         other = StepButton(R.string.crop_take_another, Icons.Rounded.PhotoCamera) { actions.takeAnother(choices()) },
@@ -325,14 +340,17 @@ private fun CropSteps(
 /** The steps of the crop screen, in order. */
 private enum class CropStep { CROP, FILTERS }
 
-/** A step's title, and under it, for an image of a scan, which of its images this is. */
+/**
+ * A step's title, and under it [place]: for an image of a scan, which of its images this is; for an
+ * ID card's side, which side.
+ */
 @Composable
-private fun StepTitle(title: String, scan: ScanQueue?) {
+private fun StepTitle(title: String, place: String?) {
     Column {
         BarTitle(title)
-        if (scan != null) {
+        if (place != null) {
             Text(
-                stringResource(R.string.scan_place, scan.place, scan.total),
+                place,
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -353,7 +371,7 @@ private fun ScanWaiting(scan: ScanQueue?, live: Boolean, snackbar: SnackbarHostS
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { StepTitle(stringResource(R.string.crop_title), scan) },
+                title = { StepTitle(stringResource(R.string.crop_title), scan?.let { stringResource(R.string.scan_place, it.place, it.total) }) },
                 navigationIcon = {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.crop_stop)) }
                 },
@@ -496,8 +514,15 @@ private fun CornersStep(session: CropSession, source: OriginalImage?, photo: Bit
 
     StepLayout(
         hint = { wide ->
-            val page = stringResource(if (session.foundPage) R.string.crop_found else R.string.crop_not_found)
-            val notAPage = stringResource(R.string.crop_not_a_page)
+            // An ID card's side speaks of the card.
+            val card = session.side != null
+            val page = stringResource(
+                when {
+                    card -> if (session.foundPage) R.string.card_crop_found else R.string.card_crop_not_found
+                    else -> if (session.foundPage) R.string.crop_found else R.string.crop_not_found
+                },
+            )
+            val notAPage = stringResource(if (card) R.string.card_crop_not_a_card else R.string.crop_not_a_page)
             val align = if (wide) TextAlign.Start else TextAlign.Center
             // As tall as the longer of its two texts, whichever shows: the image below stays
             // where it is when they change places under a corner being dragged.

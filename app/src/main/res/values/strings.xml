@@ -794,7 +794,7 @@
     <!-- Hidden words that also find a tool when searched for on Home, separated by commas. They are
          never shown: use the words people would type in this language for what the tool does. -->
     <string name="search_keywords_images">photo, picture, JPEG, JPG, PNG, HEIC, WebP, scan, scanner, camera, gallery, document, black and white, OCR</string>
-    <string name="search_keywords_scan">scan, scanner, CamScanner, camera, photo, document, paper, receipt, crop, enhance, filter, brightness, contrast, black and white</string>
+    <string name="search_keywords_scan">scan, scanner, CamScanner, camera, photo, document, paper, receipt, crop, enhance, filter, brightness, contrast, black and white, ID card, identity card, passport, driving licence, driver\'s license</string>
     <string name="search_keywords_word">doc, docx, document, Office, convert</string>
     <string name="search_keywords_powerpoint">ppt, pptx, slides, presentation, Office, convert</string>
     <!-- For the Excel to PDF card, which joins Home in this release. -->

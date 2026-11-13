@@ -5,12 +5,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Crop
@@ -22,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -36,8 +39,10 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.IdCardLayout
 import io.github.nath_goa.usugami.core.LayoutSettings
@@ -47,8 +52,9 @@ import io.github.nath_goa.usugami.data.Thumbnails
 /**
  * An ID card's page in the editor's grid, page [pageNumber]: the sheet as it will be in the PDF with
  * the card's [sides] on it (front first; one or two), its crop button (a menu of the two sides when
- * it has both), its name and its remove button, which removes the whole card. A card has no turn
- * buttons: each side is turned on its own crop screen. [cropping] are the images being cropped.
+ * it has both), its name and its remove button, which removes the whole card; a card with its front
+ * alone also has Add back side, which asks for the back. A card has no turn buttons: each side is
+ * turned on its own crop screen. [cropping] are the images being cropped.
  */
 @Composable
 fun IdCardTile(
@@ -108,7 +114,28 @@ fun IdCardTile(
             modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 8.dp),
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Spacer(Modifier.weight(1f))
+            if (sides.size == 1) {
+                // A screen reader hears its page, as of the crop and remove buttons: "Add back side, Page 5".
+                val label = stringResource(R.string.scan_pane_title, stringResource(R.string.card_add_back), stringResource(R.string.pdf_page_number, pageNumber))
+                // On a narrow tile in large text it shrinks a little, as the editor's bottom buttons do, rather
+                // than being cut off.
+                TextButton(
+                    onClick = { actions.addCardBack(sides[0].card) },
+                    modifier = Modifier.weight(1f).semantics { contentDescription = label },
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                ) {
+                    val style = MaterialTheme.typography.labelLarge
+                    Text(
+                        stringResource(R.string.card_add_back),
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = style.fontSize, stepSize = 0.5.sp),
+                    )
+                }
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
             IconButton(onClick = { actions.remove(sides[0].id) }) {
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, pageNumber))
             }

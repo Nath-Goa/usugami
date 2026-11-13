@@ -108,6 +108,8 @@ fun UsugamiApp(
     val openingCrop by vm.openingCrop.collectAsStateWithLifecycle()
     val cameraOpen by vm.cameraOpen.collectAsStateWithLifecycle()
     val scan by vm.scan.collectAsStateWithLifecycle()
+    // The ID card being scanned, while Home's ID card flow goes on.
+    val card by vm.card.collectAsStateWithLifecycle()
     val cropping by vm.cropping.collectAsStateWithLifecycle()
     val progress by vm.progress.collectAsStateWithLifecycle()
     val cancelling by vm.cancelling.collectAsStateWithLifecycle()
@@ -261,10 +263,12 @@ fun UsugamiApp(
     // rather than to an empty editor: the camera closed without a photo, the photo discarded, or
     // nothing picked could be added. The view model is asked as it is now: its flows reach the screen
     // one at a time.
-    LaunchedEffect(scanFromHome, route, items.isEmpty(), pendingImports, openingCrop, crop, scan, cameraOpen) {
+    LaunchedEffect(scanFromHome, route, items.isEmpty(), pendingImports, openingCrop, crop, scan, cameraOpen, card) {
         if (!scanFromHome || route != "images" || vm.scanUnderWay()) return@LaunchedEffect
         if (vm.items.value.isNotEmpty()) scanFromHome = false else if (vm.pendingImports.value == 0) route = "home"
     }
+    // An ID card flow is never left behind Home (see afterTool), where nothing could show it again.
+    LaunchedEffect(route) { if (route == "home") vm.endCard() }
     // Scan document's Upload images: the images picked are added, and cropped one after another.
     // Nothing picked leaves Home as it was.
     val scanPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
@@ -276,6 +280,8 @@ fun UsugamiApp(
             }
         }
     }
+    // The ID card flow's Choose image: one image, the side its prompt asks for.
+    val cardPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) vm.cardImage(uri) }
     // The phone's own camera app takes the photos, into a file Usugami gives it: Usugami needs no
     // camera permission. Also when Android closed Usugami while it was open, this comes back.
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture(), vm::photoTaken)
@@ -327,8 +333,9 @@ fun UsugamiApp(
         if (uri != null && route == "home" && pickingFor == "home") vm.open(uri, null, ReadFrom.HOME)
     }
 
-    // Images shared while the user stayed with a tool's PDF wait for them in the editor.
-    fun afterTool(): String = if (vm.items.value.isNotEmpty() || vm.pendingImports.value > 0) "images" else "home"
+    // Images shared while the user stayed with a tool's PDF wait for them in the editor, and an ID card
+    // flow (a tool opened over its prompt for files shared or opened) waits there too.
+    fun afterTool(): String = if (vm.items.value.isNotEmpty() || vm.pendingImports.value > 0 || vm.card.value != null) "images" else "home"
 
     /**
      * Where the shared files waiting, or else being copied in, open (see [sharedRoute]); null for none.
@@ -760,12 +767,13 @@ fun UsugamiApp(
     // slide direction.
     // A tool opened from Choose a tool ("share") sits one level deeper than it. The crop screen sits
     // beside the editor's result; a scan of images picked keeps it showing while its next image is
-    // awaited.
+    // awaited. The ID card flow's prompt ("images/card") sits beside them.
     val base = when {
         route == "home" || route.startsWith("settings") || route == "share" || route == "recent" -> route
         route == "images" -> when {
             result != null -> "images/result"
             crop != null || scan != null -> "images/crop"
+            card != null -> "images/card"
             else -> "images"
         }
         else -> (if (toolFromShare) "share/" else "") + if (pdfResult == null) route else "$route/result"
@@ -829,6 +837,13 @@ fun UsugamiApp(
                         query = homeQuery,
                         onQueryChange = { homeQuery = it },
                         onScanPhoto = ::startScan,
+                        // Its prompt shows over the editor, which a scan from Home leaves for Home if it adds nothing.
+                        onScanCard = {
+                            vm.newScan()
+                            vm.startCard()
+                            route = "images"
+                            scanFromHome = true
+                        },
                         onScanUpload = {
                             launch(R.string.msg_no_picker) {
                                 scanPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -941,6 +956,7 @@ fun UsugamiApp(
                             rotate = vm::rotate,
                             crop = vm::openCrop,
                             remove = vm::removePage,
+                            addCardBack = vm::addCardBack,
                             move = vm::move,
                             moveBy = vm::moveBy,
                             sort = vm::sort,
@@ -973,6 +989,31 @@ fun UsugamiApp(
                             ),
                         )
                     }
+                }
+                current == "images/card" -> {
+                    // Cancel on the front's prompt, No back side or Back. A flow started on Home that added
+                    // nothing goes straight back Home, not by way of the empty editor.
+                    val end: () -> Unit = {
+                        vm.endCard()
+                        if (scanFromHome && vm.items.value.isEmpty() && vm.pendingImports.value == 0 && !vm.scanUnderWay()) route = "home"
+                    }
+                    BackHandler(enabled = active, onBack = end)
+                    // The side's photo or image is on its way, or its page being looked for.
+                    val busy = cameraOpen || openingCrop || pendingImports > cropping.size
+                    IdCardScreen(
+                        // The side asked for until its crop screen has come: the view model already wants
+                        // the back once the front is in, a moment before.
+                        side = freezeWhen(!active || busy, card)?.side ?: CardSide.FRONT,
+                        busy = busy,
+                        snackbar = screenSnackbar,
+                        onTakePhoto = { takePhoto() },
+                        onChooseImage = {
+                            launch(R.string.msg_no_picker) {
+                                cardPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                            }
+                        },
+                        onEnd = end,
+                    )
                 }
                 current.endsWith("/result/view") -> {
                     val close = {
