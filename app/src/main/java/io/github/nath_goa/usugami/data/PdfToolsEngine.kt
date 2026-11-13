@@ -930,7 +930,7 @@ class PdfToolsEngine(private val context: Context) {
                 val done = IdentityHashMap<COSBase, PDImageXObject?>()
                 for (page in doc.pages) {
                     check()
-                    compressResources(doc, page.resources, level, maxDimension, seen, done, check)
+                    compressResources(doc, page.resources, level, maxDimension, seen, done, check, grayer)
                 }
                 // Black and white's pass over everything the pages draw, after the pictures were compressed.
                 outcome = grayer?.convert()
@@ -950,6 +950,12 @@ class PdfToolsEngine(private val context: Context) {
         }
     }
 
+    /**
+     * Pass 1 of Compress: re-encodes the opaque pictures [resources] and the forms in it list as JPEGs
+     * at [level], each where that is smaller. With Black and white ([gray]) each such picture is
+     * encoded as a one-component gray JPEG ([PdfGray.jpeg]) instead, which also replaces a JPEG in
+     * colour that doesn't get smaller; [PdfGray] turns the rest gray afterwards (pass 2).
+     */
     private fun compressResources(
         doc: PDDocument,
         resources: PDResources?,
@@ -958,13 +964,14 @@ class PdfToolsEngine(private val context: Context) {
         seen: MutableSet<COSDictionary>,
         done: MutableMap<COSBase, PDImageXObject?>,
         check: () -> Unit,
+        gray: PdfGray? = null,
     ) {
         if (resources == null || !seen.add(resources.cosObject)) return
         for (name in resources.xObjectNames) {
             check()
             val obj = try { resources.getXObject(name) } catch (_: IOException) { continue }
             when (obj) {
-                is PDFormXObject -> compressResources(doc, obj.resources, level, maxDimension, seen, done, check)
+                is PDFormXObject -> compressResources(doc, obj.resources, level, maxDimension, seen, done, check, gray)
                 is PDImageXObject -> {
                     // Pages often share one image stream (a logo or background). Encode it once and
                     // reuse the result; decoding it again would hand back PDFBox's cached bitmap,
@@ -1014,10 +1021,30 @@ class PdfToolsEngine(private val context: Context) {
                             // decoder still marks its bitmaps as having alpha (gray ones use the gray
                             // value as alpha), which would make JPEGFactory add a bogus soft mask.
                             bitmap.setHasAlpha(false)
-                            val replacement = JPEGFactory.createFromImage(doc, bitmap, level.quality)
-                            if ((replacement.cosObject as COSStream).length < originalLength) {
-                                done[stream] = replacement
-                                resources.put(name, replacement)
+                            if (gray == null) {
+                                val replacement = JPEGFactory.createFromImage(doc, bitmap, level.quality)
+                                if ((replacement.cosObject as COSStream).length < originalLength) {
+                                    done[stream] = replacement
+                                    resources.put(name, replacement)
+                                }
+                            } else {
+                                // Black and white: a one-component gray JPEG, which pass 2 then leaves as it is.
+                                // A JPEG in colour is replaced also when that isn't smaller: it must turn gray
+                                // anyway, and it is already at the level's size and quality. A lossless picture
+                                // in colour whose gray JPEG isn't smaller is left for pass 2, which keeps it lossless.
+                                val inColor = !isGrayPicture(obj)
+                                val replacement = gray.jpeg(bitmap, level.quality)
+                                if ((replacement.cosObject as COSStream).length < originalLength || (inColor && obj.suffix == "jpg")) {
+                                    // Beyond its pixels the picture's dictionary stays: its layer (/OC, so a picture
+                                    // hidden by default stays hidden), /Interpolate, /Intent, its place in the tagged
+                                    // structure and its metadata.
+                                    for (key in listOf(COSName.OC, COSName.INTERPOLATE, COSName.INTENT, COSName.STRUCT_PARENT, COSName.METADATA)) {
+                                        obj.cosObject.getItem(key)?.let { replacement.cosObject.setItem(key, it) }
+                                    }
+                                    done[stream] = replacement
+                                    resources.put(name, replacement)
+                                    if (inColor) gray.turnedGray(replacement.cosObject)
+                                }
                             }
                         } finally {
                             bitmap.recycle()
@@ -1050,6 +1077,13 @@ class PdfToolsEngine(private val context: Context) {
                 (colorSpace.getObject(1) as? COSStream)?.getInt(COSName.N) in listOf(1, 3)
             else -> false
         }
+    }
+
+    /** A picture [canDecodeFaithfully] lets through that is stored gray: DeviceGray, or ICCBased of one component. */
+    private fun isGrayPicture(obj: PDImageXObject): Boolean = when (val colorSpace = obj.cosObject.getDictionaryObject(COSName.COLORSPACE)) {
+        COSName.DEVICEGRAY -> true
+        is COSArray -> colorSpace.size() == 2 && colorSpace.getObject(0) == COSName.ICCBASED && (colorSpace.getObject(1) as? COSStream)?.getInt(COSName.N) == 1
+        else -> false
     }
 
     /**

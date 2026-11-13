@@ -1,5 +1,6 @@
 package io.github.nath_goa.usugami.data
 
+import android.graphics.Bitmap
 import com.tom_roush.pdfbox.contentstream.PDContentStream
 import com.tom_roush.pdfbox.contentstream.operator.Operator
 import com.tom_roush.pdfbox.cos.COSArray
@@ -20,9 +21,13 @@ import com.tom_roush.pdfbox.pdmodel.PDPageTree
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.common.function.PDFunction
+import com.tom_roush.pdfbox.pdmodel.graphics.color.PDDeviceGray
+import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDInlineImage
 import com.tom_roush.pdfbox.util.Matrix
 import io.github.nath_goa.usugami.core.ContentGray
+import io.github.nath_goa.usugami.core.GrayImage
+import io.github.nath_goa.usugami.core.GrayJpeg
 import io.github.nath_goa.usugami.core.GrayMath
 import io.github.nath_goa.usugami.core.GrayPixels
 import io.github.nath_goa.usugami.core.GraySpace
@@ -38,6 +43,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 import java.util.zip.Deflater
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.math.roundToInt
 
 /**
  * What Black and white did to a PDF: [changed], some colour was turned gray; [colorPages], the
@@ -68,8 +74,13 @@ data class GrayOutcome(val changed: Boolean, val colorPages: List<Int>)
  * lighter or darker than a gray photo of the colour page would. ICC profiles are not read (there is
  * no colour engine on the phone): an ICCBased space counts as gray, RGB or CMYK by its components.
  *
- * Pictures and shadings come with the next steps; until then they are passed over. [maxDimension],
- * [level] and [scratchDir] are for them.
+ * Pictures ([GrayPictures]) and shadings ([GrayShadings]) a content stream draws are turned gray in
+ * place as they are met, once each. Compress's own pass over pictures (pass 1) comes first: it stores
+ * the pictures it re-encodes as gray JPEGs ([jpeg]) and names those that were in colour
+ * ([turnedGray]), a change once something draws them; this pass turns the rest gray, plain pictures
+ * that only it can read at the level's size ([maxDimension], [level]).
+ * [scratchDir] is for the pictures only Android's renderer can read (JPEG 2000, four-component JPEGs),
+ * which the next step brings; until then they are left in colour and reported.
  */
 internal class PdfGray(
     private val doc: PDDocument,
@@ -79,6 +90,9 @@ internal class PdfGray(
     private val check: () -> Unit,
 ) {
     private var changed = false
+
+    private val pictures = GrayPictures(doc, maxDimension, level, check)
+    private val shadings = GrayShadings(doc, check)
 
     /** Every object converted: true when it, and all it draws, turned gray. Put in as true before work on it starts, so a loop of references ends. */
     private val converted = IdentityHashMap<COSBase, Boolean>()
@@ -109,6 +123,44 @@ internal class PdfGray(
     private val protectedRoots = Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>())
 
     private var operators = 0
+
+    /** The gray JPEGs pass 1 put in place of pictures in colour ([turnedGray]). */
+    private val fromColour = Collections.newSetFromMap(IdentityHashMap<COSStream, Boolean>())
+
+    /**
+     * Pass 1's picture, decoded and scaled by Compress, as a one-component DeviceGray JPEG at
+     * [quality] (0 to 1, as Compress's levels give it). The pixels are read a row at a time after the
+     * caller's `setHasAlpha(false)` (PDFBox's decoder stores a gray picture's value in the alpha too),
+     * and [bitmap] is recycled as soon as they are, before encoding.
+     */
+    fun jpeg(bitmap: Bitmap, quality: Float): PDImageXObject {
+        val width = bitmap.width
+        val height = bitmap.height
+        val image = GrayImage(width, height)
+        try {
+            val row = IntArray(width)
+            for (y in 0 until height) {
+                if (y and 63 == 0) check()
+                bitmap.getPixels(row, 0, width, 0, y, width, 1)
+                for (x in 0 until width) {
+                    val p = row[x]
+                    image.pixels[y * width + x] = GrayMath.rgb8((p shr 16) and 0xFF, (p shr 8) and 0xFF, p and 0xFF).toByte()
+                }
+            }
+        } finally {
+            bitmap.recycle()
+        }
+        val bytes = GrayJpeg.encode(image, (quality * 100).roundToInt().coerceIn(1, 100), check)
+        return PDImageXObject(doc, ByteArrayInputStream(bytes), COSName.DCT_DECODE, width, height, 8, PDDeviceGray.INSTANCE)
+    }
+
+    /**
+     * Pass 1 put [picture], a gray JPEG, in place of one in colour. That counts as a change once
+     * something draws it ([picture]): a colour picture nothing draws shows no colour, as the sweep has it.
+     */
+    fun turnedGray(picture: COSStream) {
+        fromColour += picture
+    }
 
     /**
      * Turns [doc] gray, page by page, then the form fields' text colours, what the pages' resources
@@ -274,6 +326,10 @@ internal class PdfGray(
                 "gs" -> (operands.lastOrNull() as? COSName)?.let { if (!graphicsState(it, res, depth)) failed = true }
                 "Tf" -> (operands.firstOrNull() as? COSName)?.let { if (!font(it, res, depth)) failed = true }
                 "scn", "SCN" -> (operands.lastOrNull() as? COSName)?.let { if (!pattern(it, res, depth)) failed = true }
+                "sh" -> (operands.lastOrNull() as? COSName)?.let { name ->
+                    val shading = res.dict?.getCOSDictionary(COSName.SHADING)?.getDictionaryObject(name) as? COSDictionary
+                    if (shading != null && !grayShading(shading, res)) failed = true
+                }
                 "BI" -> when (inlineImage(token, res, kept)) {
                     Inline.CHANGED -> inlineChanged = true
                     Inline.FAILED -> failed = true
@@ -302,11 +358,81 @@ internal class PdfGray(
         return values
     }
 
-    /** `Do`: a form is converted, starting with the colour spaces of the content that draws it. */
+    /** `Do`: a form is converted, starting with the colour spaces of the content that draws it; a picture is turned gray. */
     private fun xObject(name: COSName, res: Res, fill: GraySpace, stroke: GraySpace, depth: Int): Boolean {
         val stream = res.dict?.getCOSDictionary(COSName.XOBJECT)?.getDictionaryObject(name) as? COSStream ?: return true
-        // Pictures are turned gray by the next step's code; until then they are passed over.
-        return if (stream.getCOSName(COSName.SUBTYPE) == COSName.FORM) form(stream, res, fill, stroke, depth) else true
+        return when (stream.getCOSName(COSName.SUBTYPE)) {
+            COSName.FORM -> form(stream, res, fill, stroke, depth)
+            COSName.IMAGE -> picture(stream, res)
+            else -> true
+        }
+    }
+
+    /**
+     * A picture, turned gray in place once ([GrayPictures]); drawn again, it gives the same answer, so
+     * every page that draws a picture left in colour is named. Its colour space is read as the content
+     * drawing it reads one (a resource name, a default space). What it still names in that content's
+     * /ColorSpace dictionary is kept there; left in colour, it keeps the whole dictionary.
+     */
+    private fun picture(stream: COSStream, res: Res): Boolean {
+        // Drawn, a picture pass 1 turned gray is a change (in the sweep, [convert] doesn't count it).
+        if (stream in fromColour) changed = true
+        val ok = converted[stream] ?: run {
+            converted[stream] = true
+            val done = pictures.convert(stream, drawnIn(stream.getDictionaryObject(COSName.COLORSPACE), res))
+            if (done == Grayed.CHANGED) changed = true
+            (done != Grayed.LEFT).also { converted[stream] = it }
+        }
+        stillNamed(stream, res, ok)
+        return ok
+    }
+
+    /** A shading, turned gray in place once ([GrayShadings]), by `sh` or a shading pattern; as [picture] for the rest. */
+    private fun grayShading(shading: COSDictionary, res: Res): Boolean {
+        val ok = converted[shading] ?: run {
+            converted[shading] = true
+            val done = shadings.convert(shading, drawnIn(shading.getDictionaryObject(COSName.COLORSPACE), res))
+            if (done == Grayed.CHANGED) changed = true
+            (done != Grayed.LEFT).also { converted[shading] = it }
+        }
+        stillNamed(shading, res, ok)
+        return ok
+    }
+
+    /**
+     * The colour space [value] of a picture or shading drawn by content read with [res]: a device
+     * space reads through the /DefaultGray, /DefaultRGB or /DefaultCMYK there, as the content's own
+     * colours do, when that has as many components and can be read.
+     */
+    private fun drawnIn(value: COSBase?, res: Res): GraySpace {
+        val read = space(value, res.dict)
+        val v = if (value is COSObject) value.`object` else value
+        val device = when (v) {
+            is COSName -> v.name
+            is COSArray -> if (v.size() == 1) (v.getObject(0) as? COSName)?.name else null
+            else -> null
+        }
+        val name = when (device) {
+            "DeviceGray", "G" -> "DeviceGray"
+            "DeviceRGB", "RGB" -> "DeviceRGB"
+            "DeviceCMYK", "CMYK" -> "DeviceCMYK"
+            else -> return read
+        }
+        return lookup(name, res)?.takeIf { it.components == read.components && readable(it) } ?: read
+    }
+
+    /**
+     * After a picture or shading [item] is done: the /ColorSpace resource names it still uses are kept
+     * in [res]' dictionary; one left in colour ([ok] false) keeps that dictionary whole.
+     */
+    private fun stillNamed(item: COSDictionary, res: Res, ok: Boolean) {
+        val use = use(res) ?: return
+        if (!ok) use.failed = true
+        when (val value = item.getDictionaryObject(COSName.COLORSPACE)) {
+            is COSName -> use.kept += value.name
+            is COSArray -> use.kept += namesIn(value)
+            else -> {}
+        }
     }
 
     /**
@@ -356,10 +482,21 @@ internal class PdfGray(
         }
     }
 
-    /** `scn`/`SCN` with a pattern's name: a tiling pattern's content. Shading patterns are the next step's. */
+    /** `scn`/`SCN` with a pattern's name: a tiling pattern's content, or a shading pattern's shading and graphics state. */
     private fun pattern(name: COSName, res: Res, depth: Int): Boolean {
-        val pattern = res.dict?.getCOSDictionary(COSName.PATTERN)?.getDictionaryObject(name) as? COSStream ?: return true
-        return if (pattern.getInt(COSName.PATTERN_TYPE) == 1) tiling(pattern, res, depth) else true
+        val pattern = res.dict?.getCOSDictionary(COSName.PATTERN)?.getDictionaryObject(name) as? COSDictionary ?: return true
+        return when (pattern.getInt(COSName.PATTERN_TYPE)) {
+            1 -> (pattern as? COSStream)?.let { tiling(it, res, depth) } ?: true
+            2 -> shadingPattern(pattern, res, depth)
+            else -> true
+        }
+    }
+
+    /** A shading pattern (/PatternType 2): its /Shading turned gray, its /ExtGState visited as `gs` visits one. */
+    private fun shadingPattern(pattern: COSDictionary, res: Res, depth: Int): Boolean {
+        var ok = (pattern.getDictionaryObject(COSName.SHADING) as? COSDictionary)?.let { grayShading(it, res) } ?: true
+        (pattern.getDictionaryObject(COSName.EXT_G_STATE) as? COSDictionary)?.let { ok = visitState(it, res, depth) && ok }
+        return ok
     }
 
     /**
@@ -439,6 +576,11 @@ internal class PdfGray(
      */
     private fun graphicsState(name: COSName, res: Res, depth: Int): Boolean {
         val state = res.dict?.getCOSDictionary(COSName.EXT_G_STATE)?.getDictionaryObject(name) as? COSDictionary ?: return true
+        return visitState(state, res, depth)
+    }
+
+    /** [graphicsState] for the dictionary itself: a shading pattern's /ExtGState. */
+    private fun visitState(state: COSDictionary, res: Res, depth: Int): Boolean {
         val seen = converted[state]
         if (seen == null) {
             converted[state] = true
@@ -834,8 +976,8 @@ internal class PdfGray(
 
     /**
      * What no content drew but a resources dictionary that was read still lists (pages often share
-     * one long list): its forms and coloured tiling patterns, without counting failures for any page
-     * (nor, as [convert] has it, as a change).
+     * one long list): its forms, pictures, shadings and coloured tiling and shading patterns, without
+     * counting failures for any page (nor, as [convert] has it, as a change).
      * A soft mask's group listed there is left as it is, as when a graphics state sets it.
      */
     private fun sweep() {
@@ -847,13 +989,26 @@ internal class PdfGray(
             dict.getCOSDictionary(COSName.XOBJECT)?.let { xObjects ->
                 for (key in xObjects.keySet().toList()) {
                     val stream = xObjects.getDictionaryObject(key) as? COSStream ?: continue
-                    if (stream.getCOSName(COSName.SUBTYPE) == COSName.FORM && stream !in maskGroups) form(stream, res, GraySpace.Gray, GraySpace.Gray, 0)
+                    when (stream.getCOSName(COSName.SUBTYPE)) {
+                        COSName.FORM -> if (stream !in maskGroups) form(stream, res, GraySpace.Gray, GraySpace.Gray, 0)
+                        COSName.IMAGE -> picture(stream, res)
+                        else -> {}
+                    }
                 }
             }
             dict.getCOSDictionary(COSName.PATTERN)?.let { patterns ->
                 for (key in patterns.keySet().toList()) {
-                    val stream = patterns.getDictionaryObject(key) as? COSStream ?: continue
-                    if (stream.getInt(COSName.PATTERN_TYPE) == 1) tiling(stream, res, 0)
+                    val pattern = patterns.getDictionaryObject(key) as? COSDictionary ?: continue
+                    when (pattern.getInt(COSName.PATTERN_TYPE)) {
+                        1 -> (pattern as? COSStream)?.let { tiling(it, res, 0) }
+                        2 -> shadingPattern(pattern, res, 0)
+                    }
+                }
+            }
+            dict.getCOSDictionary(COSName.SHADING)?.let { listed ->
+                for (key in listed.keySet().toList()) {
+                    val shading = listed.getDictionaryObject(key) as? COSDictionary ?: continue
+                    grayShading(shading, res)
                 }
             }
         }
@@ -1059,7 +1214,7 @@ private fun deflate(bytes: ByteArray): ByteArray {
 }
 
 /** The filter names of an image's /F or /Filter (a name or an array of names); an empty list for none, null for something else. */
-private fun filterNames(value: COSBase?): List<String>? = when (value) {
+internal fun filterNames(value: COSBase?): List<String>? = when (value) {
     null -> emptyList()
     is COSName -> listOf(value.name)
     is COSArray -> (0 until value.size()).map { (value.getObject(it) as? COSName)?.name ?: return null }
@@ -1107,14 +1262,14 @@ private fun namesIn(array: COSArray, depth: Int = 0): List<String> {
 }
 
 /** The numbers of [array], or null when one isn't a number. */
-private fun floats(array: COSArray): FloatArray? {
+internal fun floats(array: COSArray): FloatArray? {
     val values = FloatArray(array.size())
     for (i in values.indices) values[i] = (array.getObject(i) as? COSNumber)?.floatValue() ?: return null
     return values
 }
 
 /** Reads [buffer] full, or as much as there is; returns how much was read. */
-private fun readFully(input: InputStream, buffer: ByteArray): Int {
+internal fun readFully(input: InputStream, buffer: ByteArray): Int {
     var total = 0
     while (total < buffer.size) {
         val n = input.read(buffer, total, buffer.size - total)

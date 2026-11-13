@@ -1,8 +1,12 @@
 package io.github.nath_goa.usugami
 
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.Shader
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
@@ -15,21 +19,31 @@ import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSNumber
 import com.tom_roush.pdfbox.cos.COSStream
+import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.pdfparser.PDFStreamParser
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import io.github.nath_goa.usugami.core.GrayMath
+import io.github.nath_goa.usugami.data.CompressJob
 import io.github.nath_goa.usugami.data.PdfCompression
+import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.abs
 
 /**
@@ -45,8 +59,12 @@ class GrayDeviceTest {
      * Page 1: Helvetica text in RGB red, a CMYK rectangle, a blue line, a spot colour at full tint and
      * at half, an uncoloured tiling pattern painted blue, a form that fills green, an inline 2 by 2
      * RGB picture, a rectangle through a luminosity soft mask whose group paints in a named ICC space
-     * of the page's own /ColorSpace dictionary, a square annotation with a red appearance and a link
-     * with a blue border. Page 2: a rectangle in a named ICC RGB space of its own dictionary.
+     * of the page's own /ColorSpace dictionary, a square annotation with a red appearance, a link
+     * with a blue border, an axial shading from red to blue drawn by `sh`, a shading pattern of two
+     * hard stops (a stitching function) and an axial shading in the spot colour. Page 2: a rectangle
+     * in a named ICC RGB space of its own dictionary, an RGB JPEG, an RGB picture with see-through
+     * parts (a soft mask), a 2-bit palette over RGB, a CMYK picture, an RGB picture with a colour key
+     * and an 8-bit picture in the spot colour with /Decode [1 0].
      */
     @Test fun colorsOfEveryKindTurnGrayAndTextStaysText() {
         val original = colorsPdf(File(context.cacheDir, "colors.pdf"))
@@ -81,6 +99,38 @@ class GrayDeviceTest {
                         if (name in listOf("sc", "scn", "SC", "SCN")) assertTrue("$what: $name with $numbers numbers", numbers <= 1)
                     }
                 }
+                // The shadings are gray, the second's function still stitched (its hard stops stay sharp).
+                val axial = (resources.getDictionaryObject(COSName.SHADING) as COSDictionary).getDictionaryObject("Ax") as COSDictionary
+                val stops = ((resources.getDictionaryObject(COSName.PATTERN) as COSDictionary).getDictionaryObject("Stops") as COSDictionary)
+                    .getDictionaryObject(COSName.SHADING) as COSDictionary
+                val spot = (resources.getDictionaryObject(COSName.SHADING) as COSDictionary).getDictionaryObject("Sp") as COSDictionary
+                for (shading in listOf(axial, stops, spot)) assertEquals(COSName.DEVICEGRAY, shading.getDictionaryObject(COSName.COLORSPACE))
+                assertEquals(3, (stops.getDictionaryObject(COSName.FUNCTION) as COSDictionary).getInt(COSName.FUNCTION_TYPE))
+                // The spot colour's shading through a sampled gray function.
+                assertEquals(0, (spot.getDictionaryObject(COSName.FUNCTION) as COSDictionary).getInt(COSName.FUNCTION_TYPE))
+
+                // Page 2's pictures: each gray, the soft mask still attached, the colour key now a stencil.
+                val pictures = after.getPage(1).resources.cosObject.getDictionaryObject(COSName.XOBJECT) as COSDictionary
+                assertEquals(6, pictures.size())
+                for (name in pictures.keySet()) {
+                    val space = (pictures.getDictionaryObject(name) as COSStream).getDictionaryObject(COSName.COLORSPACE)
+                    val palette = space is COSArray && space.getObject(0) == COSName.INDEXED && space.getObject(1) == COSName.DEVICEGRAY
+                    assertTrue("${name.name} is gray: $space", space == COSName.DEVICEGRAY || palette)
+                }
+                assertTrue("The soft mask is still attached", (pictures.getDictionaryObject("Clear") as COSStream).getDictionaryObject(COSName.SMASK) is COSStream)
+                val stencil = (pictures.getDictionaryObject("Key") as COSStream).getDictionaryObject(COSName.MASK) as COSStream
+                assertTrue("The colour key is a stencil", stencil.getBoolean(COSName.IMAGE_MASK, false))
+                // The spot colour's picture: a palette of a gray for each sample, its /Decode [1 0] worked in
+                // (sample 0 is full tint, dark green; 255 is none, white), so read the right way round.
+                val tint = pictures.getDictionaryObject("Tint") as COSStream
+                val grays = tint.getDictionaryObject(COSName.COLORSPACE) as COSArray
+                assertEquals(255, (grays.getObject(2) as COSNumber).intValue())
+                assertNull("/Decode is worked in", tint.getDictionaryObject(COSName.DECODE))
+                val table = (grays.getObject(3) as COSString).bytes
+                assertEquals(256, table.size)
+                assertEquals("Sample 0 at full tint", GrayMath.level(GrayMath.rgb(0f, 0.4f, 0f)).toFloat(), (table[0].toInt() and 0xFF).toFloat(), 1f)
+                assertEquals("Sample 255 white", 255, table[255].toInt() and 0xFF)
+
                 val inline = PDFStreamParser(streams.getValue("page 1")).apply { parse() }.tokens
                     .filterIsInstance<Operator>().single { it.name == "BI" }.imageParameters
                 assertEquals("The inline picture is gray", COSName.getPDFName("G"), inline.getDictionaryObject(COSName.CS))
@@ -109,8 +159,10 @@ class GrayDeviceTest {
             // The CMYK rectangle is drawn by the formula, which renderers' own CMYK needn't match. So is
             // the spot colour set by `cs` alone: Android's renderer keeps the colour before it there
             // (red, from the CMYK rectangle) where the standard says full tint.
-            val byFormula = if (page == 0) listOf(Rect(36, 136, 204, 244), Rect(236, 236, 384, 324)) else emptyList()
+            // So is the CMYK picture on page 2.
+            val byFormula = if (page == 0) listOf(Rect(36, 136, 204, 244), Rect(236, 236, 384, 324)) else listOf(Rect(36, 256, 164, 384))
             assertSameLightness(before, after, 10, byFormula)
+            if (page == 1) assertEquals("The CMYK picture by the formula", 77f, Color.red(after.getPixel(100, 320)).toFloat(), 4f)
             if (page == 0) {
                 assertEquals("The CMYK rectangle by the formula", 77f, Color.red(after.getPixel(120, 190)).toFloat(), 4f)
                 val fullTint = GrayMath.level(GrayMath.rgb(0f, 0.4f, 0f)).toFloat()
@@ -184,7 +236,8 @@ class GrayDeviceTest {
 
     /**
      * Colour nothing shows is no change: on a page in black, a link without an appearance whose border
-     * is 0 wide (as LaTeX's hidden links are) and a coloured form the page lists but never draws.
+     * is 0 wide (as LaTeX's hidden links are), and a coloured form and a colour photo the page lists but
+     * never draws (the photo Compress's own pass re-encodes as a gray JPEG).
      */
     @Test fun colourNothingShowsIsNoChange() {
         val original = File(context.cacheDir, "hidden.pdf")
@@ -199,9 +252,21 @@ class GrayDeviceTest {
                 setItem(COSName.BBOX, numbers(0f, 0f, 60f, 40f))
                 setItem(COSName.RESOURCES, COSDictionary())
             }
+            val random = java.util.Random(7)
+            val noise = Bitmap.createBitmap(64, 64, Bitmap.Config.ARGB_8888).apply {
+                for (y in 0 until 64) for (x in 0 until 64) setPixel(x, y, Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256)))
+                setHasAlpha(false) // Else JPEGFactory gives it a soft mask, which Compress's own pass leaves alone.
+            }
+            val photo = JPEGFactory.createFromImage(doc, noise, 0.9f).cosObject
+            assertNull("No soft mask", photo.getDictionaryObject(COSName.SMASK))
+            noise.recycle()
+            assertTrue("Big enough for Compress's own pass: ${photo.length}", photo.length >= 2048)
             val page = PDPage(PDRectangle(300f, 400f)).also(doc::addPage)
             page.cosObject.setItem(COSName.RESOURCES, COSDictionary().apply {
-                setItem(COSName.XOBJECT, COSDictionary().apply { setItem("Unused", unused) })
+                setItem(COSName.XOBJECT, COSDictionary().apply {
+                    setItem("Unused", unused)
+                    setItem("Photo", photo)
+                })
             })
             page.cosObject.setItem(COSName.CONTENTS, stream("0 g 20 300 100 50 re f\n"))
             val link = COSDictionary().apply {
@@ -218,6 +283,226 @@ class GrayDeviceTest {
         val outcome = checkNotNull(result.gray)
         assertFalse("Nothing that shows was in colour", outcome.changed)
         assertEquals(emptyList<Int>(), outcome.colorPages)
+    }
+
+    /**
+     * Three pages: text in red; a mesh whose numbers aren't whole bytes ([addUnconvertibleMeshPage]);
+     * a rectangle in a colour space that can't be read (an ICC space of five components, no
+     * /Alternate) beside red text. The last two pages are named, everything else still turns gray, and
+     * the PDF has its three pages. Cancelled, it leaves no PDF behind.
+     */
+    @Test fun whatCantBeTurnedGrayIsSaidAndTheRestIsDone() {
+        val original = File(context.cacheDir, "partly.pdf")
+        PDDocument().use { doc ->
+            fun stream(content: String) = doc.document.createCOSStream().apply {
+                createOutputStream(COSName.FLATE_DECODE).use { it.write(content.toByteArray()) }
+            }
+            val font = COSDictionary().apply { setItem("F1", PDType1Font.HELVETICA.cosObject) }
+            PDPage(PDRectangle(300f, 400f)).also(doc::addPage).cosObject.apply {
+                setItem(COSName.RESOURCES, COSDictionary().apply { setItem(COSName.FONT, font) })
+                setItem(COSName.CONTENTS, stream("BT /F1 24 Tf 1 0 0 rg 20 300 Td (Red text) Tj ET\n"))
+            }
+            addUnconvertibleMeshPage(doc)
+            val bad = COSArray().apply {
+                add(COSName.ICCBASED)
+                add(doc.document.createCOSStream().apply { setInt(COSName.N, 5) })
+            }
+            PDPage(PDRectangle(300f, 400f)).also(doc::addPage).cosObject.apply {
+                setItem(COSName.RESOURCES, COSDictionary().apply {
+                    setItem(COSName.FONT, font)
+                    setItem(COSName.COLORSPACE, COSDictionary().apply { setItem("Bad", bad) })
+                })
+                setItem(COSName.CONTENTS, stream("/Bad cs 1 0 0 0 0 sc 20 200 100 80 re f\nBT /F1 18 Tf 1 0 0 rg 140 230 Td (Beside) Tj ET\n"))
+            }
+            doc.save(original)
+        }
+        val input = engine.import(Uri.fromFile(original), 1204)
+        val result = engine.compress(input, PdfCompression.RECOMMENDED, "partly", gray = true)
+        val outcome = checkNotNull(result.gray)
+        assertTrue(outcome.changed)
+        assertEquals("The mesh's page and the unreadable colour's page", listOf(1, 2), outcome.colorPages)
+        PDDocument.load(result.file).use { doc ->
+            assertEquals(3, doc.numberOfPages)
+            for (page in listOf(0, 2)) {
+                val names = operators(doc.getPage(page).contents.use { it.readBytes() }).map { it.first }
+                assertFalse("Page $page's text is gray: $names", "rg" in names)
+                assertTrue("Page $page's text is gray: $names", "g" in names)
+            }
+        }
+        val first = render(result.file, 0)
+        assertNoColor(first)
+        first.recycle()
+
+        // Cancelled once Black and white has started: nothing is left, in the output or the scratch folder.
+        var calls = 0
+        try {
+            engine.compress(input, PdfCompression.RECOMMENDED, "cancelled", check = { if (++calls > 4) throw CancellationException() }, gray = true)
+            fail("Cancelling should stop it")
+        } catch (_: CancellationException) {
+        }
+        assertTrue("Black and white was under way", calls > 4)
+        val output = File(context.cacheDir, "output/tools")
+        assertTrue("No PDF left: ${output.list()?.toList()}", output.listFiles().orEmpty().none { it.name.endsWith(".pdf") || it.name.endsWith(".tmp") })
+        assertTrue("No temporary PDF", File(context.cacheDir, "pdfbox").walk().none { it.isFile && it.name.endsWith(".pdf") })
+        engine.delete(input)
+    }
+
+    /**
+     * Which file comes out: with the switch, the gray one once anything was turned gray, also when it
+     * isn't smaller; a PDF with only gray is kept byte for byte as without it; a scan's photo comes out
+     * a gray JPEG at the level's size, smaller than in colour; a PDF with a password comes out gray
+     * without it; and with several PDFs, only the ones asked for are gray.
+     */
+    @Test fun theSwitchDecidesWhichFileComesOut() {
+        // Red text beside a picture that neither pass changes (gray noise with a soft mask), which keeps
+        // the PDF from getting 1% smaller.
+        val red = compactPdf(File(context.cacheDir, "red.pdf"), "1 0 0 rg")
+        val redInput = engine.import(Uri.fromFile(red), 1205)
+        val plain = engine.compress(redInput, PdfCompression.RECOMMENDED, "plain")
+        assertTrue("Without the switch it can't get smaller", plain.keptOriginal)
+        assertArrayEquals(red.readBytes(), plain.file.readBytes())
+        assertNull(plain.gray)
+        val grayed = engine.compress(redInput, PdfCompression.RECOMMENDED, "grayed", gray = true)
+        assertFalse("With the switch the gray PDF comes out", grayed.keptOriginal)
+        assertTrue(checkNotNull(grayed.gray).changed)
+        assertTrue("Not smaller: ${grayed.sizeBytes} from ${red.length()}", grayed.sizeBytes * 100 > red.length() * 99)
+        assertFalse(PDDocument.load(grayed.file).use { doc -> "rg" in operators(doc.getPage(0).contents.use { it.readBytes() }).map { it.first } })
+
+        // Only gray: 0 g text, a gray picture, a palette of grays, and an RGB transparency group.
+        val gray = compactPdf(File(context.cacheDir, "gray.pdf"), "0 g") { doc, resources ->
+            fun picture(bits: Int, space: com.tom_roush.pdfbox.cos.COSBase, samples: ByteArray) = doc.document.createCOSStream().apply {
+                setItem(COSName.TYPE, COSName.XOBJECT)
+                setItem(COSName.SUBTYPE, COSName.IMAGE)
+                setInt(COSName.WIDTH, 8)
+                setInt(COSName.HEIGHT, 8)
+                setInt(COSName.BITS_PER_COMPONENT, bits)
+                setItem(COSName.COLORSPACE, space)
+                createOutputStream(COSName.FLATE_DECODE).use { it.write(samples) }
+            }
+            val grays = COSArray().apply {
+                add(COSName.INDEXED)
+                add(COSName.DEVICEGRAY)
+                add(COSInteger.get(15))
+                add(COSString(ByteArray(16) { (it * 17).toByte() }))
+            }
+            (resources.getDictionaryObject(COSName.XOBJECT) as COSDictionary).apply {
+                setItem("Gray", picture(8, COSName.DEVICEGRAY, ByteArray(64) { (it * 4).toByte() }))
+                setItem("Grays", picture(4, grays, ByteArray(32) { (it * 7).toByte() }))
+            }
+            "q 40 0 0 40 20 20 cm /Gray Do Q q 40 0 0 40 80 20 cm /Grays Do Q\n"
+        }
+        val grayOutcome = engine.compress(engine.import(Uri.fromFile(gray), 1206), PdfCompression.RECOMMENDED, "only_gray", gray = true)
+        assertFalse("Nothing was in colour", checkNotNull(grayOutcome.gray).changed)
+        assertTrue("Kept as it was", grayOutcome.keptOriginal)
+        assertArrayEquals(gray.readBytes(), grayOutcome.file.readBytes())
+
+        // A scan's photo: one gray JPEG, at most A4's long side at 150 dpi, smaller than in colour.
+        val scan = engine.import(Uri.fromFile(photoScan(File(context.cacheDir, "gray_scan.pdf"))), 1207)
+        val colour = engine.compress(scan, PdfCompression.RECOMMENDED, "colour").sizeBytes
+        val grayScan = engine.compress(scan, PdfCompression.RECOMMENDED, "gray_scan", gray = true)
+        assertTrue("Its photo, turned gray by Compress's own pass, is a change", checkNotNull(grayScan.gray).changed)
+        assertTrue("Gray is smaller: ${grayScan.sizeBytes} against $colour", grayScan.sizeBytes < colour)
+        PDDocument.load(grayScan.file).use { doc ->
+            val image = imagesOn(doc.getPage(0)).single().image
+            assertEquals(COSName.DEVICEGRAY, image.cosObject.getDictionaryObject(COSName.COLORSPACE))
+            assertEquals(COSName.DCT_DECODE, image.cosObject.getDictionaryObject(COSName.FILTER))
+            assertTrue("${image.width} x ${image.height}", maxOf(image.width, image.height) <= 1754)
+            assertTrue(PDFTextStripper().getText(doc).contains("Keep this selectable caption"))
+        }
+
+        // With a password: opened with it, out gray and without it.
+        val unlocked = try {
+            engine.import(Uri.fromFile(asset("protected.pdf")), 1208)
+            error("Password request expected")
+        } catch (e: PdfPasswordRequired) {
+            engine.unlock(e.input, "test123")
+        }
+        val open = engine.compress(unlocked, PdfCompression.RECOMMENDED, "open", gray = true)
+        assertEquals(emptyList<Int>(), checkNotNull(open.gray).colorPages)
+        PDDocument.load(open.file).use { doc ->
+            assertFalse(doc.isEncrypted)
+            assertTrue(PDFTextStripper().getText(doc).contains("ALPHA ONE"))
+            for (page in doc.pages) {
+                val names = operators(page.contents.use { it.readBytes() }).map { it.first }
+                assertTrue("Gray only: $names", names.none { it in listOf("rg", "RG", "k", "K", "sc", "scn", "SC", "SCN") })
+            }
+        }
+
+        // Several PDFs: only the one asked for is gray.
+        val each = engine.compressEach(listOf(
+            CompressJob(redInput, PdfCompression.RECOMMENDED, "first", gray = true),
+            CompressJob(redInput, PdfCompression.RECOMMENDED, "second"),
+        )).map { it.getOrThrow() }
+        assertTrue(checkNotNull(each[0].gray).changed)
+        assertNull(each[1].gray)
+        assertTrue("The second as it was", each[1].keptOriginal)
+        listOf(redInput, scan, unlocked).forEach(engine::delete)
+    }
+
+    /**
+     * A PDF of one page: [contentColour] (such as `1 0 0 rg`) sets the colour of a line of text, beside
+     * a picture of gray noise with a soft mask, which neither of Compress's passes changes and which
+     * is most of the file, so the PDF can't get 1% smaller. [more] may add to the page's resources
+     * and return content drawn after.
+     */
+    private fun compactPdf(file: File, contentColour: String, more: (PDDocument, COSDictionary) -> String = { _, _ -> "" }): File = file.also {
+        PDDocument().use { doc ->
+            val random = java.util.Random(5)
+            fun picture(samples: ByteArray, entries: COSDictionary.() -> Unit = {}) = doc.document.createCOSStream().apply {
+                setItem(COSName.TYPE, COSName.XOBJECT)
+                setItem(COSName.SUBTYPE, COSName.IMAGE)
+                setInt(COSName.WIDTH, 200)
+                setInt(COSName.HEIGHT, 200)
+                setInt(COSName.BITS_PER_COMPONENT, 8)
+                setItem(COSName.COLORSPACE, COSName.DEVICEGRAY)
+                entries()
+                createOutputStream(COSName.FLATE_DECODE).use { it.write(samples) }
+            }
+            val mask = picture(ByteArray(200 * 200) { (128 + random.nextInt(128)).toByte() })
+            val noise = picture(ByteArray(200 * 200) { random.nextInt(256).toByte() }) { setItem(COSName.SMASK, mask) }
+            val resources = COSDictionary().apply {
+                setItem(COSName.FONT, COSDictionary().apply { setItem("F1", PDType1Font.HELVETICA.cosObject) })
+                setItem(COSName.XOBJECT, COSDictionary().apply { setItem("Noise", noise) })
+            }
+            val page = PDPage(PDRectangle(300f, 400f)).also(doc::addPage)
+            page.cosObject.setItem(COSName.RESOURCES, resources)
+            page.cosObject.setItem(COSName.GROUP, COSDictionary().apply {
+                setItem(COSName.S, COSName.TRANSPARENCY)
+                setItem(COSName.CS, COSName.DEVICERGB)
+            })
+            val extra = more(doc, resources)
+            page.cosObject.setItem(COSName.CONTENTS, doc.document.createCOSStream().apply {
+                createOutputStream(COSName.FLATE_DECODE).use {
+                    it.write("BT /F1 18 Tf $contentColour 20 360 Td (Colour or not) Tj ET\nq 200 0 0 200 50 120 cm /Noise Do Q\n$extra".toByteArray())
+                }
+            })
+            doc.save(file)
+        }
+    }
+
+    /** A scan as `PdfToolsDeviceTest`'s: a 1600 by 2000 photo of random colour noise on an A4 page, with a caption. */
+    private fun photoScan(file: File): File = file.also {
+        val random = java.util.Random(1L)
+        val pixels = IntArray(1600 * 2000) { Color.BLACK or random.nextInt(0x1000000) }
+        val bitmap = Bitmap.createBitmap(pixels, 1600, 2000, Bitmap.Config.ARGB_8888).apply { setHasAlpha(false) }
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4).also(doc::addPage)
+            val image = JPEGFactory.createFromImage(doc, bitmap, 0.95f)
+            PDPageContentStream(doc, page).use { content ->
+                content.drawImage(image, 50f, 70f, 495f, 650f)
+                content.beginText()
+                content.setFont(PDType1Font.HELVETICA, 12f)
+                content.newLineAtOffset(60f, 40f)
+                content.showText("Keep this selectable caption")
+                content.endText()
+            }
+            doc.save(file)
+        }
+        bitmap.recycle()
+    }
+
+    private fun asset(name: String): File = File(context.cacheDir, name).also { target ->
+        InstrumentationRegistry.getInstrumentation().context.assets.open(name).use { input -> target.outputStream().use(input::copyTo) }
     }
 
     private fun maskGroup(doc: PDDocument): COSStream {
@@ -248,19 +533,21 @@ class GrayDeviceTest {
             }
             fun dict(vararg entries: Pair<String, com.tom_roush.pdfbox.cos.COSBase>) = COSDictionary().apply { entries.forEach { (k, v) -> setItem(k, v) } }
 
+            // A spot colour from white (no tint) to dark green (full tint).
+            fun separation() = COSArray().apply {
+                add(COSName.SEPARATION)
+                add(COSName.getPDFName("Spot"))
+                add(COSName.DEVICERGB)
+                add(COSDictionary().apply {
+                    setInt(COSName.FUNCTION_TYPE, 2)
+                    setItem(COSName.DOMAIN, numbers(0f, 1f))
+                    setItem(COSName.C0, numbers(1f, 1f, 1f))
+                    setItem(COSName.C1, numbers(0f, 0.4f, 0f))
+                    setInt(COSName.N, 1)
+                })
+            }
             val spaces = dict(
-                "Sep" to COSArray().apply {
-                    add(COSName.SEPARATION)
-                    add(COSName.getPDFName("Spot"))
-                    add(COSName.DEVICERGB)
-                    add(COSDictionary().apply {
-                        setInt(COSName.FUNCTION_TYPE, 2)
-                        setItem(COSName.DOMAIN, numbers(0f, 1f))
-                        setItem(COSName.C0, numbers(1f, 1f, 1f))
-                        setItem(COSName.C1, numbers(0f, 0.4f, 0f))
-                        setInt(COSName.N, 1)
-                    })
-                },
+                "Sep" to separation(),
                 "P" to COSArray().apply {
                     add(COSName.PATTERN)
                     add(COSName.DEVICERGB)
@@ -278,6 +565,32 @@ class GrayDeviceTest {
                 setItem(COSName.RESOURCES, COSDictionary())
             }
             val green = form("0 1 0 rg 0 0 60 40 re f", numbers(0f, 0f, 60f, 40f)) { setItem(COSName.RESOURCES, COSDictionary()) }
+            fun exponential(c0: COSArray, c1: COSArray) = dict(
+                "FunctionType" to COSInteger.get(2), "Domain" to numbers(0f, 1f), "C0" to c0, "C1" to c1, "N" to COSInteger.ONE,
+            )
+            fun axial(x0: Float, x1: Float, function: COSDictionary, space: com.tom_roush.pdfbox.cos.COSBase = COSName.DEVICERGB) = dict(
+                "ShadingType" to COSInteger.get(2), "ColorSpace" to space, "Coords" to numbers(x0, 0f, x1, 0f),
+                "Function" to function, "Extend" to COSArray().apply {
+                    add(com.tom_roush.pdfbox.cos.COSBoolean.TRUE)
+                    add(com.tom_roush.pdfbox.cos.COSBoolean.TRUE)
+                },
+            )
+            val red = numbers(1f, 0f, 0f)
+            val blue = numbers(0f, 0f, 1f)
+            val ax = axial(180f, 290f, exponential(red, blue))
+            // From no tint to full tint, in the spot colour: its gray is read through the tint transform.
+            val sp = axial(20f, 280f, exponential(numbers(0f), numbers(1f)), separation())
+            val stops = dict(
+                "Type" to COSName.PATTERN, "PatternType" to COSInteger.get(2),
+                "Shading" to axial(20f, 170f, dict(
+                    "FunctionType" to COSInteger.get(3), "Domain" to numbers(0f, 1f),
+                    "Functions" to COSArray().apply {
+                        add(exponential(red, red))
+                        add(exponential(blue, blue))
+                    },
+                    "Bounds" to numbers(0.5f), "Encode" to numbers(0f, 1f, 0f, 1f),
+                )),
+            )
             // The soft mask's group paints with /Icc of the page's own dictionary: it must keep every name.
             val group = form("/Icc cs 1 1 1 sc 0 0 50 100 re f 0.6 0.6 0.6 sc 50 0 50 100 re f 0.25 0.25 0.25 sc 100 0 50 100 re f", numbers(0f, 0f, 150f, 100f)) {
                 setItem(COSName.GROUP, dict("S" to COSName.TRANSPARENCY, "CS" to COSName.DEVICERGB))
@@ -298,12 +611,16 @@ class GrayDeviceTest {
             content.write(byteArrayOf(-1, 0, 0, 0, -1, 0, 0, 0, -1, -1, -1, 0))
             write("\nEI Q\n")
             write("q 1 0 0 1 20 40 cm /GS1 gs 0.2 0.6 0.2 rg 0 0 150 100 re f Q\n")
+            write("q 180 128 110 30 re W n /Ax sh Q\n")
+            write("/Pattern cs /Stops scn 20 142 150 16 re f\n")
+            write("q 20 8 260 24 re W n /Sp sh Q\n")
 
             val page1 = PDPage(PDRectangle(300f, 400f)).also(doc::addPage)
             page1.cosObject.setItem(COSName.RESOURCES, dict(
                 "Font" to dict("F1" to PDType1Font.HELVETICA.cosObject),
                 "ColorSpace" to spaces,
-                "Pattern" to dict("Dots" to dots),
+                "Pattern" to dict("Dots" to dots, "Stops" to stops),
+                "Shading" to dict("Ax" to ax, "Sp" to sp),
                 "XObject" to dict("Fm" to green),
                 "ExtGState" to dict("GS1" to state),
             ))
@@ -323,11 +640,95 @@ class GrayDeviceTest {
             })
 
             val page2 = PDPage(PDRectangle(300f, 400f)).also(doc::addPage)
-            page2.cosObject.setItem(COSName.RESOURCES, dict("ColorSpace" to dict("Icc" to icc())))
-            page2.cosObject.setItem(COSName.CONTENTS, stream("/Icc cs 1 0 0 sc 40 40 200 150 re f\n".toByteArray()))
+            fun picture(width: Int, height: Int, bits: Int, space: com.tom_roush.pdfbox.cos.COSBase, samples: ByteArray, entries: COSDictionary.() -> Unit = {}) =
+                stream(samples) {
+                    setItem(COSName.TYPE, COSName.XOBJECT)
+                    setItem(COSName.SUBTYPE, COSName.IMAGE)
+                    setInt(COSName.WIDTH, width)
+                    setInt(COSName.HEIGHT, height)
+                    setInt(COSName.BITS_PER_COMPONENT, bits)
+                    setItem(COSName.COLORSPACE, space)
+                    entries()
+                }
+            val photo = Bitmap.createBitmap(400, 300, Bitmap.Config.ARGB_8888).apply {
+                Canvas(this).drawPaint(Paint().apply { shader = LinearGradient(0f, 0f, 400f, 300f, Color.RED, Color.BLUE, Shader.TileMode.CLAMP) })
+            }
+            val clear = Bitmap.createBitmap(40, 40, Bitmap.Config.ARGB_8888).apply {
+                eraseColor(Color.TRANSPARENT)
+                Canvas(this).apply {
+                    drawCircle(20f, 20f, 16f, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.GREEN })
+                    drawRect(0f, 0f, 12f, 12f, Paint().apply { color = 0x80FF8000.toInt() })
+                }
+            }
+            // A palette of red, green, blue and yellow, two bits a pixel.
+            val palette = picture(4, 4, 2, COSArray().apply {
+                add(COSName.INDEXED)
+                add(COSName.DEVICERGB)
+                add(COSInteger.get(3))
+                add(COSString(byteArrayOf(-1, 0, 0, 0, -1, 0, 0, 0, -1, -1, -1, 0)))
+            }, byteArrayOf(0x1B, 0x6C, 0xB1.toByte(), 0xC6.toByte()))
+            val ink = picture(16, 16, 8, COSName.DEVICECMYK, ByteArray(16 * 16 * 4) { if (it % 4 == 1 || it % 4 == 2) -1 else 0 })
+            // Left half red, right half white; the colour key leaves the white unpainted.
+            val keyed = picture(8, 8, 8, COSName.DEVICERGB, ByteArray(8 * 8 * 3) { if (it % 3 == 0 || (it / 3) % 8 >= 4) -1 else 0 }) {
+                setItem(COSName.MASK, numbers(250f, 255f, 250f, 255f, 250f, 255f))
+            }
+            // 64 by 4 samples rising from 0 to 252 across, read through /Decode [1 0]: full tint on the left.
+            val tinted = picture(64, 4, 8, separation(), ByteArray(64 * 4) { ((it % 64) * 4).toByte() }) {
+                setItem(COSName.DECODE, numbers(1f, 0f))
+            }
+            page2.cosObject.setItem(COSName.RESOURCES, dict(
+                "ColorSpace" to dict("Icc" to icc()),
+                "XObject" to dict(
+                    "Photo" to JPEGFactory.createFromImage(doc, photo, 0.9f).cosObject,
+                    "Clear" to LosslessFactory.createFromImage(doc, clear).cosObject,
+                    "Pal" to palette, "Ink" to ink, "Key" to keyed, "Tint" to tinted,
+                ),
+            ))
+            photo.recycle()
+            clear.recycle()
+            page2.cosObject.setItem(COSName.CONTENTS, stream((
+                "/Icc cs 1 0 0 sc 40 40 200 150 re f\n" +
+                    "q 120 0 0 90 20 300 cm /Photo Do Q\nq 60 0 0 60 160 300 cm /Clear Do Q\nq 60 0 0 60 230 300 cm /Pal Do Q\n" +
+                    "q 60 0 0 60 20 210 cm /Ink Do Q\nq 60 0 0 60 100 210 cm /Key Do Q\nq 60 0 0 60 180 210 cm /Tint Do Q\n"
+                ).toByteArray()))
             doc.save(file)
         }
     }
+}
+
+/**
+ * Adds to [doc] a page whose only content is a mesh shading Black and white can't turn gray: a
+ * triangle (type 4) in RGB whose flags are 2 bits, so its records aren't whole bytes. With the switch
+ * the page is named as still partly in colour. Each vertex is padded to a byte.
+ */
+fun addUnconvertibleMeshPage(doc: PDDocument): PDPage {
+    fun numbers(vararg values: Float) = COSArray().apply { values.forEach { add(COSFloat(it)) } }
+    // flag, x, y, r, g, b for each vertex: 2 + 8 + 8 + 24 bits, then padding to the byte.
+    val vertices = listOf(intArrayOf(0, 25, 19, 255, 0, 0), intArrayOf(0, 230, 19, 0, 255, 0), intArrayOf(0, 128, 236, 0, 0, 255))
+    val data = ByteArrayOutputStream()
+    for (v in vertices) {
+        var bits = v[0].toLong()
+        for (i in 1 until 6) bits = (bits shl 8) or v[i].toLong()
+        bits = bits shl 6
+        for (shift in 40 downTo 0 step 8) data.write(((bits shr shift) and 0xFF).toInt())
+    }
+    val mesh = doc.document.createCOSStream().apply {
+        setInt(COSName.SHADING_TYPE, 4)
+        setItem(COSName.COLORSPACE, COSName.DEVICERGB)
+        setInt(COSName.BITS_PER_COORDINATE, 8)
+        setInt(COSName.BITS_PER_COMPONENT, 8)
+        setInt(COSName.BITS_PER_FLAG, 2)
+        setItem(COSName.DECODE, numbers(0f, 300f, 0f, 400f, 0f, 1f, 0f, 1f, 0f, 1f))
+        createOutputStream().use { it.write(data.toByteArray()) }
+    }
+    val page = PDPage(PDRectangle(300f, 400f)).also(doc::addPage)
+    page.cosObject.setItem(COSName.RESOURCES, COSDictionary().apply {
+        setItem(COSName.SHADING, COSDictionary().apply { setItem("Mesh", mesh) })
+    })
+    page.cosObject.setItem(COSName.CONTENTS, doc.document.createCOSStream().apply {
+        createOutputStream(COSName.FLATE_DECODE).use { it.write("q 0 0 300 400 re W n /Mesh sh Q\n".toByteArray()) }
+    })
+    return page
 }
 
 /** The operators of a content stream with how many numbers each was given, in order. */
