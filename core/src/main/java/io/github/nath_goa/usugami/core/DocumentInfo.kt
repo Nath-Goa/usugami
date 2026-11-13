@@ -208,7 +208,8 @@ data class XmpInfo(
 /**
  * A PDF's XMP packet (the catalog's /Metadata), read with Usugami's own strict XML reader
  * ([XmlTree]): no platform parser, so no DOCTYPE or entity can do anything, and it reads the same on
- * the desktop JVM and on Android.
+ * the desktop JVM and on Android. A field changed is patched into the packet ([withTexts]), which is
+ * otherwise written back as it was read.
  */
 object XmpPacket {
     /** A packet longer than this counts as unreadable. */
@@ -255,6 +256,229 @@ object XmpPacket {
             modified = found[XMP + "ModifyDate"],
         )
     }
+
+    /**
+     * [packet] with the fields in [texts] changed (an empty text: removed) and everything else as it
+     * was, as UTF-8 between xpacket markers; null when the packet can't be read or has no rdf:RDF
+     * element (see [read]).
+     *
+     * Each field's properties go from every description in rdf:RDF, written as attributes or as
+     * elements: the title's dc:title, the author's dc:creator, the subject's dc:description, the
+     * keywords' pdf:Keywords and dc:subject. The fields whose text isn't empty then come back in one
+     * rdf:Description added at the end, which declares its own prefixes and has the rdf:about of the
+     * packet's other descriptions (Adobe's reader refuses a packet whose descriptions differ there).
+     * Fields not in [texts] are not touched. Characters XML can't carry (U+FFFE, U+FFFF, control
+     * characters other than tab and line breaks, half a surrogate pair) are left out of the new
+     * values: written, they would make the whole packet unreadable. Comments, processing instructions
+     * and the packet's padding are not kept; everything else is written as it was read, white space
+     * included.
+     */
+    fun withTexts(packet: ByteArray, texts: Map<InfoField, String>): ByteArray? {
+        val rdf = rdfOf(packet) ?: return null
+        val removed = texts.keys.flatMapTo(HashSet()) { propertiesOf(it) }
+        val about = aboutOf(rdf)
+        for (description in rdf.children) {
+            if (description !is XmlTree.Element) continue
+            // Every name resolved before the list changes.
+            val attributes = description.attributes.filter { (name, _) -> description.attributeKey(name) !in removed }
+            if (attributes.size != description.attributes.size) {
+                description.attributes.clear()
+                description.attributes.addAll(attributes)
+            }
+            removeProperties(description, removed)
+        }
+        newDescription(about, texts)?.let { append(rdf, it) }
+        var root = rdf
+        while (true) root = root.parent ?: break
+        return write(root)
+    }
+
+    /** The properties that hold [field], as namespace + local name. */
+    private fun propertiesOf(field: InfoField): List<String> = when (field) {
+        InfoField.TITLE -> listOf(DC + "title")
+        InfoField.AUTHOR -> listOf(DC + "creator")
+        InfoField.SUBJECT -> listOf(DC + "description")
+        InfoField.KEYWORDS -> listOf(PDF + "Keywords", DC + "subject")
+    }
+
+    /**
+     * The rdf:about of the first description in [rdf] that has one, else the `about` without a prefix
+     * of the first RDF element there that has one (older packets write it so, and Adobe's XMP toolkit
+     * reads it as rdf:about), or "".
+     */
+    private fun aboutOf(rdf: XmlTree.Element): String {
+        val descriptions = rdf.children.filterIsInstance<XmlTree.Element>()
+        for (description in descriptions) {
+            for ((name, value) in description.attributes) {
+                if (description.attributeKey(name) == RDF + "about") return value
+            }
+        }
+        for (description in descriptions) {
+            if (description.uri() != RDF) continue
+            for ((name, value) in description.attributes) {
+                if (name == "about") return value
+            }
+        }
+        return ""
+    }
+
+    /** Takes the property elements named in [removed] out of [description], each with the white space before it. */
+    private fun removeProperties(description: XmlTree.Element, removed: Set<String>) {
+        val children = description.children
+        if (children.none { it is XmlTree.Element && it.key() in removed }) return
+        val kept = ArrayList<XmlTree.Node>(children.size)
+        for (child in children) {
+            if (child is XmlTree.Element && child.key() in removed) {
+                if (kept.lastOrNull().isSpace()) kept.removeAt(kept.size - 1)
+                continue
+            }
+            kept += child
+        }
+        children.clear()
+        children.addAll(kept)
+    }
+
+    /** Whether this is text of nothing but XML's white space. */
+    private fun XmlTree.Node?.isSpace() =
+        this is XmlTree.Text && value.all { it == ' ' || it == '\t' || it == '\n' || it == '\r' }
+
+    /**
+     * The rdf:Description holding the fields of [texts] whose text isn't empty, a property a line, or
+     * null when there are none.
+     */
+    private fun newDescription(about: String, texts: Map<InfoField, String>): XmlTree.Element? {
+        val values = texts.mapValues { (_, text) -> xmlText(text) }.filterValues { it.isNotEmpty() }
+        if (values.isEmpty()) return null
+        val description = element(
+            "rdf:Description",
+            "rdf:about" to about, "xmlns:rdf" to RDF, "xmlns:dc" to DC, "xmlns:pdf" to PDF,
+        )
+        fun line(property: XmlTree.Element) {
+            description.add(XmlTree.Text("\n"))
+            description.add(property)
+        }
+        values[InfoField.TITLE]?.let { line(element("dc:title").add(alt(it))) }
+        values[InfoField.AUTHOR]?.let { line(element("dc:creator").add(items("rdf:Seq", listOf(it)))) }
+        values[InfoField.SUBJECT]?.let { line(element("dc:description").add(alt(it))) }
+        values[InfoField.KEYWORDS]?.let { keywords ->
+            val list = InfoText.keywordList(keywords)
+            if (list.isNotEmpty()) line(element("dc:subject").add(items("rdf:Bag", list)))
+            line(element("pdf:Keywords").add(XmlTree.Text(keywords)))
+        }
+        description.add(XmlTree.Text("\n"))
+        return description
+    }
+
+    /** An rdf:Alt holding [text] as its x-default item. */
+    private fun alt(text: String) =
+        element("rdf:Alt").add(element("rdf:li", "xml:lang" to "x-default").add(XmlTree.Text(text)))
+
+    /** An rdf:Seq or rdf:Bag ([name]) holding [texts], an item each. */
+    private fun items(name: String, texts: List<String>) =
+        element(name).apply { for (text in texts) add(element("rdf:li").add(XmlTree.Text(text))) }
+
+    private fun element(name: String, vararg attributes: Pair<String, String>) =
+        XmlTree.Element(name, attributes.toMutableList())
+
+    /** Adds [child] to this element's children, as its parent, and returns this element. */
+    private fun XmlTree.Element.add(child: XmlTree.Node): XmlTree.Element {
+        if (child is XmlTree.Element) child.parent = this
+        children.add(child)
+        return this
+    }
+
+    /**
+     * Adds [description] at the end of [rdf], before the line break that ends it and indented as the
+     * first description is, when the packet is laid out in lines.
+     */
+    private fun append(rdf: XmlTree.Element, description: XmlTree.Element) {
+        description.parent = rdf
+        val children = rdf.children
+        val first = children.indexOfFirst { it is XmlTree.Element }
+        val indent = children.getOrNull(first - 1)?.takeIf { it.isSpace() } as XmlTree.Text?
+        val at = if (children.lastOrNull().isSpace()) children.size - 1 else children.size
+        children.add(at, description)
+        if (indent != null) children.add(at, XmlTree.Text(indent.value))
+    }
+
+    /** [text] without the characters XML can't carry. */
+    private fun xmlText(text: String): String {
+        val out = StringBuilder(text.length)
+        var i = 0
+        while (i < text.length) {
+            val code = text.codePointAt(i)
+            val allowed = code == 0x9 || code == 0xA || code == 0xD || code in 0x20..0xD7FF ||
+                code in 0xE000..0xFFFD || code in 0x10000..0x10FFFF
+            if (allowed) out.appendCodePoint(code)
+            i += Character.charCount(code)
+        }
+        return out.toString()
+    }
+
+    /**
+     * [root] written out as UTF-8 between xpacket markers, without padding: names and attributes as
+     * kept; in text & < > escaped; in attribute values & < " escaped and tab, CR and LF written as
+     * character references (written as themselves, they would be read back as spaces); an element
+     * without children as <a/>. No recursion: the open elements are kept on a list.
+     */
+    private fun write(root: XmlTree.Element): ByteArray {
+        val out = StringBuilder()
+        out.append(PACKET_BEGIN).append('\n')
+        val open = ArrayList<XmlTree.Element>()
+        val next = ArrayList<Int>()
+        fun start(element: XmlTree.Element) {
+            out.append('<').append(element.name)
+            for ((name, value) in element.attributes) {
+                out.append(' ').append(name).append("=\"")
+                escape(value, out, attribute = true)
+                out.append('"')
+            }
+            if (element.children.isEmpty()) {
+                out.append("/>")
+            } else {
+                out.append('>')
+                open.add(element)
+                next.add(0)
+            }
+        }
+        start(root)
+        while (open.isNotEmpty()) {
+            val top = open.size - 1
+            val element = open[top]
+            val index = next[top]
+            if (index == element.children.size) {
+                out.append("</").append(element.name).append('>')
+                open.removeAt(top)
+                next.removeAt(top)
+                continue
+            }
+            next[top] = index + 1
+            when (val child = element.children[index]) {
+                is XmlTree.Element -> start(child)
+                is XmlTree.Text -> escape(child.value, out, attribute = false)
+            }
+        }
+        out.append('\n').append(PACKET_END)
+        return out.toString().toByteArray(Charsets.UTF_8)
+    }
+
+    private fun escape(text: String, out: StringBuilder, attribute: Boolean) {
+        for (c in text) {
+            when {
+                c == '&' -> out.append("&amp;")
+                c == '<' -> out.append("&lt;")
+                c == '>' && !attribute -> out.append("&gt;")
+                c == '"' && attribute -> out.append("&quot;")
+                c == '\t' && attribute -> out.append("&#x9;")
+                c == '\r' && attribute -> out.append("&#xD;")
+                c == '\n' && attribute -> out.append("&#xA;")
+                else -> out.append(c)
+            }
+        }
+    }
+
+    private const val PACKET_BEGIN = "<?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>"
+    private const val PACKET_END = "<?xpacket end=\"w\"?>"
 
     /** The properties [read] takes, as namespace + local name. */
     private val PROPERTIES = setOf(

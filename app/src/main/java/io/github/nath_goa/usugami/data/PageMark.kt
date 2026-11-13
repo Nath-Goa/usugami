@@ -333,6 +333,9 @@ class PageMark(context: Context) {
         return RandomAccessFile(file, "r").use { bytes -> found.filter { fits(it, bytes) } }
     }
 
+    /** Whether [doc], read from [file], has a signature that still holds there (see [signatures]). */
+    internal fun isSigned(doc: PDDocument, file: File): Boolean = signatures(doc, file).isNotEmpty()
+
     /**
      * Whether [value]'s /ByteRange fits [bytes] as signing left it: all of a revision, from the start
      * to an end of file mark, but the /Contents string between. Saved anew, a PDF keeps the value, but
