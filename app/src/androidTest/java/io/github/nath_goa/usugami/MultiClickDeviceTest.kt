@@ -936,7 +936,7 @@ class MultiClickDeviceTest {
         onMain {
             shown.setContent {
                 UsugamiTheme {
-                    SettingsScreen(SnackbarHostState(), onBack = {}, onChooseLanguage = { chosen += it }, onChooseAppearance = {}, onSourceCode = {}, onAbout = {})
+                    SettingsScreen(SnackbarHostState(), onBack = {}, onChooseLanguage = { chosen += it }, onChooseAppearance = {}, onSourceCode = {}, onDonate = {}, onAbout = {})
                 }
             }
         }

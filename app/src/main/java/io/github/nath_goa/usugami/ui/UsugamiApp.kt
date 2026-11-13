@@ -294,6 +294,8 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
 
+    fun openDonate() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, DONATE_URL.toUri())) }
+
     // The listed file Usugami found it can no longer open, whose dialog shows.
     var lostFile by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -553,6 +555,7 @@ fun UsugamiApp(vm: MainViewModel, onChooseLanguage: (AppLanguage) -> Unit, onCho
                         onChooseLanguage = onChooseLanguage,
                         onChooseAppearance = onChooseAppearance,
                         onSourceCode = { openSourceCode() },
+                        onDonate = { openDonate() },
                         onAbout = { route = "settings/about" },
                     )
                 }

@@ -443,6 +443,7 @@
     <string name="appearance_light">Claro</string>
     <string name="appearance_dark">Oscuro</string>
     <string name="settings_github">Código fuente en GitHub</string>
+    <string name="settings_donate">Donar</string>
     <string name="settings_about_detail">Versión, política de privacidad y licencias</string>
 
     <!-- About -->

@@ -6,6 +6,12 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Settings has a **Donate** link that opens
+  [buymeacoffee.com/nath_goa](https://buymeacoffee.com/nath_goa) in your browser. Usugami itself
+  still has no internet permission.
+
 ## [1.6.5] - 2026-11-11
 
 ### Changed

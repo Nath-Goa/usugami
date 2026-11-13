@@ -538,6 +538,8 @@ On a phone or emulator, with the release APKs:
   beyond them, it says the page was found and outlines the paper as far as it shows; with the
   page filling the photo, or running off it on two sides, it says to drag the corners and the
   outline starts a little in from every side.
+- Settings → Donate opens buymeacoffee.com/nath_goa in the browser once, however fast it is
+  tapped twice; with no browser installed, a message says no app can open web links.
 - Recent files: save a PDF with Save as, delete it in the Files app and come back to Usugami: it
   has left the list.
 - A digitally signed PDF that Compress PDF kept as it was and Usugami watermarked, then signed

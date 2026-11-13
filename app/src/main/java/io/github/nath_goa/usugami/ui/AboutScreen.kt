@@ -81,6 +81,9 @@ import kotlinx.coroutines.withContext
 /** Where Usugami's source code is published. */
 const val SOURCE_CODE_URL = "https://github.com/Nath-Goa/usugami"
 
+/** Where Usugami takes donations: its developer's page on Buy Me a Coffee. */
+const val DONATE_URL = "https://buymeacoffee.com/nath_goa"
+
 /** The app's version and edition, what it does with data, and its license, notices and source code. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
