@@ -79,8 +79,8 @@ data class GrayOutcome(val changed: Boolean, val colorPages: List<Int>)
  * the pictures it re-encodes as gray JPEGs ([jpeg]) and names those that were in colour
  * ([turnedGray]), a change once something draws them; this pass turns the rest gray, plain pictures
  * that only it can read at the level's size ([maxDimension], [level]).
- * [scratchDir] is for the pictures only Android's renderer can read (JPEG 2000, four-component JPEGs),
- * which the next step brings; until then they are left in colour and reported.
+ * [scratchDir] is where the pictures only Android's renderer can read (JPEG 2000, four-component
+ * JPEGs) are drawn from, alone in a temporary PDF.
  */
 internal class PdfGray(
     private val doc: PDDocument,
@@ -91,7 +91,7 @@ internal class PdfGray(
 ) {
     private var changed = false
 
-    private val pictures = GrayPictures(doc, maxDimension, level, check)
+    private val pictures = GrayPictures(doc, maxDimension, level, scratchDir, check)
     private val shadings = GrayShadings(doc, check)
 
     /** Every object converted: true when it, and all it draws, turned gray. Put in as true before work on it starts, so a loop of references ends. */

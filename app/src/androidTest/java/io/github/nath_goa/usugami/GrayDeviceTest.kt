@@ -10,6 +10,7 @@ import android.graphics.Shader
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.contentstream.operator.Operator
 import com.tom_roush.pdfbox.cos.COSArray
@@ -29,11 +30,14 @@ import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import io.github.nath_goa.usugami.core.GrayImage
+import io.github.nath_goa.usugami.core.GrayJpeg
 import io.github.nath_goa.usugami.core.GrayMath
 import io.github.nath_goa.usugami.data.CompressJob
 import io.github.nath_goa.usugami.data.PdfCompression
 import io.github.nath_goa.usugami.data.PdfPasswordRequired
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.ui.renderPdfPage
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -440,6 +444,178 @@ class GrayDeviceTest {
     }
 
     /**
+     * Pictures Compress alone leaves as they are turn gray too, each read as the PDF means it, one on
+     * each page. Through BitmapFactory (route E): a one-component JPEG in a spot colour whose tint 0
+     * is white (read as plain gray it would be its negative) and an RGB JPEG with /Decode
+     * [1 0 1 0 1 0] (drawn inverted). Through Android's renderer (route F): a CMYK JPEG with /Decode
+     * [1 0 1 0 1 0 1 0], the same without, and with a soft mask; a JPEG 2000 in DeviceRGB and the
+     * same without /ColorSpace; an RGB JPEG whose /DecodeParms say /ColorTransform, with a soft mask,
+     * so drawn at its own 1200 by 1000 pixels, in two bands. Each comes out a gray JPEG drawn as light
+     * as the original was, the soft mask still attached and as it was (read again after the
+     * renderer's copy of its picture). A JPEG 2000 the renderer can't decode leaves its page in
+     * colour, its bytes as they were, and PDF pages still draw after it. So does one with
+     * /SMaskInData, never drawn: a renderer that ignores it would show it opaque. (An RGB JPEG with a
+     * soft mask, route E's other way, is test 1's.)
+     */
+    @Test fun picturesCompressAloneLeavesAsTheyAreTurnGrayToo() {
+        val original = File(context.cacheDir, "pictures.pdf")
+        // A JP2 file's signature, then nothing a decoder can read.
+        val random = java.util.Random(7)
+        val damaged = byteArrayOf(0, 0, 0, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87.toByte(), 0x0A) + ByteArray(200).also(random::nextBytes)
+        // Opaque but for the right quarter, which is mostly see-through.
+        val maskSamples = ByteArray(32 * 32) { if (it % 32 < 24) -1 else 0x60 }
+        picturesPdf(original, damaged, maskSamples)
+        val input = engine.import(Uri.fromFile(original), 1209)
+        val result = engine.compress(input, PdfCompression.RECOMMENDED, "pictures_bw", gray = true)
+        val outcome = checkNotNull(result.gray)
+        assertTrue(outcome.changed)
+        assertEquals("Only the damaged JPEG 2000's page and the one with /SMaskInData are left in colour", listOf(8, 9), outcome.colorPages)
+        assertTrue("No temporary PDF", File(context.cacheDir, "pdfbox").walk().none { it.isFile && it.name.endsWith(".pdf") })
+        PDDocument.load(result.file).use { doc ->
+            assertEquals(10, doc.numberOfPages)
+            for (page in 0 until 8) {
+                val image = imagesOn(doc.getPage(page)).single().image.cosObject
+                assertEquals("Page $page", COSName.DEVICEGRAY, image.getDictionaryObject(COSName.COLORSPACE))
+                assertEquals("Page $page", COSName.DCT_DECODE, image.getDictionaryObject(COSName.FILTER))
+                assertNull("Page $page", image.getDictionaryObject(COSName.DECODE))
+            }
+            val masked = imagesOn(doc.getPage(4)).single().image.cosObject
+            val mask = masked.getDictionaryObject(COSName.SMASK) as COSStream
+            assertArrayEquals("The soft mask as it was", maskSamples, mask.createInputStream().use { it.readBytes() })
+            val banded = imagesOn(doc.getPage(7)).single().image
+            assertEquals("A picture with a soft mask keeps its size", 1200 to 1000, banded.width to banded.height)
+            val left = imagesOn(doc.getPage(8)).single().image.cosObject
+            assertEquals(COSName.getPDFName("JPXDecode"), left.getDictionaryObject(COSName.FILTER))
+            assertEquals(COSName.DEVICERGB, left.getDictionaryObject(COSName.COLORSPACE))
+            assertArrayEquals("The damaged picture as it was", damaged, left.createRawInputStream().use { it.readBytes() })
+            // Read from the page's resources: PDFBox decodes a JPEG 2000 without /ColorSpace to make a PDImageXObject.
+            val xObjects = doc.getPage(9).resources.cosObject.getDictionaryObject(COSName.XOBJECT) as COSDictionary
+            val alpha = xObjects.getDictionaryObject(xObjects.keySet().single()) as COSStream
+            assertNull(alpha.getDictionaryObject(COSName.COLORSPACE))
+            assertEquals(1, alpha.getInt(COSName.getPDFName("SMaskInData")))
+            assertArrayEquals("The picture with /SMaskInData as it was", asset("gray_color.jp2").readBytes(), alpha.createRawInputStream().use { it.readBytes() })
+        }
+        val originals = (0 until 8).map { page ->
+            val before = render(original, page)
+            val after = render(result.file, page)
+            if (page > 0) assertTrue("The original page $page has colour", hasColor(before))
+            assertNoColor(after)
+            assertSameLightness(before, after, if (page < 2) 12 else 16)
+            after.recycle()
+            before
+        }
+        // The CMYK JPEG's inks inverted by /Decode and as they are draw differently, so the two gray
+        // pictures (each as light as its original) differ as the originals do.
+        val inverted = lightness(originals[2])
+        val asItIs = lightness(originals[3])
+        assertTrue("The CMYK pages differ: $inverted and $asItIs", abs(inverted - asItIs) > 20)
+        originals.forEach(Bitmap::recycle)
+        // The renderer met a picture it couldn't decode. Android 8's stops drawing every PDF after one
+        // it refused, until Usugami is closed: a page's thumbnail, as the tool screens draw it, still
+        // draws, here the JPEG 2000 in colour.
+        val thumbnail = checkNotNull(renderPdfPage(input, 5, 150)) { "The thumbnail is drawn" }
+        assertTrue("The thumbnail has its colours", hasColor(thumbnail.asAndroidBitmap()))
+        engine.delete(input)
+    }
+
+    /**
+     * Test 2's PDF: on each of 10 pages of 200 points square, a picture 160 points square. The spot
+     * colour JPEG, the RGB JPEG drawn inverted, the CMYK JPEG ([asset] gray_cmyk.jpg) inverted, as it
+     * is and with [maskSamples] as its soft mask, the JPEG 2000 (gray_color.jp2) in DeviceRGB and
+     * without /ColorSpace, the RGB JPEG with /ColorTransform from yellow at the top to blue,
+     * [damaged] as a JPEG 2000 in DeviceRGB, and the JPEG 2000 without /ColorSpace with /SMaskInData 1.
+     */
+    private fun picturesPdf(file: File, damaged: ByteArray, maskSamples: ByteArray): File = file.also {
+        val cmyk = asset("gray_cmyk.jpg").readBytes()
+        val jp2 = asset("gray_color.jp2").readBytes()
+        PDDocument().use { doc ->
+            fun numbers(vararg values: Float) = COSArray().apply { values.forEach { add(COSFloat(it)) } }
+            val jpx = COSName.getPDFName("JPXDecode")
+            fun picture(bytes: ByteArray, filter: COSName, space: com.tom_roush.pdfbox.cos.COSBase?, size: Int = 32, entries: COSDictionary.() -> Unit = {}) =
+                doc.document.createCOSStream().apply {
+                    setItem(COSName.TYPE, COSName.XOBJECT)
+                    setItem(COSName.SUBTYPE, COSName.IMAGE)
+                    setInt(COSName.WIDTH, size)
+                    setInt(COSName.HEIGHT, size)
+                    setInt(COSName.BITS_PER_COMPONENT, 8)
+                    if (space != null) setItem(COSName.COLORSPACE, space)
+                    entries()
+                    createRawOutputStream().use { it.write(bytes) }
+                    setItem(COSName.FILTER, filter)
+                }
+            // Samples rising from 0 to 254 across, in a spot colour whose tint 0 is white.
+            val ramp = GrayJpeg.encode(GrayImage(128, 128, ByteArray(128 * 128) { ((it % 128) * 2).toByte() }), 95)
+            val spot = picture(ramp, COSName.DCT_DECODE, COSArray().apply {
+                add(COSName.SEPARATION)
+                add(COSName.getPDFName("Spot"))
+                add(COSName.DEVICEGRAY)
+                add(COSDictionary().apply {
+                    setInt(COSName.FUNCTION_TYPE, 2)
+                    setItem(COSName.DOMAIN, numbers(0f, 1f))
+                    setItem(COSName.C0, numbers(1f))
+                    setItem(COSName.C1, numbers(0f))
+                    setInt(COSName.N, 1)
+                })
+            }, size = 128)
+            val photo = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888).apply {
+                Canvas(this).drawPaint(Paint().apply { shader = LinearGradient(0f, 0f, 128f, 128f, Color.RED, Color.CYAN, Shader.TileMode.CLAMP) })
+                setHasAlpha(false)
+            }
+            val inverted = JPEGFactory.createFromImage(doc, photo, 0.9f).cosObject.apply { setItem(COSName.DECODE, numbers(1f, 0f, 1f, 0f, 1f, 0f)) }
+            photo.recycle()
+            val mask = doc.document.createCOSStream().apply {
+                setItem(COSName.TYPE, COSName.XOBJECT)
+                setItem(COSName.SUBTYPE, COSName.IMAGE)
+                setInt(COSName.WIDTH, 32)
+                setInt(COSName.HEIGHT, 32)
+                setInt(COSName.BITS_PER_COMPONENT, 8)
+                setItem(COSName.COLORSPACE, COSName.DEVICEGRAY)
+                createOutputStream(COSName.FLATE_DECODE).use { it.write(maskSamples) }
+            }
+            // Yellow at the top to blue at the bottom: a band drawn from the wrong place is the wrong lightness.
+            val tall = Bitmap.createBitmap(1200, 1000, Bitmap.Config.ARGB_8888).apply {
+                Canvas(this).drawPaint(Paint().apply { shader = LinearGradient(0f, 0f, 0f, 1000f, Color.YELLOW, Color.BLUE, Shader.TileMode.CLAMP) })
+                setHasAlpha(false)
+            }
+            val transformed = JPEGFactory.createFromImage(doc, tall, 0.9f).cosObject.apply {
+                setItem(COSName.DECODE_PARMS, COSDictionary().apply { setInt(COSName.getPDFName("ColorTransform"), 1) })
+                setItem(COSName.SMASK, doc.document.createCOSStream().apply {
+                    setItem(COSName.TYPE, COSName.XOBJECT)
+                    setItem(COSName.SUBTYPE, COSName.IMAGE)
+                    setInt(COSName.WIDTH, 8)
+                    setInt(COSName.HEIGHT, 8)
+                    setInt(COSName.BITS_PER_COMPONENT, 8)
+                    setItem(COSName.COLORSPACE, COSName.DEVICEGRAY)
+                    createOutputStream(COSName.FLATE_DECODE).use { it.write(ByteArray(64) { -1 }) }
+                })
+            }
+            tall.recycle()
+            val pictures = listOf(
+                spot,
+                inverted,
+                picture(cmyk, COSName.DCT_DECODE, COSName.DEVICECMYK) { setItem(COSName.DECODE, numbers(1f, 0f, 1f, 0f, 1f, 0f, 1f, 0f)) },
+                picture(cmyk, COSName.DCT_DECODE, COSName.DEVICECMYK),
+                picture(cmyk, COSName.DCT_DECODE, COSName.DEVICECMYK) { setItem(COSName.SMASK, mask) },
+                picture(jp2, jpx, COSName.DEVICERGB),
+                picture(jp2, jpx, null),
+                transformed,
+                picture(damaged, jpx, COSName.DEVICERGB),
+                picture(jp2, jpx, null) { setInt(COSName.getPDFName("SMaskInData"), 1) },
+            )
+            for (picture in pictures) {
+                val page = PDPage(PDRectangle(200f, 200f)).also(doc::addPage)
+                page.cosObject.setItem(COSName.RESOURCES, COSDictionary().apply {
+                    setItem(COSName.XOBJECT, COSDictionary().apply { setItem("Im", picture) })
+                })
+                page.cosObject.setItem(COSName.CONTENTS, doc.document.createCOSStream().apply {
+                    createOutputStream(COSName.FLATE_DECODE).use { it.write("q 160 0 0 160 20 20 cm /Im Do Q\n".toByteArray()) }
+                })
+            }
+            doc.save(file)
+        }
+    }
+
+    /**
      * A PDF of one page: [contentColour] (such as `1 0 0 rg`) sets the colour of a line of text, beside
      * a picture of gray noise with a soft mask, which neither of Compress's passes changes and which
      * is most of the file, so the PDF can't get 1% smaller. [more] may add to the page's resources
@@ -780,6 +956,12 @@ private fun assertNoColor(bitmap: Bitmap) {
     val all = pixels(bitmap)
     val worst = all.indices.maxByOrNull { spread(all[it]) } ?: return
     assertTrue("A pixel in colour at (${worst % bitmap.width}, ${worst / bitmap.width}): ${Integer.toHexString(all[worst])}", spread(all[worst]) <= 3)
+}
+
+/** The average gray ([GrayMath.rgb8]) of [bitmap]'s pixels. */
+private fun lightness(bitmap: Bitmap): Int {
+    val all = pixels(bitmap)
+    return (all.sumOf { GrayMath.rgb8(Color.red(it), Color.green(it), Color.blue(it)).toLong() } / all.size).toInt()
 }
 
 /**
