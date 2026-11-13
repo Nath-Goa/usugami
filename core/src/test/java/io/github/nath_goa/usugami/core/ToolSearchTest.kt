@@ -16,7 +16,7 @@ class ToolSearchTest {
         Tool("Images to PDF", "JPGs and PNGs to PDF, with text recognition", "photo, picture, JPEG, scan, camera, gallery"),
         Tool("Merge PDF", "Combine files and arrange individual pages", "join, combine, append, put together"),
         Tool("Split PDF", "Extract pages or split into smaller files", "separate, cut, divide, extract"),
-        Tool("Delete pages", "Remove the pages you don't need", "remove, erase, discard"),
+        Tool("Reorganize PDF", "Move, turn, delete and add pages", "reorder, rearrange, rotate, turn, flip, delete, remove, erase, discard"),
         Tool("Add page numbers", "Number pages at the top or bottom", "numbering, pagination, footer, header"),
         Tool("Compress PDF", "Shrink images, keep text sharp", "shrink, reduce size, smaller, optimize, file size"),
     )
@@ -72,7 +72,8 @@ class ToolSearchTest {
         assertEquals(listOf("Images to PDF"), find(english, "scan"))
         assertEquals(listOf("Images to PDF"), find(english, "jpg"))
         assertEquals(listOf("Compress PDF"), find(english, "reduce size"))
-        assertEquals(listOf("Delete pages"), find(english, "need"))
+        // Words for turning and removing pages find Reorganize PDF.
+        for (word in listOf("rotate", "turn", "delete", "remove")) assertEquals(word, listOf("Reorganize PDF"), find(english, word))
         assertEquals(emptyList<String>(), find(english, "zebra"))
         assertEquals(emptyList<String>(), find(english, ""))
         assertEquals(emptyList<String>(), find(english, " - "))
@@ -81,8 +82,8 @@ class ToolSearchTest {
     @Test fun toolsFoundByNameComeFirstThenTheRestInOrder() {
         // Compress's description says "Shrink images"; Images to PDF has the word in its name.
         assertEquals(listOf("Images to PDF", "Compress PDF"), find(english, "images"))
-        assertEquals(listOf("Delete pages", "Add page numbers", "Merge PDF", "Split PDF"), find(english, "page"))
-        assertEquals(listOf("Images to PDF", "Merge PDF", "Split PDF", "Compress PDF"), find(english, "pdf"))
+        assertEquals(listOf("Add page numbers", "Merge PDF", "Split PDF", "Reorganize PDF"), find(english, "page"))
+        assertEquals(listOf("Images to PDF", "Merge PDF", "Split PDF", "Reorganize PDF", "Compress PDF"), find(english, "pdf"))
     }
 
     @Test fun keywordsInFrench() {

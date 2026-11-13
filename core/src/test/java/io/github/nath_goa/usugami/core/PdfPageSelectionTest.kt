@@ -46,13 +46,6 @@ class PdfPageSelectionTest {
         assertEquals(6, assertThrows(PageSelectionException::class.java) { PdfPageSelection.selected("7", 6) }.pageCount)
     }
 
-    @Test fun pagesToDeleteAreSortedAndMustLeaveOne() {
-        assertEquals(listOf(1, 4, 5, 6), PdfPageSelection.toDelete("5-7,2,6", 10))
-        val all = assertThrows(PageSelectionException::class.java) { PdfPageSelection.toDelete("1-3,4", 4) }
-        assertEquals(PageSelectionException.Problem.ALL_PAGES, all.problem)
-        assertEquals(PageSelectionException.Problem.OUT_OF_RANGE, assertThrows(PageSelectionException::class.java) { PdfPageSelection.toDelete("5", 4) }.problem)
-    }
-
     @Test fun typedPagesAreReadOrSayWhyNot() {
         // Reorganize PDF's field: blank selects nothing, and while it can't be read nothing changes.
         assertEquals(emptyList<Int>(), PdfPageSelection.read("", 6))

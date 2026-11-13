@@ -449,19 +449,6 @@ class EditorsMultiClickDeviceTest {
         assertTrue(vm.pages.value.none { it.key == key })
     }
 
-    @Test fun rotateQuickTurnsOfOnePageEachTurnIt() {
-        val vm = openWithAlpha(R.string.tool_rotate)
-        val turn = hasContentDescription(string(R.string.rotate_page_right, 1))
-        waitFor(turn)
-        rule.onNode(turn).performScrollTo()
-        tapInOneFrame(turn, turn)
-        assertEquals(listOf(180, 0, 0), vm.pages.value.map { it.rotation })
-        // Slower taps go on from there.
-        rule.onNode(turn).performClick()
-        rule.waitForIdle()
-        assertEquals(listOf(270, 0, 0), vm.pages.value.map { it.rotation })
-    }
-
     @Test fun reorganizeDoubleTapOnResetLeavesOneUndoStep() {
         val vm = openWithAlpha(R.string.tool_reorganize)
         val first = hasContentDescription(string(R.string.pdf_page_number, 1)) and hasClickAction()
@@ -521,18 +508,18 @@ class EditorsMultiClickDeviceTest {
         assertEquals(4, PDDocument.load(vm.result.value!!.single().file).use { it.numberOfPages })
     }
 
-    // Delete pages and Split PDF's page pickers
+    // Reorganize PDF and Split PDF's page pickers
 
-    @Test fun deletePagesTwoPagesTappedTogetherAreBothMarked() {
-        openWithAlpha(R.string.tool_delete_pages)
+    @Test fun reorganizeTwoPagesTappedTogetherAreBothSelected() {
+        openWithAlpha(R.string.tool_reorganize)
         val page = { n: Int -> hasContentDescription(string(R.string.pdf_page_number, n)) and hasClickAction() }
         waitFor(page(3))
         rule.onNode(page(3)).performScrollTo()
         tapInOneFrame(page(2), page(3))
-        val field = rule.onNode(hasSetTextAction() and hasText(string(R.string.delete_pages_field)))
+        val field = rule.onNode(hasSetTextAction() and hasText(string(R.string.reorganize_pages_field)))
         field.assert(hasText("2-3"))
-        assertTrue(exists(hasText(string(R.string.delete_pages_count, 2, 3))))
-        // Each tap goes on from the one before: page 2 unmarked, page 1 marked.
+        assertTrue(exists(hasText(string(R.string.reorganize_selected_count, 2, 3))))
+        // Each tap goes on from the one before: page 2 unselected, page 1 selected.
         tapInOneFrame(page(2), page(1))
         field.assert(hasText("1,3"))
     }

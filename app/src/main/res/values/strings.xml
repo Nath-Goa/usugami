@@ -26,8 +26,6 @@
     <string name="home_section_edit">Edit and sign</string>
     <string name="home_section_organize">Organize</string>
     <string name="home_section_optimize">Optimize and protect</string>
-    <string name="tool_rotate">Rotate PDF</string>
-    <string name="tool_rotate_detail">Turn pages the right way up</string>
     <string name="tool_page_numbers">Add page numbers</string>
     <string name="tool_page_numbers_detail">Number pages at the top or bottom</string>
     <string name="tool_watermark">Add watermark</string>
@@ -150,8 +148,7 @@
     <!-- The screen that opens with PDFs shared to Usugami from another app, listing the tools that take them. -->
     <string name="share_title">Choose a tool</string>
     <string name="share_several_hint">Merge them, or work on each of them at once. For the other tools, keep one PDF.</string>
-    <!-- Rotate, page numbers and watermark -->
-    <string name="pdf_rotate_action">Rotate PDF</string>
+    <!-- Turned pages, page numbers and watermark -->
     <string name="pdf_page_numbers_action">Add page numbers</string>
     <string name="pdf_watermark_action">Add watermark</string>
     <!-- The buttons of Add page numbers and Add watermark with several PDFs (never fewer than 2). -->
@@ -163,10 +160,6 @@
         <item quantity="one">Add watermark to %d PDF</item>
         <item quantity="other">Add watermark to %d PDFs</item>
     </plurals>
-    <string name="rotate_all">All pages</string>
-    <string name="rotate_all_left">Rotate all pages left</string>
-    <string name="rotate_all_right">Rotate all pages right</string>
-    <string name="rotate_hint">Turn pages one by one, or all at once.</string>
     <string name="rotated_right">Turned right</string>
     <string name="rotated_left">Turned left</string>
     <string name="rotated_upside_down">Upside down</string>
@@ -328,23 +321,13 @@
     <string name="sheet_fit_width_off">Columns that don\'t fit go on more pages, as Excel prints them.</string>
     <string name="sheet_gridlines">Gridlines</string>
     <string name="sheet_gridlines_detail">Light gray lines between cells, as on screen. Borders, and gridlines a sheet is set to print, always show.</string>
-    <!-- Delete pages, Reorganize PDF and Flatten PDF. "Flatten" makes form fields and comments part of the page. -->
-    <string name="tool_delete_pages">Delete pages</string>
-    <string name="tool_delete_pages_detail">Remove the pages you don\'t need</string>
+    <!-- Reorganize PDF and Flatten PDF. "Flatten" makes form fields and comments part of the page. -->
     <string name="tool_reorganize">Reorganize PDF</string>
-    <string name="tool_reorganize_detail">Move, turn, remove and add pages</string>
+    <string name="tool_reorganize_detail">Move, turn, delete and add pages</string>
     <string name="tool_flatten">Flatten PDF</string>
     <string name="tool_flatten_detail">Make forms and comments part of the page</string>
-    <string name="pdf_delete_pages_action">Delete pages</string>
-    <string name="delete_pages_field">Pages to delete</string>
-    <string name="delete_pages_hint" tools:ignore="TypographyDashes">For example: 2,5-7. Or tap the pages below.</string>
-    <!-- %1$d pages are marked, out of the %2$d pages in the PDF. -->
-    <string name="delete_pages_count">To delete: %1$d of %2$d</string>
-    <string name="page_marked_delete">Marked to delete</string>
-    <string name="page_kept">Kept</string>
+    <string name="reorganize_pages_hint" tools:ignore="TypographyDashes">For example: 2,5-7. Or tap the pages below.</string>
     <string name="pdf_reorganize_action">Save PDF</string>
-    <string name="reorganize_hint">Pages you add go after the chosen page. Long-press a page and drag to move it.</string>
-    <string name="reorganize_choose_page">Tap a page to choose it</string>
     <string name="reorganize_add">Add pages</string>
     <string name="reorganize_add_pdf">Pages from a PDF</string>
     <string name="reorganize_add_blank">Blank page</string>
@@ -818,9 +801,7 @@
     <string name="search_keywords_excel">xls, xlsx, spreadsheet, sheet, table, workbook, cells, Office, Google Sheets, convert</string>
     <string name="search_keywords_merge">join, combine, append, put together</string>
     <string name="search_keywords_split">separate, cut, divide, extract, break up</string>
-    <string name="search_keywords_reorganize">reorder, rearrange, order, sort, move, insert, blank page</string>
-    <string name="search_keywords_delete_pages">remove, erase, discard, get rid of</string>
-    <string name="search_keywords_rotate">turn, flip, sideways, upside down, landscape, portrait, orientation</string>
+    <string name="search_keywords_reorganize">reorder, rearrange, order, sort, move, insert, blank page, rotate, turn, flip, sideways, upside down, landscape, portrait, orientation, delete, remove, erase, discard, get rid of</string>
     <string name="search_keywords_edit">annotate, write, type, pen, draw, highlight, markup, arrow, photo</string>
     <string name="search_keywords_sign">signature, initials, autograph, e-sign</string>
     <string name="search_keywords_page_numbers">numbering, paginate, pagination, footer, header</string>

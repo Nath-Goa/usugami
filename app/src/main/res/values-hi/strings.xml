@@ -21,8 +21,6 @@
     <string name="home_section_edit">एडिट और साइन करें</string>
     <string name="home_section_organize">व्यवस्थित करें</string>
     <string name="home_section_optimize">ऑप्टिमाइज़ और सुरक्षित करें</string>
-    <string name="tool_rotate">PDF घुमाएं</string>
-    <string name="tool_rotate_detail">पेजों को सही दिशा में घुमाएं</string>
     <string name="tool_page_numbers">पेज नंबर जोड़ें</string>
     <string name="tool_page_numbers_detail">पेज के ऊपर या नीचे नंबर लगाएं</string>
     <string name="tool_watermark">वॉटरमार्क जोड़ें</string>
@@ -136,8 +134,7 @@
     <string name="share_waits">आपकी शेयर की गई फ़ाइलें यह काम पूरा होने के बाद खुलेंगी।</string>
     <string name="share_title">टूल चुनें</string>
     <string name="share_several_hint">इन्हें मर्ज करें, या सब पर एक साथ काम करें। बाकी टूल के लिए एक ही PDF रखें।</string>
-    <!-- Rotate, page numbers and watermark -->
-    <string name="pdf_rotate_action">PDF घुमाएं</string>
+    <!-- Turned pages, page numbers and watermark -->
     <string name="pdf_page_numbers_action">पेज नंबर जोड़ें</string>
     <string name="pdf_watermark_action">वॉटरमार्क जोड़ें</string>
     <plurals name="pdf_page_numbers_action_many">
@@ -148,10 +145,6 @@
         <item quantity="one">%d PDF में वॉटरमार्क जोड़ें</item>
         <item quantity="other">%d PDF में वॉटरमार्क जोड़ें</item>
     </plurals>
-    <string name="rotate_all">सभी पेज</string>
-    <string name="rotate_all_left">सभी पेज बाईं ओर घुमाएं</string>
-    <string name="rotate_all_right">सभी पेज दाईं ओर घुमाएं</string>
-    <string name="rotate_hint">पेज एक-एक करके घुमाएं, या सभी को एक साथ।</string>
     <string name="rotated_right">दाईं ओर घुमाया गया</string>
     <string name="rotated_left">बाईं ओर घुमाया गया</string>
     <string name="rotated_upside_down">उल्टा</string>
@@ -306,21 +299,12 @@
     <string name="sheet_fit_width_off">जो कॉलम पेज में नहीं समाते, वे अगले पेजों पर चले जाते हैं, जैसे Excel में प्रिंट होने पर।</string>
     <string name="sheet_gridlines">ग्रिडलाइन</string>
     <string name="sheet_gridlines_detail">सेल के बीच हल्की स्लेटी लाइनें, जैसी स्क्रीन पर दिखती हैं। बॉर्डर हमेशा दिखते हैं, और वे ग्रिडलाइन भी जिन्हें शीट में प्रिंट करने के लिए सेट किया गया है।</string>
-    <string name="tool_delete_pages">पेज हटाएं</string>
-    <string name="tool_delete_pages_detail">जिन पेजों की ज़रूरत नहीं, उन्हें हटाएं</string>
     <string name="tool_reorganize">PDF के पेज व्यवस्थित करें</string>
     <string name="tool_reorganize_detail">पेज खिसकाएं, घुमाएं, हटाएं और जोड़ें</string>
     <string name="tool_flatten">PDF फ़्लैटन करें</string>
     <string name="tool_flatten_detail">फ़ॉर्म और टिप्पणियों को पेज का हिस्सा बनाएं</string>
-    <string name="pdf_delete_pages_action">पेज हटाएं</string>
-    <string name="delete_pages_field">हटाने वाले पेज</string>
-    <string name="delete_pages_hint" tools:ignore="TypographyDashes">उदाहरण के लिए: 2,5-7। या नीचे दिए पेजों पर टैप करें।</string>
-    <string name="delete_pages_count">हटाने के लिए: %2$d में से %1$d</string>
-    <string name="page_marked_delete">हटाने के लिए चुना गया</string>
-    <string name="page_kept">रखा जाएगा</string>
+    <string name="reorganize_pages_hint" tools:ignore="TypographyDashes">उदाहरण के लिए: 2,5-7। या नीचे दिए पेजों पर टैप करें।</string>
     <string name="pdf_reorganize_action">PDF सेव करें</string>
-    <string name="reorganize_hint">जोड़े गए पेज चुने गए पेज के बाद आएंगे। किसी पेज को खिसकाने के लिए उसे दबाकर रखें और खींचें।</string>
-    <string name="reorganize_choose_page">किसी पेज को चुनने के लिए उस पर टैप करें</string>
     <string name="reorganize_add">पेज जोड़ें</string>
     <string name="reorganize_add_pdf">किसी PDF से पेज</string>
     <string name="reorganize_add_blank">खाली पेज</string>
@@ -749,9 +733,7 @@
     <string name="search_keywords_excel">स्प्रेडशीट, शीट, टेबल, तालिका, वर्कबुक, सेल, xls, xlsx, spreadsheet, sheet, table, workbook, cells, Office, Google Sheets</string>
     <string name="search_keywords_merge">जोड़ें, मिलाएं, एक फ़ाइल, merge, combine, join</string>
     <string name="search_keywords_split">अलग करें, बांटें, निकालें, split, separate, extract</string>
-    <string name="search_keywords_reorganize">क्रम बदलें, खिसकाएं, खाली पेज, reorder, rearrange, organize</string>
-    <string name="search_keywords_delete_pages">मिटाएं, निकालें, delete pages, remove</string>
-    <string name="search_keywords_rotate">घुमाएं, उल्टा, सीधा, rotate, turn</string>
+    <string name="search_keywords_reorganize">क्रम बदलें, खिसकाएं, खाली पेज, reorder, rearrange, organize, घुमाएं, उल्टा, सीधा, rotate, turn, हटाएं, मिटाएं, निकालें, delete pages, remove</string>
     <string name="search_keywords_edit">लिखें, टेक्स्ट, ड्रॉ, हाइलाइट, तीर, edit, annotate, highlight, draw</string>
     <string name="search_keywords_sign">हस्ताक्षर, दस्तख़त, साइन, sign, signature</string>
     <string name="search_keywords_page_numbers">नंबर, क्रमांक, पेज संख्या, page numbers, numbering</string>

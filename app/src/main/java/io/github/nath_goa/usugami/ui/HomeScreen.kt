@@ -33,14 +33,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.BrandingWatermark
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
-import androidx.compose.material.icons.automirrored.rounded.RotateRight
 import androidx.compose.material.icons.automirrored.rounded.ViewQuilt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Collections
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Compress
-import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Draw
@@ -135,8 +133,6 @@ private val OrganizeTools = listOf(
     PdfTool.MERGE,
     PdfTool.SPLIT,
     PdfTool.REORGANIZE,
-    PdfTool.DELETE_PAGES,
-    PdfTool.ROTATE,
     PdfTool.PAGE_LAYOUT,
 )
 
@@ -176,14 +172,12 @@ internal val PdfTool.title: Int
         PdfTool.SPLIT -> R.string.tool_split
         PdfTool.MERGE -> R.string.tool_merge
         PdfTool.COMPRESS -> R.string.tool_compress
-        PdfTool.ROTATE -> R.string.tool_rotate
         PdfTool.PAGE_NUMBERS -> R.string.tool_page_numbers
         PdfTool.WATERMARK -> R.string.tool_watermark
         PdfTool.SIGN -> R.string.tool_sign
         PdfTool.WORD -> R.string.tool_word
         PdfTool.POWERPOINT -> R.string.tool_powerpoint
         PdfTool.EXCEL -> R.string.tool_excel
-        PdfTool.DELETE_PAGES -> R.string.tool_delete_pages
         PdfTool.REORGANIZE -> R.string.tool_reorganize
         PdfTool.FLATTEN -> R.string.tool_flatten
         PdfTool.EPUB -> R.string.tool_epub
@@ -201,14 +195,12 @@ internal val PdfTool.detail: Int
         PdfTool.SPLIT -> R.string.tool_split_detail
         PdfTool.MERGE -> R.string.tool_merge_detail
         PdfTool.COMPRESS -> R.string.tool_compress_detail
-        PdfTool.ROTATE -> R.string.tool_rotate_detail
         PdfTool.PAGE_NUMBERS -> R.string.tool_page_numbers_detail
         PdfTool.WATERMARK -> R.string.tool_watermark_detail
         PdfTool.SIGN -> R.string.tool_sign_detail
         PdfTool.WORD -> R.string.tool_word_detail
         PdfTool.POWERPOINT -> R.string.tool_powerpoint_detail
         PdfTool.EXCEL -> R.string.tool_excel_detail
-        PdfTool.DELETE_PAGES -> R.string.tool_delete_pages_detail
         PdfTool.REORGANIZE -> R.string.tool_reorganize_detail
         PdfTool.FLATTEN -> R.string.tool_flatten_detail
         PdfTool.EPUB -> R.string.tool_epub_detail
@@ -224,14 +216,12 @@ internal val PdfTool.icon: ImageVector
         PdfTool.SPLIT -> Icons.Rounded.Splitscreen
         PdfTool.MERGE -> Icons.Rounded.Collections
         PdfTool.COMPRESS -> Icons.Rounded.Compress
-        PdfTool.ROTATE -> Icons.AutoMirrored.Rounded.RotateRight
         PdfTool.PAGE_NUMBERS -> Icons.Rounded.FormatListNumbered
         PdfTool.WATERMARK -> Icons.AutoMirrored.Rounded.BrandingWatermark
         PdfTool.SIGN -> Icons.Rounded.Draw
         PdfTool.WORD -> Icons.Rounded.Description
         PdfTool.POWERPOINT -> Icons.Rounded.Slideshow
         PdfTool.EXCEL -> Icons.Rounded.TableChart
-        PdfTool.DELETE_PAGES -> Icons.Rounded.Delete
         PdfTool.REORGANIZE -> Icons.Rounded.GridView
         PdfTool.FLATTEN -> Icons.Rounded.Layers
         PdfTool.EPUB -> Icons.Rounded.AutoStories
@@ -249,14 +239,12 @@ private val PdfTool.keywords: Int
         PdfTool.SPLIT -> R.string.search_keywords_split
         PdfTool.MERGE -> R.string.search_keywords_merge
         PdfTool.COMPRESS -> R.string.search_keywords_compress
-        PdfTool.ROTATE -> R.string.search_keywords_rotate
         PdfTool.PAGE_NUMBERS -> R.string.search_keywords_page_numbers
         PdfTool.WATERMARK -> R.string.search_keywords_watermark
         PdfTool.SIGN -> R.string.search_keywords_sign
         PdfTool.WORD -> R.string.search_keywords_word
         PdfTool.POWERPOINT -> R.string.search_keywords_powerpoint
         PdfTool.EXCEL -> R.string.search_keywords_excel
-        PdfTool.DELETE_PAGES -> R.string.search_keywords_delete_pages
         PdfTool.REORGANIZE -> R.string.search_keywords_reorganize
         PdfTool.FLATTEN -> R.string.search_keywords_flatten
         PdfTool.EPUB -> R.string.search_keywords_epub

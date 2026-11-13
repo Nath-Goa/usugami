@@ -11,14 +11,13 @@ class PageSelectionException(val problem: Problem, val pageCount: Int) : Illegal
         Problem.OUT_OF_RANGE -> "Pages must be between 1 and $pageCount"
         Problem.REVERSED -> "Write ranges from low to high, such as 3-8"
         Problem.CHUNK_SIZE -> "Pages per PDF must be between 1 and $pageCount"
-        Problem.ALL_PAGES -> "Keep at least one page"
     },
 ) {
     /**
      * [FORMAT] is for page lists (1,3-5), [RANGES_FORMAT] for Split's custom ranges, which are
      * separated by semicolons (1-3;5). [REVERSED] is a range whose pages exist but run backwards (8-3).
      */
-    enum class Problem { FORMAT, RANGES_FORMAT, OUT_OF_RANGE, REVERSED, CHUNK_SIZE, ALL_PAGES }
+    enum class Problem { FORMAT, RANGES_FORMAT, OUT_OF_RANGE, REVERSED, CHUNK_SIZE }
 }
 
 /** One-based page input used by the PDF screens. Returned indexes are zero-based. */
@@ -46,17 +45,6 @@ object PdfPageSelection {
         null
     } catch (e: PageSelectionException) {
         e
-    }
-
-    /**
-     * The pages to delete, zero-based and in order, typed like "2,5-7". Throws
-     * [PageSelectionException] for input it can't use, and with [PageSelectionException.Problem.ALL_PAGES]
-     * when it names every page: a PDF needs at least one.
-     */
-    fun toDelete(text: String, pageCount: Int): List<Int> {
-        val pages = selected(text, pageCount).sorted()
-        if (pages.size == pageCount) throw PageSelectionException(PageSelectionException.Problem.ALL_PAGES, pageCount)
-        return pages
     }
 
     /**

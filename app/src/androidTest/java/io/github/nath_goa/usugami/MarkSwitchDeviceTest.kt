@@ -125,15 +125,16 @@ class MarkSwitchDeviceTest {
         AppLanguages.skipChoice(app, null)
         val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         val main = (instrumentation.startActivitySync(intent) as MainActivity).also { activity = it }
-        click(findBelow("Rotate PDF on Home") { it.text?.contains(app.getString(R.string.tool_rotate)) == true })
+        click(findBelow("Reorganize PDF on Home") { it.text?.contains(app.getString(R.string.tool_reorganize)) == true })
         waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.settings)) } }
         val pdfVm = onMain { ViewModelProvider(main)[PdfToolsViewModel::class.java] }
         val picked = File(app.cacheDir, "output/test-picked/alpha.pdf").apply { parentFile!!.mkdirs() }
         instrumentation.context.assets.open("alpha.pdf").use { input -> picked.outputStream().use(input::copyTo) }
         onMain { pdfVm.addPdfs(listOf(FileProvider.getUriForFile(app, "${app.packageName}.files", picked)), replace = true) }
         waitUntil("the PDF to be added") { onMain { pdfVm.inputs.value.size } == 1 }
+        click(find("page 2") { it.says(app.getString(R.string.pdf_page_number, 2)) && ancestor(it) { n -> n.isClickable } != null })
         click(find("page 2's right button") { it.says(app.getString(R.string.rotate_page_right, 2)) })
-        click(find("the Rotate button") { it.says(app.getString(R.string.pdf_rotate_action)) && ancestor(it) { n -> n.isClickable }?.isEnabled == true })
+        click(find("the Save button") { it.refresh() && it.says(app.getString(R.string.pdf_reorganize_action)) && ancestor(it) { n -> n.isClickable }?.isEnabled == true })
         find("the result screen") { it.says(app.getString(R.string.result_heading_one)) }
         val file = onMain { pdfVm.result.value!!.single().file }
 

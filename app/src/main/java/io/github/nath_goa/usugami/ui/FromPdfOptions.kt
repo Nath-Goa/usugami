@@ -261,7 +261,8 @@ private fun PagesChoice(input: PdfInput, shown: PdfInput, text: String, onText: 
         modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
     )
     // A screen reader says the new count as pages are typed or tapped. While what is typed can't be
-    // read (a range half typed), none count, as on Delete pages; the button says what is wrong.
+    // read (a range half typed), none count, as in Reorganize PDF's Selected pages; the button says
+    // what is wrong.
     Text(
         if (text.isBlank()) stringResource(R.string.export_pages_all) else stringResource(R.string.export_pages_count, chosen.size, input.pageCount),
         style = MaterialTheme.typography.titleSmall,

@@ -399,8 +399,6 @@ class ScreensDeviceTest {
                 R.string.tool_merge,
                 R.string.tool_split,
                 R.string.tool_reorganize,
-                R.string.tool_delete_pages,
-                R.string.tool_rotate,
                 R.string.tool_page_layout,
             ),
             listOf(
@@ -461,8 +459,6 @@ class ScreensDeviceTest {
         R.string.tool_merge,
         R.string.tool_split,
         R.string.tool_reorganize,
-        R.string.tool_delete_pages,
-        R.string.tool_rotate,
         R.string.tool_page_layout,
         R.string.tool_sign,
         R.string.tool_page_numbers,
@@ -546,6 +542,11 @@ class ScreensDeviceTest {
         waitUntil("tools named with \"page\" first") {
             shownTools(english).let { it.indexOf(numbers) in 0 until it.indexOf(merge) }
         }
+        // Words for turning and removing pages find Reorganize PDF, and only it.
+        for (word in listOf("rotate", "delete")) {
+            type(searchField(), word)
+            waitForTools(english.getString(R.string.tool_reorganize), resources = english)
+        }
         // Read and annotate, by what found it and what found Edit PDF, which is its Annotate.
         val reader = english.getString(R.string.tool_reader)
         for (word in listOf("edit", "annotate", "draw", "highlight", "text", "open", "view", "read")) {
@@ -602,6 +603,9 @@ class ScreensDeviceTest {
         // "réduire" and "taille" are Compress PDF's.
         type(searchField(), "REDUIRE taille")
         waitForTools(french.getString(R.string.tool_compress), resources = french)
+        // "supprimer" (delete) is one of Reorganize PDF's French words.
+        type(searchField(), "supprimer")
+        waitForTools(french.getString(R.string.tool_reorganize), resources = french)
         // Edit PDF's French words find Read and annotate, whose Annotate it is now.
         for (word in listOf("annoter", "modifier")) {
             type(searchField(), word)
@@ -611,27 +615,91 @@ class ScreensDeviceTest {
         find("the empty state in French") { it.says(french.getString(R.string.home_search_none, "zèbre")) }
     }
 
-    @Test fun rotateTurnsPagesWithButtons() {
+    /**
+     * Reorganize PDF's page [number] in the grid, a check box named after it (and how it is turned,
+     * once it is).
+     */
+    private fun pageBox(number: Int): AccessibilityNodeInfo {
+        val page = app.getString(R.string.pdf_page_number, number)
+        val named = find("page $number's check box") {
+            it.refresh() && it.contentDescription?.toString().let { said -> said == page || said?.startsWith("$page, ") == true } &&
+                ancestor(it) { node -> node.isCheckable } != null
+        }
+        return ancestor(named) { it.isCheckable }!!
+    }
+
+    /** What Reorganize PDF's Selected pages field holds, once it is [text]. */
+    private fun pagesFieldReads(text: String) = find("the field reading \"$text\"") {
+        it.refresh() && it.isEditable && it.text?.toString().orEmpty().let { now -> now == text || (text.isEmpty() && now == app.getString(R.string.reorganize_pages_field)) }
+    }
+
+    /**
+     * Reorganize PDF's pages are selected by tapping them, by Select all and by typing their numbers,
+     * and the field, the bar and the check boxes stay in step; the bar turns every page selected at
+     * once, refuses to remove them all, and removes one; what is typed but can't be read is
+     * explained once a page is tapped, and selects nothing.
+     */
+    @Test fun reorganizeSelectsPagesByTappingAndTypingThenTurnsAndRemovesThem() {
         val activity = launch()
-        val pdfVm = openToolWithAlpha(R.string.tool_rotate, activity)
-        // Nothing to save until a page is turned.
-        assertFalse(clickable(button(R.string.pdf_rotate_action)).isEnabled)
+        val pdfVm = openToolWithAlpha(R.string.tool_reorganize, activity)
+        assertFalse("Nothing to save until the pages change", clickable(button(R.string.pdf_reorganize_action)).isEnabled)
+        find("the bar, with nothing selected") { it.says(app.getString(R.string.reorganize_tap_pages)) }
 
-        click(find("page 2's right button") { it.says(app.getString(R.string.rotate_page_right, 2)) })
-        waitUntil("page 2 to turn") { onMain { pdfVm.pages.value.map { it.rotation } } == listOf(0, 90, 0) }
-        find("the page saying how it turned") { it.says(app.getString(R.string.rotated_right)) }
-        click(find("the all-pages left button") { it.says(app.getString(R.string.rotate_all_left)) })
-        waitUntil("every page to turn") { onMain { pdfVm.pages.value.map { it.rotation } } == listOf(270, 0, 270) }
+        // A tap selects a page: the field, the bar and the check box say so.
+        val page2 = app.getString(R.string.pdf_page_number, 2)
+        assertFalse(pageBox(2).chosen)
+        click(pageBox(2))
+        pagesFieldReads("2")
+        find("the bar, for page 2") { it.refresh() && it.text?.toString() == page2 && !it.isCheckable }
+        waitUntil("page 2 to show as selected") { pageBox(2).chosen }
 
-        click(actionButton(R.string.pdf_rotate_action))
-        val rotated = resultFile(pdfVm)
-        assertEquals(listOf(270, 0, 270), PDDocument.load(rotated).use { doc -> doc.pages.map { it.rotation } })
+        // Select all selects every page, and becomes Select none.
+        click(button(R.string.reorganize_select_all))
+        pagesFieldReads("1-3")
+        find("the count") { it.refresh() && it.says(app.getString(R.string.reorganize_selected_count, 3, 3)) }
+        find("Select none") { it.refresh() && it.says(app.getString(R.string.reorganize_select_none)) }
+
+        // The bar turns every page selected at once.
+        click(find("the turn button for the pages selected") { it.says(app.getString(R.string.rotate_selected_left)) })
+        waitUntil("every page to turn") { onMain { pdfVm.pages.value.map { it.rotation } } == listOf(270, 270, 270) }
+
+        // But it can't remove them all: a PDF keeps at least one page.
+        click(find("the remove button") { it.says(app.resources.getQuantityString(R.plurals.remove_selected_pages, 3, 3)) })
+        find("the warning") { it.refresh() && it.says(app.getString(R.string.pdf_need_page)) }
+        assertEquals(3, onMain { pdfVm.pages.value.size })
+
+        // Pages that don't exist select nothing, and a page tapped then says why.
+        type(pagesFieldReads("1-3"), "9")
+        waitUntil("nothing to be selected") { onMain { pdfVm.chosenPages.value }.isEmpty() }
+        click(pageBox(1))
+        find("the reason") { it.refresh() && it.says(app.getString(R.string.pdf_pages_range, 3)) }
+        pagesFieldReads("9")
+        assertTrue("The tap selected nothing", onMain { pdfVm.chosenPages.value }.isEmpty())
+
+        // A page typed is selected, and removed with the bar.
+        type(pagesFieldReads("9"), "2")
+        click(find("the remove button for page 2") { it.refresh() && it.says(app.getString(R.string.remove_page, 2)) })
+        waitUntil("page 2 to go") { onMain { pdfVm.pages.value.map { it.page } } == listOf(0, 2) }
+        pagesFieldReads("")
+        assertTrue("Nothing is selected", onMain { pdfVm.chosenPages.value }.isEmpty())
+
+        click(actionButton(R.string.pdf_reorganize_action))
+        val result = resultFile(pdfVm)
+        assertEquals("alpha_reorganized.pdf", result.name)
+        PDDocument.load(result).use { doc ->
+            assertEquals(listOf(270, 270), doc.pages.map { it.rotation })
+            // Read from turned pages, the words may come out broken up: only the letters count.
+            val text = PDFTextStripper().getText(doc).filterNot(Char::isWhitespace)
+            assertTrue(text, text.contains("ALPHAONE") && text.contains("ALPHATHREE"))
+            assertFalse(text.contains("ALPHATWO"))
+        }
     }
 
     /** Back from a tool with changes asks first: Keep stays with them, Discard leaves. */
     @Test fun leavingAToolWithChangesAsksFirst() {
         val activity = launch()
-        val pdfVm = openToolWithAlpha(R.string.tool_rotate, activity)
+        val pdfVm = openToolWithAlpha(R.string.tool_reorganize, activity)
+        click(pageBox(2))
         click(find("page 2's right button") { it.says(app.getString(R.string.rotate_page_right, 2)) })
         waitUntil("page 2 to turn") { onMain { pdfVm.pages.value.map { it.rotation } } == listOf(0, 90, 0) }
 
@@ -789,46 +857,6 @@ class ScreensDeviceTest {
         checkSigned()
     }
 
-    /** The text field of a tool, the first on its screen (the file name comes last). */
-    private fun firstField() = find("the text field") { it.isEditable }
-
-    @Test fun deletePagesMarksPagesAndSaysWhatIsWrong() {
-        val activity = launch()
-        val pdfVm = openToolWithAlpha(R.string.tool_delete_pages, activity)
-        assertFalse("Nothing to delete yet", clickable(button(R.string.pdf_delete_pages_action)).isEnabled)
-        find("the count") { it.says(app.getString(R.string.delete_pages_count, 0, 3)) }
-
-        // Tapping a page marks it: the field and the count follow.
-        // Each page is a check box named after it.
-        val page2 = app.getString(R.string.pdf_page_number, 2)
-        assertFalse(radio(page2).chosen)
-        click(radio(page2))
-        waitUntil("page 2 to be marked") { nodes().any { it.isEditable && it.text?.toString() == "2" } }
-        find("the new count") { it.says(app.getString(R.string.delete_pages_count, 1, 3)) }
-        waitUntil("page 2 to show as marked") { radio(page2).chosen }
-
-        // Every page can't go: the screen says so, and so does trying.
-        val keepOne = app.getString(R.string.pdf_need_page)
-        type(firstField(), "1-3")
-        find("the warning") { it.says(keepOne) }
-        click(actionButton(R.string.pdf_delete_pages_action))
-        waitUntil("the message too") { nodes().count { it.says(keepOne) } >= 2 }
-        type(firstField(), "9")
-        click(actionButton(R.string.pdf_delete_pages_action))
-        find("the message") { it.says(app.getString(R.string.pdf_pages_range, 3)) }
-
-        type(firstField(), "2")
-        click(actionButton(R.string.pdf_delete_pages_action))
-        val result = resultFile(pdfVm)
-        assertEquals("alpha_pages_deleted.pdf", result.name)
-        val text = PDDocument.load(result).use { doc ->
-            assertEquals(2, doc.numberOfPages)
-            PDFTextStripper().getText(doc)
-        }
-        assertTrue(text.contains("ALPHA ONE") && text.contains("ALPHA THREE"))
-        assertFalse(text.contains("ALPHA TWO"))
-    }
-
     @Test fun reorganizeMovesTurnsAddsAndRemovesPagesWithButtons() {
         val first = launch()
         val firstVm = openToolWithAlpha(R.string.tool_reorganize, first)
@@ -836,20 +864,22 @@ class ScreensDeviceTest {
         find("the page count") { it.says(app.resources.getQuantityString(R.plurals.page_count, 3, 3)) }
         val (a, b, c) = onMain { firstVm.pages.value }
 
-        // Page 3 is chosen with a tap, then moved and turned with the buttons, which name it.
+        // Page 3 is selected with a tap, then moved and turned with the buttons, which name it.
         click(findBelow("page 3") { it.says(app.getString(R.string.pdf_page_number, 3)) && ancestor(it) { node -> node.isClickable } != null })
         click(find("the move button") { it.says(app.getString(R.string.move_page_earlier, 3)) })
         waitUntil("page 3 to come second") { onMain { firstVm.pages.value } == listOf(a, c, b) }
-        click(find("the turn button, for its new place") { it.says(app.getString(R.string.rotate_page_right, 2)) })
+        // The bar's buttons are named anew in place: read afresh (see relabelledButton).
+        click(find("the turn button, for its new place") { it.refresh() && it.says(app.getString(R.string.rotate_page_right, 2)) })
         waitUntil("page 3 to turn") { onMain { firstVm.pages.value.map { it.rotation } } == listOf(0, 90, 0) }
         assertTrue("Now there is something to save", clickable(actionButton(R.string.pdf_reorganize_action)).isEnabled)
 
-        // A blank page goes in after the chosen page; Undo takes it out again.
+        // A blank page goes in after the selected page; Undo takes it out again.
         click(findBelow("Add pages") { it.says(app.getString(R.string.reorganize_add)) })
         click(find("Blank page") { it.says(app.getString(R.string.reorganize_add_blank)) })
         waitUntil("a blank page third") { onMain { firstVm.pages.value.getOrNull(2)?.isBlank == true } }
         findBelow("the blank page, named for a screen reader") { it.says(app.getString(R.string.reorganize_page_blank, 3)) }
-        find("the new page count") { it.says(app.resources.getQuantityString(R.plurals.page_count, 4, 4)) }
+        // Above: looking for the blank page before the screen showed it scrolls the screen down.
+        findAbove("the new page count") { it.says(app.resources.getQuantityString(R.plurals.page_count, 4, 4)) }
         click(find("Undo") { it.says(app.getString(R.string.undo)) })
         waitUntil("the blank page to go") { onMain { firstVm.pages.value.none { it.isBlank } } }
 
@@ -859,10 +889,10 @@ class ScreensDeviceTest {
         assertTrue(card.performAction(card.action(remove)!!.id))
         waitUntil("page 1 to go") { onMain { firstVm.pages.value.map { it.page } } == listOf(2, 1) }
 
-        // The pages and the chosen one survive the activity being recreated, as on rotation.
+        // The pages and the selected one survive the activity being recreated, as on rotation.
         onMain { first.recreate() }
         val activity = recreatedFrom(first)
-        find("the chosen page's buttons, still") { it.says(app.getString(R.string.rotate_page_right, 1)) }
+        find("the selected page's buttons, still") { it.says(app.getString(R.string.rotate_page_right, 1)) }
         val pdfVm = onMain { ViewModelProvider(activity)[PdfToolsViewModel::class.java] }
         click(actionButton(R.string.pdf_reorganize_action))
         val result = resultFile(pdfVm)
@@ -2268,8 +2298,6 @@ class ScreensDeviceTest {
             R.string.tool_merge,
             R.string.tool_split,
             R.string.tool_reorganize,
-            R.string.tool_delete_pages,
-            R.string.tool_rotate,
             R.string.tool_page_layout,
             R.string.tool_sign,
             R.string.tool_page_numbers,
@@ -2311,7 +2339,6 @@ class ScreensDeviceTest {
             R.string.tool_reader,
             R.string.tool_split,
             R.string.tool_reorganize,
-            R.string.tool_rotate,
             R.string.tool_sign,
             R.string.tool_redact,
         ).map(app::getString)

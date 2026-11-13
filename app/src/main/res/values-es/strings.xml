@@ -21,8 +21,6 @@
     <string name="home_section_edit">Editar y firmar</string>
     <string name="home_section_organize">Organizar</string>
     <string name="home_section_optimize">Optimizar y proteger</string>
-    <string name="tool_rotate">Girar PDF</string>
-    <string name="tool_rotate_detail">Pon las páginas en la posición correcta</string>
     <string name="tool_page_numbers">Numerar páginas</string>
     <string name="tool_page_numbers_detail">Números arriba o abajo de cada página</string>
     <string name="tool_watermark">Añadir marca de agua</string>
@@ -143,8 +141,7 @@
     <string name="share_waits">Los archivos que compartiste se abrirán cuando esto termine.</string>
     <string name="share_title">Elige una herramienta</string>
     <string name="share_several_hint">Únelos o trabaja con todos a la vez. Para las demás herramientas, deja un solo PDF.</string>
-    <!-- Rotate, page numbers and watermark -->
-    <string name="pdf_rotate_action">Girar PDF</string>
+    <!-- Turned pages, page numbers and watermark -->
     <string name="pdf_page_numbers_action">Numerar páginas</string>
     <string name="pdf_watermark_action">Añadir marca de agua</string>
     <plurals name="pdf_page_numbers_action_many">
@@ -157,10 +154,6 @@
         <item quantity="many">Añadir marca de agua a %d PDF</item>
         <item quantity="other">Añadir marca de agua a %d PDF</item>
     </plurals>
-    <string name="rotate_all">Todas las páginas</string>
-    <string name="rotate_all_left">Girar todas las páginas a la izquierda</string>
-    <string name="rotate_all_right">Girar todas las páginas a la derecha</string>
-    <string name="rotate_hint">Gira las páginas una por una o todas a la vez.</string>
     <string name="rotated_right">Girada a la derecha</string>
     <string name="rotated_left">Girada a la izquierda</string>
     <string name="rotated_upside_down">Al revés</string>
@@ -319,21 +312,12 @@
     <string name="sheet_fit_width_off">Las columnas que no caben pasan a más páginas, como al imprimir en Excel.</string>
     <string name="sheet_gridlines">Líneas de cuadrícula</string>
     <string name="sheet_gridlines_detail">Líneas gris claro entre las celdas, como en pantalla. Los bordes siempre se ven, igual que las líneas de cuadrícula de una hoja configurada para imprimirlas.</string>
-    <string name="tool_delete_pages">Eliminar páginas</string>
-    <string name="tool_delete_pages_detail">Quita las páginas que no necesitas</string>
     <string name="tool_reorganize">Reorganizar PDF</string>
     <string name="tool_reorganize_detail">Mueve, gira, quita y añade páginas</string>
     <string name="tool_flatten">Acoplar PDF</string>
     <string name="tool_flatten_detail">Integra formularios y comentarios en la página</string>
-    <string name="pdf_delete_pages_action">Eliminar páginas</string>
-    <string name="delete_pages_field">Páginas para eliminar</string>
-    <string name="delete_pages_hint" tools:ignore="TypographyDashes">Por ejemplo: 2,5-7. O toca las páginas de abajo.</string>
-    <string name="delete_pages_count">Para eliminar: %1$d de %2$d</string>
-    <string name="page_marked_delete">Marcada para eliminar</string>
-    <string name="page_kept">Conservada</string>
+    <string name="reorganize_pages_hint" tools:ignore="TypographyDashes">Por ejemplo: 2,5-7. O toca las páginas de abajo.</string>
     <string name="pdf_reorganize_action">Guardar PDF</string>
-    <string name="reorganize_hint">Las páginas que añadas irán después de la página elegida. Mantén presionada una página y arrástrala para moverla.</string>
-    <string name="reorganize_choose_page">Toca una página para elegirla</string>
     <string name="reorganize_add">Añadir páginas</string>
     <string name="reorganize_add_pdf">Páginas de un PDF</string>
     <string name="reorganize_add_blank">Página en blanco</string>
@@ -785,9 +769,7 @@
     <string name="search_keywords_excel">xls, xlsx, hoja de cálculo, planilla, hoja, tabla, libro, celdas, Office, Google Sheets, convertir</string>
     <string name="search_keywords_merge">juntar, combinar, fusionar, unir, agrupar, anexar</string>
     <string name="search_keywords_split">separar, cortar, extraer, dividir, partir</string>
-    <string name="search_keywords_reorganize">reordenar, ordenar, mover, organizar, insertar, página en blanco</string>
-    <string name="search_keywords_delete_pages">borrar, quitar, suprimir, eliminar</string>
-    <string name="search_keywords_rotate">girar, rotar, voltear, horizontal, vertical, orientación</string>
+    <string name="search_keywords_reorganize">reordenar, ordenar, mover, organizar, insertar, página en blanco, girar, rotar, voltear, horizontal, vertical, orientación, eliminar, borrar, quitar, suprimir</string>
     <string name="search_keywords_edit">anotar, escribir, texto, lápiz, dibujar, resaltar, subrayar, flecha, foto</string>
     <string name="search_keywords_sign">firma, firmar, rúbrica, rubricar, iniciales</string>
     <string name="search_keywords_page_numbers">numeración, paginación, número, pie de página, encabezado</string>

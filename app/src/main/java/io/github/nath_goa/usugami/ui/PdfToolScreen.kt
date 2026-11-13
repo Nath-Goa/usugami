@@ -153,7 +153,7 @@ fun PdfToolScreen(
     val officeKind = tool.officeKind
     // A tool that also takes several PDFs or documents ([isBatch]) lists them, each with its own name and choices.
     val many = tool.isBatch && (if (officeKind != null) documents.size else inputs.size) > 1
-    // Split's pages belong to the PDF they were chosen in, as Delete pages' do.
+    // Split's pages belong to the PDF they were chosen in.
     var splitMode by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf(SplitMode.SELECTED) }
     var pageText by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf("") }
     var combine by rememberSaveable(tool) { mutableStateOf(true) }
@@ -170,9 +170,6 @@ fun PdfToolScreen(
     var signPage by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableIntStateOf(maxOf(0, (inputs.firstOrNull()?.pageCount ?: 1) - 1)) }
     var signPlacement by rememberSaveable(tool, inputs.firstOrNull()?.id, stateSaver = SignaturePlacementSaver) { mutableStateOf<SignaturePlacement?>(null) }
     var drawingSignature by rememberSaveable(tool) { mutableStateOf(false) }
-    var deleteText by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf("") }
-    // Reorganize's chosen page, by its key.
-    var chosenPage by rememberSaveable(tool, inputs.firstOrNull()?.id) { mutableStateOf<String?>(null) }
     // Saving is off until the pages differ from the PDF's own.
     val originalPages = remember(inputs.firstOrNull()) { vm.originalPages() }
     val reorganized = tool == PdfTool.REORGANIZE && inputs.isNotEmpty() && pages.isNotEmpty() && pages != originalPages
@@ -205,11 +202,9 @@ fun PdfToolScreen(
         PdfTool.SPLIT -> inputs.size == 1
         PdfTool.COMPRESS, PdfTool.PAGE_NUMBERS, PdfTool.FLATTEN -> inputs.isNotEmpty()
         PdfTool.MERGE -> inputs.size >= 2 && (!pageMode || pages.isNotEmpty())
-        PdfTool.ROTATE -> inputs.size == 1 && pages.any { it.rotation != 0 }
         PdfTool.WATERMARK -> inputs.isNotEmpty() && watermarkText.isNotBlank()
         PdfTool.SIGN -> inputs.size == 1 && signature != null
         PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> documents.isNotEmpty() && documents.all { it.kind == officeKind }
-        PdfTool.DELETE_PAGES -> inputs.size == 1 && deleteText.isNotBlank()
         PdfTool.REORGANIZE -> reorganized
         PdfTool.REDACT -> inputs.size == 1 && redactBoxes.isNotEmpty() && !finding
         PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO -> inputs.size == 1 && toolAction.ready
@@ -221,12 +216,10 @@ fun PdfToolScreen(
         PdfTool.SPLIT -> R.string.pdf_split_action
         PdfTool.MERGE -> R.string.pdf_merge_action
         PdfTool.COMPRESS -> R.string.pdf_compress_action
-        PdfTool.ROTATE -> R.string.pdf_rotate_action
         PdfTool.PAGE_NUMBERS -> R.string.pdf_page_numbers_action
         PdfTool.WATERMARK -> R.string.pdf_watermark_action
         PdfTool.SIGN -> R.string.pdf_sign_action
         PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> R.string.convert
-        PdfTool.DELETE_PAGES -> R.string.pdf_delete_pages_action
         PdfTool.REORGANIZE -> R.string.pdf_reorganize_action
         PdfTool.FLATTEN -> R.string.pdf_flatten_action
         PdfTool.REDACT -> R.string.pdf_redact_action
@@ -266,13 +259,11 @@ fun PdfToolScreen(
                             PdfTool.MERGE -> vm.runMerge(pageMode, fileName)
                             // Each PDF at its level, into a PDF of its name.
                             PdfTool.COMPRESS -> vm.runCompressAll(blackAndWhite)
-                            PdfTool.ROTATE -> vm.runRotate(fileName)
                             // These too, each PDF or document into a PDF of its name.
                             PdfTool.PAGE_NUMBERS -> vm.runPageNumbersAll(numberPosition, numberSize, skipText)
                             PdfTool.WATERMARK -> vm.runWatermarkAll(watermarkText, watermarkColor, watermarkOpacity)
                             PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
                             PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvertAll()
-                            PdfTool.DELETE_PAGES -> vm.runDeletePages(deleteText, fileName)
                             PdfTool.REORGANIZE -> vm.runReorganize(fileName)
                             PdfTool.FLATTEN -> vm.runFlattenAll()
                             PdfTool.EPUB -> vm.runConvertAll(bookPage)
@@ -429,7 +420,6 @@ fun PdfToolScreen(
                                 batch.compressionOf(inputs[0].id), onLevel = { vm.setBatchChoiceForAll(it.ordinal) },
                                 blackAndWhite, onBlackAndWhite = { blackAndWhite = it },
                             )
-                            PdfTool.ROTATE -> RotateOptions(shown ?: inputs[0], pages, vm)
                             PdfTool.PAGE_NUMBERS -> PageNumberOptions(
                                 numberPosition, onPosition = { numberPosition = it },
                                 numberSize, onSize = { numberSize = it },
@@ -451,17 +441,10 @@ fun PdfToolScreen(
                                 pageSizes = vm::shownPageSizes,
                             )
                             PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> Unit
-                            PdfTool.DELETE_PAGES -> DeletePagesOptions(
-                                shown ?: inputs[0],
-                                deleteText, onText = { deleteText = it },
-                                onTap = { change -> deleteText = change(deleteText) },
-                            )
                             PdfTool.REORGANIZE -> ReorganizeOptions(
                                 inputs, pages, vm, drawn,
                                 changed = reorganized,
                                 importing = importing,
-                                selected = chosenPage,
-                                onSelect = { chosenPage = it },
                                 onAddPdf = { after ->
                                     vm.prepareInsert(after)
                                     pickAdd()
@@ -704,7 +687,7 @@ private const val WORKING_DIALOG_DELAY_MS = 400L
 
 /** The tools that draw the PDF's pages for the user to work on. Redact PDF prepares its own. */
 private val PREVIEWED = setOf(
-    PdfTool.SPLIT, PdfTool.ROTATE, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.DELETE_PAGES, PdfTool.REORGANIZE,
+    PdfTool.SPLIT, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.REORGANIZE,
     PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT,
 )
 

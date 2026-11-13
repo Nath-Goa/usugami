@@ -21,8 +21,6 @@
     <string name="home_section_edit">Modifier et signer</string>
     <string name="home_section_organize">Organiser</string>
     <string name="home_section_optimize">Optimiser et protéger</string>
-    <string name="tool_rotate">Faire pivoter un PDF</string>
-    <string name="tool_rotate_detail">Remettre les pages dans le bon sens</string>
     <string name="tool_page_numbers">Numéroter les pages</string>
     <string name="tool_page_numbers_detail">Des numéros en haut ou en bas des pages</string>
     <string name="tool_watermark">Ajouter un filigrane</string>
@@ -143,8 +141,7 @@
     <string name="share_waits">Les fichiers que vous avez partagés s\'ouvriront une fois ce travail terminé.</string>
     <string name="share_title">Choisir un outil</string>
     <string name="share_several_hint">Fusionnez-les, ou traitez-les tous en une fois. Pour les autres outils, gardez un seul PDF.</string>
-    <!-- Rotate, page numbers and watermark -->
-    <string name="pdf_rotate_action">Faire pivoter le PDF</string>
+    <!-- Turned pages, page numbers and watermark -->
     <string name="pdf_page_numbers_action">Numéroter les pages</string>
     <string name="pdf_watermark_action">Ajouter le filigrane</string>
     <plurals name="pdf_page_numbers_action_many">
@@ -157,10 +154,6 @@
         <item quantity="many">Ajouter le filigrane à %d PDF</item>
         <item quantity="other">Ajouter le filigrane à %d PDF</item>
     </plurals>
-    <string name="rotate_all">Toutes les pages</string>
-    <string name="rotate_all_left">Faire pivoter toutes les pages vers la gauche</string>
-    <string name="rotate_all_right">Faire pivoter toutes les pages vers la droite</string>
-    <string name="rotate_hint">Faites pivoter les pages une par une, ou toutes à la fois.</string>
     <string name="rotated_right">Pivotée vers la droite</string>
     <string name="rotated_left">Pivotée vers la gauche</string>
     <string name="rotated_upside_down">À l\'envers</string>
@@ -319,21 +312,12 @@
     <string name="sheet_fit_width_off">Les colonnes qui ne tiennent pas passent sur d\'autres pages, comme à l\'impression dans Excel.</string>
     <string name="sheet_gridlines">Quadrillage</string>
     <string name="sheet_gridlines_detail">Des lignes gris clair entre les cellules, comme à l\'écran. Les bordures apparaissent toujours, tout comme le quadrillage d\'une feuille réglée pour l\'imprimer.</string>
-    <string name="tool_delete_pages">Supprimer des pages</string>
-    <string name="tool_delete_pages_detail">Retirer les pages inutiles</string>
     <string name="tool_reorganize">Réorganiser un PDF</string>
     <string name="tool_reorganize_detail">Déplacer, faire pivoter, retirer et ajouter des pages</string>
     <string name="tool_flatten">Aplatir un PDF</string>
     <string name="tool_flatten_detail">Intégrer formulaires et commentaires à la page</string>
-    <string name="pdf_delete_pages_action">Supprimer les pages</string>
-    <string name="delete_pages_field">Pages à supprimer</string>
-    <string name="delete_pages_hint" tools:ignore="TypographyDashes">Par exemple : 2,5-7. Ou touchez les pages ci-dessous.</string>
-    <string name="delete_pages_count">À supprimer : %1$d sur %2$d</string>
-    <string name="page_marked_delete">À supprimer</string>
-    <string name="page_kept">Conservée</string>
+    <string name="reorganize_pages_hint" tools:ignore="TypographyDashes">Par exemple : 2,5-7. Ou touchez les pages ci-dessous.</string>
     <string name="pdf_reorganize_action">Enregistrer le PDF</string>
-    <string name="reorganize_hint">Les pages ajoutées se placent après la page choisie. Appuyez de manière prolongée sur une page et faites-la glisser pour la déplacer.</string>
-    <string name="reorganize_choose_page">Touchez une page pour la choisir</string>
     <string name="reorganize_add">Ajouter des pages</string>
     <string name="reorganize_add_pdf">Pages d\'un PDF</string>
     <string name="reorganize_add_blank">Page blanche</string>
@@ -785,9 +769,7 @@
     <string name="search_keywords_excel">xls, xlsx, tableur, feuille de calcul, feuille, tableau, classeur, cellules, Office, Google Sheets, convertir</string>
     <string name="search_keywords_merge">assembler, combiner, joindre, réunir, regrouper, fusion</string>
     <string name="search_keywords_split">séparer, couper, découper, extraire, scinder</string>
-    <string name="search_keywords_reorganize">réordonner, ordre, trier, ranger, déplacer, insérer, page blanche</string>
-    <string name="search_keywords_delete_pages">retirer, enlever, effacer, ôter</string>
-    <string name="search_keywords_rotate">tourner, pivoter, rotation, retourner, paysage, portrait, orientation</string>
+    <string name="search_keywords_reorganize">réordonner, ordre, trier, ranger, déplacer, insérer, page blanche, tourner, pivoter, rotation, retourner, paysage, portrait, orientation, supprimer, retirer, enlever, effacer, ôter</string>
     <string name="search_keywords_edit">annoter, écrire, texte, stylo, dessiner, surligner, surligneur, flèche, photo</string>
     <string name="search_keywords_sign">signature, signer, parapher, paraphe, initiales</string>
     <string name="search_keywords_page_numbers">numérotation, pagination, numéro, pied de page, en-tête</string>

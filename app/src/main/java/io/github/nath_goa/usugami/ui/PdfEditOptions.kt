@@ -1,7 +1,6 @@
 package io.github.nath_goa.usugami.ui
 
 import androidx.annotation.StringRes
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -16,12 +15,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -31,15 +27,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -70,7 +63,6 @@ import io.github.nath_goa.usugami.core.PageNumberPosition
 import io.github.nath_goa.usugami.core.PageNumberSize
 import io.github.nath_goa.usugami.core.WatermarkLayout
 import io.github.nath_goa.usugami.data.PdfInput
-import io.github.nath_goa.usugami.data.PdfPageRef
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
@@ -79,59 +71,8 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.sin
 
-// Options of the tools that change one PDF: Rotate, Page numbers, Watermark and Flatten. They sit in
-// PdfToolScreen's column, between the PDF and the file name.
-
-@Composable
-internal fun RotateOptions(input: PdfInput, pages: List<PdfPageRef>, vm: PdfToolsViewModel) {
-    // The whole document at once; each page below has its own buttons.
-    Column {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.rotate_all), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            IconButton(onClick = { vm.rotateAll(-90) }) {
-                TurnIcon(clockwise = false, description = stringResource(R.string.rotate_all_left))
-            }
-            IconButton(onClick = { vm.rotateAll(90) }) {
-                TurnIcon(clockwise = true, description = stringResource(R.string.rotate_all_right))
-            }
-        }
-        Text(stringResource(R.string.rotate_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-    // At most this tall, scrolling inside: a long PDF would otherwise push the file name far down.
-    LazyColumn(Modifier.fillMaxWidth().heightIn(max = 450.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(pages, key = { "${it.inputId}:${it.page}" }) { ref ->
-            RotatePageCard(input, ref, onRotate = { degrees -> vm.rotatePage(ref, degrees) })
-        }
-    }
-    TextButton(onClick = vm::resetPages, enabled = pages.any { it.rotation != 0 }) { Text(stringResource(R.string.pdf_reset_pages)) }
-}
-
-/** A page with buttons to turn it, like a page in Merge's page mode. */
-@Composable
-private fun RotatePageCard(input: PdfInput, ref: PdfPageRef, onRotate: (Int) -> Unit) {
-    val number = ref.page + 1
-    OutlinedCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            TurnedThumbnail(input, ref.page, ref.rotation, Modifier.size(width = 55.dp, height = 72.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.pdf_page_number, number))
-                // Says how the page has been turned, for a screen reader as much as for the eye.
-                val turned = turnedLabel(ref.rotation)
-                val shown = freezeWhen(turned == null, turned)
-                AnimatedVisibility(visible = turned != null, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "turned") {
-                    if (shown != null) Text(stringResource(shown), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
-                }
-            }
-            IconButton(onClick = { onRotate(-90) }) {
-                TurnIcon(clockwise = false, description = stringResource(R.string.rotate_page_left, number))
-            }
-            IconButton(onClick = { onRotate(90) }) {
-                TurnIcon(clockwise = true, description = stringResource(R.string.rotate_page_right, number))
-            }
-        }
-    }
-}
+// Options of the tools that change one PDF: Page numbers, Watermark and Flatten; turned thumbnails
+// for the page lists. They sit in PdfToolScreen's column, between the PDF and the file name.
 
 @StringRes
 internal fun turnedLabel(rotation: Int): Int? = when (rotation) {

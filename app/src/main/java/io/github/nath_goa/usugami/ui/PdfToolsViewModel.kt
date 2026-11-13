@@ -104,8 +104,8 @@ import java.util.concurrent.ConcurrentHashMap
  * It has a screen of its own (ReaderScreen).
  */
 enum class PdfTool {
-    SPLIT, MERGE, COMPRESS, ROTATE, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB,
-    DELETE_PAGES, REORGANIZE, FLATTEN, REDACT, EXCEL,
+    SPLIT, MERGE, COMPRESS, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB,
+    REORGANIZE, FLATTEN, REDACT, EXCEL,
     PDF_TO_IMAGES_OR_TEXT, PAGE_LAYOUT, DOCUMENT_INFO,
     READER,
 }
@@ -1049,12 +1049,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         setPages(pages.value.map { if (it.key == ref.key) it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) else it })
     }
 
-    /** Turns every page by [degrees] more, as Rotate's "all pages" buttons do. */
-    fun rotateAll(degrees: Int) {
-        pushUndo(pages.value)
-        setPages(pages.value.map { it.copy(rotation = Math.floorMod(it.rotation + degrees, 360)) })
-    }
-
     fun removePage(ref: PdfPageRef) {
         if (pages.value.none { it.key == ref.key }) return
         pushUndo(pages.value)
@@ -1255,16 +1249,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         return BatchChoices.unpack(kept.getLongArray("ids"), names, kept.getIntArray("choices"), kept.getInt("all", DEFAULT_BATCH_CHOICE))
     }
 
-    /** Saves the PDF with its pages turned as [pages] says; the button is off until one is turned. */
-    fun runRotate(fileName: String) {
-        val input = inputs.value.singleOrNull() ?: return
-        val rotations = pages.value.filter { it.inputId == input.id && it.rotation != 0 }.associate { it.page to it.rotation }
-        if (rotations.isEmpty()) return
-        // The PDF's own pages in their order: reorganize leaves the rest of the file as it is.
-        val own = (0 until input.pageCount).map { PdfPageRef(input.id, it, rotations[it] ?: 0) }
-        process(fileName, listOf(input)) { check -> listOf(engine.reorganize(input, emptyList(), own, fileName, check)) }
-    }
-
     /** [skip] lists pages to leave without a number, like "1" or "1-2,5"; it may be blank. */
     fun runPageNumbers(position: PageNumberPosition, size: PageNumberSize, skip: String, fileName: String) {
         val input = inputs.value.singleOrNull() ?: return
@@ -1334,20 +1318,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         }
         val jobs = list.map { ToolJob(it, outputName(PdfTool.WATERMARK, it)) }
         processEach("Watermarked_PDFs", list.map { it.name }, list) { check, onNext -> engine.addWatermarkEach(jobs, text, color, opacity, check, onNext) }
-    }
-
-    /** Saves the PDF without the pages in [text], typed like "2,5-7"; it must leave at least one page. */
-    fun runDeletePages(text: String, fileName: String) {
-        val input = inputs.value.singleOrNull() ?: return
-        val doomed = try {
-            PdfPageSelection.toDelete(text, input.pageCount).toHashSet()
-        } catch (e: PageSelectionException) {
-            message(pageSelectionMessage(e))
-            return
-        }
-        // The pages kept, in their order: reorganize takes the others out and leaves the rest of the file as it is.
-        val kept = (0 until input.pageCount).filter { it !in doomed }.map { PdfPageRef(input.id, it) }
-        process(fileName, listOf(input)) { check -> listOf(engine.reorganize(input, emptyList(), kept, fileName, check)) }
     }
 
     /** Saves the first PDF with the pages as [pages] lists them, from it, from PDFs added and blank. */
@@ -1785,7 +1755,6 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
         PageSelectionException.Problem.OUT_OF_RANGE -> strings.getString(R.string.pdf_pages_range, e.pageCount)
         PageSelectionException.Problem.REVERSED -> strings.getString(R.string.pdf_pages_reversed)
         PageSelectionException.Problem.CHUNK_SIZE -> strings.getString(R.string.pdf_pages_chunk, e.pageCount)
-        PageSelectionException.Problem.ALL_PAGES -> strings.getString(R.string.pdf_need_page)
     }
 
     /**
@@ -2395,11 +2364,9 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.SPLIT -> FileNames.sanitize(base, "Usugami")
             PdfTool.COMPRESS -> named("_compressed")
             PdfTool.MERGE -> "Merged_PDF"
-            PdfTool.ROTATE -> named("_rotated")
             PdfTool.PAGE_NUMBERS -> named("_numbered")
             PdfTool.WATERMARK -> named("_watermarked")
             PdfTool.SIGN -> named("_signed")
-            PdfTool.DELETE_PAGES -> named("_pages_deleted")
             PdfTool.REORGANIZE -> named("_reorganized")
             PdfTool.FLATTEN -> named("_flattened")
             PdfTool.REDACT -> named("_redacted")
