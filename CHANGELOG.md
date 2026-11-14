@@ -6,6 +6,8 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-14
+
 ### Added
 
 - **Usugami opens files.** It is in Android's "Open with" list, once and under its own name, for
@@ -185,6 +187,8 @@ All notable changes to Usugami are listed here. The format is based on
   their letters (no ToUnicode map), as invoices and reports from TCPDF, FPDF and iText and older
   Acrobat files often have them, where it said "Couldn't search this PDF." or found nothing. A page
   it can't read no longer stops the search of the others.
+- **Usugami OCR** reads the whole of a word whose letters are nearly too large for it, such as a
+  name across an ID card, where it used to misread the word's last letter.
 
 ## [1.6.6] - 2026-11-13
 
@@ -1020,7 +1024,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v1.6.6...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/Nath-Goa/usugami/compare/v1.6.5...v2.0.0
 [1.6.6]: https://github.com/Nath-Goa/usugami/compare/v1.6.5...v1.6.6
 [1.6.5]: https://github.com/Nath-Goa/usugami/compare/v1.6.4...v1.6.5
 [1.6.4]: https://github.com/Nath-Goa/usugami/compare/v1.6.3...v1.6.4
