@@ -118,6 +118,15 @@ class ExportResultDeviceTest {
         assertEquals(files.map { it.file }, onMain { again.result.value?.map { it.file } })
         assertEquals(notes, onMain { again.fromPdf.notes.value })
 
+        // Again, with the PDF's copy cleared from the cache meanwhile: the PDF goes, the result stays
+        // with its notes.
+        assertTrue(input.file.delete())
+        val cleared = newViewModel(handle)
+        waitUntil("the cleared PDF to go") { cleared.inputs.value.isEmpty() }
+        runBlocking { cleared.awaitFileWork() }
+        assertEquals(files.map { it.file }, onMain { cleared.result.value?.map { it.file } })
+        assertEquals(notes, onMain { cleared.fromPdf.notes.value })
+
         // Pages with a drawing on them but no text, and nothing to read them with.
         val drawn = File(picked, "Drawn.pdf")
         PDDocument().use { doc ->

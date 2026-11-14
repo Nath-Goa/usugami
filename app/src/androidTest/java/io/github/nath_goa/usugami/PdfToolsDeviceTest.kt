@@ -26,6 +26,7 @@ import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSInteger
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.cos.COSStream
+import com.tom_roush.pdfbox.cos.COSString
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -40,6 +41,7 @@ import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
+import java.security.MessageDigest
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -339,7 +341,8 @@ class PdfToolsDeviceTest {
      * A damaged PDF whose page tree says it has five pages when it has three, miscounts them inside
      * too, leaves out a page's type and leads back into itself: it has the three pages viewers show,
      * in order, for Android's renderer, which draws the previews, as for a tool that finds its pages
-     * by number.
+     * by number. With no /ID, the mended copy gets a random one, not the one PDFBox would make from
+     * the time it was saved (an MD5 of it), which Document info would then keep.
      */
     @Test fun aDamagedPageTreeIsMended() {
         val damaged = File(context.cacheDir, "damaged_tree.pdf")
@@ -357,9 +360,27 @@ class PdfToolsDeviceTest {
             root.setItem(COSName.KIDS, COSArray().apply { add(node(1, pages[0], pages[1])); add(node(2, pages[2])); add(root) })
             root.setInt(COSName.COUNT, 5)
             pages[1].cosObject.removeItem(COSName.TYPE)
+            // PDFBox always writes an /ID: this one, cut out below.
+            val zeros = COSString(ByteArray(16)).apply { setForceHexForm(true) }
+            doc.document.trailer.setItem(COSName.ID, COSArray().apply { add(zeros); add(zeros) })
             doc.save(damaged)
         }
+        // The trailer comes after the xref table: nothing it points to moves.
+        val written = String(damaged.readBytes(), Charsets.ISO_8859_1)
+        val cut = Regex("""/ID\s*\[\s*<0{32}>\s*<0{32}>\s*]""").find(written, written.lastIndexOf("trailer")) ?: throw AssertionError("No /ID in the trailer")
+        damaged.writeBytes(written.removeRange(cut.range).toByteArray(Charsets.ISO_8859_1))
+        assertNull(PDDocument.load(damaged).use { it.document.trailer.getDictionaryObject(COSName.ID) })
+        val before = System.currentTimeMillis()
         val input = engine.import(Uri.fromFile(damaged), 1015)
+        val after = System.currentTimeMillis()
+        val id = PDDocument.load(input.file).use { doc ->
+            val array = doc.document.trailer.getDictionaryObject(COSName.ID) as COSArray
+            (0 until array.size()).map { (array.getObject(it) as COSString).bytes }
+        }
+        assertEquals(listOf(16, 16), id.map { it.size })
+        val md5 = MessageDigest.getInstance("MD5")
+        val time = (before..after).firstOrNull { ms -> md5.digest(ms.toString().toByteArray(Charsets.ISO_8859_1)).contentEquals(id[0]) }
+        assertNull("The /ID is an MD5 of the time, $time", time)
         assertEquals(3, input.pageCount)
         ParcelFileDescriptor.open(input.file, ParcelFileDescriptor.MODE_READ_ONLY).use { assertEquals(3, PdfRenderer(it).use { renderer -> renderer.pageCount }) }
         val left = engine.reorganize(input, emptyList(), pagesOf(input, 0, 2), "damaged_tree").file

@@ -217,7 +217,7 @@ internal object DocumentInfo {
     }
 
     /** Whether [trailer]'s /ID is what a PDF must have: an array of two strings. */
-    private fun hasId(trailer: COSDictionary): Boolean {
+    internal fun hasId(trailer: COSDictionary): Boolean {
         val id = trailer.getDictionaryObject(COSName.ID) as? COSArray ?: return false
         return id.size() == 2 && id.getObject(0) is COSString && id.getObject(1) is COSString
     }
@@ -226,7 +226,7 @@ internal object DocumentInfo {
      * A new /ID: 16 random bytes, twice (both parts are the same in a PDF written for the first time).
      * Random, so it neither ties the PDF to the one it came from nor gives away when it was saved.
      */
-    private fun randomId(): COSArray {
+    internal fun randomId(): COSArray {
         val id = COSString(ByteArray(ID_BYTES).also { SecureRandom().nextBytes(it) })
         id.setForceHexForm(true)
         return COSArray().apply {

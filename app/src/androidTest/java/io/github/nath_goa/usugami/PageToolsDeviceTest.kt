@@ -491,8 +491,9 @@ class PageToolsDeviceTest {
     }
 
     /**
-     * Pages only turned, or turned and removed, are saved in place, as Rotate PDF and Delete pages
-     * saved them: the page tree stays as it was, nested, and the pages keep what they inherit from it.
+     * Pages only turned, or turned and removed, are saved in place, as pages only turned or removed
+     * were saved before 2.0.0: the page tree stays as it was, nested, and the pages keep what they
+     * inherit from it.
      */
     @Test fun pagesOnlyTurnedOrRemovedLeaveTheRestOfTheFileAsItWas() {
         val main = import(nestedPages(made("nested_in_place.pdf")))

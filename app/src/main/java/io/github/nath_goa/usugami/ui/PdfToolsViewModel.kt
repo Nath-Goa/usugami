@@ -964,8 +964,13 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
     /** Drops PDFs whose copies the system has cleared from the cache, and says so. */
     private fun forgetInputs(missing: List<PdfInput>) {
         val ids = missing.mapTo(HashSet()) { it.id }
-        // Only with the PDF previewed: Add watermark previews the first of its PDFs.
-        if (inputs.value.firstOrNull()?.id in ids) clearWork()
+        // Only with the PDF previewed: Add watermark previews the first of its PDFs. A result showing
+        // keeps its notes (PDF to images or text's): they belong to what was made, not to the PDF.
+        if (inputs.value.firstOrNull()?.id in ids) {
+            val notes = fromPdf.notes.value.takeIf { _result.value != null }
+            clearWork()
+            fromPdf.setNotes(notes)
+        }
         setInputs(inputs.value.filterNot { it.id in ids })
         setPages(pages.value.filterNot { it.inputId in ids })
         setLocked(locked.value.filterNot { it.id in ids })

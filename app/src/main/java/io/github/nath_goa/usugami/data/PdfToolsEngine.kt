@@ -216,7 +216,8 @@ class PdfToolsEngine(private val context: Context) {
     /**
      * Reads [input]'s pages with [password]. A damaged page tree is mended (see [repairPageTree]) and
      * the copy saved again, without its password, so that every reader of it finds the same pages:
-     * the tools, and Android's renderer, which draws the previews and Redact PDF's pictures.
+     * the tools, and Android's renderer, which draws the previews and Redact PDF's pictures. A PDF
+     * without a usable /ID gets a random one then, as Document info gives it (see DocumentInfo.apply).
      */
     fun inspect(input: PdfInput, password: String): PdfInput {
         // Written whole before it takes the copy's place, so a run cut short leaves the copy as it was.
@@ -233,6 +234,9 @@ class PdfToolsEngine(private val context: Context) {
                 if (doc.numberOfPages == 0) throw IOException("This PDF has no pages")
                 if (changed) {
                     doc.isAllSecurityToBeRemoved = true
+                    // Saved without, PDFBox would make one from the clock, which Document info keeps.
+                    val trailer = doc.document.trailer
+                    if (!DocumentInfo.hasId(trailer)) trailer.setItem(COSName.ID, DocumentInfo.randomId())
                     doc.save(mended)
                 }
                 doc.numberOfPages to changed
@@ -402,7 +406,7 @@ class PdfToolsEngine(private val context: Context) {
         all.mapTo(Collections.newSetFromMap(IdentityHashMap<COSDictionary, Boolean>())) { it.cosObject }.size == all.size
 
     /**
-     * The in-place path, what Rotate PDF and Delete pages did: the pages of [doc] ([all]) that [pages] leaves
+     * The in-place path, what 1.6.5's two page tools did: the pages of [doc] ([all]) that [pages] leaves
      * out are taken out of its page tree, their bookmarks, form fields and links to them with them,
      * and the pages it turns get their /Rotate changed. Nothing else of a page or of the page tree
      * changes. The pages left keep their labels (see [PageLabeling]).
