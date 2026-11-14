@@ -205,6 +205,24 @@ class TextDetectionTest {
         }
     }
 
+    @Test fun aLargeWordFoundShortIsReadFromTheSmallCopy() {
+        // MARBLE across an ID card's side read at 3000 x 1892 (boxes as found on a device): at full
+        // size the line stopped inside the E, whose arms were left as a speck, and read MARBLI; the
+        // small copy found the whole word.
+        val line = OcrQuad(listOf(OcrPoint(687f, 729f), OcrPoint(2110f, 731f), OcrPoint(2109f, 1165f), OcrPoint(687f, 1163f)))
+        val speck = OcrQuad(listOf(OcrPoint(1979f, 965f), OcrPoint(2052f, 958f), OcrPoint(2058f, 1034f), OcrPoint(1986f, 1041f)))
+        val word = box(726f, 778f, 2278f, 1122f)
+        assertEquals(listOf(word), LargeText.candidates(listOf(word), listOf(line, speck), minHeight = 189f))
+        assertEquals(listOf(word), LargeText.inPlaceOfPieces(listOf(line, speck), listOf(word)))
+        // Read at 1712 x 1080, its line was found whole, reaching a little past the word's box.
+        val whole = OcrQuad(listOf(OcrPoint(404f, 426f), OcrPoint(1318f, 420f), OcrPoint(1320f, 666f), OcrPoint(406f, 672f)))
+        assertEquals(emptyList<OcrQuad>(), LargeText.candidates(listOf(box(414f, 444f, 1300f, 641f)), listOf(whole), minHeight = 108f))
+        // A title over a longer subtitle, which the small copy shows as one block, is no word found short.
+        val title = box(400f, 400f, 1400f, 640f)
+        val subtitle = box(400f, 660f, 1900f, 740f)
+        assertEquals(emptyList<OcrQuad>(), LargeText.candidates(listOf(box(410f, 420f, 1890f, 730f)), listOf(title, subtitle), minHeight = 100f))
+    }
+
     @Test fun joinedLinesKeepTheirAngleAndDirection() {
         val angle = Math.toRadians(8.0)
         fun turned(quad: OcrQuad, radians: Double) = quad.map {

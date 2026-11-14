@@ -384,8 +384,9 @@ object OcrScale {
 /**
  * Words too large for text detection at full size. The detection model finds letters up to a few
  * hundred pixels high; a larger word (a poster, a sign, a slide's title photographed close up) it
- * finds only in pieces, or not at all. Detection on a small copy of the page finds such words, and
- * they are read in place of their pieces.
+ * finds only in pieces, or not at all, and a word near that size it can find short of its end.
+ * Detection on a small copy of the page finds such words, and they are read in place of their
+ * pieces.
  */
 object LargeText {
     /** How much of a box found on the small copy boxes found at full size may cover, for it to count as new. */
@@ -395,26 +396,67 @@ object LargeText {
     private const val PIECE = 0.5f
 
     /**
+     * A piece at least this share of a large word's thickness thick is the word's line, found at
+     * full size. (Found whole, the line is a little thicker than the word's box on the small copy.)
+     */
+    private const val LINE = 0.75f
+
+    /** A line that stops at least this share of the word's thickness (about half a letter) before one of its ends was found short. */
+    private const val SHORT = 0.25f
+
+    /**
      * The boxes of [coarse] (found on a small copy of the page) that may be large words: at least
      * [minHeight] high across their text (a line of ordinary print running down the page is long,
-     * not large), covered less than [MAX_COVERED] by boxes of [fine] (found at full size, in the
-     * same pixels), and with none of those running through them. A covered one is a line found
-     * already, or a paragraph of small print that the small copy shows as one block; the pieces of
-     * a large word found at full size cover little of it, and lie inside it. One that lines run
-     * through is something else among them, such as a stamp or a picture: read, it would give a few
-     * stray characters, and it would also take its place among the lines when they are put in
-     * reading order, moving them.
+     * not large), with none of the boxes of [fine] (found at full size, in the same pixels) running
+     * through them, and either covered less than [MAX_COVERED] by those or holding their line found
+     * short ([foundShort]). A covered one is a line found already, or a paragraph of small print
+     * that the small copy shows as one block; the pieces of a large word found at full size cover
+     * little of it, and lie inside it. One that lines run through is something else among them,
+     * such as a stamp or a picture: read, it would give a few stray characters, and it would also
+     * take its place among the lines when they are put in reading order, moving them.
      */
     fun candidates(coarse: List<OcrQuad>, fine: List<OcrQuad>, minHeight: Float): List<OcrQuad> = coarse.filter { box ->
         val area = area(box.corners)
         if (min(box.width, box.height) < minHeight || area <= 0f) return@filter false
         var covered = 0f
+        val pieces = ArrayList<OcrQuad>()
         for (line in fine) {
             val overlap = Overlap.of(line, box) ?: continue
             if (overlap.runsThrough) return@filter false
             covered += overlap.area
+            if (overlap.isPiece) pieces += line
         }
-        covered < MAX_COVERED * area
+        covered < MAX_COVERED * area || foundShort(box, pieces)
+    }
+
+    /**
+     * Whether [pieces] (the boxes found at full size mostly inside [word]) hold [word]'s line found
+     * short: a line about as thick as the word ([LINE]), with no piece above or below it, that
+     * stops at least [SHORT] of the word's thickness before one of the word's ends. On a word with
+     * letters near the largest size the model finds, it can lose the end of the last letter, which
+     * breaks up into specks too faint to be kept; the line, read alone, gives another word (MARBLE
+     * read as MARBLI). A line found whole reaches the word's ends, and the lines of a paragraph or of
+     * a title over its subtitle, which the small copy shows as one block, lie one under the other.
+     */
+    private fun foundShort(word: OcrQuad, pieces: List<OcrQuad>): Boolean {
+        val (origin, topRight, _, bottomLeft) = word.corners
+        // Along the word's text and across it, as for a line (Overlap): a word down the page is tall.
+        val (end, side) = if (word.width >= word.height) topRight to bottomLeft else bottomLeft to topRight
+        val length = origin.distanceTo(end)
+        val thickness = origin.distanceTo(side)
+        if (length <= 0f || thickness <= 0f) return false
+        fun along(p: OcrPoint) = ((p.x - origin.x) * (end.x - origin.x) + (p.y - origin.y) * (end.y - origin.y)) / length
+        fun across(p: OcrPoint) = ((p.x - origin.x) * (side.x - origin.x) + (p.y - origin.y) * (side.y - origin.y)) / thickness
+        // Each piece's extent along the word and across it.
+        val extents = pieces.map { piece ->
+            floatArrayOf(piece.corners.minOf(::along), piece.corners.maxOf(::along), piece.corners.minOf(::across), piece.corners.maxOf(::across))
+        }
+        val lines = extents.filter { it[3] - it[2] >= LINE * thickness }
+        if (lines.isEmpty()) return false
+        val top = lines.minOf { it[2] }
+        val bottom = lines.maxOf { it[3] }
+        if (extents.any { (it[2] + it[3]) / 2 !in top..bottom }) return false
+        return max(lines.minOf { it[0] }, length - lines.maxOf { it[1] }) >= SHORT * thickness
     }
 
     /**
