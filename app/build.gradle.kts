@@ -127,7 +127,7 @@ android {
 
 dependencies {
     implementation(project(":core"))
-    implementation("androidx.core:core-ktx:1.18.0")
+    implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
@@ -137,7 +137,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("sh.calvin.reorderable:reorderable:3.1.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0") {
         // BouncyCastle is only used for certificate-encrypted PDFs, which Usugami doesn't open.
         // Leaving it out saves space and drops an outdated crypto library.
@@ -145,8 +145,8 @@ dependencies {
     }
     // Only the standard edition has Google libraries: ML Kit's text recognition, whose models
     // Google Play services downloads.
-    "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
-    "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.1")
+    "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.2")
+    "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.2")
     // Usugami OCR's built-in engine: ncnn and its JNI bridge, built from source (see :ocr-native).
     "ocrImplementation"(project(":ocr-native"))
     androidTestImplementation("androidx.test:runner:1.7.0")
