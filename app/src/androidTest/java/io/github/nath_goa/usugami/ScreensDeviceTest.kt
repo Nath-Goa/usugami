@@ -878,9 +878,15 @@ class ScreensDeviceTest {
         click(find("Blank page") { it.says(app.getString(R.string.reorganize_add_blank)) })
         waitUntil("a blank page third") { onMain { firstVm.pages.value.getOrNull(2)?.isBlank == true } }
         findBelow("the blank page, named for a screen reader") { it.says(app.getString(R.string.reorganize_page_blank, 3)) }
-        // Above: looking for the blank page before the screen showed it scrolls the screen down.
-        findAbove("the new page count") { it.says(app.resources.getQuantityString(R.plurals.page_count, 4, 4)) }
-        click(find("Undo") { it.says(app.getString(R.string.undo)) })
+        // Above: looking for the blank page before the screen showed it scrolls the screen down, and
+        // that scroll can still be going on. The count's row, with Undo, is read afresh, and looked
+        // for above again until Undo is pressed, once.
+        val count = app.resources.getQuantityString(R.plurals.page_count, 4, 4)
+        findAbove("the new page count") { it.says(count) && it.refresh() && it.says(count) }
+        val undo = app.getString(R.string.undo)
+        waitUntil("Undo to be pressed") {
+            clickable(findAbove("Undo") { it.says(undo) && it.refresh() && it.says(undo) }).performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        }
         waitUntil("the blank page to go") { onMain { firstVm.pages.value.none { it.isBlank } } }
 
         // A screen reader removes page 1 with the action its card offers.
@@ -1530,7 +1536,8 @@ class ScreensDeviceTest {
     /**
      * Stands in for the camera app: catches the photo Usugami asks for, "takes" [photo] into the file
      * it was given and returns, or with [noCamera], fails as on a phone without a camera app. Without
-     * a [photo], it is closed without taking one, or with [saysTaken], says it took one but saves nothing.
+     * a [photo], it leaves that file empty, as a camera app that opened it and saved nothing does, and
+     * is closed without taking one, or with [saysTaken], says it took one.
      */
     private inner class Camera(
         private val photo: Bitmap?,
@@ -1544,10 +1551,10 @@ class ScreensDeviceTest {
             if (intent.action != MediaStore.ACTION_IMAGE_CAPTURE) return null
             if (noCamera) throw ActivityNotFoundException()
             opened++
-            if (photo == null) return Instrumentation.ActivityResult(if (saysTaken) Activity.RESULT_OK else Activity.RESULT_CANCELED, null)
             val output = IntentCompat.getParcelableExtra(intent, MediaStore.EXTRA_OUTPUT, Uri::class.java)!!
             assertTrue("The camera app may write the file", (intent.flags and Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0)
-            app.contentResolver.openOutputStream(output)!!.use { photo.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            app.contentResolver.openOutputStream(output)!!.use { photo?.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+            if (photo == null) return Instrumentation.ActivityResult(if (saysTaken) Activity.RESULT_OK else Activity.RESULT_CANCELED, null)
             taken++
             return Instrumentation.ActivityResult(Activity.RESULT_OK, null)
         }
@@ -1918,21 +1925,43 @@ class ScreensDeviceTest {
     @Test fun aScanFromHomeThatLeavesNoPageGoesBackHome() {
         val activity = launch()
         val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
-        val onHome = { nodes().any { it.says(app.getString(R.string.scan_title)) } && nodes().none { it.says(app.getString(R.string.empty_title)) } }
-        fun stillHome() {
-            waitUntil("Home") { onHome() }
-            Thread.sleep(1_000)
-            assertTrue("Still Home, not the editor", onHome())
+        // Read afresh: the tree as read here can still have a screen that has gone.
+        fun shows(label: Int) = app.getString(label).let { text -> nodes().any { it.says(text) && it.refresh() && it.says(text) } }
+        val onHome = { shows(R.string.scan_title) && !shows(R.string.empty_title) }
+        val unreadable = app.resources.getQuantityString(R.plurals.msg_failed_import, 1, 1)
+
+        /**
+         * Home, staying, once the step is over: the camera's answer taken in and, with [told], the user
+         * told the image can't be read. Right after the tap Home still shows, before the editor has come
+         * in and gone. The message is dismissed, as a screen reader can: messages wait their turn, and
+         * the photo's crop screen below would have its Next under them.
+         */
+        fun stillHome(told: Boolean) {
+            waitUntil("the camera's answer to be taken in") { onMain { !vm.cameraOpen.value && vm.pendingImports.value == 0 } }
+            if (told) {
+                val dismiss = AccessibilityAction.ACTION_DISMISS
+                // Read at each look: the message moves with the screen showing it, which may be leaving.
+                waitUntil("the message to be dismissed") {
+                    nodes().firstOrNull { it.says(unreadable) }?.let { message -> ancestor(message) { dismiss in it.actionList } }
+                        ?.performAction(dismiss.id) == true
+                }
+                waitUntil("the message to go") { nodes().none { it.says(unreadable) } }
+            }
+            var since = SystemClock.uptimeMillis()
+            waitUntil("Home to stay, not the editor") {
+                if (!onHome()) since = SystemClock.uptimeMillis()
+                SystemClock.uptimeMillis() - since >= 1_000
+            }
             assertTrue(onMain { vm.items.value.isEmpty() })
         }
-        for (camera in listOf(Camera(null), Camera(null, saysTaken = true))) {
+        for ((camera, told) in listOf(Camera(null) to false, Camera(null, saysTaken = true) to true)) {
             withCamera(camera) {
                 click(button(R.string.add_from_camera))
                 waitUntil("the camera to open") { camera.opened == 1 }
                 // The camera's file goes once Usugami knows it was closed.
                 waitUntil("the camera's file to go") { File(app.cacheDir, "camera").list().isNullOrEmpty() }
             }
-            stillHome()
+            stillHome(told)
         }
         // Only the start of a JPEG.
         val broken = File(app.cacheDir, "test-photos/broken.jpg").apply {
@@ -1940,10 +1969,12 @@ class ScreensDeviceTest {
             writeBytes(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte()) + ByteArray(2_000))
         }
         pickToScan(listOf(Uri.fromFile(broken)))
-        stillHome()
+        stillHome(told = true)
 
         withCamera(Camera(PagePhotos.photo())) {
             click(button(R.string.add_from_camera))
+            // The photo is added and its page looked for before its crop screen comes in.
+            find("the crop screen, which found the page") { it.says(app.getString(R.string.crop_found)) }
             press(R.string.crop_next)
             press(R.string.crop_done)
         }
