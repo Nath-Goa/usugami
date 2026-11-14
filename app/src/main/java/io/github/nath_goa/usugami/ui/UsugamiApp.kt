@@ -391,6 +391,8 @@ fun UsugamiApp(
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
 
+    fun openDonate() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, DONATE_URL.toUri())) }
+
     // No Print anywhere on a phone without printing.
     val canPrint = remember(context) { PdfPrinting.available(context) }
     val scope = rememberCoroutineScope()
@@ -887,6 +889,7 @@ fun UsugamiApp(
                         onChooseLanguage = onChooseLanguage,
                         onChooseAppearance = onChooseAppearance,
                         onSourceCode = { openSourceCode() },
+                        onDonate = { openDonate() },
                         onAbout = { route = "settings/about" },
                     )
                 }

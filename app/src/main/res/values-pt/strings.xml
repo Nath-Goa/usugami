@@ -887,6 +887,7 @@
     <string name="appearance_light">Claro</string>
     <string name="appearance_dark">Escuro</string>
     <string name="settings_github">Código-fonte no GitHub</string>
+    <string name="settings_donate">Doar</string>
     <string name="settings_about_detail">Versão, Política de Privacidade e licenças</string>
 
     <!-- About -->

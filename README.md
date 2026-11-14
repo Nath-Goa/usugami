@@ -97,6 +97,10 @@ The biggest update yet:
 - Still no permissions, and nothing leaves your phone. The tables that read Chinese, Japanese and
   Korean fonts add about 1.2 MB to each app.
 
+1.6.6, the day before: Settings has a **Donate** link, which opens
+[buymeacoffee.com/nath_goa](https://buymeacoffee.com/nath_goa) in your browser. Usugami itself
+still has no internet permission.
+
 1.6.0 to 1.6.5, before it: Scan document at the top of Home with seven page looks, Excel to PDF,
 Recent files, HEIC, AVIF, WebP, BMP and GIF images, the optional Usugami watermark, footnotes and
 endnotes in Word to PDF, a steadier crop step, and many fixes.

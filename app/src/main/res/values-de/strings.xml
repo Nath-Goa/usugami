@@ -857,6 +857,7 @@
     <string name="appearance_light">Hell</string>
     <string name="appearance_dark">Dunkel</string>
     <string name="settings_github">Quellcode auf GitHub</string>
+    <string name="settings_donate">Spenden</string>
     <string name="settings_about_detail">Version, Datenschutzerklärung und Lizenzen</string>
 
     <!-- About -->

@@ -827,6 +827,7 @@
     <string name="appearance_light">Terang</string>
     <string name="appearance_dark">Gelap</string>
     <string name="settings_github">Kode sumber di GitHub</string>
+    <string name="settings_donate">Donasi</string>
     <string name="settings_about_detail">Versi, kebijakan privasi, dan lisensi</string>
 
     <!-- About -->
