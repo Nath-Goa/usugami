@@ -68,8 +68,10 @@ import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.scale
@@ -200,6 +202,15 @@ internal fun FilterStep(
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp).semantics { heading() },
             )
+            // Wider with larger text, so that a name breaks between its words, not in them.
+            val width = SAMPLE_WIDTH * LocalDensity.current.fontScale.coerceAtLeast(1f)
+            // The names at one size, smaller where a word is wider than its tile (German "Tintensparend"),
+            // rather than broken: the size the name that needs it most takes in bold, as when it is
+            // chosen, so the names stay alike and none changes size when it is tapped.
+            val names = PageLook.shown.map { stringResource(lookName(it)) }
+            val style = MaterialTheme.typography.labelMedium
+            val nameSize = wholeWordsFontSize(names, style.copy(fontWeight = FontWeight.Bold), width - 8.dp)
+            val nameStyle = style.withEmLineHeight().copy(fontSize = nameSize)
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -208,7 +219,7 @@ internal fun FilterStep(
                     .selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                for (option in PageLook.shown) LookChoice(option, images[option], rotation, option == look) { onLook(option) }
+                for (option in PageLook.shown) LookChoice(option, images[option], rotation, option == look, width, nameStyle) { onLook(option) }
             }
             AdjustmentSlider(R.string.filter_brightness, R.string.filter_reset_brightness, adjustments.brightness, onBrightness)
             AdjustmentSlider(R.string.filter_contrast, R.string.filter_reset_contrast, adjustments.contrast, onContrast)
@@ -232,16 +243,23 @@ internal fun FilterStep(
 
 /**
  * One of the looks, like a radio button: the page in it ([image], turned [rotation] degrees, once it
- * is made) over its name, marked when it is the one chosen. The one chosen scrolls into view.
+ * is made) over its name, in [nameStyle], marked when it is the one chosen. It is [width] wide, its
+ * name 8 dp narrower. The one chosen scrolls into view.
  */
 @Composable
-private fun LookChoice(look: PageLook, image: ImageBitmap?, rotation: Int, selected: Boolean, onClick: () -> Unit) {
+private fun LookChoice(
+    look: PageLook,
+    image: ImageBitmap?,
+    rotation: Int,
+    selected: Boolean,
+    width: Dp,
+    nameStyle: TextStyle,
+    onClick: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(10.dp)
     val bringIntoView = remember { BringIntoViewRequester() }
     LaunchedEffect(Unit) { if (selected) bringIntoView.bringIntoView() }
-    // Wider with larger text, so that a name breaks between its words, not in them.
-    val width = SAMPLE_WIDTH * LocalDensity.current.fontScale.coerceAtLeast(1f)
     Column(
         Modifier
             .width(width)
@@ -271,10 +289,11 @@ private fun LookChoice(look: PageLook, image: ImageBitmap?, rotation: Int, selec
         Spacer(Modifier.height(4.dp))
         Text(
             stringResource(lookName(look)),
-            style = MaterialTheme.typography.labelMedium,
+            style = nameStyle,
             fontWeight = if (selected) FontWeight.Bold else null,
             color = if (selected) colors.primary else colors.onSurface,
             textAlign = TextAlign.Center,
+            autoSize = WholeWordsAutoSize(nameStyle.fontSize),
         )
     }
 }

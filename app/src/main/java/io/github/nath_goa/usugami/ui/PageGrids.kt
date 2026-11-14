@@ -359,14 +359,16 @@ private fun PageActions(pages: List<PdfPageRef>, places: List<Int>, vm: PdfTools
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(Modifier.heightIn(min = 48.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            // A screen reader hears it as pages are selected.
+            // A screen reader hears it as pages are selected. Beside five buttons with a large font size,
+            // it shrinks rather than breaking a word (Indonesian "Halaman").
             Text(
                 when {
                     !any -> stringResource(R.string.reorganize_tap_pages)
                     one != null -> stringResource(R.string.pdf_page_number, places[0] + 1)
                     else -> stringResource(R.string.reorganize_selected_count, places.size, pages.size)
                 },
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelLarge.withEmLineHeight(),
+                autoSize = WholeWordsAutoSize(MaterialTheme.typography.labelLarge.fontSize),
                 modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
             )
             if (one != null) {

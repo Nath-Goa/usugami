@@ -2,8 +2,10 @@ package io.github.nath_goa.usugami.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -185,7 +187,13 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
             }
         }
     }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    // Remove all goes under Add box when the two don't fit side by side (German with a large font
+    // size), each with its words whole and at the font size chosen.
+    FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
         // Boxes can be added and then moved and sized with buttons, without drawing.
         OutlinedButton(
             onClick = {
@@ -200,8 +208,13 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             Text(stringResource(R.string.redact_add_box))
         }
-        Spacer(Modifier.weight(1f))
-        AnimatedVisibility(visible = boxes.isNotEmpty(), enter = fadeIn(Motion.short()), exit = fadeOut(Motion.short()), label = "remove all") {
+        // On a line of its own, it opens and closes its line as it comes and goes.
+        AnimatedVisibility(
+            visible = boxes.isNotEmpty(),
+            enter = fadeIn(Motion.short()) + expandVertically(Motion.short()),
+            exit = fadeOut(Motion.short()) + shrinkVertically(Motion.short()),
+            label = "remove all",
+        ) {
             TextButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.redact_remove_all)) }
         }
     }

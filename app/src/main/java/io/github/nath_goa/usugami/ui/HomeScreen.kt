@@ -11,6 +11,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -98,6 +99,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.ToolSearch
@@ -546,17 +548,44 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onId
                 }
             }
             Spacer(Modifier.height(16.dp))
-            // Side by side, as tall as each other when a long label takes two lines.
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = onTakePhoto, modifier = Modifier.weight(1f).fillMaxHeight(), contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-                    Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.add_from_camera), textAlign = TextAlign.Center)
+            // Side by side, as tall as each other when a long label takes two lines. A word too wide for
+            // its button (in German on a narrow phone) makes both labels a little smaller, one size,
+            // rather than breaking; set here, not by auto-size, so the buttons are as tall as the labels
+            // shown. Where they would get smaller than ScanLabelSmallest (German with a large font size),
+            // the buttons go one above the other instead, each across the card, at the font size chosen.
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val photo = stringResource(R.string.add_from_camera)
+                val upload = stringResource(R.string.scan_upload)
+                val labels = listOf(photo, upload)
+                val style = MaterialTheme.typography.labelLarge
+                val beside = wholeWordsFontSize(labels, style, (maxWidth - ScanButtonGap) / 2 - ScanButtonChrome)
+                val stacked = beside < ScanLabelSmallest
+                val size = if (stacked) wholeWordsFontSize(labels, style, maxWidth - ScanButtonChrome) else beside
+                val labelStyle = style.withEmLineHeight().copy(fontSize = size)
+                val takePhoto: @Composable (Modifier) -> Unit = { modifier ->
+                    Button(onClick = onTakePhoto, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                        Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(photo, style = labelStyle, textAlign = TextAlign.Center, autoSize = WholeWordsAutoSize(size))
+                    }
                 }
-                OutlinedButton(onClick = onUpload, modifier = Modifier.weight(1f).fillMaxHeight(), contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-                    Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.scan_upload), textAlign = TextAlign.Center)
+                val pick: @Composable (Modifier) -> Unit = { modifier ->
+                    OutlinedButton(onClick = onUpload, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                        Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(upload, style = labelStyle, textAlign = TextAlign.Center, autoSize = WholeWordsAutoSize(size))
+                    }
+                }
+                if (stacked) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        takePhoto(Modifier.fillMaxWidth())
+                        pick(Modifier.fillMaxWidth())
+                    }
+                } else {
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(ScanButtonGap)) {
+                        takePhoto(Modifier.weight(1f).fillMaxHeight())
+                        pick(Modifier.weight(1f).fillMaxHeight())
+                    }
                 }
             }
             Spacer(Modifier.height(4.dp))
@@ -574,6 +603,18 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onId
         }
     }
 }
+
+/** Between the Scan document card's two buttons. */
+private val ScanButtonGap = 12.dp
+
+/** A Scan document button's width besides its label: its padding (16 and 24 dp), icon and the gap after it. */
+private val ScanButtonChrome = 16.dp + 24.dp + 18.dp + 8.dp
+
+/**
+ * The smallest the Scan document buttons' labels get side by side, as small as the app's other labels
+ * that shrink to fit get: a word that would need smaller puts the buttons one above the other.
+ */
+private val ScanLabelSmallest = 11.sp
 
 /** A small heading, which a screen reader can jump to, over a group of tool cards. */
 @Composable

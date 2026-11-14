@@ -30,7 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
@@ -87,7 +86,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.Compressor
@@ -656,14 +654,14 @@ private fun WideButton(
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         // With a large font size or a long translation: beside another button, the label (one word)
-        // shrinks to fit; across the screen, it takes a second line. Either way it isn't cut off.
+        // shrinks to fit, smaller than other labels if it must (Portuguese "Compartilhar" with font size
+        // 130% on a narrow phone); across the screen, it takes a second line. Either way it isn't cut off.
         if (halfWidth) {
-            val size = MaterialTheme.typography.labelLarge.fontSize
             Text(
                 text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = size, stepSize = 0.5.sp),
+                autoSize = WholeWordsAutoSize(MaterialTheme.typography.labelLarge.fontSize),
             )
         } else {
             Text(text, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
