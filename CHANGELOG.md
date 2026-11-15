@@ -6,6 +6,15 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- Settings → **Donate** opens a page with the four steps to donate through
+  [GitHub Sponsors](https://github.com/sponsors/Nath-Goa): open Usugami's page on GitHub (its
+  button opens it in your browser), tap Sponsor, choose monthly or one-time and your amount, and
+  pay. It used to open buymeacoffee.com/nath_goa. The Sponsor button on Usugami's GitHub page and
+  the F-Droid listings' Donate link go to GitHub Sponsors too. Usugami itself still has no
+  internet permission.
+
 ## [2.0.0] - 2026-11-14
 
 ### Added

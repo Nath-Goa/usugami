@@ -861,6 +861,13 @@
     <string name="appearance_dark">Oscuro</string>
     <string name="settings_github">Código fuente en GitHub</string>
     <string name="settings_donate">Donar</string>
+    <string name="donate_intro">Usugami es gratis y no tiene anuncios. Si te resulta útil, puedes apoyarlo con GitHub Sponsors:</string>
+    <string name="donate_step_open">Ve a la página de Usugami en GitHub:</string>
+    <string name="donate_open_github">Abrir GitHub</string>
+    <string name="donate_step_sponsor">Toca Sponsor y luego Sponsor junto a Nath-Goa.</string>
+    <string name="donate_step_amount">Elige Monthly (mensual) o One-time (una vez) y la cantidad.</string>
+    <string name="donate_step_pay">Inicia sesión en GitHub si te lo pide y paga.</string>
+    <string name="donate_thanks">¡Gracias!</string>
     <string name="settings_about_detail">Versión, política de privacidad y licencias</string>
 
     <!-- About -->

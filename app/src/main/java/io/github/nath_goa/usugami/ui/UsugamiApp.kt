@@ -391,8 +391,6 @@ fun UsugamiApp(
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
 
-    fun openDonate() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, DONATE_URL.toUri())) }
-
     // No Print anywhere on a phone without printing.
     val canPrint = remember(context) { PdfPrinting.available(context) }
     val scope = rememberCoroutineScope()
@@ -765,8 +763,8 @@ fun UsugamiApp(
 
     // Which screen is showing. The result screens sit one level deeper than their editors, which
     // sit one level deeper than home, and so do Recent files ("recent"), Settings ("settings"), About
-    // ("settings/about") and the texts About opens ("settings/about/privacy"); that depth decides the
-    // slide direction.
+    // ("settings/about") and Donate ("settings/donate"), and the texts About opens
+    // ("settings/about/privacy"); that depth decides the slide direction.
     // A tool opened from Choose a tool ("share") sits one level deeper than it. The crop screen sits
     // beside the editor's result; a scan of images picked keeps it showing while its next image is
     // awaited. The ID card flow's prompt ("images/card") sits beside them.
@@ -889,9 +887,13 @@ fun UsugamiApp(
                         onChooseLanguage = onChooseLanguage,
                         onChooseAppearance = onChooseAppearance,
                         onSourceCode = { openSourceCode() },
-                        onDonate = { openDonate() },
+                        onDonate = { route = "settings/donate" },
                         onAbout = { route = "settings/about" },
                     )
+                }
+                current == "settings/donate" -> {
+                    BackHandler(enabled = active) { route = "settings" }
+                    DonateScreen(snackbar = screenSnackbar, onBack = { route = "settings" }, onOpenGitHub = { openSourceCode() })
                 }
                 current == "settings/about" -> {
                     BackHandler(enabled = active) { route = "settings" }

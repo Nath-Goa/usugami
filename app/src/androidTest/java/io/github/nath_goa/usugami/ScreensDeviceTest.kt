@@ -75,10 +75,10 @@ import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.CropSession
-import io.github.nath_goa.usugami.ui.DONATE_URL
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.Motion
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
+import io.github.nath_goa.usugami.ui.SOURCE_CODE_URL
 import io.github.nath_goa.usugami.ui.SplitMode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -2904,18 +2904,21 @@ class ScreensDeviceTest {
         assertTrue("The language screen came back", nodes().none { it.says(AppLanguage.FRENCH.nativeName) })
     }
 
-    /** Settings links to the source code and to donations, and switches the language of every screen. */
+    /** Settings links to the source code and to how to donate, and switches the language of every screen. */
     @Test fun settingsLinksToGitHubAndSwitchesLanguage() {
         // From English, so that choosing French recreates the activity even on a phone in French.
         val first = launch(language = AppLanguage.ENGLISH)
         fun english(res: Int) = stringIn(AppLanguage.ENGLISH, res)
         click(find("Settings on Home") { it.says(english(R.string.settings)) })
         find("the GitHub link") { it.says(english(R.string.about_source_detail)) }
-        // The donation link opens its page in the browser.
-        val donate = intercept(Intent.ACTION_VIEW, Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)) {
-            click(find("the donation link") { it.says(english(R.string.settings_donate)) })
+        // Donate opens its steps, whose button opens Usugami's GitHub page, with the Sponsor button, in the browser.
+        click(find("the donation link") { it.says(english(R.string.settings_donate)) })
+        find("the step with the Sponsor button") { it.text?.contains(english(R.string.donate_step_sponsor)) == true }
+        val github = intercept(Intent.ACTION_VIEW, Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)) {
+            click(find("Open GitHub") { it.says(english(R.string.donate_open_github)) })
         }
-        assertEquals(DONATE_URL, donate.dataString)
+        assertEquals(SOURCE_CODE_URL, github.dataString)
+        click(find("Donate's back button") { it.says(english(R.string.back)) })
         find("About in Settings") { it.says(english(R.string.about)) }
         click(find("the language entry") { it.says(english(R.string.settings_language)) })
         for (language in AppLanguage.entries) findBelow("${language.nativeName} in the dialog") { it.says(language.nativeName) }

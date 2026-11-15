@@ -831,6 +831,13 @@
     <string name="appearance_dark">डार्क</string>
     <string name="settings_github">GitHub पर सोर्स कोड</string>
     <string name="settings_donate">दान करें</string>
+    <string name="donate_intro">Usugami मुफ़्त है और इसमें कोई विज्ञापन नहीं है। अगर यह आपके काम आता है, तो आप GitHub Sponsors के ज़रिए इसका साथ दे सकते हैं:</string>
+    <string name="donate_step_open">GitHub पर Usugami का पेज खोलें:</string>
+    <string name="donate_open_github">GitHub खोलें</string>
+    <string name="donate_step_sponsor">\"Sponsor\" पर टैप करें, फिर Nath-Goa के आगे वाले \"Sponsor\" पर टैप करें।</string>
+    <string name="donate_step_amount">\"Monthly\" (हर महीने) या \"One-time\" (एक बार) चुनें, और अपनी रकम चुनें।</string>
+    <string name="donate_step_pay">अगर GitHub साइन इन करने को कहे, तो साइन इन करें, फिर भुगतान करें।</string>
+    <string name="donate_thanks">धन्यवाद!</string>
     <string name="settings_about_detail">वर्शन, निजता नीति और लाइसेंस</string>
 
     <!-- About -->

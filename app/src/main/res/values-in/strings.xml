@@ -828,6 +828,13 @@
     <string name="appearance_dark">Gelap</string>
     <string name="settings_github">Kode sumber di GitHub</string>
     <string name="settings_donate">Donasi</string>
+    <string name="donate_intro">Usugami gratis dan tanpa iklan. Jika aplikasi ini bermanfaat, Anda dapat mendukungnya melalui GitHub Sponsors:</string>
+    <string name="donate_step_open">Buka halaman Usugami di GitHub:</string>
+    <string name="donate_open_github">Buka GitHub</string>
+    <string name="donate_step_sponsor">Ketuk \"Sponsor\", lalu \"Sponsor\" di samping Nath-Goa.</string>
+    <string name="donate_step_amount">Pilih \"Monthly\" (bulanan) atau \"One-time\" (sekali), lalu jumlahnya.</string>
+    <string name="donate_step_pay">Masuk ke GitHub jika diminta, lalu bayar.</string>
+    <string name="donate_thanks">Terima kasih!</string>
     <string name="settings_about_detail">Versi, kebijakan privasi, dan lisensi</string>
 
     <!-- About -->

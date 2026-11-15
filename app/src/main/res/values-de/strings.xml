@@ -858,6 +858,13 @@
     <string name="appearance_dark">Dunkel</string>
     <string name="settings_github">Quellcode auf GitHub</string>
     <string name="settings_donate">Spenden</string>
+    <string name="donate_intro">Usugami ist kostenlos und werbefrei. Wenn dir die App hilft, kannst du sie über GitHub Sponsors unterstützen:</string>
+    <string name="donate_step_open">Öffne die Seite von Usugami auf GitHub:</string>
+    <string name="donate_open_github">GitHub öffnen</string>
+    <string name="donate_step_sponsor">Tippe auf „Sponsor“ und dann neben Nath-Goa noch einmal auf „Sponsor“.</string>
+    <string name="donate_step_amount">Wähle „Monthly“ (monatlich) oder „One-time“ (einmalig) und deinen Betrag.</string>
+    <string name="donate_step_pay">Melde dich bei GitHub an, falls es danach fragt, und bezahle.</string>
+    <string name="donate_thanks">Vielen Dank!</string>
     <string name="settings_about_detail">Version, Datenschutzerklärung und Lizenzen</string>
 
     <!-- About -->
