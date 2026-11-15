@@ -66,9 +66,13 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 2.0.0
+## What's new in 2.0.1
 
-The biggest update yet:
+Settings → **Donate** shows how to donate through
+[GitHub Sponsors](https://github.com/sponsors/Nath-Goa), in four steps: open Usugami's page on
+GitHub, tap **Sponsor**, choose your amount and pay.
+
+2.0.0, the day before, was the biggest update yet:
 
 - **Read and annotate:** Usugami is now in Android's "Open with" list for PDF, Word, Excel,
   PowerPoint and EPUB files, and opens them in its own reader: pages in one scroll, pinch or
@@ -97,9 +101,8 @@ The biggest update yet:
 - Still no permissions, and nothing leaves your phone. The tables that read Chinese, Japanese and
   Korean fonts add about 1.2 MB to each app.
 
-1.6.6, the day before: Settings has a **Donate** link, which opens
-[buymeacoffee.com/nath_goa](https://buymeacoffee.com/nath_goa) in your browser. Usugami itself
-still has no internet permission.
+1.6.6, the day before it: Settings has a **Donate** link. Usugami itself still has no internet
+permission.
 
 1.6.0 to 1.6.5, before it: Scan document at the top of Home with seven page looks, Excel to PDF,
 Recent files, HEIC, AVIF, WebP, BMP and GIF images, the optional Usugami watermark, footnotes and
