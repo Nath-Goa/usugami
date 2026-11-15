@@ -888,7 +888,7 @@
     <string name="appearance_dark">Escuro</string>
     <string name="settings_github">Código-fonte no GitHub</string>
     <string name="settings_donate">Doar</string>
-    <string name="donate_intro">O Usugami é gratuito e não tem anúncios. Se ele for útil para você, você pode apoiá-lo pelo GitHub Sponsors:</string>
+    <string name="donate_intro">O Usugami é gratuito e não tem anúncios. Se ele for útil, você pode apoiá-lo pelo GitHub Sponsors:</string>
     <string name="donate_step_open">Acesse a página do Usugami no GitHub:</string>
     <string name="donate_open_github">Abrir o GitHub</string>
     <string name="donate_step_sponsor">Toque em \"Sponsor\" e depois em \"Sponsor\" ao lado de Nath-Goa.</string>

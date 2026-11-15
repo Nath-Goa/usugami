@@ -865,7 +865,7 @@
     <string name="donate_step_open">Ouvrez la page d\'Usugami sur GitHub :</string>
     <string name="donate_open_github">Ouvrir GitHub</string>
     <string name="donate_step_sponsor">Touchez « Sponsor », puis « Sponsor » à côté de Nath-Goa.</string>
-    <string name="donate_step_amount">Choisissez « Monthly » (mensuel) ou « One-time » (une fois), puis votre montant.</string>
+    <string name="donate_step_amount">Choisissez « Monthly » (mensuel) ou « One-time » (ponctuel), puis votre montant.</string>
     <string name="donate_step_pay">Connectez-vous à GitHub s\'il vous le demande, puis payez.</string>
     <string name="donate_thanks">Merci !</string>
     <string name="settings_about_detail">Version, règles de confidentialité et licences</string>

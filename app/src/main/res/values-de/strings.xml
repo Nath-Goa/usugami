@@ -863,7 +863,7 @@
     <string name="donate_open_github">GitHub öffnen</string>
     <string name="donate_step_sponsor">Tippe auf „Sponsor“ und dann neben Nath-Goa noch einmal auf „Sponsor“.</string>
     <string name="donate_step_amount">Wähle „Monthly“ (monatlich) oder „One-time“ (einmalig) und deinen Betrag.</string>
-    <string name="donate_step_pay">Melde dich bei GitHub an, falls es danach fragt, und bezahle.</string>
+    <string name="donate_step_pay">Melde dich bei GitHub an, falls du dazu aufgefordert wirst, und bezahle.</string>
     <string name="donate_thanks">Vielen Dank!</string>
     <string name="settings_about_detail">Version, Datenschutzerklärung und Lizenzen</string>
 

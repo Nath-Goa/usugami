@@ -1566,6 +1566,6 @@ private fun isPdfToolRoute(route: String): Boolean = PdfTool.entries.any { it.na
 
 /**
  * How deep a screen is: home 0, a tool's editor, Choose a tool, Recent files or Settings 1, a result,
- * a tool opened from Choose a tool or About 2, a text About opens 3.
+ * a tool opened from Choose a tool, About or Donate 2, a text About opens 3.
  */
 private fun screenDepth(screen: String): Int = if (screen == "home") 0 else 1 + screen.count { it == '/' }
