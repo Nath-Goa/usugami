@@ -99,6 +99,9 @@ private val FocusGap = 2.dp
 /** The focus circle round an icon button. */
 private val GlyphFocus = 46.dp
 
+/** How close a press's scale spring comes to its end before it stops: no jump over so small a range. */
+private const val ScaleThreshold = 0.001f
+
 private class PressNode(
     private val source: InteractionSource,
     private val kind: Kind,
@@ -132,7 +135,11 @@ private class PressNode(
                         down++
                         pressing = launch {
                             launch { tint.snapTo(1f) }
-                            if (kind != Kind.Tint) scale.animateTo(if (kind == Kind.Button) ButtonScale else GlyphScale, Motion.press())
+                            // A threshold of a thousandth: the default hundredth is a third of a
+                            // button's travel, and the spring would end in a jump.
+                            if (kind != Kind.Tint) {
+                                scale.animateTo(if (kind == Kind.Button) ButtonScale else GlyphScale, Motion.press(ScaleThreshold))
+                            }
                         }
                     }
                     is PressInteraction.Release, is PressInteraction.Cancel -> {
@@ -144,7 +151,7 @@ private class PressNode(
                                 press?.join()
                                 if (down == 0) {
                                     launch { tint.animateTo(0f, tween(150)) }
-                                    if (kind != Kind.Tint) scale.animateTo(1f, Motion.ui())
+                                    if (kind != Kind.Tint) scale.animateTo(1f, Motion.ui(ScaleThreshold))
                                 }
                             }
                         }
@@ -175,7 +182,7 @@ private class PressNode(
                 drawContent()
                 if (alpha > 0f || focused) {
                     val colors = currentValueOf(LocalUsugamiColors)
-                    if (shape === RectangleShape) {
+                    if (shape === RectangleShape && insetVertical == 0.dp) {
                         if (alpha > 0f) drawRect(colors.pressTint, alpha = alpha)
                         if (focused) {
                             val half = FocusWidth.toPx() / 2
@@ -186,7 +193,12 @@ private class PressNode(
                         val inset = insetVertical.toPx()
                         translate(top = inset) {
                             if (alpha > 0f) drawOutline(outline!!, colors.pressTint, alpha = alpha)
-                            if (focused) drawOutline(outline!!, colors.focus, style = stroke!!)
+                            if (focused) {
+                                // Wholly inside the shape, as the row's outline: a clip at the node's
+                                // bounds cuts none of it.
+                                val half = FocusWidth.toPx() / 2
+                                translate(half, half) { drawOutline(ring!!, colors.focus, style = stroke!!) }
+                            }
                         }
                     }
                 }
@@ -220,7 +232,10 @@ private class PressNode(
         return Stroke(width).also { stroke = it }
     }
 
-    /** The shape's outline (and a button's focus outline) for this size. */
+    /**
+     * The shape's outline for this size, and its focus outline: a button's 2 dp outside its bounds; a
+     * shaped tint's made for the shape's size less the outline's width, to be drawn inside the shape.
+     */
     private fun DrawScope.prepare() {
         val height = if (kind == Kind.Tint) size.height - 2 * insetVertical.toPx() else size.height
         val shown = Size(size.width, height.coerceAtLeast(0f))
@@ -229,10 +244,18 @@ private class PressNode(
         outlineDirection = layoutDirection
         outlineDensity = density
         outline = shape.createOutline(shown, layoutDirection, this)
-        stroke()
-        if (kind == Kind.Button) {
-            val gap = 2 * FocusGap.toPx()
-            ring = shape.createOutline(Size(size.width + gap, size.height + gap), layoutDirection, this)
+        val width = stroke().width
+        ring = when (kind) {
+            Kind.Button -> {
+                val gap = 2 * FocusGap.toPx()
+                shape.createOutline(Size(size.width + gap, size.height + gap), layoutDirection, this)
+            }
+            Kind.Tint -> shape.createOutline(
+                Size((shown.width - width).coerceAtLeast(0f), (shown.height - width).coerceAtLeast(0f)),
+                layoutDirection,
+                this,
+            )
+            Kind.Glyph -> null
         }
     }
 }
