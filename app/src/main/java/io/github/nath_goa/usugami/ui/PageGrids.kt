@@ -348,7 +348,7 @@ private fun PageActions(pages: List<PdfPageRef>, places: List<Int>, vm: PdfTools
     val any = places.isNotEmpty()
     val one = places.singleOrNull()?.let(pages::getOrNull)
     val color by animateColorAsState(
-        if (any) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        if (any) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
         Motion.short(),
         label = "page bar",
     )

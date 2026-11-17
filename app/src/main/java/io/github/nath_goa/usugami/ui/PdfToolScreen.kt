@@ -5,10 +5,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.activity.compose.BackHandler
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
@@ -986,12 +982,10 @@ private fun CompressionLevels(level: PdfCompression?, onLevel: (PdfCompression) 
 }
 
 /** How optional sections on this screen appear: fading in while opening downwards. */
-internal fun pdfSectionEnter(): EnterTransition =
-    fadeIn(Motion.medium()) + expandVertically(Motion.medium(), expandFrom = Alignment.Top)
+internal fun pdfSectionEnter(): EnterTransition = Motion.sectionEnter()
 
 /** How optional sections on this screen disappear: fading out while closing upwards. */
-internal fun pdfSectionExit(): ExitTransition =
-    fadeOut(Motion.medium()) + shrinkVertically(Motion.medium(), shrinkTowards = Alignment.Top)
+internal fun pdfSectionExit(): ExitTransition = Motion.sectionExit()
 
 /**
  * Animates a page's rotation. Rotations are stored as 0, 90, 180 or 270, so this keeps a running

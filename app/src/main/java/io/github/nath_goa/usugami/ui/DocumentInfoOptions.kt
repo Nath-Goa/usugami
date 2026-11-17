@@ -232,7 +232,7 @@ private fun AboutRow(@StringRes label: Int, value: String) {
 @Composable
 private fun TonalNote(padding: PaddingValues = PaddingValues(16.dp), content: @Composable ColumnScope.() -> Unit) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(Modifier.padding(padding), content = content)

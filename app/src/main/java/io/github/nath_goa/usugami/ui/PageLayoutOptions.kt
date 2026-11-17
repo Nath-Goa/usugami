@@ -92,6 +92,7 @@ import io.github.nath_goa.usugami.core.SheetLayout
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.cropPages
 import io.github.nath_goa.usugami.data.pagesPerSheet
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -325,7 +326,7 @@ private fun CropEditor(shown: PdfInput, pageIndex: Int, sizes: List<Pair<Float, 
     }
     val latest by rememberUpdatedState(crop)
     val move by rememberUpdatedState(onCrop)
-    val frame = MaterialTheme.colorScheme.primary
+    val frame = Usugami.colors.paperInk
     // Until the page has been drawn, its size stands in for it, or an A4 page's.
     val aspect = (page?.let { it.width / it.height } ?: sizes?.getOrNull(pageIndex)?.let { it.first / it.second })
         ?.takeIf { it.isFinite() && it > 0f } ?: (595f / 842f)

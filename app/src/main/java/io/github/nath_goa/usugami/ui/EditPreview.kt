@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -69,6 +68,7 @@ import io.github.nath_goa.usugami.core.ShapeItem
 import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.data.PagePictures
 import io.github.nath_goa.usugami.data.PageText
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.hypot
@@ -184,7 +184,7 @@ internal fun EditPreview(
     val live = remember { mutableStateListOf<Float>() }
     val pictures = rememberItemPictures(items)
     val painter = remember { PageItemsPainter() }
-    val frame = MaterialTheme.colorScheme.primary
+    val frame = Usugami.colors.paperInk
     val density = LocalDensity.current
     val window = LocalWindowInfo.current.containerSize
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {

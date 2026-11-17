@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHostState
@@ -30,9 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.core.net.toUri
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -65,6 +68,7 @@ import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.office.DocumentSorter
 import io.github.nath_goa.usugami.data.office.OfficeKind
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -795,6 +799,7 @@ fun UsugamiApp(
     // Where shared files are going, for the screen they open in to say more are coming.
     val receivingFor = if (reading != null) "reader" else sharedRoute(SharedFiles.chosen(sharedFiles.map { it.kind }) ?: sharing)
 
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     AnimatedContent(
         targetState = Shown(
             screen,
@@ -805,7 +810,14 @@ fun UsugamiApp(
                 else -> 0
             },
         ),
-        transitionSpec = { Motion.screenTransition(forward = screenDepth(targetState.screen) >= screenDepth(initialState.screen)) },
+        modifier = Modifier.background(Usugami.colors.screenDim),
+        transitionSpec = {
+            Motion.screenTransition(
+                forward = screenDepth(targetState.screen) >= screenDepth(initialState.screen),
+                depth = screenDepth(targetState.screen),
+                rtl = rtl,
+            )
+        },
         label = "screen",
     ) { shown ->
         val current = shown.screen.removePrefix("share/")

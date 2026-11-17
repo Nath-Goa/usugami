@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
@@ -31,6 +30,7 @@ import io.github.nath_goa.usugami.core.ExportText
 import io.github.nath_goa.usugami.core.PageGlyphs
 import io.github.nath_goa.usugami.core.TextPlace
 import io.github.nath_goa.usugami.core.TextSelection
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -297,7 +297,7 @@ internal class ReaderSelection(private val session: ReaderSession, private val v
  */
 @Composable
 internal fun ReaderCopyBar(onCopy: () -> Unit, clearNavigationBar: Boolean) {
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = Modifier.fillMaxWidth()) {
+    Surface(color = Usugami.colors.actionBar, modifier = Modifier.fillMaxWidth()) {
         Row(
             Modifier
                 .fillMaxWidth()

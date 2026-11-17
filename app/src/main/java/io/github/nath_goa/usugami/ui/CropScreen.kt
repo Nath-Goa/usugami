@@ -6,6 +6,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.drag
@@ -88,6 +89,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -107,6 +109,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.CropPoint
@@ -116,6 +119,7 @@ import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.OriginalImage
 import io.github.nath_goa.usugami.data.PageCropper
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.PI
@@ -176,11 +180,13 @@ fun CropScreen(
 ) {
     // Given to a page's screen while it animates away, as UsugamiApp does for screens.
     val idleSnackbar = remember { SnackbarHostState() }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     AnimatedContent(
         targetState = session,
+        modifier = Modifier.background(Usugami.colors.screenDim),
         // Each opening is a screen of its own: one image of a scan slides away as the next comes.
         contentKey = { it?.opened },
-        transitionSpec = { Motion.screenTransition(forward = true) },
+        transitionSpec = { Motion.screenTransition(forward = true, rtl = rtl) },
         label = "crop page",
     ) { shown ->
         val live = active && transition.targetState == EnterExitState.Visible
@@ -241,13 +247,15 @@ private fun CropSteps(
     fun choices() = CropChoices(state.corners, state.rotation, state.look, state.adjustments, state.allPages && pageCount > 1)
     fun turn(degrees: Int) = state.turn(degrees, source?.uprightWidth ?: 1, source?.uprightHeight ?: 1)
     val idleSnackbar = remember { SnackbarHostState() }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     AnimatedContent(
         targetState = state.step,
+        modifier = Modifier.background(Usugami.colors.screenDim),
         // A number: an enum's hash isn't the same each time Usugami starts, which would lose what
         // the step keeps for when Android stops it.
         contentKey = { it.ordinal },
-        transitionSpec = { Motion.screenTransition(forward = targetState.ordinal > initialState.ordinal) },
+        transitionSpec = { Motion.screenTransition(forward = targetState.ordinal > initialState.ordinal, depth = targetState.ordinal, rtl = rtl) },
         label = "crop step",
     ) { step ->
         val filters = step == CropStep.FILTERS
@@ -788,7 +796,7 @@ private fun CropArea(
     // The handle being dragged and where the finger is, while one is.
     var dragging by remember { mutableStateOf<Int?>(null) }
     var finger by remember { mutableStateOf(Offset.Zero) }
-    val outline = MaterialTheme.colorScheme.primary
+    val outline = Usugami.colors.paperInk
     val placeholder = MaterialTheme.colorScheme.surfaceVariant
     val description = stringResource(R.string.crop_image_description)
     val density = LocalDensity.current

@@ -343,7 +343,7 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 scrollBehavior = barScroll,
-                title = { BarTitle(stringResource(R.string.home_title)) },
+                title = { BarTitle(stringResource(R.string.home_title), wordmark = true) },
                 actions = {
                     IconButton(onClick = onSettings) {
                         Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
@@ -466,8 +466,8 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
         singleLine = true,
         shape = CircleShape,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
             focusedBorderColor = Color.Transparent,
             unfocusedBorderColor = Color.Transparent,
         ),

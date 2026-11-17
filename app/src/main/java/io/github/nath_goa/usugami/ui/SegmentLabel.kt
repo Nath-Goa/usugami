@@ -26,6 +26,7 @@ fun SegmentLabel(text: String) {
     val size = MaterialTheme.typography.labelLarge.fontSize
     Text(
         text,
+        letterSpacing = 0.sp,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         autoSize = TextAutoSize.StepBased(minFontSize = 8.sp, maxFontSize = size, stepSize = 0.5.sp),
@@ -37,11 +38,13 @@ fun SegmentLabel(text: String) {
  * shrinks a little and then ends in "…", rather than wrapping onto a second line the bar cuts off.
  */
 @Composable
-fun BarTitle(text: String) {
+fun BarTitle(text: String, wordmark: Boolean = false) {
+    val style = if (wordmark) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleLarge
     Text(
         text,
+        style = style.withEmLineHeight(),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
-        autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = MaterialTheme.typography.titleLarge.fontSize, stepSize = 0.5.sp),
+        autoSize = TextAutoSize.StepBased(minFontSize = 16.sp, maxFontSize = style.fontSize, stepSize = 0.5.sp),
     )
 }

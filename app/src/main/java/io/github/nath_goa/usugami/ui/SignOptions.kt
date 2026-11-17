@@ -84,6 +84,7 @@ import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.Signature
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -338,7 +339,7 @@ private fun PlacementPreview(
     val y by animateFloatAsState(placement.centerY, if (dragging) snap() else Motion.short(), label = "signature y")
     val path = remember(signature) { signature.path().asComposePath() }
     val ink = Color(signature.ink.argb)
-    val frame = MaterialTheme.colorScheme.primary
+    val frame = Usugami.colors.paperInk
     // A tall page is at most 440 dp high, and less in landscape, so the whole page fits on the screen.
     val windowHeight = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
     val tallest = min(440.dp, max(240.dp, windowHeight - 180.dp))

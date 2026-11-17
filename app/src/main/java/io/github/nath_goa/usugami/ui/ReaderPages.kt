@@ -80,6 +80,7 @@ import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.TextPlace
 import io.github.nath_goa.usugami.core.TextSelection
 import io.github.nath_goa.usugami.data.ReaderDocument
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
@@ -125,12 +126,9 @@ private val HandleTouch = 24.dp
 /** A handle held this near the top or bottom of the page area scrolls the pages. */
 private val ScrollEdge = 56.dp
 
-/**
- * The text selected, and its handles: Usugami's red of the light theme in both themes, as pages are
- * white in both (the dark theme's pale red would hardly show on them).
- */
-private val SelectionColor = Color(0x4DB3261E)
-private val HandleColor = Color(0xFFB3261E)
+/** The text selected, and its handles: ink purple in both themes, as pages are white in both (the dark theme's lilac would hardly show on them). */
+private val SelectionColor = Color(0x4D4A3F6B)
+private val HandleColor = Color(0xFF4A3F6B)
 
 /** Find text's matches on the pages, and the match marked: fixed colours, as pages are white in both themes. */
 private val MatchColor = Color(0x66FFE600)
@@ -225,7 +223,7 @@ internal fun ReaderPages(
         modifier
             .fillMaxSize()
             .clipToBounds()
-            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .background(Usugami.colors.desk)
             // A selection handle dragged: before the pinch, on the box around the list, so that neither
             // the list nor a pan sideways takes the finger meanwhile. A second finger lets go of it.
             .pointerInput(list, document) {

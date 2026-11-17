@@ -92,6 +92,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.hypot
@@ -296,7 +297,7 @@ private fun BoxEditor(
     var draft by remember { mutableStateOf<Draft?>(null) }
     val onPage = boxes.indices.filter { boxes[it].page == pageIndex }
     val chosen = selected.takeIf { it in onPage }
-    val frame = MaterialTheme.colorScheme.primary
+    val frame = Usugami.colors.paperInk
     val description = pluralStringResource(R.plurals.redact_preview_description, onPage.size, pageIndex + 1, onPage.size)
     val chosenLabel = chosen?.let { stringResource(R.string.redact_box_chosen, onPage.indexOf(it) + 1, onPage.size) }
     val nextLabel = stringResource(R.string.redact_next_box)
