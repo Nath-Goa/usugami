@@ -1,44 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The icon's sheets for themed icons (Android 13+): the system tints them, keeping their transparency. -->
+<!--
+    The icon's disc and sheet for themed icons (Android 13+): the system tints them, keeping their
+    transparency. The same shapes as ic_launcher_foreground.xml, but the part of the disc behind the
+    sheet is fainter (0.45) than the rest, since in one colour a see-through sheet over a solid disc
+    would hide where it covers it; the sheet and its outline are 0.3.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="41"
-        android:translateY="33">
-        <group
-            android:pivotX="0"
-            android:pivotY="40"
-            android:rotation="-14">
-            <path
-                android:fillAlpha="0.5"
-                android:fillColor="#FFFFFF"
-                android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
-                android:strokeAlpha="0.5"
-                android:strokeColor="#FFFFFF"
-                android:strokeLineJoin="round"
-                android:strokeWidth="4" />
-        </group>
-        <group
-            android:pivotX="0"
-            android:pivotY="40"
-            android:rotation="-7">
-            <path
-                android:fillAlpha="0.69"
-                android:fillColor="#FFFFFF"
-                android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
-                android:strokeAlpha="0.69"
-                android:strokeColor="#FFFFFF"
-                android:strokeLineJoin="round"
-                android:strokeWidth="4" />
-        </group>
+        android:rotation="-8"
+        android:translateX="61.54"
+        android:translateY="54">
         <path
             android:fillColor="#FFFFFF"
-            android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
+            android:pathData="M-15,-16.93 A17,17 0 0 0 -15,16.93 Z" />
+        <path
+            android:fillAlpha="0.45"
+            android:fillColor="#FFFFFF"
+            android:pathData="M-15,-16.93 A17,17 0 1 1 -15,16.93 Z" />
+        <path
+            android:fillAlpha="0.3"
+            android:fillColor="#FFFFFF"
+            android:pathData="M-13,-20 H13 A2,2 0 0 1 15,-18 V18 A2,2 0 0 1 13,20 H-13 A2,2 0 0 1 -15,18 V-18 A2,2 0 0 1 -13,-20 Z"
+            android:strokeAlpha="0.3"
             android:strokeColor="#FFFFFF"
             android:strokeLineJoin="round"
-            android:strokeWidth="4" />
+            android:strokeWidth="1.4" />
     </group>
 </vector>

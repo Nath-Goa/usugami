@@ -15,6 +15,10 @@ All notable changes to Usugami are listed here. The format is based on
   you went to unless that page is among those showing. Find text still searches from the page
   that fills most of the screen, and Annotate opens on it. The preview a result's Open shows counts
   the same way.
+- **A new app icon:** a solid deep-purple disc, like a moon, partly covered by a tilted sheet of
+  thin white paper that it shows through in a paler tone, on the same lilac. The themed icon on
+  Android 13 and newer follows it, as do the icon on About and on the language screen, the store
+  listings' icon and feature graphics, and the repository's social preview.
 
 ## [2.0.1] - 2026-11-15
 

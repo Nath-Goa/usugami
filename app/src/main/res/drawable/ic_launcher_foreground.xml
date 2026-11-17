@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Thin pages: three thin sheets fanned out from their bottom-left corner ("usugami" is Japanese
-    for thin paper). Each sheet is a 30 x 40 rectangle with a same-colour stroke that rounds its
-    corners; the back sheets are see-through, so their edges show where they overlap. Kept inside
-    the 66 dp safe zone of the 108 dp adaptive-icon canvas.
+    Moon through paper: a solid deep-purple disc partly behind a tilted sheet of thin paper
+    ("usugami" is Japanese for thin paper), which it shows through in a paler tone. The group is
+    the sheet's frame, centred at (61.54, 54) and leaning 8 degrees anticlockwise: the sheet is a
+    30 x 40 rectangle with corners of radius 2, white at 0.55 with a thin purple outline, and the
+    disc (radius 17) is centred 1.5 inside the sheet's left edge. The disc is drawn in two parts
+    split at that edge, so the themed icon can give the covered part an opacity of its own; the
+    seam lies under the outline. Kept inside the 66 dp safe zone of the 108 dp adaptive-icon canvas.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -11,39 +14,22 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="41"
-        android:translateY="33">
-        <group
-            android:pivotX="0"
-            android:pivotY="40"
-            android:rotation="-14">
-            <path
-                android:fillAlpha="0.5"
-                android:fillColor="#4A3F6B"
-                android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
-                android:strokeAlpha="0.5"
-                android:strokeColor="#4A3F6B"
-                android:strokeLineJoin="round"
-                android:strokeWidth="4" />
-        </group>
-        <group
-            android:pivotX="0"
-            android:pivotY="40"
-            android:rotation="-7">
-            <path
-                android:fillAlpha="0.69"
-                android:fillColor="#4A3F6B"
-                android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
-                android:strokeAlpha="0.69"
-                android:strokeColor="#4A3F6B"
-                android:strokeLineJoin="round"
-                android:strokeWidth="4" />
-        </group>
+        android:rotation="-8"
+        android:translateX="61.54"
+        android:translateY="54">
         <path
             android:fillColor="#4A3F6B"
-            android:pathData="M0,0 L30,0 L30,40 L0,40 Z"
+            android:pathData="M-15,-16.93 A17,17 0 0 0 -15,16.93 Z" />
+        <path
+            android:fillColor="#4A3F6B"
+            android:pathData="M-15,-16.93 A17,17 0 1 1 -15,16.93 Z" />
+        <path
+            android:fillAlpha="0.55"
+            android:fillColor="#FFFFFF"
+            android:pathData="M-13,-20 H13 A2,2 0 0 1 15,-18 V18 A2,2 0 0 1 13,20 H-13 A2,2 0 0 1 -15,18 V-18 A2,2 0 0 1 -13,-20 Z"
+            android:strokeAlpha="0.4"
             android:strokeColor="#4A3F6B"
             android:strokeLineJoin="round"
-            android:strokeWidth="4" />
+            android:strokeWidth="1.4" />
     </group>
 </vector>
