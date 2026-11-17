@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.AlertDialog
@@ -800,8 +801,8 @@ fun UsugamiApp(
     val receivingFor = if (reading != null) "reader" else sharedRoute(SharedFiles.chosen(sharedFiles.map { it.kind }) ?: sharing)
 
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    AnimatedContent(
-        targetState = Shown(
+    val screens = updateTransition(
+        Shown(
             screen,
             when {
                 screen.endsWith("/view") -> previewOpening
@@ -810,6 +811,9 @@ fun UsugamiApp(
                 else -> 0
             },
         ),
+        label = "screen",
+    )
+    screens.AnimatedContent(
         modifier = Modifier.background(Usugami.colors.screenDim),
         transitionSpec = {
             Motion.screenTransition(
@@ -818,7 +822,6 @@ fun UsugamiApp(
                 rtl = rtl,
             )
         },
-        label = "screen",
     ) { shown ->
         val current = shown.screen.removePrefix("share/")
         // While a screen animates away it must not handle Back or touches, and it keeps showing
@@ -826,8 +829,12 @@ fun UsugamiApp(
         // pressed through the screen reader, and parts of it the new screen doesn't cover yet
         // would be read out with the new screen.
         val active = transition.targetState == EnterExitState.Visible
+        // A screen that came over the one before slides in, decided once as it is first shown. Only its
+        // picture moves: it is in its place from the first frame.
+        val cameOver = remember { screens.segment.let { screenDepth(it.targetState.screen) >= screenDepth(it.initialState.screen) } }
+        val away = slideInProgress(cameOver)
         val screenSnackbar = if (active) snackbar else idleSnackbar
-        Box(if (active) Modifier else Modifier.clearAndSetSemantics {}) {
+        Box(Modifier.screenSlide(away, rtl).then(if (active) Modifier else Modifier.clearAndSetSemantics {})) {
             if (current == "home" || current == "recent") {
                 // The files listed are looked over while they show, once each time Usugami comes back.
                 LaunchedEffect(recent, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { recent.check() } }

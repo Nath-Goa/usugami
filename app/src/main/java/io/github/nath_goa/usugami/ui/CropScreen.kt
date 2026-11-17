@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -191,7 +192,8 @@ fun CropScreen(
     ) { shown ->
         val live = active && transition.targetState == EnterExitState.Visible
         val settled = arrived && live && transition.currentState == EnterExitState.Visible
-        Inert(!live) {
+        val away = slideInProgress()
+        Inert(!live, slide = Modifier.screenSlide(away, rtl)) {
             val messages = if (live) snackbar else idleSnackbar
             if (shown == null) {
                 ScanWaiting(freezeWhen(!live, scan), live, messages, actions.close)
@@ -249,18 +251,19 @@ private fun CropSteps(
     val idleSnackbar = remember { SnackbarHostState() }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
-    AnimatedContent(
-        targetState = state.step,
+    val steps = updateTransition(state.step, label = "crop step")
+    steps.AnimatedContent(
         modifier = Modifier.background(Usugami.colors.screenDim),
         // A number: an enum's hash isn't the same each time Usugami starts, which would lose what
         // the step keeps for when Android stops it.
         contentKey = { it.ordinal },
         transitionSpec = { Motion.screenTransition(forward = targetState.ordinal > initialState.ordinal, depth = targetState.ordinal, rtl = rtl) },
-        label = "crop step",
     ) { step ->
         val filters = step == CropStep.FILTERS
         val stepLive = transition.targetState == EnterExitState.Visible
         val here = settled && stepLive && transition.currentState == EnterExitState.Visible
+        val cameOver = remember { steps.segment.let { it.targetState.ordinal > it.initialState.ordinal } }
+        val away = slideInProgress(cameOver)
         val title = stringResource(if (filters) R.string.filter_title else R.string.crop_title)
         // Which side of an ID card, or which image of a scan, this is goes with the name, so the next
         // one is heard coming in.
@@ -272,7 +275,7 @@ private fun CropSteps(
         val pane = if (place == null) title else stringResource(R.string.scan_pane_title, title, place)
         // Each step is a pane, which a screen reader names once it has come in. While it fades in, a
         // screen reader leaves it out, and only a change, such as this, makes it look again.
-        Inert(!stepLive, Modifier.semantics { if (here) paneTitle = pane }) {
+        Inert(!stepLive, Modifier.semantics { if (here) paneTitle = pane }, slide = Modifier.screenSlide(away, rtl)) {
             Scaffold(
                 topBar = {
                     TopAppBar(
@@ -700,8 +703,8 @@ private fun StepButtonContent(button: StepButton) {
  * screen or step animating away, whose buttons could otherwise still be pressed.
  */
 @Composable
-private fun Inert(inert: Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Box(if (inert) Modifier.clearAndSetSemantics {} else modifier) {
+private fun Inert(inert: Boolean, modifier: Modifier = Modifier, slide: Modifier = Modifier, content: @Composable () -> Unit) {
+    Box(slide.then(if (inert) Modifier.clearAndSetSemantics {} else modifier)) {
         content()
         if (inert) {
             Box(

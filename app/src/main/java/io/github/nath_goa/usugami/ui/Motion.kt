@@ -1,6 +1,8 @@
 package io.github.nath_goa.usugami.ui
 
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
@@ -9,20 +11,28 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 
 /**
  * Shared motion values so every screen moves the same way. The animations are short and subtle,
@@ -81,21 +91,24 @@ object Motion {
         fadeOut(ui()) + shrinkVertically(ui(IntSize.VisibilityThreshold), shrinkTowards = Alignment.Top)
 
     /**
-     * A screen change: going deeper ([forward]), the new screen slides in from the end edge over the
+     * A screen change: going deeper ([forward]), the new screen comes in from the end edge over the
      * whole width while the old one stays and dims 12 %; going back, the reverse on the same path.
+     * Going forward the new screen is laid out in its place at once and only its picture slides
+     * ([screenSlide], set on it by its host): a screen moved by its layout would have its far parts
+     * off the window in the first frames, where a screen reader and the device tests don't find them.
      * Only the slide is a spring: the screen underneath always runs a [SCREEN] tween, so it settles
      * after the slide has ended, and the one left behind is kept until then. [depth] is the z-order:
      * a deeper screen is always above a shallower one, whichever is entering. [rtl] mirrors the slide.
      */
     fun screenTransition(forward: Boolean, depth: Int = 0, rtl: Boolean = false): ContentTransform {
-        val slide = move<IntOffset>(IntOffset.VisibilityThreshold)
         val edge = if (rtl) -1 else 1
         val transform = if (forward) {
-            slideInHorizontally(slide) { width -> edge * width } togetherWith
+            // The new screen's slide is painted inside it (screenSlide): it is laid out in place at once.
+            EnterTransition.None togetherWith
                 fadeOut(tween(SCREEN, easing = EnterEasing), targetAlpha = 0.88f)
         } else {
             fadeIn(tween(SCREEN, easing = EnterEasing), initialAlpha = 0.88f) togetherWith
-                slideOutHorizontally(slide) { width -> edge * width }
+                slideOutHorizontally(move(IntOffset.VisibilityThreshold)) { width -> edge * width }
         }
         transform.targetContentZIndex = depth.toFloat()
         return transform
@@ -115,3 +128,45 @@ fun <T> freezeWhen(frozen: Boolean, value: T): T {
     if (!frozen) holder.value = value
     return holder.value
 }
+
+/**
+ * How far something that is coming in still is from its place: 1 as it starts, 0 once there, on the
+ * screen spring. Stays 0 when [slides] is false and while leaving. Read it only while drawing.
+ */
+@Composable
+fun AnimatedVisibilityScope.slideInProgress(slides: Boolean = true): State<Float> =
+    transition.animateFloat(
+        transitionSpec = { Motion.move(visibilityThreshold = 0.001f) },
+        label = "slide in",
+    ) { state -> if (slides && state == EnterExitState.PreEnter) 1f else 0f }
+
+/**
+ * Draws what it is set on away from its place by [away] times [from] (pixels, given its size). Only
+ * the picture moves: it is laid out in its place all along, so touches, a screen reader and the
+ * device tests find all of it from the first frame.
+ */
+fun Modifier.paintedAway(away: State<Float>, from: (Size) -> Offset): Modifier = this
+    .drawWithContent {
+        val part = away.value
+        if (part == 0f) {
+            drawContent()
+        } else {
+            val start = from(size)
+            translate((start.x * part).roundToInt().toFloat(), (start.y * part).roundToInt().toFloat()) {
+                this@drawWithContent.drawContent()
+            }
+        }
+    }
+    // One layer for all of it, so a frame of the slide draws that layer again and nothing inside it.
+    // It is placed with a layer and not given graphicsLayer(), which would also make it an item of
+    // its own for a screen reader, one that stays as it is while a screen leaves and only what is
+    // inside it goes: the device tests, which keep a copy of every item they have read, would go
+    // on reading the screen that left from their copy of that item.
+    .layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        layout(placeable.width, placeable.height) { placeable.placeWithLayer(0, 0) }
+    }
+
+/** A screen coming in from the end edge over its whole width. */
+fun Modifier.screenSlide(away: State<Float>, rtl: Boolean): Modifier =
+    paintedAway(away) { Offset(if (rtl) -it.width else it.width, 0f) }
