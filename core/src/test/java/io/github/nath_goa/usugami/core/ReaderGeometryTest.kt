@@ -28,6 +28,26 @@ class ReaderGeometryTest {
     }
 
     @Test
+    fun thePagesInViewAreThoseHalfShownOrFillingHalfTheScreen() {
+        // Zoomed out, three whole pages of three.
+        assertEquals(0..2, ReaderGeometry.pagesInView(listOf(Item(0, 20, 900), Item(1, 940, 900), Item(2, 1860, 900)), 3000))
+        // The first page's last ninth above the screen, pages 2 and 3 whole.
+        assertEquals(1..2, ReaderGeometry.pagesInView(listOf(Item(0, -800, 900), Item(1, 120, 900), Item(2, 1040, 900)), 2000))
+        // A page at the screen's width, and a third of the next under it: that page alone.
+        assertEquals(0..0, ReaderGeometry.pagesInView(listOf(Item(0, 20, 1469), Item(1, 1510, 1469)), 2000))
+        // Exactly half of a page counts; a pixel less doesn't.
+        assertEquals(0..1, ReaderGeometry.pagesInView(listOf(Item(0, 0, 1000), Item(1, 1000, 1000)), 1500))
+        assertEquals(0..0, ReaderGeometry.pagesInView(listOf(Item(0, 0, 1000), Item(1, 1000, 1000)), 1499))
+        // Zoomed in: a page showing a third of itself but filling most of the screen counts.
+        assertEquals(4..4, ReaderGeometry.pagesInView(listOf(Item(4, -2000, 2900), Item(5, 920, 2900)), 1000))
+        // Two pages zoomed in, each filling a little under half of the screen: none, where pageInView gives the first.
+        val split = listOf(Item(2, -2520, 3000), Item(3, 520, 3000))
+        assertNull(ReaderGeometry.pagesInView(split, 1000))
+        assertEquals(2, ReaderGeometry.pageInView(split, 1000))
+        assertNull(ReaderGeometry.pagesInView(emptyList(), 1000))
+    }
+
+    @Test
     fun aPagesPictureKeepsItsShapeWithinTheCaps() {
         // A4 on a screen whose page item is 1080 pixels wide.
         assertEquals(1080 to 1527, ReaderGeometry.baseSize(595.28f, 841.89f, 1080))

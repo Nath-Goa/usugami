@@ -70,7 +70,7 @@ object ReaderGeometry {
         var best: Item? = null
         var bestShown = 0
         for (item in items) {
-            val shown = minOf(item.top + item.height, viewportHeight) - maxOf(item.top, 0)
+            val shown = heightShown(item, viewportHeight)
             if (shown > bestShown) {
                 best = item
                 bestShown = shown
@@ -78,6 +78,27 @@ object ReaderGeometry {
         }
         return best?.index
     }
+
+    /**
+     * The pages showing in a viewport [viewportHeight] list pixels tall, from the first to the last of
+     * those at least half of which shows, or that fill at least half of the viewport (a page zoomed in,
+     * taller than the screen). Null for none: two pages zoomed in, each filling a little under half.
+     */
+    fun pagesInView(items: List<Item>, viewportHeight: Int): IntRange? {
+        var first = Int.MAX_VALUE
+        var last = Int.MIN_VALUE
+        for (item in items) {
+            val shown = heightShown(item, viewportHeight).toLong()
+            if (shown > 0 && (2 * shown >= item.height || 2 * shown >= viewportHeight)) {
+                first = minOf(first, item.index)
+                last = maxOf(last, item.index)
+            }
+        }
+        return if (first <= last) first..last else null
+    }
+
+    /** How much of [item] shows in a viewport [viewportHeight] list pixels tall (0 or less: none). */
+    private fun heightShown(item: Item, viewportHeight: Int): Int = minOf(item.top + item.height, viewportHeight) - maxOf(item.top, 0)
 
     /** The page item at list height [y], if any (gaps between pages belong to none). */
     fun itemAt(items: List<Item>, y: Float): Item? = items.firstOrNull { y >= it.top && y < it.top + it.height }

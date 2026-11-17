@@ -121,7 +121,8 @@ internal class ReaderActions(
 
 /**
  * The reader ([preview] false): the tool slot's PDF in one scroll, zoomed by pinching or double-tapping
- * (see ReaderPages), with the page showing counted at the bottom; tapping the count opens Go to page.
+ * (see ReaderPages), with the page showing counted at the bottom ("3 of 12"; "1-3 of 12" when several
+ * show); tapping the count opens Go to page.
  * Find text turns the top bar into a search bar, which searches from the page showing when the
  * keyboard's search key is pressed and moves between the matches; closing it (its arrow, or Back)
  * takes the matches away. More has Share, Print, Tools, Go to page and Open with another app, those of
@@ -584,16 +585,39 @@ private fun Opening(onCancel: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 /**
- * The page showing (0 for the first), as the page indicator says it: the one that fills most of the
- * screen, or the page Go to page went to ([wentTo]: that page, and the list's first item and offset
- * it left) while the list stays there. Before the pages are laid out, the list's first item.
+ * The page showing (0 for the first), where Find text searches from and the page Annotate opens on:
+ * the one that fills most of the screen, or the page Go to page went to ([wentTo]: that page, and the
+ * list's first item and offset it left) while the list stays there. Before the pages are laid out,
+ * the list's first item. The page indicator says the pages showing (pagesShowing).
  */
 private fun pageShowing(list: LazyListState, wentTo: IntArray?): Int {
     val info = list.layoutInfo
-    val items = info.visibleItemsInfo.map { ReaderGeometry.Item(it.index, it.offset - info.viewportStartOffset, it.size) }
-    return wentTo?.takeIf { it[1] == list.firstVisibleItemIndex && it[2] == list.firstVisibleItemScrollOffset }?.get(0)
-        ?: ReaderGeometry.pageInView(items, info.viewportEndOffset - info.viewportStartOffset)
+    return pageWentTo(list, wentTo)
+        ?: ReaderGeometry.pageInView(pageItems(list), info.viewportEndOffset - info.viewportStartOffset)
         ?: list.firstVisibleItemIndex
+}
+
+/**
+ * The pages showing (0 for the first), as the page indicator says them: from the first to the last
+ * page at least half of which shows, or that fills at least half of the screen (a page zoomed in).
+ * While the list stays where Go to page left it ([wentTo], see pageShowing), the page it went to
+ * alone when it isn't one of them; when none is, the page pageShowing gives alone.
+ */
+private fun pagesShowing(list: LazyListState, wentTo: IntArray?): IntRange {
+    val info = list.layoutInfo
+    val pages = ReaderGeometry.pagesInView(pageItems(list), info.viewportEndOffset - info.viewportStartOffset)
+    val asked = pageWentTo(list, wentTo)
+    return if (pages != null && (asked == null || asked in pages)) pages else pageShowing(list, wentTo).let { it..it }
+}
+
+/** The page Go to page went to ([wentTo]: that page, and the list's first item and offset it left), while the list stays there. */
+private fun pageWentTo(list: LazyListState, wentTo: IntArray?): Int? =
+    wentTo?.takeIf { it[1] == list.firstVisibleItemIndex && it[2] == list.firstVisibleItemScrollOffset }?.get(0)
+
+/** The pages the list lays out, their tops from the top of what it shows (list pixels). */
+private fun pageItems(list: LazyListState): List<ReaderGeometry.Item> {
+    val info = list.layoutInfo
+    return info.visibleItemsInfo.map { ReaderGeometry.Item(it.index, it.offset - info.viewportStartOffset, it.size) }
 }
 
 /**
@@ -652,16 +676,20 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onSearch: () -> 
 }
 
 /**
- * The page showing, of [pageCount]: "3 of 12", heard as "Page 3 of 12". Tapped, it opens Go to page
- * ([onClick]). After Go to page, the page it went to while the list stays where it left it ([wentTo]:
- * the page, the list's first item and its offset).
+ * The page showing, of [pageCount]: "3 of 12", heard as "Page 3 of 12"; or, when several show
+ * (pagesShowing), the first and last of them: "1-3 of 12", heard as "Pages 1 to 3 of 12". Tapped, it
+ * opens Go to page ([onClick]). After Go to page, the page it went to while the list stays where it
+ * left it ([wentTo]: the page, the list's first item and its offset), unless it is one of the pages showing.
  */
 @Composable
 private fun PageIndicator(list: LazyListState, pageCount: Int, wentTo: IntArray?, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val asked by rememberUpdatedState(wentTo)
-    val page by remember(list) { derivedStateOf { pageShowing(list, asked) } }
-    val number = (page + 1).coerceIn(1, maxOf(1, pageCount))
-    val spoken = stringResource(R.string.reader_page_of_spoken, number, pageCount)
+    val pages by remember(list) { derivedStateOf { pagesShowing(list, asked) } }
+    val most = maxOf(1, pageCount)
+    val first = (pages.first + 1).coerceIn(1, most)
+    val last = (pages.last + 1).coerceIn(first, most)
+    val text = if (last > first) stringResource(R.string.reader_pages_of, first, last, pageCount) else stringResource(R.string.reader_page_of, first, pageCount)
+    val spoken = if (last > first) stringResource(R.string.reader_pages_of_spoken, first, last, pageCount) else stringResource(R.string.reader_page_of_spoken, first, pageCount)
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         color = MaterialTheme.colorScheme.inverseSurface,
@@ -671,11 +699,12 @@ private fun PageIndicator(list: LazyListState, pageCount: Int, wentTo: IntArray?
             .padding(bottom = 12.dp),
     ) {
         Text(
-            stringResource(R.string.reader_page_of, number, pageCount),
+            text,
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier
-                // A button: a screen reader says "Page 3 of 12, button, double-tap to go to page". Touches a
-                // little around it count too (Compose's minimum touch target); the pill's shape clips the ripple.
+                // A button: a screen reader says "Page 3 of 12, button, double-tap to go to page" ("Pages 1 to
+                // 3 of 12, …" when several show). Touches a little around it count too (Compose's minimum touch
+                // target); the pill's shape clips the ripple.
                 .clickable(onClickLabel = stringResource(R.string.reader_go_to_page), role = Role.Button, onClick = onClick)
                 .padding(horizontal = 14.dp, vertical = 6.dp)
                 .semantics { contentDescription = spoken },

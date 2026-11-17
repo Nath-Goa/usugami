@@ -160,7 +160,10 @@ For the reader they cover how a file opened with Usugami is told apart: a PDF by
 in its first 1024 bytes (after a byte order mark or a blank line, not later), a ZIP file by its
 first four bytes, and what the content says winning over the file's type and name, which stand
 when the content says nothing. They cover the page in view (the one filling most of the screen,
-the first on a tie), which page lies under a point (gaps belong to none), a page's picture keeping
+the first on a tie), the pages the page count gives (from the first to the last at least half on
+the screen, exactly half too, or filling at least half of it zoomed in: three whole pages, pages 2
+and 3, a page with a third of the next alone, none when two pages zoomed in each fill a little under
+half), which page lies under a point (gaps belong to none), a page's picture keeping
 its shape within 1600 pixels across, 4 million pixels and 4096 pixels on its longer side (A4 at
 1080 pixels, a 1:3 page, a 1:20 strip, a tablet's 2560 pixels, a page box of no size), zooming about
 a point keeping what is under it there (in and out, at half size and five times), the sideways pan
@@ -667,9 +670,10 @@ opening Choose a tool;
   search taking the matches away), More, Tools to Choose a tool, and Back leaving Usugami; Read and
   annotate on Home opening a file in the reader, a Compress result's Open showing a preview with its
   name, Go to page and Open with another app (no Tools) and Back returning to the result; a saved PDF
-  tapped in Recent files opening in the reader; a word long-pressed and copied, and the page's "Copy
-  the text of this page"; Documents to PDF opening PowerPoint to PDF with the decks picked and naming
-  the document left out; Print buttons on the result screen and a Print action on a Recent file; a
+  tapped in Recent files opening in the reader; a word long-pressed and copied, the page's "Copy the
+  text of this page", and its Zoom out showing the three pages counted "1-3 of 3"; Documents to PDF
+  opening PowerPoint to PDF with the decks picked and naming the document left out; Print buttons on
+  the result screen and a Print action on a Recent file; a
   launcher shortcut over an unsaved PDF asking "Discard this PDF?", Keep leaving it and Discard
   opening Merge PDF empty; PDF to images or text's button saying "Convert to images" or "Convert to
   text", the text result with its card and Copy putting the whole text on the clipboard; results of
@@ -898,11 +902,13 @@ On a phone or emulator, with the release APKs:
   Settings → Apps → Usugami → Open by default → Clear defaults undoes it.
 - The reader's zoom: pinch in and out stays under the fingers; double-tap in and back; a sideways
   pan while zoomed in stops at the page's edges, and quick sideways swipes don't zoom; zoomed out to
-  half, the pages are centred and a finger beside them scrolls and flings them; at five times, small
-  print at a page's right edge, on a turned and on a cropped page, is sharp and doesn't jump against
-  the blurry part, and found matches sit on their words; a page far taller than wide is sharp all
-  the way to its end, also the 1:20 strip zoomed; the zoom and page come back after turning the phone,
-  also while zoomed, and after Android closes Usugami; TalkBack's Zoom in and Zoom out.
+  half, the pages are centred, the count gives every page at least half showing ("1-3 of 12"), and a
+  finger beside them scrolls and flings them; zoomed in, the count gives the page filling the
+  screen; at five times, small print at a page's right edge, on a turned and on a cropped page, is
+  sharp and doesn't jump against the blurry part, and found matches sit on their words; a page far
+  taller than wide is sharp all the way to its end, also the 1:20 strip zoomed; the zoom and page
+  come back after turning the phone, also while zoomed, and after Android closes Usugami; TalkBack's
+  Zoom in and Zoom out.
 - The reader's memory: a 2,000-page PDF, a 150 MB scan and a poster page several metres long:
   scroll fast, zoom to five times and search; `adb shell dumpsys meminfo` stays flat.
 - The reader's Back: opened from the Files app, Back returns to Files, and so do Cancel during

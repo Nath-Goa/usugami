@@ -6,6 +6,16 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **The reader's page count** gives every page showing: zoomed out with three whole pages on the
+  screen, it says "1-3 of 3" rather than "1 of 3" (and a screen reader, "Pages 1 to 3 of 3"). A
+  page counts once at least half of it is on the screen, or, zoomed in, once it fills at least half
+  of the screen; with one page showing it still says "2 of 3". After Go to page, it says the page
+  you went to unless that page is among those showing. Find text still searches from the page
+  that fills most of the screen, and Annotate opens on it. The preview a result's Open shows counts
+  the same way.
+
 ## [2.0.1] - 2026-11-15
 
 ### Changed

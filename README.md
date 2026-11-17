@@ -347,8 +347,10 @@ old "PDFer".
   in Choose a tool for a PDF shared to Usugami.
 - The pages show one under another in one scroll, at the screen's width, in their own colours (white
   in the dark theme too), turned and cropped as viewers show them, with comments and filled-in form
-  fields drawn. "3 of 12" at the bottom says where you are; tap it to go to a page. A
-  password-protected PDF asks for its password once.
+  fields drawn. "3 of 12" at the bottom says where you are; when several pages show, as zoomed out,
+  it gives them all ("1-3 of 12"), counting each page at least half on the screen (or, zoomed in,
+  filling at least half of it). Tap it to go to a page. A password-protected PDF asks for its
+  password once.
 - **Zoom:** pinch with two fingers, from half size to five times, or double-tap to zoom in on a spot
   and again to go back. Zoomed in, one finger moves the page any way, and once it stops the part on
   the screen is drawn again sharp, so small print can be read at any zoom.

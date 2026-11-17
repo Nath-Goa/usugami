@@ -1188,6 +1188,10 @@ class ScreensDeviceTest {
         val pageNow = find("the first page") { it.action(app.getString(R.string.reader_copy_page)) != null && it.says(app.getString(R.string.reader_page_of_spoken, 1, 3)) }
         assertTrue(pageNow.performAction(pageNow.action(app.getString(R.string.reader_copy_page))!!.id))
         waitUntil("the page's text on the clipboard") { onMain { clipboard.primaryClip?.getItemAt(0)?.text?.toString() } == TextSelection.text(glyphs, glyphs.glyphs.indices) }
+
+        // Zoomed out to half size (the page's Zoom out), all three pages show at least half: the count says so.
+        assertTrue(pageNow.performAction(pageNow.action(app.getString(R.string.reader_zoom_out))!!.id))
+        find("the pages showing, of three") { it.says(app.getString(R.string.reader_pages_of, 1, 3, 3)) }
     }
 
     @Test fun flattenSaysWhatItDoesAndWhenThereIsNothingToFlatten() {
