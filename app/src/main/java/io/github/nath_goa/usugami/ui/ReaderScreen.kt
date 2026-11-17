@@ -173,8 +173,9 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
     var panX by rememberSaveable { mutableFloatStateOf(0f) }
     var goingToPage by rememberSaveable { mutableStateOf(false) }
     // The page Go to page went to (0 for the first), and the list's first item and offset it left: the
-    // indicator says that page while the list stays there, as a page near the end can't come to the top
-    // and the one before it may fill more of the screen.
+    // indicator says that page (or the pages showing, when it is one of them; see pagesShowing) while the
+    // list stays there, as a page near the end can't come to the top and the one before it may fill more
+    // of the screen.
     var wentTo by rememberSaveable { mutableStateOf<IntArray?>(null) }
     // Find text: whether the search bar shows, what is typed in it, and what was searched for last (searched
     // again after Android closed Usugami: a search isn't kept in the saved state).

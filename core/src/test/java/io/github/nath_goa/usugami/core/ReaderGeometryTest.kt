@@ -31,7 +31,7 @@ class ReaderGeometryTest {
     fun thePagesInViewAreThoseHalfShownOrFillingHalfTheScreen() {
         // Zoomed out, three whole pages of three.
         assertEquals(0..2, ReaderGeometry.pagesInView(listOf(Item(0, 20, 900), Item(1, 940, 900), Item(2, 1860, 900)), 3000))
-        // The first page's last ninth above the screen, pages 2 and 3 whole.
+        // Only the first page's last ninth on the screen, pages 2 and 3 whole.
         assertEquals(1..2, ReaderGeometry.pagesInView(listOf(Item(0, -800, 900), Item(1, 120, 900), Item(2, 1040, 900)), 2000))
         // A page at the screen's width, and a third of the next under it: that page alone.
         assertEquals(0..0, ReaderGeometry.pagesInView(listOf(Item(0, 20, 1469), Item(1, 1510, 1469)), 2000))
