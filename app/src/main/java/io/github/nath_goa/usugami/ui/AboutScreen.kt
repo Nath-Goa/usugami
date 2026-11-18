@@ -3,7 +3,6 @@ package io.github.nath_goa.usugami.ui
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -42,7 +40,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -73,7 +70,11 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.TextBlock
 import io.github.nath_goa.usugami.data.Edition
 import io.github.nath_goa.usugami.data.LegalDocument
+import io.github.nath_goa.usugami.ui.kit.DividedColumn
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetRow
+import io.github.nath_goa.usugami.ui.kit.Space
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -108,24 +109,36 @@ fun AboutScreen(
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         // The padding goes inside the scrolling area, so the page scrolls behind the navigation bar.
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(vertical = 8.dp)) {
-            AboutHeader()
-            PrivacyNote(Modifier.padding(16.dp))
-            ListRow(Icons.Rounded.Policy, stringResource(R.string.about_privacy_policy)) { onDocument(LegalDocument.PRIVACY) }
-            ListRow(Icons.AutoMirrored.Rounded.LibraryBooks, stringResource(R.string.about_licenses), stringResource(R.string.about_licenses_detail)) {
-                onDocument(LegalDocument.NOTICES)
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Column(Modifier.widthIn(max = Space.content).fillMaxWidth()) {
+                AboutHeader()
+                Spacer(Modifier.height(Space.gap))
+                PrivacyNote()
+                Spacer(Modifier.height(Space.gap))
+                // The rows lay on the ground in 2.0.1: their sheet is drawn, and is no node of its own.
+                Sheet(Modifier.fillMaxWidth(), group = false) {
+                    DividedColumn {
+                        ListRow(Icons.Rounded.Policy, stringResource(R.string.about_privacy_policy)) { onDocument(LegalDocument.PRIVACY) }
+                        ListRow(Icons.AutoMirrored.Rounded.LibraryBooks, stringResource(R.string.about_licenses), stringResource(R.string.about_licenses_detail)) {
+                            onDocument(LegalDocument.NOTICES)
+                        }
+                        ListRow(Icons.Rounded.Gavel, stringResource(R.string.about_license), stringResource(R.string.about_license_detail)) {
+                            onDocument(LegalDocument.LICENSE)
+                        }
+                        ListRow(Icons.Rounded.Code, stringResource(R.string.about_source), stringResource(R.string.about_source_detail), external = true, onClick = onSourceCode)
+                    }
+                }
+                Text(
+                    stringResource(R.string.about_copyright),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                )
             }
-            ListRow(Icons.Rounded.Gavel, stringResource(R.string.about_license), stringResource(R.string.about_license_detail)) {
-                onDocument(LegalDocument.LICENSE)
-            }
-            ListRow(Icons.Rounded.Code, stringResource(R.string.about_source), stringResource(R.string.about_source_detail), external = true, onClick = onSourceCode)
-            Text(
-                stringResource(R.string.about_copyright),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
-            )
         }
     }
 }
@@ -133,7 +146,7 @@ fun AboutScreen(
 @Composable
 private fun AboutHeader() {
     Column(
-        Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 24.dp, vertical = 16.dp),
+        Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 8.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AppIcon()
@@ -167,7 +180,8 @@ internal fun AppIcon() {
 
 @Composable
 private fun PrivacyNote(modifier: Modifier = Modifier) {
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface, modifier = modifier.fillMaxWidth()) {
+    // In place of 2.0.1's surface, read as a group as that was.
+    Sheet(modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp)) {
             Icon(Icons.Rounded.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(16.dp))
@@ -186,30 +200,26 @@ private fun PrivacyNote(modifier: Modifier = Modifier) {
 }
 
 /**
- * A list row laid out like a Material list item (a plain Row keeps Material's ListItem out of the
- * APK), used by About and Settings. [external] adds an icon saying it opens another app.
+ * A row of a sheet laid out like a Material list item (a plain row keeps Material's ListItem out of
+ * the APK), used by About and Settings. [external] adds an icon saying it opens another app.
  */
 @Composable
 internal fun ListRow(icon: ImageVector, title: String, detail: String? = null, external: Boolean = false, onClick: () -> Unit) {
-    val iconColor = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .heightIn(min = 56.dp)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val quiet = MaterialTheme.colorScheme.onSurfaceVariant
+    SheetRow(
+        icon = icon,
+        onClick = onClick,
+        trailing = if (external) {
+            {
+                Spacer(Modifier.width(16.dp))
+                Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(20.dp), tint = quiet)
+            }
+        } else {
+            null
+        },
     ) {
-        Icon(icon, contentDescription = null, tint = iconColor)
-        Spacer(Modifier.width(16.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            if (detail != null) Text(detail, style = MaterialTheme.typography.bodyMedium, color = iconColor)
-        }
-        if (external) {
-            Spacer(Modifier.width(16.dp))
-            Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, tint = iconColor)
-        }
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        if (detail != null) Text(detail, style = MaterialTheme.typography.bodySmall, color = quiet)
     }
 }
 
@@ -256,7 +266,7 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
                     stringResource(R.string.about_document_missing),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(padding).padding(horizontal = 20.dp, vertical = 16.dp),
+                    modifier = Modifier.padding(padding).padding(start = TextSide, top = 8.dp, end = TextSide, bottom = 16.dp),
                 )
                 is DocumentContent.Ready -> DocumentText(state.blocks, padding, listState)
             }
@@ -267,41 +277,48 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
 @Composable
 private fun DocumentText(blocks: List<TextBlock>, padding: PaddingValues, listState: LazyListState) {
     val layoutDirection = LocalLayoutDirection.current
-    // A lazy list, so only the paragraphs on screen are laid out.
+    // A lazy list, so only the paragraphs on screen are laid out. The list is as wide as the screen,
+    // so it scrolls from anywhere on it; the text in it is centred and at most as wide as any content.
     LazyColumn(
         Modifier.fillMaxSize(),
         state = listState,
         contentPadding = PaddingValues(
-            start = padding.calculateStartPadding(layoutDirection) + 20.dp,
+            start = padding.calculateStartPadding(layoutDirection) + TextSide,
             top = padding.calculateTopPadding() + 8.dp,
-            end = padding.calculateEndPadding(layoutDirection) + 20.dp,
-            bottom = padding.calculateBottomPadding() + 24.dp,
+            end = padding.calculateEndPadding(layoutDirection) + TextSide,
+            bottom = padding.calculateBottomPadding() + 16.dp,
         ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         itemsIndexed(blocks, contentType = { _, block -> block::class }) { index, block ->
-            DocumentBlock(block, first = index == 0)
+            DocumentBlock(block, first = index == 0, Modifier.widthIn(max = TextWidth).fillMaxWidth())
         }
     }
 }
 
+/** The legal text lies on the ground: the screen margin and the inset of text on the ground (16 + 8). */
+private val TextSide = Space.screen + Space.ground
+
+/** The widest the legal text runs: the widest content less the inset of text on the ground at each side (560 − 2 × 8). */
+private val TextWidth = Space.content - Space.ground * 2
+
 @Composable
-private fun DocumentBlock(block: TextBlock, first: Boolean) {
+private fun DocumentBlock(block: TextBlock, first: Boolean, modifier: Modifier = Modifier) {
     val text = remember(block) { styled(block) }
     val body = MaterialTheme.typography.bodyMedium
     when (block) {
         is TextBlock.Heading -> Text(
             text,
             style = when (block.level) {
-                1 -> MaterialTheme.typography.titleLarge
+                1 -> MaterialTheme.typography.headlineSmall
                 2 -> MaterialTheme.typography.titleMedium
                 else -> MaterialTheme.typography.titleSmall
             },
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = if (first) 0.dp else 12.dp).semantics { heading() },
+            modifier = modifier.padding(top = if (first) 0.dp else 12.dp).semantics { heading() },
         )
-        is TextBlock.Paragraph -> Text(text, style = body)
-        is TextBlock.ListItem -> Row(Modifier.padding(start = 16.dp * block.depth).semantics(mergeDescendants = true) {}) {
+        is TextBlock.Paragraph -> Text(text, style = body, modifier = modifier)
+        is TextBlock.ListItem -> Row(modifier.padding(start = 16.dp * block.depth).semantics(mergeDescendants = true) {}) {
             // A bullet says nothing to a screen reader; a number does.
             val marker = if (block.marker == "•") Modifier.clearAndSetSemantics {} else Modifier
             Text(block.marker, style = body, modifier = marker.widthIn(min = 20.dp).padding(end = 4.dp))

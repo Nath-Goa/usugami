@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -50,8 +51,11 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.Appearances
+import io.github.nath_goa.usugami.ui.kit.DividedColumn
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.Space
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 
@@ -103,12 +107,21 @@ fun SettingsScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(vertical = 8.dp)) {
-            ListRow(Icons.Rounded.Language, stringResource(R.string.settings_language), current.nativeName) { choosing = true }
-            ListRow(Icons.Rounded.BrightnessMedium, stringResource(R.string.settings_appearance), stringResource(appearance.label)) { choosingAppearance = true }
-            ListRow(Icons.Rounded.Code, stringResource(R.string.settings_github), stringResource(R.string.about_source_detail), external = true, onClick = onSourceCode)
-            ListRow(Icons.Rounded.VolunteerActivism, stringResource(R.string.settings_donate), stringResource(R.string.settings_donate_detail), onClick = onDonate)
-            ListRow(Icons.Outlined.Info, stringResource(R.string.about), stringResource(R.string.settings_about_detail), onClick = onAbout)
+        // The padding goes inside the scrolling area, so the page scrolls behind the navigation bar.
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(padding).padding(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            // The rows lay on the ground in 2.0.1: their sheet is drawn, and is no node of its own.
+            Sheet(Modifier.widthIn(max = Space.content).fillMaxWidth(), group = false) {
+                DividedColumn {
+                    ListRow(Icons.Rounded.Language, stringResource(R.string.settings_language), current.nativeName) { choosing = true }
+                    ListRow(Icons.Rounded.BrightnessMedium, stringResource(R.string.settings_appearance), stringResource(appearance.label)) { choosingAppearance = true }
+                    ListRow(Icons.Rounded.Code, stringResource(R.string.settings_github), stringResource(R.string.about_source_detail), external = true, onClick = onSourceCode)
+                    ListRow(Icons.Rounded.VolunteerActivism, stringResource(R.string.settings_donate), stringResource(R.string.settings_donate_detail), onClick = onDonate)
+                    ListRow(Icons.Outlined.Info, stringResource(R.string.about), stringResource(R.string.settings_about_detail), onClick = onAbout)
+                }
+            }
         }
     }
     if (choosing) {
