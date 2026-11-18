@@ -48,8 +48,11 @@ import io.github.nath_goa.usugami.data.TextOutcome
 import io.github.nath_goa.usugami.data.ocrEngine
 import io.github.nath_goa.usugami.data.pagesToImages
 import io.github.nath_goa.usugami.data.pagesToText
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SwitchRow
 import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -152,9 +155,12 @@ internal fun FromPdfOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsViewMo
 
     // The sections that come and go carry the gap above them, so each gap opens and closes with its section.
     Column {
-        Text(stringResource(R.string.export_kind_title), style = MaterialTheme.typography.titleMedium)
-        Segments(ExportKind.entries, kind, onSelect = { kind = it }, Modifier.padding(top = 8.dp)) {
-            stringResource(if (it == ExportKind.TEXT) R.string.export_kind_text else R.string.export_kind_images)
+        SectionHeading(stringResource(R.string.export_kind_title), top = 8.dp, bottom = 0.dp)
+        // Drawn round the choice, which lies bare in 2.0.1's tree: no node of its own.
+        Sheet(Modifier.padding(top = 16.dp).fillMaxWidth(), group = false) {
+            Segments(ExportKind.entries, kind, onSelect = { kind = it }, Modifier.padding(16.dp)) {
+                stringResource(if (it == ExportKind.TEXT) R.string.export_kind_text else R.string.export_kind_images)
+            }
         }
         // A PDF of one page has no pages to choose from.
         if (input.pageCount > 1) {
@@ -162,13 +168,13 @@ internal fun FromPdfOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsViewMo
         }
         AnimatedVisibility(visible = kind == ExportKind.IMAGES, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "image options") {
             Column(Modifier.padding(top = 16.dp)) {
-                Text(stringResource(R.string.export_format), style = MaterialTheme.typography.titleSmall)
-                Segments(ExportImageFormat.entries, format, onSelect = { format = it }, Modifier.padding(top = 8.dp)) {
+                SectionHeading(stringResource(R.string.export_format), top = 8.dp, bottom = 0.dp)
+                Segments(ExportImageFormat.entries, format, onSelect = { format = it }, Modifier.padding(top = 16.dp)) {
                     stringResource(if (it == ExportImageFormat.PNG) R.string.export_format_png else R.string.export_format_jpg)
                 }
                 Summary(if (format == ExportImageFormat.PNG) R.string.export_format_png_summary else R.string.export_format_jpg_summary)
-                Text(stringResource(R.string.export_size), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 16.dp))
-                Segments(ExportImageSize.entries, size, onSelect = { size = it }, Modifier.padding(top = 8.dp)) {
+                SectionHeading(stringResource(R.string.export_size), top = 24.dp, bottom = 0.dp)
+                Segments(ExportImageSize.entries, size, onSelect = { size = it }, Modifier.padding(top = 16.dp)) {
                     stringResource(
                         when (it) {
                             ExportImageSize.SMALL -> R.string.export_size_small
@@ -188,15 +194,21 @@ internal fun FromPdfOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsViewMo
         }
         AnimatedVisibility(visible = kind == ExportKind.TEXT, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "text options") {
             Column(Modifier.padding(top = 16.dp)) {
-                Text(stringResource(R.string.export_text_note), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.export_text_note), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 8.dp))
                 // Usugami Lite has no text recognition.
                 if (BuildConfig.HAS_OCR) {
-                    Column(Modifier.padding(top = 8.dp)) {
-                        OptionSwitch(R.string.export_text_read_scans, stringResource(R.string.export_text_read_scans_detail), readScans, onChange = { readScans = it })
-                    }
-                    AnimatedVisibility(visible = readScans, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "text language") {
-                        Column(Modifier.padding(top = 8.dp)) {
-                            OcrLanguageChip(selected = language, onSelect = { language = it })
+                    // The switch with the language it reads in, drawn round what lies bare in 2.0.1's tree: no node of its own.
+                    Sheet(Modifier.padding(top = 16.dp).fillMaxWidth(), group = false) {
+                        SwitchRow(
+                            stringResource(R.string.export_text_read_scans),
+                            readScans,
+                            onCheckedChange = { readScans = it },
+                            detail = stringResource(R.string.export_text_read_scans_detail),
+                        )
+                        AnimatedVisibility(visible = readScans, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "text language") {
+                            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                                OcrLanguageChip(selected = language, onSelect = { language = it })
+                            }
                         }
                     }
                 } else {
@@ -265,7 +277,7 @@ private fun PagesChoice(input: PdfInput, shown: PdfInput, text: String, onText: 
     Text(
         if (text.isBlank()) stringResource(R.string.export_pages_all) else stringResource(R.string.export_pages_count, chosen.size, input.pageCount),
         style = MaterialTheme.typography.titleSmall,
-        modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+        modifier = Modifier.padding(top = 8.dp).padding(horizontal = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
     )
     PageRowPicker(shown, chosen, Modifier.padding(top = 12.dp).fillMaxWidth()) { i ->
         onTap { current ->
@@ -290,14 +302,14 @@ private fun <T> Segments(items: List<T>, selected: T, onSelect: (T) -> Unit, mod
     }
 }
 
-/** A line saying more of the choice above it. */
+/** A line saying more of the choice above it, on the ground, set in from the screen margin. */
 @Composable
 private fun Summary(@StringRes text: Int, vararg args: Any) {
     Text(
         stringResource(text, *args),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 6.dp),
+        modifier = Modifier.padding(top = 6.dp).padding(horizontal = 8.dp),
     )
 }
 

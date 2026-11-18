@@ -11,13 +11,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -25,7 +24,6 @@ import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,14 +41,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -62,7 +59,6 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
@@ -86,12 +82,17 @@ import io.github.nath_goa.usugami.core.SheetLayout
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.cropPages
 import io.github.nath_goa.usugami.data.pagesPerSheet
+import io.github.nath_goa.usugami.ui.kit.DividedColumn
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SwitchRow
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.WellField
+import io.github.nath_goa.usugami.ui.kit.paperEdge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -209,8 +210,11 @@ internal fun PageLayoutOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsVie
 
     // The sections that come and go carry the gap above them, so each gap opens and closes with its section.
     Column {
-        Segments(PageLayoutMode.entries, state.mode, onSelect = { state.mode = it }) {
-            stringResource(if (it == PageLayoutMode.CROP) R.string.layout_mode_crop else R.string.layout_mode_sheets)
+        // Drawn round the choice, which lies bare in 2.0.1's tree: no node of its own.
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            Segments(PageLayoutMode.entries, state.mode, Modifier.padding(16.dp), onSelect = { state.mode = it }) {
+                stringResource(if (it == PageLayoutMode.CROP) R.string.layout_mode_crop else R.string.layout_mode_sheets)
+            }
         }
         AnimatedVisibility(visible = state.mode == PageLayoutMode.CROP, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "crop") {
             Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -231,10 +235,10 @@ private fun CropChoices(input: PdfInput, shown: PdfInput, sizes: List<Pair<Float
     val pageIndex = state.pageShown.coerceIn(0, maxOf(0, input.pageCount - 1))
     Note(R.string.layout_crop_note)
     if (input.pageCount > 1) {
-        Text(stringResource(R.string.layout_crop_page), style = MaterialTheme.typography.titleMedium)
+        SectionHeading(stringResource(R.string.layout_crop_page), top = 8.dp, bottom = 0.dp)
         PageStrip(shown, pageIndex, onSelect = { state.pageShown = it })
     }
-    Text(stringResource(R.string.layout_crop_box), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.layout_crop_box), top = 8.dp, bottom = 0.dp)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         CropEditor(shown, pageIndex, sizes, state.crop, onCrop = { state.crop = it })
         Text(
@@ -242,15 +246,15 @@ private fun CropChoices(input: PdfInput, shown: PdfInput, sizes: List<Pair<Float
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
+            modifier = Modifier.padding(top = 8.dp).fillMaxWidth().padding(horizontal = 8.dp),
         )
-        // Each press steps the box as it is then, which may be further on than the screen shows yet.
-        CropSteps(state.crop, onStep = { step -> state.crop = step(state.crop) }, Modifier.padding(top = 8.dp))
     }
+    // Each press steps the box as it is then, which may be further on than the screen shows yet.
+    CropSteps(state.crop, onStep = { step -> state.crop = step(state.crop) })
     if (input.pageCount > 1) {
         Column {
-            Text(stringResource(R.string.layout_crop_pages), style = MaterialTheme.typography.titleMedium)
-            Segments(listOf(false, true), state.somePages, Modifier.padding(top = 8.dp), onSelect = { some ->
+            SectionHeading(stringResource(R.string.layout_crop_pages), top = 8.dp, bottom = 0.dp)
+            Segments(listOf(false, true), state.somePages, Modifier.padding(top = 16.dp), onSelect = { some ->
                 // "Only this page" is one tap: an empty field starts with the page shown.
                 if (some && state.pagesText.isBlank()) state.pagesText = "${pageIndex + 1}"
                 state.somePages = some
@@ -274,28 +278,21 @@ private fun CropChoices(input: PdfInput, shown: PdfInput, sizes: List<Pair<Float
 private fun SheetChoices(input: PdfInput, shown: PdfInput, sizes: List<Pair<Float, Float>>?, state: PageLayoutChoices) {
     // The paper the sheets will have, also before one is chosen: the button asks for this one.
     val paper = state.paperFor(sizes)
-    Text(stringResource(R.string.layout_mode_sheets), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.layout_mode_sheets), top = 8.dp, bottom = 0.dp)
     val counts = SheetLayout.COUNTS.associateWith { pluralStringResource(R.plurals.layout_sheets_count, it, it) }
     Segments(SheetLayout.COUNTS, state.perSheet, onSelect = { state.perSheet = it }, described = { counts.getValue(it) }) { "$it" }
     Column {
-        Text(stringResource(R.string.layout_sheets_paper), style = MaterialTheme.typography.titleMedium)
-        Segments(SheetLayout.PAPERS, paper, Modifier.padding(top = 8.dp), onSelect = { state.paper = it }) {
+        SectionHeading(stringResource(R.string.layout_sheets_paper), top = 8.dp, bottom = 0.dp)
+        Segments(SheetLayout.PAPERS, paper, Modifier.padding(top = 16.dp), onSelect = { state.paper = it }) {
             stringResource(if (it == PageSize.LETTER) R.string.size_letter else R.string.size_a4)
         }
         Note(R.string.layout_sheets_auto_note, Modifier.padding(top = 6.dp))
     }
-    // The whole row flips the switch.
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .toggleable(value = state.border, role = Role.Switch, onValueChange = { state.border = it })
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(stringResource(R.string.layout_sheets_border), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Switch(checked = state.border, onCheckedChange = null, modifier = Modifier.padding(start = 16.dp))
+    // The whole row flips the switch. Drawn round it, as it lies bare in 2.0.1's tree: no node of its own.
+    Sheet(Modifier.fillMaxWidth(), group = false) {
+        SwitchRow(stringResource(R.string.layout_sheets_border), state.border, onCheckedChange = { state.border = it })
     }
-    Text(stringResource(R.string.layout_sheets_preview), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.layout_sheets_preview), top = 8.dp, bottom = 0.dp)
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         SheetPreview(shown, input.pageCount, sizes, state.perSheet, paper, state.border)
         val sheets = SheetLayout.sheets(input.pageCount, state.perSheet)
@@ -304,7 +301,7 @@ private fun SheetChoices(input: PdfInput, shown: PdfInput, sizes: List<Pair<Floa
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp).fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
+            modifier = Modifier.padding(top = 8.dp).fillMaxWidth().padding(horizontal = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
         )
     }
     Note(R.string.layout_sheets_note)
@@ -338,9 +335,9 @@ private fun CropEditor(shown: PdfInput, pageIndex: Int, sizes: List<Pair<Float, 
         val width = min(maxWidth - PAGE_INSET * 2, tallest * aspect)
         val height = width / aspect
         Box(Modifier.size(width + PAGE_INSET * 2, height + PAGE_INSET * 2)) {
-            // The page with its shadow; the box is drawn over it and a little beyond, so that the
+            // The page, real paper; the box is drawn over it and a little beyond, so that the
             // handles on the page's edges, where the box starts, show whole.
-            Box(Modifier.padding(PAGE_INSET).fillMaxSize().shadow(2.dp, RectangleShape).background(Color.White))
+            Box(Modifier.padding(PAGE_INSET).fillMaxSize().paperEdge().background(Color.White))
             Canvas(
                 Modifier
                     .matchParentSize()
@@ -389,6 +386,9 @@ private fun CropEditor(shown: PdfInput, pageIndex: Int, sizes: List<Pair<Float, 
 /** Room round the crop preview's page, for the handles on its edges. */
 private val PAGE_INSET = 8.dp
 
+/** The pale middle of the crop box's outline (the light theme's lilac), on the ink that frames it. */
+private val CropLine = Color(0xFFE8DEF8)
+
 /**
  * [crop] on a page of [page] size: what is outside dimmed, the frame, a round handle on each corner
  * and a bar in the middle of each side.
@@ -402,7 +402,10 @@ private fun DrawScope.drawCropBox(crop: CropShare, page: Size, frame: Color) {
     clipRect(left, top, right, bottom, clipOp = ClipOp.Difference) {
         drawRect(Color.Black.copy(alpha = 0.45f), Offset.Zero, page)
     }
-    drawRect(frame, Offset(left, top), Size(right - left, bottom - top), style = Stroke(1.5.dp.toPx()))
+    // Two tones, so that the outline shows on the page and on what is dimmed alike: ink under a pale line.
+    val box = Size(right - left, bottom - top)
+    drawRect(frame, Offset(left, top), box, style = Stroke(4.dp.toPx()))
+    drawRect(CropLine, Offset(left, top), box, style = Stroke(2.dp.toPx()))
     for (corner in listOf(Offset(left, top), Offset(right, top), Offset(right, bottom), Offset(left, bottom))) {
         drawCircle(Color.White, radius = 7.dp.toPx(), center = corner)
         drawCircle(frame, radius = 5.dp.toPx(), center = corner)
@@ -436,19 +439,18 @@ private fun DrawScope.drawCropBox(crop: CropShare, page: Size, frame: Color) {
  * a step.
  */
 @Composable
-private fun CropSteps(crop: CropShare, onStep: ((CropShare) -> CropShare) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        // Each side's two buttons stay together, the sides one under another on a narrow screen.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
-            SideSteps(CropHandle.LEFT, R.string.layout_crop_left, R.string.layout_crop_less_left, R.string.layout_crop_more_left, crop, onStep)
-            SideSteps(CropHandle.TOP, R.string.layout_crop_top, R.string.layout_crop_less_top, R.string.layout_crop_more_top, crop, onStep)
-            SideSteps(CropHandle.RIGHT, R.string.layout_crop_right, R.string.layout_crop_less_right, R.string.layout_crop_more_right, crop, onStep)
-            SideSteps(CropHandle.BOTTOM, R.string.layout_crop_bottom, R.string.layout_crop_less_bottom, R.string.layout_crop_more_bottom, crop, onStep)
+private fun CropSteps(crop: CropShare, onStep: ((CropShare) -> CropShare) -> Unit) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        // A row for each side. Drawn round rows that lie bare in 2.0.1's tree: no node of its own.
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            DividedColumn(inset = 16.dp) {
+                SideSteps(CropHandle.LEFT, R.string.layout_crop_left, R.string.layout_crop_less_left, R.string.layout_crop_more_left, crop, onStep)
+                SideSteps(CropHandle.TOP, R.string.layout_crop_top, R.string.layout_crop_less_top, R.string.layout_crop_more_top, crop, onStep)
+                SideSteps(CropHandle.RIGHT, R.string.layout_crop_right, R.string.layout_crop_less_right, R.string.layout_crop_more_right, crop, onStep)
+                SideSteps(CropHandle.BOTTOM, R.string.layout_crop_bottom, R.string.layout_crop_less_bottom, R.string.layout_crop_more_bottom, crop, onStep)
+            }
         }
-        QuietButton(onClick = { onStep { CropShare.WHOLE } }, enabled = !crop.isWhole) {
+        QuietButton(onClick = { onStep { CropShare.WHOLE } }, enabled = !crop.isWhole, modifier = Modifier.padding(top = 8.dp)) {
             Text(stringResource(R.string.layout_crop_whole))
         }
     }
@@ -464,8 +466,8 @@ private fun SideSteps(
     crop: CropShare,
     onStep: ((CropShare) -> CropShare) -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(name), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(name), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).clearAndSetSemantics {})
         StepButton(Icons.Rounded.Remove, less, side, more = false, crop, onStep)
         StepButton(Icons.Rounded.Add, more, side, more = true, crop, onStep)
     }
@@ -506,15 +508,18 @@ private fun SheetPreview(shown: PdfInput, pageCount: Int, sizes: List<Pair<Float
             pictures[index] = longSide to image
         }
     }
-    val placeholder = MaterialTheme.colorScheme.surfaceVariant
+    // On real paper, white in both themes: a page not drawn yet shows the light gray of the page's edge, in both too.
+    val placeholder = Usugami.colors.pageEdge
     val description = pluralStringResource(R.plurals.layout_sheets_preview_description, onSheet, onSheet)
     val aspect = grid.width / grid.height
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val width = min(maxWidth, SheetPreviewTallest * aspect)
+        // As long on its longer side whichever way it is turned, as a sheet of paper is.
+        val width = min(maxWidth, if (aspect >= 1f) SheetPreviewLongest else SheetPreviewLongest * aspect)
         Canvas(
             Modifier
                 .size(width, width / aspect)
-                .shadow(2.dp, RectangleShape)
+                .paperEdge()
+                .clipToBounds()
                 .background(Color.White)
                 .semantics { contentDescription = description },
         ) {
@@ -544,20 +549,21 @@ private fun SheetPreview(shown: PdfInput, pageCount: Int, sizes: List<Pair<Float
 }
 
 /**
- * How high the first sheet's preview is at most. Low enough that, with the form scrolled to its end,
- * the 2 / 4 / 6 / 9 choice is still well inside the screen under the bar, where a screen reader (and a
- * device test) finds it after scrolling down once.
+ * How long the first sheet's preview is at most, on its longer side. Short enough that, with the form
+ * scrolled to its end, the 2 / 4 / 6 / 9 choice is still well inside the screen under the bar, where a
+ * screen reader (and a device test) finds it after scrolling down once: a sheet turned on its side,
+ * as two upright pages make it, is then 151 dp high.
  */
-private val SheetPreviewTallest = 184.dp
+private val SheetPreviewLongest = 214.dp
 
-/** A small grey line saying more about the choices around it. */
+/** A small grey line saying more about the choices around it, on the ground, set in from the screen margin. */
 @Composable
 private fun Note(@StringRes text: Int, modifier: Modifier = Modifier) {
     Text(
         stringResource(text),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = modifier,
+        modifier = modifier.padding(horizontal = 8.dp),
     )
 }
 
