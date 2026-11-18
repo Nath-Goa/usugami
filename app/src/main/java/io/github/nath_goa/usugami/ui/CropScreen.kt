@@ -42,7 +42,6 @@ import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -115,11 +114,15 @@ import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.OriginalImage
 import io.github.nath_goa.usugami.data.PageCropper
 import io.github.nath_goa.usugami.ui.kit.BarLine
+import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
+import io.github.nath_goa.usugami.ui.kit.ButtonWithGlyphPadding
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.PaperButton
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.Dispatchers
@@ -651,7 +654,7 @@ internal class StepButton(
 internal fun StepButtons(main: StepButton, other: StepButton? = null) {
     val padding = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
     val mainButton = @Composable {
-        PrimaryButton(onClick = main.onClick, enabled = main.enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+        PrimaryButton(onClick = main.onClick, enabled = main.enabled, contentPadding = ButtonWithGlyphPadding) {
             StepButtonContent(main)
         }
     }
@@ -661,7 +664,7 @@ internal fun StepButtons(main: StepButton, other: StepButton? = null) {
     }
     Layout(
         content = {
-            PaperButton(onClick = other.onClick, enabled = other.enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+            PaperButton(onClick = other.onClick, enabled = other.enabled, contentPadding = ButtonWithGlyphPadding) {
                 StepButtonContent(other)
             }
             mainButton()
@@ -691,15 +694,11 @@ internal fun StepButtons(main: StepButton, other: StepButton? = null) {
 
 @Composable
 private fun StepButtonContent(button: StepButton) {
-    val icon = @Composable { Icon(button.icon, contentDescription = null, modifier = Modifier.size(18.dp)) }
-    if (!button.iconAfter) {
-        icon()
-        Spacer(Modifier.width(8.dp))
-    }
+    if (!button.iconAfter) ButtonGlyph(button.icon)
     Text(stringResource(button.label), textAlign = TextAlign.Center)
     if (button.iconAfter) {
         Spacer(Modifier.width(8.dp))
-        icon()
+        Icon(button.icon, contentDescription = null, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -749,28 +748,30 @@ private fun CropControls(
     // A side moves only across itself: the top and bottom up and down, the others left and right.
     val across = chosen < CORNERS || (chosen - CORNERS) % 2 == 1
     val upDown = chosen < CORNERS || (chosen - CORNERS) % 2 == 0
-    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        // Which handle the arrows move; tapping a handle chooses it.
-        Text(
-            stringResource(HANDLE_NAMES[chosen]),
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.weight(1f),
-        )
-        GlyphButton(onClick = { onNudge(-1, 0) }, enabled = across) { Icon(Icons.Rounded.West, contentDescription = stringResource(R.string.edit_move_left)) }
-        GlyphButton(onClick = { onNudge(0, -1) }, enabled = upDown) { Icon(Icons.Rounded.North, contentDescription = stringResource(R.string.edit_move_up)) }
-        GlyphButton(onClick = { onNudge(0, 1) }, enabled = upDown) { Icon(Icons.Rounded.South, contentDescription = stringResource(R.string.edit_move_down)) }
-        GlyphButton(onClick = { onNudge(1, 0) }, enabled = across) { Icon(Icons.Rounded.East, contentDescription = stringResource(R.string.edit_move_right)) }
-    }
-    FlowRow(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.Center) {
-        QuietButton(onClick = onReset) {
-            Icon(Icons.Rounded.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.crop_reset))
+    // Drawn only: in 2.0.1 these lay on the ground, and the tree a device test reads stays as it was.
+    Sheet(Modifier.padding(horizontal = 16.dp), group = false) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Which handle the arrows move; tapping a handle chooses it.
+            Text(
+                stringResource(HANDLE_NAMES[chosen]),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            GlyphButton(onClick = { onNudge(-1, 0) }, enabled = across) { Icon(Icons.Rounded.West, contentDescription = stringResource(R.string.edit_move_left)) }
+            GlyphButton(onClick = { onNudge(0, -1) }, enabled = upDown) { Icon(Icons.Rounded.North, contentDescription = stringResource(R.string.edit_move_up)) }
+            GlyphButton(onClick = { onNudge(0, 1) }, enabled = upDown) { Icon(Icons.Rounded.South, contentDescription = stringResource(R.string.edit_move_down)) }
+            GlyphButton(onClick = { onNudge(1, 0) }, enabled = across) { Icon(Icons.Rounded.East, contentDescription = stringResource(R.string.edit_move_right)) }
         }
-        QuietButton(onClick = onWhole) {
-            Icon(Icons.Rounded.CropFree, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.crop_whole))
+        SheetDivider()
+        FlowRow(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.Center) {
+            QuietButton(onClick = onReset, contentPadding = ButtonWithGlyphPadding) {
+                ButtonGlyph(Icons.Rounded.RestartAlt)
+                Text(stringResource(R.string.crop_reset))
+            }
+            QuietButton(onClick = onWhole, contentPadding = ButtonWithGlyphPadding) {
+                ButtonGlyph(Icons.Rounded.CropFree)
+                Text(stringResource(R.string.crop_whole))
+            }
         }
     }
 }
@@ -877,7 +878,9 @@ private fun CropArea(
                 addPath(page)
             }
             drawPath(outside, Color.Black.copy(alpha = 0.45f))
-            drawPath(page, outline, style = Stroke(2.dp.toPx()))
+            // Two tones, as it lies on a photo, dark or light: lilac over ink purple, in both themes.
+            drawPath(page, outline, style = Stroke(4.dp.toPx()))
+            drawPath(page, OutlineLight, style = Stroke(2.dp.toPx()))
             for (side in 0..3) {
                 val from = points[side]
                 val to = points[(side + 1) % 4]
@@ -977,7 +980,7 @@ private fun DrawScope.drawSideHandle(center: Offset, along: Offset, chosen: Bool
         val inner = bar(0f)
         drawRoundRect(Color.Black.copy(alpha = 0.3f), outer.topLeft, outer.size, CornerRadius(outer.height / 2))
         drawRoundRect(if (chosen) color else Color.White, inner.topLeft, inner.size, CornerRadius(inner.height / 2))
-        drawRoundRect(if (chosen) Color.White else color, inner.topLeft, inner.size, CornerRadius(inner.height / 2), style = Stroke(2.dp.toPx()))
+        drawRoundRect(if (chosen) Color.White else color, inner.topLeft, inner.size, CornerRadius(inner.height / 2), style = Stroke(2.5.dp.toPx()))
     }
 }
 
@@ -1032,6 +1035,9 @@ private val HANDLE_SIZE = 56.dp
 
 /** How far from a handle a press still takes it. */
 private val HANDLE_REACH = 40.dp
+
+/** The page outline's light line, over its ink purple one: the light theme's lilac, the same in the dark theme. */
+private val OutlineLight = Color(0xFFE8DEF8)
 
 private val MAGNIFIER_RADIUS = 56.dp
 private const val MAGNIFICATION = 2.5f
