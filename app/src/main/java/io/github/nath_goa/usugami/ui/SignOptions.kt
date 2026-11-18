@@ -214,7 +214,7 @@ internal fun PageStrip(input: PdfInput, selected: Int, onSelect: (Int) -> Unit, 
                     .selectable(
                         selected = active,
                         interactionSource = null,
-                        indication = PressIndication.shaped(TileShape),
+                        indication = PressIndication.shaped(TileShape, focusInset = 2.dp),
                         role = Role.RadioButton,
                         onClick = { onSelect(index) },
                     )

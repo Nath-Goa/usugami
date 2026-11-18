@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami.ui.kit
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -443,7 +446,8 @@ fun Modifier.paper(radius: Dp = 2.dp): Modifier {
  * [Motion.appear]. Put it before the tile's selectable, toggleable or clickable, so the press tint is
  * clipped too. It has no semantics.
  * The selectable, toggleable or clickable that follows it takes
- * `indication = PressIndication.shaped(shape)`, so its focus outline follows the corners.
+ * `indication = PressIndication.shaped(shape, focusInset = 2.dp)`, so its focus outline follows the
+ * corners just inside the chosen tile's edge, which would hide it.
  */
 @Suppress("ComposableModifierFactory")
 @Composable
@@ -491,7 +495,9 @@ private fun Modifier.tileDrawing(selected: Boolean, shape: Shape, fill: State<Co
  * its corners following, so that a ring drawn along it is concentric with the shape (R19.1): each
  * corner radius less [by], never below 0, or, outside, more by as much, a square corner staying
  * square. A rectangle is only moved; any other outline is the shape's own at the smaller (or larger)
- * size, moved. Every ring, edge and outline the kit draws at a distance from a shape is drawn along it.
+ * size, moved. The rings and outlines the kit draws from a Shape are drawn along it; the edges it draws
+ * by hand (sheetSlice, the action bar's top edge, the stack's under-sheets, the slider's track) work
+ * out their own smaller radius.
  */
 internal fun Shape.concentric(size: Size, layoutDirection: LayoutDirection, density: Density, by: Float): Outline =
     when (val outline = createOutline(size, layoutDirection, density)) {
@@ -617,46 +623,49 @@ private class LayeredNode(private var block: GraphicsLayerScope.() -> Unit) : Mo
  * is the right-hand side in a right-to-left layout), each side fading in and out with [Motion.appear]. At
  * rest at its start, or when it does not scroll, it is drawn exactly as without this. Set it on the
  * row BEFORE its scroll (`fadingEdges(scroll).horizontalScroll(scroll)`), or on a LazyRow's own
- * modifier with the row's state, so it fades what shows. It is a mask drawn in one drawWithContent:
+ * modifier with the row's state, so it fades what shows. It is a mask drawn in one drawWithCache:
  * no graphicsLayer and no clip, so it makes no node (R17) and cuts nothing a child draws up to 16 dp
  * above or below the row (a focus outline, a paper edge).
  */
 @Suppress("ComposableModifierFactory") // It animates (see the note above dashedOutline).
 @Composable
 fun Modifier.fadingEdges(state: ScrollableState, edge: Dp = 48.dp): Modifier {
-    val start = animateFloatAsState(if (state.canScrollBackward) 1f else 0f, Motion.appear(), label = "fade at start")
-    val end = animateFloatAsState(if (state.canScrollForward) 1f else 0f, Motion.appear(), label = "fade at end")
+    // A ScrollState not measured yet says it can scroll forward; until it is, there is nothing more to show.
+    val measured by remember(state) { derivedStateOf { state !is ScrollState || state.maxValue != Int.MAX_VALUE } }
+    val start = animateFloatAsState(if (measured && state.canScrollBackward) 1f else 0f, Motion.appear(), label = "fade at start")
+    val end = animateFloatAsState(if (measured && state.canScrollForward) 1f else 0f, Motion.appear(), label = "fade at end")
     val fading = remember(start, end, edge) { Modifier.fadingDrawing(start, end, edge) }
     return this.then(fading)
 }
 
-/** The mask of [fadingEdges]; the strengths at the start and the end are read while drawing. */
-private fun Modifier.fadingDrawing(start: State<Float>, end: State<Float>, edge: Dp): Modifier {
+/**
+ * The mask of [fadingEdges]; the strengths at the start and the end are read while drawing. Each side
+ * takes out a ramp, opaque at the very edge and clear at the fade's inner end, at its strength: what
+ * is left runs from 1 less the strength at the edge to all of it, with no brush made while drawing.
+ */
+private fun Modifier.fadingDrawing(start: State<Float>, end: State<Float>, edge: Dp): Modifier = this.drawWithCache {
+    val fade = min(edge.toPx(), size.width * 0.15f)
+    val room = FadeRoom.toPx()
+    val bounds = Rect(0f, -room, size.width, size.height + room)
+    val tall = Size(fade, size.height + 2 * room)
+    val from = size.width - fade
+    val leftRamp = Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), startX = 0f, endX = fade)
+    val rightRamp = Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = from, endX = size.width)
     val layer = Paint()
-    return this.drawWithContent {
+    onDrawWithContent {
         val atStart = start.value
         val atEnd = end.value
-        val fade = min(edge.toPx(), size.width * 0.15f)
         if ((atStart <= 0f && atEnd <= 0f) || fade <= 0f) {
             drawContent()
-            return@drawWithContent
+            return@onDrawWithContent
         }
         val rtl = layoutDirection == LayoutDirection.Rtl
         val left = if (rtl) atEnd else atStart
         val right = if (rtl) atStart else atEnd
-        val room = FadeRoom.toPx()
-        val tall = Size(fade, size.height + 2 * room)
-        drawIntoCanvas { it.saveLayer(Rect(0f, -room, size.width, size.height + room), layer) }
+        drawIntoCanvas { it.saveLayer(bounds, layer) }
         drawContent()
-        if (left > 0f) {
-            val ramp = Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 1f - left), Color.Black), startX = 0f, endX = fade)
-            drawRect(ramp, Offset(0f, -room), tall, blendMode = BlendMode.DstIn)
-        }
-        if (right > 0f) {
-            val from = size.width - fade
-            val ramp = Brush.horizontalGradient(listOf(Color.Black, Color.Black.copy(alpha = 1f - right)), startX = from, endX = size.width)
-            drawRect(ramp, Offset(from, -room), tall, blendMode = BlendMode.DstIn)
-        }
+        if (left > 0f) drawRect(leftRamp, Offset(0f, -room), tall, alpha = left, blendMode = BlendMode.DstOut)
+        if (right > 0f) drawRect(rightRamp, Offset(from, -room), tall, alpha = right, blendMode = BlendMode.DstOut)
         drawIntoCanvas { it.restore() }
     }
 }

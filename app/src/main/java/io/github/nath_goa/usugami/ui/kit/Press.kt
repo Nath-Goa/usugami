@@ -47,14 +47,19 @@ class PressIndication private constructor(
     private val shape: Shape,
     private val content: Color,
     private val insetVertical: Dp,
+    private val focusInset: Dp = 0.dp,
 ) : IndicationNodeFactory {
     companion object {
         /** Plain clickables: a `pressTint` fill of the bounds. The theme's default. */
         val Row: PressIndication = PressIndication(Kind.Tint, RectangleShape, Color.Unspecified, 0.dp)
 
-        /** The same fill inside [shape], shrunk by [insetVertical] top and bottom (segments). */
-        fun shaped(shape: Shape, insetVertical: Dp = 0.dp): PressIndication =
-            PressIndication(Kind.Tint, shape, Color.Unspecified, insetVertical)
+        /**
+         * The same fill inside [shape], shrunk by [insetVertical] top and bottom (segments). Its focus
+         * outline lies [focusInset] further in: inside the edge of that width a chosen tile or swatch
+         * draws, which would hide it.
+         */
+        fun shaped(shape: Shape, insetVertical: Dp = 0.dp, focusInset: Dp = 0.dp): PressIndication =
+            PressIndication(Kind.Tint, shape, Color.Unspecified, insetVertical, focusInset)
 
         /** Buttons: content and container scale to 0.97, with [content] at 10 % over them inside [shape]. */
         fun button(shape: Shape, content: Color): PressIndication = PressIndication(Kind.Button, shape, content, 0.dp)
@@ -70,17 +75,18 @@ class PressIndication private constructor(
     }
 
     override fun create(interactionSource: InteractionSource): DelegatableNode =
-        PressNode(interactionSource, kind, shape, content, insetVertical)
+        PressNode(interactionSource, kind, shape, content, insetVertical, focusInset)
 
     override fun equals(other: Any?): Boolean =
         other is PressIndication && kind == other.kind && shape == other.shape && content == other.content &&
-            insetVertical == other.insetVertical
+            insetVertical == other.insetVertical && focusInset == other.focusInset
 
     override fun hashCode(): Int {
         var result = kind.hashCode()
         result = 31 * result + shape.hashCode()
         result = 31 * result + content.hashCode()
         result = 31 * result + insetVertical.hashCode()
+        result = 31 * result + focusInset.hashCode()
         return result
     }
 }
@@ -114,6 +120,7 @@ private class PressNode(
     private val shape: Shape,
     private val content: Color,
     private val insetVertical: Dp,
+    private val focusInset: Dp,
 ) : Modifier.Node(), DrawModifierNode, CompositionLocalConsumerModifierNode {
     private val tint = Animatable(0f)
     private val scale = Animatable(1f)
@@ -188,7 +195,7 @@ private class PressNode(
                 drawContent()
                 if (alpha > 0f || focused) {
                     val colors = currentValueOf(LocalUsugamiColors)
-                    if (shape === RectangleShape && insetVertical == 0.dp) {
+                    if (shape === RectangleShape && insetVertical == 0.dp && focusInset == 0.dp) {
                         if (alpha > 0f) drawRect(colors.pressTint, alpha = alpha)
                         if (focused) {
                             val half = FocusWidth.toPx() / 2
@@ -245,7 +252,8 @@ private class PressNode(
 
     /**
      * The shape's outline for this size, and its focus outline, concentric with it: a button's 2 dp
-     * outside its bounds; a shaped tint's half its width inside the shape, so it lies wholly inside.
+     * outside its bounds; a shaped tint's half its width (and its focus inset) inside the shape, so it
+     * lies wholly inside.
      */
     private fun DrawScope.prepare() {
         val height = if (kind == Kind.Tint) size.height - 2 * insetVertical.toPx() else size.height
@@ -258,7 +266,7 @@ private class PressNode(
         val width = stroke().width
         ring = when (kind) {
             Kind.Button -> shape.concentric(shown, layoutDirection, this, -FocusGap.toPx())
-            Kind.Tint -> shape.concentric(shown, layoutDirection, this, width / 2)
+            Kind.Tint -> shape.concentric(shown, layoutDirection, this, width / 2 + focusInset.toPx())
             Kind.Glyph, Kind.GlyphOverFill -> null
         }
     }

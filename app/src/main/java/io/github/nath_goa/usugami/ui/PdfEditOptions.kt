@@ -65,6 +65,7 @@ import io.github.nath_goa.usugami.data.WatermarkText
 import io.github.nath_goa.usugami.ui.kit.PressIndication
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -307,6 +308,9 @@ private fun colorLabel(color: WatermarkColor): Int = when (color) {
  */
 @Composable
 internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> Unit, argb: (T) -> Int, label: (T) -> Int, swatchSize: Dp = 52.dp) {
+    // So black shows on the dark theme. It lies round each disc, not on it, as it is translucent; in
+    // dark it is the stronger hairline, which shows on the ground too.
+    val edge = if (Usugami.colors.isDark) Usugami.colors.hairlineStrong else MaterialTheme.colorScheme.outlineVariant
     FlowRow(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         for (color in options) {
             val chosen = color == selected
@@ -320,20 +324,20 @@ internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> U
             Box(
                 Modifier
                     .size(swatchSize)
-                    // The press tint is a disc and the focus outline a circle, not a square.
+                    // The press tint is a disc and the focus outline a circle, not a square, inside the ring.
                     .selectable(
                         selected = chosen,
                         interactionSource = null,
-                        indication = PressIndication.shaped(CircleShape),
+                        indication = PressIndication.shaped(CircleShape, focusInset = 2.dp),
                         role = Role.RadioButton,
                         onClick = { onSelect(color) },
                     )
                     .semantics { contentDescription = name }
                     .border(2.dp, ring, CircleShape)
                     .padding(6.dp)
-                    .background(Color(argb(color)), CircleShape)
-                    // So black shows on the dark theme.
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                    .border(1.dp, edge, CircleShape)
+                    .padding(1.dp)
+                    .background(Color(argb(color)), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
