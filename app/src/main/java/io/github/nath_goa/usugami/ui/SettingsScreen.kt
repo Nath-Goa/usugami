@@ -22,14 +22,12 @@ import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +50,8 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.Appearances
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 
@@ -95,7 +95,7 @@ fun SettingsScreen(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.settings)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    GlyphButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
@@ -129,7 +129,7 @@ fun SettingsScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { choosing = false }) { Text(stringResource(R.string.cancel)) } },
+            confirmButton = { QuietButton(onClick = { choosing = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
     if (choosingAppearance) {
@@ -149,7 +149,7 @@ fun SettingsScreen(
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { choosingAppearance = false }) { Text(stringResource(R.string.cancel)) } },
+            confirmButton = { QuietButton(onClick = { choosingAppearance = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }

@@ -56,25 +56,18 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PictureAsPdf
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -109,8 +102,15 @@ import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.PaperGlyphButton
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.TonalButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
@@ -178,7 +178,7 @@ fun EditorScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    GlyphButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
@@ -197,7 +197,7 @@ fun EditorScreen(
                         exit = fadeOut(Motion.short()),
                         label = "clear action",
                     ) {
-                        IconButton(onClick = { if (items.isNotEmpty()) confirmClear = true }) {
+                        GlyphButton(onClick = { if (items.isNotEmpty()) confirmClear = true }) {
                             Icon(Icons.Rounded.DeleteSweep, contentDescription = stringResource(R.string.clear_all))
                         }
                     }
@@ -270,12 +270,12 @@ fun EditorScreen(
             title = { Text(stringResource(R.string.clear_title)) },
             text = { Text(stringResource(R.string.discard_body)) },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     confirmClear = false
                     actions.clearAll()
                 }) { Text(stringResource(R.string.clear_all)) }
             },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.keep)) } },
+            dismissButton = { QuietButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.keep)) } },
         )
     }
 }
@@ -386,7 +386,7 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
             PageNumberBadge(pageNumber, Modifier.align(Alignment.TopStart))
             // On the picture, as the bar below has room for three buttons on a narrow card. Off
             // while the page is being cropped, which a crop would start from.
-            FilledTonalIconButton(
+            PaperGlyphButton(
                 onClick = { actions.crop(item.id) },
                 enabled = !cropping,
                 modifier = Modifier.align(Alignment.TopEnd),
@@ -408,13 +408,13 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             // Each card has these buttons, so their labels name the page they act on.
-            IconButton(onClick = { actions.rotate(item.id, -90) }) {
+            GlyphButton(onClick = { actions.rotate(item.id, -90) }) {
                 TurnIcon(clockwise = false, description = stringResource(R.string.rotate_page_left, pageNumber))
             }
-            IconButton(onClick = { actions.rotate(item.id, 90) }) {
+            GlyphButton(onClick = { actions.rotate(item.id, 90) }) {
                 TurnIcon(clockwise = true, description = stringResource(R.string.rotate_page_right, pageNumber))
             }
-            IconButton(onClick = { actions.remove(item.id) }) {
+            GlyphButton(onClick = { actions.remove(item.id) }) {
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, pageNumber))
             }
         }
@@ -433,7 +433,7 @@ internal fun PageNumberBadge(pageNumber: Int, modifier: Modifier = Modifier) {
     ) {
         Text(
             pageNumber.toString(),
-            style = Usugami.type.tabular(MaterialTheme.typography.labelSmall),
+            style = Usugami.type.tabular(MaterialTheme.typography.labelMedium),
             modifier = Modifier
                 .semantics { contentDescription = pageLabel }
                 .padding(horizontal = 8.dp, vertical = 2.dp),
@@ -468,7 +468,7 @@ private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit, onTakeP
 private fun AddMenu(expanded: () -> Boolean, onDismiss: () -> Unit, onAddPhotos: () -> Unit, onAddFiles: () -> Unit, onTakePhoto: () -> Unit) {
     // The items can still be tapped while the menu fades out: only the first tap counts.
     DropdownMenu(expanded = expanded(), onDismissRequest = onDismiss) {
-        DropdownMenuItem(
+        MenuItem(
             text = { Text(stringResource(R.string.add_from_photos)) },
             leadingIcon = { Icon(Icons.Rounded.PhotoLibrary, contentDescription = null) },
             onClick = {
@@ -478,7 +478,7 @@ private fun AddMenu(expanded: () -> Boolean, onDismiss: () -> Unit, onAddPhotos:
                 }
             },
         )
-        DropdownMenuItem(
+        MenuItem(
             text = { Text(stringResource(R.string.add_from_files)) },
             leadingIcon = { Icon(Icons.Rounded.FolderOpen, contentDescription = null) },
             onClick = {
@@ -488,7 +488,7 @@ private fun AddMenu(expanded: () -> Boolean, onDismiss: () -> Unit, onAddPhotos:
                 }
             },
         )
-        DropdownMenuItem(
+        MenuItem(
             text = { Text(stringResource(R.string.add_from_camera)) },
             leadingIcon = { Icon(Icons.Rounded.PhotoCamera, contentDescription = null) },
             onClick = {
@@ -505,7 +505,7 @@ private fun AddMenu(expanded: () -> Boolean, onDismiss: () -> Unit, onAddPhotos:
 private fun SortMenu(onSort: (SortMode) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        IconButton(onClick = { expanded = true }) {
+        GlyphButton(onClick = { expanded = true }) {
             Icon(Icons.AutoMirrored.Rounded.Sort, contentDescription = stringResource(R.string.sort))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -514,7 +514,7 @@ private fun SortMenu(onSort: (SortMode) -> Unit) {
                 SortMode.NAME_DESC to R.string.sort_name_za,
                 SortMode.REVERSE to R.string.sort_reverse,
             ).forEach { (mode, label) ->
-                DropdownMenuItem(
+                MenuItem(
                     text = { Text(stringResource(label)) },
                     onClick = {
                         // The items can still be tapped while the menu fades out: a second tap on
@@ -559,7 +559,7 @@ private fun BottomActions(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 var menu by remember { mutableStateOf(false) }
                 Box(Modifier.widthIn(max = addRoom)) {
-                    OutlinedButton(onClick = { menu = true }, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                    PaperButton(onClick = { menu = true }, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
                         Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.add_images), maxLines = 1, overflow = TextOverflow.Ellipsis, autoSize = shrunk)
@@ -567,7 +567,7 @@ private fun BottomActions(
                     AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles, onTakePhoto)
                 }
                 Spacer(Modifier.width(ButtonGap))
-                Button(
+                PrimaryButton(
                     onClick = onConvert,
                     enabled = convertEnabled,
                     modifier = Modifier.weight(1f),
@@ -631,19 +631,19 @@ private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: 
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(32.dp))
-        Button(onClick = onAddPhotos, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
+        PrimaryButton(onClick = onAddPhotos, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
             Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.add_from_photos))
         }
         Spacer(Modifier.height(8.dp))
-        FilledTonalButton(onClick = onAddFiles, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
+        TonalButton(onClick = onAddFiles, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
             Icon(Icons.Rounded.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.add_from_files))
         }
         Spacer(Modifier.height(8.dp))
-        FilledTonalButton(onClick = onTakePhoto, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
+        TonalButton(onClick = onTakePhoto, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
             Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.add_from_camera))

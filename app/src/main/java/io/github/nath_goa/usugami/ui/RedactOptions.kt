@@ -38,11 +38,8 @@ import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -89,7 +86,10 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.WellField
@@ -196,7 +196,7 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         // Boxes can be added and then moved and sized with buttons, without drawing.
-        OutlinedButton(
+        PaperButton(
             onClick = {
                 val width = current?.width ?: 595f
                 val height = current?.height ?: 842f
@@ -216,7 +216,7 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
             exit = fadeOut(Motion.short()) + shrinkVertically(Motion.short()),
             label = "remove all",
         ) {
-            TextButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.redact_remove_all)) }
+            QuietButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.redact_remove_all)) }
         }
     }
 
@@ -226,12 +226,12 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
             title = { Text(stringResource(R.string.redact_remove_all_title)) },
             text = { Text(pluralStringResource(R.plurals.redact_remove_all_body, boxes.size, boxes.size)) },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     vm.clearRedactBoxes()
                     confirmClear = false
                 }) { Text(stringResource(R.string.redact_remove_all)) }
             },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
+            dismissButton = { QuietButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -257,7 +257,7 @@ private fun FindText(query: String, onQuery: (String) -> Unit, finding: Boolean,
             else Text(stringResource(R.string.redact_find_hint))
         },
         trailingIcon = {
-            IconButton(onClick = find, enabled = canFind) {
+            GlyphButton(onClick = find, enabled = canFind) {
                 Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.redact_find_action))
             }
         },
@@ -461,7 +461,7 @@ private fun BoxControls(box: RedactBox, onStep: ((RedactBox) -> RedactBox) -> Un
                 StepButton(Icons.Rounded.Add, R.string.redact_taller, { Redaction.resized(it, 0f, step) }, box, onStep)
             }
         }
-        TextButton(onClick = onDelete, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+        QuietButton(onClick = onDelete, danger = true) {
             Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
             Spacer(Modifier.width(ButtonDefaults.IconSpacing))
             Text(stringResource(R.string.redact_delete_box))
@@ -478,7 +478,7 @@ private fun StepButton(
     current: RedactBox,
     onStep: ((RedactBox) -> RedactBox) -> Unit,
 ) {
-    IconButton(onClick = { onStep(step) }, enabled = !Redaction.same(step(current), current)) {
+    GlyphButton(onClick = { onStep(step) }, enabled = !Redaction.same(step(current), current)) {
         Icon(icon, contentDescription = stringResource(label))
     }
 }

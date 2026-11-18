@@ -3,6 +3,7 @@ package io.github.nath_goa.usugami.ui
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.LocalTonalElevationEnabled
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -103,6 +104,7 @@ fun UsugamiTheme(appearance: Appearance = Appearance.SYSTEM, content: @Composabl
             LocalUsugamiColors provides if (dark) DarkUsugamiColors else LightUsugamiColors,
             LocalUsugamiType provides type,
             LocalIndication provides PressIndication.Row,
+            LocalRippleConfiguration provides null,
             LocalTonalElevationEnabled provides false,
             content = content,
         )

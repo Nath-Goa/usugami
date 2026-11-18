@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,6 +29,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.WellField
 
@@ -79,7 +79,7 @@ fun BatchList(
                                 Text(entry.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                                 Text(entry.details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            IconButton(onClick = { onRemove(entry.id) }) {
+                            GlyphButton(onClick = { onRemove(entry.id) }) {
                                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, entry.name))
                             }
                         }

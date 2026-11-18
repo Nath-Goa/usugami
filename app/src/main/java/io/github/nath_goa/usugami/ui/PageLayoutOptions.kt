@@ -24,11 +24,9 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -88,6 +86,8 @@ import io.github.nath_goa.usugami.core.SheetLayout
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.cropPages
 import io.github.nath_goa.usugami.data.pagesPerSheet
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Usugami
@@ -448,7 +448,7 @@ private fun CropSteps(crop: CropShare, onStep: ((CropShare) -> CropShare) -> Uni
             SideSteps(CropHandle.RIGHT, R.string.layout_crop_right, R.string.layout_crop_less_right, R.string.layout_crop_more_right, crop, onStep)
             SideSteps(CropHandle.BOTTOM, R.string.layout_crop_bottom, R.string.layout_crop_less_bottom, R.string.layout_crop_more_bottom, crop, onStep)
         }
-        TextButton(onClick = { onStep { CropShare.WHOLE } }, enabled = !crop.isWhole) {
+        QuietButton(onClick = { onStep { CropShare.WHOLE } }, enabled = !crop.isWhole) {
             Text(stringResource(R.string.layout_crop_whole))
         }
     }
@@ -474,7 +474,7 @@ private fun SideSteps(
 /** Moves [side] a step; off once that side can't go further that way. */
 @Composable
 private fun StepButton(icon: ImageVector, @StringRes label: Int, side: CropHandle, more: Boolean, crop: CropShare, onStep: ((CropShare) -> CropShare) -> Unit) {
-    IconButton(onClick = { onStep { CropBoxes.stepped(it, side, more) } }, enabled = CropBoxes.stepped(crop, side, more) != crop) {
+    GlyphButton(onClick = { onStep { CropBoxes.stepped(it, side, more) } }, enabled = CropBoxes.stepped(crop, side, more) != crop) {
         Icon(icon, contentDescription = stringResource(label))
     }
 }

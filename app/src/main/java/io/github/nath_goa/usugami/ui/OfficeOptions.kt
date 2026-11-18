@@ -22,12 +22,10 @@ import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -50,7 +48,9 @@ import io.github.nath_goa.usugami.data.office.OfficeInput
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.data.office.OfficeProgress
 import io.github.nath_goa.usugami.data.office.SheetOptions
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Sheet
@@ -69,7 +69,7 @@ internal fun DocumentInputCard(document: OfficeInput, onRemove: () -> Unit) {
                 Text(document.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
                 Text(documentDetails(document), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, document.name)) }
+            GlyphButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, document.name)) }
         }
     }
 }
@@ -282,6 +282,6 @@ internal fun OfficeProgressDialog(
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = { QuietButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
     )
 }

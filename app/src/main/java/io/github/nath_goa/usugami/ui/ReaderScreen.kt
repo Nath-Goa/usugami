@@ -35,19 +35,15 @@ import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -89,7 +85,11 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.EditStyle
 import io.github.nath_goa.usugami.core.ReaderGeometry
 import io.github.nath_goa.usugami.ui.kit.BarLine
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import io.github.nath_goa.usugami.ui.kit.WellField
@@ -268,7 +268,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                     UsugamiTopBar(
                         title = { BarTitle(stringResource(R.string.reader_annotate)) },
                         navigationIcon = {
-                            IconButton(onClick = ::backToReading) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.reader_back_to_reading)) }
+                            GlyphButton(onClick = ::backToReading) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.reader_back_to_reading)) }
                         },
                         line = BarLine.Always,
                     )
@@ -291,15 +291,15 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                     val title = if (preview) shown?.shown?.name else document ?: input?.name
                     UsugamiTopBar(
                         title = { BarTitle(title ?: stringResource(R.string.tool_reader)) },
-                        navigationIcon = { IconButton(onClick = actions.back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
+                        navigationIcon = { GlyphButton(onClick = actions.back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
                         actions = {
                             if (shown != null) {
-                                IconButton(onClick = {
+                                GlyphButton(onClick = {
                                     finding = true
                                     typing = true
                                 }) { Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.redact_find)) }
                                 if (!preview) {
-                                    IconButton(onClick = ::startAnnotating) { Icon(Icons.Rounded.EditNote, contentDescription = stringResource(R.string.reader_annotate)) }
+                                    GlyphButton(onClick = ::startAnnotating) { Icon(Icons.Rounded.EditNote, contentDescription = stringResource(R.string.reader_annotate)) }
                                 }
                                 MoreMenu(
                                     open = menu,
@@ -321,7 +321,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                     // While text is selected: Copy, over Save PDF when that shows too, which then clears the navigation bar.
                     if (selecting) ReaderCopyBar(onCopy = { selection?.copy(copyLabel) }, clearNavigationBar = !canSave)
                     if (canSave) {
-                        Button(
+                        PrimaryButton(
                             onClick = { vm.runEdit(fileName) },
                             enabled = !importing && !processing,
                             // Edge to edge: clear of the navigation bar, as every tool's button.
@@ -496,7 +496,7 @@ private fun MoreMenu(open: MutableState<Boolean>, saveAsPdf: (() -> Unit)?, acti
     @Composable
     fun Item(icon: ImageVector, text: Int, act: (() -> Unit)?) {
         if (act == null) return
-        DropdownMenuItem(
+        MenuItem(
             text = { Text(stringResource(text)) },
             leadingIcon = { Icon(icon, contentDescription = null) },
             onClick = {
@@ -508,7 +508,7 @@ private fun MoreMenu(open: MutableState<Boolean>, saveAsPdf: (() -> Unit)?, acti
         )
     }
     Box {
-        IconButton(onClick = { open.value = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.reader_more)) }
+        GlyphButton(onClick = { open.value = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.reader_more)) }
         DropdownMenu(expanded = open.value, onDismissRequest = { open.value = false }) {
             Item(Icons.Rounded.PictureAsPdf, R.string.reader_save_as_pdf, saveAsPdf)
             Item(Icons.Rounded.Share, R.string.share, actions.share)
@@ -535,7 +535,7 @@ private fun ConvertedNote(name: String, onSave: (() -> Unit)?) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text(stringResource(R.string.reader_converted_note, name), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-            if (onSave != null) TextButton(onClick = onSave) { Text(stringResource(R.string.reader_save_as_pdf)) }
+            if (onSave != null) QuietButton(onClick = onSave) { Text(stringResource(R.string.reader_save_as_pdf)) }
         }
     }
 }
@@ -562,7 +562,7 @@ private fun WorkingDialog(marking: BatchProgress?, onCancel: () -> Unit) {
         title = { Text(stringResource(if (marking != null) R.string.mark_adding else R.string.pdf_working)) },
         text = { LinearProgress(Modifier.fillMaxWidth()) },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = { QuietButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -581,7 +581,7 @@ private fun Opening(onCancel: () -> Unit, modifier: Modifier = Modifier) {
     ) {
         Text(stringResource(R.string.reader_opening), style = MaterialTheme.typography.titleMedium)
         LinearProgress(Modifier.fillMaxWidth())
-        TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
+        QuietButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
     }
 }
 
@@ -633,7 +633,7 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onSearch: () -> 
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (takeFocus) focus.requestFocus() }
     UsugamiTopBar(
-        navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.reader_find_close)) } },
+        navigationIcon = { GlyphButton(onClick = onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.reader_find_close)) } },
         title = {
             WellField(
                 value = query,
@@ -663,8 +663,8 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onSearch: () -> 
                             liveRegion = LiveRegionMode.Polite
                         },
                 )
-                IconButton(onClick = { onStep(-1) }) { Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = stringResource(R.string.reader_find_previous)) }
-                IconButton(onClick = { onStep(1) }) { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.reader_find_next)) }
+                GlyphButton(onClick = { onStep(-1) }) { Icon(Icons.Rounded.KeyboardArrowUp, contentDescription = stringResource(R.string.reader_find_previous)) }
+                GlyphButton(onClick = { onStep(1) }) { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.reader_find_next)) }
             }
         },
         line = BarLine.Always,
@@ -732,7 +732,7 @@ private fun GoToPageDialog(pageCount: Int, onGo: (page: Int) -> Unit, onDismiss:
                     .focusRequester(focus),
             )
         },
-        confirmButton = { TextButton(onClick = { page?.let(onGo) }, enabled = page != null) { Text(stringResource(R.string.reader_go)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        confirmButton = { QuietButton(onClick = { page?.let(onGo) }, enabled = page != null) { Text(stringResource(R.string.reader_go)) } },
+        dismissButton = { QuietButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

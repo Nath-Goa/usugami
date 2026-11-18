@@ -32,7 +32,6 @@ import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,6 +70,7 @@ import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.PageLooks
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
 import kotlinx.coroutines.CancellationException
@@ -332,7 +332,7 @@ private fun AdjustmentSlider(@StringRes label: Int, @StringRes reset: Int, value
                 },
             )
         }
-        IconButton(onClick = { onChange(0) }, enabled = value != 0) {
+        GlyphButton(onClick = { onChange(0) }, enabled = value != 0) {
             Icon(Icons.Rounded.RestartAlt, contentDescription = stringResource(reset))
         }
     }

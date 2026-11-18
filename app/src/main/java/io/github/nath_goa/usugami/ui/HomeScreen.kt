@@ -56,20 +56,16 @@ import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
 import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -97,6 +93,10 @@ import androidx.compose.ui.unit.sp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.ToolSearch
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import io.github.nath_goa.usugami.ui.kit.WellField
@@ -342,7 +342,7 @@ fun HomeScreen(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.home_title), wordmark = true) },
                 actions = {
-                    IconButton(onClick = onSettings) {
+                    GlyphButton(onClick = onSettings) {
                         Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.settings))
                     }
                 },
@@ -430,7 +430,7 @@ private fun RecentFilesSection(files: List<RecentFile>, actions: RecentFileActio
                     .weight(1f)
                     .semantics { heading() },
             )
-            TextButton(onClick = onSeeAll) { Text(stringResource(R.string.recent_see_all)) }
+            QuietButton(onClick = onSeeAll) { Text(stringResource(R.string.recent_see_all)) }
         }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             for (file in files.take(HOME_RECENT_FILES)) {
@@ -455,7 +455,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
         leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
         trailingIcon = if (query.isNotEmpty()) {
             {
-                IconButton(onClick = { onQueryChange("") }) {
+                GlyphButton(onClick = { onQueryChange("") }) {
                     Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.home_search_clear))
                 }
             }
@@ -553,14 +553,14 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onId
                 val size = if (stacked) wholeWordsFontSize(labels, style, maxWidth - ScanButtonChrome) else beside
                 val labelStyle = style.withEmLineHeight().copy(fontSize = size)
                 val takePhoto: @Composable (Modifier) -> Unit = { modifier ->
-                    Button(onClick = onTakePhoto, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                    PrimaryButton(onClick = onTakePhoto, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
                         Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(photo, style = labelStyle, textAlign = TextAlign.Center, autoSize = WholeWordsAutoSize(size))
                     }
                 }
                 val pick: @Composable (Modifier) -> Unit = { modifier ->
-                    OutlinedButton(onClick = onUpload, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+                    PaperButton(onClick = onUpload, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
                         Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(upload, style = labelStyle, textAlign = TextAlign.Center, autoSize = WholeWordsAutoSize(size))
@@ -580,10 +580,10 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onId
             }
             Spacer(Modifier.height(4.dp))
             // Quieter than the two above, in the card's own colour.
-            TextButton(
+            QuietButton(
                 onClick = onIdCard,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimaryContainer),
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
             ) {
                 Icon(Icons.Rounded.Badge, contentDescription = null, modifier = Modifier.size(18.dp))

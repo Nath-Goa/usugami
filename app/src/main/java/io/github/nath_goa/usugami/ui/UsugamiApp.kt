@@ -15,7 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +67,7 @@ import io.github.nath_goa.usugami.data.PdfSaver
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.office.DocumentSorter
 import io.github.nath_goa.usugami.data.office.OfficeKind
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import kotlinx.coroutines.CoroutineStart
@@ -766,6 +766,10 @@ fun UsugamiApp(
 
     var showConvertSheet by rememberSaveable { mutableStateOf(false) }
 
+    // A result's arrival plays once: not again after its preview, a rotation or Android restarting Usugami.
+    var resultGreeted by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(result == null && pdfResult == null) { if (result == null && pdfResult == null) resultGreeted = false }
+
     // Which screen is showing. The result screens sit one level deeper than their editors, which
     // sit one level deeper than home, and so do Recent files ("recent"), Settings ("settings"), About
     // ("settings/about") and Donate ("settings/donate"), and the texts About opens
@@ -1100,6 +1104,8 @@ fun UsugamiApp(
                         mark = mark,
                         marking = marking,
                         markPreview = markPreview,
+                        greeted = resultGreeted,
+                        onGreeted = { resultGreeted = true },
                     )
                 }
                 current.endsWith("/result") -> {
@@ -1166,6 +1172,8 @@ fun UsugamiApp(
                         marking = pdfMarking,
                         markPreview = pdfMarkPreview,
                         text = textPreviewOf(files),
+                        greeted = resultGreeted,
+                        onGreeted = { resultGreeted = true },
                     )
                 }
                 else -> {
@@ -1308,12 +1316,12 @@ fun UsugamiApp(
             title = { Text(stringResource(R.string.recent_lost_title)) },
             text = { Text(stringResource(R.string.recent_lost_body, file.name)) },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(onClick = {
                     lostFile = null
                     recent.remove(file)
                 }) { Text(stringResource(R.string.recent_remove)) }
             },
-            dismissButton = { TextButton(onClick = { lostFile = null }) { Text(stringResource(R.string.keep)) } },
+            dismissButton = { QuietButton(onClick = { lostFile = null }) { Text(stringResource(R.string.keep)) } },
         )
     }
 
@@ -1323,13 +1331,13 @@ fun UsugamiApp(
             title = { Text(stringResource(R.string.discard_title)) },
             text = { Text(stringResource(R.string.discard_body)) },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     confirmDiscard = false
                     vm.clearAll()
                     route = "home"
                 }) { Text(stringResource(R.string.discard)) }
             },
-            dismissButton = { TextButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.keep)) } },
+            dismissButton = { QuietButton(onClick = { confirmDiscard = false }) { Text(stringResource(R.string.keep)) } },
         )
     }
 
@@ -1338,7 +1346,7 @@ fun UsugamiApp(
             onDismissRequest = { discardWork = null },
             title = { Text(stringResource(R.string.tool_discard_title)) },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     discardWork = null
                     when (action) {
                         "leave" -> exitTool()
@@ -1347,7 +1355,7 @@ fun UsugamiApp(
                     }
                 }) { Text(stringResource(R.string.discard)) }
             },
-            dismissButton = { TextButton(onClick = { discardWork = null }) { Text(stringResource(R.string.keep)) } },
+            dismissButton = { QuietButton(onClick = { discardWork = null }) { Text(stringResource(R.string.keep)) } },
         )
     }
 
@@ -1387,7 +1395,7 @@ fun UsugamiApp(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     // Once: a second tap before the dialog has gone finds it answered.
                     if (confirmShare) {
                         confirmShare = false
@@ -1395,7 +1403,7 @@ fun UsugamiApp(
                     }
                 }) { Text(stringResource(R.string.discard)) }
             },
-            dismissButton = { TextButton(onClick = keepPdf) { Text(stringResource(R.string.keep)) } },
+            dismissButton = { QuietButton(onClick = keepPdf) { Text(stringResource(R.string.keep)) } },
         )
     }
 
@@ -1431,7 +1439,7 @@ fun UsugamiApp(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     // Once: a second tap before the dialog has gone finds it answered.
                     if (confirmShortcut != null) {
                         confirmShortcut = null
@@ -1439,7 +1447,7 @@ fun UsugamiApp(
                     }
                 }) { Text(stringResource(R.string.discard)) }
             },
-            dismissButton = { TextButton(onClick = { confirmShortcut = null }) { Text(stringResource(R.string.keep)) } },
+            dismissButton = { QuietButton(onClick = { confirmShortcut = null }) { Text(stringResource(R.string.keep)) } },
         )
     }
     // Files or images shared meanwhile bring their own question, which takes this one's place: two
@@ -1483,13 +1491,13 @@ fun UsugamiApp(
                 )
             },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     confirmLeavePdf = false
                     // The editor frees the tool's files once it has opened.
                     route = "images"
                 }) { Text(stringResource(R.string.discard)) }
             },
-            dismissButton = { TextButton(onClick = keepPdf) { Text(stringResource(R.string.keep)) } },
+            dismissButton = { QuietButton(onClick = keepPdf) { Text(stringResource(R.string.keep)) } },
         )
     }
 }

@@ -39,19 +39,15 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -102,7 +98,11 @@ import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.data.office.SheetOptions
 import io.github.nath_goa.usugami.ui.kit.ChoiceChip
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Sheet
@@ -245,12 +245,12 @@ fun PdfToolScreen(
             topBar = {
                 UsugamiTopBar(
                     title = { BarTitle(stringResource(title)) },
-                    navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
+                    navigationIcon = { GlyphButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
                     scrollBehavior = barScroll,
                 )
             },
             bottomBar = {
-                Button(
+                PrimaryButton(
                     onClick = {
                         when (tool) {
                             PdfTool.SPLIT -> vm.runSplit(splitMode, pageText, combine, fileName)
@@ -338,7 +338,7 @@ fun PdfToolScreen(
                             }
                         }
                     } else if (officeKind != null) {
-                        val add = @Composable { OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(addDocuments(officeKind))) } }
+                        val add = @Composable { PaperButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(addDocuments(officeKind))) } }
                         if (many) {
                             // What goes for all of them comes first, then each with the name its PDF gets.
                             OfficeNote(officeKind)
@@ -367,7 +367,7 @@ fun PdfToolScreen(
                             MergeInputs(inputs, vm, pageMode, onPageMode = { pageMode = it })
                             // The page list carries the gap above it, so the gap opens and closes with the list.
                             Column {
-                                OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
+                                PaperButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
                                 AnimatedVisibility(visible = pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page list") {
                                     Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                                         MergePages(inputs, pages, vm, drawn)
@@ -405,7 +405,7 @@ fun PdfToolScreen(
                         } else {
                             PdfInputCard(inputs[0], thumbnail = drawn(inputs[0]), onRemove = onRemove)
                             // More can be added, to work on all of them at once.
-                            if (tool.isBatch) OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
+                            if (tool.isBatch) PaperButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
                         }
                         if (!many) when (tool) {
                             PdfTool.SPLIT -> SplitOptions(
@@ -524,7 +524,7 @@ fun PdfToolScreen(
                 title = { Text(stringResource(R.string.mark_adding)) },
                 text = { if (marking.total > 1) BatchProgressText(marking) else LinearProgress(Modifier.fillMaxWidth()) },
                 confirmButton = {},
-                dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
+                dismissButton = { QuietButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
             )
         } else if (showWorking && officeKind != null) {
             OfficeProgressDialog(convertProgress, officeKind, onCancel = vm::cancel, many = many, batch = batchProgress)
@@ -541,7 +541,7 @@ fun PdfToolScreen(
                     }
                 },
                 confirmButton = {},
-                dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
+                dismissButton = { QuietButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
             )
         }
     }
@@ -657,7 +657,7 @@ private fun PdfBatchList(
         thumbnail = { id -> byId[id]?.let { PdfThumbnail(drawn(it), 0, Modifier.size(width = 44.dp, height = 58.dp)) } },
         options = options,
     )
-    OutlinedButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
+    PaperButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
 }
 
 /** A line under the choices a tool makes for several PDFs, saying they go for all of them. */
@@ -755,8 +755,8 @@ internal fun PasswordDialog(
                 )
             }
         },
-        confirmButton = { TextButton(onClick = { onUnlock(password) }, enabled = canUnlock) { Text(stringResource(R.string.pdf_unlock)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        confirmButton = { QuietButton(onClick = { onUnlock(password) }, enabled = canUnlock) { Text(stringResource(R.string.pdf_unlock)) } },
+        dismissButton = { QuietButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -773,7 +773,7 @@ private fun PdfInputCard(input: PdfInput, thumbnail: PdfInput, onRemove: () -> U
                 Text(stringResource(R.string.result_details, pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), Formatter.formatShortFileSize(context, input.file.length())),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, input.name)) }
+            GlyphButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, input.name)) }
         }
     }
 }
@@ -817,21 +817,21 @@ private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode:
                                 Text(pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), style = MaterialTheme.typography.bodySmall)
                             }
                             // Each file has these buttons, so their labels name the file they act on.
-                            IconButton(onClick = { vm.moveInput(input.id, -1) }, enabled = index > 0) {
+                            GlyphButton(onClick = { vm.moveInput(input.id, -1) }, enabled = index > 0) {
                                 Icon(Icons.Rounded.ArrowUpward, contentDescription = stringResource(R.string.move_file_earlier, input.name))
                             }
-                            IconButton(onClick = { vm.moveInput(input.id, 1) }, enabled = index < inputs.lastIndex) {
+                            GlyphButton(onClick = { vm.moveInput(input.id, 1) }, enabled = index < inputs.lastIndex) {
                                 Icon(Icons.Rounded.ArrowDownward, contentDescription = stringResource(R.string.move_file_later, input.name))
                             }
-                            IconButton(onClick = { vm.removeInput(input.id) }) {
+                            GlyphButton(onClick = { vm.removeInput(input.id) }) {
                                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, input.name))
                             }
                         }
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TextButton(onClick = { vm.sortInputs() }) { Text(stringResource(R.string.pdf_sort_az)) }
-                    TextButton(onClick = { vm.sortInputs(true) }) { Text(stringResource(R.string.pdf_sort_za)) }
+                    QuietButton(onClick = { vm.sortInputs() }) { Text(stringResource(R.string.pdf_sort_az)) }
+                    QuietButton(onClick = { vm.sortInputs(true) }) { Text(stringResource(R.string.pdf_sort_za)) }
                 }
             }
         }
@@ -842,7 +842,7 @@ private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode:
 @Composable
 private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfToolsViewModel, drawn: (PdfInput) -> PdfInput) {
     val byId = remember(inputs) { inputs.associateBy { it.id } }
-    TextButton(onClick = vm::resetPages) { Text(stringResource(R.string.pdf_reset_pages)) }
+    QuietButton(onClick = vm::resetPages) { Text(stringResource(R.string.pdf_reset_pages)) }
     val state = rememberLazyListState()
     val reorder = rememberReorderableLazyListState(state) { from, to ->
         val a = pages.firstOrNull { "${it.inputId}:${it.page}" == from.key }
@@ -878,10 +878,10 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                             PdfThumbnail(drawn(input), ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle })
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.merge_page_line, index + 1, input.name, ref.page + 1), modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            IconButton(onClick = { vm.rotatePage(ref, 90) }) {
+                            GlyphButton(onClick = { vm.rotatePage(ref, 90) }) {
                                 TurnIcon(clockwise = true, description = stringResource(R.string.rotate_page_right, index + 1))
                             }
-                            IconButton(onClick = { vm.removePage(ref) }) {
+                            GlyphButton(onClick = { vm.removePage(ref) }) {
                                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, index + 1))
                             }
                         }

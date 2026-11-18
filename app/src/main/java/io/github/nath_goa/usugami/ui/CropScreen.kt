@@ -42,18 +42,14 @@ import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -120,6 +116,10 @@ import io.github.nath_goa.usugami.data.OriginalImage
 import io.github.nath_goa.usugami.data.PageCropper
 import io.github.nath_goa.usugami.ui.kit.BarLine
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.Dispatchers
@@ -283,25 +283,25 @@ private fun CropSteps(
                         title = { StepTitle(title, place) },
                         navigationIcon = {
                             when {
-                                filters -> IconButton(onClick = { state.step = CropStep.CROP }) {
+                                filters -> GlyphButton(onClick = { state.step = CropStep.CROP }) {
                                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                                 }
                                 // A photo just taken, or an ID card's side being added, goes when left.
-                                session.fromCamera || session.cardScan || session.queued -> IconButton(onClick = actions.close) {
+                                session.fromCamera || session.cardScan || session.queued -> GlyphButton(onClick = actions.close) {
                                     val discard = session.fromCamera || session.cardScan
                                     Icon(Icons.Rounded.Close, contentDescription = stringResource(if (discard) R.string.crop_discard else R.string.crop_stop))
                                 }
-                                else -> IconButton(onClick = actions.close) {
+                                else -> GlyphButton(onClick = actions.close) {
                                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                                 }
                             }
                         },
                         // Rotate left and right: a quarter turn of the image, and of the page with it.
                         actions = {
-                            IconButton(onClick = { turn(-90) }) {
+                            GlyphButton(onClick = { turn(-90) }) {
                                 TurnIcon(clockwise = false, description = stringResource(R.string.crop_rotate_left))
                             }
-                            IconButton(onClick = { turn(90) }) {
+                            GlyphButton(onClick = { turn(90) }) {
                                 TurnIcon(clockwise = true, description = stringResource(R.string.crop_rotate_right))
                             }
                         },
@@ -387,7 +387,7 @@ private fun ScanWaiting(scan: ScanQueue?, live: Boolean, snackbar: SnackbarHostS
             UsugamiTopBar(
                 title = { StepTitle(stringResource(R.string.crop_title), scan?.let { stringResource(R.string.scan_place, it.place, it.total) }) },
                 navigationIcon = {
-                    IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.crop_stop)) }
+                    GlyphButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.crop_stop)) }
                 },
                 line = BarLine.Never,
                 subtitle = true,
@@ -651,7 +651,7 @@ internal class StepButton(
 internal fun StepButtons(main: StepButton, other: StepButton? = null) {
     val padding = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
     val mainButton = @Composable {
-        Button(onClick = main.onClick, enabled = main.enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+        PrimaryButton(onClick = main.onClick, enabled = main.enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
             StepButtonContent(main)
         }
     }
@@ -661,7 +661,7 @@ internal fun StepButtons(main: StepButton, other: StepButton? = null) {
     }
     Layout(
         content = {
-            OutlinedButton(onClick = other.onClick, enabled = other.enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+            PaperButton(onClick = other.onClick, enabled = other.enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
                 StepButtonContent(other)
             }
             mainButton()
@@ -756,18 +756,18 @@ private fun CropControls(
             style = MaterialTheme.typography.labelLarge,
             modifier = Modifier.weight(1f),
         )
-        IconButton(onClick = { onNudge(-1, 0) }, enabled = across) { Icon(Icons.Rounded.West, contentDescription = stringResource(R.string.edit_move_left)) }
-        IconButton(onClick = { onNudge(0, -1) }, enabled = upDown) { Icon(Icons.Rounded.North, contentDescription = stringResource(R.string.edit_move_up)) }
-        IconButton(onClick = { onNudge(0, 1) }, enabled = upDown) { Icon(Icons.Rounded.South, contentDescription = stringResource(R.string.edit_move_down)) }
-        IconButton(onClick = { onNudge(1, 0) }, enabled = across) { Icon(Icons.Rounded.East, contentDescription = stringResource(R.string.edit_move_right)) }
+        GlyphButton(onClick = { onNudge(-1, 0) }, enabled = across) { Icon(Icons.Rounded.West, contentDescription = stringResource(R.string.edit_move_left)) }
+        GlyphButton(onClick = { onNudge(0, -1) }, enabled = upDown) { Icon(Icons.Rounded.North, contentDescription = stringResource(R.string.edit_move_up)) }
+        GlyphButton(onClick = { onNudge(0, 1) }, enabled = upDown) { Icon(Icons.Rounded.South, contentDescription = stringResource(R.string.edit_move_down)) }
+        GlyphButton(onClick = { onNudge(1, 0) }, enabled = across) { Icon(Icons.Rounded.East, contentDescription = stringResource(R.string.edit_move_right)) }
     }
     FlowRow(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.Center) {
-        TextButton(onClick = onReset) {
+        QuietButton(onClick = onReset) {
             Icon(Icons.Rounded.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.crop_reset))
         }
-        TextButton(onClick = onWhole) {
+        QuietButton(onClick = onWhole) {
             Icon(Icons.Rounded.CropFree, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.crop_whole))

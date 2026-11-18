@@ -27,7 +27,6 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -67,6 +66,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.data.MarkSetting
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
@@ -116,7 +116,7 @@ internal fun MarkCard(
                 )
             }
             val turn by animateFloatAsState(if (open) 180f else 0f, Motion.medium(), label = "markArrow")
-            IconButton(
+            GlyphButton(
                 onClick = { open = !open },
                 modifier = Modifier.semantics {
                     if (open) collapse { open = false; true } else expand { open = true; true }

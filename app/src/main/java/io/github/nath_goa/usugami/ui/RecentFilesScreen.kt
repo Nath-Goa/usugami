@@ -28,16 +28,13 @@ import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -73,6 +70,9 @@ import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.ZipArchive
 import io.github.nath_goa.usugami.data.PdfSaver
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
@@ -121,12 +121,12 @@ fun RecentFilesScreen(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.recent_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    GlyphButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
-                    if (files.isNotEmpty()) TextButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.recent_clear)) }
+                    if (files.isNotEmpty()) QuietButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.recent_clear)) }
                 },
             )
         },
@@ -171,7 +171,7 @@ fun RecentFilesScreen(
             title = { Text(stringResource(R.string.recent_clear_title)) },
             text = { Text(stringResource(R.string.recent_clear_body)) },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     // Once: a second tap before the dialog has gone finds it answered.
                     if (confirmClear) {
                         confirmClear = false
@@ -179,7 +179,7 @@ fun RecentFilesScreen(
                     }
                 }) { Text(stringResource(R.string.recent_clear)) }
             },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
+            dismissButton = { QuietButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -247,32 +247,32 @@ internal fun RecentFileRow(
             }
             Box {
                 // A screen reader has the menu's choices as the row's actions instead.
-                IconButton(onClick = { menu.value = file.uri }, modifier = Modifier.clearAndSetSemantics {}) {
+                GlyphButton(onClick = { menu.value = file.uri }, modifier = Modifier.clearAndSetSemantics {}) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = null)
                 }
                 // The items can still be tapped while the menu fades out: only the first tap counts.
                 DropdownMenu(expanded = menuOpen(), onDismissRequest = { if (menuOpen()) menu.value = null }) {
-                    MenuItem(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open)) {
+                    FileMenuItem(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open)) {
                         if (menuOpen()) {
                             menu.value = null
                             actions.open(file)
                         }
                     }
-                    MenuItem(Icons.Rounded.Share, share) {
+                    FileMenuItem(Icons.Rounded.Share, share) {
                         if (menuOpen()) {
                             menu.value = null
                             actions.share(file)
                         }
                     }
                     if (onPrint != null) {
-                        MenuItem(Icons.Rounded.Print, print) {
+                        FileMenuItem(Icons.Rounded.Print, print) {
                             if (menuOpen()) {
                                 menu.value = null
                                 onPrint(file)
                             }
                         }
                     }
-                    MenuItem(Icons.Rounded.RemoveCircleOutline, remove) {
+                    FileMenuItem(Icons.Rounded.RemoveCircleOutline, remove) {
                         if (menuOpen()) {
                             menu.value = null
                             actions.remove(file)
@@ -285,8 +285,8 @@ internal fun RecentFileRow(
 }
 
 @Composable
-private fun MenuItem(icon: ImageVector, text: String, onClick: () -> Unit) {
-    DropdownMenuItem(text = { Text(text) }, leadingIcon = { Icon(icon, contentDescription = null) }, onClick = onClick)
+private fun FileMenuItem(icon: ImageVector, text: String, onClick: () -> Unit) {
+    MenuItem(text = { Text(text) }, leadingIcon = { Icon(icon, contentDescription = null) }, onClick = onClick)
 }
 
 /**

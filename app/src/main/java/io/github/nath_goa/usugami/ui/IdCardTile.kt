@@ -17,13 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Crop
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -48,6 +44,10 @@ import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.PaperGlyphButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 
 /**
@@ -80,7 +80,7 @@ fun IdCardTile(
             // from the page before), as on any page.
             Box(Modifier.align(Alignment.TopEnd)) {
                 var menu by remember { mutableStateOf(false) }
-                FilledTonalIconButton(
+                PaperGlyphButton(
                     onClick = { if (sides.size == 1) actions.crop(sides[0].id) else menu = true },
                     enabled = sides.any { it.id !in cropping },
                 ) {
@@ -88,7 +88,7 @@ fun IdCardTile(
                 }
                 DropdownMenu(expanded = menu && sides.size > 1, onDismissRequest = { menu = false }) {
                     sides.forEachIndexed { i, side ->
-                        DropdownMenuItem(
+                        MenuItem(
                             text = { Text(stringResource(if (i == 0) R.string.card_crop_front else R.string.card_crop_back)) },
                             enabled = side.id !in cropping,
                             onClick = {
@@ -121,7 +121,7 @@ fun IdCardTile(
                 val label = stringResource(R.string.scan_pane_title, stringResource(R.string.card_add_back), stringResource(R.string.pdf_page_number, pageNumber))
                 // On a narrow tile in large text it shrinks a little, as the editor's bottom buttons do, rather
                 // than being cut off.
-                TextButton(
+                QuietButton(
                     onClick = { actions.addCardBack(sides[0].card) },
                     modifier = Modifier.weight(1f).semantics { contentDescription = label },
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
@@ -138,7 +138,7 @@ fun IdCardTile(
             } else {
                 Spacer(Modifier.weight(1f))
             }
-            IconButton(onClick = { actions.remove(sides[0].id) }) {
+            GlyphButton(onClick = { actions.remove(sides[0].id) }) {
                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_page, pageNumber))
             }
         }

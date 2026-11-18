@@ -42,13 +42,10 @@ import androidx.compose.material.icons.rounded.Square
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -93,6 +90,9 @@ import io.github.nath_goa.usugami.core.ShapeKind
 import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.data.PageText
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
 import io.github.nath_goa.usugami.ui.kit.WellField
@@ -224,10 +224,10 @@ internal fun EditPdfOptions(
                 else -> R.string.edit_hint_start
             }
             Text(stringResource(hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            IconButton(onClick = { vm.undoEdit()?.let(::showPage) }, enabled = canUndo) {
+            GlyphButton(onClick = { vm.undoEdit()?.let(::showPage) }, enabled = canUndo) {
                 Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = stringResource(R.string.undo))
             }
-            IconButton(onClick = { vm.redoEdit()?.let(::showPage) }, enabled = canRedo) {
+            GlyphButton(onClick = { vm.redoEdit()?.let(::showPage) }, enabled = canRedo) {
                 Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = stringResource(R.string.redo))
             }
         }
@@ -340,7 +340,7 @@ private fun EditToolbar(
                     ShapeChoice(ShapeKind.LINE, false, R.string.edit_item_line, Icons.Rounded.HorizontalRule),
                     ShapeChoice(ShapeKind.ARROW, false, R.string.edit_item_arrow, Icons.AutoMirrored.Rounded.ArrowRightAlt),
                 )) {
-                    DropdownMenuItem(
+                    MenuItem(
                         text = { Text(stringResource(label)) },
                         leadingIcon = { Icon(icon, contentDescription = null) },
                         onClick = {
@@ -467,9 +467,9 @@ private fun EditProperties(
                     )
                     // Icons only, so the item's name keeps its room in any language.
                     if (item is TextItem) {
-                        IconButton(onClick = onEditText) { Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_text_change)) }
+                        GlyphButton(onClick = onEditText) { Icon(Icons.Rounded.Edit, contentDescription = stringResource(R.string.edit_text_change)) }
                     }
-                    IconButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.edit_delete)) }
+                    GlyphButton(onClick = onDelete) { Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.edit_delete)) }
                 }
                 val step = NUDGE * min(pageWidth, pageHeight)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
@@ -481,7 +481,7 @@ private fun EditProperties(
                     )) {
                         val target = EditLayout.moved(item, dx, dy, pageWidth, pageHeight)
                         // Off once the item is against that edge of the page.
-                        IconButton(onClick = { onMove(dx, dy) }, enabled = target != item) {
+                        GlyphButton(onClick = { onMove(dx, dy) }, enabled = target != item) {
                             Icon(icon, contentDescription = stringResource(label))
                         }
                     }
@@ -691,8 +691,8 @@ private fun EditTextDialog(initial: String, @StringRes title: Int, onDone: (Stri
             )
         },
         confirmButton = {
-            TextButton(onClick = { onDone(text.trim()) }, enabled = text.isNotBlank() && drawable) { Text(stringResource(R.string.sign_done)) }
+            QuietButton(onClick = { onDone(text.trim()) }, enabled = text.isNotBlank() && drawable) { Text(stringResource(R.string.sign_done)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = { QuietButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

@@ -18,7 +18,6 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +39,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ExportText
 import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -125,7 +125,7 @@ internal fun ResultTextCard(preview: TextPreview, enabled: Boolean, onCopy: () -
                     modifier = Modifier.padding(start = 12.dp).weight(1f),
                 )
                 val copyText = stringResource(R.string.copy_text)
-                TextButton(onClick = onCopy, enabled = enabled, modifier = Modifier.semantics { contentDescription = copyText }) {
+                QuietButton(onClick = onCopy, enabled = enabled, modifier = Modifier.semantics { contentDescription = copyText }) {
                     Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.copy))
@@ -153,7 +153,7 @@ internal fun ResultTextCard(preview: TextPreview, enabled: Boolean, onCopy: () -
                 )
             }
             if (expanded || cut) {
-                TextButton(onClick = { expanded = !expanded }) {
+                QuietButton(onClick = { expanded = !expanded }) {
                     Text(stringResource(if (expanded) R.string.show_less else R.string.show_more))
                 }
             } else {

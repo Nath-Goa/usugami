@@ -38,7 +38,6 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -74,6 +73,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.TextBlock
 import io.github.nath_goa.usugami.data.Edition
 import io.github.nath_goa.usugami.data.LegalDocument
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -99,7 +99,7 @@ fun AboutScreen(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.about_title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    GlyphButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
@@ -240,7 +240,7 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(document.title)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    GlyphButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },

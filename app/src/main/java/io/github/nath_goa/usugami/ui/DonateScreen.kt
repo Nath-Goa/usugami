@@ -18,11 +18,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -39,6 +37,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 
 /**
@@ -57,7 +57,7 @@ fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: 
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.settings_donate)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    GlyphButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
@@ -77,7 +77,7 @@ fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: 
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Button(onClick = onOpenGitHub, modifier = Modifier.padding(top = 8.dp)) {
+                PrimaryButton(onClick = onOpenGitHub, modifier = Modifier.padding(top = 8.dp)) {
                     Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
                     Spacer(Modifier.width(ButtonDefaults.IconSpacing))
                     Text(stringResource(R.string.donate_open_github))

@@ -40,15 +40,11 @@ import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -85,6 +81,10 @@ import io.github.nath_goa.usugami.core.PageChoice
 import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.WellField
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
@@ -214,10 +214,10 @@ internal fun ReorganizeOptions(
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
             )
-            TextButton(onClick = ::selectAllOrNone, enabled = pages.isNotEmpty()) {
+            QuietButton(onClick = ::selectAllOrNone, enabled = pages.isNotEmpty()) {
                 Text(stringResource(if (everySelected) R.string.reorganize_select_none else R.string.reorganize_select_all))
             }
-            IconButton(onClick = vm::undo, enabled = canUndo) {
+            GlyphButton(onClick = vm::undo, enabled = canUndo) {
                 Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = stringResource(R.string.undo))
             }
         }
@@ -241,7 +241,7 @@ internal fun ReorganizeOptions(
             },
             trailingIcon = if (text.isEmpty()) null else {
                 {
-                    IconButton(onClick = {
+                    GlyphButton(onClick = {
                         typed = ""
                         showProblem = false
                         keepOne = false
@@ -334,7 +334,7 @@ internal fun ReorganizeOptions(
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             AddPagesButton(enabled = !importing, onAddPdf = { onAddPdf(after) }, onAddBlank = { vm.addBlankPage(after) })
-            TextButton(onClick = vm::resetToOriginal, enabled = changed) { Text(stringResource(R.string.pdf_reset_pages)) }
+            QuietButton(onClick = vm::resetToOriginal, enabled = changed) { Text(stringResource(R.string.pdf_reset_pages)) }
         }
     }
 }
@@ -375,31 +375,31 @@ private fun PageActions(pages: List<PdfPageRef>, places: List<Int>, vm: PdfTools
             if (one != null) {
                 val index = places[0]
                 val number = index + 1
-                IconButton(onClick = { vm.movePageBy(one, -1) }, enabled = index > 0) {
+                GlyphButton(onClick = { vm.movePageBy(one, -1) }, enabled = index > 0) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.move_page_earlier, number))
                 }
-                IconButton(onClick = { vm.movePageBy(one, 1) }, enabled = index < pages.lastIndex) {
+                GlyphButton(onClick = { vm.movePageBy(one, 1) }, enabled = index < pages.lastIndex) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = stringResource(R.string.move_page_later, number))
                 }
-                IconButton(onClick = { vm.rotateChosen(-90) }) {
+                GlyphButton(onClick = { vm.rotateChosen(-90) }) {
                     TurnIcon(clockwise = false, description = stringResource(R.string.rotate_page_left, number))
                 }
-                IconButton(onClick = { vm.rotateChosen(90) }) {
+                GlyphButton(onClick = { vm.rotateChosen(90) }) {
                     TurnIcon(clockwise = true, description = stringResource(R.string.rotate_page_right, number))
                 }
                 // Also for the only page: pressed, it says a PDF keeps at least one.
-                IconButton(onClick = onRemove) {
+                GlyphButton(onClick = onRemove) {
                     Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.remove_page, number))
                 }
             } else if (any) {
-                IconButton(onClick = { vm.rotateChosen(-90) }) {
+                GlyphButton(onClick = { vm.rotateChosen(-90) }) {
                     TurnIcon(clockwise = false, description = stringResource(R.string.rotate_selected_left))
                 }
-                IconButton(onClick = { vm.rotateChosen(90) }) {
+                GlyphButton(onClick = { vm.rotateChosen(90) }) {
                     TurnIcon(clockwise = true, description = stringResource(R.string.rotate_selected_right))
                 }
                 // With every page selected, pressed, it says a PDF keeps at least one.
-                IconButton(onClick = onRemove) {
+                GlyphButton(onClick = onRemove) {
                     Icon(Icons.Rounded.Delete, contentDescription = pluralStringResource(R.plurals.remove_selected_pages, places.size, places.size))
                 }
             }
@@ -510,14 +510,14 @@ private fun BlankPage(ref: PdfPageRef, modifier: Modifier) {
 private fun AddPagesButton(enabled: Boolean, onAddPdf: () -> Unit, onAddBlank: () -> Unit) {
     var open by rememberSaveable { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { open = true }, enabled = enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
+        PaperButton(onClick = { open = true }, enabled = enabled, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
             Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.reorganize_add))
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             // An entry tapped again, or the other one, while the menu fades away adds nothing more.
-            DropdownMenuItem(
+            MenuItem(
                 text = { Text(stringResource(R.string.reorganize_add_pdf)) },
                 leadingIcon = { Icon(Icons.Rounded.PictureAsPdf, contentDescription = null) },
                 onClick = {
@@ -527,7 +527,7 @@ private fun AddPagesButton(enabled: Boolean, onAddPdf: () -> Unit, onAddBlank: (
                     }
                 },
             )
-            DropdownMenuItem(
+            MenuItem(
                 text = { Text(stringResource(R.string.reorganize_add_blank)) },
                 leadingIcon = { Icon(Icons.AutoMirrored.Rounded.NoteAdd, contentDescription = null) },
                 onClick = {

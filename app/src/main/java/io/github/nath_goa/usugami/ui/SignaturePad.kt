@@ -27,12 +27,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -71,6 +68,9 @@ import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.ui.kit.BarLine
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlin.math.hypot
 
@@ -107,13 +107,13 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
                     // safe drawing area). What lies beside it there is the pad's ground, as the bar is.
                     modifier = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
                     navigationIcon = {
-                        IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cancel)) }
+                        GlyphButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cancel)) }
                     },
                     line = BarLine.Never,
                 )
             },
             bottomBar = {
-                Button(
+                PrimaryButton(
                     onClick = { onDone(drawing.addedTo(draft)) },
                     enabled = !draft.isEmpty,
                     modifier = Modifier
@@ -140,7 +140,7 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
                     Spacer(Modifier.width(8.dp))
                     ColorSwatches(SignatureInk.entries, draft.ink, onSelect = { draft = draft.withInk(it) }, argb = { it.argb }, label = ::inkLabel)
                     Spacer(Modifier.weight(1f))
-                    OutlinedButton(onClick = {
+                    PaperButton(onClick = {
                         draft = draft.cleared()
                         drawing.drop()
                     }, enabled = !draft.isEmpty) { Text(stringResource(R.string.sign_clear)) }

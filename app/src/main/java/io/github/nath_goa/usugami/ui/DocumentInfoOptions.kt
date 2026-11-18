@@ -17,9 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +51,8 @@ import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.documentDetails
 import io.github.nath_goa.usugami.data.setDocumentInfo
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -107,11 +107,11 @@ internal fun DocumentInfoOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsV
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                     )
-                    TextButton(onClick = state::undoRemoveAll, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.undo)) }
+                    QuietButton(onClick = state::undoRemoveAll, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.undo)) }
                 }
             } else {
                 Column {
-                    OutlinedButton(onClick = state::removeAll) { Text(stringResource(R.string.docinfo_remove_all)) }
+                    PaperButton(onClick = state::removeAll) { Text(stringResource(R.string.docinfo_remove_all)) }
                     Text(
                         stringResource(R.string.docinfo_remove_all_hint),
                         style = MaterialTheme.typography.bodySmall,

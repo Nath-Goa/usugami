@@ -35,7 +35,6 @@ import androidx.compose.material.icons.rounded.North
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -77,6 +76,7 @@ import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.Signature
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
@@ -302,7 +302,7 @@ internal typealias SignatureMove = (SignaturePlacement?) -> SignaturePlacement
 /** Moves the signature by [move]; off once it is against that edge of the page. */
 @Composable
 private fun NudgeButton(icon: ImageVector, @StringRes label: Int, move: SignatureMove, current: SignaturePlacement, onNudge: (SignatureMove) -> Unit) {
-    IconButton(onClick = { onNudge(move) }, enabled = move(current) != current) {
+    GlyphButton(onClick = { onNudge(move) }, enabled = move(current) != current) {
         Icon(icon, contentDescription = stringResource(label))
     }
 }

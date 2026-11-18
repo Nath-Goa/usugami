@@ -24,13 +24,9 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -49,6 +45,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.TonalButton
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 
 /**
@@ -79,7 +79,7 @@ fun IdCardScreen(
             UsugamiTopBar(
                 title = { BarTitle(title) },
                 navigationIcon = {
-                    IconButton(onClick = onEnd) {
+                    GlyphButton(onClick = onEnd) {
                         Icon(Icons.Rounded.Close, contentDescription = stringResource(if (front) R.string.cancel else R.string.card_no_back))
                     }
                 },
@@ -128,20 +128,20 @@ fun IdCardScreen(
                 )
             }
             Spacer(Modifier.height(32.dp))
-            Button(onClick = onTakePhoto, enabled = !busy, modifier = Modifier.widthIn(min = 220.dp)) {
+            PrimaryButton(onClick = onTakePhoto, enabled = !busy, modifier = Modifier.widthIn(min = 220.dp)) {
                 Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.add_from_camera))
             }
             Spacer(Modifier.height(8.dp))
-            FilledTonalButton(onClick = onChooseImage, enabled = !busy, modifier = Modifier.widthIn(min = 220.dp)) {
+            TonalButton(onClick = onChooseImage, enabled = !busy, modifier = Modifier.widthIn(min = 220.dp)) {
                 Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.card_choose_image))
             }
             if (!front) {
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = onEnd, modifier = Modifier.widthIn(min = 220.dp)) {
+                PaperButton(onClick = onEnd, modifier = Modifier.widthIn(min = 220.dp)) {
                     Text(stringResource(R.string.card_no_back))
                 }
             }

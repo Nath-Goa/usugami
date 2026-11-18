@@ -24,13 +24,11 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,6 +58,8 @@ import io.github.nath_goa.usugami.data.Edition
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Usugami
@@ -228,7 +228,7 @@ fun ConvertSheet(
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
-            Button(onClick = create, enabled = !importing && !saving, modifier = Modifier.fillMaxWidth()) {
+            PrimaryButton(onClick = create, enabled = !importing && !saving, modifier = Modifier.fillMaxWidth()) {
                 AnimatedContent(
                     targetState = oneFile,
                     transitionSpec = { textSwap() },
@@ -334,7 +334,7 @@ fun ProgressDialog(progress: Progress, cancelling: Boolean, onCancel: () -> Unit
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onCancel, enabled = !cancelling) {
+            QuietButton(onClick = onCancel, enabled = !cancelling) {
                 Text(stringResource(if (cancelling) R.string.cancelling else R.string.cancel))
             }
         },
@@ -370,7 +370,7 @@ fun OcrProblemDialog(problem: OcrProblem, @StringRes retry: Int = R.string.ocr_p
                 Text(stringResource(retry))
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) } },
+        confirmButton = { QuietButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) } },
     )
 }
 

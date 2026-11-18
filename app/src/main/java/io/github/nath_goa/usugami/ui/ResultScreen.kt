@@ -44,21 +44,15 @@ import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.SaveAs
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -92,8 +86,14 @@ import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.PaperButton
+import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.TonalButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
@@ -150,6 +150,9 @@ fun ResultScreen(
     markPreview: MarkPreview? = null,
     /** The beginning of the text file made, shown under it with Copy (see [ResultTextCard]). */
     text: TextPreview? = null,
+    /** Whether this result's arrival has played ([onGreeted] says it has): it plays once per result. */
+    greeted: Boolean = true,
+    onGreeted: () -> Unit = {},
 ) {
     var confirmStartOver by rememberSaveable { mutableStateOf(false) }
     val single = files.size == 1
@@ -176,7 +179,7 @@ fun ResultScreen(
                 title = { BarTitle(stringResource(R.string.result_title)) },
                 navigationIcon = {
                     // Not while saving: leaving and converting again would replace the files being saved.
-                    IconButton(onClick = actions.back, enabled = !busy) {
+                    GlyphButton(onClick = actions.back, enabled = !busy) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back_to_editing))
                     }
                 },
@@ -340,7 +343,7 @@ fun ResultScreen(
                     }
                     Spacer(Modifier.height(16.dp))
                     // Not while saving: starting over deletes the files being saved.
-                    TextButton(onClick = { if (saved) actions.startOver() else confirmStartOver = true }, enabled = !busy) {
+                    QuietButton(onClick = { if (saved) actions.startOver() else confirmStartOver = true }, enabled = !busy) {
                         Icon(Icons.Rounded.RestartAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
                         Text(stringResource(R.string.start_over))
@@ -356,12 +359,12 @@ fun ResultScreen(
             title = { Text(stringResource(R.string.start_over_title)) },
             text = { Text(stringResource(R.string.not_saved_note)) },
             confirmButton = {
-                TextButton(onClick = {
+                QuietButton(danger = true, onClick = {
                     confirmStartOver = false
                     actions.startOver()
                 }) { Text(stringResource(R.string.start_over)) }
             },
-            dismissButton = { TextButton(onClick = { confirmStartOver = false }) { Text(stringResource(R.string.cancel)) } },
+            dismissButton = { QuietButton(onClick = { confirmStartOver = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -374,7 +377,7 @@ private fun ZipButton(enabled: Boolean, onShare: () -> Unit, onSave: () -> Unit)
         WideButton(Icons.Rounded.FolderZip, stringResource(R.string.zip_button), Modifier.fillMaxWidth(), enabled = enabled) { menu = true }
         // The items can still be tapped while the menu fades out: only the first tap counts.
         DropdownMenu(expanded = menu && enabled, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(
+            MenuItem(
                 text = { Text(stringResource(R.string.zip_share)) },
                 leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
                 onClick = {
@@ -384,7 +387,7 @@ private fun ZipButton(enabled: Boolean, onShare: () -> Unit, onSave: () -> Unit)
                     }
                 },
             )
-            DropdownMenuItem(
+            MenuItem(
                 text = { Text(stringResource(R.string.zip_save)) },
                 leadingIcon = { Icon(Icons.Rounded.SaveAs, contentDescription = null) },
                 onClick = {
@@ -433,7 +436,7 @@ private fun ZipDialog(progress: ZipProgress, onCancel: () -> Unit) {
             }
         },
         confirmButton = {},
-        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
+        dismissButton = { QuietButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -467,12 +470,12 @@ private fun FileRow(file: PdfFile, showOpen: Boolean, canOpen: Boolean, onOpen: 
             Spacer(Modifier.width(12.dp))
             FileDetails(file, Modifier.weight(1f))
             if (showOpen) {
-                IconButton(onClick = onOpen, enabled = canOpen) {
+                GlyphButton(onClick = onOpen, enabled = canOpen) {
                     // One per file, so the label names the file.
                     Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = stringResource(R.string.open_file, file.name))
                 }
                 if (onPrint != null) {
-                    IconButton(onClick = onPrint, enabled = canOpen) {
+                    GlyphButton(onClick = onPrint, enabled = canOpen) {
                         Icon(Icons.Rounded.Print, contentDescription = stringResource(R.string.print_file, file.name))
                     }
                 }
@@ -577,18 +580,18 @@ private fun OwnFileRow(
             val printLabel = stringResource(R.string.print_file, file.name)
             // Their icons line up with the file's.
             FlowRow(Modifier.padding(start = 8.dp)) {
-                TextButton(onClick = onOpen, enabled = canOpen, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = openLabel }) {
+                QuietButton(onClick = onOpen, enabled = canOpen, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = openLabel }) {
                     RowButtonContent(Icons.AutoMirrored.Rounded.OpenInNew, stringResource(R.string.open))
                 }
                 if (onShare != null) {
-                    TextButton(onClick = onShare, enabled = canShare, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = shareLabel }) {
+                    QuietButton(onClick = onShare, enabled = canShare, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = shareLabel }) {
                         RowButtonContent(Icons.Rounded.Share, stringResource(R.string.share))
                     }
                 }
                 // Read when tapped, not when drawn: a second tap before the screen is drawn again finds it closed.
                 fun menuOpen() = saveMenu.value == file.name
                 Box {
-                    TextButton(
+                    QuietButton(
                         // With Downloads to save to, a menu offers it and "Save as"; otherwise "Save as" opens.
                         onClick = { if (onSaveToDownloads != null) saveMenu.value = file.name else onSaveAs() },
                         enabled = canSave,
@@ -599,7 +602,7 @@ private fun OwnFileRow(
                     }
                     // The items can still be tapped while the menu fades out: only the first tap counts.
                     DropdownMenu(expanded = menuOpen() && canSave, onDismissRequest = { if (menuOpen()) saveMenu.value = null }) {
-                        DropdownMenuItem(
+                        MenuItem(
                             text = { Text(stringResource(R.string.save_to_downloads)) },
                             leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null) },
                             onClick = {
@@ -609,7 +612,7 @@ private fun OwnFileRow(
                                 }
                             },
                         )
-                        DropdownMenuItem(
+                        MenuItem(
                             text = { Text(stringResource(R.string.save_as)) },
                             leadingIcon = { Icon(Icons.Rounded.SaveAs, contentDescription = null) },
                             onClick = {
@@ -622,7 +625,7 @@ private fun OwnFileRow(
                     }
                 }
                 if (onPrint != null) {
-                    TextButton(onClick = onPrint, enabled = canPrint, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = printLabel }) {
+                    QuietButton(onClick = onPrint, enabled = canPrint, contentPadding = RowButtonPadding, modifier = Modifier.semantics { contentDescription = printLabel }) {
                         RowButtonContent(Icons.Rounded.Print, stringResource(R.string.print))
                     }
                 }
@@ -670,8 +673,8 @@ private fun WideButton(
         }
     }
     when {
-        primary -> Button(onClick = onClick, enabled = enabled, modifier = modifier) { content() }
-        tonal -> FilledTonalButton(onClick = onClick, enabled = enabled, modifier = modifier) { content() }
-        else -> OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier) { content() }
+        primary -> PrimaryButton(onClick = onClick, enabled = enabled, modifier = modifier) { content() }
+        tonal -> TonalButton(onClick = onClick, enabled = enabled, modifier = modifier) { content() }
+        else -> PaperButton(onClick = onClick, enabled = enabled, modifier = modifier) { content() }
     }
 }
