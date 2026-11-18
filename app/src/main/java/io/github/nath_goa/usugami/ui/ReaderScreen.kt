@@ -1,23 +1,20 @@
 package io.github.nath_goa.usugami.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
@@ -42,7 +39,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -73,8 +69,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -84,12 +80,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.EditStyle
 import io.github.nath_goa.usugami.core.ReaderGeometry
+import io.github.nath_goa.usugami.ui.kit.ActionBar
 import io.github.nath_goa.usugami.ui.kit.BarLine
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.PagePill
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import io.github.nath_goa.usugami.ui.kit.WellField
@@ -317,25 +316,33 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                 }
             },
             bottomBar = {
-                Column {
-                    // While text is selected: Copy, over Save PDF when that shows too, which then clears the navigation bar.
-                    if (selecting) ReaderCopyBar(onCopy = { selection?.copy(copyLabel) }, clearNavigationBar = !canSave)
-                    if (canSave) {
-                        PrimaryButton(
-                            onClick = { vm.runEdit(fileName) },
-                            enabled = !importing && !processing,
-                            // Edge to edge: clear of the navigation bar, as every tool's button.
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .windowInsetsPadding(WindowInsets.navigationBars)
-                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                // Nothing at all while there is neither: the pages then run under the navigation bar.
+                if (selecting || canSave) {
+                    ActionBar(clearNavigationBar = true) {
+                        Column(
+                            Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(stringResource(R.string.pdf_edit_action))
+                            // While text is selected: Copy, over Save PDF when that shows too.
+                            if (selecting) ReaderCopyBar(onCopy = { selection?.copy(copyLabel) })
+                            if (canSave) {
+                                PrimaryButton(
+                                    onClick = { vm.runEdit(fileName) },
+                                    enabled = !importing && !processing,
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Text(stringResource(R.string.pdf_edit_action))
+                                }
+                            }
                         }
                     }
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },
+            // The action bar's round corners open onto the desk, as the pages' margins do.
+            containerColor = if (shown != null && !annotate) Usugami.colors.desk else MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onBackground,
         ) { padding ->
             val direction = LocalLayoutDirection.current
             // The pages alone run under the navigation bar, and clear it at their end.
@@ -413,7 +420,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                                     progress = { found.pagesDone.toFloat() / maxOf(1, shown.document.pageCount) },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(2.dp)
+                                        .height(3.dp)
                                         .align(Alignment.TopCenter),
                                 )
                             }
@@ -426,7 +433,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                     LinearProgress(
                         Modifier
                             .fillMaxWidth()
-                            .height(2.dp)
+                            .height(3.dp)
                             .align(Alignment.TopCenter),
                     )
                 }
@@ -526,17 +533,19 @@ private fun MoreMenu(open: MutableState<Boolean>, saveAsPdf: (() -> Unit)?, acti
  */
 @Composable
 private fun ConvertedNote(name: String, onSave: (() -> Unit)?) {
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(stringResource(R.string.reader_converted_note, name), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-            if (onSave != null) QuietButton(onClick = onSave) { Text(stringResource(R.string.reader_save_as_pdf)) }
-        }
+    val onLilac = Usugami.colors.onLilac
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(Usugami.colors.lilac)
+            // The node its surface was until 3.0, so the tree a device test reads stays as it was (R17).
+            .semantics { isTraversalGroup = true }
+            .padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(stringResource(R.string.reader_converted_note, name), style = MaterialTheme.typography.bodySmall, color = onLilac, modifier = Modifier.weight(1f))
+        if (onSave != null) QuietButton(onClick = onSave, contentColor = onLilac) { Text(stringResource(R.string.reader_save_as_pdf)) }
     }
 }
 
@@ -642,6 +651,7 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onSearch: () -> 
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+                textStyle = MaterialTheme.typography.bodyLarge,
                 compact = true,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -654,7 +664,7 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onSearch: () -> 
                 val spoken = stringResource(R.string.reader_find_count_spoken, found.current + 1, count)
                 Text(
                     stringResource(R.string.reader_find_count, found.current + 1, count),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = Usugami.type.tabular(MaterialTheme.typography.labelLarge),
                     maxLines = 1,
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
@@ -686,26 +696,17 @@ private fun PageIndicator(list: LazyListState, pageCount: Int, wentTo: IntArray?
     val last = (pages.last + 1).coerceIn(first, most)
     val text = if (last > first) stringResource(R.string.reader_pages_of, first, last, pageCount) else stringResource(R.string.reader_page_of, first, pageCount)
     val spoken = if (last > first) stringResource(R.string.reader_pages_of_spoken, first, last, pageCount) else stringResource(R.string.reader_page_of_spoken, first, pageCount)
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.inverseSurface,
-        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-        modifier = modifier
+    // A button of one node: a screen reader says "Page 3 of 12, button, double-tap to go to page" ("Pages 1
+    // to 3 of 12, …" when several show). Touches a little around it count too (Compose's minimum touch target).
+    PagePill(
+        text,
+        spoken,
+        stringResource(R.string.reader_go_to_page),
+        onClick,
+        modifier
             .navigationBarsPadding()
             .padding(bottom = 12.dp),
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier
-                // A button: a screen reader says "Page 3 of 12, button, double-tap to go to page" ("Pages 1 to
-                // 3 of 12, …" when several show). Touches a little around it count too (Compose's minimum touch
-                // target); the pill's shape clips its press tint.
-                .clickable(onClickLabel = stringResource(R.string.reader_go_to_page), role = Role.Button, onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 6.dp)
-                .semantics { contentDescription = spoken },
-        )
-    }
+    )
 }
 
 /** Go to page: a page number from 1 to [pageCount], and Go, on only while the number is one of them. */

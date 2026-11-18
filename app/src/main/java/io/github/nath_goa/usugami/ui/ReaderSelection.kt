@@ -4,17 +4,9 @@ import android.app.Application
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.os.Build
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
@@ -30,7 +22,6 @@ import io.github.nath_goa.usugami.core.ExportText
 import io.github.nath_goa.usugami.core.PageGlyphs
 import io.github.nath_goa.usugami.core.TextPlace
 import io.github.nath_goa.usugami.core.TextSelection
-import io.github.nath_goa.usugami.ui.kit.Usugami
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -292,20 +283,10 @@ internal class ReaderSelection(private val session: ReaderSession, private val v
 }
 
 /**
- * The bar under the pages while text is selected: Copy ([onCopy]), in Annotate's toolbar style. With
- * [clearNavigationBar] (nothing under the bar), it reaches under the navigation bar and clears it.
+ * Copy ([onCopy]) while text is selected, in Annotate's toolbar style: the tool alone, which the
+ * reader's action bar holds under the pages.
  */
 @Composable
-internal fun ReaderCopyBar(onCopy: () -> Unit, clearNavigationBar: Boolean) {
-    Surface(color = Usugami.colors.actionBar, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .then(if (clearNavigationBar) Modifier.windowInsetsPadding(WindowInsets.navigationBars) else Modifier)
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            EditToolButton(Icons.Rounded.ContentCopy, stringResource(R.string.reader_copy), active = null, enabled = true, onClick = onCopy, modifier = Modifier.width(96.dp))
-        }
-    }
+internal fun ReaderCopyBar(onCopy: () -> Unit, modifier: Modifier = Modifier) {
+    EditToolButton(Icons.Rounded.ContentCopy, stringResource(R.string.reader_copy), active = null, enabled = true, onClick = onCopy, modifier = modifier.width(96.dp))
 }

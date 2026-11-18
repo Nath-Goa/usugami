@@ -81,6 +81,7 @@ import io.github.nath_goa.usugami.core.TextPlace
 import io.github.nath_goa.usugami.core.TextSelection
 import io.github.nath_goa.usugami.data.ReaderDocument
 import io.github.nath_goa.usugami.ui.kit.Usugami
+import io.github.nath_goa.usugami.ui.kit.paperEdge
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
@@ -692,7 +693,9 @@ private fun ReaderPage(
                     }
                 },
             )
-            // Pages are white in their own colours, also in the dark theme.
+            // Pages are white in their own colours, also in the dark theme, edged outside their bounds so
+            // the node stays exactly the page.
+            .paperEdge()
             .background(Color.White)
             .semantics {
                 contentDescription = spoken
