@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -284,9 +285,12 @@ internal fun ReorganizeOptions(
             columns = GridCells.Adaptive(TileMinWidth),
             state = gridState,
             modifier = Modifier
-                .padding(top = 12.dp)
+                .padding(top = 4.dp)
                 .fillMaxWidth()
                 .heightIn(max = GridMaxHeight),
+            // Room inside the grid, which clips, for a page held to be moved to rise with its shadow;
+            // the pages lie where they did, 12 under the bar.
+            contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -334,7 +338,7 @@ internal fun ReorganizeOptions(
             stringResource(R.string.reorganize_move_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp).padding(horizontal = 8.dp),
+            modifier = Modifier.padding(horizontal = 8.dp),
         )
 
         // Pages added go after the last selected page, or at the end.
