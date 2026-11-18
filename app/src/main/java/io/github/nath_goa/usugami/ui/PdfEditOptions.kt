@@ -35,6 +35,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -319,6 +320,8 @@ internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> U
             Box(
                 Modifier
                     .size(swatchSize)
+                    // So the press tint is a disc, not a square.
+                    .clip(CircleShape)
                     .selectable(selected = chosen, role = Role.RadioButton, onClick = { onSelect(color) })
                     .semantics { contentDescription = name }
                     .border(2.dp, ring, CircleShape)

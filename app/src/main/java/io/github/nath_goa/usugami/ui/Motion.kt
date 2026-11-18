@@ -60,6 +60,8 @@ object Motion {
     // Springs, all without a bounce but the one after a flick. A spring that moves pixels (a size, an
     // offset) is given IntSize.VisibilityThreshold or IntOffset.VisibilityThreshold: without it the
     // animation runs on to a hundredth of a pixel, and a section leaving stays three times as long.
+    // A spring that animates a scale over a small range (a press to 0.97, a settle from 1.03) is given
+    // 0.001f: the default hundredth is a third of such a range, and the spring would end in a jump.
 
     /** Scale on touch-down, the seal landing, a slider thumb growing (0.14 s). */
     fun <T> press(visibilityThreshold: T? = null): SpringSpec<T> = spring(1f, 2000f, visibilityThreshold)

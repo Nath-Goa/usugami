@@ -9,7 +9,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,6 +27,7 @@ import io.github.nath_goa.usugami.core.Margin
 import io.github.nath_goa.usugami.core.PageOrientation
 import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.ui.kit.DropdownChip
+import io.github.nath_goa.usugami.ui.kit.MenuItem
 
 /** Page size, orientation and margin pickers, like the options panel of the web tools. */
 @Composable
@@ -80,10 +80,11 @@ internal fun <T> OptionChip(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
+        // When the chosen value changes length, the chip (and the chips after it) resize smoothly.
         DropdownChip(stringResource(R.string.option_value, label, value), onClick = { expanded = true }, enabled = enabled)
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
-                DropdownMenuItem(
+                MenuItem(
                     text = { Text(optionLabel(option)) },
                     onClick = {
                         expanded = false

@@ -48,6 +48,7 @@ import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.Usugami
 
 /**
  * An ID card's page in the editor's grid, page [pageNumber]: the sheet as it will be in the PDF with
@@ -103,7 +104,8 @@ fun IdCardTile(
             }
             if (sides.any { it.id in cropping }) {
                 val label = stringResource(R.string.cropping_page, pageNumber)
-                CircularProgress(Modifier.align(Alignment.Center).semantics { contentDescription = label })
+                // On the card's page: ink purple, which shows on white in both themes.
+                CircularProgress(Modifier.align(Alignment.Center).semantics { contentDescription = label }, color = Usugami.colors.paperInk)
             }
         }
         Text(

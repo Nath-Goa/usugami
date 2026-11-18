@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
@@ -34,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
@@ -70,6 +70,8 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.data.SignatureInk
+import io.github.nath_goa.usugami.ui.kit.BarLine
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlin.math.hypot
 
 /** The pen, in pad units, as the screen draws it; the PDF's image is drawn with the same width and ends. */
@@ -98,12 +100,16 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
         Scaffold(
             contentWindowInsets = WindowInsets.safeDrawing,
             topBar = {
-                TopAppBar(
+                UsugamiTopBar(
                     title = { BarTitle(stringResource(R.string.sign_draw)) },
-                    windowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                    // Clear of a camera cutout beside it in landscape, too: the bar keeps out of the
+                    // system bars inside this, by what the cutout has not already taken (together, the
+                    // safe drawing area). What lies beside it there is the pad's ground, as the bar is.
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.displayCutout.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
                     navigationIcon = {
                         IconButton(onClick = onDismiss) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cancel)) }
                     },
+                    line = BarLine.Never,
                 )
             },
             bottomBar = {

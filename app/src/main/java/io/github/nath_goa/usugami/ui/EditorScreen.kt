@@ -40,6 +40,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
@@ -110,6 +111,7 @@ import io.github.nath_goa.usugami.data.Thumbnails
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import sh.calvin.reorderable.ReorderableItem
@@ -393,7 +395,8 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
             }
             if (cropping) {
                 val label = stringResource(R.string.cropping_page, pageNumber)
-                CircularProgress(Modifier.align(Alignment.Center).semantics { contentDescription = label })
+                // On the page: ink purple, which shows on white in both themes.
+                CircularProgress(Modifier.align(Alignment.Center).semantics { contentDescription = label }, color = Usugami.colors.paperInk)
             }
         }
         Text(
@@ -423,14 +426,14 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
 internal fun PageNumberBadge(pageNumber: Int, modifier: Modifier = Modifier) {
     val pageLabel = stringResource(R.string.pdf_page_number, pageNumber)
     Surface(
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shape = RoundedCornerShape(50),
+        color = Usugami.colors.pill,
+        contentColor = Usugami.colors.onPill,
+        shape = CircleShape,
         modifier = modifier,
     ) {
         Text(
             pageNumber.toString(),
-            style = MaterialTheme.typography.labelMedium,
+            style = Usugami.type.tabular(MaterialTheme.typography.labelSmall),
             modifier = Modifier
                 .semantics { contentDescription = pageLabel }
                 .padding(horizontal = 8.dp, vertical = 2.dp),

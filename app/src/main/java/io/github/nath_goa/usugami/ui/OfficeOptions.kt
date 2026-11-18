@@ -7,13 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.Close
@@ -23,9 +23,9 @@ import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,7 +38,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -55,6 +54,8 @@ import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SwitchRow
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 
 /** The picked Word, PowerPoint, Excel or EPUB file: its name, kind and size, and a button to remove it. */
@@ -204,20 +205,7 @@ internal fun SheetPageOptions(options: SheetOptions, onChange: (SheetOptions) ->
 /** A choice that is on or off: the whole row flips the switch, and a screen reader hears its [title] and [detail]. */
 @Composable
 internal fun OptionSwitch(@StringRes title: Int, detail: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(title), style = MaterialTheme.typography.bodyLarge)
-            Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Spacer(Modifier.width(16.dp))
-        Switch(checked = checked, onCheckedChange = null)
-    }
+    SwitchRow(stringResource(title), checked, onChange, detail = detail, padding = PaddingValues(vertical = 8.dp))
 }
 
 /**
@@ -269,6 +257,7 @@ internal fun OfficeProgressDialog(
                         Text(
                             stringResource(R.string.batch_progress, batch.number, batch.total),
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                            style = Usugami.type.tabular(LocalTextStyle.current),
                         )
                         Text(
                             batch.name,
@@ -287,6 +276,7 @@ internal fun OfficeProgressDialog(
                             kind == OfficeKind.EXCEL -> pluralStringResource(R.plurals.progress_pages, total, done, total)
                             else -> pluralStringResource(R.plurals.progress_slides, total, done, total)
                         },
+                        style = Usugami.type.tabular(LocalTextStyle.current),
                     )
                 }
             }

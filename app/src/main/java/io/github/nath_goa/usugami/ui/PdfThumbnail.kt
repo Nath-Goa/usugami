@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material3.Icon
@@ -22,8 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.data.PageRendering
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.paper
+import io.github.nath_goa.usugami.ui.kit.stack
+import io.github.nath_goa.usugami.ui.kit.stackCount
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -91,4 +96,22 @@ fun PdfThumbnail(input: PdfInput, pageIndex: Int, modifier: Modifier = Modifier)
             else Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
     }
+}
+
+/**
+ * A file's first page, small (44 × 58 dp), as real paper, with the file's other pages lying under it
+ * (one sheet for two pages, two for more). The under-sheets reach about 12 dp beyond its start edge
+ * and up to 9 dp above it: give it that room (a padding(12.dp) round it does), with nothing between
+ * that clips.
+ */
+@Composable
+fun FileThumbnail(input: PdfInput, modifier: Modifier = Modifier) {
+    PdfThumbnail(
+        input,
+        0,
+        modifier
+            .size(44.dp, 58.dp)
+            .stack(stackCount(input.pageCount), radius = 2.dp, rise1 = 4.5.dp, rise2 = 9.dp)
+            .paper(),
+    )
 }

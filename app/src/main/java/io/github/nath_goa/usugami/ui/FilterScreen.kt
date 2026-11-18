@@ -71,6 +71,7 @@ import io.github.nath_goa.usugami.core.LookAdjustments
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.PageLooks
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -184,7 +185,11 @@ internal fun FilterStep(
                 // Being made: the page for the corners, or its look for the choices.
                 val busy = base == null || shown == null || shown.look != look || shown.adjustments != adjustments
                 if (busy && (base == null || base.bitmap != null)) {
-                    CircularProgress(if (bitmap == null) Modifier else Modifier.align(Alignment.TopEnd).size(24.dp))
+                    // Over the preview it is ink purple, which shows on the page in both themes.
+                    CircularProgress(
+                        if (bitmap == null) Modifier else Modifier.align(Alignment.TopEnd).size(24.dp),
+                        color = if (bitmap == null) MaterialTheme.colorScheme.primary else Usugami.colors.paperInk,
+                    )
                 }
             }
         },

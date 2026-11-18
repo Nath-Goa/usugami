@@ -43,6 +43,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -105,9 +106,11 @@ import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import io.github.nath_goa.usugami.ui.kit.WellField
+import io.github.nath_goa.usugami.ui.kit.rememberHaptics
 import kotlinx.coroutines.delay
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -292,7 +295,11 @@ fun PdfToolScreen(
                     .imePadding()
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    // The screen margin at the sides. Above and between the blocks the room stays as it
+                    // was (12, and 16 below): closer, Add watermark's fields come to lie, scrolled, partly
+                    // under a bar, where the accessibility tree still holds them, and a device test that
+                    // read one there before scrolling it away types into what has gone.
+                    .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp),
             ) {
                 // The bar sits outside the spaced column below and carries its own gap, so the gap opens and
                 // closes with the bar instead of snapping once the bar has gone.
@@ -558,6 +565,7 @@ private fun BatchProgressText(progress: BatchProgress?) {
                 Text(
                     stringResource(R.string.batch_progress, progress.number, progress.total),
                     modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                    style = Usugami.type.tabular(LocalTextStyle.current),
                 )
                 Text(
                     progress.name,
@@ -585,7 +593,7 @@ private fun ToolProgressText(progress: ToolProgress?) {
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         LinearProgress(progress = { fraction }, modifier = Modifier.fillMaxWidth())
-        if (progress != null) Text(progress.text)
+        if (progress != null) Text(progress.text, style = Usugami.type.tabular(LocalTextStyle.current))
     }
 }
 
@@ -710,6 +718,14 @@ internal fun PasswordDialog(
 ) {
     var password by rememberSaveable(input.id) { mutableStateOf("") }
     val canUnlock = password.isNotEmpty() && !unlocking
+    // A wrong password is felt as well as seen, once as it turns wrong: not again as the dialog comes
+    // back after a rotation still saying so.
+    val haptics = rememberHaptics()
+    var feltWrong by remember { mutableStateOf(wrongPassword) }
+    LaunchedEffect(wrongPassword) {
+        if (wrongPassword && !feltWrong) haptics.reject()
+        feltWrong = wrongPassword
+    }
     UsugamiDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.pdf_password_title)) },

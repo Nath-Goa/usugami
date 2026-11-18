@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -61,6 +62,7 @@ import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiBottomSheet
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.WellField
@@ -313,7 +315,7 @@ fun ProgressDialog(progress: Progress, cancelling: Boolean, onCancel: () -> Unit
                 }
                 when (progress.stage) {
                     Progress.Stage.DOWNLOAD_OCR -> {
-                        if (progress.total > 0) Text(stringResource(R.string.ocr_download_percent, progress.done))
+                        if (progress.total > 0) Text(stringResource(R.string.ocr_download_percent, progress.done), style = Usugami.type.tabular(LocalTextStyle.current))
                         Text(
                             stringResource(R.string.ocr_download_note),
                             style = MaterialTheme.typography.bodySmall,
@@ -321,12 +323,12 @@ fun ProgressDialog(progress: Progress, cancelling: Boolean, onCancel: () -> Unit
                         )
                     }
                     Progress.Stage.CREATE ->
-                        Text(pluralStringResource(R.plurals.progress_images, progress.total, progress.done, progress.total))
+                        Text(pluralStringResource(R.plurals.progress_images, progress.total, progress.done, progress.total), style = Usugami.type.tabular(LocalTextStyle.current))
                     Progress.Stage.READ_TEXT ->
-                        Text(pluralStringResource(R.plurals.progress_pages, progress.total, progress.done, progress.total))
+                        Text(pluralStringResource(R.plurals.progress_pages, progress.total, progress.done, progress.total), style = Usugami.type.tabular(LocalTextStyle.current))
                     Progress.Stage.ADD_TEXT -> Unit
                     Progress.Stage.ADD_MARK ->
-                        if (progress.total > 0) Text(stringResource(R.string.batch_progress, progress.done + 1, progress.total))
+                        if (progress.total > 0) Text(stringResource(R.string.batch_progress, progress.done + 1, progress.total), style = Usugami.type.tabular(LocalTextStyle.current))
                 }
             }
         },

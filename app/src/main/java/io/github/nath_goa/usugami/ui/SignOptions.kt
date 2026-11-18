@@ -2,11 +2,8 @@ package io.github.nath_goa.usugami.ui
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -37,11 +34,9 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.North
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,7 +49,6 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -86,6 +80,8 @@ import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
+import io.github.nath_goa.usugami.ui.kit.paper
+import io.github.nath_goa.usugami.ui.kit.tile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -205,30 +201,24 @@ internal fun PageStrip(input: PdfInput, selected: Int, onSelect: (Int) -> Unit, 
     LazyRow(state = state, modifier = Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(input.pageCount) { index ->
             val active = index == selected
-            val borderWidth by animateDpAsState(if (active) 2.dp else 1.dp, Motion.short(), label = "page border width")
-            val borderColor by animateColorAsState(
-                if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                Motion.short(),
-                label = "page border color",
-            )
             val label = stringResource(R.string.pdf_page_number, index + 1)
             val isMarked = index in marked
-            OutlinedCard(
-                border = BorderStroke(borderWidth, borderColor),
-                modifier = Modifier
+            // A tile: lilac with a purple edge when it is the page chosen (the tile animates both).
+            Column(
+                Modifier
                     .width(72.dp)
-                    .clip(CardDefaults.outlinedShape)
+                    .tile(active)
                     .selectable(selected = active, role = Role.RadioButton, onClick = { onSelect(index) })
                     .semantics {
                         contentDescription = label
                         if (isMarked && markedLabel != null) stateDescription = markedLabel
                     },
             ) {
-                PdfThumbnail(input, index, Modifier.fillMaxWidth().height(92.dp))
+                PdfThumbnail(input, index, Modifier.padding(4.dp).fillMaxWidth().height(84.dp).paper())
                 Row(Modifier.align(Alignment.CenterHorizontally).padding(4.dp).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         "${index + 1}",
-                        style = MaterialTheme.typography.labelLarge,
+                        style = Usugami.type.tabular(MaterialTheme.typography.labelMedium),
                         color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     )
                     if (isMarked) {
