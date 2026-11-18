@@ -36,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -248,8 +249,9 @@ fun GlyphButton(
 }
 
 /**
- * An icon button on paper: a 40 dp `paper` circle with a hairline edge in the 48 dp box, its glyph
- * `primary`. Pressed, the disc lies over the paper (under it, it would hardly show) and both shrink.
+ * An icon button on paper: a 40 dp circle of `paper` as it shows on the ground, solid, with a hairline
+ * edge in the 48 dp box, its glyph `primary`; on a page or a photo it is the same solid disc. Pressed,
+ * the disc lies over the paper (under it, it would hardly show) and both shrink.
  */
 @Composable
 fun PaperGlyphButton(
@@ -262,14 +264,16 @@ fun PaperGlyphButton(
     val source = interactionSource ?: remember { MutableInteractionSource() }
     val scheme = MaterialTheme.colorScheme
     val colors = Usugami.colors
+    // Opaque: over a white page the dark theme's translucent paper would leave the lilac glyph on white.
+    val disc = colors.paper.compositeOver(colors.ground)
     OutlinedIconButton(
         onClick = onClick,
         modifier = modifier.indication(source, PressIndication.glyphOverFill(scheme.primary)),
         enabled = enabled,
         colors = IconButtonDefaults.outlinedIconButtonColors(
-            containerColor = colors.paper,
+            containerColor = disc,
             contentColor = scheme.primary,
-            disabledContainerColor = colors.paper,
+            disabledContainerColor = disc,
             disabledContentColor = scheme.onSurface.copy(alpha = 0.38f),
         ),
         border = BorderStroke(1.dp, colors.hairlineStrong),

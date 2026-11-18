@@ -199,12 +199,9 @@ private class PressNode(
                         val inset = insetVertical.toPx()
                         translate(top = inset) {
                             if (alpha > 0f) drawOutline(outline!!, colors.pressTint, alpha = alpha)
-                            if (focused) {
-                                // Wholly inside the shape, as the row's outline: a clip at the node's
-                                // bounds cuts none of it.
-                                val half = FocusWidth.toPx() / 2
-                                translate(half, half) { drawOutline(ring!!, colors.focus, style = stroke!!) }
-                            }
+                            // Wholly inside the shape, as the row's outline: a clip at the node's
+                            // bounds cuts none of it.
+                            if (focused) drawOutline(ring!!, colors.focus, style = stroke!!)
                         }
                     }
                 }
@@ -212,10 +209,7 @@ private class PressNode(
             Kind.Button -> {
                 prepare()
                 if (s != 1f) scale(s) { this@draw.drawButton(alpha) } else drawButton(alpha)
-                if (focused) {
-                    val gap = FocusGap.toPx()
-                    translate(-gap, -gap) { drawOutline(ring!!, currentValueOf(LocalUsugamiColors).focus, style = stroke!!) }
-                }
+                if (focused) drawOutline(ring!!, currentValueOf(LocalUsugamiColors).focus, style = stroke!!)
             }
             Kind.Glyph -> {
                 if (alpha > 0f) drawCircle(content, radius = GlyphDisc.toPx() / 2, alpha = 0.10f * alpha)
@@ -250,8 +244,8 @@ private class PressNode(
     }
 
     /**
-     * The shape's outline for this size, and its focus outline: a button's 2 dp outside its bounds; a
-     * shaped tint's made for the shape's size less the outline's width, to be drawn inside the shape.
+     * The shape's outline for this size, and its focus outline, concentric with it: a button's 2 dp
+     * outside its bounds; a shaped tint's half its width inside the shape, so it lies wholly inside.
      */
     private fun DrawScope.prepare() {
         val height = if (kind == Kind.Tint) size.height - 2 * insetVertical.toPx() else size.height
@@ -263,15 +257,8 @@ private class PressNode(
         outline = shape.createOutline(shown, layoutDirection, this)
         val width = stroke().width
         ring = when (kind) {
-            Kind.Button -> {
-                val gap = 2 * FocusGap.toPx()
-                shape.createOutline(Size(size.width + gap, size.height + gap), layoutDirection, this)
-            }
-            Kind.Tint -> shape.createOutline(
-                Size((shown.width - width).coerceAtLeast(0f), (shown.height - width).coerceAtLeast(0f)),
-                layoutDirection,
-                this,
-            )
+            Kind.Button -> shape.concentric(shown, layoutDirection, this, -FocusGap.toPx())
+            Kind.Tint -> shape.concentric(shown, layoutDirection, this, width / 2)
             Kind.Glyph, Kind.GlyphOverFill -> null
         }
     }

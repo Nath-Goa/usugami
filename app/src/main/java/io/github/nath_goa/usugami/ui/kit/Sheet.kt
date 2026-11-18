@@ -1,10 +1,12 @@
 package io.github.nath_goa.usugami.ui.kit
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.ScrollableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,14 +40,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.translate
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -57,16 +64,19 @@ import androidx.compose.ui.layout.MeasurePolicy
 import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.node.LayoutModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.invalidatePlacement
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.ui.Motion
+import kotlin.math.min
 
 // Sheets of vellum on the ground, each holding one group of related controls divided by hairlines;
 // rows inside them; wells cut into the paper; and real paper, the user's own pages. Depth comes from
@@ -382,11 +392,9 @@ fun Modifier.dashedOutline(shape: Shape = SheetShape): Modifier {
     val outline = remember(shape, color) {
         Modifier.drawWithCache {
             val width = 1.5.dp.toPx()
-            val inner = shape.createOutline(Size(size.width - width, size.height - width), layoutDirection, this)
+            val inner = shape.concentric(size, layoutDirection, this, width / 2)
             val stroke = Stroke(width, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 4.dp.toPx())))
-            onDrawBehind {
-                translate(width / 2, width / 2) { drawOutline(inner, color, style = stroke) }
-            }
+            onDrawBehind { drawOutline(inner, color, style = stroke) }
         }
     }
     return this.then(outline)
@@ -409,20 +417,12 @@ fun Modifier.well(shape: Shape = WellShape): Modifier {
 fun Modifier.paperEdge(radius: Dp = 0.dp): Modifier {
     val color = Usugami.colors.pageEdge
     val edge = remember(radius, color) {
+        val shape = RoundedCornerShape(radius)
         Modifier.drawWithCache {
             val width = 1.dp.toPx()
-            val half = width / 2
+            val outside = shape.concentric(size, layoutDirection, this, -width / 2)
             val stroke = Stroke(width)
-            val corner = if (radius > 0.dp) CornerRadius(radius.toPx() + half) else CornerRadius.Zero
-            onDrawBehind {
-                drawRoundRect(
-                    color,
-                    topLeft = Offset(-half, -half),
-                    size = Size(size.width + width, size.height + width),
-                    cornerRadius = corner,
-                    style = stroke,
-                )
-            }
+            onDrawBehind { drawOutline(outside, color, style = stroke) }
         }
     }
     return this.then(edge)
@@ -438,16 +438,32 @@ fun Modifier.paper(radius: Dp = 2.dp): Modifier {
 
 /**
  * A tile: clipped to [shape], `sheet` with a 1 dp hairline, or `lilac` with a 2 dp `primary` edge
- * when [selected]; the colours change with [Motion.appear]. Put it before the tile's selectable,
- * toggleable or clickable, so the press tint is clipped too. It has no semantics.
+ * when [selected]; while [lifted] (held to be moved) and not selected, `sheetTop` with a
+ * `hairlineStrong` edge, lighter than its neighbours in the dark too. The colours change with
+ * [Motion.appear]. Put it before the tile's selectable, toggleable or clickable, so the press tint is
+ * clipped too. It has no semantics.
+ * The selectable, toggleable or clickable that follows it takes
+ * `indication = PressIndication.shaped(shape)`, so its focus outline follows the corners.
  */
 @Suppress("ComposableModifierFactory")
 @Composable
-fun Modifier.tile(selected: Boolean, shape: Shape = TileShape): Modifier {
+fun Modifier.tile(selected: Boolean, shape: Shape = TileShape, lifted: Boolean = false): Modifier {
     val colors = Usugami.colors
-    val fill = animateColorAsState(if (selected) colors.lilac else colors.sheet, Motion.appear(), label = "tile fill")
+    val fill = animateColorAsState(
+        when {
+            selected -> colors.lilac
+            lifted -> colors.sheetTop
+            else -> colors.sheet
+        },
+        Motion.appear(),
+        label = "tile fill",
+    )
     val edge = animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary else colors.hairline,
+        when {
+            selected -> MaterialTheme.colorScheme.primary
+            lifted -> colors.hairlineStrong
+            else -> colors.hairline
+        },
         Motion.appear(),
         label = "tile edge",
     )
@@ -461,14 +477,59 @@ private fun Modifier.tileDrawing(selected: Boolean, shape: Shape, fill: State<Co
     .drawWithCache {
         val width = (if (selected) 2.dp else 1.dp).toPx()
         val outline = shape.createOutline(size, layoutDirection, this)
-        val ring = shape.createOutline(Size(size.width - width, size.height - width), layoutDirection, this)
+        val ring = shape.concentric(size, layoutDirection, this, width / 2)
         val stroke = Stroke(width)
         onDrawWithContent {
             drawOutline(outline, fill.value)
             drawContent()
-            translate(width / 2, width / 2) { drawOutline(ring, edge.value, style = stroke) }
+            drawOutline(ring, edge.value, style = stroke)
         }
     }
+
+/**
+ * [this] shape's outline at [size], moved [by] in from every side (out when [by] is negative) with
+ * its corners following, so that a ring drawn along it is concentric with the shape (R19.1): each
+ * corner radius less [by], never below 0, or, outside, more by as much, a square corner staying
+ * square. A rectangle is only moved; any other outline is the shape's own at the smaller (or larger)
+ * size, moved. Every ring, edge and outline the kit draws at a distance from a shape is drawn along it.
+ */
+internal fun Shape.concentric(size: Size, layoutDirection: LayoutDirection, density: Density, by: Float): Outline =
+    when (val outline = createOutline(size, layoutDirection, density)) {
+        is Outline.Rectangle -> Outline.Rectangle(outline.rect.movedIn(by))
+        is Outline.Rounded -> {
+            val r = outline.roundRect
+            val moved = Rect(r.left, r.top, r.right, r.bottom).movedIn(by)
+            Outline.Rounded(
+                RoundRect(
+                    moved,
+                    topLeft = r.topLeftCornerRadius.movedIn(by),
+                    topRight = r.topRightCornerRadius.movedIn(by),
+                    bottomRight = r.bottomRightCornerRadius.movedIn(by),
+                    bottomLeft = r.bottomLeftCornerRadius.movedIn(by),
+                ),
+            )
+        }
+        is Outline.Generic -> {
+            val shown = Size((size.width - 2 * by).coerceAtLeast(0f), (size.height - 2 * by).coerceAtLeast(0f))
+            val at = Offset(by, by)
+            when (val inner = createOutline(shown, layoutDirection, density)) {
+                is Outline.Rectangle -> Outline.Rectangle(inner.rect.translate(at))
+                is Outline.Rounded -> Outline.Rounded(inner.roundRect.translate(at))
+                is Outline.Generic -> Outline.Generic(Path().apply { addPath(inner.path, at) })
+            }
+        }
+    }
+
+/** This rectangle moved [by] in from every side (out when negative), never turned inside out. */
+private fun Rect.movedIn(by: Float): Rect {
+    val l = left + by
+    val t = top + by
+    return Rect(l, t, maxOf(l, right - by), maxOf(t, bottom - by))
+}
+
+/** A corner's radius for a ring [by] inside it (outside when negative); a square corner stays square. */
+private fun CornerRadius.movedIn(by: Float): CornerRadius =
+    if (x <= 0f && y <= 0f) CornerRadius.Zero else CornerRadius((x - by).coerceAtLeast(0f), (y - by).coerceAtLeast(0f))
 
 /**
  * Clips what it is set on, and everything inside it, to [shape], as Modifier.clip does, without
@@ -508,3 +569,97 @@ private fun clipLayer(shape: Shape): GraphicsLayerScope.() -> Unit = {
     this.shape = shape
     clip = true
 }
+
+/**
+ * Draws what it is set on, and everything inside it, in a layer that [block] sets up (alpha, scale,
+ * translation, rotation), as Modifier.graphicsLayer does, without making it an item of the
+ * accessibility tree: the layer is taken by placing with it, as [clipped] takes its own. State read
+ * inside [block] changes the layer without a recomposition. For anything that is not already a node
+ * of its own (R17); a button or a merged tile may keep graphicsLayer.
+ */
+fun Modifier.layered(block: GraphicsLayerScope.() -> Unit): Modifier = this then LayeredElement(block)
+
+private class LayeredElement(private val block: GraphicsLayerScope.() -> Unit) : ModifierNodeElement<LayeredNode>() {
+    override fun create() = LayeredNode(block)
+
+    override fun update(node: LayeredNode) = node.layerWith(block)
+
+    // The block is compared by reference: a block made anew is a new layer.
+    override fun equals(other: Any?): Boolean = other is LayeredElement && other.block === block
+
+    override fun hashCode(): Int = System.identityHashCode(block)
+
+    override fun InspectorInfo.inspectableProperties() {
+        name = "layered"
+        properties["block"] = block
+    }
+}
+
+private class LayeredNode(private var block: GraphicsLayerScope.() -> Unit) : Modifier.Node(), LayoutModifierNode {
+    // A new block changes no size: it needs a new placement, not a new measure.
+    override val shouldAutoInvalidate: Boolean
+        get() = false
+
+    fun layerWith(block: GraphicsLayerScope.() -> Unit) {
+        this.block = block
+        invalidatePlacement()
+    }
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        return layout(placeable.width, placeable.height) { placeable.placeWithLayer(0, 0, layerBlock = block) }
+    }
+}
+
+/**
+ * For a row that scrolls sideways: fades it to nothing over [edge] or 15 % of its width, whichever is
+ * less, at a side where there is more of it beyond what shows ([state] can scroll that way; the start
+ * is the right-hand side in a right-to-left layout), each side fading in and out with [Motion.appear]. At
+ * rest at its start, or when it does not scroll, it is drawn exactly as without this. Set it on the
+ * row BEFORE its scroll (`fadingEdges(scroll).horizontalScroll(scroll)`), or on a LazyRow's own
+ * modifier with the row's state, so it fades what shows. It is a mask drawn in one drawWithContent:
+ * no graphicsLayer and no clip, so it makes no node (R17) and cuts nothing a child draws up to 16 dp
+ * above or below the row (a focus outline, a paper edge).
+ */
+@Suppress("ComposableModifierFactory") // It animates (see the note above dashedOutline).
+@Composable
+fun Modifier.fadingEdges(state: ScrollableState, edge: Dp = 48.dp): Modifier {
+    val start = animateFloatAsState(if (state.canScrollBackward) 1f else 0f, Motion.appear(), label = "fade at start")
+    val end = animateFloatAsState(if (state.canScrollForward) 1f else 0f, Motion.appear(), label = "fade at end")
+    val fading = remember(start, end, edge) { Modifier.fadingDrawing(start, end, edge) }
+    return this.then(fading)
+}
+
+/** The mask of [fadingEdges]; the strengths at the start and the end are read while drawing. */
+private fun Modifier.fadingDrawing(start: State<Float>, end: State<Float>, edge: Dp): Modifier {
+    val layer = Paint()
+    return this.drawWithContent {
+        val atStart = start.value
+        val atEnd = end.value
+        val fade = min(edge.toPx(), size.width * 0.15f)
+        if ((atStart <= 0f && atEnd <= 0f) || fade <= 0f) {
+            drawContent()
+            return@drawWithContent
+        }
+        val rtl = layoutDirection == LayoutDirection.Rtl
+        val left = if (rtl) atEnd else atStart
+        val right = if (rtl) atStart else atEnd
+        val room = FadeRoom.toPx()
+        val tall = Size(fade, size.height + 2 * room)
+        drawIntoCanvas { it.saveLayer(Rect(0f, -room, size.width, size.height + room), layer) }
+        drawContent()
+        if (left > 0f) {
+            val ramp = Brush.horizontalGradient(listOf(Color.Black.copy(alpha = 1f - left), Color.Black), startX = 0f, endX = fade)
+            drawRect(ramp, Offset(0f, -room), tall, blendMode = BlendMode.DstIn)
+        }
+        if (right > 0f) {
+            val from = size.width - fade
+            val ramp = Brush.horizontalGradient(listOf(Color.Black, Color.Black.copy(alpha = 1f - right)), startX = from, endX = size.width)
+            drawRect(ramp, Offset(from, -room), tall, blendMode = BlendMode.DstIn)
+        }
+        drawIntoCanvas { it.restore() }
+    }
+}
+
+/** How far above and below a fading row its children may draw and still show. */
+private val FadeRoom = 16.dp

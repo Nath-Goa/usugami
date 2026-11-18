@@ -41,7 +41,8 @@ private val LightColors = lightColorScheme(
     inverseSurface = Color(0xFF302C3D), inverseOnSurface = Color(0xFFF4EFFC),
     error = Color(0xFFB3261E), onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFFF9DEDC), onErrorContainer = Color(0xFF410E0B),
-    outline = Color(0xFF777190), outlineVariant = Color(0xFFDAD4E6),
+    // Translucent, so a line blends into whatever it lies on: #777190 on white, the hairline.
+    outline = Color(0xBF4A3F6B), outlineVariant = Color(0x214A3F6B),
     scrim = Color(0xFF1B1924),
     surfaceBright = Color(0xFFFFFFFF), surfaceDim = Color(0xFFDDD6EA),
     surfaceContainerLowest = Color(0xFFFFFFFF), surfaceContainerLow = Color(0xFFFFFFFF),
@@ -71,7 +72,8 @@ private val DarkColors = darkColorScheme(
     inverseSurface = Color(0xFFECEAF3), inverseOnSurface = Color(0xFF1B1924),
     error = Color(0xFFFFB4AB), onError = Color(0xFF690005),
     errorContainer = Color(0xFF93000A), onErrorContainer = Color(0xFFFFDAD6),
-    outline = Color(0xFF918DA3), outlineVariant = Color(0xFF37363A),
+    // Translucent, so a line blends into whatever it lies on: #918DA3 and #37363A on a sheet.
+    outline = Color(0x99DAD4F6), outlineVariant = Color(0x17FFFFFF),
     scrim = Color(0xFF000000),
     surfaceBright = Color(0xFF39383E), surfaceDim = Color(0xFF0C0B0E),
     surfaceContainerLowest = Color(0xFF0C0B0E), surfaceContainerLow = Color(0xFF2E2D31),

@@ -27,10 +27,11 @@ import androidx.compose.ui.unit.dp
 
 /**
  * A text field as a well cut into the paper: no line under it, an outline in `primary` while focused
- * and in `error` with [isError]. Built as Material builds its own filled field, so the label's
- * animation, the paddings and what a screen reader hears (label, placeholder and supporting text
- * inside the editable node) are Material's; with [isError] it is heard as [errorMessage], the message
- * its supporting text shows. 56 dp tall at least, 44 when [compact] (the reader's Find).
+ * (not when [compact]) and in `error` with [isError]. Built as Material builds its own filled field,
+ * so the label's animation, the paddings and what a screen reader hears (label, placeholder and
+ * supporting text inside the editable node) are Material's; with [isError] it is heard as
+ * [errorMessage], the message its supporting text shows. 56 dp tall at least, 44 when [compact] (the
+ * reader's Find).
  */
 @Composable
 fun WellField(
@@ -109,10 +110,12 @@ fun WellField(
         label != null -> TextFieldDefaults.contentPaddingWithLabel()
         else -> TextFieldDefaults.contentPaddingWithoutLabel()
     }
-    val edgeWidth = if (isError || focused) 1.5.dp else 1.dp
+    // The compact field (the reader's Find) is focused whenever it shows: it keeps its resting edge.
+    val ringed = focused && !compact
+    val edgeWidth = if (isError || ringed) 1.5.dp else 1.dp
     val edgeColor = when {
         isError -> scheme.error
-        focused -> scheme.primary
+        ringed -> scheme.primary
         else -> wellEdge
     }
     val fill = if (enabled) well else well.copy(alpha = 0.6f)

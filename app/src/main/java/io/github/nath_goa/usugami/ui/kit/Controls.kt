@@ -56,6 +56,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -129,31 +130,28 @@ private fun Modifier.trackDrawing(thumb: TrackThumb, count: Int, well: Color, we
         val half = line / 2
         val stroke = Stroke(line)
         val track = WellShape.createOutline(size, layoutDirection, this)
-        val trackRing = WellShape.createOutline(inset(size.width, size.height, line), layoutDirection, this)
+        val trackRing = WellShape.concentric(size, layoutDirection, this, half)
         val gap = 4.dp.toPx()
         val segment = if (count > 0) ((size.width - 2 * gap) / count).coerceAtLeast(0f) else 0f
         val height = (size.height - 2 * gap).coerceAtLeast(0f)
-        val thumbShape = ThumbShape.createOutline(Size(segment, height), layoutDirection, this)
-        val thumbRing = ThumbShape.createOutline(inset(segment, height, line), layoutDirection, this)
+        val thumbSize = Size(segment, height)
+        val thumbShape = ThumbShape.createOutline(thumbSize, layoutDirection, this)
+        val thumbRing = ThumbShape.concentric(thumbSize, layoutDirection, this, half)
         val rtl = layoutDirection == LayoutDirection.Rtl
         onDrawBehind {
             drawOutline(track, well)
-            translate(half, half) { drawOutline(trackRing, wellEdge, style = stroke) }
+            drawOutline(trackRing, wellEdge, style = stroke)
             val alpha = thumb.shown.value
             if (count > 0 && segment > 0f && alpha > 0f) {
                 val at = thumb.position.value.coerceIn(0f, (count - 1).toFloat())
                 val left = if (rtl) size.width - gap - (at + 1) * segment else gap + at * segment
                 translate(left, gap) {
                     drawOutline(thumbShape, fill, alpha = alpha)
-                    translate(half, half) { drawOutline(thumbRing, edge, alpha = alpha, style = stroke) }
+                    drawOutline(thumbRing, edge, alpha = alpha, style = stroke)
                 }
             }
         }
     }
-
-/** A [width] × [height] box less a line of [line] all round: where a ring of that line lies inside it. */
-private fun inset(width: Float, height: Float, line: Float) =
-    Size((width - line).coerceAtLeast(0f), (height - line).coerceAtLeast(0f))
 
 /**
  * A segment of a [SegmentedTrack]: Material's segmented button with nothing of its own drawn (no
@@ -357,10 +355,17 @@ private fun SliderThumb(diameter: State<Dp>, fill: Color, ring: Color) {
             .drawWithCache {
                 val width = 2.dp.toPx()
                 val stroke = Stroke(width)
+                // The ring for the disc as last drawn, made again only when the disc grows or shrinks.
+                var ringFor = -1f
+                var edge: Outline? = null
                 onDrawBehind {
-                    val radius = diameter.value.toPx() / 2
-                    drawCircle(fill, radius)
-                    drawCircle(ring, radius - width / 2, style = stroke)
+                    val across = diameter.value.toPx()
+                    if (across != ringFor || edge == null) {
+                        edge = CircleShape.concentric(Size(across, across), layoutDirection, this, width / 2)
+                        ringFor = across
+                    }
+                    drawCircle(fill, across / 2)
+                    translate((size.width - across) / 2, (size.height - across) / 2) { drawOutline(edge!!, ring, style = stroke) }
                 }
             },
     )
