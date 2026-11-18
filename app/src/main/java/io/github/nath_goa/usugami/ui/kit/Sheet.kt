@@ -2,7 +2,6 @@ package io.github.nath_goa.usugami.ui.kit
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,7 +31,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
@@ -41,6 +39,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
@@ -51,10 +50,17 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
 import androidx.compose.ui.layout.MeasurePolicy
 import androidx.compose.ui.layout.Placeable
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -69,7 +75,9 @@ import io.github.nath_goa.usugami.ui.Motion
 /**
  * A sheet: solid [color], edged with a hairline [border], no shadow. Its content is in `onSurface`
  * (on a lilac sheet, `onLilac`). With [onClick] the whole sheet is one clickable, with no role (as an
- * outlined card's), tinted while pressed; disabled, it shows at half strength.
+ * outlined card's), tinted while pressed; disabled, it shows at half strength. Without [onClick] it is
+ * read as a [group] (one node, as Material's card was), or with `group = false` it is no node at all:
+ * for a sheet where 2.0.1 had no card, so the tree a device test was written against stays as it was.
  */
 @Composable
 fun Sheet(
@@ -80,6 +88,7 @@ fun Sheet(
     border: BorderStroke? = BorderStroke(1.dp, Usugami.colors.hairline),
     shape: Shape = SheetShape,
     interactionSource: MutableInteractionSource? = null,
+    group: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val colors = Usugami.colors
@@ -91,12 +100,13 @@ fun Sheet(
                 .then(if (onClick != null && !enabled) Modifier.graphicsLayer { alpha = 0.5f } else Modifier)
                 .background(color, shape)
                 .then(if (border != null) Modifier.border(border, shape) else Modifier)
-                .clip(shape)
+                .clipped(shape)
                 .then(
-                    if (onClick != null) {
-                        Modifier.clickable(interactionSource, LocalIndication.current, enabled, onClick = onClick)
-                    } else {
-                        Modifier
+                    when {
+                        // The focus outline runs along the shape, inside it, where the clip cuts none of it.
+                        onClick != null -> Modifier.clickable(interactionSource, PressIndication.shaped(shape), enabled, onClick = onClick)
+                        group -> Modifier.semantics { isTraversalGroup = true }
+                        else -> Modifier
                     },
                 ),
             content = content,
@@ -313,7 +323,7 @@ fun Modifier.sheetSlice(index: Int, count: Int, dividerInset: Dp = 0.dp, color: 
                     if (!first && to > from) drawLine(line, Offset(from, half), Offset(to, half), strokeWidth = width)
                 }
             }
-            .clip(shape)
+            .clipped(shape)
     }
     return this.then(slice)
 }
@@ -352,8 +362,8 @@ fun BlankSheet(
         modifier
             .then(if (!enabled) Modifier.graphicsLayer { alpha = 0.5f } else Modifier)
             .dashedOutline()
-            .clip(SheetShape)
-            .clickable(enabled = enabled, onClick = onClick),
+            .clipped(SheetShape)
+            .clickable(interactionSource = null, indication = PressIndication.shaped(SheetShape), enabled = enabled, onClick = onClick),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
         content = content,
@@ -423,7 +433,7 @@ fun Modifier.paperEdge(radius: Dp = 0.dp): Modifier {
 @Composable
 fun Modifier.paper(radius: Dp = 2.dp): Modifier {
     val shape = remember(radius) { RoundedCornerShape(radius) }
-    return this.paperEdge(radius).clip(shape).background(Color.White)
+    return this.paperEdge(radius).clipped(shape).background(Color.White)
 }
 
 /**
@@ -447,7 +457,7 @@ fun Modifier.tile(selected: Boolean, shape: Shape = TileShape): Modifier {
 
 /** A tile's clip, fill and edge; the colours are read while drawing. */
 private fun Modifier.tileDrawing(selected: Boolean, shape: Shape, fill: State<Color>, edge: State<Color>): Modifier = this
-    .clip(shape)
+    .clipped(shape)
     .drawWithCache {
         val width = (if (selected) 2.dp else 1.dp).toPx()
         val outline = shape.createOutline(size, layoutDirection, this)
@@ -459,3 +469,42 @@ private fun Modifier.tileDrawing(selected: Boolean, shape: Shape, fill: State<Co
             translate(width / 2, width / 2) { drawOutline(ring, edge.value, style = stroke) }
         }
     }
+
+/**
+ * Clips what it is set on, and everything inside it, to [shape], as Modifier.clip does, without
+ * making it an item of the accessibility tree. The layer is taken by placing with it, not with
+ * graphicsLayer(): every graphics-layer modifier (clip, alpha, shadow, scale, rotate) makes the node
+ * it is set on such an item, and a container that is one while what is inside it changes keeps a
+ * device test reading what was there (R17). The kit clips with this, never with clip.
+ */
+fun Modifier.clipped(shape: Shape): Modifier = this then ClippedElement(shape)
+
+private data class ClippedElement(val shape: Shape) : ModifierNodeElement<ClippedNode>() {
+    override fun create() = ClippedNode(shape)
+
+    override fun update(node: ClippedNode) = node.clipTo(shape)
+
+    override fun InspectorInfo.inspectableProperties() {
+        name = "clipped"
+        properties["shape"] = shape
+    }
+}
+
+private class ClippedNode(shape: Shape) : Modifier.Node(), LayoutModifierNode {
+    private var layer = clipLayer(shape)
+
+    /** A new shape: the node is measured and placed again (the update says so), with the new layer. */
+    fun clipTo(shape: Shape) {
+        layer = clipLayer(shape)
+    }
+
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val placeable = measurable.measure(constraints)
+        return layout(placeable.width, placeable.height) { placeable.placeWithLayer(0, 0, layerBlock = layer) }
+    }
+}
+
+private fun clipLayer(shape: Shape): GraphicsLayerScope.() -> Unit = {
+    this.shape = shape
+    clip = true
+}

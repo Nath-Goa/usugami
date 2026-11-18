@@ -1,13 +1,18 @@
 package io.github.nath_goa.usugami.ui.kit
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -19,12 +24,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedIconButton
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -34,13 +38,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 
 // Pills act. Each button wraps its Material component, which draws a ripple of its own and never reads
 // the theme's indication: the wrapper gives that component ONE interaction source and adds the press
 // feedback over it with Modifier.indication, as the outermost of its own modifiers (the caller's
-// padding or weight stays outside the feedback). The semantics are Material's own.
+// padding or weight stays outside the feedback). The semantics are Material's own. The quiet button
+// is the exception: it is built here with Material's metrics, so that its 48 dp touch box, which
+// carries the caller's modifier, is also the node that is clicked (see QuietButton).
 
 /** A text button's padding. */
 val ButtonPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp)
@@ -126,7 +132,8 @@ fun TonalButton(
 
 /**
  * A paper button: `paper` with a hairline edge and `primary` text, 52 dp tall at least; with [danger]
- * (deleting something) the text is `error`, never a red fill.
+ * (deleting something) the text is `error`, never a red fill. Disabled, its text is faint `onSurface`,
+ * as every disabled button's is.
  */
 @Composable
 fun PaperButton(
@@ -153,7 +160,7 @@ fun PaperButton(
             containerColor = colors.paper,
             contentColor = ink,
             disabledContainerColor = colors.paper,
-            disabledContentColor = ink.copy(alpha = 0.38f),
+            disabledContentColor = scheme.onSurface.copy(alpha = 0.38f),
         ),
         elevation = null,
         border = BorderStroke(1.dp, if (enabled) colors.hairlineStrong else colors.hairline),
@@ -164,9 +171,11 @@ fun PaperButton(
 }
 
 /**
- * A quiet button: text alone, in [contentColor] or else `primary` (`error` with [danger]). It is
- * Material's 40 dp text button in a 48 dp box: the press tint, scale and focus outline are the 40 dp
- * button's, the touch target is the box.
+ * A quiet button: text alone, in [contentColor] or else `primary` (`error` with [danger]); disabled,
+ * faint `onSurface` whatever its colour. It has the metrics of Material's text button: 40 dp tall in a
+ * 48 dp box. The press tint, scale and focus outline are the 40 dp button's; the touch target, the
+ * click and the caller's [modifier] (with any semantics it sets) are the box's, one node, as
+ * Material's own button is.
  */
 @Composable
 fun QuietButton(
@@ -181,29 +190,28 @@ fun QuietButton(
 ) {
     val source = interactionSource ?: remember { MutableInteractionSource() }
     val scheme = MaterialTheme.colorScheme
-    val ink = contentColor.takeOrElse { if (danger) scheme.error else scheme.primary }
-    // The box keeps the 48 dp touch target; inside it the button is its visible 40 dp. A width or a
-    // weight the caller gives the box reaches the button too (its minimum constraints are passed on).
+    val ink = if (enabled) contentColor.takeOrElse { if (danger) scheme.error else scheme.primary } else scheme.onSurface.copy(alpha = 0.38f)
+    // The click is on the box, with the caller's modifier: a description a call site gives is on the
+    // node that is clicked. A width or a weight the caller gives the box reaches the button too (its
+    // minimum constraints are passed on).
     Box(
-        modifier.minimumInteractiveComponentSize(),
+        modifier
+            .minimumInteractiveComponentSize()
+            .clickable(interactionSource = source, indication = null, enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
         propagateMinConstraints = true,
     ) {
-        CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-            TextButton(
-                onClick = onClick,
-                modifier = Modifier.indication(source, PressIndication.button(CircleShape, ink)),
-                enabled = enabled,
-                shape = CircleShape,
-                colors = ButtonDefaults.textButtonColors(
-                    containerColor = Color.Transparent,
-                    contentColor = ink,
-                    disabledContainerColor = Color.Transparent,
-                    disabledContentColor = ink.copy(alpha = 0.38f),
-                ),
-                elevation = null,
-                contentPadding = contentPadding,
-                interactionSource = source,
+        CompositionLocalProvider(
+            LocalContentColor provides ink,
+            LocalTextStyle provides LocalTextStyle.current.merge(MaterialTheme.typography.labelLarge),
+        ) {
+            Row(
+                Modifier
+                    .indication(source, PressIndication.button(CircleShape, ink))
+                    .defaultMinSize(ButtonDefaults.MinWidth, ButtonDefaults.MinHeight)
+                    .padding(contentPadding),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
                 content = content,
             )
         }
@@ -239,7 +247,10 @@ fun GlyphButton(
     )
 }
 
-/** An icon button on paper: a 40 dp `paper` circle with a hairline edge in the 48 dp box, its glyph `primary`. */
+/**
+ * An icon button on paper: a 40 dp `paper` circle with a hairline edge in the 48 dp box, its glyph
+ * `primary`. Pressed, the disc lies over the paper (under it, it would hardly show) and both shrink.
+ */
 @Composable
 fun PaperGlyphButton(
     onClick: () -> Unit,
@@ -253,7 +264,7 @@ fun PaperGlyphButton(
     val colors = Usugami.colors
     OutlinedIconButton(
         onClick = onClick,
-        modifier = modifier.indication(source, PressIndication.glyph(scheme.primary)),
+        modifier = modifier.indication(source, PressIndication.glyphOverFill(scheme.primary)),
         enabled = enabled,
         colors = IconButtonDefaults.outlinedIconButtonColors(
             containerColor = colors.paper,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,7 +51,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -234,21 +234,28 @@ fun SwitchRow(
 
 /**
  * A chip that opens a menu of values: a `paper` pill with a hairline edge, its [label] and a drop-down
- * arrow. 40 dp tall in a 48 dp box; the pill is the button, so its press tint is clipped to it.
+ * arrow. 40 dp tall in a 48 dp box. The box is the button, with the caller's [modifier] on it (one
+ * node, as Material's chip is); the pill shows the press, its tint and focus outline inside its shape.
  */
 @Composable
 fun DropdownChip(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val colors = Usugami.colors
     val ink = MaterialTheme.colorScheme.onSurface.let { if (enabled) it else it.copy(alpha = 0.38f) }
-    Box(modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
+    val source = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .heightIn(min = 48.dp)
+            .clickable(interactionSource = source, indication = null, enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
         CompositionLocalProvider(LocalContentColor provides ink) {
             Row(
                 Modifier
                     .heightIn(min = 40.dp)
-                    .clip(CircleShape)
+                    .clipped(CircleShape)
+                    .indication(source, PressIndication.shaped(CircleShape))
                     .background(colors.paper)
                     .border(1.dp, colors.hairlineStrong, CircleShape)
-                    .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
                     .padding(start = 16.dp, end = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -266,19 +273,26 @@ fun DropdownChip(label: String, onClick: () -> Unit, modifier: Modifier = Modifi
 /**
  * A chip that is on or off ([selected]): a `paper` pill with a hairline edge, or `lilac` with a
  * `primary` edge when on. 40 dp tall in a 48 dp box; heard as a checkbox, as Material's filter chip is.
+ * The box is the choice, with the caller's [modifier] on it; the pill shows the press.
  */
 @Composable
 fun ChoiceChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: Modifier = Modifier) {
     val colors = Usugami.colors
     val scheme = MaterialTheme.colorScheme
-    Box(modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
+    val source = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .heightIn(min = 48.dp)
+            .selectable(selected = selected, interactionSource = source, indication = null, role = Role.Checkbox, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
         Row(
             Modifier
                 .heightIn(min = 40.dp)
-                .clip(CircleShape)
+                .clipped(CircleShape)
+                .indication(source, PressIndication.shaped(CircleShape))
                 .background(if (selected) colors.lilac else colors.paper)
                 .border(1.dp, if (selected) scheme.primary else colors.hairlineStrong, CircleShape)
-                .selectable(selected = selected, role = Role.Checkbox, onClick = onClick)
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -290,7 +304,7 @@ fun ChoiceChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: 
 /**
  * A slider: a 6 dp well for a track, filled in `primary` from its start to the thumb, or with
  * [centered] from the middle of the range to the thumb either way (the middle shows no fill); the
- * thumb a white disc ringed in `primary` that grows while held. Material's slider underneath, 48 dp
+ * thumb a white disc ringed in `primary` that grows while held or focused. Material's slider underneath, 48 dp
  * tall; [modifier] (where call sites set the slider's semantics) is passed on untouched.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -309,7 +323,9 @@ fun UsugamiSlider(
     val colors = Usugami.colors
     val pressed by source.collectIsPressedAsState()
     val dragged by source.collectIsDraggedAsState()
-    val diameter = animateDpAsState(if (pressed || dragged) 26.dp else 22.dp, Motion.press(), label = "slider thumb")
+    // A keyboard's or D-pad's focus shows as a held thumb (a touch does not focus a slider).
+    val focused by source.collectIsFocusedAsState()
+    val diameter = animateDpAsState(if (pressed || dragged || focused) 26.dp else 22.dp, Motion.press(), label = "slider thumb")
     val thumbFill = if (enabled) colors.thumb else colors.thumb.copy(alpha = 0.38f)
     val ring = if (enabled) scheme.primary else scheme.primary.copy(alpha = 0.38f)
     val filled = if (enabled) scheme.primary else scheme.onSurface.copy(alpha = 0.38f)

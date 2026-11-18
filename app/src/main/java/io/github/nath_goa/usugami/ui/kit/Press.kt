@@ -61,6 +61,12 @@ class PressIndication private constructor(
 
         /** Icon buttons: a 40 dp disc of [content] at 10 %, the glyph scales to 0.92. */
         fun glyph(content: Color): PressIndication = PressIndication(Kind.Glyph, CircleShape, content, 0.dp)
+
+        /**
+         * An icon button with a fill of its own (PaperGlyphButton): the same disc, drawn OVER the
+         * button, whose 40 dp fill would hide it, and scaling with it.
+         */
+        internal fun glyphOverFill(content: Color): PressIndication = PressIndication(Kind.GlyphOverFill, CircleShape, content, 0.dp)
     }
 
     override fun create(interactionSource: InteractionSource): DelegatableNode =
@@ -79,7 +85,7 @@ class PressIndication private constructor(
     }
 }
 
-private enum class Kind { Tint, Button, Glyph }
+private enum class Kind { Tint, Button, Glyph, GlyphOverFill }
 
 /** A button's content and container while pressed. */
 private const val ButtonScale = 0.97f
@@ -216,7 +222,18 @@ private class PressNode(
                 if (s != 1f) scale(s) { this@draw.drawContent() } else drawContent()
                 if (focused) drawCircle(currentValueOf(LocalUsugamiColors).focus, radius = GlyphFocus.toPx() / 2, style = stroke())
             }
+            Kind.GlyphOverFill -> {
+                // Over the button's own fill, and scaling with it, so the disc stays as big as the fill.
+                if (s != 1f) scale(s) { this@draw.drawOverFill(alpha) } else drawOverFill(alpha)
+                if (focused) drawCircle(currentValueOf(LocalUsugamiColors).focus, radius = GlyphFocus.toPx() / 2, style = stroke())
+            }
         }
+    }
+
+    /** An icon button with a fill of its own, with the disc over it. */
+    private fun ContentDrawScope.drawOverFill(alpha: Float) {
+        drawContent()
+        if (alpha > 0f) drawCircle(content, radius = GlyphDisc.toPx() / 2, alpha = 0.10f * alpha)
     }
 
     /** A button's content, with its tint over it inside the shape. */
@@ -255,7 +272,7 @@ private class PressNode(
                 layoutDirection,
                 this,
             )
-            Kind.Glyph -> null
+            Kind.Glyph, Kind.GlyphOverFill -> null
         }
     }
 }

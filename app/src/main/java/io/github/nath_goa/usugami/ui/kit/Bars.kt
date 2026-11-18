@@ -24,7 +24,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -171,7 +170,7 @@ fun PagePill(text: String, spoken: String, onClickLabel: String, onClick: () -> 
         modifier = modifier
             // The row tint is ink on ink, invisible here: the pill presses as a button does.
             .indication(source, PressIndication.button(CircleShape, Usugami.colors.onPill))
-            .clip(CircleShape)
+            .clipped(CircleShape)
             .background(Usugami.colors.pill)
             .border(1.dp, Usugami.colors.pillEdge, CircleShape)
             .clickable(interactionSource = source, indication = null, onClickLabel = onClickLabel, role = Role.Button, onClick = onClick)
