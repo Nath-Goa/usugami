@@ -39,7 +39,7 @@ fun OptionsRow(layout: LayoutSettings, onChange: (LayoutSettings) -> Unit, modif
         modifier
             .fadingEdges(scroll)
             .horizontalScroll(scroll)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         OptionChip(

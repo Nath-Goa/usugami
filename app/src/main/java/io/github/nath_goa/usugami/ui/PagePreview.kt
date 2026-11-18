@@ -2,7 +2,6 @@ package io.github.nath_goa.usugami.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material3.MaterialTheme
@@ -14,23 +13,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.core.PageLayout
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
+import io.github.nath_goa.usugami.ui.kit.paper
 import kotlin.math.roundToInt
 
 /**
@@ -50,8 +47,7 @@ fun PagePreview(item: ImageItem, layout: LayoutSettings, thumbnails: Thumbnails,
         Canvas(
             Modifier
                 .aspectRatio((geometry.pageWidth / geometry.pageHeight).toFloat())
-                .shadow(2.dp, RectangleShape)
-                .border(0.5.dp, Color(0x22000000)),
+                .paper(),
         ) {
             drawRect(Color.White)
             val scale = size.width / geometry.pageWidth.toFloat()

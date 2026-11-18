@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Badge
@@ -30,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -38,18 +36,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
+import io.github.nath_goa.usugami.ui.kit.ButtonWithGlyphPadding
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.PaperButton
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
-import io.github.nath_goa.usugami.ui.kit.TonalButton
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
+import io.github.nath_goa.usugami.ui.kit.dashedOutline
 
 /**
  * The ID card flow's prompt for [side]: what to do, and buttons that take a photo of that side with
@@ -98,12 +99,20 @@ fun IdCardScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            // A card goes here. It stays the one node the tile it replaces was.
+            Box(
+                Modifier
+                    .size(112.dp, 88.dp)
+                    .dashedOutline()
+                    .semantics { isTraversalGroup = true },
+                contentAlignment = Alignment.Center,
             ) {
-                Icon(if (front) Icons.Rounded.Badge else Icons.Rounded.CreditCard, contentDescription = null, modifier = Modifier.padding(24.dp).size(56.dp))
+                Icon(
+                    if (front) Icons.Rounded.Badge else Icons.Rounded.CreditCard,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
             }
             Spacer(Modifier.height(24.dp))
             Text(
@@ -128,15 +137,13 @@ fun IdCardScreen(
                 )
             }
             Spacer(Modifier.height(32.dp))
-            PrimaryButton(onClick = onTakePhoto, enabled = !busy, modifier = Modifier.widthIn(min = 220.dp)) {
-                Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
+            PrimaryButton(onClick = onTakePhoto, enabled = !busy, modifier = Modifier.widthIn(min = 220.dp), contentPadding = ButtonWithGlyphPadding) {
+                ButtonGlyph(Icons.Rounded.PhotoCamera)
                 Text(stringResource(R.string.add_from_camera))
             }
             Spacer(Modifier.height(8.dp))
-            TonalButton(onClick = onChooseImage, enabled = !busy, modifier = Modifier.widthIn(min = 220.dp)) {
-                Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
+            PaperButton(onClick = onChooseImage, enabled = !busy, modifier = Modifier.widthIn(min = 220.dp), contentPadding = ButtonWithGlyphPadding) {
+                ButtonGlyph(Icons.Rounded.PhotoLibrary)
                 Text(stringResource(R.string.card_choose_image))
             }
             if (!front) {

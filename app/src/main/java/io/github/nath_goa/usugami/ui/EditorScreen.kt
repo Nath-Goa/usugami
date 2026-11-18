@@ -3,17 +3,15 @@ package io.github.nath_goa.usugami.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -41,7 +39,6 @@ import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -56,10 +53,7 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PictureAsPdf
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -78,16 +72,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -101,6 +96,10 @@ import io.github.nath_goa.usugami.core.PageGroups
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
+import io.github.nath_goa.usugami.ui.kit.ActionBar
+import io.github.nath_goa.usugami.ui.kit.BlankSheet
+import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
+import io.github.nath_goa.usugami.ui.kit.ButtonWithGlyphPadding
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
@@ -109,11 +108,13 @@ import io.github.nath_goa.usugami.ui.kit.PaperButton
 import io.github.nath_goa.usugami.ui.kit.PaperGlyphButton
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
-import io.github.nath_goa.usugami.ui.kit.Sheet
-import io.github.nath_goa.usugami.ui.kit.TonalButton
+import io.github.nath_goa.usugami.ui.kit.TileShape
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
+import io.github.nath_goa.usugami.ui.kit.dashedOutline
+import io.github.nath_goa.usugami.ui.kit.rememberHaptics
+import io.github.nath_goa.usugami.ui.kit.tile
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 
@@ -206,11 +207,13 @@ fun EditorScreen(
             )
         },
         bottomBar = {
-            // Slides up when the first image arrives. It leaves at once: a bar that slid or shrank
-            // away would hold the content padding to the end and then make the page jump.
+            // Rises when the first image arrives: laid out in its place at once and only painted on
+            // its way up, as a bar that slid in would have Convert off the window in its first frames,
+            // where a screen reader and the device tests don't find it. It leaves at once: a bar that
+            // slid or shrank away would hold the content padding to the end and then make the page jump.
             AnimatedVisibility(
                 visible = items.isNotEmpty(),
-                enter = slideInVertically(Motion.medium()) { fullHeight -> fullHeight },
+                enter = EnterTransition.None,
                 exit = ExitTransition.None,
                 label = "bottom actions",
             ) {
@@ -220,6 +223,7 @@ fun EditorScreen(
                     onAddFiles = actions.addFromFiles,
                     onTakePhoto = actions.takePhoto,
                     onConvert = actions.convert,
+                    modifier = Modifier.paintedAway(slideInProgress()) { Offset(0f, it.height) },
                 )
             }
         },
@@ -286,7 +290,7 @@ fun EditorScreen(
  */
 @Composable
 private fun PageGrid(pages: List<List<ImageItem>>, layout: LayoutSettings, thumbnails: Thumbnails, actions: EditorActions, cropping: Set<Long>) {
-    val haptic = LocalHapticFeedback.current
+    val haptics = rememberHaptics()
     val gridState = rememberLazyGridState()
     // The reorder hint is inserted above the first page when the second page arrives. The grid
     // keeps the first page in place, which would leave the hint scrolled out of view, so stay at
@@ -305,12 +309,12 @@ private fun PageGrid(pages: List<List<ImageItem>>, layout: LayoutSettings, thumb
         val fromId = from.key as? Long ?: return@rememberReorderableLazyGridState
         val toId = to.key as? Long ?: return@rememberReorderableLazyGridState
         actions.move(fromId, toId)
-        haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+        haptics.swap()
     }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 150.dp),
         state = gridState,
-        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 16.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize(),
@@ -321,14 +325,20 @@ private fun PageGrid(pages: List<List<ImageItem>>, layout: LayoutSettings, thumb
                     stringResource(R.string.reorder_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.animateItem().padding(horizontal = 4.dp),
+                    modifier = Modifier.animateItem().padding(horizontal = 8.dp),
                 )
             }
         }
         itemsIndexed(pages, key = { _, page -> page[0].id }) { index, page ->
             val item = page[0]
             ReorderableItem(reorderState, key = item.id) { isDragging ->
-                val elevation by animateDpAsState(if (isDragging) 10.dp else 1.dp, label = "drag elevation")
+                // Held to be moved, the tile is lifted: a little larger, with a shadow and a lighter
+                // fill (in the dark theme the shadow hardly shows). Let go, it springs back.
+                val lift = animateFloatAsState(
+                    targetValue = if (isDragging) 1f else 0f,
+                    animationSpec = if (isDragging) Motion.ui(0.001f) else Motion.flick(0.001f),
+                    label = "lift",
+                )
                 val moveEarlier = stringResource(R.string.move_page_earlier, index + 1)
                 val moveLater = stringResource(R.string.move_page_later, index + 1)
                 val card = item.card != 0L
@@ -344,13 +354,23 @@ private fun PageGrid(pages: List<List<ImageItem>>, layout: LayoutSettings, thumb
                 else sideStates.mapIndexedNotNull { i, sideState ->
                     if (sideState.isEmpty()) null else stringResource(R.string.option_value, sideNames[i], sideState)
                 }.joinToString(", ").ifEmpty { null }
-                ElevatedCard(
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation),
-                    modifier = Modifier
+                Column(
+                    Modifier
+                        // The tile is a node of its own (merged below), so it may take a layer.
+                        .graphicsLayer {
+                            val scale = 1f + 0.04f * lift.value
+                            scaleX = scale
+                            scaleY = scale
+                            shadowElevation = 8.dp.toPx() * lift.value.coerceAtLeast(0f)
+                            shape = TileShape
+                        }
+                        .tile(selected = false, lifted = isDragging)
                         .longPressDraggableHandle(
-                            onDragStarted = { haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) },
-                            onDragStopped = { haptic.performHapticFeedback(HapticFeedbackType.GestureEnd) },
+                            onDragStarted = { haptics.lift() },
+                            onDragStopped = { haptics.drop() },
                         )
+                        // Its buttons are read with it, as they were on the card it was.
+                        .semantics { isTraversalGroup = true }
                         // Screen reader and switch users can't drag: the card offers the same moves as
                         // actions. Merged, so it is one focusable item that carries them.
                         .semantics(mergeDescendants = true) {
@@ -379,7 +399,6 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.85f)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                 .padding(12.dp),
         ) {
             PagePreview(item, layout, thumbnails, Modifier.fillMaxSize())
@@ -445,20 +464,10 @@ internal fun PageNumberBadge(pageNumber: Int, modifier: Modifier = Modifier) {
 private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit, onTakePhoto: () -> Unit, modifier: Modifier = Modifier) {
     var menu by remember { mutableStateOf(false) }
     Box(modifier) {
-        Sheet(
-            onClick = { menu = true },
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-            modifier = Modifier.fillMaxWidth().aspectRatio(0.85f),
-        ) {
-            Column(
-                Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.add_more), style = MaterialTheme.typography.labelLarge)
-            }
+        BlankSheet(onClick = { menu = true }, modifier = Modifier.fillMaxWidth().aspectRatio(0.85f)) {
+            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.add_more), style = MaterialTheme.typography.labelLarge)
         }
         AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles, onTakePhoto)
     }
@@ -537,19 +546,15 @@ private fun BottomActions(
     onAddFiles: () -> Unit,
     onTakePhoto: () -> Unit,
     onConvert: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val labelStyle = MaterialTheme.typography.labelLarge
     val shrunk = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = labelStyle.fontSize, stepSize = 0.5.sp)
     val convertLabel = stringResource(R.string.convert)
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
-    Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
-        BoxWithConstraints(
-            Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        ) {
+    ActionBar(modifier) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
             // Convert keeps room for its label at its smallest size, so with a large font size the
             // Add button shrinks (and ends in "…") rather than Convert, the main action, being cut.
             val convertRoom = with(density) {
@@ -559,9 +564,8 @@ private fun BottomActions(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 var menu by remember { mutableStateOf(false) }
                 Box(Modifier.widthIn(max = addRoom)) {
-                    PaperButton(onClick = { menu = true }, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-                        Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
+                    PaperButton(onClick = { menu = true }, contentPadding = ButtonWithGlyphPadding) {
+                        ButtonGlyph(Icons.Rounded.Add)
                         Text(stringResource(R.string.add_images), maxLines = 1, overflow = TextOverflow.Ellipsis, autoSize = shrunk)
                     }
                     AddMenu({ menu }, onDismiss = { menu = false }, onAddPhotos, onAddFiles, onTakePhoto)
@@ -571,10 +575,9 @@ private fun BottomActions(
                     onClick = onConvert,
                     enabled = convertEnabled,
                     modifier = Modifier.weight(1f),
-                    contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+                    contentPadding = ButtonWithGlyphPadding,
                 ) {
-                    Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
+                    ButtonGlyph(Icons.Rounded.PictureAsPdf)
                     // Shrinks a little on narrow phones, large text or a long translation, rather than being cut off.
                     Text(convertLabel, maxLines = 1, overflow = TextOverflow.Ellipsis, autoSize = shrunk)
                 }
@@ -586,8 +589,8 @@ private fun BottomActions(
 /** Between the bottom bar's two buttons. */
 private val ButtonGap = 12.dp
 
-/** A bottom bar button's width besides its label: its padding (16 and 24 dp), icon and the gap after it. */
-private val ButtonChrome = 16.dp + 24.dp + 18.dp + 6.dp
+/** A bottom bar button's width besides its label: its padding (16 and 16 dp), glyph and the gap after it. */
+private val ButtonChrome = 16.dp + 16.dp + 20.dp + 8.dp
 
 @Composable
 private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: () -> Unit, onTakePhoto: () -> Unit) {
@@ -600,12 +603,15 @@ private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: 
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Surface(
-            shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        // A page goes here. It stays the one node the tile it replaces was.
+        Box(
+            Modifier
+                .size(88.dp, 112.dp)
+                .dashedOutline()
+                .semantics { isTraversalGroup = true },
+            contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.padding(24.dp).size(56.dp))
+            Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
         }
         Spacer(Modifier.height(24.dp))
         AnimatedContent(
@@ -631,21 +637,18 @@ private fun EmptyState(importing: Boolean, onAddPhotos: () -> Unit, onAddFiles: 
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(32.dp))
-        PrimaryButton(onClick = onAddPhotos, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
-            Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
+        PrimaryButton(onClick = onAddPhotos, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp), contentPadding = ButtonWithGlyphPadding) {
+            ButtonGlyph(Icons.Rounded.PhotoLibrary)
             Text(stringResource(R.string.add_from_photos))
         }
         Spacer(Modifier.height(8.dp))
-        TonalButton(onClick = onAddFiles, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
-            Icon(Icons.Rounded.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
+        PaperButton(onClick = onAddFiles, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp), contentPadding = ButtonWithGlyphPadding) {
+            ButtonGlyph(Icons.Rounded.FolderOpen)
             Text(stringResource(R.string.add_from_files))
         }
         Spacer(Modifier.height(8.dp))
-        TonalButton(onClick = onTakePhoto, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp)) {
-            Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
+        PaperButton(onClick = onTakePhoto, enabled = !importing, modifier = Modifier.widthIn(min = 220.dp), contentPadding = ButtonWithGlyphPadding) {
+            ButtonGlyph(Icons.Rounded.PhotoCamera)
             Text(stringResource(R.string.add_from_camera))
         }
         Spacer(Modifier.height(24.dp))

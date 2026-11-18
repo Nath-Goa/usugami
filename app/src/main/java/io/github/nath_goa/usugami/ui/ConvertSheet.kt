@@ -62,6 +62,7 @@ import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiBottomSheet
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
@@ -113,9 +114,11 @@ fun ConvertSheet(
             Text(stringResource(R.string.convert_title), style = MaterialTheme.typography.headlineSmall)
             Spacer(Modifier.height(4.dp))
             Text(summary(imageCount, layout), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(16.dp))
+            SheetDivider()
 
             if (pageCount > 1) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier
                         .fillMaxWidth()
@@ -161,7 +164,7 @@ fun ConvertSheet(
             }
 
             Spacer(Modifier.height(20.dp))
-            Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
             SegmentedTrack(Compression.entries.indexOf(compression), Compression.entries.size, Modifier.fillMaxWidth()) {
                 Compression.entries.forEach { level ->
@@ -190,6 +193,8 @@ fun ConvertSheet(
             // Usugami Lite has no text recognition.
             if (BuildConfig.HAS_OCR) {
                 Spacer(Modifier.height(16.dp))
+                SheetDivider()
+                Spacer(Modifier.height(8.dp))
                 Row(
                     Modifier.fillMaxWidth().toggleable(value = ocrEnabled, role = Role.Switch, onValueChange = { ocrEnabled = it })
                         .padding(vertical = 8.dp),

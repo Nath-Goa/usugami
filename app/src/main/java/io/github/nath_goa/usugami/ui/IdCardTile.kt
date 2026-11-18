@@ -1,8 +1,6 @@
 package io.github.nath_goa.usugami.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,9 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -49,6 +45,7 @@ import io.github.nath_goa.usugami.ui.kit.MenuItem
 import io.github.nath_goa.usugami.ui.kit.PaperGlyphButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
+import io.github.nath_goa.usugami.ui.kit.paper
 
 /**
  * An ID card's page in the editor's grid, page [pageNumber]: the sheet as it will be in the PDF with
@@ -71,7 +68,6 @@ fun IdCardTile(
             Modifier
                 .fillMaxWidth()
                 .aspectRatio(0.85f)
-                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                 .padding(12.dp),
         ) {
             IdCardPreview(sides, layout, thumbnails, Modifier.fillMaxSize())
@@ -163,8 +159,7 @@ fun IdCardPreview(sides: List<ImageItem>, layout: LayoutSettings, thumbnails: Th
         Canvas(
             Modifier
                 .aspectRatio((page.pageWidth / page.pageHeight).toFloat())
-                .shadow(2.dp, RectangleShape)
-                .border(0.5.dp, Color(0x22000000)),
+                .paper(),
         ) {
             drawRect(Color.White)
             val scale = size.width / page.pageWidth.toFloat()
