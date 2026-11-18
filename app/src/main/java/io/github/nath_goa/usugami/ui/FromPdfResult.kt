@@ -17,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,6 +40,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ExportText
 import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.ui.kit.Sheet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -116,7 +116,7 @@ internal fun ResultTextCard(preview: TextPreview, enabled: Boolean, onCopy: () -
     var expanded by rememberSaveable { mutableStateOf(false) }
     // Whether the first lines leave some of the text out, as the text's layout tells while they show alone.
     var cut by remember { mutableStateOf(false) }
-    OutlinedCard(modifier) {
+    Sheet(modifier) {
         Column(Modifier.padding(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

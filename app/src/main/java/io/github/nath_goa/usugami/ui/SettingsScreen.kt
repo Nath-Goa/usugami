@@ -20,7 +20,6 @@ import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.VolunteerActivism
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -31,7 +30,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -54,6 +52,8 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.Appearance
 import io.github.nath_goa.usugami.data.Appearances
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 
 /**
  * Settings: the language Usugami is shown in, its appearance (light, dark or as the phone is set),
@@ -91,7 +91,7 @@ fun SettingsScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.settings)) },
                 navigationIcon = {
@@ -112,7 +112,7 @@ fun SettingsScreen(
         }
     }
     if (choosing) {
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { choosing = false },
             title = { Text(stringResource(R.string.settings_language)) },
             text = {
@@ -133,7 +133,7 @@ fun SettingsScreen(
         )
     }
     if (choosingAppearance) {
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { choosingAppearance = false },
             title = { Text(stringResource(R.string.settings_appearance)) },
             text = {

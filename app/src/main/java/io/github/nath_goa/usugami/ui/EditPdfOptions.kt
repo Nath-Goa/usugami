@@ -6,7 +6,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,14 +41,11 @@ import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.Square
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.West
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -97,6 +93,9 @@ import io.github.nath_goa.usugami.core.ShapeKind
 import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.data.PageText
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
+import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.min
@@ -633,7 +632,7 @@ private fun LabeledSlider(
             autoSize = TextAutoSize.StepBased(minFontSize = 11.sp, maxFontSize = MaterialTheme.typography.bodyLarge.fontSize, stepSize = 0.5.sp),
             modifier = Modifier.width(96.dp).clearAndSetSemantics {},
         )
-        Slider(
+        UsugamiSlider(
             value = value.coerceIn(range),
             onValueChange = {
                 // A drag along the slider, or a screen reader's step, is one change for Undo.
@@ -671,15 +670,16 @@ private fun EditTextDialog(initial: String, @StringRes title: Int, onDone: (Stri
     val drawable = remember(text) { PageText.canDraw(text) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    AlertDialog(
+    UsugamiDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(title)) },
         text = {
-            OutlinedTextField(
+            WellField(
                 value = text,
                 onValueChange = { text = it.take(PageText.MAX_LENGTH) },
                 label = { Text(stringResource(R.string.edit_text)) },
                 isError = !drawable,
+                errorMessage = stringResource(R.string.watermark_no_font),
                 // Shown here: a message under the dialog would be hidden by it and by the keyboard.
                 supportingText = if (!drawable) {
                     { Text(stringResource(R.string.watermark_no_font), Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }

@@ -28,10 +28,6 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,6 +62,9 @@ import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
+import io.github.nath_goa.usugami.ui.kit.Segment
+import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -120,14 +119,11 @@ internal fun PageNumberOptions(
     Text(stringResource(R.string.page_numbers_position), style = MaterialTheme.typography.titleMedium)
     PositionPicker(position, onPosition)
     Text(stringResource(R.string.page_numbers_size), style = MaterialTheme.typography.titleMedium)
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        PageNumberSize.entries.forEachIndexed { index, item ->
-            SegmentedButton(
+    SegmentedTrack(PageNumberSize.entries.indexOf(size), PageNumberSize.entries.size, Modifier.fillMaxWidth()) {
+        PageNumberSize.entries.forEach { item ->
+            Segment(
                 selected = size == item,
                 onClick = { onSize(item) },
-                shape = SegmentedButtonDefaults.itemShape(index, PageNumberSize.entries.size),
-                icon = {},
-                contentPadding = SegmentPadding,
                 label = {
                     SegmentLabel(stringResource(when (item) {
                         PageNumberSize.SMALL -> R.string.number_size_small
@@ -139,7 +135,7 @@ internal fun PageNumberOptions(
         }
     }
     Column {
-        OutlinedTextField(
+        WellField(
             value = skip,
             onValueChange = onSkip,
             label = { Text(stringResource(R.string.page_numbers_skip)) },
@@ -264,7 +260,7 @@ internal fun WatermarkOptions(
     opacity: WatermarkOpacity,
     onOpacity: (WatermarkOpacity) -> Unit,
 ) {
-    OutlinedTextField(
+    WellField(
         value = text,
         onValueChange = { onText(it.take(WatermarkText.MAX_LENGTH)) },
         label = { Text(stringResource(R.string.watermark_text)) },
@@ -276,14 +272,11 @@ internal fun WatermarkOptions(
     Text(stringResource(R.string.watermark_color), style = MaterialTheme.typography.titleMedium)
     ColorSwatches(WatermarkColor.entries, color, onColor, argb = { it.argb }, label = ::colorLabel)
     Text(stringResource(R.string.watermark_opacity), style = MaterialTheme.typography.titleMedium)
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        WatermarkOpacity.entries.forEachIndexed { index, item ->
-            SegmentedButton(
+    SegmentedTrack(WatermarkOpacity.entries.indexOf(opacity), WatermarkOpacity.entries.size, Modifier.fillMaxWidth()) {
+        WatermarkOpacity.entries.forEach { item ->
+            Segment(
                 selected = opacity == item,
                 onClick = { onOpacity(item) },
-                shape = SegmentedButtonDefaults.itemShape(index, WatermarkOpacity.entries.size),
-                icon = {},
-                contentPadding = SegmentPadding,
                 label = {
                     SegmentLabel(stringResource(when (item) {
                         WatermarkOpacity.TRANSLUCENT -> R.string.opacity_translucent

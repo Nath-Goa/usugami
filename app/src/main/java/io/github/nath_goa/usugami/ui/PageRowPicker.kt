@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.Sheet
 
 /**
  * A row of [input]'s pages to tap, those [selected] (zero-based) outlined, as Split PDF's "Selected
@@ -42,7 +42,7 @@ internal fun PageRowPicker(input: PdfInput, selected: Set<Int>, modifier: Modifi
                 label = "page border color",
             )
             val pageLabel = stringResource(R.string.pdf_page_number, i + 1)
-            OutlinedCard(
+            Sheet(
                 onClick = { onTap(i) },
                 border = BorderStroke(borderWidth, borderColor),
                 modifier = Modifier.width(105.dp).semantics { this.selected = active },

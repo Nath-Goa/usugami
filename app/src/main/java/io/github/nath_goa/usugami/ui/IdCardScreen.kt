@@ -25,7 +25,6 @@ import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -37,7 +36,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +48,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 
 /**
  * The ID card flow's prompt for [side]: what to do, and buttons that take a photo of that side with
@@ -76,7 +76,7 @@ fun IdCardScreen(
     Scaffold(
         modifier = Modifier.semantics { paneTitle = pane },
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 title = { BarTitle(title) },
                 navigationIcon = {
                     IconButton(onClick = onEnd) {
@@ -149,7 +149,7 @@ fun IdCardScreen(
             Box(Modifier.heightIn(min = 56.dp).padding(top = 16.dp), contentAlignment = Alignment.Center) {
                 if (busy) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        CircularProgress(Modifier.size(20.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(12.dp))
                         Text(
                             stringResource(R.string.card_adding),

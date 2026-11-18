@@ -44,7 +44,6 @@ import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.SaveAs
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -52,16 +51,13 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -95,6 +91,10 @@ import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.core.ZipProgress
 import io.github.nath_goa.usugami.data.MarkSetting
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.delay
 
 class ResultActions(
@@ -169,7 +169,7 @@ fun ResultScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.result_title)) },
                 navigationIcon = {
@@ -349,7 +349,7 @@ fun ResultScreen(
     }
 
     if (confirmStartOver) {
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { confirmStartOver = false },
             title = { Text(stringResource(R.string.start_over_title)) },
             text = { Text(stringResource(R.string.not_saved_note)) },
@@ -418,7 +418,7 @@ fun ZipProgressDialog(progress: ZipProgress?, onCancel: () -> Unit) {
 @Composable
 private fun ZipDialog(progress: ZipProgress, onCancel: () -> Unit) {
     val fraction by animateFloatAsState(targetValue = progress.fraction, animationSpec = Motion.medium(), label = "zip progress")
-    AlertDialog(
+    UsugamiDialog(
         onDismissRequest = {},
         // The screen stays on while it shows, as for every job (see ProgressDialog).
         modifier = Modifier.keepScreenOn(),
@@ -426,7 +426,7 @@ private fun ZipDialog(progress: ZipProgress, onCancel: () -> Unit) {
         title = { Text(stringResource(R.string.zip_making)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                LinearProgress(progress = { fraction }, modifier = Modifier.fillMaxWidth())
                 Text(pluralStringResource(R.plurals.progress_files, progress.totalFiles, progress.files, progress.totalFiles))
             }
         },
@@ -459,7 +459,7 @@ internal val OutputType.icon: ImageVector
  */
 @Composable
 private fun FileRow(file: PdfFile, showOpen: Boolean, canOpen: Boolean, onOpen: () -> Unit, onPrint: (() -> Unit)?) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    Sheet(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(file.type.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
             Spacer(Modifier.width(12.dp))
@@ -560,7 +560,7 @@ private fun OwnFileRow(
     canSave: Boolean,
     canPrint: Boolean,
 ) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    Sheet(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(top = 12.dp, bottom = 4.dp, end = 8.dp)) {
             Row(Modifier.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(file.type.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))

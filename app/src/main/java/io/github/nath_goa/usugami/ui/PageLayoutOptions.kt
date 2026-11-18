@@ -26,10 +26,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -92,7 +88,10 @@ import io.github.nath_goa.usugami.core.SheetLayout
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.cropPages
 import io.github.nath_goa.usugami.data.pagesPerSheet
+import io.github.nath_goa.usugami.ui.kit.Segment
+import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Usugami
+import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -257,7 +256,7 @@ private fun CropChoices(input: PdfInput, shown: PdfInput, sizes: List<Pair<Float
                 state.somePages = some
             }) { stringResource(if (it) R.string.layout_pages_some else R.string.layout_pages_all) }
             AnimatedVisibility(visible = state.somePages, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "pages to crop") {
-                OutlinedTextField(
+                WellField(
                     value = state.pagesText,
                     onValueChange = { state.pagesText = it },
                     label = { Text(stringResource(R.string.layout_pages_field)) },
@@ -571,14 +570,11 @@ private fun <T> Segments(
     described: ((T) -> String)? = null,
     label: @Composable (T) -> String,
 ) {
-    SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
-        items.forEachIndexed { index, item ->
-            SegmentedButton(
+    SegmentedTrack(items.indexOf(selected).takeIf { it >= 0 }, items.size, modifier.fillMaxWidth()) {
+        items.forEach { item ->
+            Segment(
                 selected = item == selected,
                 onClick = { onSelect(item) },
-                shape = SegmentedButtonDefaults.itemShape(index, items.size),
-                icon = {},
-                contentPadding = SegmentPadding,
                 modifier = if (described != null) Modifier.semantics { contentDescription = described(item) } else Modifier,
                 label = { SegmentLabel(label(item)) },
             )

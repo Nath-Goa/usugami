@@ -42,7 +42,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,7 +83,9 @@ import io.github.nath_goa.usugami.core.SignatureLayout
 import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.Signature
+import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.Usugami
+import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -149,7 +150,7 @@ internal fun SignOptions(
 @Composable
 private fun SignatureCard(signature: Signature?, onDraw: () -> Unit) {
     if (signature == null) {
-        OutlinedCard(onClick = onDraw, modifier = Modifier.fillMaxWidth()) {
+        Sheet(onClick = onDraw, modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Rounded.Draw, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                 Spacer(Modifier.height(8.dp))
@@ -158,7 +159,7 @@ private fun SignatureCard(signature: Signature?, onDraw: () -> Unit) {
         }
     } else {
         val change = stringResource(R.string.sign_change)
-        OutlinedCard(onClick = onDraw, modifier = Modifier.fillMaxWidth().semantics { contentDescription = change }) {
+        Sheet(onClick = onDraw, modifier = Modifier.fillMaxWidth().semantics { contentDescription = change }) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 // On white, like the pad, so black ink shows in the dark theme too.
                 SignatureDrawing(
@@ -288,7 +289,7 @@ private fun SignaturePlacer(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(R.string.sign_size), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
         Spacer(Modifier.width(16.dp))
-        Slider(
+        UsugamiSlider(
             value = current.width,
             onValueChange = { onPlacement(fit(current.copy(width = it))) },
             // A page too small to choose a size on has one size.

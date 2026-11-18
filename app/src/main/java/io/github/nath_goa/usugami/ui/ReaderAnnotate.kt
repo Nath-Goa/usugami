@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.EditStyle
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
 
 /**
  * The reader's Annotate: what Edit PDF was until 2.0.0 (EditPdfOptions), on [shown], the reader's PDF
@@ -51,7 +51,7 @@ internal fun ReaderAnnotate(
     ) {
         // Outside the spaced column, with its own gap, so the gap opens and closes with the bar (as in PdfToolScreen).
         AnimatedVisibility(visible = importing, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "importing") {
-            LinearProgressIndicator(
+            LinearProgress(
                 Modifier
                     .padding(bottom = 16.dp)
                     .fillMaxWidth(),

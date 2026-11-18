@@ -35,25 +35,19 @@ import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -73,7 +67,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -95,6 +88,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.EditStyle
 import io.github.nath_goa.usugami.core.ReaderGeometry
+import io.github.nath_goa.usugami.ui.kit.BarLine
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
+import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -267,11 +265,12 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
         Scaffold(
             topBar = {
                 if (annotate) {
-                    TopAppBar(
+                    UsugamiTopBar(
                         title = { BarTitle(stringResource(R.string.reader_annotate)) },
                         navigationIcon = {
                             IconButton(onClick = ::backToReading) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.reader_back_to_reading)) }
                         },
+                        line = BarLine.Always,
                     )
                 } else if (finding && shown != null) {
                     SearchBar(
@@ -290,7 +289,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                     )
                 } else {
                     val title = if (preview) shown?.shown?.name else document ?: input?.name
-                    TopAppBar(
+                    UsugamiTopBar(
                         title = { BarTitle(title ?: stringResource(R.string.tool_reader)) },
                         navigationIcon = { IconButton(onClick = actions.back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
                         actions = {
@@ -313,6 +312,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                                 )
                             }
                         },
+                        line = BarLine.Always,
                     )
                 }
             },
@@ -409,7 +409,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                             PageIndicator(list, shown.document.pageCount, wentTo, onClick = { goingToPage = true }, modifier = Modifier.align(Alignment.BottomCenter))
                             // How far the search has got, under the search bar: over the pages, so they don't move.
                             if (finding && found.searching) {
-                                LinearProgressIndicator(
+                                LinearProgress(
                                     progress = { found.pagesDone.toFloat() / maxOf(1, shown.document.pageCount) },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -423,7 +423,7 @@ internal fun ReaderScreen(vm: PdfToolsViewModel, preview: Boolean, active: Boole
                 }
                 // The file is being copied for another app (Share, Open with another app): a thin moving bar under the top bar.
                 if (!preview && handingOver) {
-                    LinearProgressIndicator(
+                    LinearProgress(
                         Modifier
                             .fillMaxWidth()
                             .height(2.dp)
@@ -555,12 +555,12 @@ private fun WorkingDialog(marking: BatchProgress?, onCancel: () -> Unit) {
     }
     BackHandler {}
     if (!showing) return
-    AlertDialog(
+    UsugamiDialog(
         onDismissRequest = {},
         // The screen stays on while it shows, as for every job (see ProgressDialog).
         modifier = Modifier.keepScreenOn(),
         title = { Text(stringResource(if (marking != null) R.string.mark_adding else R.string.pdf_working)) },
-        text = { LinearProgressIndicator(Modifier.fillMaxWidth()) },
+        text = { LinearProgress(Modifier.fillMaxWidth()) },
         confirmButton = {},
         dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) } },
     )
@@ -580,7 +580,7 @@ private fun Opening(onCancel: () -> Unit, modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(stringResource(R.string.reader_opening), style = MaterialTheme.typography.titleMedium)
-        LinearProgressIndicator(Modifier.fillMaxWidth())
+        LinearProgress(Modifier.fillMaxWidth())
         TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
     }
 }
@@ -632,23 +632,17 @@ private fun pageItems(list: LazyListState): List<ReaderGeometry.Item> {
 private fun SearchBar(query: String, onQuery: (String) -> Unit, onSearch: () -> Unit, found: Found, onStep: (Int) -> Unit, onClose: () -> Unit, takeFocus: Boolean) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { if (takeFocus) focus.requestFocus() }
-    TopAppBar(
+    UsugamiTopBar(
         navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.reader_find_close)) } },
         title = {
-            TextField(
+            WellField(
                 value = query,
                 onValueChange = onQuery,
                 placeholder = { Text(stringResource(R.string.reader_find_hint), maxLines = 1) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
+                compact = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focus),
@@ -673,6 +667,7 @@ private fun SearchBar(query: String, onQuery: (String) -> Unit, onSearch: () -> 
                 IconButton(onClick = { onStep(1) }) { Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.reader_find_next)) }
             }
         },
+        line = BarLine.Always,
     )
 }
 
@@ -720,11 +715,11 @@ private fun GoToPageDialog(pageCount: Int, onGo: (page: Int) -> Unit, onDismiss:
     val page = text.toIntOrNull()?.takeIf { it in 1..pageCount }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    AlertDialog(
+    UsugamiDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.reader_go_to_page)) },
         text = {
-            OutlinedTextField(
+            WellField(
                 value = text,
                 // Digits only, few enough for a number.
                 onValueChange = { typed -> text = typed.filter(Char::isDigit).take(9) },

@@ -19,14 +19,11 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,6 +37,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 
 /**
  * Whether the tool takes [count] PDFs shared to Usugami: any PDF tool takes one, and Merge PDF and
@@ -74,7 +74,7 @@ fun ShareScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 title = { BarTitle(stringResource(R.string.share_title)) },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
                 scrollBehavior = barScroll,
@@ -92,7 +92,7 @@ fun ShareScreen(
         ) {
             // The bar carries its own gap, so the gap opens and closes with it.
             AnimatedVisibility(visible = busy, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "adding") {
-                LinearProgressIndicator(Modifier.padding(bottom = 16.dp).fillMaxWidth())
+                LinearProgress(Modifier.padding(bottom = 16.dp).fillMaxWidth())
             }
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 for (input in inputs) {
@@ -140,7 +140,7 @@ fun ShareScreen(
 @Composable
 private fun SharedPdfCard(input: PdfInput, thumbnail: PdfInput, onRemove: () -> Unit) {
     val entry = pdfBatchEntry(input)
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    Sheet(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             PdfThumbnail(thumbnail, 0, Modifier.size(width = 44.dp, height = 58.dp))
             Spacer(Modifier.width(12.dp))

@@ -44,7 +44,6 @@ import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,7 +54,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -120,7 +118,10 @@ import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.OriginalImage
 import io.github.nath_goa.usugami.data.PageCropper
+import io.github.nath_goa.usugami.ui.kit.BarLine
+import io.github.nath_goa.usugami.ui.kit.CircularProgress
 import io.github.nath_goa.usugami.ui.kit.Usugami
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.PI
@@ -278,7 +279,7 @@ private fun CropSteps(
         Inert(!stepLive, Modifier.semantics { if (here) paneTitle = pane }, slide = Modifier.screenSlide(away, rtl)) {
             Scaffold(
                 topBar = {
-                    TopAppBar(
+                    UsugamiTopBar(
                         title = { StepTitle(title, place) },
                         navigationIcon = {
                             when {
@@ -304,6 +305,8 @@ private fun CropSteps(
                                 TurnIcon(clockwise = true, description = stringResource(R.string.crop_rotate_right))
                             }
                         },
+                        line = BarLine.Never,
+                        subtitle = true,
                     )
                 },
                 snackbarHost = { SnackbarHost(if (stepLive) snackbar else idleSnackbar) },
@@ -381,11 +384,13 @@ private fun ScanWaiting(scan: ScanQueue?, live: Boolean, snackbar: SnackbarHostS
     BackHandler(enabled = live, onBack = onClose)
     Scaffold(
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 title = { StepTitle(stringResource(R.string.crop_title), scan?.let { stringResource(R.string.scan_place, it.place, it.total) }) },
                 navigationIcon = {
                     IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.crop_stop)) }
                 },
+                line = BarLine.Never,
+                subtitle = true,
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -395,7 +400,7 @@ private fun ScanWaiting(scan: ScanQueue?, live: Boolean, snackbar: SnackbarHostS
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            CircularProgressIndicator()
+            CircularProgress()
             if (scan != null && scan.waiting.isEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -882,7 +887,7 @@ private fun CropArea(
             val held = dragging
             if (held != null && image != null) drawMagnifier(image, frame, rotation, page, at(corners.handle(held)), finger, outline)
         }
-        if (image == null) CircularProgressIndicator(Modifier.align(Alignment.Center))
+        if (image == null) CircularProgress(Modifier.align(Alignment.Center))
 
         // The handles for a screen reader: each is an item named for where it is, chosen by a double
         // tap, with actions that move it (a side only across itself).

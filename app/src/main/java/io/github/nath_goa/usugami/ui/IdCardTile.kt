@@ -16,7 +16,6 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Crop
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
@@ -48,6 +47,7 @@ import io.github.nath_goa.usugami.core.IdCardLayout
 import io.github.nath_goa.usugami.core.LayoutSettings
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
+import io.github.nath_goa.usugami.ui.kit.CircularProgress
 
 /**
  * An ID card's page in the editor's grid, page [pageNumber]: the sheet as it will be in the PDF with
@@ -103,7 +103,7 @@ fun IdCardTile(
             }
             if (sides.any { it.id in cropping }) {
                 val label = stringResource(R.string.cropping_page, pageNumber)
-                CircularProgressIndicator(Modifier.align(Alignment.Center).semantics { contentDescription = label })
+                CircularProgress(Modifier.align(Alignment.Center).semantics { contentDescription = label })
             }
         }
         Text(

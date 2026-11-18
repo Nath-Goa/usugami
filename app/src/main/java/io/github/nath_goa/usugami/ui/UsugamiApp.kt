@@ -13,7 +13,6 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,6 +69,7 @@ import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.office.DocumentSorter
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.kit.Usugami
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -1303,7 +1303,7 @@ fun UsugamiApp(
         if ((route != "home" && route != "recent") || recentFiles.none { it.uri == lostFile }) lostFile = null
     }
     recentFiles.firstOrNull { it.uri == lostFile }?.let { file ->
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { lostFile = null },
             title = { Text(stringResource(R.string.recent_lost_title)) },
             text = { Text(stringResource(R.string.recent_lost_body, file.name)) },
@@ -1318,7 +1318,7 @@ fun UsugamiApp(
     }
 
     if (confirmDiscard && route == "images") {
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { confirmDiscard = false },
             title = { Text(stringResource(R.string.discard_title)) },
             text = { Text(stringResource(R.string.discard_body)) },
@@ -1334,7 +1334,7 @@ fun UsugamiApp(
     }
 
     discardWork?.let { action ->
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { discardWork = null },
             title = { Text(stringResource(R.string.tool_discard_title)) },
             confirmButton = {
@@ -1362,7 +1362,7 @@ fun UsugamiApp(
         val notPdf = pdfResult?.none { it.isPdf } == true
         // A file opened, rather than shared, is said to be so.
         val opened = reading != null
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = keepPdf,
             title = {
                 Text(
@@ -1406,7 +1406,7 @@ fun UsugamiApp(
         // file made, in words of their own.
         val changes = pdfResult == null
         val notPdf = pdfResult?.none { it.isPdf } == true
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { confirmShortcut = null },
             title = {
                 Text(
@@ -1458,7 +1458,7 @@ fun UsugamiApp(
         // known yet: the PDF's words stay).
         val changes = pdfResult == null && !pdfProcessing
         val notPdf = pdfResult?.none { it.isPdf } == true
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = keepPdf,
             title = {
                 Text(

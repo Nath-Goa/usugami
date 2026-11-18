@@ -16,10 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -54,6 +52,8 @@ import io.github.nath_goa.usugami.data.PageMark
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.documentDetails
 import io.github.nath_goa.usugami.data.setDocumentInfo
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -86,7 +86,7 @@ internal fun DocumentInfoOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsV
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (info == null) {
             Column {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
+                LinearProgress(Modifier.fillMaxWidth())
                 Text(
                     stringResource(R.string.docinfo_reading),
                     style = MaterialTheme.typography.bodyMedium,
@@ -158,7 +158,7 @@ private fun InfoTextField(
 ) {
     key(inputId, generation, field) {
         var text by rememberSaveable { mutableStateOf(state.shown(field)) }
-        OutlinedTextField(
+        WellField(
             value = text,
             onValueChange = { typed ->
                 text = infoTyped(typed)

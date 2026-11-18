@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.AppLanguage
+import io.github.nath_goa.usugami.ui.kit.Sheet
 
 /**
  * Shown the first time Usugami opens: the language for its screens, which is also the default
@@ -50,7 +50,7 @@ fun LanguageScreen(onChoose: (AppLanguage) -> Unit) {
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             for (language in AppLanguage.entries) {
-                OutlinedCard(
+                Sheet(
                     onClick = {
                         if (!chosen) {
                             chosen = true

@@ -36,14 +36,11 @@ import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -92,7 +89,10 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.Usugami
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.hypot
@@ -221,7 +221,7 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
     }
 
     if (confirmClear) {
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text(stringResource(R.string.redact_remove_all_title)) },
             text = { Text(pluralStringResource(R.plurals.redact_remove_all_body, boxes.size, boxes.size)) },
@@ -247,13 +247,13 @@ private fun FindText(query: String, onQuery: (String) -> Unit, finding: Boolean,
             onFind()
         }
     }
-    OutlinedTextField(
+    WellField(
         value = query,
         onValueChange = onQuery,
         label = { Text(stringResource(R.string.redact_find)) },
         supportingText = {
             // While searching, a bar takes the place of the hint, so the field doesn't jump.
-            if (finding) LinearProgressIndicator(Modifier.fillMaxWidth().padding(vertical = 6.dp))
+            if (finding) LinearProgress(Modifier.fillMaxWidth().padding(vertical = 6.dp))
             else Text(stringResource(R.string.redact_find_hint))
         },
         trailingIcon = {
@@ -404,7 +404,7 @@ private fun BoxEditor(
                     modifier = Modifier.align(Alignment.Center).padding(24.dp),
                 )
             } else if (!ready) {
-                LinearProgressIndicator(Modifier.align(Alignment.Center).width(120.dp))
+                LinearProgress(Modifier.align(Alignment.Center).width(120.dp))
             }
         }
     }

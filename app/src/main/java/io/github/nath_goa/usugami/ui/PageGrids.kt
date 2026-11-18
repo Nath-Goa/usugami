@@ -46,7 +46,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -86,6 +85,7 @@ import io.github.nath_goa.usugami.core.PageChoice
 import io.github.nath_goa.usugami.core.PdfPageSelection
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfPageRef
+import io.github.nath_goa.usugami.ui.kit.WellField
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 
@@ -221,7 +221,7 @@ internal fun ReorganizeOptions(
                 Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = stringResource(R.string.undo))
             }
         }
-        OutlinedTextField(
+        WellField(
             value = text,
             onValueChange = { new ->
                 typed = new
@@ -234,6 +234,7 @@ internal fun ReorganizeOptions(
             label = { Text(stringResource(R.string.reorganize_pages_field)) },
             singleLine = true,
             isError = said != null,
+            errorMessage = said,
             // A screen reader hears what is wrong as it shows.
             supportingText = {
                 Text(said ?: stringResource(R.string.reorganize_pages_hint), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })

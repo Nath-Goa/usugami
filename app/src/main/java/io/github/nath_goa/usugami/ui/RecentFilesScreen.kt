@@ -27,20 +27,17 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.RemoveCircleOutline
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
@@ -76,6 +73,9 @@ import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.ZipArchive
 import io.github.nath_goa.usugami.data.PdfSaver
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.time.Duration
@@ -117,7 +117,7 @@ fun RecentFilesScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.recent_title)) },
                 navigationIcon = {
@@ -166,7 +166,7 @@ fun RecentFilesScreen(
     }
 
     if (confirmClear && files.isNotEmpty()) {
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text(stringResource(R.string.recent_clear_title)) },
             text = { Text(stringResource(R.string.recent_clear_body)) },
@@ -213,7 +213,7 @@ internal fun RecentFileRow(
     // Read when tapped, not when drawn: a second tap before the screen is drawn again finds it closed.
     fun menuOpen() = menu.value == file.uri
 
-    OutlinedCard(
+    Sheet(
         onClick = { actions.open(file) },
         modifier = modifier
             .fillMaxWidth()

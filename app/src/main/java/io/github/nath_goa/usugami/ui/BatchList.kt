@@ -13,8 +13,6 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,6 +30,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.WellField
 
 /**
  * A file in the list of a tool that works on several files one after another, each into a PDF of
@@ -68,7 +68,7 @@ fun BatchList(
         for (entry in entries) {
             // Each card keeps its own state (the name being typed) when one before it is removed.
             key(entry.id) {
-                OutlinedCard(Modifier.fillMaxWidth()) {
+                Sheet(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (thumbnail != null) {
@@ -102,7 +102,7 @@ fun BatchList(
 fun OutputNameField(id: Long, initial: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     key(id) {
         var text by rememberSaveable { mutableStateOf(initial) }
-        OutlinedTextField(
+        WellField(
             value = text,
             onValueChange = {
                 text = it

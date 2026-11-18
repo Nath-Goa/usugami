@@ -28,10 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,6 +67,9 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.data.MarkSetting
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
 import kotlin.math.roundToInt
 
 /**
@@ -98,7 +98,7 @@ internal fun MarkCard(
         val chosen = MarkStyle.of(size.roundToInt(), opacity.roundToInt())
         if (chosen != setting.style) onStyle(chosen)
     }
-    OutlinedCard(modifier.fillMaxWidth()) {
+    Sheet(modifier.fillMaxWidth()) {
         // The whole row is the switch, for a screen reader and for a finger; the arrow is a button of its own.
         Row(
             Modifier
@@ -136,7 +136,7 @@ internal fun MarkCard(
         val workingText = stringResource(R.string.mark_working)
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(4.dp).graphicsLayer { alpha = shown }) {
             if (working || shown > 0f) {
-                LinearProgressIndicator(
+                LinearProgress(
                     Modifier.fillMaxWidth().semantics {
                         contentDescription = workingText
                         liveRegion = LiveRegionMode.Polite
@@ -227,7 +227,7 @@ private fun MarkSlider(
             Text(name, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             Text(shown, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Slider(
+        UsugamiSlider(
             value = value,
             onValueChange = onChange,
             onValueChangeFinished = onDone,

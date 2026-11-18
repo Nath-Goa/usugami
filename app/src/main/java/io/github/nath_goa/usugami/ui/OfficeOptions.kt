@@ -20,16 +20,10 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.TableChart
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -57,11 +51,16 @@ import io.github.nath_goa.usugami.data.office.OfficeInput
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.data.office.OfficeProgress
 import io.github.nath_goa.usugami.data.office.SheetOptions
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.Segment
+import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 
 /** The picked Word, PowerPoint, Excel or EPUB file: its name, kind and size, and a button to remove it. */
 @Composable
 internal fun DocumentInputCard(document: OfficeInput, onRemove: () -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    Sheet(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             DocumentIcon(document.kind, Modifier.size(width = 58.dp, height = 78.dp))
             Spacer(Modifier.width(12.dp))
@@ -141,14 +140,11 @@ internal fun OfficeNote(kind: OfficeKind) {
 internal fun BookPageOptions(page: PageSize, onPage: (PageSize) -> Unit) {
     val sizes = listOf(PageSize.A5 to R.string.size_a5, PageSize.A4 to R.string.size_a4)
     Text(stringResource(R.string.option_page_size), style = MaterialTheme.typography.titleMedium)
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        sizes.forEachIndexed { index, (size, label) ->
-            SegmentedButton(
+    SegmentedTrack(sizes.indexOfFirst { it.first == page }.takeIf { it >= 0 }, sizes.size, Modifier.fillMaxWidth()) {
+        sizes.forEach { (size, label) ->
+            Segment(
                 selected = page == size,
                 onClick = { onPage(size) },
-                shape = SegmentedButtonDefaults.itemShape(index, sizes.size),
-                icon = {},
-                contentPadding = SegmentPadding,
                 label = { SegmentLabel(stringResource(label)) },
             )
         }
@@ -254,7 +250,7 @@ internal fun OfficeProgressDialog(
         animationSpec = Motion.medium(),
         label = "conversion progress",
     )
-    AlertDialog(
+    UsugamiDialog(
         onDismissRequest = {},
         // The screen stays on while it shows, as for every job (see ProgressDialog).
         modifier = Modifier.keepScreenOn(),
@@ -263,9 +259,9 @@ internal fun OfficeProgressDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (if (many) batch == null else total == null) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    LinearProgress(Modifier.fillMaxWidth())
                 } else {
-                    LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+                    LinearProgress(progress = { fraction }, modifier = Modifier.fillMaxWidth())
                 }
                 if (many && batch != null) {
                     Column {

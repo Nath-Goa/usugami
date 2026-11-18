@@ -11,10 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,6 +48,9 @@ import io.github.nath_goa.usugami.data.TextOutcome
 import io.github.nath_goa.usugami.data.ocrEngine
 import io.github.nath_goa.usugami.data.pagesToImages
 import io.github.nath_goa.usugami.data.pagesToText
+import io.github.nath_goa.usugami.ui.kit.Segment
+import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -206,7 +205,7 @@ internal fun FromPdfOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsViewMo
             }
         }
         // One name for both: each image adds its page number to it.
-        OutlinedTextField(
+        WellField(
             value = name,
             onValueChange = { name = it },
             label = { Text(stringResource(R.string.file_name)) },
@@ -252,7 +251,7 @@ internal fun exampleImageName(typed: String, pagesText: String, pageCount: Int):
 @Composable
 private fun PagesChoice(input: PdfInput, shown: PdfInput, text: String, onText: (String) -> Unit, onTap: (change: (String) -> String) -> Unit) {
     val chosen = remember(text, input.pageCount) { typedPages(text, input.pageCount).toSet() }
-    OutlinedTextField(
+    WellField(
         value = text,
         onValueChange = onText,
         label = { Text(stringResource(R.string.export_pages)) },
@@ -280,14 +279,11 @@ private fun PagesChoice(input: PdfInput, shown: PdfInput, text: String, onText: 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun <T> Segments(items: List<T>, selected: T, onSelect: (T) -> Unit, modifier: Modifier = Modifier, label: @Composable (T) -> String) {
-    SingleChoiceSegmentedButtonRow(modifier.fillMaxWidth()) {
-        items.forEachIndexed { index, item ->
-            SegmentedButton(
+    SegmentedTrack(items.indexOf(selected).takeIf { it >= 0 }, items.size, modifier.fillMaxWidth()) {
+        items.forEach { item ->
+            Segment(
                 selected = item == selected,
                 onClick = { onSelect(item) },
-                shape = SegmentedButtonDefaults.itemShape(index, items.size),
-                icon = {},
-                contentPadding = SegmentPadding,
                 label = { SegmentLabel(label(item)) },
             )
         }

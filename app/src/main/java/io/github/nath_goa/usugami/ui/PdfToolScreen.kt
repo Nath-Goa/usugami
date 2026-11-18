@@ -39,27 +39,18 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -109,6 +100,14 @@ import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.data.office.SheetOptions
+import io.github.nath_goa.usugami.ui.kit.ChoiceChip
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.Segment
+import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
+import io.github.nath_goa.usugami.ui.kit.WellField
 import kotlinx.coroutines.delay
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
@@ -241,7 +240,7 @@ fun PdfToolScreen(
         Scaffold(
             modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
             topBar = {
-                TopAppBar(
+                UsugamiTopBar(
                     title = { BarTitle(stringResource(title)) },
                     navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back)) } },
                     scrollBehavior = barScroll,
@@ -298,12 +297,12 @@ fun PdfToolScreen(
                 // The bar sits outside the spaced column below and carries its own gap, so the gap opens and
                 // closes with the bar instead of snapping once the bar has gone.
                 AnimatedVisibility(visible = importing, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "importing") {
-                    LinearProgressIndicator(Modifier.padding(bottom = 16.dp).fillMaxWidth())
+                    LinearProgress(Modifier.padding(bottom = 16.dp).fillMaxWidth())
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (if (officeKind != null) documents.isEmpty() else inputs.isEmpty()) {
                         // Picking is off while PDFs are being added: a second pick then would be ignored.
-                        OutlinedCard(onClick = if (tool == PdfTool.MERGE || tool.isBatch) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
+                        Sheet(onClick = if (tool == PdfTool.MERGE || tool.isBatch) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
                             Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
                                 Spacer(Modifier.height(12.dp))
@@ -511,19 +510,19 @@ fun PdfToolScreen(
         val marking = markProgress
         if (showWorking && marking != null) {
             // The PDFs are made: the Usugami mark goes on them, one after another when there are several.
-            AlertDialog(
+            UsugamiDialog(
                 onDismissRequest = {},
                 // The screen stays on while it shows, as for every job (see ProgressDialog).
                 modifier = Modifier.keepScreenOn(),
                 title = { Text(stringResource(R.string.mark_adding)) },
-                text = { if (marking.total > 1) BatchProgressText(marking) else LinearProgressIndicator(Modifier.fillMaxWidth()) },
+                text = { if (marking.total > 1) BatchProgressText(marking) else LinearProgress(Modifier.fillMaxWidth()) },
                 confirmButton = {},
                 dismissButton = { TextButton(onClick = vm::cancel) { Text(stringResource(R.string.cancel)) } },
             )
         } else if (showWorking && officeKind != null) {
             OfficeProgressDialog(convertProgress, officeKind, onCancel = vm::cancel, many = many, batch = batchProgress)
         } else if (showWorking) {
-            AlertDialog(
+            UsugamiDialog(
                 onDismissRequest = {},
                 modifier = Modifier.keepScreenOn(),
                 title = { Text(stringResource(if (many) R.string.pdf_working_many else R.string.pdf_working)) },
@@ -531,7 +530,7 @@ fun PdfToolScreen(
                     when {
                         many -> BatchProgressText(batchProgress)
                         toolProgress != null -> ToolProgressText(toolProgress)
-                        else -> LinearProgressIndicator(Modifier.fillMaxWidth())
+                        else -> LinearProgress(Modifier.fillMaxWidth())
                     }
                 },
                 confirmButton = {},
@@ -551,9 +550,9 @@ private fun BatchProgressText(progress: BatchProgress?) {
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (progress == null) {
-            LinearProgressIndicator(Modifier.fillMaxWidth())
+            LinearProgress(Modifier.fillMaxWidth())
         } else {
-            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+            LinearProgress(progress = { fraction }, modifier = Modifier.fillMaxWidth())
             Column {
                 // A screen reader says it as it moves on to the next PDF.
                 Text(
@@ -585,7 +584,7 @@ private fun ToolProgressText(progress: ToolProgress?) {
         label = "tool progress",
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+        LinearProgress(progress = { fraction }, modifier = Modifier.fillMaxWidth())
         if (progress != null) Text(progress.text)
     }
 }
@@ -690,7 +689,7 @@ private val PREVIEWED = setOf(
 /** The name the file made gets, typed; [suffix] is how it ends, shown after it. */
 @Composable
 internal fun FileNameField(fileName: String, onChange: (String) -> Unit, suffix: String = ".pdf") {
-    OutlinedTextField(
+    WellField(
         value = fileName,
         onValueChange = onChange,
         label = { Text(stringResource(R.string.file_name)) },
@@ -711,14 +710,14 @@ internal fun PasswordDialog(
 ) {
     var password by rememberSaveable(input.id) { mutableStateOf("") }
     val canUnlock = password.isNotEmpty() && !unlocking
-    AlertDialog(
+    UsugamiDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.pdf_password_title)) },
         text = {
             // Scrolls: with large text in landscape, a long name would push the password field out of the dialog.
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 Text(stringResource(R.string.pdf_password_body, input.name))
-                OutlinedTextField(
+                WellField(
                     value = password,
                     onValueChange = {
                         password = it
@@ -727,6 +726,7 @@ internal fun PasswordDialog(
                     label = { Text(stringResource(R.string.pdf_password_hint)) },
                     // Shown here: a message under the dialog would be hidden by it and by the keyboard.
                     isError = wrongPassword,
+                    errorMessage = stringResource(R.string.pdf_wrong_password),
                     supportingText = if (wrongPassword) {
                         { Text(stringResource(R.string.pdf_wrong_password), Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
                     } else null,
@@ -748,7 +748,7 @@ internal fun PasswordDialog(
 @Composable
 private fun PdfInputCard(input: PdfInput, thumbnail: PdfInput, onRemove: () -> Unit) {
     val context = LocalContext.current
-    OutlinedCard(Modifier.fillMaxWidth()) {
+    Sheet(Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             PdfThumbnail(thumbnail, 0, Modifier.size(width = 58.dp, height = 78.dp))
             Spacer(Modifier.width(12.dp))
@@ -793,7 +793,7 @@ private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode:
         AnimatedVisibility(visible = !pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "file list") {
             Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 inputs.forEachIndexed { index, input ->
-                    OutlinedCard(Modifier.fillMaxWidth()) {
+                    Sheet(Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("${index + 1}.", modifier = Modifier.padding(horizontal = 8.dp))
                             Column(Modifier.weight(1f)) {
@@ -844,7 +844,7 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                     val moveLater = stringResource(R.string.move_page_later, index + 1)
                     // The page is only drawn turned: a screen reader hears it, also right after Rotate.
                     val turned = turnedLabel(ref.rotation)?.let { stringResource(it) }
-                    OutlinedCard(
+                    Sheet(
                         Modifier
                             .fillMaxWidth()
                             .longPressDraggableHandle()
@@ -904,14 +904,14 @@ private fun SplitOptions(
         // As many to a line as fit, so a long label (a translation, a large font size) moves to the next line.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             modes.forEach { (item, label) ->
-                FilterChip(selected = mode == item, onClick = { if (mode != item) { onMode(item); onText("") } }, label = { Text(stringResource(label)) })
+                ChoiceChip(selected = mode == item, onClick = { if (mode != item) { onMode(item); onText("") } }, label = stringResource(label))
             }
         }
         val showRange = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM || mode == SplitMode.FIXED
         // While a section animates away it keeps its old labels instead of switching to another mode's.
         val rangeMode = freezeWhen(!showRange, mode)
         AnimatedVisibility(visible = showRange, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "range field") {
-            OutlinedTextField(
+            WellField(
                 value = text, onValueChange = onText,
                 label = { Text(stringResource(if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_hint else if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom else R.string.pdf_selected)) },
                 supportingText = { Text(stringResource(if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom_hint else if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_example else R.string.pdf_selected_hint)) },
@@ -966,12 +966,9 @@ private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompressionLevels(level: PdfCompression?, onLevel: (PdfCompression) -> Unit) {
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-        PdfCompression.entries.forEachIndexed { index, item ->
-            SegmentedButton(selected = level == item, onClick = { onLevel(item) },
-                shape = SegmentedButtonDefaults.itemShape(index, PdfCompression.entries.size),
-                icon = {},
-                contentPadding = SegmentPadding,
+    SegmentedTrack(level?.let { PdfCompression.entries.indexOf(it) }, PdfCompression.entries.size, Modifier.fillMaxWidth()) {
+        PdfCompression.entries.forEach { item ->
+            Segment(selected = level == item, onClick = { onLevel(item) },
                 label = { SegmentLabel(stringResource(when (item) {
                     PdfCompression.LESS -> R.string.compression_less
                     PdfCompression.RECOMMENDED -> R.string.compression_recommended

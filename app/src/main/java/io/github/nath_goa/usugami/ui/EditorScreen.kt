@@ -55,11 +55,9 @@ import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.PictureAsPdf
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
@@ -68,17 +66,14 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -112,6 +107,11 @@ import io.github.nath_goa.usugami.core.PageGroups
 import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.Thumbnails
+import io.github.nath_goa.usugami.ui.kit.CircularProgress
+import io.github.nath_goa.usugami.ui.kit.LinearProgress
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyGridState
 
@@ -152,7 +152,7 @@ fun EditorScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 scrollBehavior = barScroll,
                 title = {
                     Column {
@@ -200,6 +200,7 @@ fun EditorScreen(
                         }
                     }
                 },
+                subtitle = true,
             )
         },
         bottomBar = {
@@ -240,7 +241,7 @@ fun EditorScreen(
                 exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
                 label = "import progress",
             ) {
-                LinearProgressIndicator(Modifier.fillMaxWidth())
+                LinearProgress(Modifier.fillMaxWidth())
             }
             Crossfade(targetState = items.isEmpty(), animationSpec = Motion.medium(), label = "editor content") { empty ->
                 if (empty) {
@@ -262,7 +263,7 @@ fun EditorScreen(
     }
 
     if (confirmClear) {
-        AlertDialog(
+        UsugamiDialog(
             onDismissRequest = { confirmClear = false },
             title = { Text(stringResource(R.string.clear_title)) },
             text = { Text(stringResource(R.string.discard_body)) },
@@ -392,7 +393,7 @@ private fun PageCardContent(pageNumber: Int, item: ImageItem, layout: LayoutSett
             }
             if (cropping) {
                 val label = stringResource(R.string.cropping_page, pageNumber)
-                CircularProgressIndicator(Modifier.align(Alignment.Center).semantics { contentDescription = label })
+                CircularProgress(Modifier.align(Alignment.Center).semantics { contentDescription = label })
             }
         }
         Text(
@@ -441,7 +442,7 @@ internal fun PageNumberBadge(pageNumber: Int, modifier: Modifier = Modifier) {
 private fun AddMoreCard(onAddPhotos: () -> Unit, onAddFiles: () -> Unit, onTakePhoto: () -> Unit, modifier: Modifier = Modifier) {
     var menu by remember { mutableStateOf(false) }
     Box(modifier) {
-        OutlinedCard(
+        Sheet(
             onClick = { menu = true },
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth().aspectRatio(0.85f),

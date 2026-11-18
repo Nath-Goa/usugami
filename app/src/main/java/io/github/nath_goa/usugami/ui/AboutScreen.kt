@@ -45,7 +45,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -75,6 +74,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.TextBlock
 import io.github.nath_goa.usugami.data.Edition
 import io.github.nath_goa.usugami.data.LegalDocument
+import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -95,7 +95,7 @@ fun AboutScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(R.string.about_title)) },
                 navigationIcon = {
@@ -236,7 +236,7 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
         topBar = {
-            TopAppBar(
+            UsugamiTopBar(
                 scrollBehavior = barScroll,
                 title = { BarTitle(stringResource(document.title)) },
                 navigationIcon = {
