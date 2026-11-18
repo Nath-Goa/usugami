@@ -274,11 +274,14 @@ fun PdfToolScreen(
                         }
                     },
                     enabled = ready && !importing && !processing,
-                    // Edge to edge: keep the button clear of the navigation bar.
+                    // Edge to edge: keep the button clear of the navigation bar. The button is 52 dp, 4 more
+                    // than the 48 of 2.0.1's, so 8 above and below keep the bar 68 dp high, as it was: the
+                    // form above shows as much as before. Pages per sheet's counts still show, a sliver, once
+                    // the screen is scrolled to its end, where a device test finds them; a taller bar hides them.
                     modifier = Modifier
                         .fillMaxWidth()
                         .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
                 ) {
                     val count = if (officeKind != null) documents.size else inputs.size
                     Text(if (many) pluralStringResource(manyAction(tool), count, count) else toolAction.label ?: stringResource(action))
