@@ -30,7 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -73,6 +72,7 @@ import io.github.nath_goa.usugami.ui.kit.CircularProgress
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
+import io.github.nath_goa.usugami.ui.kit.fadingEdges
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -208,10 +208,12 @@ internal fun FilterStep(
             val style = MaterialTheme.typography.labelMedium
             val nameSize = wholeWordsFontSize(names, style.copy(fontWeight = FontWeight.Bold), width - 8.dp)
             val nameStyle = style.withEmLineHeight().copy(fontSize = nameSize)
+            val scroll = rememberScrollState()
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
+                    .fadingEdges(scroll)
+                    .horizontalScroll(scroll)
                     .padding(horizontal = 12.dp, vertical = 4.dp)
                     .selectableGroup(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -300,7 +302,6 @@ private fun LookChoice(
  * and value over it, and a button beside it ([reset] names it) that puts it back to 0. Close to 0,
  * it holds at 0, so the middle is easy to find.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AdjustmentSlider(@StringRes label: Int, @StringRes reset: Int, value: Int, onChange: (Int) -> Unit) {
     val name = stringResource(label)

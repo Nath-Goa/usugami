@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.fadingEdges
 
 /**
  * A row of [input]'s pages to tap, those [selected] (zero-based) outlined, as Split PDF's "Selected
@@ -32,7 +34,8 @@ import io.github.nath_goa.usugami.ui.kit.Sheet
  */
 @Composable
 internal fun PageRowPicker(input: PdfInput, selected: Set<Int>, modifier: Modifier = Modifier, onTap: (Int) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
+    val state = rememberLazyListState()
+    LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier.fadingEdges(state)) {
         items(input.pageCount) { i ->
             val active = i in selected
             val borderWidth by animateDpAsState(if (active) 2.dp else 1.dp, Motion.short(), label = "page border width")

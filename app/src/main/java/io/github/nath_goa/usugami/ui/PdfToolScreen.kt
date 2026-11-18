@@ -237,7 +237,7 @@ fun PdfToolScreen(
     val shown = single?.let { input -> previewView?.takeIf { it.id == input.id } ?: input }
     // What each PDF's thumbnails are drawn from, on screens with several PDFs too.
     val drawn: (PdfInput) -> PdfInput = { input -> previewView?.takeIf { it.id == input.id } ?: views[input.id] ?: input }
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Box {
         Scaffold(

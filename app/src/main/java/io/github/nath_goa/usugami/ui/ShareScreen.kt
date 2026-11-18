@@ -69,7 +69,7 @@ fun ShareScreen(
     val wrongPassword by vm.wrongPassword.collectAsStateWithLifecycle()
     val views by vm.views.collectAsStateWithLifecycle()
     val busy = importing || receiving
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),

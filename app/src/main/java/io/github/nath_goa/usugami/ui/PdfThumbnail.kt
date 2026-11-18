@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -26,6 +25,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.data.PageRendering
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.paper
 import io.github.nath_goa.usugami.ui.kit.stack
 import io.github.nath_goa.usugami.ui.kit.stackCount
@@ -93,7 +93,7 @@ fun PdfThumbnail(input: PdfInput, pageIndex: Int, modifier: Modifier = Modifier)
     ) { bitmap ->
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-            else Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            else Icon(Icons.Rounded.PictureAsPdf, contentDescription = null, tint = Usugami.colors.paperInk)
         }
     }
 }

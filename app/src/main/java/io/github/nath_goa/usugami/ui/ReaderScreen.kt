@@ -700,7 +700,7 @@ private fun PageIndicator(list: LazyListState, pageCount: Int, wentTo: IntArray?
             modifier = Modifier
                 // A button: a screen reader says "Page 3 of 12, button, double-tap to go to page" ("Pages 1 to
                 // 3 of 12, …" when several show). Touches a little around it count too (Compose's minimum touch
-                // target); the pill's shape clips the ripple.
+                // target); the pill's shape clips its press tint.
                 .clickable(onClickLabel = stringResource(R.string.reader_go_to_page), role = Role.Button, onClick = onClick)
                 .padding(horizontal = 14.dp, vertical = 6.dp)
                 .semantics { contentDescription = spoken },

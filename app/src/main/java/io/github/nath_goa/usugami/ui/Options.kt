@@ -28,14 +28,17 @@ import io.github.nath_goa.usugami.core.PageOrientation
 import io.github.nath_goa.usugami.core.PageSize
 import io.github.nath_goa.usugami.ui.kit.DropdownChip
 import io.github.nath_goa.usugami.ui.kit.MenuItem
+import io.github.nath_goa.usugami.ui.kit.fadingEdges
 
 /** Page size, orientation and margin pickers, like the options panel of the web tools. */
 @Composable
 fun OptionsRow(layout: LayoutSettings, onChange: (LayoutSettings) -> Unit, modifier: Modifier = Modifier) {
     val fit = layout.pageSize == PageSize.FIT
+    val scroll = rememberScrollState()
     Row(
         modifier
-            .horizontalScroll(rememberScrollState())
+            .fadingEdges(scroll)
+            .horizontalScroll(scroll)
             .padding(horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

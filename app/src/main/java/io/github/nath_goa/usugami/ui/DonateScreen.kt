@@ -48,7 +48,7 @@ import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: () -> Unit) {
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),

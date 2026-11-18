@@ -333,7 +333,7 @@ fun HomeScreen(
     onSettings: () -> Unit,
     onOpenFile: () -> Unit,
 ) {
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),

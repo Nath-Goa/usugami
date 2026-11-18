@@ -90,7 +90,7 @@ fun AboutScreen(
     onDocument: (LegalDocument) -> Unit,
     onSourceCode: () -> Unit,
 ) {
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
@@ -231,7 +231,7 @@ fun LegalDocumentScreen(document: LegalDocument, snackbar: SnackbarHostState, on
     // Out here, not in the Crossfade, so the reading position survives rotation: the Crossfade keys
     // its content by the Ready instance, and a recreated screen reads the document into a new one.
     val listState = rememberLazyListState()
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),

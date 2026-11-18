@@ -77,9 +77,12 @@ import io.github.nath_goa.usugami.core.SignaturePlacement
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.PressIndication
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.TileShape
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
+import io.github.nath_goa.usugami.ui.kit.fadingEdges
 import io.github.nath_goa.usugami.ui.kit.paper
 import io.github.nath_goa.usugami.ui.kit.tile
 import kotlinx.coroutines.Dispatchers
@@ -198,7 +201,7 @@ private fun SignatureDrawing(signature: Signature, modifier: Modifier) {
 @Composable
 internal fun PageStrip(input: PdfInput, selected: Int, onSelect: (Int) -> Unit, marked: Set<Int> = emptySet(), markedLabel: String? = null) {
     val state = rememberLazyListState(initialFirstVisibleItemIndex = maxOf(0, selected - 1))
-    LazyRow(state = state, modifier = Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyRow(state = state, modifier = Modifier.fillMaxWidth().fadingEdges(state).selectableGroup(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         items(input.pageCount) { index ->
             val active = index == selected
             val label = stringResource(R.string.pdf_page_number, index + 1)
@@ -208,7 +211,13 @@ internal fun PageStrip(input: PdfInput, selected: Int, onSelect: (Int) -> Unit, 
                 Modifier
                     .width(72.dp)
                     .tile(active)
-                    .selectable(selected = active, role = Role.RadioButton, onClick = { onSelect(index) })
+                    .selectable(
+                        selected = active,
+                        interactionSource = null,
+                        indication = PressIndication.shaped(TileShape),
+                        role = Role.RadioButton,
+                        onClick = { onSelect(index) },
+                    )
                     .semantics {
                         contentDescription = label
                         if (isMarked && markedLabel != null) stateDescription = markedLabel

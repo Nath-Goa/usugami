@@ -112,7 +112,7 @@ fun RecentFilesScreen(
     // The file whose menu is open: one for the whole screen, so the saved state doesn't grow with the list.
     val menu = rememberSaveable { mutableStateOf<String?>(null) }
     val today = rememberToday()
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),

@@ -35,7 +35,6 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -63,6 +62,7 @@ import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
+import io.github.nath_goa.usugami.ui.kit.PressIndication
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.WellField
@@ -320,9 +320,14 @@ internal fun <T> ColorSwatches(options: List<T>, selected: T, onSelect: (T) -> U
             Box(
                 Modifier
                     .size(swatchSize)
-                    // So the press tint is a disc, not a square.
-                    .clip(CircleShape)
-                    .selectable(selected = chosen, role = Role.RadioButton, onClick = { onSelect(color) })
+                    // The press tint is a disc and the focus outline a circle, not a square.
+                    .selectable(
+                        selected = chosen,
+                        interactionSource = null,
+                        indication = PressIndication.shaped(CircleShape),
+                        role = Role.RadioButton,
+                        onClick = { onSelect(color) },
+                    )
                     .semantics { contentDescription = name }
                     .border(2.dp, ring, CircleShape)
                     .padding(6.dp)

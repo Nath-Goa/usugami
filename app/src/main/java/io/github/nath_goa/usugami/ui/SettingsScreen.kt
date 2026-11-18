@@ -86,7 +86,7 @@ fun SettingsScreen(
     LaunchedEffect(switchTo) { switchTo?.let(onChooseLanguage) }
     var appearanceTo by remember { mutableStateOf<Appearance?>(null) }
     LaunchedEffect(appearanceTo) { appearanceTo?.let(onChooseAppearance) }
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),

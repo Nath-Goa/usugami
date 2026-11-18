@@ -149,7 +149,7 @@ fun EditorScreen(
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     // An ID card's two sides are one page.
     val pages = remember(items) { PageGroups.pages(items) { it.card } }
-    // The bar takes a tint of its own once the page scrolls under it.
+    // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(barScroll.nestedScrollConnection),
