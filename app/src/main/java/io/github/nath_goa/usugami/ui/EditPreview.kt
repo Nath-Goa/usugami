@@ -27,7 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
@@ -35,7 +35,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asAndroidBitmap
@@ -69,6 +68,7 @@ import io.github.nath_goa.usugami.core.TextItem
 import io.github.nath_goa.usugami.data.PagePictures
 import io.github.nath_goa.usugami.data.PageText
 import io.github.nath_goa.usugami.ui.kit.Usugami
+import io.github.nath_goa.usugami.ui.kit.paperEdge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.hypot
@@ -199,7 +199,10 @@ internal fun EditPreview(
             Canvas(
                 Modifier
                     .size(width, height)
-                    .shadow(2.dp, RectangleShape)
+                    // Real paper: its hairline outside the page, and what is drawn on it (strokes, the
+                    // chosen item's frame and handles) cut at the page's edge.
+                    .paperEdge()
+                    .clipToBounds()
                     .background(Color.White)
                     // While drawing, a stroke from the page's edge draws, instead of going back.
                     .then(if (mode != EditMode.SELECT) Modifier.systemGestureExclusion() else Modifier)
