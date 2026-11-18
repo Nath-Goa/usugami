@@ -2,10 +2,7 @@ package io.github.nath_goa.usugami.ui
 
 import android.graphics.Bitmap
 import androidx.annotation.StringRes
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,10 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -52,7 +47,6 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.setProgress
@@ -70,9 +64,15 @@ import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.data.PageLooks
 import io.github.nath_goa.usugami.ui.kit.CircularProgress
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.Seal
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
 import io.github.nath_goa.usugami.ui.kit.fadingEdges
+import io.github.nath_goa.usugami.ui.kit.rememberHaptics
+import io.github.nath_goa.usugami.ui.kit.tile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -194,45 +194,49 @@ internal fun FilterStep(
             }
         },
         controls = {
-            Text(
-                stringResource(R.string.look_title),
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp).semantics { heading() },
-            )
-            // Wider with larger text, so that a name breaks between its words, not in them.
-            val width = SAMPLE_WIDTH * LocalDensity.current.fontScale.coerceAtLeast(1f)
-            // The names at one size, smaller where a word is wider than its tile (German "Tintensparend"),
-            // rather than broken: the size the name that needs it most takes in bold, as when it is
-            // chosen, so the names stay alike and none changes size when it is tapped.
-            val names = PageLook.shown.map { stringResource(lookName(it)) }
-            val style = MaterialTheme.typography.labelMedium
-            val nameSize = wholeWordsFontSize(names, style.copy(fontWeight = FontWeight.Bold), width - 8.dp)
-            val nameStyle = style.withEmLineHeight().copy(fontSize = nameSize)
-            val scroll = rememberScrollState()
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .fadingEdges(scroll)
-                    .horizontalScroll(scroll)
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-                    .selectableGroup(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                for (option in PageLook.shown) LookChoice(option, images[option], rotation, option == look, width, nameStyle) { onLook(option) }
-            }
-            AdjustmentSlider(R.string.filter_brightness, R.string.filter_reset_brightness, adjustments.brightness, onBrightness)
-            AdjustmentSlider(R.string.filter_contrast, R.string.filter_reset_contrast, adjustments.contrast, onContrast)
-            if (allPages != null) {
+            // The controls show whole above the buttons on a phone at the usual text size, as in 2.0.1:
+            // the gaps between them are no larger than that leaves room for.
+            SectionHeading(stringResource(R.string.look_title), Modifier.padding(horizontal = 16.dp), top = 0.dp, bottom = 4.dp)
+            // Drawn only: in 2.0.1 these lay on the ground, and the tree a device test reads stays as it was.
+            Sheet(Modifier.padding(horizontal = 16.dp), group = false) {
+                // Wider with larger text, so that a name breaks between its words, not in them.
+                val width = SAMPLE_WIDTH * LocalDensity.current.fontScale.coerceAtLeast(1f)
+                // The names at one size, smaller where a word is wider than its tile (German "Tintensparend"),
+                // rather than broken: the size the name that needs it most takes in bold, as when it is
+                // chosen, so the names stay alike and none changes size when it is tapped.
+                val names = PageLook.shown.map { stringResource(lookName(it)) }
+                val style = MaterialTheme.typography.labelMedium
+                val nameSize = wholeWordsFontSize(names, style.copy(fontWeight = FontWeight.Bold), width - 8.dp)
+                val nameStyle = style.withEmLineHeight().copy(fontSize = nameSize)
+                val scroll = rememberScrollState()
+                // The samples lie 4 in from the sheet's top edge, so their corners are 16 − 4 = 12, TileShape.
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .toggleable(value = allPages, role = Role.Checkbox, onValueChange = onAllPages)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .fadingEdges(scroll)
+                        .horizontalScroll(scroll)
+                        .padding(horizontal = 12.dp)
+                        .selectableGroup(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Checkbox(checked = allPages, onCheckedChange = null)
-                    Spacer(Modifier.width(12.dp))
-                    Text(stringResource(R.string.look_all_pages), style = MaterialTheme.typography.bodyLarge)
+                    for (option in PageLook.shown) LookChoice(option, images[option], rotation, option == look, width, nameStyle) { onLook(option) }
+                }
+                SheetDivider()
+                AdjustmentSlider(R.string.filter_brightness, R.string.filter_reset_brightness, adjustments.brightness, onBrightness)
+                AdjustmentSlider(R.string.filter_contrast, R.string.filter_reset_contrast, adjustments.contrast, onContrast)
+                if (allPages != null) {
+                    SheetDivider()
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .toggleable(value = allPages, role = Role.Checkbox, onValueChange = onAllPages)
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = allPages, onCheckedChange = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(stringResource(R.string.look_all_pages), style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
             }
         },
@@ -268,22 +272,9 @@ private fun LookChoice(
             .padding(4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            Modifier
-                .size(SAMPLE_WIDTH - 8.dp)
-                .clip(shape)
-                .background(colors.surfaceContainerHighest)
-                .border(if (selected) BorderStroke(3.dp, colors.primary) else BorderStroke(1.dp, colors.outlineVariant), shape),
-        ) {
+        Box(Modifier.size(SAMPLE_WIDTH - 8.dp).tile(selected)) {
             if (image != null) TurnedImage(image, rotation, Modifier.fillMaxSize().padding(6.dp))
-            if (selected) {
-                Icon(
-                    Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = colors.onPrimary,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).background(colors.primary, CircleShape).padding(2.dp).size(14.dp),
-                )
-            }
+            if (selected) Seal(Modifier.align(Alignment.TopEnd).padding(4.dp), size = 20.dp)
         }
         Spacer(Modifier.height(4.dp))
         Text(
@@ -306,17 +297,26 @@ private fun LookChoice(
 private fun AdjustmentSlider(@StringRes label: Int, @StringRes reset: Int, value: Int, onChange: (Int) -> Unit) {
     val name = stringResource(label)
     val shown = if (value > 0) "+$value" else "$value"
+    val haptics = rememberHaptics()
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
             // The slider says both to a screen reader.
-            Row(Modifier.padding(top = 4.dp).clearAndSetSemantics {}) {
+            Row(Modifier.clearAndSetSemantics {}) {
                 Text(name, style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-                Text(shown, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    shown,
+                    style = Usugami.type.tabular(MaterialTheme.typography.labelLarge),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             val range = -LookAdjustments.MAX.toFloat()..LookAdjustments.MAX.toFloat()
             UsugamiSlider(
                 value = value.toFloat(),
-                onValueChange = { v -> onChange(v.roundToInt().let { if (abs(it) <= SNAP) 0 else it }) },
+                onValueChange = { v ->
+                    val set = v.roundToInt().let { if (abs(it) <= SNAP) 0 else it }
+                    if (set == 0 && value != 0) haptics.snap()
+                    onChange(set)
+                },
                 valueRange = range,
                 centered = true,
                 // The slider's own item for a screen reader lies inside, out of reach of a name given
