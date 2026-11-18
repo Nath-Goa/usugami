@@ -8,23 +8,24 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.activity.compose.BackHandler
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -97,19 +98,28 @@ import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.data.office.SheetOptions
+import io.github.nath_goa.usugami.ui.kit.ActionBar
+import io.github.nath_goa.usugami.ui.kit.BlankSheet
 import io.github.nath_goa.usugami.ui.kit.ChoiceChip
+import io.github.nath_goa.usugami.ui.kit.DividedColumn
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.PaperButton
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetDivider
+import io.github.nath_goa.usugami.ui.kit.SheetRow
+import io.github.nath_goa.usugami.ui.kit.Space
+import io.github.nath_goa.usugami.ui.kit.SwitchRow
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import io.github.nath_goa.usugami.ui.kit.WellField
+import io.github.nath_goa.usugami.ui.kit.paper
 import io.github.nath_goa.usugami.ui.kit.rememberHaptics
 import kotlinx.coroutines.delay
 import sh.calvin.reorderable.ReorderableItem
@@ -250,41 +260,36 @@ fun PdfToolScreen(
                 )
             },
             bottomBar = {
-                PrimaryButton(
-                    onClick = {
-                        when (tool) {
-                            PdfTool.SPLIT -> vm.runSplit(splitMode, pageText, combine, fileName)
-                            PdfTool.MERGE -> vm.runMerge(pageMode, fileName)
-                            // Each PDF at its level, into a PDF of its name.
-                            PdfTool.COMPRESS -> vm.runCompressAll(blackAndWhite)
-                            // These too, each PDF or document into a PDF of its name.
-                            PdfTool.PAGE_NUMBERS -> vm.runPageNumbersAll(numberPosition, numberSize, skipText)
-                            PdfTool.WATERMARK -> vm.runWatermarkAll(watermarkText, watermarkColor, watermarkOpacity)
-                            PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
-                            PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvertAll()
-                            PdfTool.REORGANIZE -> vm.runReorganize(fileName)
-                            PdfTool.FLATTEN -> vm.runFlattenAll()
-                            PdfTool.EPUB -> vm.runConvertAll(bookPage)
-                            PdfTool.EXCEL -> vm.runConvertAll(sheets = sheetOptions)
-                            PdfTool.REDACT -> vm.runRedact(fileName)
-                            // What their options told the screen they do.
-                            PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO -> toolAction.run(fileName)
-                            // The reader has a screen of its own (ReaderScreen); this screen is never shown for it.
-                            PdfTool.READER -> Unit
-                        }
-                    },
-                    enabled = ready && !importing && !processing,
-                    // Edge to edge: keep the button clear of the navigation bar. The button is 52 dp, 4 more
-                    // than the 48 of 2.0.1's, so 8 above and below keep the bar 68 dp high, as it was: the
-                    // form above shows as much as before. Pages per sheet's counts still show, a sliver, once
-                    // the screen is scrolled to its end, where a device test finds them; a taller bar hides them.
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                ) {
-                    val count = if (officeKind != null) documents.size else inputs.size
-                    Text(if (many) pluralStringResource(manyAction(tool), count, count) else toolAction.label ?: stringResource(action))
+                ActionBar {
+                    PrimaryButton(
+                        onClick = {
+                            when (tool) {
+                                PdfTool.SPLIT -> vm.runSplit(splitMode, pageText, combine, fileName)
+                                PdfTool.MERGE -> vm.runMerge(pageMode, fileName)
+                                // Each PDF at its level, into a PDF of its name.
+                                PdfTool.COMPRESS -> vm.runCompressAll(blackAndWhite)
+                                // These too, each PDF or document into a PDF of its name.
+                                PdfTool.PAGE_NUMBERS -> vm.runPageNumbersAll(numberPosition, numberSize, skipText)
+                                PdfTool.WATERMARK -> vm.runWatermarkAll(watermarkText, watermarkColor, watermarkOpacity)
+                                PdfTool.SIGN -> vm.runSign(signPage, signPlacement, fileName)
+                                PdfTool.WORD, PdfTool.POWERPOINT -> vm.runConvertAll()
+                                PdfTool.REORGANIZE -> vm.runReorganize(fileName)
+                                PdfTool.FLATTEN -> vm.runFlattenAll()
+                                PdfTool.EPUB -> vm.runConvertAll(bookPage)
+                                PdfTool.EXCEL -> vm.runConvertAll(sheets = sheetOptions)
+                                PdfTool.REDACT -> vm.runRedact(fileName)
+                                // What their options told the screen they do.
+                                PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO -> toolAction.run(fileName)
+                                // The reader has a screen of its own (ReaderScreen); this screen is never shown for it.
+                                PdfTool.READER -> Unit
+                            }
+                        },
+                        enabled = ready && !importing && !processing,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        val count = if (officeKind != null) documents.size else inputs.size
+                        Text(if (many) pluralStringResource(manyAction(tool), count, count) else toolAction.label ?: stringResource(action))
+                    }
                 }
             },
             snackbarHost = { SnackbarHost(snackbar) },
@@ -303,18 +308,24 @@ fun PdfToolScreen(
                     // under a bar, where the accessibility tree still holds them, and a device test that
                     // read one there before scrolling it away types into what has gone.
                     .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 16.dp),
+                // On a wide screen the form keeps a width that reads well, in the middle.
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // The bar sits outside the spaced column below and carries its own gap, so the gap opens and
                 // closes with the bar instead of snapping once the bar has gone.
-                AnimatedVisibility(visible = importing, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "importing") {
+                AnimatedVisibility(visible = importing, modifier = Modifier.widthIn(max = Space.content), enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "importing") {
                     LinearProgress(Modifier.padding(bottom = 16.dp).fillMaxWidth())
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(Modifier.widthIn(max = Space.content).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (if (officeKind != null) documents.isEmpty() else inputs.isEmpty()) {
                         // Picking is off while PDFs are being added: a second pick then would be ignored.
-                        Sheet(onClick = if (tool == PdfTool.MERGE || tool.isBatch) pickMultiple else pickSingle, modifier = Modifier.fillMaxWidth(), enabled = !importing) {
-                            Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(36.dp))
+                        BlankSheet(
+                            onClick = if (tool == PdfTool.MERGE || tool.isBatch) pickMultiple else pickSingle,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 168.dp),
+                            enabled = !importing,
+                        ) {
+                            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
                                 Spacer(Modifier.height(12.dp))
                                 Text(
                                     stringResource(
@@ -328,6 +339,8 @@ fun PdfToolScreen(
                                             else -> R.string.pick_pdf
                                         },
                                     ),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    textAlign = TextAlign.Center,
                                 )
                                 if (tool.isBatch) {
                                     Text(
@@ -341,7 +354,6 @@ fun PdfToolScreen(
                             }
                         }
                     } else if (officeKind != null) {
-                        val add = @Composable { PaperButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(addDocuments(officeKind))) } }
                         if (many) {
                             // What goes for all of them comes first, then each with the name its PDF gets.
                             OfficeNote(officeKind)
@@ -354,12 +366,11 @@ fun PdfToolScreen(
                                 onRemove = vm::removeDocument,
                                 thumbnail = { DocumentIcon(officeKind, Modifier.size(width = 44.dp, height = 58.dp)) },
                             )
-                            add()
+                            PaperButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(addDocuments(officeKind))) }
                         } else {
                             val document = documents[0]
-                            DocumentInputCard(document, onRemove = vm::startOver)
-                            // More can be added, to convert all of them at once.
-                            add()
+                            // More can be added from its foot, to convert all of them at once.
+                            DocumentInputCard(document, onRemove = vm::startOver, add = stringResource(addDocuments(officeKind)), onAdd = pickMultiple, addEnabled = !importing)
                             OfficeNote(officeKind)
                             if (officeKind == OfficeKind.EPUB) BookPageOptions(bookPage, onPage = { bookPage = it })
                             if (officeKind == OfficeKind.EXCEL) SheetPageOptions(sheetOptions, onSheetOptions)
@@ -406,9 +417,15 @@ fun PdfToolScreen(
                                 }
                             }
                         } else {
-                            PdfInputCard(inputs[0], thumbnail = drawn(inputs[0]), onRemove = onRemove)
-                            // More can be added, to work on all of them at once.
-                            if (tool.isBatch) PaperButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
+                            // A tool for several PDFs offers more from the sheet's foot, to work on all of them at once.
+                            PdfInputCard(
+                                inputs[0],
+                                thumbnail = drawn(inputs[0]),
+                                onRemove = onRemove,
+                                add = if (tool.isBatch) stringResource(R.string.add_pdfs) else null,
+                                onAdd = pickMultiple,
+                                addEnabled = !importing,
+                            )
                         }
                         if (!many) when (tool) {
                             PdfTool.SPLIT -> SplitOptions(
@@ -555,7 +572,7 @@ fun PdfToolScreen(
 private fun BatchProgressText(progress: BatchProgress?) {
     val fraction by animateFloatAsState(
         if (progress == null) 0f else (progress.number - 1f) / progress.total,
-        Motion.medium(),
+        Motion.move(),
         label = "batch progress",
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -591,7 +608,7 @@ private fun BatchProgressText(progress: BatchProgress?) {
 private fun ToolProgressText(progress: ToolProgress?) {
     val fraction by animateFloatAsState(
         if (progress == null || progress.total <= 0) 0f else (progress.done.toFloat() / progress.total).coerceIn(0f, 1f),
-        Motion.medium(),
+        Motion.move(),
         label = "tool progress",
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -617,18 +634,14 @@ private fun CompressBatch(
     onBlackAndWhite: (Boolean) -> Unit,
 ) {
     val common = batch.common?.let { PdfCompression.entries.getOrNull(it) }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.compression_for_all), style = MaterialTheme.typography.titleMedium)
-        // None is chosen while the PDFs' levels differ.
-        CompressionLevels(common, onLevel = { vm.setBatchChoiceForAll(it.ordinal) })
-        Text(
-            stringResource(R.string.compression_for_all_hint) + " " + stringResource(R.string.pdf_compress_note),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        // One switch for all the PDFs: none has one of its own.
-        OptionSwitch(R.string.compress_gray, stringResource(R.string.compress_gray_detail_many), blackAndWhite, onBlackAndWhite)
-    }
+    SectionHeading(stringResource(R.string.compression_for_all), top = 8.dp, bottom = 0.dp)
+    // None is chosen while the PDFs' levels differ. One switch for all the PDFs: none has one of its own.
+    CompressionSheet(
+        common, onLevel = { vm.setBatchChoiceForAll(it.ordinal) },
+        note = stringResource(R.string.compression_for_all_hint) + " " + stringResource(R.string.pdf_compress_note),
+        blackAndWhite, onBlackAndWhite,
+        grayDetail = stringResource(R.string.compress_gray_detail_many),
+    )
     PdfBatchList(PdfTool.COMPRESS, inputs, vm, drawn, importing, pickMultiple) { id ->
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.labelLarge)
@@ -657,7 +670,7 @@ private fun PdfBatchList(
         outputName = { id -> byId[id]?.let { vm.outputName(tool, it) }.orEmpty() },
         onOutputName = vm::setBatchName,
         onRemove = vm::removeInput,
-        thumbnail = { id -> byId[id]?.let { PdfThumbnail(drawn(it), 0, Modifier.size(width = 44.dp, height = 58.dp)) } },
+        thumbnail = { id -> byId[id]?.let { FileThumbnail(drawn(it)) } },
         options = options,
     )
     PaperButton(onClick = pickMultiple, enabled = !importing) { Text(stringResource(R.string.add_pdfs)) }
@@ -666,7 +679,12 @@ private fun PdfBatchList(
 /** A line under the choices a tool makes for several PDFs, saying they go for all of them. */
 @Composable
 private fun ForAllHint(@StringRes text: Int) {
-    Text(stringResource(text), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        stringResource(text),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp),
+    )
 }
 
 /** The run button's words when a tool works on several PDFs or documents: "Compress 3 PDFs", say. */
@@ -763,20 +781,56 @@ internal fun PasswordDialog(
     )
 }
 
-/** The tool's PDF, [input]; its first page is drawn from [thumbnail] (see [PdfToolsViewModel.views]). */
+/**
+ * The tool's PDF, [input]; its first page is drawn from [thumbnail] (see [PdfToolsViewModel.views]).
+ * With [add] (a tool for several PDFs) the sheet's foot picks more ([onAdd]).
+ */
 @Composable
-private fun PdfInputCard(input: PdfInput, thumbnail: PdfInput, onRemove: () -> Unit) {
+private fun PdfInputCard(input: PdfInput, thumbnail: PdfInput, onRemove: () -> Unit, add: String?, onAdd: () -> Unit, addEnabled: Boolean) {
     val context = LocalContext.current
+    FileSheet(
+        name = input.name,
+        details = stringResource(R.string.result_details, pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), Formatter.formatShortFileSize(context, input.file.length())),
+        removeLabel = stringResource(R.string.remove_file, input.name),
+        onRemove = onRemove,
+        add = add,
+        onAdd = onAdd,
+        addEnabled = addEnabled,
+    ) { FileThumbnail(thumbnail) }
+}
+
+/**
+ * The sheet of a tool's one file: [thumbnail] (44 × 58, with room for a stack round it), [name] on
+ * up to two lines, [details], and a button that removes it. With [add], a foot row that picks more
+ * files ([onAdd], off unless [addEnabled]).
+ */
+@Composable
+internal fun FileSheet(
+    name: String,
+    details: String,
+    removeLabel: String,
+    onRemove: () -> Unit,
+    add: String?,
+    onAdd: () -> Unit,
+    addEnabled: Boolean,
+    thumbnail: @Composable () -> Unit,
+) {
     Sheet(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            PdfThumbnail(thumbnail, 0, Modifier.size(width = 58.dp, height = 78.dp))
+        // The thumbnail's fanned pages take 12 of the 16 round it.
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            thumbnail()
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(input.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                Text(stringResource(R.string.result_details, pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), Formatter.formatShortFileSize(context, input.file.length())),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                Text(details, style = Usugami.type.tabular(MaterialTheme.typography.bodySmall), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            GlyphButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, input.name)) }
+            GlyphButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = removeLabel) }
+        }
+        if (add != null) {
+            SheetDivider()
+            SheetRow(onClick = onAdd, enabled = addEnabled, icon = Icons.Rounded.Add, minHeight = 52.dp, role = Role.Button) {
+                Text(add, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
+            }
         }
     }
 }
@@ -785,49 +839,63 @@ private fun PdfInputCard(input: PdfInput, thumbnail: PdfInput, onRemove: () -> U
 private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode: Boolean, onPageMode: (Boolean) -> Unit) {
     // The whole row flips the switch, and a screen reader hears what the switch turns on.
     val switchLabel = stringResource(R.string.pdf_page_mode_switch)
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .toggleable(value = pageMode, role = Role.Switch, onValueChange = onPageMode)
-            .semantics { contentDescription = switchLabel }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(stringResource(R.string.pdf_file_mode), modifier = Modifier.weight(1f))
-        Switch(checked = pageMode, onCheckedChange = null)
-        Text(stringResource(R.string.pdf_page_mode), modifier = Modifier.padding(start = 8.dp))
-    }
     // The file list carries the gap above it, so the gap opens and closes with the list.
     Column {
-        Text(stringResource(if (pageMode) R.string.pdf_page_mode_hint else R.string.pdf_file_mode_hint),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        // Says why Merge can't be pressed yet, and a screen reader says it as it shows.
-        AnimatedVisibility(visible = inputs.size == 1, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "need two") {
+        // Drawn round the switch, its hint and the warning, which lie bare in 2.0.1's tree: no node of its own.
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = pageMode, role = Role.Switch, onValueChange = onPageMode)
+                    .semantics { contentDescription = switchLabel }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.pdf_file_mode), modifier = Modifier.weight(1f))
+                Switch(checked = pageMode, onCheckedChange = null)
+                Text(stringResource(R.string.pdf_page_mode), modifier = Modifier.padding(start = 8.dp))
+            }
             Text(
-                stringResource(R.string.pdf_need_two),
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                stringResource(if (pageMode) R.string.pdf_page_mode_hint else R.string.pdf_file_mode_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
             )
+            // Says why Merge can't be pressed yet, and a screen reader says it as it shows.
+            AnimatedVisibility(visible = inputs.size == 1, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "need two") {
+                Text(
+                    stringResource(R.string.pdf_need_two),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
         }
         AnimatedVisibility(visible = !pageMode, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "file list") {
-            Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                inputs.forEachIndexed { index, input ->
-                    Sheet(Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("${index + 1}.", modifier = Modifier.padding(horizontal = 8.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(input.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount), style = MaterialTheme.typography.bodySmall)
-                            }
-                            // Each file has these buttons, so their labels name the file they act on.
-                            GlyphButton(onClick = { vm.moveInput(input.id, -1) }, enabled = index > 0) {
-                                Icon(Icons.Rounded.ArrowUpward, contentDescription = stringResource(R.string.move_file_earlier, input.name))
-                            }
-                            GlyphButton(onClick = { vm.moveInput(input.id, 1) }, enabled = index < inputs.lastIndex) {
-                                Icon(Icons.Rounded.ArrowDownward, contentDescription = stringResource(R.string.move_file_later, input.name))
-                            }
-                            GlyphButton(onClick = { vm.removeInput(input.id) }) {
-                                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, input.name))
+            Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // One sheet in place of 2.0.1's card for each file, read as one group.
+                Sheet(Modifier.fillMaxWidth()) {
+                    DividedColumn(inset = 16.dp) {
+                        inputs.forEachIndexed { index, input ->
+                            Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text("${index + 1}.", style = Usugami.type.tabular(LocalTextStyle.current), modifier = Modifier.padding(horizontal = 8.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(input.name, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        pluralStringResource(R.plurals.page_count, input.pageCount, input.pageCount),
+                                        style = Usugami.type.tabular(MaterialTheme.typography.bodySmall),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                // Each file has these buttons, so their labels name the file they act on.
+                                GlyphButton(onClick = { vm.moveInput(input.id, -1) }, enabled = index > 0) {
+                                    Icon(Icons.Rounded.ArrowUpward, contentDescription = stringResource(R.string.move_file_earlier, input.name))
+                                }
+                                GlyphButton(onClick = { vm.moveInput(input.id, 1) }, enabled = index < inputs.lastIndex) {
+                                    Icon(Icons.Rounded.ArrowDownward, contentDescription = stringResource(R.string.move_file_later, input.name))
+                                }
+                                GlyphButton(onClick = { vm.removeInput(input.id) }) {
+                                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, input.name))
+                                }
                             }
                         }
                     }
@@ -846,27 +914,32 @@ private fun MergeInputs(inputs: List<PdfInput>, vm: PdfToolsViewModel, pageMode:
 private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfToolsViewModel, drawn: (PdfInput) -> PdfInput) {
     val byId = remember(inputs) { inputs.associateBy { it.id } }
     QuietButton(onClick = vm::resetPages) { Text(stringResource(R.string.pdf_reset_pages)) }
+    val haptics = rememberHaptics()
     val state = rememberLazyListState()
     val reorder = rememberReorderableLazyListState(state) { from, to ->
         val a = pages.firstOrNull { "${it.inputId}:${it.page}" == from.key }
         val b = pages.firstOrNull { "${it.inputId}:${it.page}" == to.key }
-        if (a != null && b != null) vm.movePage(a, b)
+        if (a != null && b != null) {
+            vm.movePage(a, b)
+            haptics.swap()
+        }
     }
     // The message under the list carries the gap above it, so the gap opens and closes with the message.
     Column {
         LazyColumn(state = state, modifier = Modifier.fillMaxWidth().height(450.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(pages, key = { _, ref -> "${ref.inputId}:${ref.page}" }) { index, ref ->
                 val input = byId[ref.inputId] ?: return@itemsIndexed
-                ReorderableItem(reorder, key = "${ref.inputId}:${ref.page}") { _ ->
+                ReorderableItem(reorder, key = "${ref.inputId}:${ref.page}") { dragged ->
                     val angle by animatePdfPageRotationAsState(ref.rotation)
                     val moveEarlier = stringResource(R.string.move_page_earlier, index + 1)
                     val moveLater = stringResource(R.string.move_page_later, index + 1)
                     // The page is only drawn turned: a screen reader hears it, also right after Rotate.
                     val turned = turnedLabel(ref.rotation)?.let { stringResource(it) }
+                    // Held to be moved, the page's sheet is lighter than the others, in the dark too.
                     Sheet(
                         Modifier
                             .fillMaxWidth()
-                            .longPressDraggableHandle()
+                            .longPressDraggableHandle(onDragStarted = { haptics.lift() }, onDragStopped = { haptics.drop() })
                             // Screen reader and switch users can't drag: the card offers the same moves as
                             // actions. Merged, so it is one focusable item that carries them.
                             .semantics(mergeDescendants = true) {
@@ -876,9 +949,11 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
                                 }
                                 if (turned != null) stateDescription = turned
                             },
+                        color = if (dragged) Usugami.colors.sheetTop else Usugami.colors.sheet,
+                        border = BorderStroke(1.dp, if (dragged) Usugami.colors.hairlineStrong else Usugami.colors.hairline),
                     ) {
                         Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            PdfThumbnail(drawn(input), ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle })
+                            PdfThumbnail(drawn(input), ref.page, Modifier.size(width = 55.dp, height = 72.dp).graphicsLayer { rotationZ = angle }.paper())
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(R.string.merge_page_line, index + 1, input.name, ref.page + 1), modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                             GlyphButton(onClick = { vm.rotatePage(ref, 90) }) {
@@ -893,7 +968,7 @@ private fun MergePages(inputs: List<PdfInput>, pages: List<PdfPageRef>, vm: PdfT
             }
         }
         AnimatedVisibility(visible = pages.isEmpty(), enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "no pages error") {
-            Text(stringResource(R.string.pdf_need_page), modifier = Modifier.padding(top = 16.dp), color = MaterialTheme.colorScheme.error)
+            Text(stringResource(R.string.pdf_need_page), modifier = Modifier.padding(top = 16.dp).padding(horizontal = 8.dp), color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -910,7 +985,7 @@ private fun SplitOptions(
     combine: Boolean,
     onCombine: (Boolean) -> Unit,
 ) {
-    Text(stringResource(R.string.tool_split), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.tool_split), top = 8.dp, bottom = 0.dp)
     val modes = listOf(
         SplitMode.SELECTED to R.string.pdf_selected,
         SplitMode.CUSTOM to R.string.pdf_custom,
@@ -920,40 +995,40 @@ private fun SplitOptions(
     // The sections under the chips carry the gap above them, so each gap opens and closes with its
     // section instead of snapping once the section has gone.
     Column {
-        // As many to a line as fit, so a long label (a translation, a large font size) moves to the next line.
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            modes.forEach { (item, label) ->
-                ChoiceChip(selected = mode == item, onClick = { if (mode != item) { onMode(item); onText("") } }, label = stringResource(label))
-            }
-        }
-        val showRange = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM || mode == SplitMode.FIXED
-        // While a section animates away it keeps its old labels instead of switching to another mode's.
-        val rangeMode = freezeWhen(!showRange, mode)
-        AnimatedVisibility(visible = showRange, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "range field") {
-            WellField(
-                value = text, onValueChange = onText,
-                label = { Text(stringResource(if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_hint else if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom else R.string.pdf_selected)) },
-                supportingText = { Text(stringResource(if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom_hint else if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_example else R.string.pdf_selected_hint)) },
-                // Pages per PDF is a number.
-                keyboardOptions = KeyboardOptions(keyboardType = if (rangeMode == SplitMode.FIXED) KeyboardType.Number else KeyboardType.Text),
-                singleLine = true, modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
-            )
-        }
-        val showCombine = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM
-        val combineMode = freezeWhen(!showCombine, mode)
-        AnimatedVisibility(visible = showCombine, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "combine switch") {
-            // The whole row flips the switch, and its text labels it for a screen reader.
-            Row(
-                Modifier
-                    .padding(top = 16.dp)
-                    .fillMaxWidth()
-                    .toggleable(value = combine, role = Role.Switch, onValueChange = onCombine)
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(if (combineMode == SplitMode.CUSTOM) R.string.pdf_combine_ranges else R.string.pdf_combine_selected), modifier = Modifier.weight(1f))
-                Spacer(Modifier.width(16.dp))
-                Switch(checked = combine, onCheckedChange = null)
+        // Drawn round what lies bare in 2.0.1's tree: no node of its own.
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            Column(Modifier.padding(16.dp)) {
+                // As many to a line as fit, so a long label (a translation, a large font size) moves to the next line.
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    modes.forEach { (item, label) ->
+                        ChoiceChip(selected = mode == item, onClick = { if (mode != item) { onMode(item); onText("") } }, label = stringResource(label))
+                    }
+                }
+                val showRange = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM || mode == SplitMode.FIXED
+                // While a section animates away it keeps its old labels instead of switching to another mode's.
+                val rangeMode = freezeWhen(!showRange, mode)
+                AnimatedVisibility(visible = showRange, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "range field") {
+                    WellField(
+                        value = text, onValueChange = onText,
+                        label = { Text(stringResource(if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_hint else if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom else R.string.pdf_selected)) },
+                        supportingText = { Text(stringResource(if (rangeMode == SplitMode.CUSTOM) R.string.pdf_custom_hint else if (rangeMode == SplitMode.FIXED) R.string.pdf_fixed_example else R.string.pdf_selected_hint)) },
+                        // Pages per PDF is a number.
+                        keyboardOptions = KeyboardOptions(keyboardType = if (rangeMode == SplitMode.FIXED) KeyboardType.Number else KeyboardType.Text),
+                        singleLine = true, modifier = Modifier.padding(top = 12.dp).fillMaxWidth(),
+                    )
+                }
+                val showCombine = mode == SplitMode.SELECTED || mode == SplitMode.CUSTOM
+                val combineMode = freezeWhen(!showCombine, mode)
+                AnimatedVisibility(visible = showCombine, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "combine switch") {
+                    // The whole row flips the switch, and its text labels it for a screen reader.
+                    SwitchRow(
+                        stringResource(if (combineMode == SplitMode.CUSTOM) R.string.pdf_combine_ranges else R.string.pdf_combine_selected),
+                        combine,
+                        onCombine,
+                        modifier = Modifier.padding(top = 8.dp),
+                        padding = PaddingValues(vertical = 8.dp),
+                    )
+                }
             }
         }
         AnimatedVisibility(visible = mode == SplitMode.SELECTED, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "page picker") {
@@ -974,11 +1049,36 @@ private fun SplitOptions(
 /** Compress PDF with one PDF: its level, and Black and white ([blackAndWhite]), which turns its colours gray. */
 @Composable
 private fun CompressOptions(level: PdfCompression, onLevel: (PdfCompression) -> Unit, blackAndWhite: Boolean, onBlackAndWhite: (Boolean) -> Unit) {
-    Text(stringResource(R.string.compression_title), style = MaterialTheme.typography.titleMedium)
-    CompressionLevels(level, onLevel)
-    Text(stringResource(R.string.pdf_compress_note), style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
-    OptionSwitch(R.string.compress_gray, stringResource(R.string.compress_gray_detail), blackAndWhite, onBlackAndWhite)
+    SectionHeading(stringResource(R.string.compression_title), top = 8.dp, bottom = 0.dp)
+    CompressionSheet(
+        level, onLevel,
+        note = stringResource(R.string.pdf_compress_note),
+        blackAndWhite, onBlackAndWhite,
+        grayDetail = stringResource(R.string.compress_gray_detail),
+    )
+}
+
+/**
+ * The levels ([level], none chosen when null) with their [note], then the one Black and white switch,
+ * on one sheet. The sheet is drawn round what lies bare in 2.0.1's tree, and is no node of its own.
+ */
+@Composable
+private fun CompressionSheet(
+    level: PdfCompression?,
+    onLevel: (PdfCompression) -> Unit,
+    note: String,
+    blackAndWhite: Boolean,
+    onBlackAndWhite: (Boolean) -> Unit,
+    grayDetail: String,
+) {
+    Sheet(Modifier.fillMaxWidth(), group = false) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            CompressionLevels(level, onLevel)
+            Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        SheetDivider()
+        SwitchRow(stringResource(R.string.compress_gray), blackAndWhite, onBlackAndWhite, detail = grayDetail)
+    }
 }
 
 /** Less, Recommended and Extreme, with [level] chosen (none when it is null). */
@@ -1014,5 +1114,5 @@ internal fun animatePdfPageRotationAsState(degrees: Int): State<Float> {
     var delta = Math.floorMod(degrees - running[0], 360)
     if (delta > 180) delta -= 360
     running[0] += delta
-    return animateFloatAsState(running[0].toFloat(), Motion.medium(), label = "page rotation")
+    return animateFloatAsState(running[0].toFloat(), Motion.ui(), label = "page rotation")
 }

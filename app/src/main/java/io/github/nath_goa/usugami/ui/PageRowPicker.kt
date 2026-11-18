@@ -1,9 +1,8 @@
 package io.github.nath_goa.usugami.ui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,7 +12,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,8 +21,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.PdfInput
-import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.PressIndication
+import io.github.nath_goa.usugami.ui.kit.TileShape
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.fadingEdges
+import io.github.nath_goa.usugami.ui.kit.paper
+import io.github.nath_goa.usugami.ui.kit.tile
 
 /**
  * A row of [input]'s pages to tap, those [selected] (zero-based) outlined, as Split PDF's "Selected
@@ -38,26 +40,25 @@ internal fun PageRowPicker(input: PdfInput, selected: Set<Int>, modifier: Modifi
     LazyRow(state = state, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier.fadingEdges(state)) {
         items(input.pageCount) { i ->
             val active = i in selected
-            val borderWidth by animateDpAsState(if (active) 2.dp else 1.dp, Motion.short(), label = "page border width")
-            val borderColor by animateColorAsState(
-                if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                Motion.short(),
-                label = "page border color",
-            )
             val pageLabel = stringResource(R.string.pdf_page_number, i + 1)
-            Sheet(
-                onClick = { onTap(i) },
-                border = BorderStroke(borderWidth, borderColor),
-                modifier = Modifier.width(105.dp).semantics { this.selected = active },
+            // The press and the focus outline follow the tile's corners, the outline just inside its chosen edge.
+            Column(
+                Modifier
+                    .width(105.dp)
+                    .tile(active)
+                    .clickable(interactionSource = null, indication = PressIndication.shaped(TileShape, focusInset = 2.dp)) { onTap(i) }
+                    .semantics { this.selected = active },
             ) {
-                PdfThumbnail(input, i, Modifier.fillMaxWidth().height(130.dp))
+                PdfThumbnail(input, i, Modifier.padding(6.dp).fillMaxWidth().height(118.dp).paper())
                 // A screen reader says "Page 3" rather than a bare "3".
                 Text(
                     "${i + 1}",
+                    style = Usugami.type.tabular(MaterialTheme.typography.labelMedium),
+                    color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .semantics { contentDescription = pageLabel }
-                        .padding(6.dp),
+                        .padding(bottom = 6.dp),
                 )
             }
         }

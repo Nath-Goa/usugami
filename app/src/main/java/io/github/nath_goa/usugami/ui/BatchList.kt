@@ -31,6 +31,7 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.WellField
 
 /**
@@ -69,15 +70,16 @@ fun BatchList(
             // Each card keeps its own state (the name being typed) when one before it is removed.
             key(entry.id) {
                 Sheet(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // The thumbnail's fanned pages take 12 of the 16 round it.
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (thumbnail != null) {
                                 thumbnail(entry.id)
                                 Spacer(Modifier.width(12.dp))
                             }
                             Column(Modifier.weight(1f)) {
-                                Text(entry.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                                Text(entry.details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(entry.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                                Text(entry.details, style = Usugami.type.tabular(MaterialTheme.typography.bodySmall), color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             GlyphButton(onClick = { onRemove(entry.id) }) {
                                 Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, entry.name))

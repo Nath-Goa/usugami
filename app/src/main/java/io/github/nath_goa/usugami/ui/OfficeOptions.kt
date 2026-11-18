@@ -8,15 +8,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoStories
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.TableChart
@@ -24,7 +20,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,49 +44,55 @@ import io.github.nath_goa.usugami.data.office.OfficeInput
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.data.office.OfficeProgress
 import io.github.nath_goa.usugami.data.office.SheetOptions
-import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.SwitchRow
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
+import io.github.nath_goa.usugami.ui.kit.paper
 
-/** The picked Word, PowerPoint, Excel or EPUB file: its name, kind and size, and a button to remove it. */
+/**
+ * The picked Word, PowerPoint, Excel or EPUB file: its name, kind and size, and a button to remove it;
+ * at its foot, [add] picks more of them ([onAdd], off unless [addEnabled]).
+ */
 @Composable
-internal fun DocumentInputCard(document: OfficeInput, onRemove: () -> Unit) {
-    Sheet(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            DocumentIcon(document.kind, Modifier.size(width = 58.dp, height = 78.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(document.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                Text(documentDetails(document), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            GlyphButton(onClick = onRemove) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.remove_file, document.name)) }
-        }
-    }
+internal fun DocumentInputCard(document: OfficeInput, onRemove: () -> Unit, add: String, onAdd: () -> Unit, addEnabled: Boolean) {
+    FileSheet(
+        name = document.name,
+        details = documentDetails(document),
+        removeLabel = stringResource(R.string.remove_file, document.name),
+        onRemove = onRemove,
+        add = add,
+        onAdd = onAdd,
+        addEnabled = addEnabled,
+    ) { DocumentIcon(document.kind, Modifier.size(width = 44.dp, height = 58.dp)) }
 }
 
-/** Where the PDF tools show a PDF's first page: a file to convert has no pages until it is converted. */
+/**
+ * Where the PDF tools show a PDF's first page: a file to convert has no pages until it is converted,
+ * so a blank page of paper with the kind's glyph stands in.
+ */
 @Composable
 internal fun DocumentIcon(kind: OfficeKind, modifier: Modifier) {
-    Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.small, modifier = modifier) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                when (kind) {
-                    OfficeKind.WORD -> Icons.Rounded.Description
-                    OfficeKind.POWERPOINT -> Icons.Rounded.Slideshow
-                    OfficeKind.EXCEL -> Icons.Rounded.TableChart
-                    OfficeKind.EPUB -> Icons.Rounded.AutoStories
-                },
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(32.dp),
-            )
-        }
+    // In 2.0.1 a surface, read as a group: so it stays.
+    Box(modifier.paper().semantics { isTraversalGroup = true }, contentAlignment = Alignment.Center) {
+        Icon(
+            when (kind) {
+                OfficeKind.WORD -> Icons.Rounded.Description
+                OfficeKind.POWERPOINT -> Icons.Rounded.Slideshow
+                OfficeKind.EXCEL -> Icons.Rounded.TableChart
+                OfficeKind.EPUB -> Icons.Rounded.AutoStories
+            },
+            contentDescription = null,
+            // On white paper in both themes, where the dark theme's lilac would hardly show.
+            tint = Usugami.colors.paperInk,
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
@@ -132,6 +134,7 @@ internal fun OfficeNote(kind: OfficeKind) {
         ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp),
     )
 }
 
@@ -140,7 +143,7 @@ internal fun OfficeNote(kind: OfficeKind) {
 @Composable
 internal fun BookPageOptions(page: PageSize, onPage: (PageSize) -> Unit) {
     val sizes = listOf(PageSize.A5 to R.string.size_a5, PageSize.A4 to R.string.size_a4)
-    Text(stringResource(R.string.option_page_size), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.option_page_size), top = 8.dp, bottom = 0.dp)
     SegmentedTrack(sizes.indexOfFirst { it.first == page }.takeIf { it >= 0 }, sizes.size, Modifier.fillMaxWidth()) {
         sizes.forEach { (size, label) ->
             Segment(
@@ -150,7 +153,12 @@ internal fun BookPageOptions(page: PageSize, onPage: (PageSize) -> Unit) {
             )
         }
     }
-    Text(stringResource(R.string.book_page_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        stringResource(R.string.book_page_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp),
+    )
 }
 
 /** The papers a workbook's sheets can be put on: null keeps the one each sheet was set to print on. */
@@ -173,7 +181,7 @@ internal fun SheetPageOptions(options: SheetOptions, onChange: (SheetOptions) ->
         true -> label(PageOrientation.LANDSCAPE)
         false -> label(PageOrientation.PORTRAIT)
     }
-    Column {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // The chips go one under the other when they don't fit side by side, as with large text.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OptionChip(
@@ -193,12 +201,22 @@ internal fun SheetPageOptions(options: SheetOptions, onChange: (SheetOptions) ->
                 onSelect = { onChange(options.copy(landscape = it)) },
             )
         }
-        OptionSwitch(
-            R.string.sheet_fit_width,
-            stringResource(if (options.fitWidth) R.string.sheet_fit_width_on else R.string.sheet_fit_width_off),
-            options.fitWidth,
-        ) { onChange(options.copy(fitWidth = it)) }
-        OptionSwitch(R.string.sheet_gridlines, stringResource(R.string.sheet_gridlines_detail), options.gridlines) { onChange(options.copy(gridlines = it)) }
+        // Drawn round the two switches, which lie bare in 2.0.1's tree: no node of its own.
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            SwitchRow(
+                stringResource(R.string.sheet_fit_width),
+                options.fitWidth,
+                { onChange(options.copy(fitWidth = it)) },
+                detail = stringResource(if (options.fitWidth) R.string.sheet_fit_width_on else R.string.sheet_fit_width_off),
+            )
+            SheetDivider()
+            SwitchRow(
+                stringResource(R.string.sheet_gridlines),
+                options.gridlines,
+                { onChange(options.copy(gridlines = it)) },
+                detail = stringResource(R.string.sheet_gridlines_detail),
+            )
+        }
     }
 }
 
@@ -235,7 +253,7 @@ internal fun OfficeProgressDialog(
     }
     val fraction by animateFloatAsState(
         targetValue = if (many) batch?.let { (it.number - 1 + part) / it.total } ?: 0f else part,
-        animationSpec = Motion.medium(),
+        animationSpec = Motion.move(),
         label = "conversion progress",
     )
     UsugamiDialog(

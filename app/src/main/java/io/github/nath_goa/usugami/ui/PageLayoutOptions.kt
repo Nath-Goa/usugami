@@ -509,10 +509,8 @@ private fun SheetPreview(shown: PdfInput, pageCount: Int, sizes: List<Pair<Float
     val placeholder = MaterialTheme.colorScheme.surfaceVariant
     val description = pluralStringResource(R.plurals.layout_sheets_preview_description, onSheet, onSheet)
     val aspect = grid.width / grid.height
-    val windowHeight = with(LocalDensity.current) { LocalWindowInfo.current.containerSize.height.toDp() }
-    val tallest = min(440.dp, max(240.dp, windowHeight - 180.dp))
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val width = min(maxWidth, tallest * aspect)
+        val width = min(maxWidth, SheetPreviewTallest * aspect)
         Canvas(
             Modifier
                 .size(width, width / aspect)
@@ -544,6 +542,13 @@ private fun SheetPreview(shown: PdfInput, pageCount: Int, sizes: List<Pair<Float
         }
     }
 }
+
+/**
+ * How high the first sheet's preview is at most. Low enough that, with the form scrolled to its end,
+ * the 2 / 4 / 6 / 9 choice is still well inside the screen under the bar, where a screen reader (and a
+ * device test) finds it after scrolling down once.
+ */
+private val SheetPreviewTallest = 184.dp
 
 /** A small grey line saying more about the choices around it. */
 @Composable
