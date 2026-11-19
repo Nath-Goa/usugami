@@ -36,7 +36,6 @@ import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.South
 import androidx.compose.material.icons.rounded.West
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -52,12 +51,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -86,13 +84,19 @@ import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RedactBox
 import io.github.nath_goa.usugami.core.Redaction
 import io.github.nath_goa.usugami.data.PdfInput
+import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
+import io.github.nath_goa.usugami.ui.kit.ButtonWithGlyphPadding
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.PaperButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.WellField
+import io.github.nath_goa.usugami.ui.kit.paperEdge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.hypot
@@ -133,6 +137,7 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
         stringResource(R.string.redact_note),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp),
     )
     FindText(query, onQuery = { query = it }, finding, enabled = view != null, onFind = { vm.findText(query) })
     // The pages Find text couldn't read all of, kept for the PDF: the user must look at them.
@@ -141,7 +146,10 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
     // While the notice slides away it keeps saying what it said.
     val listed = freezeWhen(unreadPages.isEmpty(), unreadPages)
     AnimatedVisibility(visible = unreadPages.isNotEmpty(), enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "unread pages") {
-        Row(verticalAlignment = Alignment.Top, modifier = Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+        Row(
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.padding(horizontal = 8.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        ) {
             Icon(Icons.Rounded.Info, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(
@@ -153,13 +161,13 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
         }
     }
     if (input.pageCount > 1) {
-        Text(stringResource(R.string.redact_page), style = MaterialTheme.typography.titleMedium)
+        SectionHeading(stringResource(R.string.redact_page), top = 8.dp, bottom = 0.dp)
         PageStrip(
             view ?: input, pageIndex, onSelect = vm::showRedactPage,
             marked = boxes.mapTo(HashSet()) { it.page }, markedLabel = stringResource(R.string.redact_page_marked),
         )
     }
-    Text(stringResource(R.string.redact_mark), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.redact_mark), top = 8.dp, bottom = 0.dp)
     val chosen = boxes.getOrNull(selected)?.takeIf { it.page == pageIndex }
     // While the controls animate away they keep showing the box they were for.
     val shown = freezeWhen(chosen == null, chosen)
@@ -175,7 +183,7 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 8.dp).fillMaxWidth(),
+            modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp).fillMaxWidth(),
         )
         AnimatedVisibility(visible = chosen != null, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "box controls") {
             if (shown != null) {
@@ -183,7 +191,7 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
                     shown,
                     onStep = { step -> if (chosen != null) vm.stepChosenRedactBox(step) },
                     onDelete = { if (chosen != null) vm.deleteChosenRedactBox() },
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(top = 16.dp),
                 )
             }
         }
@@ -203,10 +211,9 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
                 vm.addRedactBox(Redaction.default(pageIndex, width, height, boxes.count { it.page == pageIndex }))
             },
             enabled = current != null,
-            contentPadding = ButtonDefaults.ButtonWithIconContentPadding,
+            contentPadding = ButtonWithGlyphPadding,
         ) {
-            Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+            ButtonGlyph(Icons.Rounded.Add)
             Text(stringResource(R.string.redact_add_box))
         }
         // On a line of its own, it opens and closes its line as it comes and goes.
@@ -216,7 +223,7 @@ internal fun RedactOptions(input: PdfInput, vm: PdfToolsViewModel) {
             exit = fadeOut(Motion.short()) + shrinkVertically(Motion.short()),
             label = "remove all",
         ) {
-            QuietButton(onClick = { confirmClear = true }) { Text(stringResource(R.string.redact_remove_all)) }
+            QuietButton(onClick = { confirmClear = true }, danger = true) { Text(stringResource(R.string.redact_remove_all)) }
         }
     }
 
@@ -308,7 +315,8 @@ private fun BoxEditor(
     val tallest = min(440.dp, max(240.dp, windowHeight - 180.dp))
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val width = min(maxWidth, tallest * aspect)
-        Box(Modifier.size(width, width / aspect).shadow(2.dp, RectangleShape).background(Color.White)) {
+        // Real paper: its edge outside, and what is drawn kept to the page.
+        Box(Modifier.size(width, width / aspect).paperEdge().clipToBounds().background(Color.White)) {
             Canvas(
                 Modifier
                     .matchParentSize()
@@ -439,31 +447,35 @@ private fun DrawScope.drawBox(box: RedactBox, chosen: Boolean, frame: Color) {
 private fun BoxControls(box: RedactBox, onStep: ((RedactBox) -> RedactBox) -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
     val step = Redaction.STEP
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(horizontalArrangement = Arrangement.Center) {
-            StepButton(Icons.Rounded.West, R.string.redact_move_left, { Redaction.moved(it, -step, 0f) }, box, onStep)
-            StepButton(Icons.Rounded.North, R.string.redact_move_up, { Redaction.moved(it, 0f, -step) }, box, onStep)
-            StepButton(Icons.Rounded.South, R.string.redact_move_down, { Redaction.moved(it, 0f, step) }, box, onStep)
-            StepButton(Icons.Rounded.East, R.string.redact_move_right, { Redaction.moved(it, step, 0f) }, box, onStep)
-        }
-        // Width and height each stay together, one under the other on a narrow screen.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.redact_width), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
-                StepButton(Icons.Rounded.Remove, R.string.redact_narrower, { Redaction.resized(it, -step, 0f) }, box, onStep)
-                StepButton(Icons.Rounded.Add, R.string.redact_wider, { Redaction.resized(it, step, 0f) }, box, onStep)
+        // The steps and the sizes, on one sheet. Before, these lay bare on the ground: the sheet is only drawn.
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.Center) {
+                StepButton(Icons.Rounded.West, R.string.redact_move_left, { Redaction.moved(it, -step, 0f) }, box, onStep)
+                StepButton(Icons.Rounded.North, R.string.redact_move_up, { Redaction.moved(it, 0f, -step) }, box, onStep)
+                StepButton(Icons.Rounded.South, R.string.redact_move_down, { Redaction.moved(it, 0f, step) }, box, onStep)
+                StepButton(Icons.Rounded.East, R.string.redact_move_right, { Redaction.moved(it, step, 0f) }, box, onStep)
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.redact_height), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
-                StepButton(Icons.Rounded.Remove, R.string.redact_shorter, { Redaction.resized(it, 0f, -step) }, box, onStep)
-                StepButton(Icons.Rounded.Add, R.string.redact_taller, { Redaction.resized(it, 0f, step) }, box, onStep)
+            SheetDivider()
+            // Width and height each stay together, one under the other on a narrow screen.
+            FlowRow(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                itemVerticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.redact_width), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
+                    StepButton(Icons.Rounded.Remove, R.string.redact_narrower, { Redaction.resized(it, -step, 0f) }, box, onStep)
+                    StepButton(Icons.Rounded.Add, R.string.redact_wider, { Redaction.resized(it, step, 0f) }, box, onStep)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.redact_height), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
+                    StepButton(Icons.Rounded.Remove, R.string.redact_shorter, { Redaction.resized(it, 0f, -step) }, box, onStep)
+                    StepButton(Icons.Rounded.Add, R.string.redact_taller, { Redaction.resized(it, 0f, step) }, box, onStep)
+                }
             }
         }
-        QuietButton(onClick = onDelete, danger = true) {
-            Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
-            Spacer(Modifier.width(ButtonDefaults.IconSpacing))
+        QuietButton(onClick = onDelete, danger = true, contentPadding = ButtonWithGlyphPadding, modifier = Modifier.padding(top = 8.dp)) {
+            ButtonGlyph(Icons.Rounded.Delete)
             Text(stringResource(R.string.redact_delete_box))
         }
     }

@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,7 +29,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -50,10 +48,14 @@ import io.github.nath_goa.usugami.data.PageMark
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.documentDetails
 import io.github.nath_goa.usugami.data.setDocumentInfo
+import io.github.nath_goa.usugami.ui.kit.DividedColumn
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.PaperButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
+import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.WellField
+import io.github.nath_goa.usugami.ui.kit.well
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -91,16 +93,16 @@ internal fun DocumentInfoOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsV
                     stringResource(R.string.docinfo_reading),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
+                    modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp),
                 )
             }
         } else {
-            if (info.signed) TonalNote { Text(stringResource(R.string.docinfo_signed_note), style = MaterialTheme.typography.bodyMedium) }
+            if (info.signed) WellNote { Text(stringResource(R.string.docinfo_signed_note), style = MaterialTheme.typography.bodyMedium) }
             InfoFields(state, input.id, generation, info, removeAll)
             AboutPdf(input, info, removeAll)
             if (removeAll) {
                 // The button below the text brings its own padding.
-                TonalNote(PaddingValues(start = 16.dp, top = 16.dp, end = 8.dp, bottom = 4.dp)) {
+                WellNote(PaddingValues(start = 16.dp, top = 16.dp, end = 8.dp, bottom = 4.dp)) {
                     // Said by a screen reader as it takes the place of the button that had the focus.
                     Text(
                         stringResource(R.string.docinfo_removing),
@@ -111,12 +113,12 @@ internal fun DocumentInfoOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsV
                 }
             } else {
                 Column {
-                    PaperButton(onClick = state::removeAll) { Text(stringResource(R.string.docinfo_remove_all)) }
+                    PaperButton(onClick = state::removeAll, danger = true) { Text(stringResource(R.string.docinfo_remove_all)) }
                     Text(
                         stringResource(R.string.docinfo_remove_all_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier.padding(start = 8.dp, top = 4.dp, end = 8.dp),
                     )
                 }
             }
@@ -203,40 +205,34 @@ private fun AboutPdf(input: PdfInput, info: DocumentDetails, removeAll: Boolean)
     }
     // What Remove all info takes says so once it is chosen.
     fun removable(value: String?) = if (value != null && removeAll) goes else value ?: notSet
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(
-            stringResource(R.string.docinfo_about),
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.semantics { heading() },
-        )
-        AboutRow(R.string.docinfo_created, removable(info.created?.let { shownDate(context, locale, it) }))
-        AboutRow(R.string.docinfo_changed, removable(info.modified?.let { shownDate(context, locale, it) }))
-        AboutRow(R.string.docinfo_made_with, removable(madeWith))
-        AboutRow(R.string.docinfo_pages, String.format(locale, "%d", input.pageCount))
-        AboutRow(R.string.docinfo_version, info.version)
-        AboutRow(R.string.docinfo_size, Formatter.formatShortFileSize(context, info.sizeBytes))
+    SectionHeading(stringResource(R.string.docinfo_about), top = 8.dp, bottom = 0.dp)
+    // Before, the rows lay bare on the ground: the sheet is only drawn.
+    Sheet(Modifier.fillMaxWidth(), group = false) {
+        DividedColumn(inset = 16.dp) {
+            AboutRow(R.string.docinfo_created, removable(info.created?.let { shownDate(context, locale, it) }))
+            AboutRow(R.string.docinfo_changed, removable(info.modified?.let { shownDate(context, locale, it) }))
+            AboutRow(R.string.docinfo_made_with, removable(madeWith))
+            AboutRow(R.string.docinfo_pages, String.format(locale, "%d", input.pageCount))
+            AboutRow(R.string.docinfo_version, info.version)
+            AboutRow(R.string.docinfo_size, Formatter.formatShortFileSize(context, info.sizeBytes))
+        }
     }
 }
 
 /** [label] at the start, [value] at the end (mirrored in right-to-left languages): one item for a screen reader. */
 @Composable
 private fun AboutRow(@StringRes label: Int, value: String) {
-    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}) {
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(horizontal = 16.dp, vertical = 12.dp)) {
         Text(stringResource(label), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(16.dp))
         Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
     }
 }
 
-/** A note on a tonal card. */
+/** A note in a well, where 2.0.1 had a tonal card: the same one node, read as a group. */
 @Composable
-private fun TonalNote(padding: PaddingValues = PaddingValues(16.dp), content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(padding), content = content)
-    }
+private fun WellNote(padding: PaddingValues = PaddingValues(16.dp), content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().semantics { isTraversalGroup = true }.well().padding(padding), content = content)
 }
 
 /**
