@@ -300,7 +300,7 @@ fun ChoiceChip(selected: Boolean, onClick: () -> Unit, label: String, modifier: 
 }
 
 /**
- * A slider: a 6 dp well for a track, filled in `primary` from its start to the thumb, or with
+ * A slider: a 6 dp track in the stronger hairline (translucent, so it shows on the ground and on a sheet in both themes), filled in `primary` from its start to the thumb, or with
  * [centered] from the middle of the range to the thumb either way (the middle shows no fill); the
  * thumb a white disc ringed in `primary` that grows while held or focused. Material's slider underneath, 48 dp
  * tall; [modifier] (where call sites set the slider's semantics) is passed on untouched.
@@ -336,12 +336,12 @@ fun UsugamiSlider(
         colors = SliderDefaults.colors(
             thumbColor = colors.thumb,
             activeTrackColor = scheme.primary,
-            inactiveTrackColor = colors.well,
+            inactiveTrackColor = colors.hairlineStrong,
         ),
         interactionSource = source,
         steps = 0,
         thumb = { SliderThumb(diameter, thumbFill, ring) },
-        track = { state -> SliderTrack(state, centered, colors.well, colors.wellEdge, filled) },
+        track = { state -> SliderTrack(state, centered, colors.hairlineStrong, filled) },
         valueRange = valueRange,
     )
 }
@@ -371,26 +371,19 @@ private fun SliderThumb(diameter: State<Dp>, fill: Color, ring: Color) {
     )
 }
 
-/** The slider's track: the well, round at its ends, and the filled part; no gap, no dots. */
+/** The slider's track: the track, round at its ends, and the filled part; no gap, no dots. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SliderTrack(state: SliderState, centered: Boolean, well: Color, wellEdge: Color, filled: Color) {
+private fun SliderTrack(state: SliderState, centered: Boolean, track: Color, filled: Color) {
     Spacer(
         Modifier
             .fillMaxWidth()
             .height(6.dp)
             .drawWithCache {
-                val line = 1.dp.toPx()
-                val half = line / 2
-                val stroke = Stroke(line)
                 val ends = CornerRadius(size.height / 2)
-                val edgeEnds = CornerRadius((size.height / 2 - half).coerceAtLeast(0f))
                 val rtl = layoutDirection == LayoutDirection.Rtl
                 onDrawBehind {
-                    drawRoundRect(well, cornerRadius = ends)
-                    if (wellEdge.alpha > 0f) {
-                        drawRoundRect(wellEdge, Offset(half, half), Size(size.width - line, size.height - line), edgeEnds, style = stroke)
-                    }
+                    drawRoundRect(track, cornerRadius = ends)
                     // Where the thumb's middle is: Material places it at this fraction of the track.
                     val fraction = state.coercedValueAsFraction
                     val thumb = size.width * if (rtl) 1 - fraction else fraction
