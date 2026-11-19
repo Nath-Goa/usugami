@@ -35,10 +35,9 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -63,10 +62,15 @@ import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
 import io.github.nath_goa.usugami.ui.kit.PressIndication
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Segment
 import io.github.nath_goa.usugami.ui.kit.SegmentedTrack
+import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.WellField
+import io.github.nath_goa.usugami.ui.kit.paper
+import io.github.nath_goa.usugami.ui.kit.paperEdge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -105,7 +109,12 @@ internal fun Modifier.turnedBy(angle: Float, aspect: Float): Modifier = graphics
 /** Flatten PDF has no choices: one line says what it does. */
 @Composable
 internal fun FlattenOptions() {
-    Text(stringResource(R.string.flatten_note), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+        stringResource(R.string.flatten_note),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 8.dp),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -118,22 +127,30 @@ internal fun PageNumberOptions(
     skip: String,
     onSkip: (String) -> Unit,
 ) {
-    Text(stringResource(R.string.page_numbers_position), style = MaterialTheme.typography.titleMedium)
-    PositionPicker(position, onPosition)
-    Text(stringResource(R.string.page_numbers_size), style = MaterialTheme.typography.titleMedium)
-    SegmentedTrack(PageNumberSize.entries.indexOf(size), PageNumberSize.entries.size, Modifier.fillMaxWidth()) {
-        PageNumberSize.entries.forEach { item ->
-            Segment(
-                selected = size == item,
-                onClick = { onSize(item) },
-                label = {
-                    SegmentLabel(stringResource(when (item) {
-                        PageNumberSize.SMALL -> R.string.number_size_small
-                        PageNumberSize.MEDIUM -> R.string.number_size_medium
-                        PageNumberSize.LARGE -> R.string.number_size_large
-                    }))
-                },
-            )
+    // Where and how big, on one sheet. Before, these lay bare on the ground: the sheet is only drawn.
+    Sheet(Modifier.fillMaxWidth(), group = false) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.page_numbers_position), style = MaterialTheme.typography.titleSmall)
+            PositionPicker(position, onPosition)
+        }
+        SheetDivider()
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.page_numbers_size), style = MaterialTheme.typography.titleSmall)
+            SegmentedTrack(PageNumberSize.entries.indexOf(size), PageNumberSize.entries.size, Modifier.fillMaxWidth()) {
+                PageNumberSize.entries.forEach { item ->
+                    Segment(
+                        selected = size == item,
+                        onClick = { onSize(item) },
+                        label = {
+                            SegmentLabel(stringResource(when (item) {
+                                PageNumberSize.SMALL -> R.string.number_size_small
+                                PageNumberSize.MEDIUM -> R.string.number_size_medium
+                                PageNumberSize.LARGE -> R.string.number_size_large
+                            }))
+                        },
+                    )
+                }
+            }
         }
     }
     Column {
@@ -167,17 +184,16 @@ private fun positionLabel(position: PageNumberPosition): Int = when (position) {
 
 /**
  * A small page with a spot in each of the six places a number can go. The chosen spot shows a
- * number; each spot is a radio button named after its place.
+ * number; each spot is a radio button named after its place. The page is real paper, white in both
+ * themes, so what lies on it keeps colours of its own, not the theme's.
  */
 @Composable
 private fun PositionPicker(selected: PageNumberPosition, onSelect: (PageNumberPosition) -> Unit) {
-    val shape = RoundedCornerShape(8.dp)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier
                 .size(width = 156.dp, height = 200.dp)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow, shape)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                .paper(radius = 2.dp)
                 .selectableGroup(),
         ) {
             // Grey bars stand for the page's text.
@@ -193,7 +209,7 @@ private fun PositionPicker(selected: PageNumberPosition, onSelect: (PageNumberPo
                         Modifier
                             .fillMaxWidth(width)
                             .height(6.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(3.dp)),
+                            .background(PageTextBar, RoundedCornerShape(3.dp)),
                     )
                 }
             }
@@ -224,14 +240,16 @@ private fun PositionPicker(selected: PageNumberPosition, onSelect: (PageNumberPo
     }
 }
 
+/** The grey bars that stand for the text on the page miniature. */
+private val PageTextBar = Color(0xFFDAD4E6)
+
+/** A place on the page miniature that is not chosen. */
+private val PageSpot = Color(0xFF777190)
+
 @Composable
 private fun PositionSpot(selected: Boolean, label: String, onClick: () -> Unit, modifier: Modifier) {
     val dot by animateDpAsState(if (selected) 26.dp else 10.dp, Motion.short(), label = "spot size")
-    val color by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        Motion.short(),
-        label = "spot color",
-    )
+    val color by animateColorAsState(if (selected) Usugami.colors.paperInk else PageSpot, Motion.short(), label = "spot color")
     val numberAlpha by animateFloatAsState(if (selected) 1f else 0f, Motion.short(), label = "spot number")
     Box(
         modifier
@@ -243,7 +261,7 @@ private fun PositionSpot(selected: Boolean, label: String, onClick: () -> Unit, 
         Box(Modifier.size(dot).background(color, CircleShape), contentAlignment = Alignment.Center) {
             Text(
                 "1",
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = Color.White,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.graphicsLayer { alpha = numberAlpha }.clearAndSetSemantics {},
             )
@@ -271,25 +289,33 @@ internal fun WatermarkOptions(
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
         modifier = Modifier.fillMaxWidth(),
     )
-    Text(stringResource(R.string.watermark_color), style = MaterialTheme.typography.titleMedium)
-    ColorSwatches(WatermarkColor.entries, color, onColor, argb = { it.argb }, label = ::colorLabel)
-    Text(stringResource(R.string.watermark_opacity), style = MaterialTheme.typography.titleMedium)
-    SegmentedTrack(WatermarkOpacity.entries.indexOf(opacity), WatermarkOpacity.entries.size, Modifier.fillMaxWidth()) {
-        WatermarkOpacity.entries.forEach { item ->
-            Segment(
-                selected = opacity == item,
-                onClick = { onOpacity(item) },
-                label = {
-                    SegmentLabel(stringResource(when (item) {
-                        WatermarkOpacity.TRANSLUCENT -> R.string.opacity_translucent
-                        WatermarkOpacity.SEMI -> R.string.opacity_semi
-                        WatermarkOpacity.OPAQUE -> R.string.opacity_opaque
-                    }))
-                },
-            )
+    // Colour and opacity, on one sheet. Before, these lay bare on the ground: the sheet is only drawn.
+    Sheet(Modifier.fillMaxWidth(), group = false) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.watermark_color), style = MaterialTheme.typography.titleSmall)
+            ColorSwatches(WatermarkColor.entries, color, onColor, argb = { it.argb }, label = ::colorLabel)
+        }
+        SheetDivider()
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.watermark_opacity), style = MaterialTheme.typography.titleSmall)
+            SegmentedTrack(WatermarkOpacity.entries.indexOf(opacity), WatermarkOpacity.entries.size, Modifier.fillMaxWidth()) {
+                WatermarkOpacity.entries.forEach { item ->
+                    Segment(
+                        selected = opacity == item,
+                        onClick = { onOpacity(item) },
+                        label = {
+                            SegmentLabel(stringResource(when (item) {
+                                WatermarkOpacity.TRANSLUCENT -> R.string.opacity_translucent
+                                WatermarkOpacity.SEMI -> R.string.opacity_semi
+                                WatermarkOpacity.OPAQUE -> R.string.opacity_opaque
+                            }))
+                        },
+                    )
+                }
+            }
         }
     }
-    Text(stringResource(R.string.watermark_preview), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.watermark_preview), top = 8.dp, bottom = 0.dp)
     WatermarkPreview(input, text, color, opacity)
 }
 
@@ -380,7 +406,9 @@ private fun WatermarkPreview(input: PdfInput, text: String, color: WatermarkColo
         Canvas(
             Modifier
                 .size(width, width / aspect)
-                .shadow(2.dp, RectangleShape)
+                // Real paper: its edge outside, and what is drawn kept to the page.
+                .paperEdge()
+                .clipToBounds()
                 .background(Color.White)
                 .semantics { contentDescription = description },
         ) {

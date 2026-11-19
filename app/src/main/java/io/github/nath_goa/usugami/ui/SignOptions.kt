@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Draw
 import androidx.compose.material.icons.rounded.East
@@ -48,12 +47,11 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
@@ -78,12 +76,16 @@ import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.Signature
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.PressIndication
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetDivider
+import io.github.nath_goa.usugami.ui.kit.SheetRow
 import io.github.nath_goa.usugami.ui.kit.TileShape
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
 import io.github.nath_goa.usugami.ui.kit.fadingEdges
 import io.github.nath_goa.usugami.ui.kit.paper
+import io.github.nath_goa.usugami.ui.kit.paperEdge
 import io.github.nath_goa.usugami.ui.kit.tile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -120,14 +122,14 @@ internal fun SignOptions(
     onNudge: (SignatureMove) -> Unit,
     pageSizes: suspend (PdfInput) -> List<Pair<Float, Float>>?,
 ) {
-    Text(stringResource(R.string.sign_signature), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.sign_signature), top = 8.dp, bottom = 0.dp)
     Column {
         SignatureCard(signature, onDraw)
         Text(
             stringResource(R.string.sign_note),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp),
         )
         // Choosing the page and the place comes once there is a signature to place.
         val shown = freezeWhen(signature == null, signature)
@@ -135,7 +137,7 @@ internal fun SignOptions(
             if (shown != null) {
                 Column(Modifier.padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     if (input.pageCount > 1) {
-                        Text(stringResource(R.string.sign_page), style = MaterialTheme.typography.titleMedium)
+                        SectionHeading(stringResource(R.string.sign_page), top = 8.dp, bottom = 0.dp)
                         PageStrip(input, page, onPage)
                     }
                     SignaturePlacer(input, page, shown, placement, onPlacement, onNudge, pageSizes)
@@ -149,24 +151,24 @@ internal fun SignOptions(
 @Composable
 private fun SignatureCard(signature: Signature?, onDraw: () -> Unit) {
     if (signature == null) {
-        Sheet(onClick = onDraw, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Icons.Rounded.Draw, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.sign_draw))
+        // The row is the one clickable, with its words and no role, as the card was; the sheet round
+        // it is only drawn.
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            SheetRow(onClick = onDraw, icon = Icons.Rounded.Draw) {
+                Text(stringResource(R.string.sign_draw), style = MaterialTheme.typography.bodyLarge)
             }
         }
     } else {
         val change = stringResource(R.string.sign_change)
         Sheet(onClick = onDraw, modifier = Modifier.fillMaxWidth().semantics { contentDescription = change }) {
             Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                // On white, like the pad, so black ink shows in the dark theme too.
+                // On real paper, like the pad, so black ink shows in the dark theme too.
                 SignatureDrawing(
                     signature,
                     Modifier
                         .weight(1f)
                         .height(72.dp)
-                        .background(Color.White, RoundedCornerShape(8.dp))
+                        .paper(radius = 4.dp) // 16 − 12
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                 )
                 Spacer(Modifier.width(12.dp))
@@ -273,35 +275,39 @@ private fun SignaturePlacer(
     // the screen shows yet: quick presses each move it a step.
     fun step(dx: Float, dy: Float): SignatureMove = { latest -> placed(latest).let { fit(it.copy(centerX = it.centerX + dx, centerY = it.centerY + dy)) } }
 
-    Text(stringResource(R.string.sign_place), style = MaterialTheme.typography.titleMedium)
+    SectionHeading(stringResource(R.string.sign_place), top = 8.dp, bottom = 0.dp)
     Column {
         PlacementPreview(page, pageWidth / pageHeight, signature, current, onMove = { onPlacement(fit(it)) }, stringResource(R.string.sign_preview_description, pageIndex + 1))
         Text(
             stringResource(R.string.sign_place_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp).align(Alignment.CenterHorizontally),
+            modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp).align(Alignment.CenterHorizontally),
         )
     }
     val range = SignatureLayout.widthRange(pageWidth, pageHeight, aspect)
     val sizeDescription = stringResource(R.string.sign_size_description)
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(R.string.sign_size), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
-        Spacer(Modifier.width(16.dp))
-        UsugamiSlider(
-            value = current.width,
-            onValueChange = { onPlacement(fit(current.copy(width = it))) },
-            // A page too small to choose a size on has one size.
-            valueRange = if (range.endInclusive > range.start) range else range.start..range.start + 1f,
-            enabled = range.endInclusive > range.start,
-            modifier = Modifier.weight(1f).semantics { contentDescription = sizeDescription },
-        )
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        NudgeButton(Icons.Rounded.West, R.string.sign_move_left, step(-NUDGE, 0f), current, onNudge)
-        NudgeButton(Icons.Rounded.North, R.string.sign_move_up, step(0f, -NUDGE), current, onNudge)
-        NudgeButton(Icons.Rounded.South, R.string.sign_move_down, step(0f, NUDGE), current, onNudge)
-        NudgeButton(Icons.Rounded.East, R.string.sign_move_right, step(NUDGE, 0f), current, onNudge)
+    // Size and the steps, on one sheet. Before, these lay bare on the ground: the sheet is only drawn.
+    Sheet(Modifier.fillMaxWidth(), group = false) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.sign_size), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
+            Spacer(Modifier.width(16.dp))
+            UsugamiSlider(
+                value = current.width,
+                onValueChange = { onPlacement(fit(current.copy(width = it))) },
+                // A page too small to choose a size on has one size.
+                valueRange = if (range.endInclusive > range.start) range else range.start..range.start + 1f,
+                enabled = range.endInclusive > range.start,
+                modifier = Modifier.weight(1f).semantics { contentDescription = sizeDescription },
+            )
+        }
+        SheetDivider()
+        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.Center) {
+            NudgeButton(Icons.Rounded.West, R.string.sign_move_left, step(-NUDGE, 0f), current, onNudge)
+            NudgeButton(Icons.Rounded.North, R.string.sign_move_up, step(0f, -NUDGE), current, onNudge)
+            NudgeButton(Icons.Rounded.South, R.string.sign_move_down, step(0f, NUDGE), current, onNudge)
+            NudgeButton(Icons.Rounded.East, R.string.sign_move_right, step(NUDGE, 0f), current, onNudge)
+        }
     }
 }
 
@@ -348,7 +354,9 @@ private fun PlacementPreview(
         Canvas(
             Modifier
                 .size(width, width / pageAspect)
-                .shadow(2.dp, RectangleShape)
+                // Real paper: its edge outside, and what is drawn kept to the page.
+                .paperEdge()
+                .clipToBounds()
                 .background(Color.White)
                 .semantics { contentDescription = description }
                 .pointerInput(Unit) {
