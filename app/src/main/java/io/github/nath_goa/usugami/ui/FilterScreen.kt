@@ -66,8 +66,6 @@ import io.github.nath_goa.usugami.ui.kit.CircularProgress
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.Seal
 import io.github.nath_goa.usugami.ui.kit.SectionHeading
-import io.github.nath_goa.usugami.ui.kit.Sheet
-import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
 import io.github.nath_goa.usugami.ui.kit.fadingEdges
@@ -195,48 +193,43 @@ internal fun FilterStep(
         },
         controls = {
             // The controls show whole above the buttons on a phone at the usual text size, as in 2.0.1:
-            // the gaps between them are no larger than that leaves room for.
-            SectionHeading(stringResource(R.string.look_title), Modifier.padding(horizontal = 16.dp), top = 0.dp, bottom = 4.dp)
-            // Drawn only: in 2.0.1 these lay on the ground, and the tree a device test reads stays as it was.
-            Sheet(Modifier.padding(horizontal = 16.dp), group = false) {
-                // Wider with larger text, so that a name breaks between its words, not in them.
-                val width = SAMPLE_WIDTH * LocalDensity.current.fontScale.coerceAtLeast(1f)
-                // The names at one size, smaller where a word is wider than its tile (German "Tintensparend"),
-                // rather than broken: the size the name that needs it most takes in bold, as when it is
-                // chosen, so the names stay alike and none changes size when it is tapped.
-                val names = PageLook.shown.map { stringResource(lookName(it)) }
-                val style = MaterialTheme.typography.labelMedium
-                val nameSize = wholeWordsFontSize(names, style.copy(fontWeight = FontWeight.Bold), width - 8.dp)
-                val nameStyle = style.withEmLineHeight().copy(fontSize = nameSize)
-                val scroll = rememberScrollState()
-                // The samples lie 4 in from the sheet's top edge, so their corners are 16 − 4 = 12, TileShape.
+            // the gaps between them are no larger than that leaves room for. The heading stands 8 + its own 8
+            // from the edge, in line with the labels under it.
+            SectionHeading(stringResource(R.string.look_title), Modifier.padding(horizontal = 8.dp), top = 2.dp, bottom = 4.dp)
+            // Wider with larger text, so that a name breaks between its words, not in them.
+            val width = SAMPLE_WIDTH * LocalDensity.current.fontScale.coerceAtLeast(1f)
+            // The names at one size, smaller where a word is wider than its tile (German "Tintensparend"),
+            // rather than broken: the size the name that needs it most takes in bold, as when it is
+            // chosen, so the names stay alike and none changes size when it is tapped.
+            val names = PageLook.shown.map { stringResource(lookName(it)) }
+            val style = MaterialTheme.typography.labelMedium
+            val nameSize = wholeWordsFontSize(names, style.copy(fontWeight = FontWeight.Bold), width - 8.dp)
+            val nameStyle = style.withEmLineHeight().copy(fontSize = nameSize)
+            val scroll = rememberScrollState()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .fadingEdges(scroll)
+                    .horizontalScroll(scroll)
+                    .padding(horizontal = 12.dp)
+                    .selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                for (option in PageLook.shown) LookChoice(option, images[option], rotation, option == look, width, nameStyle) { onLook(option) }
+            }
+            AdjustmentSlider(R.string.filter_brightness, R.string.filter_reset_brightness, adjustments.brightness, onBrightness)
+            AdjustmentSlider(R.string.filter_contrast, R.string.filter_reset_contrast, adjustments.contrast, onContrast)
+            if (allPages != null) {
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .fadingEdges(scroll)
-                        .horizontalScroll(scroll)
-                        .padding(horizontal = 12.dp)
-                        .selectableGroup(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        .toggleable(value = allPages, role = Role.Checkbox, onValueChange = onAllPages)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    for (option in PageLook.shown) LookChoice(option, images[option], rotation, option == look, width, nameStyle) { onLook(option) }
-                }
-                SheetDivider()
-                AdjustmentSlider(R.string.filter_brightness, R.string.filter_reset_brightness, adjustments.brightness, onBrightness)
-                AdjustmentSlider(R.string.filter_contrast, R.string.filter_reset_contrast, adjustments.contrast, onContrast)
-                if (allPages != null) {
-                    SheetDivider()
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .toggleable(value = allPages, role = Role.Checkbox, onValueChange = onAllPages)
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(checked = allPages, onCheckedChange = null)
-                        Spacer(Modifier.width(12.dp))
-                        Text(stringResource(R.string.look_all_pages), style = MaterialTheme.typography.bodyLarge)
-                    }
+                    Checkbox(checked = allPages, onCheckedChange = null)
+                    Spacer(Modifier.width(12.dp))
+                    Text(stringResource(R.string.look_all_pages), style = MaterialTheme.typography.bodyLarge)
                 }
             }
         },
