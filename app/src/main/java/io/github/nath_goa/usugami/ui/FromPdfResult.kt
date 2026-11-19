@@ -5,17 +5,15 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.os.Build
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,12 +31,15 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ExportText
 import io.github.nath_goa.usugami.core.OutputType
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
+import io.github.nath_goa.usugami.ui.kit.ButtonWithGlyphPadding
 import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import kotlinx.coroutines.Dispatchers
@@ -121,13 +122,17 @@ internal fun ResultTextCard(preview: TextPreview, enabled: Boolean, onCopy: () -
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     stringResource(R.string.result_text_title),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.padding(start = 12.dp).weight(1f),
                 )
                 val copyText = stringResource(R.string.copy_text)
-                QuietButton(onClick = onCopy, enabled = enabled, modifier = Modifier.semantics { contentDescription = copyText }) {
-                    Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
+                QuietButton(
+                    onClick = onCopy,
+                    enabled = enabled,
+                    contentPadding = ButtonWithGlyphPadding,
+                    modifier = Modifier.semantics { contentDescription = copyText },
+                ) {
+                    ButtonGlyph(Icons.Rounded.ContentCopy)
                     Text(stringResource(R.string.copy))
                 }
             }
@@ -141,7 +146,7 @@ internal fun ResultTextCard(preview: TextPreview, enabled: Boolean, onCopy: () -
                     .padding(horizontal = 12.dp)
                     .padding(top = 4.dp)
                     .fillMaxWidth()
-                    .animateContentSize(Motion.medium()),
+                    .animateContentSize(Motion.ui(IntSize.VisibilityThreshold)),
             )
             // Said where the text shown ends: once opened up, or when the first lines are all there is to show.
             if (!preview.whole && (expanded || !cut)) {
