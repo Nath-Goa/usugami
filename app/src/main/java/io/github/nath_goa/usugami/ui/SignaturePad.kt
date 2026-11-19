@@ -130,7 +130,12 @@ internal fun SignaturePadDialog(initial: Signature?, onDone: (Signature) -> Unit
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text(stringResource(R.string.sign_pad_hint), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(R.string.sign_pad_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
                 // As wide as the screen; in landscape, as tall as the room left.
                 Box(Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     SignaturePad(draft, drawing, onStroke = { draft += it }, Modifier.aspectRatio(SignatureLayout.PAD_WIDTH / SignatureLayout.PAD_HEIGHT))
