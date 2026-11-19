@@ -27,10 +27,12 @@ class UsugamiColors(
     val sheetTop: Color,
     /** The bottom action bar and the reader's Copy bar. */
     val actionBar: Color,
-    /** Text fields, the segmented track, slider and progress tracks, a disabled button's fill. */
+    /** Text fields, the segmented track and progress tracks. */
     val well: Color,
     /** The 1 dp edge of a well (dark only: a darker step on near black is hard to see). */
     val wellEdge: Color,
+    /** A primary or tonal button that can't be used: the well in light; in dark a step lighter than what it lies on, as a darker one reads as a hole in the bar (translucent). */
+    val disabledFill: Color,
     /** Behind the reader's pages. */
     val desk: Color,
     /** Sheet edges and dividers (translucent). */
@@ -79,6 +81,7 @@ internal val LightUsugamiColors = UsugamiColors(
     actionBar = Color(0xFFFCFAFE),
     well = Color(0xFFE4DEEF),
     wellEdge = Color(0x00000000),
+    disabledFill = Color(0xFFE4DEEF),
     desk = Color(0xFFE4DEEF),
     hairline = Color(0x214A3F6B),
     hairlineStrong = Color(0x3D4A3F6B),
@@ -108,6 +111,7 @@ internal val DarkUsugamiColors = UsugamiColors(
     actionBar = Color(0xFF242329),
     well = Color(0xFF0C0B0E),
     wellEdge = Color(0x17FFFFFF),
+    disabledFill = Color(0x14FFFFFF),
     desk = Color(0xFF0C0B0E),
     hairline = Color(0x17FFFFFF),
     hairlineStrong = Color(0x2EFFFFFF),

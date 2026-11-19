@@ -66,7 +66,7 @@ private val ButtonHeight = 52.dp
 
 /**
  * The button that finishes the job, the one strong colour on a screen (one per screen): `primary`,
- * 52 dp tall at least. Disabled, it is a well with faint text.
+ * 52 dp tall at least. Disabled, it is filled with disabledFill and its text is faint.
  */
 @Composable
 fun PrimaryButton(
@@ -89,7 +89,7 @@ fun PrimaryButton(
         colors = ButtonDefaults.buttonColors(
             containerColor = scheme.primary,
             contentColor = scheme.onPrimary,
-            disabledContainerColor = Usugami.colors.well,
+            disabledContainerColor = Usugami.colors.disabledFill,
             disabledContentColor = scheme.onSurface.copy(alpha = 0.38f),
         ),
         elevation = null,
@@ -121,7 +121,7 @@ fun TonalButton(
         colors = ButtonDefaults.filledTonalButtonColors(
             containerColor = scheme.secondaryContainer,
             contentColor = scheme.onSecondaryContainer,
-            disabledContainerColor = Usugami.colors.well,
+            disabledContainerColor = Usugami.colors.disabledFill,
             disabledContentColor = scheme.onSurface.copy(alpha = 0.38f),
         ),
         elevation = null,
