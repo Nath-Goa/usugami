@@ -1,7 +1,6 @@
 package io.github.nath_goa.usugami.ui
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,7 +46,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -451,7 +449,6 @@ private fun ReorganizeTile(
         if (dragging) Motion.ui(0.001f) else Motion.flick(0.001f),
         label = "page lift",
     )
-    val elevation by animateDpAsState(if (dragging) 8.dp else 0.dp, label = "drag elevation")
     val angle by animatePdfPageRotationAsState(ref.rotation)
     val page = when {
         ref.isBlank || input == null -> stringResource(R.string.reorganize_page_blank, number)
@@ -464,8 +461,12 @@ private fun ReorganizeTile(
             .graphicsLayer {
                 scaleX = lift.value
                 scaleY = lift.value
+                // The shadow rises and settles with the scale: none at rest, 8 dp at the full lift,
+                // never below none while the flick swings back past rest. tile() clips.
+                shadowElevation = ((lift.value - 1f) / 0.04f).coerceIn(0f, 1f) * 8.dp.toPx()
+                shape = TileShape
+                clip = false
             }
-            .shadow(elevation, TileShape)
             .tile(isSelected, lifted = dragging)
             // The press and the focus outline follow the tile's corners, the outline just inside its chosen edge.
             .toggleable(
