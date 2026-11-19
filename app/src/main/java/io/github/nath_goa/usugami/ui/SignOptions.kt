@@ -5,6 +5,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -37,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,6 +82,7 @@ import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.SheetRow
+import io.github.nath_goa.usugami.ui.kit.SheetShape
 import io.github.nath_goa.usugami.ui.kit.TileShape
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiSlider
@@ -154,8 +157,11 @@ private fun SignatureCard(signature: Signature?, onDraw: () -> Unit) {
         // The row is the one clickable, with its words and no role, as the card was; the sheet round
         // it is only drawn.
         Sheet(Modifier.fillMaxWidth(), group = false) {
-            SheetRow(onClick = onDraw, icon = Icons.Rounded.Draw) {
-                Text(stringResource(R.string.sign_draw), style = MaterialTheme.typography.bodyLarge)
+            // The row fills the sheet: its press tint and focus outline follow the sheet's corners.
+            CompositionLocalProvider(LocalIndication provides PressIndication.shaped(SheetShape)) {
+                SheetRow(onClick = onDraw, icon = Icons.Rounded.Draw) {
+                    Text(stringResource(R.string.sign_draw), style = MaterialTheme.typography.bodyLarge)
+                }
             }
         }
     } else {
