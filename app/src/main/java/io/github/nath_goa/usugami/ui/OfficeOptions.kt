@@ -1,13 +1,11 @@
 package io.github.nath_goa.usugami.ui
 
 import android.text.format.Formatter
-import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -218,12 +216,6 @@ internal fun SheetPageOptions(options: SheetOptions, onChange: (SheetOptions) ->
             )
         }
     }
-}
-
-/** A choice that is on or off: the whole row flips the switch, and a screen reader hears its [title] and [detail]. */
-@Composable
-internal fun OptionSwitch(@StringRes title: Int, detail: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    SwitchRow(stringResource(title), checked, onChange, detail = detail, padding = PaddingValues(vertical = 8.dp))
 }
 
 /**
