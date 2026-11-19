@@ -3,18 +3,11 @@ package io.github.nath_goa.usugami.ui
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -26,6 +19,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -56,9 +50,6 @@ import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
 import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -68,14 +59,12 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalFocusManager
@@ -93,13 +82,21 @@ import androidx.compose.ui.unit.sp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.RecentFile
 import io.github.nath_goa.usugami.core.ToolSearch
+import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
+import io.github.nath_goa.usugami.ui.kit.ButtonWithGlyphPadding
+import io.github.nath_goa.usugami.ui.kit.DividedColumn
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.PaperButton
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
+import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Sheet
+import io.github.nath_goa.usugami.ui.kit.SheetRow
+import io.github.nath_goa.usugami.ui.kit.Space
+import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import io.github.nath_goa.usugami.ui.kit.WellField
+import io.github.nath_goa.usugami.ui.kit.stack
 
 // The lists below are written one tool per line, so that a change to one tool changes one line.
 // They must stay above PdfToolSections: a list written below it would still be null when it is built.
@@ -361,6 +358,8 @@ fun HomeScreen(
             }
         }
         // The list ends above the keyboard, so every tool found can be scrolled to while typing.
+        // The screen's margin is each block's own, not the column's: the sheets under the Scan block
+        // reach into it, and what shows and hides the block clips to its own bounds.
         Column(
             Modifier
                 .padding(padding)
@@ -368,40 +367,54 @@ fun HomeScreen(
                 .imePadding()
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(top = 8.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(stringResource(R.string.home_subtitle), style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            // While searching, it shows among what is found, if it is.
-            AnimatedVisibility(
-                visible = query.isBlank(),
-                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
-                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
-                label = "scan card",
-            ) {
-                ScanDocumentCard(onScanPhoto, onScanUpload, onScanCard, Modifier.padding(top = 16.dp))
-            }
-            AnimatedVisibility(
-                visible = query.isBlank() && recentFiles.isNotEmpty(),
-                enter = fadeIn(Motion.medium()) + expandVertically(Motion.medium()),
-                exit = fadeOut(Motion.medium()) + shrinkVertically(Motion.medium()),
-                label = "recent files",
-            ) {
-                // The last file removed fades out as it was.
-                RecentFilesSection(freezeWhen(recentFiles.isEmpty(), recentFiles), recentActions, onAllRecentFiles)
-            }
-            SearchField(query, onQueryChange, Modifier.padding(top = 16.dp))
-            Crossfade(targetState = query.isNotBlank(), animationSpec = Motion.short(), label = "homeSearch") { searching ->
-                if (searching) {
-                    // Once the search is cleared, the results fade out as they were (not as "no tools
-                    // match", which a screen reader would also read out).
-                    SearchResults(freezeWhen(query.isBlank(), query), open) { ScanDocumentCard(onScanPhoto, onScanUpload, onScanCard) }
-                } else {
-                    // To add a tool, add its card to its section.
-                    Column {
-                        for (section in HomeSections) {
-                            ToolSection(section.heading) {
-                                for (card in section.cards) ToolCard(card.icon, card.title, card.detail) { open(card) }
+            Column(Modifier.widthIn(max = HomeWidth).fillMaxWidth()) {
+                Text(
+                    stringResource(R.string.home_subtitle),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
+                // While searching, it shows among what is found, if it is.
+                AnimatedVisibility(
+                    visible = query.isBlank(),
+                    enter = Motion.sectionEnter(),
+                    exit = Motion.sectionExit(),
+                    label = "scan card",
+                ) {
+                    // The room above and at the start for the sheets under it lies inside the clip.
+                    ScanDocumentCard(onScanPhoto, onScanUpload, onScanCard, Modifier.padding(start = 16.dp, top = 18.dp, end = 16.dp))
+                }
+                AnimatedVisibility(
+                    visible = query.isBlank() && recentFiles.isNotEmpty(),
+                    enter = Motion.sectionEnter(),
+                    exit = Motion.sectionExit(),
+                    label = "recent files",
+                ) {
+                    // The last file removed fades out as it was.
+                    RecentFilesSection(freezeWhen(recentFiles.isEmpty(), recentFiles), recentActions, onAllRecentFiles)
+                }
+                // 14 above, not 16: lines of text take whole pixels, which costs Home about 2 dp above
+                // Images to PDF, and the row must end where it ended in 2.0.1, on the first screen.
+                SearchField(query, onQueryChange, Modifier.padding(start = 16.dp, top = 14.dp, end = 16.dp))
+                // The margins are inside the layer that fades, so the sheets under a Scan block found by
+                // the search are not cut off while it fades.
+                Crossfade(targetState = query.isNotBlank(), animationSpec = Motion.short(), label = "homeSearch") { searching ->
+                    if (searching) {
+                        // Once the search is cleared, the results fade out as they were (not as "no tools
+                        // match", which a screen reader would also read out).
+                        SearchResults(freezeWhen(query.isBlank(), query), open, Modifier.padding(horizontal = 16.dp)) {
+                            ScanDocumentCard(onScanPhoto, onScanUpload, onScanCard, Modifier.padding(top = 18.dp))
+                        }
+                    } else {
+                        // To add a tool, add its card to its section.
+                        Column(Modifier.padding(horizontal = 16.dp)) {
+                            for (section in HomeSections) {
+                                ToolSection(section.heading) {
+                                    for (card in section.cards) ToolCard(card.icon, card.title, card.detail) { open(card) }
+                                }
                             }
                         }
                     }
@@ -410,6 +423,9 @@ fun HomeScreen(
         }
     }
 }
+
+/** How wide Home's content gets: the widest content, with the screen's margin on each side. */
+private val HomeWidth = Space.content + Space.screen * 2
 
 /**
  * The files saved last, newest first, under a heading with See all, which opens the Recent files
@@ -420,21 +436,19 @@ private fun RecentFilesSection(files: List<RecentFile>, actions: RecentFileActio
     // The file whose menu is open, kept when the activity is recreated.
     val menu = rememberSaveable { mutableStateOf<String?>(null) }
     val today = rememberToday()
-    Column {
-        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                stringResource(R.string.recent_title),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .weight(1f)
-                    .semantics { heading() },
-            )
-            QuietButton(onClick = onSeeAll) { Text(stringResource(R.string.recent_see_all)) }
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        // On one line with See all: the heading's room above it would put it lower than See all if
+        // the two were centred.
+        Row {
+            SectionHeading(stringResource(R.string.recent_title), Modifier.weight(1f).alignByBaseline(), top = 16.dp, bottom = 0.dp)
+            QuietButton(onClick = onSeeAll, modifier = Modifier.alignByBaseline()) { Text(stringResource(R.string.recent_see_all)) }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (file in files.take(HOME_RECENT_FILES)) {
-                key(file.uri) { RecentFileRow(file, today, menu, actions) }
+        // The rows were cards of their own: the sheet round them is only drawn, as no node (R17).
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            DividedColumn {
+                for (file in files.take(HOME_RECENT_FILES)) {
+                    key(file.uri) { RecentFileRow(file, today, menu, actions) }
+                }
             }
         }
     }
@@ -443,7 +457,7 @@ private fun RecentFilesSection(files: List<RecentFile>, actions: RecentFileActio
 /** How many of the files saved last Home shows. */
 private const val HOME_RECENT_FILES = 3
 
-/** A rounded search field, like Material's search bar. The keyboard's search key just closes the keyboard. */
+/** The search well. The keyboard's search key just closes the keyboard. */
 @Composable
 private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier: Modifier = Modifier) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -452,7 +466,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
         value = query,
         onValueChange = onQueryChange,
         placeholder = { Text(stringResource(R.string.home_search_hint)) },
-        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+        leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         trailingIcon = if (query.isNotEmpty()) {
             {
                 GlyphButton(onClick = { onQueryChange("") }) {
@@ -473,10 +487,10 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
 /**
  * The tools [query] finds, in one list without the sections, under a line saying how many there are
  * (or that there are none), which a screen reader reads out as the user types. Scan document shows
- * as [scanCard] when it is found.
+ * as [scanCard] when it is found, first, above one sheet of the tools found.
  */
 @Composable
-private fun SearchResults(query: String, open: (HomeCard) -> Unit, scanCard: @Composable () -> Unit) {
+private fun SearchResults(query: String, open: (HomeCard) -> Unit, modifier: Modifier = Modifier, scanCard: @Composable () -> Unit) {
     val cards = listOf(ScanCard) + HomeSections.flatMap { it.cards }
     // Each card's name, then what it says it does and its hidden keywords, in the screens' language,
     // with those of the tools it stands for. The tools that take several files at once are also
@@ -494,47 +508,51 @@ private fun SearchResults(query: String, open: (HomeCard) -> Unit, scanCard: @Co
     val found = remember(query, texts) {
         ToolSearch.search(cards, query, name = { texts.getValue(it).first }, moreText = { texts.getValue(it).second })
     }
-    Column {
+    Column(modifier) {
         // One line for both, so a screen reader hears each change of it.
         val none = found.isEmpty()
         Text(
             if (none) stringResource(R.string.home_search_none, query.trim()) else pluralStringResource(R.plurals.home_search_results, found.size, found.size),
-            style = if (none) MaterialTheme.typography.bodyLarge else MaterialTheme.typography.titleSmall,
-            color = if (none) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+            style = if (none) MaterialTheme.typography.bodyLarge else Usugami.type.section,
+            color = if (none) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
-                .padding(top = if (none) 24.dp else 18.dp, bottom = 8.dp)
+                .padding(start = 8.dp, top = if (none) 24.dp else 16.dp, end = 8.dp, bottom = 8.dp)
                 .semantics { liveRegion = LiveRegionMode.Polite },
         )
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            for (card in found) {
-                if (card === ScanCard) scanCard() else ToolCard(card.icon, card.title, card.detail) { open(card) }
+        // Scan document is a block of its own, not a row: it comes first, whatever its rank.
+        val scan = ScanCard in found
+        if (scan) scanCard()
+        val tools = found.filter { it !== ScanCard }
+        if (tools.isNotEmpty()) {
+            if (scan) Spacer(Modifier.height(Space.gap))
+            // The cards found were cards of their own: the sheet round them is only drawn, as no node (R17).
+            Sheet(Modifier.fillMaxWidth(), group = false) {
+                DividedColumn {
+                    for (card in tools) ToolCard(card.icon, card.title, card.detail) { open(card) }
+                }
             }
         }
     }
 }
 
 /**
- * Scan document: a card larger than the tools', in the theme's main colour, with a button that takes
- * a photo and one that picks images, each starting at once, and under them a quieter one that scans
- * an ID card's front and back ([onIdCard]).
+ * Scan document: a lilac sheet with two more lying under it, larger than the tools' rows, with a
+ * button that takes a photo and one that picks images, each starting at once, and under them a
+ * quieter one that scans an ID card's front and back ([onIdCard]). The sheets under it need room
+ * above it and at its start, with nothing that clips in between: [modifier] gives it.
  */
 @Composable
 private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onIdCard: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        ),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
+    val colors = Usugami.colors
+    Sheet(modifier.fillMaxWidth().stack(2), color = colors.lilac, border = null) {
+        Column(Modifier.padding(start = 20.dp, top = 20.dp, end = 20.dp, bottom = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.DocumentScanner, contentDescription = null, modifier = Modifier.size(48.dp))
+                Icon(Icons.Rounded.DocumentScanner, contentDescription = null, modifier = Modifier.size(44.dp))
                 Spacer(Modifier.width(16.dp))
                 // One item for a screen reader, a heading as the tools' sections have, before the buttons.
                 Column(Modifier.semantics(mergeDescendants = true) { heading() }) {
-                    Text(stringResource(R.string.scan_title), style = MaterialTheme.typography.titleLarge)
-                    Text(stringResource(R.string.scan_detail), style = MaterialTheme.typography.bodyMedium)
+                    Text(stringResource(R.string.scan_title), style = MaterialTheme.typography.headlineSmall)
+                    Text(stringResource(R.string.scan_detail), style = MaterialTheme.typography.bodyMedium, color = colors.onLilacVariant)
                 }
             }
             Spacer(Modifier.height(16.dp))
@@ -553,16 +571,14 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onId
                 val size = if (stacked) wholeWordsFontSize(labels, style, maxWidth - ScanButtonChrome) else beside
                 val labelStyle = style.withEmLineHeight().copy(fontSize = size)
                 val takePhoto: @Composable (Modifier) -> Unit = { modifier ->
-                    PrimaryButton(onClick = onTakePhoto, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-                        Icon(Icons.Rounded.PhotoCamera, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                    PrimaryButton(onClick = onTakePhoto, modifier = modifier, contentPadding = ButtonWithGlyphPadding) {
+                        ButtonGlyph(Icons.Rounded.PhotoCamera)
                         Text(photo, style = labelStyle, textAlign = TextAlign.Center, autoSize = WholeWordsAutoSize(size))
                     }
                 }
                 val pick: @Composable (Modifier) -> Unit = { modifier ->
-                    PaperButton(onClick = onUpload, modifier = modifier, contentPadding = ButtonDefaults.ButtonWithIconContentPadding) {
-                        Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
+                    PaperButton(onClick = onUpload, modifier = modifier, contentPadding = ButtonWithGlyphPadding) {
+                        ButtonGlyph(Icons.Rounded.PhotoLibrary)
                         Text(upload, style = labelStyle, textAlign = TextAlign.Center, autoSize = WholeWordsAutoSize(size))
                     }
                 }
@@ -579,15 +595,14 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onId
                 }
             }
             Spacer(Modifier.height(4.dp))
-            // Quieter than the two above, in the card's own colour.
+            // Quieter than the two above, in the sheet's own colour.
             QuietButton(
                 onClick = onIdCard,
                 modifier = Modifier.fillMaxWidth(),
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
+                contentColor = colors.onLilac,
+                contentPadding = ButtonWithGlyphPadding,
             ) {
-                Icon(Icons.Rounded.Badge, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
+                ButtonGlyph(Icons.Rounded.Badge)
                 Text(stringResource(R.string.scan_id_card), textAlign = TextAlign.Center)
             }
         }
@@ -595,10 +610,10 @@ private fun ScanDocumentCard(onTakePhoto: () -> Unit, onUpload: () -> Unit, onId
 }
 
 /** Between the Scan document card's two buttons. */
-private val ScanButtonGap = 12.dp
+private val ScanButtonGap = 10.dp
 
-/** A Scan document button's width besides its label: its padding (16 and 24 dp), icon and the gap after it. */
-private val ScanButtonChrome = 16.dp + 24.dp + 18.dp + 8.dp
+/** A Scan document button's width besides its label: its padding (16 dp each side), glyph and the gap after it. */
+private val ScanButtonChrome = 16.dp + 16.dp + 20.dp + 8.dp
 
 /**
  * The smallest the Scan document buttons' labels get side by side, as small as the app's other labels
@@ -606,45 +621,22 @@ private val ScanButtonChrome = 16.dp + 24.dp + 18.dp + 8.dp
  */
 private val ScanLabelSmallest = 11.sp
 
-/** A small heading, which a screen reader can jump to, over a group of tool cards. */
+/** A small heading, which a screen reader can jump to, over one sheet of tool rows. */
 @Composable
-internal fun ToolSection(@StringRes heading: Int, cards: @Composable ColumnScope.() -> Unit) {
-    Text(
-        stringResource(heading),
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 18.dp, bottom = 8.dp).semantics { heading() },
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp), content = cards)
+internal fun ToolSection(@StringRes heading: Int, cards: @Composable () -> Unit) {
+    SectionHeading(stringResource(heading), top = 16.dp, bottom = 8.dp)
+    // The tools were cards of their own: the sheet round them is only drawn, as no node (R17).
+    Sheet(Modifier.fillMaxWidth(), group = false) {
+        DividedColumn(content = cards)
+    }
 }
 
+/** A tool's row: one button holding its name and what it does. */
 @Composable
 internal fun ToolCard(icon: ImageVector, @StringRes title: Int, @StringRes detail: Int, onClick: () -> Unit) {
-    // The card sinks back slightly while it is held down, so the tap feels physical.
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.98f else 1f,
-        animationSpec = Motion.short(),
-        label = "toolCardScale",
-    )
-    Sheet(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        },
-        interactionSource = interactionSource,
-    ) {
-        // Compact, so more of the tools fit on a screen.
-        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(26.dp))
-            Spacer(Modifier.width(16.dp))
-            Column {
-                Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(detail), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
+    // Compact, so more of the tools fit on a screen.
+    SheetRow(icon = icon, onClick = onClick, padding = PaddingValues(horizontal = 16.dp, vertical = 10.dp)) {
+        Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
+        Text(stringResource(detail), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
