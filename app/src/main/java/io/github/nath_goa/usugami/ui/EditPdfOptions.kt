@@ -699,9 +699,9 @@ private fun LabeledSlider(
 @Composable
 private fun EditColors(argb: Int, onSelect: (Int) -> Unit) {
     val current = EditColor.entries.firstOrNull { it.argb == argb } ?: EditColor.BLACK
-    // Each disc stands 6 inside its swatch, so 10 in from the sheet's side they line up with the
-    // text 16 in, and six still fit on one row at 360 dp.
-    Box(Modifier.padding(horizontal = 10.dp)) {
+    // Each disc stands 6 inside its swatch, so 8 in from the sheet's side the discs stand 14 in,
+    // and six fit on one row from a 356 dp wide screen up.
+    Box(Modifier.padding(horizontal = 8.dp)) {
         ColorSwatches(EditColor.entries, current, onSelect = { onSelect(it.argb) }, argb = { it.argb }, label = ::editColorLabel, swatchSize = 48.dp)
     }
 }
