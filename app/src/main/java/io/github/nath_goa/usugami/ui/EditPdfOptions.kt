@@ -479,10 +479,13 @@ private fun EditProperties(
     }
     val drawing = selected == null && mode != EditMode.SELECT
     val penMode = freezeWhen(!drawing, mode)
-    Column(Modifier.fillMaxWidth()) {
+    // One sheet, drawn only (2.0.1 had no card here), round whichever of the two shows, so going from
+    // a chosen item to drawing swaps what it holds under one frame. With neither it has no height and
+    // draws nothing. It is no AnimatedVisibility of its own: that would be a node 2.0.1 did not have.
+    Sheet(Modifier.fillMaxWidth(), group = false) {
         AnimatedVisibility(visible = selected != null, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "item controls") {
-            // One sheet, drawn only (2.0.1 had no card here): the item's name over a hairline, then its controls.
-            if (item != null) Sheet(Modifier.fillMaxWidth().animateContentSize(Motion.ui(IntSize.VisibilityThreshold)), group = false) {
+            // The item's name over a hairline, then its controls.
+            if (item != null) Column(Modifier.fillMaxWidth().animateContentSize(Motion.ui(IntSize.VisibilityThreshold))) {
                 Row(Modifier.padding(start = Space.sheet, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     // A screen reader says it is chosen as soon as it is.
                     val said = stringResource(R.string.edit_selected, describe(item))
@@ -617,21 +620,19 @@ private fun EditProperties(
             }
         }
         AnimatedVisibility(visible = drawing, enter = pdfSectionEnter(), exit = pdfSectionExit(), label = "pen controls") {
-            // The same sheet, drawn only, holding the next stroke's line width and colour.
-            Sheet(Modifier.fillMaxWidth(), group = false) {
-                Column(Modifier.padding(top = 4.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val highlighter = penMode == EditMode.HIGHLIGHTER
-                    LabeledSlider(
-                        label = stringResource(R.string.edit_thickness),
-                        value = if (highlighter) style.highlighterWidth else style.penWidth,
-                        range = if (highlighter) EditLayout.HIGHLIGHTER_WIDTHS else EditLayout.PEN_WIDTHS,
-                        onValue = { width -> onStyle(if (highlighter) style.copy(highlighterWidth = width) else style.copy(penWidth = width)) },
-                        onBegin = {},
-                        onEnd = {},
-                    )
-                    EditColors(if (highlighter) style.highlighterColor else style.penColor) { argb ->
-                        onStyle(if (highlighter) style.copy(highlighterColor = argb) else style.copy(penColor = argb))
-                    }
+            // The next stroke's line width and colour.
+            Column(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val highlighter = penMode == EditMode.HIGHLIGHTER
+                LabeledSlider(
+                    label = stringResource(R.string.edit_thickness),
+                    value = if (highlighter) style.highlighterWidth else style.penWidth,
+                    range = if (highlighter) EditLayout.HIGHLIGHTER_WIDTHS else EditLayout.PEN_WIDTHS,
+                    onValue = { width -> onStyle(if (highlighter) style.copy(highlighterWidth = width) else style.copy(penWidth = width)) },
+                    onBegin = {},
+                    onEnd = {},
+                )
+                EditColors(if (highlighter) style.highlighterColor else style.penColor) { argb ->
+                    onStyle(if (highlighter) style.copy(highlighterColor = argb) else style.copy(penColor = argb))
                 }
             }
         }
