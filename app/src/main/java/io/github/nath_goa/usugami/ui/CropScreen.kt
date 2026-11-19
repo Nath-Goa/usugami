@@ -806,6 +806,8 @@ private fun CropArea(
     val placeholder = MaterialTheme.colorScheme.surfaceVariant
     val description = stringResource(R.string.crop_image_description)
     val density = LocalDensity.current
+    // Made once rather than in every frame of a drag: the outline's ink purple line, and its lilac line.
+    val outlineStrokes = remember(density) { with(density) { Stroke(4.dp.toPx()) to Stroke(2.dp.toPx()) } }
     BoxWithConstraints(modifier) {
         val room = with(density) { HANDLE_SIZE.toPx() / 2 }
         val areaWidth = constraints.maxWidth.toFloat()
@@ -876,8 +878,8 @@ private fun CropArea(
             }
             drawPath(outside, Color.Black.copy(alpha = 0.45f))
             // Two tones, as it lies on a photo, dark or light: lilac over ink purple, in both themes.
-            drawPath(page, outline, style = Stroke(4.dp.toPx()))
-            drawPath(page, OutlineLight, style = Stroke(2.dp.toPx()))
+            drawPath(page, outline, style = outlineStrokes.first)
+            drawPath(page, OutlineLight, style = outlineStrokes.second)
             for (side in 0..3) {
                 val from = points[side]
                 val to = points[(side + 1) % 4]
