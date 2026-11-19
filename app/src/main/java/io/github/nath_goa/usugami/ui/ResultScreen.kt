@@ -607,11 +607,12 @@ internal val OutputType.icon: ImageVector
 @Composable
 private fun FileRow(file: PdfFile, showOpen: Boolean, canOpen: Boolean, onOpen: () -> Unit, onPrint: (() -> Unit)?, sealed: Boolean) {
     Row(
-        if (showOpen) Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp) else Modifier.padding(16.dp),
+        // The seal reaches 22 dp down into the sealed row, so its buttons start below it.
+        if (showOpen) Modifier.padding(start = 16.dp, top = if (sealed) 22.dp else 12.dp, bottom = 12.dp, end = 4.dp) else Modifier.padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         FileIcon(file)
-        // With buttons at the end of the row, the seal lies over them rather than over the details.
+        // With buttons at the end of the row, the seal lies above them rather than over the details.
         val after = if (showOpen) 4.dp + 48.dp * (if (onPrint != null) 2 else 1) else 16.dp
         FileDetails(file, Modifier.weight(1f).clearOfSeal(sealed, after))
         if (showOpen) {
