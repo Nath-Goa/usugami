@@ -30,7 +30,7 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 
 | | **Usugami** (recommended) | **Usugami Lite** | **Usugami OCR** |
 |---|---|---|---|
-| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 5.1 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 4.7 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 16 MB: the recognition engine and models are inside |
+| Download | **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**, about 5.1 MB | **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**, about 4.8 MB | **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**, about 16 MB: the recognition engine and models are inside |
 | Downloads | [![Usugami downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) | [![Usugami Lite downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-lite.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) | [![Usugami OCR downloads](https://img.shields.io/github/downloads/Nath-Goa/usugami/Usugami-ocr.apk?logo=github&label=all%20versions)](https://github.com/Nath-Goa/usugami/releases) |
 | The reader, images, Word, PowerPoint, Excel and EPUB to PDF, and every PDF tool | Fully offline | Fully offline | Fully offline |
 | Text recognition (OCR) for searchable PDFs and scanned pages | Runs on your phone through Google Play services, which downloads Google's text-recognition model the first time you use it. | Not included | Open source and built into the app ([PaddleOCR](#how-usugami-ocr-reads-text) models). Works with no internet, forever. |
@@ -1039,7 +1039,7 @@ again.
 <details>
 <summary><b>How much storage does Usugami use?</b></summary>
 
-The app takes about 5.1 MB to download (Usugami Lite about 4.7 MB, and Usugami OCR about 16 MB,
+The app takes about 5.1 MB to download (Usugami Lite about 4.8 MB, and Usugami OCR about 16 MB,
 since its recognition engine and models are inside). A file you open in the reader is copied into
 Usugami's cache while it is open, so a very large one needs that much free storage.
 While you work, Usugami keeps temporary copies of your files in its cache and deletes them
