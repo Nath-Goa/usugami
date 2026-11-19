@@ -449,7 +449,6 @@ private fun ReorganizeTile(
         if (dragging) Motion.ui(0.001f) else Motion.flick(0.001f),
         label = "page lift",
     )
-    val angle by animatePdfPageRotationAsState(ref.rotation)
     val page = when {
         ref.isBlank || input == null -> stringResource(R.string.reorganize_page_blank, number)
         fromOther -> stringResource(R.string.reorganize_page_from, number, input.name)
@@ -482,9 +481,7 @@ private fun ReorganizeTile(
             },
     ) {
         Box(Modifier.padding(6.dp).fillMaxWidth().aspectRatio(TILE_ASPECT), contentAlignment = Alignment.Center) {
-            // Real paper, turned with the page it shows.
-            if (picture == null || ref.isBlank) BlankPage(ref, angle, Modifier.fillMaxSize())
-            else PdfThumbnail(picture, ref.page, Modifier.fillMaxSize().turnedBy(angle, TILE_ASPECT).paper())
+            TilePicture(picture, ref)
             Seal(
                 Modifier
                     .align(Alignment.TopEnd)
@@ -507,6 +504,17 @@ private fun ReorganizeTile(
                 .clearAndSetSemantics {},
         )
     }
+}
+
+/**
+ * A tile's page as real paper, turned with the page it shows. The angle is read here, so that while
+ * pages turn only this is composed again, not their whole tiles.
+ */
+@Composable
+private fun TilePicture(picture: PdfInput?, ref: PdfPageRef) {
+    val angle by animatePdfPageRotationAsState(ref.rotation)
+    if (picture == null || ref.isBlank) BlankPage(ref, angle, Modifier.fillMaxSize())
+    else PdfThumbnail(picture, ref.page, Modifier.fillMaxSize().turnedBy(angle, TILE_ASPECT).paper())
 }
 
 /** A blank page's picture: white, its own shape, saying so, and turned like the others. */
