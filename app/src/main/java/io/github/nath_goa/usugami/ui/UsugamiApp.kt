@@ -767,8 +767,12 @@ fun UsugamiApp(
     var showConvertSheet by rememberSaveable { mutableStateOf(false) }
 
     // A result's arrival plays once: not again after its preview, a rotation or Android restarting Usugami.
+    // Images to PDF's result and the PDF tools' result each have their own, so one that arrives while the
+    // other is still held plays its arrival too.
     var resultGreeted by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(result == null && pdfResult == null) { if (result == null && pdfResult == null) resultGreeted = false }
+    LaunchedEffect(result == null) { if (result == null) resultGreeted = false }
+    var pdfResultGreeted by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(pdfResult == null) { if (pdfResult == null) pdfResultGreeted = false }
 
     // Which screen is showing. The result screens sit one level deeper than their editors, which
     // sit one level deeper than home, and so do Recent files ("recent"), Settings ("settings"), About
@@ -1172,8 +1176,8 @@ fun UsugamiApp(
                         marking = pdfMarking,
                         markPreview = pdfMarkPreview,
                         text = textPreviewOf(files),
-                        greeted = resultGreeted,
-                        onGreeted = { resultGreeted = true },
+                        greeted = pdfResultGreeted,
+                        onGreeted = { pdfResultGreeted = true },
                     )
                 }
                 else -> {
