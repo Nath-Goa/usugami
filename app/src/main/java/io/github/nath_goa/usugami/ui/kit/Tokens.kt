@@ -53,7 +53,7 @@ class UsugamiColors(
     val onLilac: Color,
     /** Secondary text on [lilac]. */
     val onLilacVariant: Color,
-    /** The reader's page pill and the page-number badge: over white pages in both themes (translucent). */
+    /** The reader's page pill and the page-number badge: over white pages in both themes (solid: what is on the page must not show through). */
     val pill: Color,
     /** Text on the [pill]. */
     val onPill: Color,
@@ -92,7 +92,7 @@ internal val LightUsugamiColors = UsugamiColors(
     lilac = Color(0xFFE8DEF8),
     onLilac = Color(0xFF2A2243),
     onLilacVariant = Color(0xFF575268),
-    pill = Color(0xF24A3F6B),
+    pill = Color(0xFF4A3F6B),
     onPill = Color(0xFFF4EFFC),
     pillEdge = Color(0x00000000),
     scrim = Color(0x521B1924),
@@ -122,7 +122,7 @@ internal val DarkUsugamiColors = UsugamiColors(
     lilac = Color(0xFF4A3F6B),
     onLilac = Color(0xFFEFE8FC),
     onLilacVariant = Color(0xFFD3CBE8),
-    pill = Color(0xF24A3F6B),
+    pill = Color(0xFF4A3F6B),
     onPill = Color(0xFFF4EFFC),
     pillEdge = Color(0x29FFFFFF),
     scrim = Color(0x8C000000),
