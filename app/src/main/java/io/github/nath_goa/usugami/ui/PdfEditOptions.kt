@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -61,6 +62,8 @@ import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.WatermarkColor
 import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.WatermarkText
+import io.github.nath_goa.usugami.ui.kit.LightUsugamiColors
+import io.github.nath_goa.usugami.ui.kit.LocalUsugamiColors
 import io.github.nath_goa.usugami.ui.kit.PressIndication
 import io.github.nath_goa.usugami.ui.kit.SectionHeading
 import io.github.nath_goa.usugami.ui.kit.Segment
@@ -196,38 +199,42 @@ private fun PositionPicker(selected: PageNumberPosition, onSelect: (PageNumberPo
                 .paper(radius = 2.dp)
                 .selectableGroup(),
         ) {
-            // Grey bars stand for the page's text.
-            Column(
-                Modifier
-                    .align(Alignment.Center)
-                    .padding(horizontal = 28.dp)
-                    .clearAndSetSemantics {},
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                for (width in listOf(1f, 1f, 0.85f, 1f, 0.6f)) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth(width)
-                            .height(6.dp)
-                            .background(PageTextBar, RoundedCornerShape(3.dp)),
+            // The light theme's colours on the white page in both themes, so the spots' press tint and
+            // focus outline are ink, which shows on it.
+            CompositionLocalProvider(LocalUsugamiColors provides LightUsugamiColors) {
+                // Grey bars stand for the page's text.
+                Column(
+                    Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 28.dp)
+                        .clearAndSetSemantics {},
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    for (width in listOf(1f, 1f, 0.85f, 1f, 0.6f)) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth(width)
+                                .height(6.dp)
+                                .background(PageTextBar, RoundedCornerShape(3.dp)),
+                        )
+                    }
+                }
+                for (position in PageNumberPosition.entries) {
+                    val alignment = when (position) {
+                        PageNumberPosition.TOP_LEFT -> Alignment.TopStart
+                        PageNumberPosition.TOP_CENTER -> Alignment.TopCenter
+                        PageNumberPosition.TOP_RIGHT -> Alignment.TopEnd
+                        PageNumberPosition.BOTTOM_LEFT -> Alignment.BottomStart
+                        PageNumberPosition.BOTTOM_CENTER -> Alignment.BottomCenter
+                        PageNumberPosition.BOTTOM_RIGHT -> Alignment.BottomEnd
+                    }
+                    PositionSpot(
+                        selected = position == selected,
+                        label = stringResource(positionLabel(position)),
+                        onClick = { onSelect(position) },
+                        modifier = Modifier.align(alignment),
                     )
                 }
-            }
-            for (position in PageNumberPosition.entries) {
-                val alignment = when (position) {
-                    PageNumberPosition.TOP_LEFT -> Alignment.TopStart
-                    PageNumberPosition.TOP_CENTER -> Alignment.TopCenter
-                    PageNumberPosition.TOP_RIGHT -> Alignment.TopEnd
-                    PageNumberPosition.BOTTOM_LEFT -> Alignment.BottomStart
-                    PageNumberPosition.BOTTOM_CENTER -> Alignment.BottomCenter
-                    PageNumberPosition.BOTTOM_RIGHT -> Alignment.BottomEnd
-                }
-                PositionSpot(
-                    selected = position == selected,
-                    label = stringResource(positionLabel(position)),
-                    onClick = { onSelect(position) },
-                    modifier = Modifier.align(alignment),
-                )
             }
         }
         Spacer(Modifier.width(20.dp))
@@ -240,10 +247,10 @@ private fun PositionPicker(selected: PageNumberPosition, onSelect: (PageNumberPo
     }
 }
 
-/** The grey bars that stand for the text on the page miniature. */
+/** The grey bars that stand for the text on the page miniature. OKLCH 0.880 0.025 301. */
 private val PageTextBar = Color(0xFFDAD4E6)
 
-/** A place on the page miniature that is not chosen. */
+/** A place on the page miniature that is not chosen. OKLCH 0.565 0.048 294, 4.6:1 on white. */
 private val PageSpot = Color(0xFF777190)
 
 @Composable
