@@ -79,6 +79,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.ui.Motion
+import kotlin.math.ceil
 import kotlin.math.min
 
 // Sheets of vellum on the ground, each holding one group of related controls divided by hairlines;
@@ -107,12 +108,19 @@ fun Sheet(
     val colors = Usugami.colors
     // A lilac sheet's caller gives its content `onLilac`, inside or around the sheet: either way works.
     val contentColor = if (color == colors.lilac) colors.onLilac else MaterialTheme.colorScheme.onSurface
+    // background and border each make the node they are set on an item of the accessibility tree (they
+    // report their shape), so a sheet that is no node paints its fill and its edge itself. A clickable or
+    // group sheet is a node anyway, and a screen reader's focus highlight follows the shape the two report.
+    val painted = if (onClick == null && !group) {
+        remember(color, border, shape) { Modifier.sheetDrawing(color, border, shape) }
+    } else {
+        Modifier.background(color, shape).then(if (border != null) Modifier.border(border, shape) else Modifier)
+    }
     CompositionLocalProvider(LocalContentColor provides contentColor) {
         Column(
             modifier
                 .then(if (onClick != null && !enabled) Modifier.graphicsLayer { alpha = 0.5f } else Modifier)
-                .background(color, shape)
-                .then(if (border != null) Modifier.border(border, shape) else Modifier)
+                .then(painted)
                 .clipped(shape)
                 .then(
                     when {
@@ -474,6 +482,28 @@ fun Modifier.tile(selected: Boolean, shape: Shape = TileShape, lifted: Boolean =
     val tile = remember(selected, shape, fill, edge) { Modifier.tileDrawing(selected, shape, fill, edge) }
     return this.then(tile)
 }
+
+/**
+ * A sheet's fill, under its content, and its [border], over it, painted as Modifier.background and
+ * Modifier.border paint them, but by drawing alone: a drawing makes no item of the accessibility tree.
+ */
+private fun Modifier.sheetDrawing(color: Color, border: BorderStroke?, shape: Shape): Modifier = this
+    .drawWithCache {
+        val outline = shape.createOutline(size, layoutDirection, this)
+        // In whole pixels, as Modifier.border draws an edge; a hairline is 1 px.
+        val width = when {
+            border == null -> 0f
+            border.width == Dp.Hairline -> 1f
+            else -> ceil(border.width.toPx())
+        }
+        val ring = if (border != null) shape.concentric(size, layoutDirection, this, width / 2) else null
+        val stroke = Stroke(width)
+        onDrawWithContent {
+            drawOutline(outline, color)
+            drawContent()
+            if (border != null && ring != null) drawOutline(ring, border.brush, style = stroke)
+        }
+    }
 
 /** A tile's clip, fill and edge; the colours are read while drawing. */
 private fun Modifier.tileDrawing(selected: Boolean, shape: Shape, fill: State<Color>, edge: State<Color>): Modifier = this
