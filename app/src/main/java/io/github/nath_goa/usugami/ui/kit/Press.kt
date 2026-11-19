@@ -8,6 +8,7 @@ import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.ui.Motion
+import kotlin.math.min
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -104,6 +106,9 @@ private val GlyphDisc = 40.dp
 
 /** The focus outline's width. */
 private val FocusWidth = 2.dp
+
+/** The corner of [SheetShape] (Tokens.kt), which a row's focus outline follows inside the sheet. */
+private val SheetCorner = 16.dp
 
 /** How far a button's focus outline lies outside its bounds. */
 private val FocusGap = 2.dp
@@ -199,7 +204,11 @@ private class PressNode(
                         if (alpha > 0f) drawRect(colors.pressTint, alpha = alpha)
                         if (focused) {
                             val half = FocusWidth.toPx() / 2
-                            drawRect(colors.focus, Offset(half, half), Size(size.width - 2 * half, size.height - 2 * half), style = stroke())
+                            val outlined = Size(size.width - 2 * half, size.height - 2 * half)
+                            // Its middle line concentric with a sheet's corner, so on a sheet's first or
+                            // last row the sheet's clip cuts none of it (R19.1).
+                            val corner = min(SheetCorner.toPx() - half, min(outlined.width, outlined.height) / 2).coerceAtLeast(0f)
+                            drawRoundRect(colors.focus, Offset(half, half), outlined, CornerRadius(corner), style = stroke())
                         }
                     } else {
                         prepare()
