@@ -1,0 +1,6 @@
+• Un nouveau look : papier fin en lilas et violet encre, en clair et en sombre, avec tous les outils et fonctions toujours là
+• L'accueil présente les outils en lignes sur des feuilles sous chaque titre
+• Chaque outil PDF garde son bouton principal en bas de l'écran
+• Écran de résultat, lecteur et Annoter plus clairs
+• Le compteur de pages du lecteur indique toutes les pages affichées, par exemple "1-3 sur 3"
+• Une nouvelle icône d'application

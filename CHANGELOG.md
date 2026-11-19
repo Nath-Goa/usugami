@@ -6,8 +6,45 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-19
+
 ### Changed
 
+- **A new look.** Usugami now looks like the thin paper it is named after: a pale lilac ground with
+  lighter sheets lying on it and ink purple in place of red, in a light and a dark theme (in dark,
+  a sheet is a step lighter than the near-black ground it lies on). Every tool, button and feature
+  is still there and does what it did; where it sits and how it looks is what changed:
+  - What belongs together lies on one sheet with thin lines between its rows: Home's tools under
+    each heading, the recent files, what a search finds, Settings, About, the steps of Donate, the
+    languages at first launch, and a tool's choices.
+  - Text fields are filled, with their label inside; a choice between two to four things is a
+    track with a sliding thumb; switches, sliders, dialogs, menus and the bars at the top follow
+    the same look.
+  - A page is shown as real paper wherever one appears, white with a thin edge in both themes: in
+    the reader, the editors, the previews and the rows of pages. A chosen page turns lilac with a
+    purple edge.
+  - Buttons that discard, clear or remove something are written in red.
+- **Home:** Scan document is a lilac sheet with two more lying under it, and the tools are rows on
+  one sheet under each plain heading. A search that finds Scan document lists it first.
+- **PDF tools:** each keeps its main button on a bar at the foot of the screen, shows a dashed
+  empty sheet where files are chosen, and lists a chosen file on a sheet lying on its fanned pages,
+  with Add PDFs as a row at its foot.
+- **The result screen** says what was made in a large headline and shows the file as a sheet lying
+  on its pages, with a round seal and tick where the check mark was. As a result arrives, the
+  headline rises into place, the file settles onto its pages and the seal lands on it, with a small
+  buzz on phones that have one: once per result, and at once with Android's "Remove animations"
+  on. Save to Downloads, Save as and Print, or the ZIP choices, are rows of one sheet.
+- **Reader and Annotate:** each page has a thin edge on the desk, the page count is an ink purple
+  pill, and Copy and Save PDF share one bar at the foot of the screen, which is there only while
+  one of them is. In Annotate the five tools sit together on one sheet, and the chosen item's name,
+  Edit text, a red Delete, its move buttons, sliders and colours share another.
+- **Images to PDF and scans:** each page is white paper on a plain tile, a tile held to be moved
+  grows a little and lifts, an empty editor shows a dashed outline where a page goes, and the crop
+  outline is lilac over ink purple, so it shows on light and dark photos alike.
+- **Touch and motion:** every button, row and menu item shows one quiet press in place of
+  Material's ripple, a screen that opens slides in over the whole width, sections open and close on
+  the same quick spring, rows that scroll sideways fade out at a side where there is more to see,
+  and a keyboard's focus outline follows the rounded shape of what it surrounds.
 - **The reader's page count** gives every page showing: zoomed out with three whole pages on the
   screen, it says "1-3 of 3" rather than "1 of 3" (and a screen reader, "Pages 1 to 3 of 3"). A
   page counts once at least half of it is on the screen, or, zoomed in, once it fills at least half
@@ -19,6 +56,11 @@ All notable changes to Usugami are listed here. The format is based on
   thin white paper that it shows through in a paler tone, on the same lilac. The themed icon on
   Android 13 and newer follows it, as do the icon on About and on the language screen, the store
   listings' icon and feature graphics, and the repository's social preview.
+
+### Fixed
+
+- A PDF opened in the very moment a tool's screen started could, rarely, fail to open with an
+  error, because the folder for its working files had just been cleared. The folder is now kept.
 
 ## [2.0.1] - 2026-11-15
 
@@ -1049,7 +1091,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/Nath-Goa/usugami/compare/v2.0.1...v3.0.0
 [2.0.1]: https://github.com/Nath-Goa/usugami/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/Nath-Goa/usugami/compare/v1.6.5...v2.0.0
 [1.6.6]: https://github.com/Nath-Goa/usugami/compare/v1.6.5...v1.6.6

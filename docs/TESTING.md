@@ -253,6 +253,12 @@ Usugami OCR):
 ./gradlew :app:connectedOcrDebugAndroidTest
 ```
 
+Run them on a phone or an emulator that has finished starting and is doing nothing else. A few
+tests wait a fixed time for the screen: `ScreensDeviceTest` scrolls down Home half a second at a
+step, so on a machine under load a test such as `severalPdfsAreSharedOrSavedAsOneZip` can time out
+looking for a tool on Home. That is the test's timing, not the app's (2.0.1 does the same): run it
+again once the machine is quiet.
+
 They use small synthetic PDFs, a made-up Word report and a made-up slide deck in
 `app/src/androidTest/assets` (the two Office files are rebuilt with `tools/make_office_fixtures.py`,
 which needs python-docx and python-pptx), and check, with PDFBox text extraction:

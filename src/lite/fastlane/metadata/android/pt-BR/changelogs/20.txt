@@ -1,0 +1,6 @@
+• Um novo visual: papel fino em lilás e roxo tinta, em claro e escuro, com todas as ferramentas e recursos de sempre
+• O início mostra as ferramentas como linhas em folhas sob cada título
+• Cada ferramenta de PDF mantém o botão principal na parte inferior da tela
+• Tela de resultado, leitor e Anotar mais claros
+• A contagem de páginas do leitor mostra todas as páginas exibidas, como "1-3 de 3"
+• Um novo ícone do app

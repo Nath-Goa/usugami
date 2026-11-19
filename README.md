@@ -66,13 +66,26 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 2.0.1
+## What's new in 3.0.0
 
-Settings → **Donate** shows how to donate through
-[GitHub Sponsors](https://github.com/sponsors/Nath-Goa), in four steps: open Usugami's page on
-GitHub, tap **Sponsor**, choose your amount and pay.
+**A new look.** Usugami now looks like the thin paper it is named after: a pale lilac ground with
+lighter sheets on it and ink purple in place of red, in a light and a dark theme. Every tool and
+feature is still there and works as before.
 
-2.0.0, the day before, was the biggest update yet:
+- **Home** shows its tools as rows on one sheet under each heading, with Scan document on top.
+- **Every PDF tool** keeps its main button at the foot of the screen, and a page is shown as real
+  white paper wherever one appears.
+- **The result screen** says what was made in a large headline, with the file lying on its pages
+  under a round seal.
+- **The reader's page count** gives every page showing: "1-3 of 3" with three whole pages on the
+  screen.
+- **A new app icon:** a deep-purple disc, like a moon, partly covered by a tilted sheet of thin
+  paper.
+
+2.0.1, four days before: Settings → **Donate** shows how to donate through
+[GitHub Sponsors](https://github.com/sponsors/Nath-Goa), in four steps.
+
+2.0.0, the day before that, was the biggest update yet:
 
 - **Read and annotate:** Usugami is now in Android's "Open with" list for PDF, Word, Excel,
   PowerPoint and EPUB files, and opens them in its own reader: pages in one scroll, pinch or

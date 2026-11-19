@@ -1,0 +1,6 @@
+• Tampilan baru: kertas tipis berwarna lilac dan ungu tinta, dalam mode terang dan gelap, semua alat dan fitur tetap ada
+• Beranda menampilkan alat sebagai baris pada lembar di bawah tiap judul
+• Setiap alat PDF menaruh tombol utamanya di bagian bawah layar
+• Layar hasil, pembaca, dan Anotasi yang lebih jelas
+• Penunjuk halaman di pembaca menampilkan semua halaman yang terlihat, seperti "1-3 dari 3"
+• Ikon aplikasi baru

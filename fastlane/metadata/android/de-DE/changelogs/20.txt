@@ -1,0 +1,6 @@
+• Neues Aussehen: dünnes Papier in Flieder und Tintenviolett, hell und dunkel, alle Tools und Funktionen bleiben erhalten
+• Der Startbildschirm zeigt die Tools als Zeilen auf Blättern unter jeder Überschrift
+• Jedes PDF-Tool hat seinen Hauptknopf unten am Bildschirm
+• Ergebnisbildschirm, Reader und Annotieren sind klarer
+• Die Seitenanzeige im Reader nennt alle sichtbaren Seiten, etwa "1-3 von 3"
+• Ein neues App-Symbol

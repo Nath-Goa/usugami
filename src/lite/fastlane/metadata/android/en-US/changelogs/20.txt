@@ -1,0 +1,6 @@
+• A new look: thin paper in lilac and ink purple, in light and dark, with every tool and feature still there
+• Home shows the tools as rows on sheets under each heading
+• Each PDF tool keeps its main button at the foot of the screen
+• A clearer result screen, reader and Annotate
+• The reader's page count gives every page showing, such as "1-3 of 3"
+• A new app icon
