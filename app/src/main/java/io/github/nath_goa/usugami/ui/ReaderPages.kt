@@ -46,6 +46,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isSpecified
@@ -53,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
@@ -81,7 +83,6 @@ import io.github.nath_goa.usugami.core.TextPlace
 import io.github.nath_goa.usugami.core.TextSelection
 import io.github.nath_goa.usugami.data.ReaderDocument
 import io.github.nath_goa.usugami.ui.kit.Usugami
-import io.github.nath_goa.usugami.ui.kit.paperEdge
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.awaitCancellation
@@ -476,6 +477,7 @@ internal fun ReaderPages(
                     items = added[index].orEmpty(),
                     selected = selectedBoxes(selection, index),
                     onCopyPage = onCopyPage?.let { copy -> { copy(index) } },
+                    zoom = { currentZoom() },
                 )
                 if (selection != null) {
                     // The selection's text of this page, read when the selection runs over it; forgotten when it goes.
@@ -632,7 +634,7 @@ private suspend fun drawTiles(
  * Page [index] of [document], white, in its shape, with its picture once drawn, its sharp part over it,
  * what Annotate added to it ([items]), Find text's [matches] on it marked, the match marked last
  * ([current], its boxes) in another colour, and the text [selected] on it (a box a line, in points).
- * [onCopyPage]: the screen reader's "Copy the text of this page".
+ * [onCopyPage]: the screen reader's "Copy the text of this page". [zoom]: what the pages are scaled by.
  */
 @Composable
 private fun ReaderPage(
@@ -647,6 +649,7 @@ private fun ReaderPage(
     items: List<PageItem>,
     selected: List<GlyphBox>,
     onCopyPage: (() -> Unit)?,
+    zoom: () -> Float,
 ) {
     val (shownWidth, shownHeight) = document.sizes[index]
     // What was added, drawn as Annotate draws it, its pictures decoded as the page shows.
@@ -676,6 +679,19 @@ private fun ReaderPage(
     }
     val image = remember(picture) { picture?.asImageBitmap() }
     val ownWidth = pageWidth(shownWidth, shownHeight, itemWidth)
+    // The page's hairline, 1 dp outside its bounds as the kit's paperEdge lies, but drawn thinner as
+    // the zoom scales the pages up, so on the screen it stays 1 dp at any zoom. The zoom is read while
+    // drawing, so a pinch recomposes nothing.
+    val edgeColor = Usugami.colors.pageEdge
+    val edge = remember(edgeColor, zoom) {
+        Modifier.drawWithCache {
+            val width = 1.dp.toPx() / zoom()
+            val stroke = Stroke(width)
+            onDrawBehind {
+                drawRect(edgeColor, Offset(-width / 2, -width / 2), Size(size.width + width, size.height + width), style = stroke)
+            }
+        }
+    }
     Box(
         Modifier
             .fillMaxWidth()
@@ -695,7 +711,7 @@ private fun ReaderPage(
             )
             // Pages are white in their own colours, also in the dark theme, edged outside their bounds so
             // the node stays exactly the page.
-            .paperEdge()
+            .then(edge)
             .background(Color.White)
             .semantics {
                 contentDescription = spoken
