@@ -132,7 +132,7 @@
     <string name="pdf_sort_za">Ordenar de Z a A</string>
     <string name="pdf_reset_pages">Redefinir páginas</string>
     <!-- A page in Merge PDF's page list: its place in the merged PDF, the PDF it is from, and its page number there. -->
-    <string name="merge_page_line">%1$d. %2$s, página %3$d</string>
+    <string name="merge_page_line">%1$d. %2$s, página\u00A0%3$d</string>
     <string name="pdf_selected">Páginas selecionadas</string>
     <!-- The examples use the hyphen people type, not an en dash. -->
     <string name="pdf_selected_hint" tools:ignore="TypographyDashes">Por exemplo: 1,3,5-8. Toque nas miniaturas das páginas para selecioná-las.</string>
