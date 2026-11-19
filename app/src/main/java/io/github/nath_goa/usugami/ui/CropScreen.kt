@@ -121,8 +121,7 @@ import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.PaperButton
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
 import io.github.nath_goa.usugami.ui.kit.QuietButton
-import io.github.nath_goa.usugami.ui.kit.Sheet
-import io.github.nath_goa.usugami.ui.kit.SheetDivider
+import io.github.nath_goa.usugami.ui.kit.Space
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.Dispatchers
@@ -748,32 +747,30 @@ private fun CropControls(
     // A side moves only across itself: the top and bottom up and down, the others left and right.
     val across = chosen < CORNERS || (chosen - CORNERS) % 2 == 1
     val upDown = chosen < CORNERS || (chosen - CORNERS) % 2 == 0
-    // Drawn only: in 2.0.1 these lay on the ground, and the tree a device test reads stays as it was.
-    Sheet(Modifier.padding(horizontal = 16.dp), group = false) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            // Which handle the arrows move; tapping a handle chooses it.
-            Text(
-                stringResource(HANDLE_NAMES[chosen]),
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f),
-            )
-            GlyphButton(onClick = { onNudge(-1, 0) }, enabled = across) { Icon(Icons.Rounded.West, contentDescription = stringResource(R.string.edit_move_left)) }
-            GlyphButton(onClick = { onNudge(0, -1) }, enabled = upDown) { Icon(Icons.Rounded.North, contentDescription = stringResource(R.string.edit_move_up)) }
-            GlyphButton(onClick = { onNudge(0, 1) }, enabled = upDown) { Icon(Icons.Rounded.South, contentDescription = stringResource(R.string.edit_move_down)) }
-            GlyphButton(onClick = { onNudge(1, 0) }, enabled = across) { Icon(Icons.Rounded.East, contentDescription = stringResource(R.string.edit_move_right)) }
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Which handle the arrows move; tapping a handle chooses it.
+        Text(
+            stringResource(HANDLE_NAMES[chosen]),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.weight(1f),
+        )
+        GlyphButton(onClick = { onNudge(-1, 0) }, enabled = across) { Icon(Icons.Rounded.West, contentDescription = stringResource(R.string.edit_move_left)) }
+        GlyphButton(onClick = { onNudge(0, -1) }, enabled = upDown) { Icon(Icons.Rounded.North, contentDescription = stringResource(R.string.edit_move_up)) }
+        GlyphButton(onClick = { onNudge(0, 1) }, enabled = upDown) { Icon(Icons.Rounded.South, contentDescription = stringResource(R.string.edit_move_down)) }
+        GlyphButton(onClick = { onNudge(1, 0) }, enabled = across) { Icon(Icons.Rounded.East, contentDescription = stringResource(R.string.edit_move_right)) }
+    }
+    FlowRow(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.Center) {
+        QuietButton(onClick = onReset, contentPadding = ButtonWithGlyphPadding) {
+            ButtonGlyph(Icons.Rounded.RestartAlt)
+            Text(stringResource(R.string.crop_reset))
         }
-        SheetDivider()
-        FlowRow(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.Center) {
-            QuietButton(onClick = onReset, contentPadding = ButtonWithGlyphPadding) {
-                ButtonGlyph(Icons.Rounded.RestartAlt)
-                Text(stringResource(R.string.crop_reset))
-            }
-            QuietButton(onClick = onWhole, contentPadding = ButtonWithGlyphPadding) {
-                ButtonGlyph(Icons.Rounded.CropFree)
-                Text(stringResource(R.string.crop_whole))
-            }
+        QuietButton(onClick = onWhole, contentPadding = ButtonWithGlyphPadding) {
+            ButtonGlyph(Icons.Rounded.CropFree)
+            Text(stringResource(R.string.crop_whole))
         }
     }
+    // With the step buttons' own 4 above them, Space.gap.
+    Spacer(Modifier.height(Space.gap - 4.dp))
 }
 
 /**
