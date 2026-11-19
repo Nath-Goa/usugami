@@ -336,7 +336,8 @@ internal fun ReorganizeOptions(
             stringResource(R.string.reorganize_move_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 8.dp),
+            // Also off the pages cut at the grid's foot while it scrolls inside itself.
+            modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp),
         )
 
         // Pages added go after the last selected page, or at the end.
