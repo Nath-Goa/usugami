@@ -3,7 +3,9 @@ package io.github.nath_goa.usugami.ui
 import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +61,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.keepScreenOn
@@ -87,6 +92,7 @@ import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
 import io.github.nath_goa.usugami.ui.kit.ButtonWithGlyphPadding
 import io.github.nath_goa.usugami.ui.kit.DividedColumn
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
+import io.github.nath_goa.usugami.ui.kit.Haptics
 import io.github.nath_goa.usugami.ui.kit.LinearProgress
 import io.github.nath_goa.usugami.ui.kit.MenuItem
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
@@ -98,10 +104,16 @@ import io.github.nath_goa.usugami.ui.kit.TonalButton
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiDialog
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
+import io.github.nath_goa.usugami.ui.kit.layered
+import io.github.nath_goa.usugami.ui.kit.rememberHaptics
 import io.github.nath_goa.usugami.ui.kit.sheetSlice
 import io.github.nath_goa.usugami.ui.kit.stack
 import io.github.nath_goa.usugami.ui.kit.stackCount
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class ResultActions(
     val back: () -> Unit,
@@ -164,6 +176,18 @@ fun ResultScreen(
     val kind = files.firstOrNull()?.type ?: OutputType.PDF
     // Nothing else starts while a save, a ZIP file or a change of the mark is under way.
     val idle = !busy && zipProgress == null && !marking
+    // The result arrives once: the headline, the first file with its pages and its seal settle in.
+    // Held here and not in the lazy items, which are dropped when they scroll away. [greeted] is read
+    // only now: it turns true a moment later, once the arrival has begun.
+    val play = remember { !greeted }
+    val arrival = remember { Arrival(play) }
+    val haptics = rememberHaptics()
+    LaunchedEffect(Unit) {
+        if (play) {
+            onGreeted()
+            arrival.play(haptics)
+        }
+    }
     // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -223,7 +247,8 @@ fun ResultScreen(
                     Text(
                         stringResource(resultHeading(kind, single)),
                         style = MaterialTheme.typography.displaySmall,
-                        modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp),
+                        // A text is a node of its own already, so its layer adds none.
+                        modifier = Modifier.padding(start = 8.dp, top = 8.dp, end = 8.dp).graphicsLayer(arrival.headline),
                     )
                     // Room for the sheets under the first file and for its seal, which rise above it.
                     Spacer(Modifier.height(28.dp))
@@ -237,13 +262,15 @@ fun ResultScreen(
                 val saveAs = actions.saveOneAs
                 val first = index == 0
                 val onPrint = actions.print?.takeIf { file.isPdf }?.let { print -> { print(file) } }
-                Box(wide) {
+                // The first file arrives with its pages and its seal. Its box is no node, and its layer
+                // makes none.
+                Box(if (first) wide.layered(arrival.sheet) else wide) {
                     if (single) {
                         // The file on top of its pages.
                         Sheet(
                             Modifier
                                 .fillMaxWidth()
-                                .stack(if (file.isPdf) stackCount(file.pageCount) else 0),
+                                .stack(if (file.isPdf) stackCount(file.pageCount) else 0, fan = arrival.fan),
                             color = Usugami.colors.sheetTop,
                         ) {
                             FileRow(file, showOpen = false, canOpen = !marking, onOpen = { actions.open(file) }, onPrint = onPrint, sealed = true)
@@ -254,7 +281,7 @@ fun ResultScreen(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .stack(if (first) 2 else 0)
+                                .stack(if (first) 2 else 0, fan = arrival.fan)
                                 .sheetSlice(index, files.size, color = Usugami.colors.sheetTop)
                                 .semantics { isTraversalGroup = true },
                         ) {
@@ -282,7 +309,7 @@ fun ResultScreen(
                     }
                     if (first) {
                         // Across the top edge at the end, outside the row's contents.
-                        Seal(Modifier.align(Alignment.TopEnd).offset(x = (-16).dp, y = (-22).dp))
+                        Seal(Modifier.align(Alignment.TopEnd).offset(x = (-16).dp, y = (-22).dp).layered(arrival.seal), check = arrival.check)
                     }
                 }
             }
@@ -473,6 +500,95 @@ private fun resultHeading(kind: OutputType, single: Boolean): Int = when (kind) 
     OutputType.PDF -> if (single) R.string.result_heading_one else R.string.result_heading_many
     OutputType.JPEG, OutputType.PNG -> if (single) R.string.result_heading_image_one else R.string.result_heading_image_many
     OutputType.TEXT -> if (single) R.string.result_heading_text_one else R.string.result_heading_text_many
+}
+
+/**
+ * A result's arrival, in about 0.7 s: the headline rises into place, the first file comes down onto
+ * its place, its pages fan out under it one after the other, and the seal lands on it and is felt,
+ * its tick drawn last. Only these move, in layers and while drawing: every control is in its place
+ * and live from the first frame, for a screen reader and the device tests too. Made at rest when it
+ * has played already ([play] false). Each part runs from 0 (where it starts) to 1 (at rest).
+ */
+private class Arrival(play: Boolean) {
+    private val start = if (play) 0f else 1f
+    private val headlineIn = Animatable(start)
+    private val headlineUp = Animatable(start)
+    private val sheetIn = Animatable(start)
+    private val sheetDown = Animatable(start)
+    private val fans = List(2) { Animatable(start) }
+    private val sealIn = Animatable(start)
+    private val sealDown = Animatable(start)
+    private val tick = Animatable(start)
+
+    /** The headline's layer: it comes up 8 dp as it fades in. */
+    val headline: GraphicsLayerScope.() -> Unit = {
+        alpha = headlineIn.value
+        translationY = (1f - headlineUp.value) * 8.dp.toPx()
+    }
+
+    /** The first file's layer: it comes down 20 dp from a little larger as it fades in. */
+    val sheet: GraphicsLayerScope.() -> Unit = {
+        val away = 1f - sheetDown.value
+        alpha = sheetIn.value
+        translationY = -away * 20.dp.toPx()
+        scaleX = 1f + 0.03f * away
+        scaleY = scaleX
+    }
+
+    /** The seal's layer: it lands from 1.6 times its size. */
+    val seal: GraphicsLayerScope.() -> Unit = {
+        alpha = sealIn.value
+        scaleX = 1f + 0.6f * (1f - sealDown.value)
+        scaleY = scaleX
+    }
+
+    /** How far each sheet under the first file has fanned out. */
+    val fan: (Int) -> Float = { index -> fans[index].value }
+
+    /** How much of the seal's tick is drawn. */
+    val check: () -> Float = { tick.value }
+
+    /** Plays it all, timed from now, and has the seal felt as it lands. */
+    suspend fun play(haptics: Haptics) {
+        // With Android's "Remove animations" it is all there at once, and the seal is still felt.
+        if (currentCoroutineContext()[MotionDurationScale]?.scaleFactor == 0f) {
+            for (part in listOf(headlineIn, headlineUp, sheetIn, sheetDown, sealIn, sealDown, tick) + fans) part.snapTo(1f)
+            haptics.confirm()
+            return
+        }
+        coroutineScope { playTimed(haptics) }
+    }
+
+    private fun CoroutineScope.playTimed(haptics: Haptics) {
+        launch {
+            delay(120)
+            launch { headlineIn.animateTo(1f, Motion.appear()) }
+            headlineUp.animateTo(1f, Motion.move(0.001f))
+        }
+        launch {
+            delay(180)
+            launch { sheetIn.animateTo(1f, tween(100)) }
+            sheetDown.animateTo(1f, Motion.settle(0.001f))
+        }
+        launch {
+            delay(260)
+            fans[0].animateTo(1f, Motion.settle(0.001f))
+        }
+        launch {
+            delay(320)
+            fans[1].animateTo(1f, Motion.settle(0.001f))
+        }
+        launch {
+            delay(520)
+            sealIn.snapTo(1f)
+            sealDown.animateTo(1f, Motion.press(0.001f))
+            haptics.confirm()
+        }
+        launch {
+            delay(560)
+            tick.animateTo(1f, tween(160))
+        }
+    }
 }
 
 /** The icon a file of this type shows beside its name: a PDF, an image or a text file. */
