@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
@@ -175,12 +176,14 @@ fun SheetRow(
 /** A 1 dp hairline across a sheet, starting [inset] from the start: between unlike blocks of one sheet. */
 @Composable
 fun SheetDivider(inset: Dp = 0.dp) {
+    val line = Usugami.colors.hairline
     Spacer(
         Modifier
             .padding(start = inset)
             .fillMaxWidth()
             .height(1.dp)
-            .background(Usugami.colors.hairline),
+            // Drawn, not a background: a background makes the line an item of the accessibility tree.
+            .drawBehind { drawRect(line) },
     )
 }
 
