@@ -27,14 +27,19 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
@@ -78,6 +83,7 @@ fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: 
         ) {
             Column(Modifier.widthIn(max = Space.content).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.gap)) {
                 Text(stringResource(R.string.donate_intro), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 8.dp))
+                val textStart = stepTextStart()
                 // The steps lay on the ground in 2.0.1: their sheet is drawn, and is no node of its own.
                 Sheet(Modifier.fillMaxWidth(), group = false) {
                     DonateStep(1, stringResource(R.string.donate_step_open)) {
@@ -91,11 +97,11 @@ fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: 
                             Text(stringResource(R.string.donate_open_github))
                         }
                     }
-                    SheetDivider(inset = StepTextInset)
+                    SheetDivider(inset = textStart)
                     DonateStep(2, stringResource(R.string.donate_step_sponsor))
-                    SheetDivider(inset = StepTextInset)
+                    SheetDivider(inset = textStart)
                     DonateStep(3, stringResource(R.string.donate_step_amount))
-                    SheetDivider(inset = StepTextInset)
+                    SheetDivider(inset = textStart)
                     DonateStep(4, stringResource(R.string.donate_step_pay))
                 }
                 Text(
@@ -110,8 +116,34 @@ fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: 
     }
 }
 
-/** Where a step's text starts in its sheet, and so the line between two steps: 16 + 32 + 16. */
-private val StepTextInset = 64.dp
+/** A step's padding in its sheet, and the gap between its number circle and its text. */
+private val StepPadding = 16.dp
+
+/** The padding round the number in its circle. */
+private val NumberPadding = 4.dp
+
+/** A circle at least 32 dp across; with large text it grows round its label, still a circle. */
+private fun Density.circleSide(labelWidth: Int, labelHeight: Int): Int = maxOf(labelWidth, labelHeight, 32.dp.roundToPx())
+
+/**
+ * Where a step's text starts in its sheet, and so the line between two steps: the step's padding, its
+ * number circle as [DonateStep] sizes it, and the gap after the circle. At the default text size that is
+ * 16 + 32 + 16 = 64 dp; with larger text the circle grows, and the line starts later with it.
+ */
+@Composable
+private fun stepTextStart(): Dp {
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.titleSmall
+    val density = LocalDensity.current
+    return remember(measurer, style, density) {
+        with(density) {
+            // Every step's number is one digit, taller than it is wide, so any of them sizes the circle.
+            val number = measurer.measure("4", style).size
+            val padding = NumberPadding.roundToPx() * 2
+            StepPadding * 2 + circleSide(number.width + padding, number.height + padding).toDp()
+        }
+    }
+}
 
 /**
  * One step: its number in a circle, then what to do, then [more]. A screen reader reads the number
@@ -119,15 +151,14 @@ private val StepTextInset = 64.dp
  */
 @Composable
 private fun DonateStep(number: Int, text: String, more: @Composable ColumnScope.() -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(16.dp)) {
-        // A circle at least 32 dp across; with large text it grows round the number, still a circle.
+    Row(Modifier.fillMaxWidth().semantics(mergeDescendants = true) {}.padding(StepPadding)) {
         Box(
             Modifier
                 .clip(CircleShape)
                 .background(Usugami.colors.lilac)
                 .layout { measurable, constraints ->
                     val label = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
-                    val side = maxOf(label.width, label.height, 32.dp.roundToPx())
+                    val side = circleSide(label.width, label.height)
                     layout(side, side) { label.place((side - label.width) / 2, (side - label.height) / 2) }
                 },
         ) {
@@ -135,10 +166,10 @@ private fun DonateStep(number: Int, text: String, more: @Composable ColumnScope.
                 number.toString(),
                 style = MaterialTheme.typography.titleSmall,
                 color = Usugami.colors.onLilac,
-                modifier = Modifier.padding(4.dp),
+                modifier = Modifier.padding(NumberPadding),
             )
         }
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(StepPadding))
         Column(Modifier.weight(1f).padding(top = 4.dp)) {
             Text(text, style = MaterialTheme.typography.bodyLarge)
             more()
