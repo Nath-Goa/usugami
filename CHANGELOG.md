@@ -6,6 +6,11 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **About:** the name at the top of the screen carries its trademark sign: Usugami™, Usugami™ Lite
+  or Usugami™ OCR.
+
 ## [3.0.0] - 2026-11-19
 
 ### Changed

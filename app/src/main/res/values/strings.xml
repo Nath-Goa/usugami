@@ -891,8 +891,12 @@
     <string name="about_edition_standard">Text recognition through Google Play services</string>
     <string name="about_edition_lite">No text recognition, and no Google code</string>
     <string name="about_edition_ocr">Open-source text recognition built in, works offline</string>
-    <string name="about_edition_name_lite" translatable="false">Usugami Lite</string>
-    <string name="about_edition_name_ocr" translatable="false">Usugami OCR</string>
+    <!-- The edition's name at the top of the About screen, the one place in the app where the name
+         carries the trademark sign. The sign goes after Usugami, the name it belongs to, not after
+         the edition. Everywhere else the name is written without it (app_name, app_label). -->
+    <string name="about_edition_name_standard" translatable="false">Usugami™</string>
+    <string name="about_edition_name_lite" translatable="false">Usugami™ Lite</string>
+    <string name="about_edition_name_ocr" translatable="false">Usugami™ OCR</string>
     <string name="about_privacy">No ads, no tracking, no account. Usugami has no internet permission, and your files never leave your phone.</string>
     <string name="about_privacy_standard">Text recognition comes from Google Play services, which downloads the model for each language the first time you use it. Google Play services may also send Google statistics about how text recognition is used, but never your images or the recognized text. Usugami Lite and Usugami OCR don\'t use Google Play services.</string>
     <string name="about_privacy_policy">Privacy policy</string>

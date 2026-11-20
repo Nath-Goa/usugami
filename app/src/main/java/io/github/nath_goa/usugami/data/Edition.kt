@@ -8,10 +8,13 @@ import io.github.nath_goa.usugami.R
  * Usugami's three editions, the product flavors in app/build.gradle.kts, all signed with the same key.
  * Usugami and Usugami OCR share the app ID, so either one installs over the other; Usugami Lite has
  * its own (io.github.nath_goa.usugami.lite) and installs next to them.
+ *
+ * [title] is the edition's name as the About screen writes it, with the trademark sign after
+ * Usugami; [description] is the line under it.
  */
 enum class Edition(@param:StringRes val title: Int, @param:StringRes val description: Int) {
     /** "Usugami": text recognition with Google ML Kit through Google Play services. */
-    STANDARD(R.string.app_name, R.string.about_edition_standard),
+    STANDARD(R.string.about_edition_name_standard, R.string.about_edition_standard),
 
     /** "Usugami Lite": no text recognition and no Google libraries. */
     LITE(R.string.about_edition_name_lite, R.string.about_edition_lite),
