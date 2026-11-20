@@ -40,9 +40,13 @@ jobs:
 
       # No signing key here, so the release builds are unsigned. Building them still runs R8
       # and resource shrinking, which is where release-only problems show up.
+      # All of it runs in one Gradle daemon. With the 3 GB heap from gradle.properties, packaging
+      # an APK while lint analysed another edition ran out of memory now and then, so the daemon
+      # gets 6 GB here. The runner has 16 GB.
       - name: Unit tests, lint, debug and release builds
         run: >-
           ./gradlew --stacktrace
+          -Dorg.gradle.jvmargs='-Xmx6g -Dfile.encoding=UTF-8'
           :core:test
           :app:lintStandardDebug :app:lintLiteDebug :app:lintOcrDebug
           :app:assembleStandardDebug :app:assembleLiteDebug :app:assembleOcrDebug
