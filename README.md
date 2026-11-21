@@ -66,6 +66,10 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
+**Google Play:** the build made for Google Play (`Usugami-ocr.aab` in each release) is Usugami OCR
+too, under the name Usugami, as on F-Droid. Its text recognition is the open-source one built into
+the app, so it has no Google ML Kit or other Google code inside.
+
 ## What's new in 3.0.1
 
 The About screen writes the app's name with its trademark sign: Usugami™ (Usugami™ Lite and
@@ -684,7 +688,7 @@ old "PDFer".
 - **Recent files stays on your phone.** To open the files on the list again, Usugami keeps read
   access only to them (at most 50) and to a folder you saved into while one of its files is listed,
   and gives it back once they leave the list. It can always read what it saved to Downloads.
-- **Usugami (the main edition) and Google Play services:** text recognition runs on your phone,
+- **Usugami (the main edition, `Usugami.apk`) and Google Play services:** text recognition runs on your phone,
   through Google Play services (a separate Google app), which downloads the model for each
   language the first time you use it. For this, Google's libraries inside Usugami talk to Play services on your
   phone, and Play services may report to Google how these Google APIs were used, along with
@@ -694,6 +698,7 @@ old "PDFer".
   also disables ML Kit's own metrics uploader inside the app.
 - **Usugami Lite and Usugami OCR** contain no Google code, don't need Google Play services and
   make no network connections. Usugami OCR has text recognition built in; Usugami Lite has none.
+  Usugami from F-Droid and the build for Google Play are Usugami OCR.
 
 Read the full [privacy policy](PRIVACY.md). It's also inside the app.
 
@@ -1221,7 +1226,7 @@ fastlane/             Usugami's store texts and graphics for F-Droid (src/lite/f
 ```
 
 The PDF tools use [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android);
-text recognition in Usugami uses [Google ML Kit](https://developers.google.com/ml-kit/vision/text-recognition/v2),
+text recognition in the main edition (`Usugami.apk`) uses [Google ML Kit](https://developers.google.com/ml-kit/vision/text-recognition/v2),
 and in Usugami OCR [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)'s models run by
 [ncnn](https://github.com/Tencent/ncnn).
 Word, PowerPoint and Excel files and EPUB books are read with Android's own XML parser and drawn
@@ -1240,10 +1245,11 @@ Usugami is free software: you can redistribute it and/or modify it under the ter
 [GNU General Public License](LICENSE), version 3 or (at your option) any later version.
 Copyright (C) 2026 Nathan Kumtakar.
 
-Because text recognition in the main edition uses Google ML Kit, which isn't open source, the
-license includes an [additional permission](LICENSE-EXCEPTION.md) (GPL section 7) that allows
-combining Usugami with Google ML Kit and Google Play services libraries. Usugami Lite and Usugami
-OCR contain no Google libraries.
+Because text recognition in the main edition (`Usugami.apk`) uses Google ML Kit, which isn't open
+source, the license includes an [additional permission](LICENSE-EXCEPTION.md) (GPL section 7) that
+allows combining Usugami with Google ML Kit and Google Play services libraries. Usugami Lite and
+Usugami OCR contain no Google libraries, and neither do Usugami on F-Droid and the build for Google
+Play, which are Usugami OCR.
 
 You may use Usugami for any purpose, including commercial use. If you share Usugami or a modified
 version of it, the GPL applies: you must make the source code available under the same license.
@@ -1254,7 +1260,8 @@ Components by others are listed, with their licenses, in
 
 - [PdfBox-Android](https://github.com/TomRoush/PdfBox-Android) by Tom Roush and contributors, a
   port of [Apache PDFBox](https://pdfbox.apache.org/), for reading and writing PDFs.
-- [Google ML Kit](https://developers.google.com/ml-kit) for on-device text recognition.
+- [Google ML Kit](https://developers.google.com/ml-kit) for on-device text recognition in the main
+  edition (`Usugami.apk`).
 - [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) by PaddlePaddle for the PP-OCRv5 models and
   [ncnn](https://github.com/Tencent/ncnn) by Tencent for running them, in Usugami OCR.
 - [Noto Sans and Noto Sans Devanagari](https://fonts.google.com/noto), from which Usugami's

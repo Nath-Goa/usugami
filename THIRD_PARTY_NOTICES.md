@@ -11,8 +11,9 @@ under About) applies to that release. It covers Usugami's three editions and say
 contain each part:
 
 - "All editions": Usugami, Usugami Lite and Usugami OCR.
-- "Usugami only": only in Usugami, the main edition, whose text recognition uses Google ML Kit
-  and Google Play services. Usugami Lite and Usugami OCR contain no Google libraries.
+- "Usugami only": only in Usugami, the main edition (Usugami.apk from GitHub), whose text
+  recognition uses Google ML Kit and Google Play services. Usugami Lite and Usugami OCR contain no
+  Google libraries. Usugami from F-Droid and the version for Google Play are Usugami OCR.
 - "Usugami and Usugami OCR": the two editions with text recognition.
 - "Usugami OCR only": the open-source text recognition built into Usugami OCR.
 

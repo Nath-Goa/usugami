@@ -60,7 +60,9 @@ The three editions are product flavors in the `edition` dimension:
   `app/src/ocr`, its pure logic (text boxes, reading order, decoding) in `core`, and ncnn with the
   JNI bridge in the `ocr-native` module, which only this edition depends on. If you change which
   layers ncnn is built with (`ocr-native/src/main/cpp/CMakeLists.txt`), run the edition's device
-  tests: a missing layer only shows when a model loads.
+  tests: a missing layer only shows when a model loads. This is also the edition F-Droid builds
+  and the one Google Play gets (`Usugami-ocr.aab`), both under the name Usugami, so neither has
+  Google ML Kit.
 
 Shared code lives in `app/src/main` and should work in all three. Each edition provides
 `ocrEngine(context)` (null in Usugami Lite); `BuildConfig.EDITION` and `BuildConfig.HAS_OCR` tell

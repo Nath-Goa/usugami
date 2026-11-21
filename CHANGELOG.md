@@ -6,6 +6,13 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- The privacy policy (Settings → About) and the third-party notices say which edition you have
+  depending on where you got it: Usugami from F-Droid and the version for Google Play are Usugami
+  OCR, whose text recognition is open source and doesn't use Google ML Kit. Only Usugami.apk from
+  GitHub uses it.
+
 ## [3.0.1] - 2026-11-20
 
 ### Changed

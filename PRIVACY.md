@@ -1,6 +1,6 @@
 # Usugami Privacy Policy
 
-Effective date: 9 November 2026
+Effective date: 21 November 2026
 
 Usugami is an Android app that turns images, Word documents, PowerPoint presentations, Excel
 workbooks and EPUB e-books into PDFs; opens, annotates, prints, splits, merges, reorganizes,
@@ -11,6 +11,11 @@ share or sell any data about you.
 This policy covers all three editions of Usugami: "Usugami" (the main edition), "Usugami Lite"
 and "Usugami OCR". The only difference that matters for privacy is text recognition (OCR),
 explained below.
+
+Which edition you have depends on where you got it. Usugami.apk from GitHub is the main edition.
+Usugami from F-Droid and the version for Google Play are Usugami OCR, under the name "Usugami":
+their text recognition is open source and built into the app, and they contain no Google ML Kit or
+other Google code. About in the app shows which edition you have.
 
 ## Who is responsible
 
@@ -73,6 +78,8 @@ recognized text are never sent to Google or anyone else. How it works depends on
 
 ### Usugami (the main edition)
 
+- This is Usugami.apk from GitHub. Usugami from F-Droid and the version for Google Play are not
+  this edition: they are Usugami OCR (below), which doesn't use Google ML Kit.
 - Text recognition uses Google ML Kit, a library made by Google, and runs through Google Play
   services, a separate app from Google that is installed on most Android phones.
 - The first time you use a text language, Google Play services downloads Google's text-recognition
@@ -98,6 +105,7 @@ recognized text are never sent to Google or anyone else. How it works depends on
 
 ### Usugami OCR
 
+- This is Usugami-ocr.apk from GitHub, Usugami from F-Droid and the version for Google Play.
 - Text recognition is open source and built into the app, models included: PaddleOCR's PP-OCRv5
   models, run on your phone's processor by Tencent's ncnn. It works with no internet connection and
   doesn't need Google Play services.
