@@ -7,8 +7,8 @@
         documents arrive through the system pickers or a share, which grant access to just those
         files, and PDFs are saved through MediaStore or the system file picker. Usugami Lite and
         Usugami OCR have no INTERNET permission at all (their manifests remove it, should a library
-        add it); Usugami has the one Google ML Kit's translation asks for, so that Translate PDF can
-        download a language's pack the first time it is used (see src/standard).
+        add it); Usugami has it because Google ML Kit's translation asks for it, so that Translate
+        PDF can download a language's pack the first time it is needed (see src/standard).
     -->
 
     <application

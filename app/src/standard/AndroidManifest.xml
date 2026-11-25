@@ -12,9 +12,9 @@
     <!-- Only the standard edition has ML Kit; in the others this would add a service that doesn't exist. -->
     <application>
         <!--
-            ML Kit includes Google's usage-metrics uploader, which would send usage reports to Google
-            now that this edition can go online, and queues them in a local database (up to 10 MB)
-            in the meantime. Removing its only backend makes it drop them at once instead.
+            ML Kit includes Google's usage-metrics uploader, which keeps events in a local database
+            (up to 10 MB) and, now that this edition may go online, would send them to Google.
+            Removing its only backend makes it drop them at once instead.
         -->
         <service
             android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
