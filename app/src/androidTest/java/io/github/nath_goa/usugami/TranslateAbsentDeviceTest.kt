@@ -51,7 +51,16 @@ class TranslateAbsentDeviceTest {
         val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         activity = instrumentation.startActivitySync(intent) as MainActivity
         val english = activity!!.resources
-        // Read top to bottom, as a screen reader scrolls, to the last tool.
+        // The search, at the top, finds nothing by the tool's word.
+        val field = find("the search field") { it.isEditable }
+        val arguments = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "translate") }
+        assertTrue(field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments))
+        find("nothing found") { it.text?.toString() == english.getString(R.string.home_search_none, "translate") }
+
+        // A Home opened afresh, read top to bottom as a screen reader scrolls, to the last tool.
+        instrumentation.runOnMainSync { activity!!.finish() }
+        activity = instrumentation.startActivitySync(intent) as MainActivity
+        find("Home") { it.contentDescription?.toString() == english.getString(R.string.settings) }
         val last = english.getString(R.string.tool_pdf_to_images_or_text)
         val seen = HashSet<String>()
         val down = AccessibilityAction.ACTION_SCROLL_DOWN
@@ -63,11 +72,6 @@ class TranslateAbsentDeviceTest {
         }
         assertTrue("Home reaches $last: $seen", seen.any { it.contains(last) })
         assertTrue("No Translate PDF on Home: $seen", seen.none { it.contains("Translate", ignoreCase = true) })
-
-        val field = find("the search field") { it.isEditable }
-        val arguments = Bundle().apply { putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "translate") }
-        assertTrue(field.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments))
-        find("nothing found") { it.text?.toString() == english.getString(R.string.home_search_none, "translate") }
     }
 
     /** Every node in the window that has focus. */
