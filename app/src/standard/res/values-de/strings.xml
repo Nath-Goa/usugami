@@ -61,4 +61,21 @@
     <string name="translate_none">Diese Seiten haben keinen Text zum Übersetzen.</string>
     <string name="translate_none_unreadable">Diese Seiten sehen gescannt aus, und ihr Text konnte nicht gelesen werden. Es gibt also nichts zu übersetzen.</string>
     <string name="translate_unavailable">Übersetzen ist auf diesem Smartphone nicht verfügbar.</string>
+
+    <plurals name="translate_note_no_text">
+        <item quantity="one">Seite %2$s hatte keinen Text zum Übersetzen und bleibt, wie sie war.</item>
+        <item quantity="other">%1$d Seiten hatten keinen Text zum Übersetzen und bleiben, wie sie waren: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_unread_language">
+        <item quantity="one">Seite %2$s sieht gescannt aus und bleibt, wie sie war, weil die Texterkennung diese Sprache nicht liest.</item>
+        <item quantity="other">%1$d Seiten sehen gescannt aus und bleiben, wie sie waren, weil die Texterkennung diese Sprache nicht liest: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_unread_failed">
+        <item quantity="one">Seite %2$s sieht gescannt aus und bleibt, wie sie war, weil die Texterkennung sie nicht lesen konnte.</item>
+        <item quantity="other">%1$d Seiten sehen gescannt aus und bleiben, wie sie waren, weil die Texterkennung sie nicht lesen konnte: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_partly">
+        <item quantity="one">Auf Seite %2$s blieb ein Teil des Textes, wie er war: Er ließ sich nicht übersetzen, oder diesem Smartphone fehlt eine Schriftart für die Sprache.</item>
+        <item quantity="other">Auf %1$d Seiten blieb ein Teil des Textes, wie er war, weil er sich nicht übersetzen ließ oder diesem Smartphone eine Schriftart für die Sprache fehlt: %2$s.</item>
+    </plurals>
 </resources>

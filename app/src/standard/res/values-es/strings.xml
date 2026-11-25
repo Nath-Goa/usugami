@@ -65,4 +65,25 @@
     <string name="translate_none">Estas páginas no tienen texto que traducir.</string>
     <string name="translate_none_unreadable">Estas páginas parecen escaneadas y no se pudo leer su texto, así que no hay nada que traducir.</string>
     <string name="translate_unavailable">La traducción no está disponible en este teléfono.</string>
+
+    <plurals name="translate_note_no_text">
+        <item quantity="one">La página %2$s no tenía texto que traducir y quedó como estaba.</item>
+        <item quantity="many">%1$d páginas no tenían texto que traducir y quedaron como estaban: %2$s.</item>
+        <item quantity="other">%1$d páginas no tenían texto que traducir y quedaron como estaban: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_unread_language">
+        <item quantity="one">La página %2$s parece escaneada y quedó como estaba, porque el reconocimiento de texto no lee este idioma.</item>
+        <item quantity="many">%1$d páginas parecen escaneadas y quedaron como estaban, porque el reconocimiento de texto no lee este idioma: %2$s.</item>
+        <item quantity="other">%1$d páginas parecen escaneadas y quedaron como estaban, porque el reconocimiento de texto no lee este idioma: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_unread_failed">
+        <item quantity="one">La página %2$s parece escaneada y quedó como estaba, porque el reconocimiento de texto no pudo leerla.</item>
+        <item quantity="many">%1$d páginas parecen escaneadas y quedaron como estaban, porque el reconocimiento de texto no pudo leerlas: %2$s.</item>
+        <item quantity="other">%1$d páginas parecen escaneadas y quedaron como estaban, porque el reconocimiento de texto no pudo leerlas: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_partly">
+        <item quantity="one">En la página %2$s, parte del texto quedó como estaba: no se pudo traducir, o este teléfono no tiene una fuente para el idioma.</item>
+        <item quantity="many">En %1$d páginas, parte del texto quedó como estaba, porque no se pudo traducir o este teléfono no tiene una fuente para el idioma: %2$s.</item>
+        <item quantity="other">En %1$d páginas, parte del texto quedó como estaba, porque no se pudo traducir o este teléfono no tiene una fuente para el idioma: %2$s.</item>
+    </plurals>
 </resources>

@@ -57,4 +57,17 @@
     <string name="translate_none">Halaman ini tidak berisi teks untuk diterjemahkan.</string>
     <string name="translate_none_unreadable">Halaman ini tampaknya hasil pindaian dan teksnya tidak dapat dibaca, jadi tidak ada yang bisa diterjemahkan.</string>
     <string name="translate_unavailable">Penerjemahan tidak tersedia di ponsel ini.</string>
+
+    <plurals name="translate_note_no_text">
+        <item quantity="other">%1$d halaman tidak berisi teks untuk diterjemahkan dan dibiarkan seperti semula: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_unread_language">
+        <item quantity="other">%1$d halaman tampaknya hasil pindaian dan dibiarkan seperti semula, karena pengenalan teks tidak dapat membaca bahasa ini: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_unread_failed">
+        <item quantity="other">%1$d halaman tampaknya hasil pindaian dan dibiarkan seperti semula, karena pengenalan teks tidak dapat membacanya: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_partly">
+        <item quantity="other">Di %1$d halaman, sebagian teks dibiarkan seperti semula, karena tidak dapat diterjemahkan atau ponsel ini tidak memiliki font untuk bahasanya: %2$s.</item>
+    </plurals>
 </resources>

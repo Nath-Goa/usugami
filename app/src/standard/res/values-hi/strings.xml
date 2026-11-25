@@ -17,11 +17,11 @@
     <string name="translate_not_detected">Usugami इस PDF की भाषा नहीं पहचान सका। भाषा चुनें।</string>
     <string name="translate_same">दो अलग-अलग भाषाएं चुनें।</string>
     <string name="translate_packs">भाषा पैक</string>
-    <plurals name="translate_packs_ready">
+    <plurals name="translate_packs_ready" tools:ignore="ImpliedQuantity">
         <item quantity="one">%1$s भाषा पैक इस फ़ोन पर है, इसलिए अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
         <item quantity="other">%1$s भाषा पैक इस फ़ोन पर हैं, इसलिए अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
     </plurals>
-    <plurals name="translate_packs_needed">
+    <plurals name="translate_packs_needed" tools:ignore="ImpliedQuantity">
         <item quantity="one">%1$s भाषा पैक चाहिए, लगभग 30 MB। यह एक ही बार डाउनलोड होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
         <item quantity="other">%1$s भाषा पैक चाहिए, हर एक लगभग 30 MB। ये एक ही बार डाउनलोड होते हैं; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
     </plurals>
@@ -37,11 +37,11 @@
     <string name="translate_pack_delete_confirm">हटाएं</string>
     <string name="translate_pack_delete_failed">भाषा पैक हटाया नहीं जा सका। फिर से कोशिश करें।</string>
 
-    <plurals name="translate_download_title">
+    <plurals name="translate_download_title" tools:ignore="ImpliedQuantity">
         <item quantity="one">भाषा पैक डाउनलोड करें?</item>
         <item quantity="other">भाषा पैक डाउनलोड करें?</item>
     </plurals>
-    <plurals name="translate_download_body">
+    <plurals name="translate_download_body" tools:ignore="ImpliedQuantity">
         <item quantity="one">अनुवाद के लिए पहले %1$s भाषा पैक डाउनलोड करना होगा: लगभग 30 MB, इंटरनेट से। ऐसा सिर्फ़ एक बार होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
         <item quantity="other">अनुवाद के लिए पहले %1$s भाषा पैक डाउनलोड करने होंगे: हर एक लगभग 30 MB, इंटरनेट से। ऐसा सिर्फ़ एक बार होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
     </plurals>
@@ -61,4 +61,21 @@
     <string name="translate_none">इन पेजों पर अनुवाद के लिए कोई टेक्स्ट नहीं है।</string>
     <string name="translate_none_unreadable">ये पेज स्कैन किए हुए लगते हैं और इनका टेक्स्ट पढ़ा नहीं जा सका, इसलिए अनुवाद के लिए कुछ नहीं है।</string>
     <string name="translate_unavailable">इस फ़ोन पर अनुवाद उपलब्ध नहीं है।</string>
+
+    <plurals name="translate_note_no_text" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s पर अनुवाद के लिए कोई टेक्स्ट नहीं था, इसलिए वह जैसा था वैसा ही है।</item>
+        <item quantity="other">%1$d पेजों पर अनुवाद के लिए कोई टेक्स्ट नहीं था, इसलिए वे जैसे थे वैसे ही हैं: %2$s।</item>
+    </plurals>
+    <plurals name="translate_note_unread_language" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s स्कैन किया हुआ लगता है और जैसा था वैसा ही है, क्योंकि टेक्स्ट पहचान यह भाषा नहीं पढ़ती।</item>
+        <item quantity="other">%1$d पेज स्कैन किए हुए लगते हैं और जैसे थे वैसे ही हैं, क्योंकि टेक्स्ट पहचान यह भाषा नहीं पढ़ती: %2$s।</item>
+    </plurals>
+    <plurals name="translate_note_unread_failed" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s स्कैन किया हुआ लगता है और जैसा था वैसा ही है, क्योंकि टेक्स्ट पहचान उसे पढ़ नहीं पाई।</item>
+        <item quantity="other">%1$d पेज स्कैन किए हुए लगते हैं और जैसे थे वैसे ही हैं, क्योंकि टेक्स्ट पहचान उन्हें पढ़ नहीं पाई: %2$s।</item>
+    </plurals>
+    <plurals name="translate_note_partly" tools:ignore="ImpliedQuantity">
+        <item quantity="one">पेज %2$s पर कुछ टेक्स्ट जैसा था वैसा ही रहा: उसका अनुवाद नहीं हो सका, या इस फ़ोन में उस भाषा का फ़ॉन्ट नहीं है।</item>
+        <item quantity="other">%1$d पेजों पर कुछ टेक्स्ट जैसा था वैसा ही रहा, क्योंकि उसका अनुवाद नहीं हो सका या इस फ़ोन में उस भाषा का फ़ॉन्ट नहीं है: %2$s।</item>
+    </plurals>
 </resources>

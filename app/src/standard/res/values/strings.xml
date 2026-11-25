@@ -90,4 +90,25 @@
     <!-- No page chosen has text to translate, and those that look scanned couldn't be read. -->
     <string name="translate_none_unreadable">These pages look scanned, and their text couldn\'t be read, so there is nothing to translate.</string>
     <string name="translate_unavailable">Translating isn\'t available on this phone.</string>
+
+    <!-- The result of Translate PDF: notes on pages left as they were in the new PDF. %1$d counts the pages (never 0), %2$s lists them, such as 3,5-7. -->
+    <plurals name="translate_note_no_text">
+        <item quantity="one">Page %2$s had no text to translate and is as it was.</item>
+        <item quantity="other">%1$d pages had no text to translate and are as they were: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them. Text recognition can't read the PDF's language (its alphabet). -->
+    <plurals name="translate_note_unread_language">
+        <item quantity="one">Page %2$s looks scanned and is as it was, because text recognition can\'t read this language.</item>
+        <item quantity="other">%1$d pages look scanned and are as they were, because text recognition can\'t read this language: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them. Text recognition failed on them. -->
+    <plurals name="translate_note_unread_failed">
+        <item quantity="one">Page %2$s looks scanned and is as it was, because text recognition couldn\'t read it.</item>
+        <item quantity="other">%1$d pages look scanned and are as they were, because text recognition couldn\'t read them: %2$s.</item>
+    </plurals>
+    <!-- %1$d counts the pages (never 0), %2$s lists them. Some paragraphs were left in the PDF's own language. -->
+    <plurals name="translate_note_partly">
+        <item quantity="one">On page %2$s, some text was left as it was: it couldn\'t be translated, or this phone has no font for the language.</item>
+        <item quantity="other">On %1$d pages, some text was left as it was, because it couldn\'t be translated or this phone has no font for the language: %2$s.</item>
+    </plurals>
 </resources>

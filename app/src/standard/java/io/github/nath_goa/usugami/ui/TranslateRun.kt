@@ -5,6 +5,7 @@ import android.content.res.Resources
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.ExportText
 import io.github.nath_goa.usugami.data.NothingToTranslate
 import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.data.OcrUnavailableException
@@ -17,6 +18,7 @@ import io.github.nath_goa.usugami.data.TranslationTestHook
 import io.github.nath_goa.usugami.data.TranslationUnavailableException
 import io.github.nath_goa.usugami.data.currentTranslationEngine
 import io.github.nath_goa.usugami.data.ocrEngine
+import io.github.nath_goa.usugami.data.ocrLanguageFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -79,20 +81,28 @@ private fun PdfToolsViewModel.startTranslate(request: TranslateRequest) {
     // Cheap to make: text recognition is only asked for once a scanned page needs reading.
     val ocr = ocrEngine(app)
     val res = strings
+    // Scanned pages that couldn't be read: text recognition doesn't read the language, or failed on them.
+    val unreadWhy = if (ocrLanguageFor(request.source) == null) TranslateNotes.UNREAD_LANGUAGE else TranslateNotes.UNREAD_FAILED
+    var outcome: TranslateOutcome? = null
     var problem: TranslationProblem? = null
     var ocrProblem: OcrProblem? = null
     process(request.fileName, listOf(input), afterResult = { files ->
-        // On the main thread. No file: the run couldn't start, and a dialog says why.
+        // On the main thread, where the saved state is written. No file: the run couldn't start, and a
+        // dialog says why. Each result says what it has to say, and nothing an earlier one said.
+        val made = outcome
         if (files.isEmpty()) {
             problem?.let { translate.problem.value = it }
             ocrProblem?.let { translate.ocrProblem.value = it }
+        } else if (made != null) {
+            translate.setNotes(notesOf(made, unreadWhy))
         }
     }) { check ->
         try {
-            val outcome: TranslateOutcome = TranslationTestHook.runner(
+            val made = TranslationTestHook.runner(
                 engine, input, request.pages, translation, ocr, request.source, request.target, request.fileName, check,
             ) { tell(res, it, request.missing) }
-            listOf(outcome.file)
+            outcome = made
+            listOf(made.file)
         } catch (e: TranslationUnavailableException) {
             // No file, so no result shows; afterResult shows the dialog.
             if (e.problem == TranslationProblem.FAILED_TO_START) Log.e("Usugami", "Translating couldn't start", e)
@@ -134,6 +144,15 @@ private fun PdfToolsViewModel.tell(res: Resources, progress: TranslateProgress, 
         TranslateProgress.Stage.PAGE -> reportProgress(done, total, res.getString(R.string.translate_progress_page, minOf(done + 1, total), total))
     }
 }
+
+/** What the result's notes say of a run's [outcome], when they have anything to say. [unreadWhy]: see [TranslateNotes]. */
+private fun notesOf(outcome: TranslateOutcome, unreadWhy: Int): TranslateNotes? {
+    val notes = TranslateNotes(noted(outcome.noText), noted(outcome.unread), unreadWhy, noted(outcome.partly))
+    return notes.takeIf { it.noText != null || it.unread != null || it.partly != null }
+}
+
+/** [pages] (zero-based) as a note names them, or null for none. */
+private fun noted(pages: List<Int>): NotedPages? = if (pages.isEmpty()) null else NotedPages(pages.size, ExportText.pagesListed(pages))
 
 /**
  * The language of [input]'s text as [translation] detects it, among the languages it translates;

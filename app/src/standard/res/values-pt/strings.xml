@@ -17,12 +17,12 @@
     <string name="translate_not_detected">O Usugami não conseguiu identificar o idioma deste PDF. Escolha o idioma.</string>
     <string name="translate_same">Escolha dois idiomas diferentes.</string>
     <string name="translate_packs">Pacotes de idioma</string>
-    <plurals name="translate_packs_ready">
+    <plurals name="translate_packs_ready" tools:ignore="ImpliedQuantity">
         <item quantity="one">O pacote de %1$s está neste celular, então traduzir não precisa de internet.</item>
         <item quantity="many">Os pacotes de %1$s estão neste celular, então traduzir não precisa de internet.</item>
         <item quantity="other">Os pacotes de %1$s estão neste celular, então traduzir não precisa de internet.</item>
     </plurals>
-    <plurals name="translate_packs_needed">
+    <plurals name="translate_packs_needed" tools:ignore="ImpliedQuantity">
         <item quantity="one">Precisa do pacote de %1$s, cerca de 30 MB. Ele é baixado uma só vez; depois disso, traduzir não precisa de internet.</item>
         <item quantity="many">Precisa dos pacotes de %1$s, cerca de 30 MB cada. Eles são baixados uma só vez; depois disso, traduzir não precisa de internet.</item>
         <item quantity="other">Precisa dos pacotes de %1$s, cerca de 30 MB cada. Eles são baixados uma só vez; depois disso, traduzir não precisa de internet.</item>
@@ -39,12 +39,12 @@
     <string name="translate_pack_delete_confirm">Excluir</string>
     <string name="translate_pack_delete_failed">Não foi possível excluir o pacote de idioma. Tente novamente.</string>
 
-    <plurals name="translate_download_title">
+    <plurals name="translate_download_title" tools:ignore="ImpliedQuantity">
         <item quantity="one">Baixar um pacote de idioma?</item>
         <item quantity="many">Baixar pacotes de idioma?</item>
         <item quantity="other">Baixar pacotes de idioma?</item>
     </plurals>
-    <plurals name="translate_download_body">
+    <plurals name="translate_download_body" tools:ignore="ImpliedQuantity">
         <item quantity="one">Para traduzir, é preciso baixar antes o pacote de %1$s: cerca de 30 MB, pela internet. Isso acontece uma só vez; depois disso, traduzir não precisa de internet.</item>
         <item quantity="many">Para traduzir, é preciso baixar antes os pacotes de %1$s: cerca de 30 MB cada, pela internet. Isso acontece uma só vez; depois disso, traduzir não precisa de internet.</item>
         <item quantity="other">Para traduzir, é preciso baixar antes os pacotes de %1$s: cerca de 30 MB cada, pela internet. Isso acontece uma só vez; depois disso, traduzir não precisa de internet.</item>
@@ -65,4 +65,25 @@
     <string name="translate_none">Estas páginas não têm texto para traduzir.</string>
     <string name="translate_none_unreadable">Estas páginas parecem digitalizadas e não foi possível ler o texto delas, então não há nada para traduzir.</string>
     <string name="translate_unavailable">A tradução não está disponível neste celular.</string>
+
+    <plurals name="translate_note_no_text" tools:ignore="ImpliedQuantity">
+        <item quantity="one">A página %2$s não tinha texto para traduzir e ficou como estava.</item>
+        <item quantity="many">%1$d páginas não tinham texto para traduzir e ficaram como estavam: %2$s.</item>
+        <item quantity="other">%1$d páginas não tinham texto para traduzir e ficaram como estavam: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_unread_language" tools:ignore="ImpliedQuantity">
+        <item quantity="one">A página %2$s parece digitalizada e ficou como estava, porque o reconhecimento de texto não lê este idioma.</item>
+        <item quantity="many">%1$d páginas parecem digitalizadas e ficaram como estavam, porque o reconhecimento de texto não lê este idioma: %2$s.</item>
+        <item quantity="other">%1$d páginas parecem digitalizadas e ficaram como estavam, porque o reconhecimento de texto não lê este idioma: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_unread_failed" tools:ignore="ImpliedQuantity">
+        <item quantity="one">A página %2$s parece digitalizada e ficou como estava, porque o reconhecimento de texto não conseguiu lê-la.</item>
+        <item quantity="many">%1$d páginas parecem digitalizadas e ficaram como estavam, porque o reconhecimento de texto não conseguiu lê-las: %2$s.</item>
+        <item quantity="other">%1$d páginas parecem digitalizadas e ficaram como estavam, porque o reconhecimento de texto não conseguiu lê-las: %2$s.</item>
+    </plurals>
+    <plurals name="translate_note_partly" tools:ignore="ImpliedQuantity">
+        <item quantity="one">Na página %2$s, parte do texto ficou como estava: não foi possível traduzi-lo, ou este celular não tem fonte para o idioma.</item>
+        <item quantity="many">Em %1$d páginas, parte do texto ficou como estava, porque não foi possível traduzi-lo ou este celular não tem fonte para o idioma: %2$s.</item>
+        <item quantity="other">Em %1$d páginas, parte do texto ficou como estava, porque não foi possível traduzi-lo ou este celular não tem fonte para o idioma: %2$s.</item>
+    </plurals>
 </resources>

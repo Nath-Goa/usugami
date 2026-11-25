@@ -32,3 +32,8 @@ internal fun translateActionLabel(): Int = R.string.app_label
 @Suppress("UNUSED_PARAMETER")
 @Composable
 internal fun TranslateOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsViewModel, action: ToolAction) = Unit
+
+/** The notes on a result of Translate PDF: none in this edition, which has no such results. */
+@Suppress("UNUSED_PARAMETER")
+@Composable
+internal fun translateNotesText(notes: TranslateNotes?): String? = null

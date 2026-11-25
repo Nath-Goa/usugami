@@ -130,6 +130,7 @@ fun UsugamiApp(
     val pdfPasswordRemoved by pdfVm.passwordRemoved.collectAsStateWithLifecycle()
     val fromPdfNotes by pdfVm.fromPdf.notes.collectAsStateWithLifecycle()
     val fromPdfOcrProblem by pdfVm.fromPdf.ocrProblem.collectAsStateWithLifecycle()
+    val translateNotes by pdfVm.translate.notes.collectAsStateWithLifecycle()
     val zipProgress by vm.zipProgress.collectAsStateWithLifecycle()
     val pdfZipProgress by pdfVm.zipProgress.collectAsStateWithLifecycle()
     // One setting for the whole app: either view model gives it.
@@ -1128,6 +1129,7 @@ fun UsugamiApp(
                     val files = freezeWhen(!active, pdfResult) ?: emptyList()
                     // Start over forgets the notes as the screen starts to slide away with its files.
                     val notes = freezeWhen(!active, fromPdfNotes)
+                    val translated = freezeWhen(!active, translateNotes)
                     BackHandler(enabled = active) { pdfVm.backToEditing() }
                     ResultScreen(
                         files = files,
@@ -1182,7 +1184,11 @@ fun UsugamiApp(
                         ),
                         zipProgress = pdfZipProgress,
                         // Said of PDFs only, and the notes of PDF to images or text's images or text only: never both.
-                        note = if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else exportNotesText(notes),
+                        // Translate PDF's notes are of a PDF, which may have had a password too: both, one after the other.
+                        note = listOfNotNull(
+                            if (pdfPasswordRemoved) pluralStringResource(R.plurals.pdf_password_removed, files.size) else exportNotesText(notes),
+                            translateNotesText(translated),
+                        ).joinToString("\n\n").ifEmpty { null },
                         savedFiles = pdfSavedFiles,
                         mark = mark,
                         marking = pdfMarking,
