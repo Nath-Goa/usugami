@@ -163,10 +163,11 @@ jobs:
             echo "::error::$bundle has the wrong package name or version (expected io.github.nath_goa.usugami $VERSION_NAME $apk_code)"; exit 1
           fi
 
+      # Only Usugami.apk may have the two permissions Translate PDF's language packs need.
       - name: No permissions or blocked manifest entries
-        run: bash .github/scripts/check-apk-permissions.sh dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk
+        run: bash .github/scripts/check-apk-permissions.sh --standard dist/Usugami.apk dist/Usugami-lite.apk dist/Usugami-ocr.apk
 
-      - name: Text recognition survives R8 (Usugami)
+      - name: ML Kit survives R8 (Usugami)
         run: bash .github/scripts/check-mlkit-registrars.sh standardRelease
 
       - name: Native libraries work with 16 KB memory pages
