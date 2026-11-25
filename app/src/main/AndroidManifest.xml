@@ -2,13 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
-
     <!--
-        Deliberately no INTERNET (or any other) permission: everything happens on the device.
-        Images, PDFs and documents arrive through the system pickers or a share, which grant access
-        to just those files, and PDFs are saved through MediaStore or the system file picker.
+        Deliberately no permission here: everything happens on the device. Images, PDFs and
+        documents arrive through the system pickers or a share, which grant access to just those
+        files, and PDFs are saved through MediaStore or the system file picker. Usugami Lite and
+        Usugami OCR have no INTERNET permission at all (their manifests remove it, should a library
+        add it); Usugami has the one Google ML Kit's translation asks for, so that Translate PDF can
+        download a language's pack the first time it is used (see src/standard).
     -->
 
     <application
