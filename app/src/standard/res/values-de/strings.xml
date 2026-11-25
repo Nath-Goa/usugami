@@ -28,12 +28,10 @@
     <string name="translate_scans_note">Gescannte Seiten (Bilder von Text) werden zuerst mit der Texterkennung gelesen. Sie liest Sprachen in lateinischer Schrift sowie Hindi und Marathi.</string>
 
     <string name="translate_packs_intro">Jedes Paket ist etwa 30 MB groß. Mit den Paketen auf diesem Smartphone funktioniert Übersetzen ohne Internet.</string>
-    <string name="translate_packs_none">Auf diesem Smartphone sind noch keine Sprachpakete. Sie werden beim ersten Übersetzen heruntergeladen.</string>
-    <string name="translate_pack_english">Für jede Übersetzung nötig</string>
+    <string name="translate_packs_none">Auf diesem Smartphone sind keine Sprachpakete. Sie werden heruntergeladen, wenn eine Übersetzung sie braucht.</string>
     <string name="translate_pack_delete">Sprachpaket %1$s löschen</string>
     <string name="translate_pack_delete_title">Sprachpaket %1$s löschen?</string>
     <string name="translate_pack_delete_body">Es wird erneut heruntergeladen (etwa 30 MB), sobald eine Übersetzung es wieder braucht.</string>
-    <string name="translate_pack_delete_english">Jede Übersetzung braucht Englisch: Es wird beim nächsten Übersetzen erneut heruntergeladen (etwa 30 MB).</string>
     <string name="translate_pack_delete_confirm">Löschen</string>
     <string name="translate_pack_delete_failed">Das Sprachpaket konnte nicht gelöscht werden. Versuche es noch einmal.</string>
 

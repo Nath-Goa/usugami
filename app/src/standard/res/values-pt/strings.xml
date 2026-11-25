@@ -30,12 +30,10 @@
     <string name="translate_scans_note">Páginas digitalizadas (imagens de texto) são lidas primeiro com o reconhecimento de texto, que lê idiomas escritos no alfabeto latino, além de hindi e marati.</string>
 
     <string name="translate_packs_intro">Cada pacote tem cerca de 30 MB. Com os pacotes que estão neste celular, traduzir não precisa de internet.</string>
-    <string name="translate_packs_none">Ainda não há pacotes de idioma neste celular. Eles são baixados na primeira vez que você traduz.</string>
-    <string name="translate_pack_english">Necessário para qualquer tradução</string>
+    <string name="translate_packs_none">Não há pacotes de idioma neste celular. Eles são baixados quando uma tradução precisa deles.</string>
     <string name="translate_pack_delete">Excluir o pacote de %1$s</string>
     <string name="translate_pack_delete_title">Excluir o pacote de %1$s?</string>
     <string name="translate_pack_delete_body">Ele será baixado de novo (cerca de 30 MB) na próxima vez que uma tradução precisar dele.</string>
-    <string name="translate_pack_delete_english">Toda tradução precisa do inglês: ele será baixado de novo (cerca de 30 MB) na próxima vez que você traduzir.</string>
     <string name="translate_pack_delete_confirm">Excluir</string>
     <string name="translate_pack_delete_failed">Não foi possível excluir o pacote de idioma. Tente novamente.</string>
 

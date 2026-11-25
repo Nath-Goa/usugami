@@ -29,7 +29,6 @@ import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.defaultTarget
 import io.github.nath_goa.usugami.ui.languageName
 import io.github.nath_goa.usugami.ui.namesListed
-import io.github.nath_goa.usugami.ui.packsNeeded
 import io.github.nath_goa.usugami.ui.translationTag
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -62,16 +61,17 @@ class TranslateToolDeviceTest {
     private val runs = Collections.synchronizedList(ArrayList<Triple<List<Int>, String, String>>())
 
     /**
-     * A translation engine with [languages], whose packs on the phone are [packs]: making a pair
-     * ready downloads those missing (it says how far, size unknown, then half done), and it
+     * A translation engine with [languages], whose packs on the phone are [packs]: English is built
+     * in, as in ML Kit (always listed as on the phone, never downloaded); making a pair ready
+     * downloads the other packs missing (it says how far, size unknown, then half done), and it
      * translates a text into its letters backwards between marks.
      */
     private inner class FakeEngine(onPhone: Set<String>) : TranslationEngine {
         val packs: MutableSet<String> = Collections.synchronizedSet(HashSet(onPhone))
         override val languages: List<String> get() = this@TranslateToolDeviceTest.languages
-        override suspend fun downloaded(): Set<String> = synchronized(packs) { packs.toSet() }
+        override suspend fun downloaded(): Set<String> = synchronized(packs) { packs + "en" }
         override suspend fun ensureReady(source: String, target: String, onDownload: (Float?) -> Unit) {
-            for (tag in packsNeeded(source, target)) {
+            for (tag in listOf(source, target) - "en") {
                 if (tag in packs) continue
                 onDownload(null)
                 onDownload(0.5f)
@@ -167,7 +167,7 @@ class TranslateToolDeviceTest {
      * the result with its notes, and leaves the packs on the phone.
      */
     @Test fun aRunAsksToDownloadMissingPacksAndEndsAtTheResultWithItsNotes() {
-        val engine = FakeEngine(onPhone = setOf("en"))
+        val engine = FakeEngine(onPhone = emptySet())
         TranslationTestHook.engine = { engine }
         val main = launch()
         val vm = openWithAlpha(main)
@@ -178,7 +178,8 @@ class TranslateToolDeviceTest {
         find("From, detected") { it.says(chip(R.string.translate_from, "fr")) }
         find("the detected hint") { it.says(app.getString(R.string.translate_detected)) }
         find("To, the app's language") { it.says(chip(R.string.translate_to, target)) }
-        val missing = packsNeeded("fr", target).filterNot { it in engine.packs }
+        // English is built in, never a pack to download, nor named as one.
+        val missing = listOf("fr", target) - "en"
         val needs = app.resources.getQuantityString(R.plurals.translate_packs_needed, missing.size, namesListed(missing, locale))
         find("the packs needed") { it.text?.contains(needs) == true }
 

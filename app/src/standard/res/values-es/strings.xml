@@ -30,12 +30,10 @@
     <string name="translate_scans_note">Las páginas escaneadas (imágenes de texto) se leen primero con reconocimiento de texto, que lee idiomas escritos con el alfabeto latino, además de hindi y maratí.</string>
 
     <string name="translate_packs_intro">Cada paquete ocupa unos 30 MB. Con los paquetes que hay en este teléfono, traducir no requiere Internet.</string>
-    <string name="translate_packs_none">Todavía no hay paquetes de idioma en este teléfono. Se descargan la primera vez que traduces.</string>
-    <string name="translate_pack_english">Necesario para cualquier traducción</string>
+    <string name="translate_packs_none">No hay paquetes de idioma en este teléfono. Se descargan cuando una traducción los necesita.</string>
     <string name="translate_pack_delete">Eliminar el paquete de %1$s</string>
     <string name="translate_pack_delete_title">¿Eliminar el paquete de %1$s?</string>
     <string name="translate_pack_delete_body">Se volverá a descargar (unos 30 MB) la próxima vez que una traducción lo necesite.</string>
-    <string name="translate_pack_delete_english">Toda traducción necesita el inglés: se volverá a descargar (unos 30 MB) la próxima vez que traduzcas.</string>
     <string name="translate_pack_delete_confirm">Eliminar</string>
     <string name="translate_pack_delete_failed">No se pudo eliminar el paquete de idioma. Vuelve a intentarlo.</string>
 

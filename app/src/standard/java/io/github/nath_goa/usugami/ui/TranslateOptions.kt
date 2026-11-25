@@ -202,24 +202,26 @@ private fun LanguageChip(label: String, value: String, languages: List<String>, 
 /**
  * What the packs row says: that the packs translating [source] to [target] needs are on the phone
  * ([onPhone]), or which must download first, how big they are and that it is once. Null until the
- * packs on the phone are known. Without a known [source], the packs of [target] and English.
+ * packs on the phone are known, and when the languages need none (English is built in). Without a
+ * known [source], only that [target]'s pack must download, when it must.
  */
 @Composable
 private fun packsLine(onPhone: Set<String>?, source: String?, target: String, locale: Locale): String? {
     if (onPhone == null) return null
-    val needed = if (source != null) packsNeeded(source, target) else packsNeeded(target, ENGLISH)
+    val needed = packsNeeded(source ?: target, target)
     val missing = needed.filterNot { it in onPhone }
-    return if (missing.isEmpty()) {
-        pluralStringResource(R.plurals.translate_packs_ready, needed.size, namesListed(needed, locale))
-    } else {
-        pluralStringResource(R.plurals.translate_packs_needed, missing.size, namesListed(missing, locale))
+    return when {
+        missing.isNotEmpty() -> pluralStringResource(R.plurals.translate_packs_needed, missing.size, namesListed(missing, locale))
+        // Until From is known, the packs on the phone may not be all the run needs.
+        source == null || needed.isEmpty() -> null
+        else -> pluralStringResource(R.plurals.translate_packs_ready, needed.size, namesListed(needed, locale))
     }
 }
 
 /**
  * The language packs on the phone, by name, each with a button that deletes it once the user says
- * so. English's is marked as needed by every translation (it is deleted all the same: the engine
- * downloads it again when a translation needs it). [packsChanged] counts the changes, to read them again.
+ * so. English, built into the engine, isn't a pack and isn't listed. [packsChanged] counts the
+ * changes, to read them again.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -245,7 +247,8 @@ private fun LanguagePacksSheet(engine: TranslationEngine, vm: PdfToolsViewModel,
             )
             Spacer(Modifier.height(16.dp))
             SheetDivider()
-            val packs = onPhone?.let { byName(it, locale) }
+            // The engine counts English among its packs, always there.
+            val packs = onPhone?.let { byName(it - ENGLISH, locale) }
             if (packs != null && packs.isEmpty()) {
                 Text(
                     stringResource(R.string.translate_packs_none),
@@ -263,7 +266,7 @@ private fun LanguagePacksSheet(engine: TranslationEngine, vm: PdfToolsViewModel,
         UsugamiDialog(
             onDismissRequest = { deleting = null },
             title = { Text(stringResource(R.string.translate_pack_delete_title, languageWord(tag, locale))) },
-            text = { Text(stringResource(if (tag == ENGLISH) R.string.translate_pack_delete_english else R.string.translate_pack_delete_body)) },
+            text = { Text(stringResource(R.string.translate_pack_delete_body)) },
             confirmButton = {
                 QuietButton(
                     onClick = {
@@ -278,20 +281,11 @@ private fun LanguagePacksSheet(engine: TranslationEngine, vm: PdfToolsViewModel,
     }
 }
 
-/** A language pack on the phone, [tag]'s: its name (and, for English's, that every translation needs it) and a delete button. */
+/** A language pack on the phone, [tag]'s: its name and a delete button. */
 @Composable
 private fun PackRow(tag: String, locale: Locale, onDelete: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
-            Text(languageName(tag, locale), style = MaterialTheme.typography.bodyLarge)
-            if (tag == ENGLISH) {
-                Text(
-                    stringResource(R.string.translate_pack_english),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        Text(languageName(tag, locale), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(vertical = 8.dp))
         // Quiet, as a list of red glyphs would shout: the dialog's Delete is the red one.
         GlyphButton(onClick = onDelete) {
             Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.translate_pack_delete, languageWord(tag, locale)), tint = MaterialTheme.colorScheme.onSurfaceVariant)

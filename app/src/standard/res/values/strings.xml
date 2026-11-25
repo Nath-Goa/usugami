@@ -29,12 +29,12 @@
     <string name="translate_same">Choose two different languages.</string>
     <!-- A language pack is what translating from or into a language needs on the phone; it is downloaded once. A button that lists the packs on the phone, and the title of that list. -->
     <string name="translate_packs">Language packs</string>
-    <!-- %1$s lists languages whose packs are on the phone, such as "French and English" (the names as a sentence writes them). -->
+    <!-- %1$s lists languages whose packs are on the phone, such as "French and German" (the names as a sentence writes them). -->
     <plurals name="translate_packs_ready">
         <item quantity="one">The %1$s pack is on this phone, so translating needs no internet.</item>
         <item quantity="other">The %1$s packs are on this phone, so translating needs no internet.</item>
     </plurals>
-    <!-- %1$s lists the languages whose packs must be downloaded first, such as "French and English". MB is megabytes. -->
+    <!-- %1$s lists the languages whose packs must be downloaded first, such as "French and German". MB is megabytes. -->
     <plurals name="translate_packs_needed">
         <item quantity="one">Needs the %1$s pack, about 30 MB. It downloads once; after that, translating needs no internet.</item>
         <item quantity="other">Needs the %1$s packs, about 30 MB each. They download once; after that, translating needs no internet.</item>
@@ -44,16 +44,12 @@
 
     <!-- The list of language packs on the phone. MB is megabytes. -->
     <string name="translate_packs_intro">Each pack is about 30 MB. With the packs on this phone, translating needs no internet.</string>
-    <string name="translate_packs_none">There are no language packs on this phone yet. They download the first time you translate.</string>
-    <!-- Under English in the list: every translation goes through English, so its pack is always needed. -->
-    <string name="translate_pack_english">Needed for every translation</string>
+    <string name="translate_packs_none">There are no language packs on this phone. They download when a translation needs them.</string>
     <!-- The delete button of a language pack, for a screen reader. %1$s is the language, such as French. -->
     <string name="translate_pack_delete">Delete the %1$s pack</string>
     <!-- A dialog's title. %1$s is the language, such as French. -->
     <string name="translate_pack_delete_title">Delete the %1$s pack?</string>
     <string name="translate_pack_delete_body">It downloads again, about 30 MB, the next time a translation needs it.</string>
-    <!-- The dialog's text when the pack is English's. -->
-    <string name="translate_pack_delete_english">Every translation needs English: it downloads again, about 30 MB, the next time you translate.</string>
     <!-- The dialog's button that deletes the pack. -->
     <string name="translate_pack_delete_confirm">Delete</string>
     <string name="translate_pack_delete_failed">Couldn\'t delete the language pack. Please try again.</string>
@@ -63,7 +59,7 @@
         <item quantity="one">Download a language pack?</item>
         <item quantity="other">Download language packs?</item>
     </plurals>
-    <!-- %1$s lists the languages whose packs are downloaded, such as "French and English". MB is megabytes. -->
+    <!-- %1$s lists the languages whose packs are downloaded, such as "French and German". MB is megabytes. -->
     <plurals name="translate_download_body">
         <item quantity="one">To translate, the %1$s pack has to be downloaded first: about 30 MB, over the internet. This happens once; after that, translating needs no internet.</item>
         <item quantity="other">To translate, the %1$s packs have to be downloaded first: about 30 MB each, over the internet. This happens once; after that, translating needs no internet.</item>

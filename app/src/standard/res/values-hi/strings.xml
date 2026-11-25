@@ -28,12 +28,10 @@
     <string name="translate_scans_note">स्कैन किए गए पेज (टेक्स्ट की तस्वीरें) पहले टेक्स्ट पहचान से पढ़े जाते हैं। यह लैटिन लिपि में लिखी भाषाएं, और हिंदी व मराठी पढ़ती है।</string>
 
     <string name="translate_packs_intro">हर पैक लगभग 30 MB का है। इस फ़ोन पर मौजूद पैक से अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</string>
-    <string name="translate_packs_none">इस फ़ोन पर अभी कोई भाषा पैक नहीं है। पहली बार अनुवाद करने पर ये डाउनलोड होते हैं।</string>
-    <string name="translate_pack_english">हर अनुवाद के लिए ज़रूरी</string>
+    <string name="translate_packs_none">इस फ़ोन पर कोई भाषा पैक नहीं है। किसी अनुवाद को ज़रूरत होने पर ये डाउनलोड होते हैं।</string>
     <string name="translate_pack_delete">%1$s भाषा पैक हटाएं</string>
     <string name="translate_pack_delete_title">%1$s भाषा पैक हटाएं?</string>
     <string name="translate_pack_delete_body">अगली बार किसी अनुवाद को इसकी ज़रूरत होने पर यह फिर से डाउनलोड होगा (लगभग 30 MB)।</string>
-    <string name="translate_pack_delete_english">हर अनुवाद के लिए अंग्रेज़ी ज़रूरी है: अगली बार अनुवाद करने पर यह फिर से डाउनलोड होगा (लगभग 30 MB)।</string>
     <string name="translate_pack_delete_confirm">हटाएं</string>
     <string name="translate_pack_delete_failed">भाषा पैक हटाया नहीं जा सका। फिर से कोशिश करें।</string>
 

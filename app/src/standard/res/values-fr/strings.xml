@@ -30,12 +30,10 @@
     <string name="translate_scans_note">Les pages numérisées (images de texte) sont d\'abord lues par la reconnaissance de texte. Elle lit les langues écrites en alphabet latin, ainsi que le hindi et le marathi.</string>
 
     <string name="translate_packs_intro">Chaque pack fait environ 30 Mo. Avec les packs présents sur ce téléphone, la traduction se fait sans Internet.</string>
-    <string name="translate_packs_none">Aucun pack de langue sur ce téléphone pour l\'instant. Ils se téléchargent lors de votre première traduction.</string>
-    <string name="translate_pack_english">Nécessaire à toute traduction</string>
+    <string name="translate_packs_none">Aucun pack de langue sur ce téléphone. Ils se téléchargent lorsqu\'une traduction en a besoin.</string>
     <string name="translate_pack_delete">Supprimer le pack %1$s</string>
     <string name="translate_pack_delete_title">Supprimer le pack %1$s ?</string>
     <string name="translate_pack_delete_body">Il sera de nouveau téléchargé (environ 30 Mo) la prochaine fois qu\'une traduction en aura besoin.</string>
-    <string name="translate_pack_delete_english">Toute traduction a besoin de l\'anglais : il sera de nouveau téléchargé (environ 30 Mo) lors de votre prochaine traduction.</string>
     <string name="translate_pack_delete_confirm">Supprimer</string>
     <string name="translate_pack_delete_failed">Impossible de supprimer le pack de langue. Réessayez.</string>
 

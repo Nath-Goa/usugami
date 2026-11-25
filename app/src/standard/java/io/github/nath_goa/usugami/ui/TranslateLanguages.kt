@@ -8,11 +8,11 @@ import java.util.Locale
 // Languages as Translate PDF shows them: tags as the translation engine writes them ("fr", "zh"),
 // named in the app's language.
 
-/** The language every translation goes through, whose pack each one needs (see TranslationEngine.ensureReady). */
+/** English: built into the engine, so it has no pack to download or delete (see TranslationEngine.ensureReady). */
 internal const val ENGLISH = "en"
 
-/** The language packs a translation from [source] to [target] needs: both languages', and English's. */
-internal fun packsNeeded(source: String, target: String): List<String> = listOf(source, target, ENGLISH).distinct()
+/** The language packs a translation from [source] to [target] needs: those of its languages other than English. */
+internal fun packsNeeded(source: String, target: String): List<String> = listOf(source, target).distinct().filter { it != ENGLISH }
 
 /**
  * [tag]'s language named in [locale]'s language as a sentence writes it: "French", "Französisch",
