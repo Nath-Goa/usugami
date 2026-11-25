@@ -10,7 +10,7 @@ enum class TranslationProblem {
     /** A language pack has to be downloaded and the phone is offline. */
     NO_INTERNET,
 
-    /** The download failed or stopped (no progress for a while). */
+    /** The download failed, or took far too long. */
     DOWNLOAD_FAILED,
 
     /** The phone has no room for the language pack. */
@@ -39,9 +39,10 @@ interface TranslationEngine {
 
     /**
      * Returns once text can be translated from [source] to [target], downloading the language packs
-     * that are missing first (ML Kit translates through English: a pair without English needs
-     * English's pack too). [onDownload] is called only when a download is needed, with the
-     * fraction done (0..1), or null while the size is unknown or the download is waiting. Cancellable.
+     * that are missing first (ML Kit translates through English: a pair without English needs the
+     * packs of both its languages; English has no pack, it is built in). [onDownload] is called
+     * only when a download is needed, with the fraction done (0..1), or null while the size is
+     * unknown or the download is waiting. Cancellable.
      * @throws TranslationUnavailableException when it can't be made ready.
      */
     suspend fun ensureReady(source: String, target: String, onDownload: (Float?) -> Unit = {})
@@ -49,7 +50,7 @@ interface TranslationEngine {
     /** A translator from [source] to [target], to use once [ensureReady] has returned. Close it when done. */
     fun open(source: String, target: String): TextTranslator
 
-    /** Deletes the language pack of [tag] from the phone (English's goes only when no other language needs it). */
+    /** Deletes the language pack of [tag] from the phone (English has none: it is built in and stays). */
     suspend fun delete(tag: String)
 
     /** The language [text] is written in, or null when the engine can't tell. Works without internet. */
