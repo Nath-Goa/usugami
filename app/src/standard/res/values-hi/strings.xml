@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">इन इमेज में शब्द पहचानें और PDF में खोजने लायक टेक्स्ट जोड़ें। हर भाषा का पहली बार इस्तेमाल करने पर उसकी टेक्स्ट पहचान डाउनलोड होती है, जिसके लिए इंटरनेट कनेक्शन ज़रूरी है।</string>
 
@@ -7,4 +7,58 @@
     <string name="translate_detail">PDF को दूसरी भाषा में पढ़ें</string>
     <string name="translate_keywords">अनुवाद, अनुवादक, ट्रांसलेट, ट्रांसलेशन, भाषा, भाषाएं, दूसरी भाषा, विदेशी भाषा, अंग्रेज़ी, अंग्रेजी, इंग्लिश, हिंदी, हिन्दी, मराठी, translate, translation, translator, language, English, Hindi</string>
     <string name="translate_action">PDF का अनुवाद करें</string>
+
+    <string name="translate_languages">भाषाएं</string>
+    <string name="translate_from">मूल भाषा</string>
+    <string name="translate_to">अनुवाद की भाषा</string>
+    <string name="translate_detecting">पहचानी जा रही है…</string>
+    <string name="translate_choose">चुनें</string>
+    <string name="translate_detected">PDF के टेक्स्ट से पहचानी गई।</string>
+    <string name="translate_not_detected">Usugami इस PDF की भाषा नहीं पहचान सका। भाषा चुनें।</string>
+    <string name="translate_same">दो अलग-अलग भाषाएं चुनें।</string>
+    <string name="translate_packs">भाषा पैक</string>
+    <plurals name="translate_packs_ready">
+        <item quantity="one">%1$s भाषा पैक इस फ़ोन पर है, इसलिए अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+        <item quantity="other">%1$s भाषा पैक इस फ़ोन पर हैं, इसलिए अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+    </plurals>
+    <plurals name="translate_packs_needed">
+        <item quantity="one">%1$s भाषा पैक चाहिए, लगभग 30 MB। यह एक ही बार डाउनलोड होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+        <item quantity="other">%1$s भाषा पैक चाहिए, हर एक लगभग 30 MB। ये एक ही बार डाउनलोड होते हैं; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+    </plurals>
+    <string name="translate_scans_note">स्कैन किए गए पेज (टेक्स्ट की तस्वीरें) पहले टेक्स्ट पहचान से पढ़े जाते हैं। यह लैटिन लिपि में लिखी भाषाएं, और हिंदी व मराठी पढ़ती है।</string>
+
+    <string name="translate_packs_intro">हर पैक लगभग 30 MB का है। इस फ़ोन पर मौजूद पैक से अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</string>
+    <string name="translate_packs_none">इस फ़ोन पर अभी कोई भाषा पैक नहीं है। पहली बार अनुवाद करने पर ये डाउनलोड होते हैं।</string>
+    <string name="translate_pack_english">हर अनुवाद के लिए ज़रूरी</string>
+    <string name="translate_pack_delete">%1$s भाषा पैक हटाएं</string>
+    <string name="translate_pack_delete_title">%1$s भाषा पैक हटाएं?</string>
+    <string name="translate_pack_delete_body">अगली बार किसी अनुवाद को इसकी ज़रूरत होने पर यह फिर से डाउनलोड होगा (लगभग 30 MB)।</string>
+    <string name="translate_pack_delete_english">हर अनुवाद के लिए अंग्रेज़ी ज़रूरी है: अगली बार अनुवाद करने पर यह फिर से डाउनलोड होगा (लगभग 30 MB)।</string>
+    <string name="translate_pack_delete_confirm">हटाएं</string>
+    <string name="translate_pack_delete_failed">भाषा पैक हटाया नहीं जा सका। फिर से कोशिश करें।</string>
+
+    <plurals name="translate_download_title">
+        <item quantity="one">भाषा पैक डाउनलोड करें?</item>
+        <item quantity="other">भाषा पैक डाउनलोड करें?</item>
+    </plurals>
+    <plurals name="translate_download_body">
+        <item quantity="one">अनुवाद के लिए पहले %1$s भाषा पैक डाउनलोड करना होगा: लगभग 30 MB, इंटरनेट से। ऐसा सिर्फ़ एक बार होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+        <item quantity="other">अनुवाद के लिए पहले %1$s भाषा पैक डाउनलोड करने होंगे: हर एक लगभग 30 MB, इंटरनेट से। ऐसा सिर्फ़ एक बार होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+    </plurals>
+    <string name="translate_download_confirm">डाउनलोड करके अनुवाद करें</string>
+
+    <string name="translate_downloading_one">%1$s भाषा पैक डाउनलोड हो रहा है…</string>
+    <string name="translate_downloading">भाषा पैक डाउनलोड हो रहे हैं…</string>
+    <string name="translate_download_note">ऐसा सिर्फ़ एक बार होता है और इसके लिए इंटरनेट कनेक्शन ज़रूरी है।</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">अनुवाद हो रहा है: %2$d में से पेज %1$d</string>
+
+    <string name="translate_problem_title">अभी अनुवाद नहीं हो सकता</string>
+    <string name="translate_problem_no_internet">ज़रूरी भाषा पैक डाउनलोड करने होंगे, और यह फ़ोन इंटरनेट से कनेक्ट नहीं है। कनेक्ट करें और फिर से कोशिश करें।</string>
+    <string name="translate_problem_download">भाषा पैक डाउनलोड नहीं हो सके। अपना इंटरनेट कनेक्शन जांचें और फिर से कोशिश करें।</string>
+    <string name="translate_problem_storage">भाषा पैक के लिए स्टोरेज में काफ़ी खाली जगह नहीं है। कुछ जगह खाली करें और फिर से कोशिश करें।</string>
+    <string name="translate_problem_failed">अनुवाद शुरू नहीं हो सका। फिर से कोशिश करें।</string>
+    <string name="translate_ocr_retry">टेक्स्ट वाले पेजों का अभी अनुवाद करने के लिए, \"पेज\" में सिर्फ़ वही पेज लिखें और फिर से कोशिश करें।</string>
+    <string name="translate_none">इन पेजों पर अनुवाद के लिए कोई टेक्स्ट नहीं है।</string>
+    <string name="translate_none_unreadable">ये पेज स्कैन किए हुए लगते हैं और इनका टेक्स्ट पढ़ा नहीं जा सका, इसलिए अनुवाद के लिए कुछ नहीं है।</string>
+    <string name="translate_unavailable">इस फ़ोन पर अनुवाद उपलब्ध नहीं है।</string>
 </resources>

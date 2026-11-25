@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF. The first time you use each language, its text recognition is downloaded, which needs an internet connection.</string>
 
@@ -11,4 +11,83 @@
     <string name="translate_keywords">translate, translation, translator, language, languages, foreign language, interpret, interpreter, bilingual, English, French, Spanish, German, Hindi, Chinese, Japanese, Arabic, Russian</string>
     <!-- The tool's button, which makes the new PDF. -->
     <string name="translate_action">Translate PDF</string>
+
+    <!-- Translate PDF's screen. A heading over the two languages. -->
+    <string name="translate_languages">Languages</string>
+    <!-- A chip, shown as "From: French": the language the PDF is written in. It opens a menu of languages. -->
+    <string name="translate_from">From</string>
+    <!-- A chip, shown as "To: English": the language the PDF is translated into. It opens a menu of languages. -->
+    <string name="translate_to">To</string>
+    <!-- On the From chip ("From: Detecting…") while the PDF's language is worked out from its text. -->
+    <string name="translate_detecting">Detecting…</string>
+    <!-- On the From chip ("From: Choose") when the PDF's language couldn't be worked out: the user picks it. -->
+    <string name="translate_choose">Choose</string>
+    <!-- Under the chips: the From language was worked out from the PDF's text (it can be changed). -->
+    <string name="translate_detected">Detected from the PDF\'s text.</string>
+    <string name="translate_not_detected">Usugami couldn\'t tell what language this PDF is in. Choose it.</string>
+    <!-- Under the chips when From and To are the same language: the button is off. -->
+    <string name="translate_same">Choose two different languages.</string>
+    <!-- A language pack is what translating from or into a language needs on the phone; it is downloaded once. A button that lists the packs on the phone, and the title of that list. -->
+    <string name="translate_packs">Language packs</string>
+    <!-- %1$s lists languages whose packs are on the phone, such as "French and English" (the names as a sentence writes them). -->
+    <plurals name="translate_packs_ready">
+        <item quantity="one">The %1$s pack is on this phone, so translating needs no internet.</item>
+        <item quantity="other">The %1$s packs are on this phone, so translating needs no internet.</item>
+    </plurals>
+    <!-- %1$s lists the languages whose packs must be downloaded first, such as "French and English". MB is megabytes. -->
+    <plurals name="translate_packs_needed">
+        <item quantity="one">Needs the %1$s pack, about 30 MB. It downloads once; after that, translating needs no internet.</item>
+        <item quantity="other">Needs the %1$s packs, about 30 MB each. They download once; after that, translating needs no internet.</item>
+    </plurals>
+    <!-- A note under the choices. Scanned pages are pictures of text. The Latin alphabet is the one of English, French, Spanish and the like. -->
+    <string name="translate_scans_note">Scanned pages (pictures of text) are read with text recognition first. It reads languages written in the Latin alphabet, and Hindi and Marathi.</string>
+
+    <!-- The list of language packs on the phone. MB is megabytes. -->
+    <string name="translate_packs_intro">Each pack is about 30 MB. With the packs on this phone, translating needs no internet.</string>
+    <string name="translate_packs_none">There are no language packs on this phone yet. They download the first time you translate.</string>
+    <!-- Under English in the list: every translation goes through English, so its pack is always needed. -->
+    <string name="translate_pack_english">Needed for every translation</string>
+    <!-- The delete button of a language pack, for a screen reader. %1$s is the language, such as French. -->
+    <string name="translate_pack_delete">Delete the %1$s pack</string>
+    <!-- A dialog's title. %1$s is the language, such as French. -->
+    <string name="translate_pack_delete_title">Delete the %1$s pack?</string>
+    <string name="translate_pack_delete_body">It downloads again, about 30 MB, the next time a translation needs it.</string>
+    <!-- The dialog's text when the pack is English's. -->
+    <string name="translate_pack_delete_english">Every translation needs English: it downloads again, about 30 MB, the next time you translate.</string>
+    <!-- The dialog's button that deletes the pack. -->
+    <string name="translate_pack_delete_confirm">Delete</string>
+    <string name="translate_pack_delete_failed">Couldn\'t delete the language pack. Please try again.</string>
+
+    <!-- A dialog before translating, when language packs must be downloaded first. -->
+    <plurals name="translate_download_title">
+        <item quantity="one">Download a language pack?</item>
+        <item quantity="other">Download language packs?</item>
+    </plurals>
+    <!-- %1$s lists the languages whose packs are downloaded, such as "French and English". MB is megabytes. -->
+    <plurals name="translate_download_body">
+        <item quantity="one">To translate, the %1$s pack has to be downloaded first: about 30 MB, over the internet. This happens once; after that, translating needs no internet.</item>
+        <item quantity="other">To translate, the %1$s packs have to be downloaded first: about 30 MB each, over the internet. This happens once; after that, translating needs no internet.</item>
+    </plurals>
+    <string name="translate_download_confirm">Download and translate</string>
+
+    <!-- Under the bar while a language pack downloads. %1$s is the language, such as French. -->
+    <string name="translate_downloading_one">Downloading the %1$s pack…</string>
+    <string name="translate_downloading">Downloading language packs…</string>
+    <string name="translate_download_note">This happens once and needs an internet connection.</string>
+    <!-- Under the bar while the pages are translated: the page being translated (%1$d) and how many there are (%2$d). -->
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Translating page %1$d of %2$d</string>
+
+    <!-- A dialog's title when translating can't start; its text says why. -->
+    <string name="translate_problem_title">Can\'t translate right now</string>
+    <string name="translate_problem_no_internet">The language packs this needs have to be downloaded, and this phone isn\'t connected to the internet. Connect and try again.</string>
+    <string name="translate_problem_download">The language packs couldn\'t be downloaded. Check your internet connection and try again.</string>
+    <string name="translate_problem_storage">There isn\'t enough free storage for the language packs. Free up some space and try again.</string>
+    <string name="translate_problem_failed">Translating couldn\'t start. Please try again.</string>
+    <!-- The last line of the "Text recognition isn't available" dialog over Translate PDF. "Pages" is the pages field: use its own word. -->
+    <string name="translate_ocr_retry">To translate the pages that have text now, choose only those in \"Pages\" and try again.</string>
+    <!-- No page chosen has text to translate. -->
+    <string name="translate_none">These pages have no text to translate.</string>
+    <!-- No page chosen has text to translate, and those that look scanned couldn't be read. -->
+    <string name="translate_none_unreadable">These pages look scanned, and their text couldn\'t be read, so there is nothing to translate.</string>
+    <string name="translate_unavailable">Translating isn\'t available on this phone.</string>
 </resources>

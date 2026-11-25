@@ -605,8 +605,9 @@ private fun BatchProgressText(progress: BatchProgress?) {
 
 /**
  * How far a job on one PDF has got, when it says (see PdfToolsViewModel.reportProgress): a bar that
- * fills, over the line the job gives ("Page 3 of 40"). Not a live region: a line that changes with
- * every page would have a screen reader talk without end.
+ * fills, over the line the job gives ("Page 3 of 40"); one that moves on its own while the job can't
+ * say how far it is (a total of 0, such as a download of unknown size). Not a live region: a line
+ * that changes with every page would have a screen reader talk without end.
  */
 @Composable
 private fun ToolProgressText(progress: ToolProgress?) {
@@ -616,7 +617,11 @@ private fun ToolProgressText(progress: ToolProgress?) {
         label = "tool progress",
     )
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LinearProgress(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+        if (progress != null && progress.total <= 0) {
+            LinearProgress(Modifier.fillMaxWidth())
+        } else {
+            LinearProgress(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+        }
         if (progress != null) Text(progress.text, style = Usugami.type.tabular(LocalTextStyle.current))
     }
 }

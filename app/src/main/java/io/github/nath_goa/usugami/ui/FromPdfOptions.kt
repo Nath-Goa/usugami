@@ -261,7 +261,7 @@ internal fun exampleImageName(typed: String, pagesText: String, pageCount: Int):
  * are both chosen.
  */
 @Composable
-private fun PagesChoice(input: PdfInput, shown: PdfInput, text: String, onText: (String) -> Unit, onTap: (change: (String) -> String) -> Unit) {
+internal fun PagesChoice(input: PdfInput, shown: PdfInput, text: String, onText: (String) -> Unit, onTap: (change: (String) -> String) -> Unit) {
     val chosen = remember(text, input.pageCount) { typedPages(text, input.pageCount).toSet() }
     WellField(
         value = text,
@@ -381,7 +381,7 @@ internal fun PdfToolsViewModel.runExportText(input: PdfInput, pagesText: String,
 }
 
 /** The pages typed, zero-based and in page order: all of them when nothing is typed. Null, after saying why, when they can't be read. */
-private fun PdfToolsViewModel.exportPages(text: String, input: PdfInput): List<Int>? =
+internal fun PdfToolsViewModel.exportPages(text: String, input: PdfInput): List<Int>? =
     if (text.isBlank()) {
         (0 until input.pageCount).toList()
     } else {

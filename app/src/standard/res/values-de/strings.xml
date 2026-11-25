@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Wörter auf diesen Bildern erkennen und dem PDF durchsuchbaren Text hinzufügen. Wenn du eine Sprache zum ersten Mal verwendest, wird ihre Texterkennung heruntergeladen. Dafür ist eine Internetverbindung nötig.</string>
 
@@ -7,4 +7,58 @@
     <string name="translate_detail">Ein PDF in einer anderen Sprache lesen</string>
     <string name="translate_keywords">übersetzen, Übersetzung, Übersetzer, Sprache, Sprachen, Fremdsprache, dolmetschen, zweisprachig, Englisch, Deutsch, Französisch, Spanisch, Türkisch, Russisch, Arabisch, translate</string>
     <string name="translate_action">PDF übersetzen</string>
+
+    <string name="translate_languages">Sprachen</string>
+    <string name="translate_from">Von</string>
+    <string name="translate_to">Nach</string>
+    <string name="translate_detecting">Wird erkannt…</string>
+    <string name="translate_choose">Auswählen</string>
+    <string name="translate_detected">Aus dem Text des PDFs erkannt.</string>
+    <string name="translate_not_detected">Usugami konnte nicht erkennen, in welcher Sprache dieses PDF ist. Wähle sie aus.</string>
+    <string name="translate_same">Wähle zwei verschiedene Sprachen.</string>
+    <string name="translate_packs">Sprachpakete</string>
+    <plurals name="translate_packs_ready">
+        <item quantity="one">Das Sprachpaket %1$s ist auf diesem Smartphone, Übersetzen funktioniert also ohne Internet.</item>
+        <item quantity="other">Die Sprachpakete %1$s sind auf diesem Smartphone, Übersetzen funktioniert also ohne Internet.</item>
+    </plurals>
+    <plurals name="translate_packs_needed">
+        <item quantity="one">Benötigt das Sprachpaket %1$s, etwa 30 MB. Es wird nur einmal heruntergeladen; danach funktioniert Übersetzen ohne Internet.</item>
+        <item quantity="other">Benötigt die Sprachpakete %1$s, je etwa 30 MB. Sie werden nur einmal heruntergeladen; danach funktioniert Übersetzen ohne Internet.</item>
+    </plurals>
+    <string name="translate_scans_note">Gescannte Seiten (Bilder von Text) werden zuerst mit der Texterkennung gelesen. Sie liest Sprachen in lateinischer Schrift sowie Hindi und Marathi.</string>
+
+    <string name="translate_packs_intro">Jedes Paket ist etwa 30 MB groß. Mit den Paketen auf diesem Smartphone funktioniert Übersetzen ohne Internet.</string>
+    <string name="translate_packs_none">Auf diesem Smartphone sind noch keine Sprachpakete. Sie werden beim ersten Übersetzen heruntergeladen.</string>
+    <string name="translate_pack_english">Für jede Übersetzung nötig</string>
+    <string name="translate_pack_delete">Sprachpaket %1$s löschen</string>
+    <string name="translate_pack_delete_title">Sprachpaket %1$s löschen?</string>
+    <string name="translate_pack_delete_body">Es wird erneut heruntergeladen (etwa 30 MB), sobald eine Übersetzung es wieder braucht.</string>
+    <string name="translate_pack_delete_english">Jede Übersetzung braucht Englisch: Es wird beim nächsten Übersetzen erneut heruntergeladen (etwa 30 MB).</string>
+    <string name="translate_pack_delete_confirm">Löschen</string>
+    <string name="translate_pack_delete_failed">Das Sprachpaket konnte nicht gelöscht werden. Versuche es noch einmal.</string>
+
+    <plurals name="translate_download_title">
+        <item quantity="one">Sprachpaket herunterladen?</item>
+        <item quantity="other">Sprachpakete herunterladen?</item>
+    </plurals>
+    <plurals name="translate_download_body">
+        <item quantity="one">Zum Übersetzen muss zuerst das Sprachpaket %1$s heruntergeladen werden: etwa 30 MB, über das Internet. Das passiert nur einmal; danach funktioniert Übersetzen ohne Internet.</item>
+        <item quantity="other">Zum Übersetzen müssen zuerst die Sprachpakete %1$s heruntergeladen werden: je etwa 30 MB, über das Internet. Das passiert nur einmal; danach funktioniert Übersetzen ohne Internet.</item>
+    </plurals>
+    <string name="translate_download_confirm">Herunterladen und übersetzen</string>
+
+    <string name="translate_downloading_one">Sprachpaket %1$s wird heruntergeladen…</string>
+    <string name="translate_downloading">Sprachpakete werden heruntergeladen…</string>
+    <string name="translate_download_note">Das passiert nur einmal und erfordert eine Internetverbindung.</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Seite %1$d von %2$d wird übersetzt</string>
+
+    <string name="translate_problem_title">Übersetzen gerade nicht möglich</string>
+    <string name="translate_problem_no_internet">Die nötigen Sprachpakete müssen heruntergeladen werden, aber dieses Smartphone ist nicht mit dem Internet verbunden. Stelle eine Verbindung her und versuche es noch einmal.</string>
+    <string name="translate_problem_download">Die Sprachpakete konnten nicht heruntergeladen werden. Prüfe deine Internetverbindung und versuche es noch einmal.</string>
+    <string name="translate_problem_storage">Es ist nicht genug freier Speicherplatz für die Sprachpakete vorhanden. Gib etwas Speicherplatz frei und versuche es noch einmal.</string>
+    <string name="translate_problem_failed">Das Übersetzen konnte nicht starten. Versuche es noch einmal.</string>
+    <string name="translate_ocr_retry">Um die Seiten mit Text jetzt zu übersetzen, gib unter „Seiten“ nur diese an und versuche es noch einmal.</string>
+    <string name="translate_none">Diese Seiten haben keinen Text zum Übersetzen.</string>
+    <string name="translate_none_unreadable">Diese Seiten sehen gescannt aus, und ihr Text konnte nicht gelesen werden. Es gibt also nichts zu übersetzen.</string>
+    <string name="translate_unavailable">Übersetzen ist auf diesem Smartphone nicht verfügbar.</string>
 </resources>

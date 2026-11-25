@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Reconnaître les mots figurant sur ces images et ajouter du texte recherchable au PDF. La première fois que vous utilisez une langue, sa reconnaissance de texte est téléchargée, ce qui nécessite une connexion Internet.</string>
 
@@ -7,4 +7,62 @@
     <string name="translate_detail">Lire un PDF dans une autre langue</string>
     <string name="translate_keywords">traduire, traduction, traducteur, langue, langues, langue étrangère, interpréter, interprète, bilingue, anglais, français, espagnol, allemand, arabe, chinois, japonais, translate</string>
     <string name="translate_action">Traduire le PDF</string>
+
+    <string name="translate_languages">Langues</string>
+    <string name="translate_from">De</string>
+    <string name="translate_to">Vers</string>
+    <string name="translate_detecting">Détection…</string>
+    <string name="translate_choose">Choisir</string>
+    <string name="translate_detected">Langue détectée d\'après le texte du PDF.</string>
+    <string name="translate_not_detected">Usugami n\'a pas pu déterminer la langue de ce PDF. Choisissez-la.</string>
+    <string name="translate_same">Choisissez deux langues différentes.</string>
+    <string name="translate_packs">Packs de langue</string>
+    <plurals name="translate_packs_ready">
+        <item quantity="one">Le pack %1$s est sur ce téléphone : la traduction se fait sans Internet.</item>
+        <item quantity="many">Les packs %1$s sont sur ce téléphone : la traduction se fait sans Internet.</item>
+        <item quantity="other">Les packs %1$s sont sur ce téléphone : la traduction se fait sans Internet.</item>
+    </plurals>
+    <plurals name="translate_packs_needed">
+        <item quantity="one">Nécessite le pack %1$s, environ 30 Mo. Il se télécharge une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="many">Nécessite les packs %1$s, environ 30 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="other">Nécessite les packs %1$s, environ 30 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+    </plurals>
+    <string name="translate_scans_note">Les pages numérisées (images de texte) sont d\'abord lues par la reconnaissance de texte. Elle lit les langues écrites en alphabet latin, ainsi que le hindi et le marathi.</string>
+
+    <string name="translate_packs_intro">Chaque pack fait environ 30 Mo. Avec les packs présents sur ce téléphone, la traduction se fait sans Internet.</string>
+    <string name="translate_packs_none">Aucun pack de langue sur ce téléphone pour l\'instant. Ils se téléchargent lors de votre première traduction.</string>
+    <string name="translate_pack_english">Nécessaire à toute traduction</string>
+    <string name="translate_pack_delete">Supprimer le pack %1$s</string>
+    <string name="translate_pack_delete_title">Supprimer le pack %1$s ?</string>
+    <string name="translate_pack_delete_body">Il sera de nouveau téléchargé (environ 30 Mo) la prochaine fois qu\'une traduction en aura besoin.</string>
+    <string name="translate_pack_delete_english">Toute traduction a besoin de l\'anglais : il sera de nouveau téléchargé (environ 30 Mo) lors de votre prochaine traduction.</string>
+    <string name="translate_pack_delete_confirm">Supprimer</string>
+    <string name="translate_pack_delete_failed">Impossible de supprimer le pack de langue. Réessayez.</string>
+
+    <plurals name="translate_download_title">
+        <item quantity="one">Télécharger un pack de langue ?</item>
+        <item quantity="many">Télécharger des packs de langue ?</item>
+        <item quantity="other">Télécharger des packs de langue ?</item>
+    </plurals>
+    <plurals name="translate_download_body">
+        <item quantity="one">Pour traduire, il faut d\'abord télécharger le pack %1$s : environ 30 Mo, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="many">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 30 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="other">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 30 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+    </plurals>
+    <string name="translate_download_confirm">Télécharger et traduire</string>
+
+    <string name="translate_downloading_one">Téléchargement du pack %1$s…</string>
+    <string name="translate_downloading">Téléchargement des packs de langue…</string>
+    <string name="translate_download_note">Cela n\'a lieu qu\'une fois et nécessite une connexion Internet.</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Traduction de la page %1$d sur %2$d</string>
+
+    <string name="translate_problem_title">Traduction impossible pour le moment</string>
+    <string name="translate_problem_no_internet">Les packs de langue nécessaires doivent être téléchargés, et ce téléphone n\'est pas connecté à Internet. Connectez-vous et réessayez.</string>
+    <string name="translate_problem_download">Impossible de télécharger les packs de langue. Vérifiez votre connexion Internet et réessayez.</string>
+    <string name="translate_problem_storage">L\'espace de stockage disponible est insuffisant pour les packs de langue. Libérez de l\'espace et réessayez.</string>
+    <string name="translate_problem_failed">Impossible de lancer la traduction. Réessayez.</string>
+    <string name="translate_ocr_retry">Pour traduire dès maintenant les pages qui contiennent du texte, indiquez uniquement celles-ci dans « Pages » et réessayez.</string>
+    <string name="translate_none">Ces pages ne contiennent aucun texte à traduire.</string>
+    <string name="translate_none_unreadable">Ces pages semblent numérisées et leur texte n\'a pas pu être lu : il n\'y a rien à traduire.</string>
+    <string name="translate_unavailable">La traduction n\'est pas disponible sur ce téléphone.</string>
 </resources>

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Mengenali kata pada gambar ini, lalu menambahkan teks yang dapat ditelusuri ke PDF. Pengenalan teks untuk setiap bahasa didownload saat bahasa itu pertama kali digunakan, sehingga memerlukan koneksi internet.</string>
 
@@ -7,4 +7,54 @@
     <string name="translate_detail">Baca PDF dalam bahasa lain</string>
     <string name="translate_keywords">terjemah, terjemahkan, terjemahan, penerjemah, alih bahasa, bahasa, bahasa asing, translate, translation, bahasa Inggris, Inggris, Arab, Mandarin, Jepang, Korea, Belanda</string>
     <string name="translate_action">Terjemahkan PDF</string>
+
+    <string name="translate_languages">Bahasa</string>
+    <string name="translate_from">Dari</string>
+    <string name="translate_to">Ke</string>
+    <string name="translate_detecting">Mendeteksi…</string>
+    <string name="translate_choose">Pilih</string>
+    <string name="translate_detected">Terdeteksi dari teks PDF.</string>
+    <string name="translate_not_detected">Usugami tidak dapat mengenali bahasa PDF ini. Pilih bahasanya.</string>
+    <string name="translate_same">Pilih dua bahasa yang berbeda.</string>
+    <string name="translate_packs">Paket bahasa</string>
+    <plurals name="translate_packs_ready">
+        <item quantity="other">Paket bahasa %1$s sudah ada di ponsel ini, jadi menerjemahkan tidak memerlukan internet.</item>
+    </plurals>
+    <plurals name="translate_packs_needed">
+        <item quantity="other">Memerlukan paket bahasa %1$s, sekitar 30 MB per paket. Paket didownload sekali saja; setelah itu, menerjemahkan tidak memerlukan internet.</item>
+    </plurals>
+    <string name="translate_scans_note">Halaman hasil pindaian (gambar teks) dibaca dulu dengan pengenalan teks, yang membaca bahasa berhuruf Latin, serta Hindi dan Marathi.</string>
+
+    <string name="translate_packs_intro">Tiap paket sekitar 30 MB. Dengan paket yang ada di ponsel ini, menerjemahkan tidak memerlukan internet.</string>
+    <string name="translate_packs_none">Belum ada paket bahasa di ponsel ini. Paket didownload saat pertama kali Anda menerjemahkan.</string>
+    <string name="translate_pack_english">Diperlukan untuk setiap terjemahan</string>
+    <string name="translate_pack_delete">Hapus paket bahasa %1$s</string>
+    <string name="translate_pack_delete_title">Hapus paket bahasa %1$s?</string>
+    <string name="translate_pack_delete_body">Paket ini akan didownload lagi (sekitar 30 MB) saat terjemahan berikutnya memerlukannya.</string>
+    <string name="translate_pack_delete_english">Setiap terjemahan memerlukan bahasa Inggris: paket ini akan didownload lagi (sekitar 30 MB) saat Anda menerjemahkan lagi.</string>
+    <string name="translate_pack_delete_confirm">Hapus</string>
+    <string name="translate_pack_delete_failed">Paket bahasa tidak dapat dihapus. Coba lagi.</string>
+
+    <plurals name="translate_download_title">
+        <item quantity="other">Download paket bahasa?</item>
+    </plurals>
+    <plurals name="translate_download_body">
+        <item quantity="other">Untuk menerjemahkan, paket bahasa %1$s harus didownload dulu: sekitar 30 MB per paket, lewat internet. Ini hanya sekali; setelah itu, menerjemahkan tidak memerlukan internet.</item>
+    </plurals>
+    <string name="translate_download_confirm">Download dan terjemahkan</string>
+
+    <string name="translate_downloading_one">Mendownload paket bahasa %1$s…</string>
+    <string name="translate_downloading">Mendownload paket bahasa…</string>
+    <string name="translate_download_note">Ini hanya terjadi sekali dan memerlukan koneksi internet.</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Menerjemahkan halaman %1$d dari %2$d</string>
+
+    <string name="translate_problem_title">Tidak dapat menerjemahkan sekarang</string>
+    <string name="translate_problem_no_internet">Paket bahasa yang diperlukan harus didownload, dan ponsel ini tidak terhubung ke internet. Hubungkan ponsel, lalu coba lagi.</string>
+    <string name="translate_problem_download">Paket bahasa tidak dapat didownload. Periksa koneksi internet, lalu coba lagi.</string>
+    <string name="translate_problem_storage">Ruang penyimpanan kosong tidak cukup untuk paket bahasa. Kosongkan sebagian ruang, lalu coba lagi.</string>
+    <string name="translate_problem_failed">Penerjemahan tidak dapat dimulai. Coba lagi.</string>
+    <string name="translate_ocr_retry">Untuk menerjemahkan halaman yang berisi teks sekarang, isi \"Halaman\" dengan halaman itu saja, lalu coba lagi.</string>
+    <string name="translate_none">Halaman ini tidak berisi teks untuk diterjemahkan.</string>
+    <string name="translate_none_unreadable">Halaman ini tampaknya hasil pindaian dan teksnya tidak dapat dibaca, jadi tidak ada yang bisa diterjemahkan.</string>
+    <string name="translate_unavailable">Penerjemahan tidak tersedia di ponsel ini.</string>
 </resources>

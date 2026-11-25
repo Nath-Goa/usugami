@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Reconhece as palavras nestas imagens e adiciona texto pesquisável ao PDF. Na primeira vez que você usa cada idioma, o reconhecimento de texto dele é baixado, o que exige conexão com a internet.</string>
 
@@ -7,4 +7,62 @@
     <string name="translate_detail">Leia um PDF em outro idioma</string>
     <string name="translate_keywords">traduzir, tradução, tradutor, idioma, idiomas, língua, língua estrangeira, interpretar, intérprete, bilíngue, inglês, português, espanhol, francês, alemão, árabe, chinês, japonês, translate</string>
     <string name="translate_action">Traduzir PDF</string>
+
+    <string name="translate_languages">Idiomas</string>
+    <string name="translate_from">De</string>
+    <string name="translate_to">Para</string>
+    <string name="translate_detecting">Detectando…</string>
+    <string name="translate_choose">Escolher</string>
+    <string name="translate_detected">Detectado pelo texto do PDF.</string>
+    <string name="translate_not_detected">O Usugami não conseguiu identificar o idioma deste PDF. Escolha o idioma.</string>
+    <string name="translate_same">Escolha dois idiomas diferentes.</string>
+    <string name="translate_packs">Pacotes de idioma</string>
+    <plurals name="translate_packs_ready">
+        <item quantity="one">O pacote de %1$s está neste celular, então traduzir não precisa de internet.</item>
+        <item quantity="many">Os pacotes de %1$s estão neste celular, então traduzir não precisa de internet.</item>
+        <item quantity="other">Os pacotes de %1$s estão neste celular, então traduzir não precisa de internet.</item>
+    </plurals>
+    <plurals name="translate_packs_needed">
+        <item quantity="one">Precisa do pacote de %1$s, cerca de 30 MB. Ele é baixado uma só vez; depois disso, traduzir não precisa de internet.</item>
+        <item quantity="many">Precisa dos pacotes de %1$s, cerca de 30 MB cada. Eles são baixados uma só vez; depois disso, traduzir não precisa de internet.</item>
+        <item quantity="other">Precisa dos pacotes de %1$s, cerca de 30 MB cada. Eles são baixados uma só vez; depois disso, traduzir não precisa de internet.</item>
+    </plurals>
+    <string name="translate_scans_note">Páginas digitalizadas (imagens de texto) são lidas primeiro com o reconhecimento de texto, que lê idiomas escritos no alfabeto latino, além de hindi e marati.</string>
+
+    <string name="translate_packs_intro">Cada pacote tem cerca de 30 MB. Com os pacotes que estão neste celular, traduzir não precisa de internet.</string>
+    <string name="translate_packs_none">Ainda não há pacotes de idioma neste celular. Eles são baixados na primeira vez que você traduz.</string>
+    <string name="translate_pack_english">Necessário para qualquer tradução</string>
+    <string name="translate_pack_delete">Excluir o pacote de %1$s</string>
+    <string name="translate_pack_delete_title">Excluir o pacote de %1$s?</string>
+    <string name="translate_pack_delete_body">Ele será baixado de novo (cerca de 30 MB) na próxima vez que uma tradução precisar dele.</string>
+    <string name="translate_pack_delete_english">Toda tradução precisa do inglês: ele será baixado de novo (cerca de 30 MB) na próxima vez que você traduzir.</string>
+    <string name="translate_pack_delete_confirm">Excluir</string>
+    <string name="translate_pack_delete_failed">Não foi possível excluir o pacote de idioma. Tente novamente.</string>
+
+    <plurals name="translate_download_title">
+        <item quantity="one">Baixar um pacote de idioma?</item>
+        <item quantity="many">Baixar pacotes de idioma?</item>
+        <item quantity="other">Baixar pacotes de idioma?</item>
+    </plurals>
+    <plurals name="translate_download_body">
+        <item quantity="one">Para traduzir, é preciso baixar antes o pacote de %1$s: cerca de 30 MB, pela internet. Isso acontece uma só vez; depois disso, traduzir não precisa de internet.</item>
+        <item quantity="many">Para traduzir, é preciso baixar antes os pacotes de %1$s: cerca de 30 MB cada, pela internet. Isso acontece uma só vez; depois disso, traduzir não precisa de internet.</item>
+        <item quantity="other">Para traduzir, é preciso baixar antes os pacotes de %1$s: cerca de 30 MB cada, pela internet. Isso acontece uma só vez; depois disso, traduzir não precisa de internet.</item>
+    </plurals>
+    <string name="translate_download_confirm">Baixar e traduzir</string>
+
+    <string name="translate_downloading_one">Baixando o pacote de %1$s…</string>
+    <string name="translate_downloading">Baixando pacotes de idioma…</string>
+    <string name="translate_download_note">Isso acontece uma só vez e precisa de conexão com a internet.</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Traduzindo a página %1$d de %2$d</string>
+
+    <string name="translate_problem_title">Não é possível traduzir agora</string>
+    <string name="translate_problem_no_internet">Os pacotes de idioma necessários precisam ser baixados, e este celular não está conectado à internet. Conecte-se e tente novamente.</string>
+    <string name="translate_problem_download">Não foi possível baixar os pacotes de idioma. Verifique sua conexão com a internet e tente novamente.</string>
+    <string name="translate_problem_storage">Não há espaço livre suficiente para os pacotes de idioma. Libere espaço e tente novamente.</string>
+    <string name="translate_problem_failed">Não foi possível começar a traduzir. Tente novamente.</string>
+    <string name="translate_ocr_retry">Para traduzir agora as páginas que têm texto, indique só essas em \"Páginas\" e tente novamente.</string>
+    <string name="translate_none">Estas páginas não têm texto para traduzir.</string>
+    <string name="translate_none_unreadable">Estas páginas parecem digitalizadas e não foi possível ler o texto delas, então não há nada para traduzir.</string>
+    <string name="translate_unavailable">A tradução não está disponível neste celular.</string>
 </resources>
