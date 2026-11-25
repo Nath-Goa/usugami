@@ -1,7 +1,6 @@
 package io.github.nath_goa.usugami.data
 
 import android.content.Context
-import androidx.annotation.VisibleForTesting
 
 /** [translatePdf] as a value, with the PDF tools' engine as its first parameter. */
 private val realRunner: suspend (
@@ -20,7 +19,6 @@ private val realDetector: suspend (PdfToolsEngine, PdfInput, TranslationEngine, 
  * ([translationEngine], [translatePdf], [detectSourceLanguage]) unless a device test puts its own in
  * their place, so the screen can be tested without a network or ML Kit. Nothing in the app sets them.
  */
-@VisibleForTesting
 internal object TranslationTestHook {
     /** Makes the engine in place of [translationEngine], when set: what it returns is the engine, null included. */
     @Volatile
