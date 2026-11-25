@@ -78,4 +78,16 @@ class TextBlocksDocumentsTest {
         val column = paragraph(listOf("For about ten years, bees have found an unexpected refuge" to 238f, "in large cities, far from the fields." to 160f), 50f, 152f, size = 10f)
         assertEquals(listOf(BlockAlign.CENTER, BlockAlign.CENTER, BlockAlign.START), group(listOf(title, subtitle) + column).map { it.align })
     }
+
+    @Test fun eachFootnoteStartsAtItsNumber() {
+        // Two footnotes in 9-point type, each after its number in 6-point type.
+        val notes = listOf(
+            line("1", 60f, 755f, 63f, size = 6f), line("Venetian travellers already spoke of it in their own accounts of the East.", 66f, 754f, 330f, size = 9f),
+            line("2", 60f, 769f, 63f, size = 6f), line("Voltaire, it is said, drank more than forty cups of it on every single day.", 66f, 768f, 332f, size = 9f),
+        )
+        assertEquals(listOf("1", notes[1].text, "2", notes[3].text), texts(group(notes)))
+        // A number of the same size as the text beside it is no note's: a table's first column, say.
+        val table = listOf(line("1", 60f, 754f, 65f, size = 9f), notes[1], line("2", 60f, 768f, 65f, size = 9f), notes[3])
+        assertEquals(listOf("1", "${notes[1].text} ${notes[3].text}", "2"), texts(group(table)))
+    }
 }

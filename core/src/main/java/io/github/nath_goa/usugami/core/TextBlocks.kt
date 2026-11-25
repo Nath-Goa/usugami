@@ -70,7 +70,8 @@ data class SourceBlock(
  *   3 font sizes or the new line's first word, which would have fitted on it had the paragraph gone on.
  *
  * A line that starts with a bullet or a number ("•", "-", "–", "*", "1.", "1)", "(1)", "a)", "iv.")
- * always starts a new block, as does the line beside a bullet or a number standing alone. A
+ * always starts a new block, as does the line beside a bullet or a number standing alone, or just
+ * after a note's number set smaller than it (a footnote's). A
  * block can't go on past a line below its last line that overlaps it sideways, so a heading or a
  * picture's caption between two parts of a column keeps them apart.
  *
@@ -178,6 +179,12 @@ object TextBlocks {
     private val MARKER = Regex("^$MARKER_PATTERN(?:\\s|$)")
     private val MARKER_ONLY = Regex("^$MARKER_PATTERN$")
 
+    /** A note's number or sign, as a footnote starts with… */
+    private val NOTE_MARK = Regex("\\d{1,3}|[*†‡§]{1,3}")
+
+    /** …set smaller than this share of the footnote's size. */
+    internal const val NOTE_SIZE = 0.8f
+
     /**
      * [lines] of a page [pageWidth] × [pageHeight] points big, in any order, grouped into blocks,
      * in the reading order of their first lines (see [TextBlocks]). A block's [SourceBlock.text]
@@ -204,8 +211,9 @@ object TextBlocks {
         val blocks = ArrayList<Block>()
         for (row in rows(usable)) {
             var afterMarker = false
+            var previous: Line? = null
             for (line in row) {
-                val target = if (afterMarker || MARKER.containsMatchIn(line.text)) {
+                val target = if (afterMarker || previous != null && notesBeside(previous, line) || MARKER.containsMatchIn(line.text)) {
                     null
                 } else {
                     blocks.filter { it.open && continues(it, line, spacing, pageWidth) }.minWithOrNull(
@@ -216,9 +224,21 @@ object TextBlocks {
                 // A block doesn't go on past a line under it.
                 for (other in blocks) if (other !== block && other.open && under(line, other)) other.open = false
                 afterMarker = MARKER_ONLY.matches(line.text)
+                previous = line
             }
         }
         return finish(blocks, pageWidth)
+    }
+
+    /**
+     * Whether [mark], read just before [line] in its row, is a note's number (or *, †) set smaller
+     * just before it, as a footnote starts: the footnote is a block of its own, not the next line of
+     * the one above it.
+     */
+    private fun notesBeside(mark: Line, line: Line): Boolean {
+        if (!NOTE_MARK.matches(mark.text) || mark.size >= NOTE_SIZE * line.size) return false
+        val gap = if (line.rtl) mark.left - line.right else line.left - mark.right
+        return gap <= line.size
     }
 
     /** A line as grouping works with it: its text trimmed, its box with left ≤ right and top ≤ bottom, a positive size. */
