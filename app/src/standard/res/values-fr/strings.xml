@@ -54,7 +54,7 @@
     <string name="translate_downloading_one">Téléchargement du pack %1$s…</string>
     <string name="translate_downloading">Téléchargement des packs de langue…</string>
     <string name="translate_download_note">Cela n\'a lieu qu\'une fois et nécessite une connexion Internet.</string>
-    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Traduction de la page %1$d sur %2$d</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Traduction de la page\u00A0%1$d sur %2$d</string>
 
     <string name="translate_problem_title">Traduction impossible pour le moment</string>
     <string name="translate_problem_no_internet">Les packs de langue nécessaires doivent être téléchargés, et ce téléphone n\'est pas connecté à Internet. Connectez-vous et réessayez.</string>

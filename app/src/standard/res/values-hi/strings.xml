@@ -50,7 +50,7 @@
     <string name="translate_downloading_one">%1$s भाषा पैक डाउनलोड हो रहा है…</string>
     <string name="translate_downloading">भाषा पैक डाउनलोड हो रहे हैं…</string>
     <string name="translate_download_note">ऐसा सिर्फ़ एक बार होता है और इसके लिए इंटरनेट कनेक्शन ज़रूरी है।</string>
-    <string name="translate_progress_page" tools:ignore="PluralsCandidate">अनुवाद हो रहा है: %2$d में से पेज %1$d</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">अनुवाद हो रहा है: %2$d में से पेज\u00A0%1$d</string>
 
     <string name="translate_problem_title">अभी अनुवाद नहीं हो सकता</string>
     <string name="translate_problem_no_internet">ज़रूरी भाषा पैक डाउनलोड करने होंगे, और यह फ़ोन इंटरनेट से कनेक्ट नहीं है। कनेक्ट करें और फिर से कोशिश करें।</string>

@@ -75,7 +75,7 @@
     <string name="translate_downloading">Downloading language packs…</string>
     <string name="translate_download_note">This happens once and needs an internet connection.</string>
     <!-- Under the bar while the pages are translated: the page being translated (%1$d) and how many there are (%2$d). -->
-    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Translating page %1$d of %2$d</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Translating page\u00A0%1$d of %2$d</string>
 
     <!-- A dialog's title when translating can't start; its text says why. -->
     <string name="translate_problem_title">Can\'t translate right now</string>

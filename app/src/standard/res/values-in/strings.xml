@@ -46,7 +46,7 @@
     <string name="translate_downloading_one">Mendownload paket bahasa %1$s…</string>
     <string name="translate_downloading">Mendownload paket bahasa…</string>
     <string name="translate_download_note">Ini hanya terjadi sekali dan memerlukan koneksi internet.</string>
-    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Menerjemahkan halaman %1$d dari %2$d</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Menerjemahkan halaman\u00A0%1$d dari %2$d</string>
 
     <string name="translate_problem_title">Tidak dapat menerjemahkan sekarang</string>
     <string name="translate_problem_no_internet">Paket bahasa yang diperlukan harus didownload, dan ponsel ini tidak terhubung ke internet. Hubungkan ponsel, lalu coba lagi.</string>

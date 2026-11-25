@@ -292,8 +292,9 @@ private fun PackRow(tag: String, locale: Locale, onDelete: () -> Unit) {
                 )
             }
         }
+        // Quiet, as a list of red glyphs would shout: the dialog's Delete is the red one.
         GlyphButton(onClick = onDelete) {
-            Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.translate_pack_delete, languageWord(tag, locale)), tint = MaterialTheme.colorScheme.error)
+            Icon(Icons.Rounded.Delete, contentDescription = stringResource(R.string.translate_pack_delete, languageWord(tag, locale)), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

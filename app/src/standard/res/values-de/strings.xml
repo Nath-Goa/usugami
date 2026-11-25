@@ -50,7 +50,7 @@
     <string name="translate_downloading_one">Sprachpaket %1$s wird heruntergeladen…</string>
     <string name="translate_downloading">Sprachpakete werden heruntergeladen…</string>
     <string name="translate_download_note">Das passiert nur einmal und erfordert eine Internetverbindung.</string>
-    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Seite %1$d von %2$d wird übersetzt</string>
+    <string name="translate_progress_page" tools:ignore="PluralsCandidate">Seite\u00A0%1$d von %2$d wird übersetzt</string>
 
     <string name="translate_problem_title">Übersetzen gerade nicht möglich</string>
     <string name="translate_problem_no_internet">Die nötigen Sprachpakete müssen heruntergeladen werden, aber dieses Smartphone ist nicht mit dem Internet verbunden. Stelle eine Verbindung her und versuche es noch einmal.</string>
