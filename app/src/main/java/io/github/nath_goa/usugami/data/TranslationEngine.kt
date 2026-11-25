@@ -10,7 +10,7 @@ enum class TranslationProblem {
     /** A language pack has to be downloaded and the phone is offline. */
     NO_INTERNET,
 
-    /** The download failed, or took far too long. */
+    /** The download failed or stopped (no progress for a while). */
     DOWNLOAD_FAILED,
 
     /** The phone has no room for the language pack. */

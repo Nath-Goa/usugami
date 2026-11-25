@@ -17,8 +17,9 @@ import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.ExecutionException
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -54,9 +55,11 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
      * offline. A download that is getting somewhere has no time limit (a slow connection may take
      * many minutes) but for a ceiling of [DOWNLOAD_LIMIT]; it fails with
      * [TranslationProblem.NO_INTERNET] at once when the phone is offline, and when it stays offline
-     * for [OFFLINE_LIMIT] during the download. When it fails, or the coroutine is cancelled, only
-     * the wait stops: the download manager carries on (it waits for a network), and the next call
-     * takes the download up where it is. [delete] of the pack stops it.
+     * for [OFFLINE_LIMIT] during the download, and with [TranslationProblem.DOWNLOAD_FAILED] when,
+     * online, it gets nowhere for [STALL_LIMIT] (Google's servers can't be reached; the download
+     * manager would go on retrying for about a quarter of an hour). When it fails, or the coroutine
+     * is cancelled, only the wait stops: the download manager carries on (waiting for a network if
+     * need be), and the next call takes the download up where it is. [delete] of the pack stops it.
      */
     override suspend fun ensureReady(source: String, target: String, onDownload: (Float?) -> Unit) {
         try {
@@ -85,21 +88,41 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
     }
 
     private suspend fun download(manager: RemoteModelManager, missing: List<TranslateRemoteModel>, onDownload: (Float?) -> Unit) =
-        coroutineScope {
+        // A supervisor scope, so that a failed download comes out of waiting.await() as it is.
+        supervisorScope {
             val conditions = DownloadConditions.Builder().build()
             val download = Tasks.whenAll(missing.map { manager.download(it, conditions) })
             val progress = DownloadProgress(context, missing.size)
-            // One wait for the whole download; the loop below looks at it every POLL.
-            val waiting = async { download.await() }
+            // One wait for the whole download; the loop below looks at it every POLL. Tasks.whenAll
+            // reports a pack's failed download as an ExecutionException around ML Kit's own.
+            val waiting = async {
+                try {
+                    download.await()
+                } catch (e: ExecutionException) {
+                    throw e.cause as? Exception ?: e
+                }
+            }
             try {
                 val started = TimeSource.Monotonic.markNow()
                 var offlineSince: TimeSource.Monotonic.ValueTimeMark? = null
+                var lastBytes: Long? = null
+                var movedAt = TimeSource.Monotonic.markNow()
                 while (withTimeoutOrNull(POLL) { waiting.await(); true } == null) {
                     if (started.elapsedNow() >= DOWNLOAD_LIMIT) throw TranslationUnavailableException(TranslationProblem.DOWNLOAD_FAILED)
                     if (isOnline()) {
                         offlineSince = null
-                        onDownload(progress.fraction())
+                        progress.update()
+                        // A download the download manager can't tell about isn't taken for stuck.
+                        val bytes = progress.bytes
+                        if (bytes == null || bytes != lastBytes) {
+                            lastBytes = bytes
+                            movedAt = TimeSource.Monotonic.markNow()
+                        } else if (movedAt.elapsedNow() >= STALL_LIMIT) {
+                            throw TranslationUnavailableException(TranslationProblem.DOWNLOAD_FAILED)
+                        }
+                        onDownload(progress.fraction)
                     } else {
+                        movedAt = TimeSource.Monotonic.markNow() // time offline counts for OFFLINE_LIMIT instead
                         val since = offlineSince ?: TimeSource.Monotonic.markNow().also { offlineSince = it }
                         if (since.elapsedNow() >= OFFLINE_LIMIT) throw TranslationUnavailableException(TranslationProblem.NO_INTERNET)
                         onDownload(null)
@@ -192,16 +215,30 @@ private class MlKitTextTranslator(private val translator: Translator) : TextTran
 private class DownloadProgress(context: Context, private val packs: Int) {
     private val downloads = context.getSystemService(DownloadManager::class.java)
 
-    /** The size of each download seen pending or running since this was made. */
+    /** The size of each download seen pending or running since this was made, or -1 while it isn't known. */
     private val sizes = HashMap<Long, Long>()
 
-    /** The fraction of the bytes downloaded, or null while there are fewer downloads than [packs] or a size is unknown. */
-    fun fraction(): Float? {
-        val manager = downloads ?: return null
+    /** The bytes downloaded, as of the last [update]; null when the download manager couldn't be asked. */
+    var bytes: Long? = null
+        private set
+
+    /**
+     * The fraction of the bytes downloaded, as of the last [update]; null while there are fewer
+     * downloads than [packs] or a size is unknown.
+     */
+    var fraction: Float? = null
+        private set
+
+    /** Asks the download manager how far the downloads are. */
+    fun update() {
+        bytes = null
+        fraction = null
+        val manager = downloads ?: return
         var done = 0L
         val listed = HashSet<Long>()
         try {
-            manager.query(DownloadManager.Query())?.use { rows ->
+            val rows = manager.query(DownloadManager.Query()) ?: return
+            rows.use {
                 val idColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)
                 val statusColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
                 val doneColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
@@ -214,19 +251,20 @@ private class DownloadProgress(context: Context, private val packs: Int) {
                     // Downloads that ended before this run are not part of it.
                     if (!active && id !in sizes) continue
                     val total = rows.getLong(totalColumn)
-                    if (total <= 0) return null
                     sizes[id] = total
                     listed += id
-                    done += if (status == DownloadManager.STATUS_SUCCESSFUL) total else rows.getLong(doneColumn)
+                    done += if (status == DownloadManager.STATUS_SUCCESSFUL && total > 0) total else rows.getLong(doneColumn)
                 }
             }
         } catch (_: RuntimeException) {
-            return null // the download manager's provider failing is no reason to stop the download
+            return // the download manager's provider failing is no reason to stop the download
         }
-        if (sizes.size < packs) return null
         // ML Kit removes a finished download from the list once it has the pack.
-        done += sizes.filterKeys { it !in listed }.values.sum()
-        return (done.toDouble() / sizes.values.sum()).toFloat().coerceIn(0f, 1f)
+        done += sizes.filterKeys { it !in listed }.values.sumOf { it.coerceAtLeast(0) }
+        bytes = done
+        if (sizes.size >= packs && sizes.values.all { it > 0 }) {
+            fraction = (done.toDouble() / sizes.values.sum()).toFloat().coerceIn(0f, 1f)
+        }
     }
 }
 
@@ -257,6 +295,9 @@ private val POLL = 500.milliseconds
 
 /** How long the phone may be offline during a download before it counts as having no internet. */
 private val OFFLINE_LIMIT = 60.seconds
+
+/** How long a download may get nowhere, the phone being online, before it counts as failed. */
+private val STALL_LIMIT = 2.minutes
 
 /** A download not finished after this long has failed, however it was going. */
 private val DOWNLOAD_LIMIT = 30.minutes
