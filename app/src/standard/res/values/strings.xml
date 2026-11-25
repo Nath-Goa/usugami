@@ -2,4 +2,13 @@
 <resources>
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF. The first time you use each language, its text recognition is downloaded, which needs an internet connection.</string>
+
+    <!-- Translate PDF (this edition only): makes a new PDF of a PDF with its text in another language. Its name on Home and at the top of its screen. -->
+    <string name="translate_title">Translate PDF</string>
+    <!-- Under the tool's name on Home. -->
+    <string name="translate_detail">Read a PDF in another language</string>
+    <!-- Hidden words, separated by commas, that also find Translate PDF in Home's search: words people would type to look for it. -->
+    <string name="translate_keywords">translate, translation, translator, language, languages, foreign language, interpret, interpreter, bilingual, English, French, Spanish, German, Hindi, Chinese, Japanese, Arabic, Russian</string>
+    <!-- The tool's button, which makes the new PDF. -->
+    <string name="translate_action">Translate PDF</string>
 </resources>

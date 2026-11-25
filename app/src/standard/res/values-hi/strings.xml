@@ -2,4 +2,9 @@
 <resources>
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">इन इमेज में शब्द पहचानें और PDF में खोजने लायक टेक्स्ट जोड़ें। हर भाषा का पहली बार इस्तेमाल करने पर उसकी टेक्स्ट पहचान डाउनलोड होती है, जिसके लिए इंटरनेट कनेक्शन ज़रूरी है।</string>
+
+    <string name="translate_title">PDF का अनुवाद करें</string>
+    <string name="translate_detail">PDF को दूसरी भाषा में पढ़ें</string>
+    <string name="translate_keywords">अनुवाद, अनुवादक, ट्रांसलेट, ट्रांसलेशन, भाषा, भाषाएं, दूसरी भाषा, विदेशी भाषा, अंग्रेज़ी, अंग्रेजी, इंग्लिश, हिंदी, हिन्दी, मराठी, translate, translation, translator, language, English, Hindi</string>
+    <string name="translate_action">PDF का अनुवाद करें</string>
 </resources>

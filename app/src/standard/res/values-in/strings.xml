@@ -2,4 +2,9 @@
 <resources>
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Mengenali kata pada gambar ini, lalu menambahkan teks yang dapat ditelusuri ke PDF. Pengenalan teks untuk setiap bahasa didownload saat bahasa itu pertama kali digunakan, sehingga memerlukan koneksi internet.</string>
+
+    <string name="translate_title">Terjemahkan PDF</string>
+    <string name="translate_detail">Baca PDF dalam bahasa lain</string>
+    <string name="translate_keywords">terjemah, terjemahkan, terjemahan, penerjemah, alih bahasa, bahasa, bahasa asing, translate, translation, bahasa Inggris, Inggris, Arab, Mandarin, Jepang, Korea, Belanda</string>
+    <string name="translate_action">Terjemahkan PDF</string>
 </resources>

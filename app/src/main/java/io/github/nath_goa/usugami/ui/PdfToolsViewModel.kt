@@ -101,13 +101,16 @@ import java.util.concurrent.ConcurrentHashMap
  * DOCUMENT_INFO shows and changes a PDF's title, author and the like; each lives in files of its own
  * (see [ToolAction]). READER opens a PDF to read: its pages in one scroll, text to find, select and
  * copy, and, in Annotate (Edit PDF until 2.0.0), text, drawings, shapes and pictures put on its pages.
- * It has a screen of its own (ReaderScreen).
+ * It has a screen of its own (ReaderScreen). TRANSLATE makes a new PDF of a PDF's pages with their
+ * text in another language; only the standard edition has it (see translationAvailable), and it
+ * lives in that edition's files.
  */
 enum class PdfTool {
     SPLIT, MERGE, COMPRESS, PAGE_NUMBERS, WATERMARK, SIGN, WORD, POWERPOINT, EPUB,
     REORGANIZE, FLATTEN, REDACT, EXCEL,
     PDF_TO_IMAGES_OR_TEXT, PAGE_LAYOUT, DOCUMENT_INFO,
     READER,
+    TRANSLATE,
 }
 
 /**
@@ -2380,6 +2383,7 @@ class PdfToolsViewModel(private val app: Application, private val handle: SavedS
             PdfTool.PAGE_LAYOUT -> named("_layout")
             PdfTool.DOCUMENT_INFO -> named("_info")
             PdfTool.READER -> named("_annotated")
+            PdfTool.TRANSLATE -> named("_translated")
         }
     }
 

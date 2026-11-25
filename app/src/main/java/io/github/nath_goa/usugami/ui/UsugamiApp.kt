@@ -1193,7 +1193,9 @@ fun UsugamiApp(
                     )
                 }
                 else -> {
+                    // Translate PDF is no tool in an edition without translating, whatever route says.
                     val tool = PdfTool.entries.firstOrNull { it.name.equals(current, ignoreCase = true) }
+                        ?.takeIf { it != PdfTool.TRANSLATE || translationAvailable }
                     if (tool == null) {
                         // A route no tool has, kept from a version that had other tools: Home.
                         LaunchedEffect(current) { route = "home" }

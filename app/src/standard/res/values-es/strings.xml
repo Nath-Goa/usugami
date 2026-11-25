@@ -2,4 +2,9 @@
 <resources>
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Reconoce las palabras de estas imágenes y añade texto buscable al PDF. La primera vez que usas cada idioma, se descarga su reconocimiento de texto, lo que requiere conexión a Internet.</string>
+
+    <string name="translate_title">Traducir PDF</string>
+    <string name="translate_detail">Lee un PDF en otro idioma</string>
+    <string name="translate_keywords">traducir, traducción, traductor, idioma, idiomas, lengua, lengua extranjera, interpretar, intérprete, bilingüe, inglés, español, francés, alemán, portugués, árabe, chino, japonés, translate</string>
+    <string name="translate_action">Traducir PDF</string>
 </resources>

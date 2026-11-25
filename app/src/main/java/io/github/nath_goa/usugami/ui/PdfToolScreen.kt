@@ -215,7 +215,7 @@ fun PdfToolScreen(
         PdfTool.WORD, PdfTool.POWERPOINT, PdfTool.EXCEL, PdfTool.EPUB -> documents.isNotEmpty() && documents.all { it.kind == officeKind }
         PdfTool.REORGANIZE -> reorganized
         PdfTool.REDACT -> inputs.size == 1 && redactBoxes.isNotEmpty() && !finding
-        PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO -> inputs.size == 1 && toolAction.ready
+        PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO, PdfTool.TRANSLATE -> inputs.size == 1 && toolAction.ready
         // The reader has a screen of its own (ReaderScreen); this screen is never shown for it.
         PdfTool.READER -> false
     }
@@ -236,6 +236,8 @@ fun PdfToolScreen(
         PdfTool.DOCUMENT_INFO -> R.string.pdf_document_info_action
         // The reader has a screen of its own (ReaderScreen); this screen is never shown for it.
         PdfTool.READER -> R.string.pdf_edit_action
+        // The standard edition's own text (see TranslateFeature).
+        PdfTool.TRANSLATE -> translateActionLabel()
     }
     // The pages are drawn from a copy without the password and with annotations drawn in, when the
     // PDF has either: Android's renderer can't open the one and leaves the others out. Add watermark
@@ -279,7 +281,7 @@ fun PdfToolScreen(
                                 PdfTool.EXCEL -> vm.runConvertAll(sheets = sheetOptions)
                                 PdfTool.REDACT -> vm.runRedact(fileName)
                                 // What their options told the screen they do.
-                                PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO -> toolAction.run(fileName)
+                                PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.DOCUMENT_INFO, PdfTool.TRANSLATE -> toolAction.run(fileName)
                                 // The reader has a screen of its own (ReaderScreen); this screen is never shown for it.
                                 PdfTool.READER -> Unit
                             }
@@ -479,6 +481,8 @@ fun PdfToolScreen(
                             PdfTool.DOCUMENT_INFO -> DocumentInfoOptions(inputs[0], drawn(inputs[0]), vm, toolAction)
                             // The reader has a screen of its own (ReaderScreen); this screen is never shown for it.
                             PdfTool.READER -> Unit
+                            // In the standard edition's files (see TranslateFeature); the other editions never show it.
+                            PdfTool.TRANSLATE -> TranslateOptions(inputs[0], drawn(inputs[0]), vm, toolAction)
                         }
                         // A tool for several PDFs keeps each one's name, also while there is only one.
                         if (tool.isBatch) {
@@ -712,7 +716,7 @@ private const val WORKING_DIALOG_DELAY_MS = 400L
 /** The tools that draw the PDF's pages for the user to work on. Redact PDF prepares its own. */
 private val PREVIEWED = setOf(
     PdfTool.SPLIT, PdfTool.WATERMARK, PdfTool.SIGN, PdfTool.REORGANIZE,
-    PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT,
+    PdfTool.PDF_TO_IMAGES_OR_TEXT, PdfTool.PAGE_LAYOUT, PdfTool.TRANSLATE,
 )
 
 /** The name the file made gets, typed; [suffix] is how it ends, shown after it. */

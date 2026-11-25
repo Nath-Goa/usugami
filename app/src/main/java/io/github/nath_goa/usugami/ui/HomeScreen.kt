@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Slideshow
 import androidx.compose.material.icons.rounded.Splitscreen
 import androidx.compose.material.icons.rounded.TableChart
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -148,9 +149,14 @@ private val OptimizeTools = listOf(
     PdfTool.DOCUMENT_INFO,
 )
 
-/** The tools under "Convert from PDF" on Home, in order: those that make other files of a PDF. */
-private val FromPdfTools = listOf(
+/**
+ * The tools under "Convert from PDF" on Home, in order: those that make other files of a PDF.
+ * Translate PDF only in the edition that translates (see translationAvailable), so Home, its search
+ * and Choose a tool all leave it out elsewhere.
+ */
+private val FromPdfTools = listOfNotNull(
     PdfTool.PDF_TO_IMAGES_OR_TEXT,
+    PdfTool.TRANSLATE.takeIf { translationAvailable },
 )
 
 /** The tools that work on PDFs, under their headings, as Home shows them (see [ShareScreen]). */
@@ -183,6 +189,8 @@ internal val PdfTool.title: Int
         PdfTool.PAGE_LAYOUT -> R.string.tool_page_layout
         PdfTool.DOCUMENT_INFO -> R.string.tool_document_info
         PdfTool.READER -> R.string.tool_reader
+        // Its texts are the standard edition's own (see TranslateFeature): the other editions carry none.
+        PdfTool.TRANSLATE -> translateTitle()
     }
 
 /** What a tool does, in a short line under its name on Home. */
@@ -206,6 +214,7 @@ internal val PdfTool.detail: Int
         PdfTool.PAGE_LAYOUT -> R.string.tool_page_layout_detail
         PdfTool.DOCUMENT_INFO -> R.string.tool_document_info_detail
         PdfTool.READER -> R.string.tool_reader_detail
+        PdfTool.TRANSLATE -> translateDetail()
     }
 
 internal val PdfTool.icon: ImageVector
@@ -227,6 +236,7 @@ internal val PdfTool.icon: ImageVector
         PdfTool.PAGE_LAYOUT -> Icons.AutoMirrored.Rounded.ViewQuilt
         PdfTool.DOCUMENT_INFO -> Icons.Rounded.Info
         PdfTool.READER -> Icons.AutoMirrored.Rounded.MenuBook
+        PdfTool.TRANSLATE -> Icons.Rounded.Translate
     }
 
 /** Hidden words, separated by commas, that also find a tool in Home's search. */
@@ -250,6 +260,7 @@ private val PdfTool.keywords: Int
         PdfTool.PAGE_LAYOUT -> R.string.search_keywords_page_layout
         PdfTool.DOCUMENT_INFO -> R.string.search_keywords_document_info
         PdfTool.READER -> R.string.search_keywords_reader
+        PdfTool.TRANSLATE -> translateKeywords()
     }
 
 /**
