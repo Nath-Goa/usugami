@@ -31,7 +31,7 @@ Builds:
       - third_party/ncnn/python
     prebuild:
       - sdkmanager 'cmake;3.22.1'
-      - sed -i -e '/com\.google\.android\.gms/d' build.gradle.kts
+      - sed -i -e '/com\.google\.android\.gms/d' -e '/com\.google\.mlkit/d' build.gradle.kts
     scanignore:
       - app/src/ocr/assets/ocr
     ndk: 28.2.13676358
@@ -42,8 +42,9 @@ MaintainerNotes: |-
   Usugami is built in three editions (product flavors). F-Droid builds "ocr": open-source text
   recognition with PaddleOCR's PP-OCRv5 models run by Tencent's ncnn, which is built from source
   (the git submodule third_party/ncnn) by the ocr-native module with CMake and the NDK. The
-  "standard" edition uses Google ML Kit and is not built here: its sources and its two
-  com.google.android.gms dependency lines are removed. Usugami Lite (no text recognition) is
+  "standard" edition uses Google ML Kit and is not built here: its sources and its four Google
+  dependency lines are removed (each of them also names com.google.android.gms in a comment, so
+  the sed of recipes older than 3.1.0 removes them too). Usugami Lite (no text recognition) is
   io.github.nath_goa.usugami.lite, built from the same repository.
 
   scanignore: app/src/ocr/assets/ocr holds the PP-OCRv5 models (Apache-2.0) in ncnn's format:

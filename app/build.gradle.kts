@@ -152,8 +152,9 @@ dependencies {
     // each language's pack itself, and its language identification, which is built in.
     "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.1")
-    // F-Droid's recipes delete these lines with sed, and copies of the recipes made before 3.1.0 only
-    // delete lines naming com.google.android.gms: each line names it in a comment so they still do.
+    // F-Droid's recipes delete Google's dependency lines with sed. Copies of the recipes made before
+    // 3.1.0 only delete the lines that name Play services' Maven group, so each of these two names
+    // that group in a comment too.
     "standardImplementation"("com.google.mlkit:translate:17.0.3") // com.google.android.gms (see above)
     "standardImplementation"("com.google.mlkit:language-id:17.0.6") // com.google.android.gms (see above)
     // Usugami OCR's built-in engine: ncnn and its JNI bridge, built from source (see :ocr-native).
