@@ -22,16 +22,16 @@
         <item quantity="other">%1$s भाषा पैक इस फ़ोन पर हैं, इसलिए अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
     </plurals>
     <plurals name="translate_packs_needed" tools:ignore="ImpliedQuantity">
-        <item quantity="one">%1$s भाषा पैक चाहिए, लगभग 30 MB। यह एक ही बार डाउनलोड होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
-        <item quantity="other">%1$s भाषा पैक चाहिए, हर एक लगभग 30 MB। ये एक ही बार डाउनलोड होते हैं; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+        <item quantity="one">%1$s भाषा पैक चाहिए, लगभग 40 MB। यह एक ही बार डाउनलोड होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+        <item quantity="other">%1$s भाषा पैक चाहिए, हर एक लगभग 40 MB। ये एक ही बार डाउनलोड होते हैं; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
     </plurals>
     <string name="translate_scans_note">स्कैन किए गए पेज (टेक्स्ट की तस्वीरें) पहले टेक्स्ट पहचान से पढ़े जाते हैं। यह लैटिन लिपि में लिखी भाषाएं, और हिंदी व मराठी पढ़ती है।</string>
 
-    <string name="translate_packs_intro">हर पैक लगभग 30 MB का है। इस फ़ोन पर मौजूद पैक से अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</string>
+    <string name="translate_packs_intro">हर पैक लगभग 40 MB का है। इस फ़ोन पर मौजूद पैक से अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</string>
     <string name="translate_packs_none">इस फ़ोन पर कोई भाषा पैक नहीं है। किसी अनुवाद को ज़रूरत होने पर ये डाउनलोड होते हैं।</string>
     <string name="translate_pack_delete">%1$s भाषा पैक हटाएं</string>
     <string name="translate_pack_delete_title">%1$s भाषा पैक हटाएं?</string>
-    <string name="translate_pack_delete_body">अगली बार किसी अनुवाद को इसकी ज़रूरत होने पर यह फिर से डाउनलोड होगा (लगभग 30 MB)।</string>
+    <string name="translate_pack_delete_body">अगली बार किसी अनुवाद को इसकी ज़रूरत होने पर यह फिर से डाउनलोड होगा (लगभग 40 MB)।</string>
     <string name="translate_pack_delete_confirm">हटाएं</string>
     <string name="translate_pack_delete_failed">भाषा पैक हटाया नहीं जा सका। फिर से कोशिश करें।</string>
 
@@ -40,8 +40,8 @@
         <item quantity="other">भाषा पैक डाउनलोड करें?</item>
     </plurals>
     <plurals name="translate_download_body" tools:ignore="ImpliedQuantity">
-        <item quantity="one">अनुवाद के लिए पहले %1$s भाषा पैक डाउनलोड करना होगा: लगभग 30 MB, इंटरनेट से। ऐसा सिर्फ़ एक बार होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
-        <item quantity="other">अनुवाद के लिए पहले %1$s भाषा पैक डाउनलोड करने होंगे: हर एक लगभग 30 MB, इंटरनेट से। ऐसा सिर्फ़ एक बार होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+        <item quantity="one">अनुवाद के लिए पहले %1$s भाषा पैक डाउनलोड करना होगा: लगभग 40 MB, इंटरनेट से। ऐसा सिर्फ़ एक बार होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
+        <item quantity="other">अनुवाद के लिए पहले %1$s भाषा पैक डाउनलोड करने होंगे: हर एक लगभग 40 MB, इंटरनेट से। ऐसा सिर्फ़ एक बार होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
     </plurals>
     <string name="translate_download_confirm">डाउनलोड करके अनुवाद करें</string>
 

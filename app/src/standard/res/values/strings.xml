@@ -36,20 +36,20 @@
     </plurals>
     <!-- %1$s lists the languages whose packs must be downloaded first, such as "French and German". MB is megabytes. -->
     <plurals name="translate_packs_needed">
-        <item quantity="one">Needs the %1$s pack, about 30 MB. It downloads once; after that, translating needs no internet.</item>
-        <item quantity="other">Needs the %1$s packs, about 30 MB each. They download once; after that, translating needs no internet.</item>
+        <item quantity="one">Needs the %1$s pack, about 40 MB. It downloads once; after that, translating needs no internet.</item>
+        <item quantity="other">Needs the %1$s packs, about 40 MB each. They download once; after that, translating needs no internet.</item>
     </plurals>
     <!-- A note under the choices. Scanned pages are pictures of text. The Latin alphabet is the one of English, French, Spanish and the like. -->
     <string name="translate_scans_note">Scanned pages (pictures of text) are read with text recognition first. It reads languages written in the Latin alphabet, and Hindi and Marathi.</string>
 
     <!-- The list of language packs on the phone. MB is megabytes. -->
-    <string name="translate_packs_intro">Each pack is about 30 MB. With the packs on this phone, translating needs no internet.</string>
+    <string name="translate_packs_intro">Each pack is about 40 MB. With the packs on this phone, translating needs no internet.</string>
     <string name="translate_packs_none">There are no language packs on this phone. They download when a translation needs them.</string>
     <!-- The delete button of a language pack, for a screen reader. %1$s is the language, such as French. -->
     <string name="translate_pack_delete">Delete the %1$s pack</string>
     <!-- A dialog's title. %1$s is the language, such as French. -->
     <string name="translate_pack_delete_title">Delete the %1$s pack?</string>
-    <string name="translate_pack_delete_body">It downloads again, about 30 MB, the next time a translation needs it.</string>
+    <string name="translate_pack_delete_body">It downloads again, about 40 MB, the next time a translation needs it.</string>
     <!-- The dialog's button that deletes the pack. -->
     <string name="translate_pack_delete_confirm">Delete</string>
     <string name="translate_pack_delete_failed">Couldn\'t delete the language pack. Please try again.</string>
@@ -61,8 +61,8 @@
     </plurals>
     <!-- %1$s lists the languages whose packs are downloaded, such as "French and German". MB is megabytes. -->
     <plurals name="translate_download_body">
-        <item quantity="one">To translate, the %1$s pack has to be downloaded first: about 30 MB, over the internet. This happens once; after that, translating needs no internet.</item>
-        <item quantity="other">To translate, the %1$s packs have to be downloaded first: about 30 MB each, over the internet. This happens once; after that, translating needs no internet.</item>
+        <item quantity="one">To translate, the %1$s pack has to be downloaded first: about 40 MB, over the internet. This happens once; after that, translating needs no internet.</item>
+        <item quantity="other">To translate, the %1$s packs have to be downloaded first: about 40 MB each, over the internet. This happens once; after that, translating needs no internet.</item>
     </plurals>
     <string name="translate_download_confirm">Download and translate</string>
 

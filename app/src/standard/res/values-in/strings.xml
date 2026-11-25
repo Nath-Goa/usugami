@@ -21,15 +21,15 @@
         <item quantity="other">Paket bahasa %1$s sudah ada di ponsel ini, jadi menerjemahkan tidak memerlukan internet.</item>
     </plurals>
     <plurals name="translate_packs_needed">
-        <item quantity="other">Memerlukan paket bahasa %1$s, sekitar 30 MB per paket. Paket didownload sekali saja; setelah itu, menerjemahkan tidak memerlukan internet.</item>
+        <item quantity="other">Memerlukan paket bahasa %1$s, sekitar 40 MB per paket. Paket didownload sekali saja; setelah itu, menerjemahkan tidak memerlukan internet.</item>
     </plurals>
     <string name="translate_scans_note">Halaman hasil pindaian (gambar teks) dibaca dulu dengan pengenalan teks, yang membaca bahasa berhuruf Latin, serta Hindi dan Marathi.</string>
 
-    <string name="translate_packs_intro">Tiap paket sekitar 30 MB. Dengan paket yang ada di ponsel ini, menerjemahkan tidak memerlukan internet.</string>
+    <string name="translate_packs_intro">Tiap paket sekitar 40 MB. Dengan paket yang ada di ponsel ini, menerjemahkan tidak memerlukan internet.</string>
     <string name="translate_packs_none">Tidak ada paket bahasa di ponsel ini. Paket didownload saat terjemahan memerlukannya.</string>
     <string name="translate_pack_delete">Hapus paket bahasa %1$s</string>
     <string name="translate_pack_delete_title">Hapus paket bahasa %1$s?</string>
-    <string name="translate_pack_delete_body">Paket ini akan didownload lagi (sekitar 30 MB) saat terjemahan berikutnya memerlukannya.</string>
+    <string name="translate_pack_delete_body">Paket ini akan didownload lagi (sekitar 40 MB) saat terjemahan berikutnya memerlukannya.</string>
     <string name="translate_pack_delete_confirm">Hapus</string>
     <string name="translate_pack_delete_failed">Paket bahasa tidak dapat dihapus. Coba lagi.</string>
 
@@ -37,7 +37,7 @@
         <item quantity="other">Download paket bahasa?</item>
     </plurals>
     <plurals name="translate_download_body">
-        <item quantity="other">Untuk menerjemahkan, paket bahasa %1$s harus didownload dulu: sekitar 30 MB per paket, lewat internet. Ini hanya sekali; setelah itu, menerjemahkan tidak memerlukan internet.</item>
+        <item quantity="other">Untuk menerjemahkan, paket bahasa %1$s harus didownload dulu: sekitar 40 MB per paket, lewat internet. Ini hanya sekali; setelah itu, menerjemahkan tidak memerlukan internet.</item>
     </plurals>
     <string name="translate_download_confirm">Download dan terjemahkan</string>
 

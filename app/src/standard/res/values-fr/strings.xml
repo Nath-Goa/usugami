@@ -23,17 +23,17 @@
         <item quantity="other">Les packs %1$s sont sur ce téléphone : la traduction se fait sans Internet.</item>
     </plurals>
     <plurals name="translate_packs_needed" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Nécessite le pack %1$s, environ 30 Mo. Il se télécharge une seule fois ; ensuite, la traduction se fait sans Internet.</item>
-        <item quantity="many">Nécessite les packs %1$s, environ 30 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
-        <item quantity="other">Nécessite les packs %1$s, environ 30 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="one">Nécessite le pack %1$s, environ 40 Mo. Il se télécharge une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="many">Nécessite les packs %1$s, environ 40 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="other">Nécessite les packs %1$s, environ 40 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
     </plurals>
     <string name="translate_scans_note">Les pages numérisées (images de texte) sont d\'abord lues par la reconnaissance de texte. Elle lit les langues écrites en alphabet latin, ainsi que le hindi et le marathi.</string>
 
-    <string name="translate_packs_intro">Chaque pack fait environ 30 Mo. Avec les packs présents sur ce téléphone, la traduction se fait sans Internet.</string>
+    <string name="translate_packs_intro">Chaque pack fait environ 40 Mo. Avec les packs présents sur ce téléphone, la traduction se fait sans Internet.</string>
     <string name="translate_packs_none">Aucun pack de langue sur ce téléphone. Ils se téléchargent lorsqu\'une traduction en a besoin.</string>
     <string name="translate_pack_delete">Supprimer le pack %1$s</string>
     <string name="translate_pack_delete_title">Supprimer le pack %1$s ?</string>
-    <string name="translate_pack_delete_body">Il sera de nouveau téléchargé (environ 30 Mo) la prochaine fois qu\'une traduction en aura besoin.</string>
+    <string name="translate_pack_delete_body">Il sera de nouveau téléchargé (environ 40 Mo) la prochaine fois qu\'une traduction en aura besoin.</string>
     <string name="translate_pack_delete_confirm">Supprimer</string>
     <string name="translate_pack_delete_failed">Impossible de supprimer le pack de langue. Réessayez.</string>
 
@@ -43,9 +43,9 @@
         <item quantity="other">Télécharger des packs de langue ?</item>
     </plurals>
     <plurals name="translate_download_body" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Pour traduire, il faut d\'abord télécharger le pack %1$s : environ 30 Mo, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
-        <item quantity="many">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 30 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
-        <item quantity="other">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 30 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="one">Pour traduire, il faut d\'abord télécharger le pack %1$s : environ 40 Mo, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="many">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 40 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="other">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 40 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
     </plurals>
     <string name="translate_download_confirm">Télécharger et traduire</string>
 

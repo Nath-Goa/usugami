@@ -23,17 +23,17 @@
         <item quantity="other">Los paquetes de %1$s están en este teléfono, así que traducir no requiere Internet.</item>
     </plurals>
     <plurals name="translate_packs_needed">
-        <item quantity="one">Necesita el paquete de %1$s, unos 30 MB. Se descarga una sola vez; después, traducir no requiere Internet.</item>
-        <item quantity="many">Necesita los paquetes de %1$s, unos 30 MB cada uno. Se descargan una sola vez; después, traducir no requiere Internet.</item>
-        <item quantity="other">Necesita los paquetes de %1$s, unos 30 MB cada uno. Se descargan una sola vez; después, traducir no requiere Internet.</item>
+        <item quantity="one">Necesita el paquete de %1$s, unos 40 MB. Se descarga una sola vez; después, traducir no requiere Internet.</item>
+        <item quantity="many">Necesita los paquetes de %1$s, unos 40 MB cada uno. Se descargan una sola vez; después, traducir no requiere Internet.</item>
+        <item quantity="other">Necesita los paquetes de %1$s, unos 40 MB cada uno. Se descargan una sola vez; después, traducir no requiere Internet.</item>
     </plurals>
     <string name="translate_scans_note">Las páginas escaneadas (imágenes de texto) se leen primero con reconocimiento de texto, que lee idiomas escritos con el alfabeto latino, además de hindi y maratí.</string>
 
-    <string name="translate_packs_intro">Cada paquete ocupa unos 30 MB. Con los paquetes que hay en este teléfono, traducir no requiere Internet.</string>
+    <string name="translate_packs_intro">Cada paquete ocupa unos 40 MB. Con los paquetes que hay en este teléfono, traducir no requiere Internet.</string>
     <string name="translate_packs_none">No hay paquetes de idioma en este teléfono. Se descargan cuando una traducción los necesita.</string>
     <string name="translate_pack_delete">Eliminar el paquete de %1$s</string>
     <string name="translate_pack_delete_title">¿Eliminar el paquete de %1$s?</string>
-    <string name="translate_pack_delete_body">Se volverá a descargar (unos 30 MB) la próxima vez que una traducción lo necesite.</string>
+    <string name="translate_pack_delete_body">Se volverá a descargar (unos 40 MB) la próxima vez que una traducción lo necesite.</string>
     <string name="translate_pack_delete_confirm">Eliminar</string>
     <string name="translate_pack_delete_failed">No se pudo eliminar el paquete de idioma. Vuelve a intentarlo.</string>
 
@@ -43,9 +43,9 @@
         <item quantity="other">¿Descargar paquetes de idioma?</item>
     </plurals>
     <plurals name="translate_download_body">
-        <item quantity="one">Para traducir, primero hay que descargar el paquete de %1$s: unos 30 MB, por Internet. Esto ocurre una sola vez; después, traducir no requiere Internet.</item>
-        <item quantity="many">Para traducir, primero hay que descargar los paquetes de %1$s: unos 30 MB cada uno, por Internet. Esto ocurre una sola vez; después, traducir no requiere Internet.</item>
-        <item quantity="other">Para traducir, primero hay que descargar los paquetes de %1$s: unos 30 MB cada uno, por Internet. Esto ocurre una sola vez; después, traducir no requiere Internet.</item>
+        <item quantity="one">Para traducir, primero hay que descargar el paquete de %1$s: unos 40 MB, por Internet. Esto ocurre una sola vez; después, traducir no requiere Internet.</item>
+        <item quantity="many">Para traducir, primero hay que descargar los paquetes de %1$s: unos 40 MB cada uno, por Internet. Esto ocurre una sola vez; después, traducir no requiere Internet.</item>
+        <item quantity="other">Para traducir, primero hay que descargar los paquetes de %1$s: unos 40 MB cada uno, por Internet. Esto ocurre una sola vez; después, traducir no requiere Internet.</item>
     </plurals>
     <string name="translate_download_confirm">Descargar y traducir</string>
 
