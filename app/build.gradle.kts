@@ -266,8 +266,12 @@ androidComponents {
     onVariants(selector().withFlavor("edition" to "ocr").withBuildType("release")) { variant ->
         variant.packaging.jniLibs.excludes.addAll("lib/x86/**", "lib/x86_64/**")
     }
-    // The same for Usugami's translating (ML Kit's translation and language identification).
+    // The same for Usugami's translating (ML Kit's translation and language identification). Its native
+    // code is 29 MB stored as it is; kept compressed in the APK it is 14 MB, which the phone unpacks
+    // once when it installs the app: the APK is 19 MB instead of 35 MB, for about 1 MB more room on
+    // the phone.
     onVariants(selector().withFlavor("edition" to "standard").withBuildType("release")) { variant ->
         variant.packaging.jniLibs.excludes.addAll("lib/x86/**", "lib/x86_64/**")
+        variant.packaging.jniLibs.useLegacyPackaging.set(true)
     }
 }
