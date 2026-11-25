@@ -868,7 +868,7 @@ internal object Redactor {
      * The picture as a PDF image: lossless, in grey when it has no colour, unless a JPEG is much
      * smaller (a photo or a scan), which then stands in at high quality.
      */
-    private fun encode(doc: PDDocument, bitmap: Bitmap, check: () -> Unit): PDImageXObject {
+    internal fun encode(doc: PDDocument, bitmap: Bitmap, check: () -> Unit): PDImageXObject {
         val width = bitmap.width
         val height = bitmap.height
         val jpeg = ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it) }.toByteArray()

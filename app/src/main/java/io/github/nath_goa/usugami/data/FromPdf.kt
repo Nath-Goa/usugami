@@ -253,7 +253,7 @@ internal suspend fun PdfToolsEngine.pagesToText(
  * annotation that is not a link or a pop-up, is neither hidden nor left out of view, and has room on
  * the page (an invisible signature has none). Pages whose annotations can't be read count as having none.
  */
-private fun withFormsOrComments(doc: PDDocument, pages: List<Int>): Set<Int> {
+internal fun withFormsOrComments(doc: PDDocument, pages: List<Int>): Set<Int> {
     val wanted = pages.toHashSet()
     val found = HashSet<Int>()
     for ((index, page) in doc.pages.withIndex()) {
@@ -276,7 +276,7 @@ private fun hasRoom(annotation: PDAnnotation): Boolean {
  * aren't read from their images (PdfOcr's RENDER_SIDE and MAX_ENLARGE). The page is closed before
  * the picture is read.
  */
-private fun drawForReading(renderer: PdfRenderer, index: Int): Bitmap = renderer.openPage(index).use { page ->
+internal fun drawForReading(renderer: PdfRenderer, index: Int): Bitmap = renderer.openPage(index).use { page ->
     val scale = OcrScale.of(page.width, page.height, PdfOcr.RENDER_SIDE, PdfOcr.MAX_ENLARGE).toFloat()
     val bitmap = createBitmap(maxOf(1, (page.width * scale).toInt()), maxOf(1, (page.height * scale).toInt()))
     try {
@@ -350,7 +350,7 @@ private class PageSpool(private val file: File) : Closeable {
  * its pictures would leave out its filled-in fields and comments without a word, so that failure
  * goes up as it is.
  */
-private fun PdfToolsEngine.viewOf(input: PdfInput, check: () -> Unit): PdfInput {
+internal fun PdfToolsEngine.viewOf(input: PdfInput, check: () -> Unit): PdfInput {
     fun drawnAsItIs(e: Throwable): PdfInput = if (input.password.isEmpty() && !e.isOutOfSpace()) input else throw e
     return try {
         previewView(input, check)
