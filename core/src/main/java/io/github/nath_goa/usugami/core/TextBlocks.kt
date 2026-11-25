@@ -141,6 +141,9 @@ object TextBlocks {
     /** The usual line step is only trusted from this many pairs of lines of running text. */
     internal const val MIN_SPACING_SAMPLES = 4
 
+    /** Steps between lines this close (as a share) are one step. */
+    internal const val SAME_STEP = 0.08f
+
     /** A block's lines whose starts (or ends) are this close, in font sizes, line up there. */
     internal const val ALIGNED_EDGES_EM = 1f
 
@@ -310,9 +313,17 @@ object TextBlocks {
             if (nearest != Float.MAX_VALUE) steps += nearest / a.size
         }
         if (steps.size < MIN_SPACING_SAMPLES) return Spacing(MAX_STEP_EM, MAX_GAP_EM)
-        val maxStep = max(MAX_STEP_EM, min(median(steps) * SPACING_SLACK, MAX_SPACED_STEP_EM))
+        val maxStep = max(MAX_STEP_EM, min(commonest(steps) * SPACING_SLACK, MAX_SPACED_STEP_EM))
         return Spacing(maxStep, MAX_GAP_EM + (maxStep - MAX_STEP_EM))
     }
+
+    /**
+     * The step most of [steps] are near (within [SAME_STEP] of it; the smaller of two as common):
+     * the step between a paragraph's lines. Not their median, which on a page of short paragraphs
+     * is the wider step between two of them, as often as not.
+     */
+    private fun commonest(steps: List<Float>): Float =
+        steps.sorted().maxWith(compareBy<Float> { s -> steps.count { abs(it - s) <= SAME_STEP * s } }.thenByDescending { it })
 
     /** [lines] in rows, top to bottom, each row in reading order. Ties are broken by everything a line has, so the order never depends on the order given. */
     private fun rows(lines: List<Line>): List<List<Line>> {
