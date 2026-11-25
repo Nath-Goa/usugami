@@ -6,13 +6,7 @@
 # TextRecognition.getClient fails. Keep the constructors (a few hundred bytes).
 -keep class * implements com.google.firebase.components.ComponentRegistrar { <init>(); }
 
-# The native code of ML Kit's translation and language identification calls Java by name: the
-# translation's makes its errors with TranslateJni's newLoadingException and newTranslateException,
-# the language identification's makes its results with IdentifiedLanguage's constructor. No Java
-# code calls them, so R8 would remove them, and a translation that fails, or any language
-# detection, would then crash, in release builds only.
--keepclassmembers class com.google.mlkit.nl.translate.internal.TranslateJni {
-    static java.lang.Exception newLoadingException(int);
-    static java.lang.Exception newTranslateException(int);
-}
--keep class com.google.mlkit.nl.languageid.IdentifiedLanguage { <init>(java.lang.String, float); }
+# The native code of ML Kit's translation and language identification calls Java by name
+# (TranslateJni's newLoadingException and newTranslateException, IdentifiedLanguage's
+# constructor), which no Java code calls. They need no rule here: they are annotated
+# @UsedByNative, which ML Kit's own rule keeps. .github/scripts/check-mlkit-registrars.sh checks it.
