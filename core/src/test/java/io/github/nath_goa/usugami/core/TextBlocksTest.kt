@@ -321,9 +321,10 @@ class TextBlocksTest {
         )
         val body = paragraph(FIVE, 72f, 160f, 451f, justify = true)
         val blocks = group(listOf(date) + address + body)
-        assertEquals(listOf(date.text, address.joinToString(" ") { it.text }, FIVE), texts(blocks))
+        // An address's lines are each an entry of their own (see TextBlocksDocumentsTest).
+        assertEquals(listOf(date.text) + address.map { it.text } + FIVE, texts(blocks))
         // A single line flush with the right margin, and right-aligned lines.
-        assertEquals(listOf(BlockAlign.END, BlockAlign.END, BlockAlign.START), blocks.map { it.align })
+        assertEquals(listOf(BlockAlign.END, BlockAlign.END, BlockAlign.END, BlockAlign.END, BlockAlign.START), blocks.map { it.align })
         // In the right column of a two-column page, a full line starts where its column does; a short one at the column's end is right-aligned.
         val columns = paragraph(NEWS, 50f, 90f, 240f) + paragraph(MORE, 310f, 90f, 240f)
         val full = line("A single line as wide as its column, set apart.", 310f, 200f, width = 240f)

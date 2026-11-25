@@ -45,4 +45,19 @@ class TextBlocksDocumentsTest {
             texts(blocks),
         )
     }
+
+    @Test fun anAddressAndLabelsAreALineEach() {
+        // A letter's addressee, left-aligned, each line starting with a capital or a digit.
+        val address = listOf("Madame Sophie Durand" to 107.5f, "Service des achats" to 80.6f, "Hôtel du Parc" to 60.5f, "8 avenue Foch" to 64.2f, "75016 Paris" to 52.3f)
+            .mapIndexed { i, (text, width) -> line(text, 330f, 129f + 14f * i, 330f + width) }
+        assertEquals(address.map { it.text }, texts(group(address)))
+        // An invoice's labels in its top right corner, right-aligned.
+        val labels = listOf("Facture n° 2026-0412" to 448.2f, "Date : 15 octobre 2026" to 443.3f, "Échéance : 14 novembre 2026" to 408.8f)
+            .mapIndexed { i, (text, left) -> line(text, left, 42f + 14f * i, 545f, size = 10f) }
+        val blocks = group(labels)
+        assertEquals(labels.map { it.text }, texts(blocks))
+        // A narrow table cell's text that runs on in small letters is still one block.
+        val cell = listOf(line("Abat-jour en lin naturel", 56f, 217f, 176f, size = 10f), line("et coton tissé à la main", 56f, 229.5f, 170f, size = 10f))
+        assertEquals(listOf("Abat-jour en lin naturel et coton tissé à la main"), texts(group(cell)))
+    }
 }

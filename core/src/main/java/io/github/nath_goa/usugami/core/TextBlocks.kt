@@ -62,6 +62,8 @@ data class SourceBlock(
  * - in a block of three lines or more whose lines after the first share a start, it starts within
  *   one font size of it: a line indented (or outdented) from that margin starts the next paragraph,
  *   also where the paragraph before it ends with a full line;
+ * - when the last line is narrower than running text (15 font sizes), the line doesn't start with a
+ *   capital letter or a digit: such lines are an address's or labels', each an entry of its own;
  * - unless the text is centred or right-aligned, the last line isn't clearly short: it is at least
  *   8 font sizes wide (a narrower one is an entry of a list or a table, "Apples" above "Oranges"),
  *   and it ends no further short of the block's end (its furthest line, the new one included) than
@@ -370,6 +372,10 @@ object TextBlocks {
         // Indented (or outdented) from the margin the block's lines share: the next paragraph.
         val margin = block.margin(rtl)
         if (margin != null && abs(start - margin) > NEW_PARAGRAPH_INDENT_EM * em) return false
+        // A line narrower than running text over one starting with a capital or a digit: the lines of
+        // an address or of labels, each an entry of its own ("Mrs Sophie Durand" over "Purchasing
+        // Department", "Invoice no. 12" over "Date: 3 May"), however they are aligned.
+        if (prevEnd - prevStart < LONG_LINE_EM * em && startsAnEntry(line.text)) return false
         // Centred text: the centres agree and the starts don't, or both lines are centred on the page.
         val centred = centresAlike && (abs(shift) > SAME_EDGE_EM * em || centredOnPage(prev.left, prev.right, pageWidth) && centredOnPage(line.left, line.right, pageWidth))
         if (startsAlike && !centred) {
@@ -379,6 +385,13 @@ object TextBlocks {
             if (reach - prevEnd > max(SHORT_LINE_EM * em, FIRST_WORD_SLACK * firstWordWidth(line))) return false
         }
         return true
+    }
+
+    /** Whether [text] starts with a capital letter or a digit, as an entry of an address or a list of labels does. */
+    private fun startsAnEntry(text: String): Boolean {
+        if (text.isEmpty()) return false
+        val first = text.codePointAt(0)
+        return Character.isUpperCase(first) || Character.isTitleCase(first) || Character.isDigit(first)
     }
 
     /** About how wide [line]'s first word is with the space after it, from the line's width and letters: a Chinese or Japanese character, or a Thai one, counts as a word. */
