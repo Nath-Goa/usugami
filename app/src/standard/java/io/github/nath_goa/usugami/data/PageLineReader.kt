@@ -35,10 +35,12 @@ internal class PageLines(val lines: List<SourceLine>, val hasText: Boolean)
  *
  * Each line's text is made as [PageTextReader] makes it (words in reading order, gaps as
  * [ExportText.gap] writes them, cleaned by [ExportText.clean]). Only lines running across the page
- * as shown, with letters in them, are given: text running up or down the page, and text drawn
- * invisibly (as the text layer of a scan is), stay as they are on the page's picture. A line is cut
- * where two glyphs next to each other are more than [GAP_EM] font sizes apart, so the cells of a
- * table's row, or items set apart with tabs, are lines of their own. A glyph that starts more than a
+ * as shown are given, those of numbers alone too (an amount, a superscript), which stay as they are
+ * on the page's picture and mustn't be painted over: text running up or down the page, and text
+ * drawn invisibly (as the text layer of a scan is), stay as they are on the picture too. A line is
+ * cut where two glyphs next to each other are more than [GAP_EM] font sizes apart, so the cells of a
+ * table's row, or items set apart with tabs, are lines of their own; and after a bullet or a note's
+ * number that goes apart from its text (see [markEnd]). A glyph that starts more than a
  * point outside the crop box is left out, as the page shows only what is inside it. The storage
  * running full while a page is read is no unreadable page: it goes up as it is.
  */
@@ -188,10 +190,38 @@ internal class PageLineReader(
     /** A glyph with its box on the page as shown and its font size. */
     private class Placed(val glyph: TextPosition, val box: GlyphBox, val size: Float)
 
-    /** Adds [piece] as a line of the page, if it has letters. */
+    /**
+     * Where the rest of [piece] starts after its first word, when that word is a mark that goes
+     * apart from the line's text: a bullet or an item's number set apart from it by more than
+     * [MARKER_GAP_EM] font sizes (the text's second line starts under the text, not the mark), or a
+     * note's number (or *, †) smaller than the text after it, as footnotes start. -1 for none, and
+     * always in right-to-left text, whose first word drawn is its last read.
+     */
+    private fun markEnd(piece: List<Placed?>): Int {
+        val end = piece.indexOfFirst { it == null }
+        if (end <= 0) return -1
+        val word = piece.subList(0, end).filterNotNull()
+        val rest = piece.subList(end, piece.size).filterNotNull()
+        if (word.isEmpty() || rest.isEmpty()) return -1
+        val mark = word.joinToString("") { it.glyph.unicode.orEmpty() }.trim()
+        if (rightToLeft(rest.joinToString("") { it.glyph.unicode.orEmpty() })) return -1
+        val size = median(rest.map { it.size })
+        val gap = rest.first().box.left - word.last().box.right
+        val listed = LIST_MARK.matches(mark) && gap > MARKER_GAP_EM * size
+        val noted = NOTE_MARK.matches(mark) && median(word.map { it.size }) < SMALL_MARK * size
+        return if (listed || noted) end else -1
+    }
+
+    /** Adds [piece] as a line of the page, unless it is blank: a line of numbers too, which stays as it is on the page. */
     private fun addLine(piece: List<Placed?>) {
         val placed = piece.filterNotNull()
         if (placed.isEmpty()) return
+        val mark = markEnd(piece)
+        if (mark > 0) {
+            addLine(piece.subList(0, mark))
+            addLine(piece.subList(mark, piece.size))
+            return
+        }
         val byGlyph = IdentityHashMap<TextPosition, Placed>()
         for (p in placed) byGlyph[p.glyph] = p
         // Made as PageTextReader makes a line: in the order it is read, with gaps between its words.
@@ -209,7 +239,7 @@ internal class PageLineReader(
             made.append(unicode)
         }
         val text = ExportText.clean(made.toString()).trim()
-        if (text.none(Char::isLetter)) return
+        if (text.isEmpty()) return
         val bold = placed.count { isBold(it.glyph.font) } * 2 > placed.size
         lines += SourceLine(
             text,
@@ -257,6 +287,18 @@ internal class PageLineReader(
         const val GAP_EM = 1.5f
 
         private val BOLD_NAME = Regex("bold|black|heavy", RegexOption.IGNORE_CASE)
+
+        /** A bullet, a dash, a symbol font's bullet, or an item's number or letter: "1.", "(2)", "a)", "iv.". */
+        private val LIST_MARK = Regex("[•◦▪▫‣⁃∙●○■□►▸▹➢➤✓✔✗✘·*\\-–—\\uE000-\\uF8FF]|\\(?\\d{1,3}[.)]|\\(?[a-zA-Z][.)]|\\(?[ivxIVX]{1,5}[.)]")
+
+        /** A note's number or sign, as footnotes start with. */
+        private val NOTE_MARK = Regex("\\d{1,3}|[*†‡§]{1,3}")
+
+        /** A mark this many font sizes or more before its text goes apart from it… */
+        private const val MARKER_GAP_EM = 0.5f
+
+        /** …as does a note's number smaller than this share of the text's size. */
+        private const val SMALL_MARK = 0.8f
 
         /** Whether most of [text]'s letters are written right to left: Hebrew, Arabic, Syriac, Thaana. */
         fun rightToLeft(text: String): Boolean {

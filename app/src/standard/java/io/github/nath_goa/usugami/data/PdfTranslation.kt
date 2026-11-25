@@ -150,9 +150,10 @@ internal suspend fun PdfToolsEngine.detectSourceLanguage(input: PdfInput, transl
             PageLineReader(batch, onStart = { check() }) { index, lines -> if (lines != null) read[index] = lines }.read(doc)
             for (lines in read.values) {
                 if (letters >= DETECT_LETTERS || withText >= DETECT_PAGES) break
-                if (lines.lines.isEmpty()) continue
+                val words = lines.lines.filter { line -> line.text.any(Char::isLetter) }
+                if (words.isEmpty()) continue
                 withText++
-                for (line in lines.lines) {
+                for (line in words) {
                     if (letters >= DETECT_LETTERS) break
                     text.append(line.text).append('\n')
                     letters += line.text.count(Char::isLetter)
