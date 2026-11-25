@@ -1,5 +1,7 @@
 package io.github.nath_goa.usugami.data
 
+import kotlin.math.min
+
 // Translate PDF, in the engine (standard edition only). The signatures here are the contract between
 // the engine and the tool's screen; the bodies are filled in by the engine's work.
 
@@ -51,9 +53,40 @@ internal suspend fun PdfToolsEngine.translatePdf(
  * The language the text of [input]'s first pages with text is written in, as [translation] detects
  * it from at most a few thousand letters; null when the PDF has no text or the language isn't clear.
  * Cheap enough to run when a PDF is picked. [check] throws to stop.
+ *
+ * The text is read as [translatePdf] reads it (see [PageLineReader]), from at most the first
+ * [DETECT_PAGES] pages with text and [DETECT_LETTERS] letters, looking no further than the first
+ * [DETECT_LOOK] pages: a scan has none to find.
  */
-internal suspend fun PdfToolsEngine.detectSourceLanguage(input: PdfInput, translation: TranslationEngine, check: () -> Unit): String? =
-    TODO("Translate PDF's language detection")
+internal suspend fun PdfToolsEngine.detectSourceLanguage(input: PdfInput, translation: TranslationEngine, check: () -> Unit): String? {
+    val text = StringBuilder()
+    var letters = 0
+    var withText = 0
+    load(input.file, input.password).use { doc ->
+        val last = min(doc.numberOfPages, DETECT_LOOK)
+        var from = 0
+        while (from < last && letters < DETECT_LETTERS && withText < DETECT_PAGES) {
+            check()
+            val batch = (from until min(last, from + DETECT_BATCH)).toSet()
+            val read = sortedMapOf<Int, PageLines>()
+            PageLineReader(batch, onStart = { check() }) { index, lines -> if (lines != null) read[index] = lines }.read(doc)
+            for (lines in read.values) {
+                if (letters >= DETECT_LETTERS || withText >= DETECT_PAGES) break
+                if (lines.lines.isEmpty()) continue
+                withText++
+                for (line in lines.lines) {
+                    if (letters >= DETECT_LETTERS) break
+                    text.append(line.text).append('\n')
+                    letters += line.text.count(Char::isLetter)
+                }
+            }
+            from += DETECT_BATCH
+        }
+    }
+    if (letters == 0) return null
+    check()
+    return translation.detect(text.toString())
+}
 
 /**
  * The language text recognition reads [tag]'s script in: Latin for the Latin-script languages ML Kit
@@ -68,3 +101,13 @@ internal fun ocrLanguageFor(tag: String): OcrLanguage? = when (tag) {
     -> OcrLanguage.ENGLISH
     else -> null
 }
+
+/** Language detection reads at most this many pages with text… */
+private const val DETECT_PAGES = 10
+
+/** …and this many letters… */
+private const val DETECT_LETTERS = 3000
+
+/** …looking at no more than this many pages, so many pages at a time. */
+private const val DETECT_LOOK = 50
+private const val DETECT_BATCH = 10

@@ -1,0 +1,283 @@
+package io.github.nath_goa.usugami.data
+
+import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.font.PDFont
+import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.text.TextPosition
+import io.github.nath_goa.usugami.core.ExportText
+import io.github.nath_goa.usugami.core.GlyphBox
+import io.github.nath_goa.usugami.core.PageFrame
+import io.github.nath_goa.usugami.core.SourceLine
+import io.github.nath_goa.usugami.core.isOutOfSpace
+import java.io.Writer
+import java.util.IdentityHashMap
+import kotlin.math.hypot
+import kotlin.math.max
+import kotlinx.coroutines.CancellationException
+
+/**
+ * What [PageLineReader] read on a page: its [lines] to translate, and whether it shows any letters
+ * at all ([hasText]), also in text it doesn't translate (turned, or running down the page): a page
+ * that does is not a scan to read with text recognition.
+ */
+internal class PageLines(val lines: List<SourceLine>, val hasText: Boolean)
+
+/**
+ * Reads the lines of the [wanted] pages (zero-based) of a PDF for Translate PDF, each as a
+ * [SourceLine] on the page as shown (its crop box, turned by its /Rotate; points from its top-left
+ * corner, y down): the line's text, the box around its glyphs (see [Redactor.glyphBox]), its font
+ * size (the median of its glyphs'), whether it is bold (most of its glyphs are) and whether it is
+ * written right to left (most of its letters are Hebrew, Arabic, Syriac or Thaana). [onStart] is told
+ * of each page before it is read, and may throw to stop; [onPage] is given what was read, or null
+ * when the page couldn't be read (a font on it naming an encoding PDFBox doesn't have, damaged
+ * content). A page without contents is neither started nor given.
+ *
+ * Each line's text is made as [PageTextReader] makes it (words in reading order, gaps as
+ * [ExportText.gap] writes them, cleaned by [ExportText.clean]). Only lines running across the page
+ * as shown, with letters in them, are given: text running up or down the page, and text drawn
+ * invisibly (as the text layer of a scan is), stay as they are on the page's picture. A line is cut
+ * where two glyphs next to each other are more than [GAP_EM] font sizes apart, so the cells of a
+ * table's row, or items set apart with tabs, are lines of their own. A glyph that starts more than a
+ * point outside the crop box is left out, as the page shows only what is inside it. The storage
+ * running full while a page is read is no unreadable page: it goes up as it is.
+ */
+internal class PageLineReader(
+    private val wanted: Set<Int>,
+    private val onStart: (index: Int) -> Unit,
+    private val onPage: (index: Int, lines: PageLines?) -> Unit,
+) : PDFTextStripper() {
+    /** The line being read, its glyphs as text extraction gives them; null between two words. */
+    private val line = ArrayList<TextPosition?>()
+
+    /** The page's lines so far. */
+    private val lines = ArrayList<SourceLine>()
+
+    /** Whether the page shows letters, in any direction. */
+    private var hasText = false
+
+    /** What was read of the page, once it is read to its end. */
+    private var read: PageLines? = null
+
+    /** The page being read, as shown, and its crop box's size in the page's own directions. */
+    private var frame: PageFrame? = null
+    private var cropWidth = 0f
+    private var cropHeight = 0f
+
+    /** Whether each font met is bold, by the font: asked once each. */
+    private val boldFonts = IdentityHashMap<PDFont, Boolean>()
+
+    /** Reads the wanted pages, in one pass over the page tree. */
+    fun read(doc: PDDocument) {
+        require(wanted.isNotEmpty())
+        startPage = wanted.min() + 1
+        endPage = wanted.max() + 1
+        writeText(doc, NoWriter)
+    }
+
+    override fun processPage(page: PDPage) {
+        val index = currentPageNo - 1
+        if (index !in wanted) return
+        // Both outside the try: what they throw (to stop, or a file that can't be written) is no unreadable page.
+        onStart(index)
+        val result = try {
+            super.processPage(page)
+            read
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // The pages after it would fail the same way: the storage full is said as such.
+            if (e.isOutOfSpace()) throw e
+            null
+        }
+        onPage(index, result)
+    }
+
+    override fun startPage(page: PDPage) {
+        line.clear()
+        lines.clear()
+        hasText = false
+        read = null
+        frame = page.shownFrame()
+        val box = page.cropBox
+        cropWidth = box.width
+        cropHeight = box.height
+    }
+
+    /**
+     * A glyph is read only when it is drawn (filled or stroked, not as the invisible text a scan's
+     * text layer is) and starts within the crop box, with a point to spare for text set on its edge.
+     * Text extraction measures from the crop box's corner, in the page's own directions.
+     */
+    override fun processTextPosition(text: TextPosition) {
+        val mode = graphicsState.textState.renderingMode
+        if (!mode.isFill && !mode.isStroke) return
+        val x = text.textMatrix.translateX
+        val y = text.textMatrix.translateY
+        if (x < -SPARE || x > cropWidth + SPARE || y < -SPARE || y > cropHeight + SPARE) return
+        val unicode = text.unicode.orEmpty()
+        if (!hasText && Redactor.readable(unicode) && unicode.any(Char::isLetter)) hasText = true
+        super.processTextPosition(alongItsLine(text))
+    }
+
+    /** As [PageTextReader] places a glyph: in its own direction, so that text extraction finds lines along it. */
+    private fun alongItsLine(glyph: TextPosition): TextPosition {
+        val direction = glyph.dir.toInt()
+        if (direction == glyph.rotation) return glyph
+        return TextPosition(
+            direction, glyph.pageWidth, glyph.pageHeight, glyph.textMatrix, glyph.endX, glyph.endY, glyph.height,
+            glyph.individualWidths.firstOrNull() ?: 0f, glyph.widthOfSpace, glyph.unicode, glyph.characterCodes, glyph.font,
+            glyph.fontSize, glyph.fontSizeInPt.toInt(),
+        )
+    }
+
+    override fun writeString(text: String, textPositions: List<TextPosition>) {
+        line += textPositions
+    }
+
+    override fun writeWordSeparator() {
+        line += null
+    }
+
+    override fun writeLineSeparator() = endLine()
+    override fun writeParagraphStart() = endLine()
+    override fun writeParagraphEnd() = endLine()
+    override fun startArticle(isLTR: Boolean) = endLine()
+    override fun endArticle() = endLine()
+
+    /**
+     * The line read so far, cut into pieces where it doesn't run across the page or where two
+     * glyphs next to each other are far apart (see [GAP_EM]), each piece a line of the page.
+     */
+    private fun endLine() {
+        val frame = frame
+        if (line.isEmpty() || frame == null) {
+            line.clear()
+            return
+        }
+        var piece = ArrayList<Placed?>()
+        var last: Placed? = null
+        for (glyph in line) {
+            if (glyph == null) {
+                piece += null
+                continue
+            }
+            val box = Redactor.glyphBox(glyph, frame)
+            if (box == null || !box.across) {
+                // Text that runs up or down the page as shown isn't translated.
+                addLine(piece)
+                piece = ArrayList()
+                last = null
+                continue
+            }
+            val placed = Placed(glyph, box, sizeOf(glyph))
+            if (last != null) {
+                val gap = max(box.left - last.box.right, last.box.left - box.right)
+                if (gap > GAP_EM * max(placed.size, last.size)) {
+                    addLine(piece)
+                    piece = ArrayList()
+                }
+            }
+            piece += placed
+            last = placed
+        }
+        addLine(piece)
+        line.clear()
+    }
+
+    /** A glyph with its box on the page as shown and its font size. */
+    private class Placed(val glyph: TextPosition, val box: GlyphBox, val size: Float)
+
+    /** Adds [piece] as a line of the page, if it has letters. */
+    private fun addLine(piece: List<Placed?>) {
+        val placed = piece.filterNotNull()
+        if (placed.isEmpty()) return
+        val byGlyph = IdentityHashMap<TextPosition, Placed>()
+        for (p in placed) byGlyph[p.glyph] = p
+        // Made as PageTextReader makes a line: in the order it is read, with gaps between its words.
+        val made = StringBuilder()
+        var gap = false
+        for ((glyph, mirrored) in Redactor.readingOrder(piece.map { it?.glyph })) {
+            if (glyph == null) {
+                gap = true
+                continue
+            }
+            val unicode = glyph.unicode.orEmpty().let { if (mirrored) Redactor.mirror(it) else it }
+            if (unicode.isEmpty()) continue
+            if (gap && made.isNotEmpty()) made.append(ExportText.gap(made.codePointBefore(made.length), unicode.codePointAt(0)))
+            gap = false
+            made.append(unicode)
+        }
+        val text = ExportText.clean(made.toString()).trim()
+        if (text.none(Char::isLetter)) return
+        val bold = placed.count { isBold(it.glyph.font) } * 2 > placed.size
+        lines += SourceLine(
+            text,
+            placed.minOf { it.box.left }, placed.minOf { it.box.top }, placed.maxOf { it.box.right }, placed.maxOf { it.box.bottom },
+            median(placed.map { it.size }), bold, rightToLeft(text),
+        )
+    }
+
+    /**
+     * The glyph's font size in points of the page: how long one unit up in its text space is on
+     * the page (its text rendering matrix's "up"), which, unlike the size text extraction gives in
+     * whole points, takes in a page drawn scaled down.
+     */
+    private fun sizeOf(glyph: TextPosition): Float {
+        val trm = glyph.textMatrix
+        return hypot(trm.shearX, trm.scaleY).takeIf { it.isFinite() && it > 0f } ?: glyph.fontSizeInPt.takeIf { it > 0f } ?: 1f
+    }
+
+    /** Whether [font] is bold: by its name (Bold, Black, Heavy, Semibold…), its weight (700 and more) or its flag. */
+    private fun isBold(font: PDFont?): Boolean {
+        if (font == null) return false
+        return boldFonts.getOrPut(font) {
+            val name = try { font.name } catch (_: RuntimeException) { null }.orEmpty()
+            val descriptor = font.fontDescriptor
+            BOLD_NAME.containsMatchIn(name) || descriptor != null && (descriptor.fontWeight >= 700f || descriptor.isForceBold)
+        }
+    }
+
+    override fun endPage(page: PDPage) {
+        endLine()
+        read = PageLines(ArrayList(lines), hasText)
+    }
+
+    private object NoWriter : Writer() {
+        override fun write(cbuf: CharArray, off: Int, len: Int) = Unit
+        override fun flush() = Unit
+        override fun close() = Unit
+    }
+
+    companion object {
+        /** How far outside the crop box, in points, a glyph may start and still be read. */
+        private const val SPARE = 1f
+
+        /** Glyphs further apart than this many font sizes are in lines of their own. */
+        const val GAP_EM = 1.5f
+
+        private val BOLD_NAME = Regex("bold|black|heavy", RegexOption.IGNORE_CASE)
+
+        /** Whether most of [text]'s letters are written right to left: Hebrew, Arabic, Syriac, Thaana. */
+        fun rightToLeft(text: String): Boolean {
+            var rtl = 0
+            var letters = 0
+            var i = 0
+            while (i < text.length) {
+                val cp = text.codePointAt(i)
+                i += Character.charCount(cp)
+                if (!Character.isLetter(cp)) continue
+                letters++
+                val direction = Character.getDirectionality(cp)
+                if (direction == Character.DIRECTIONALITY_RIGHT_TO_LEFT || direction == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC) rtl++
+            }
+            return rtl * 2 > letters
+        }
+
+        fun median(values: List<Float>): Float {
+            val sorted = values.sorted()
+            val middle = sorted.size / 2
+            return if (sorted.size % 2 == 1) sorted[middle] else (sorted[middle - 1] + sorted[middle]) / 2
+        }
+    }
+}
