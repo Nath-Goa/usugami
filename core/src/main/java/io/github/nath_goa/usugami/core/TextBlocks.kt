@@ -191,7 +191,9 @@ object TextBlocks {
      * are centred only when centred on the page and not from margin to margin of its other running
      * text); for one line, [BlockAlign.CENTER] when its centre is within 2 % of the page's width of
      * the page's centre and it is narrower than 80 % of the page (and doesn't run from margin to
-     * margin of the page's running text), [BlockAlign.END] when it ends within 3 % of the running
+     * margin of the page's running text). Neither is centred when it starts where a block that isn't
+     * centred starts: it only looks centred because the page's margins are alike. A single line is
+     * [BlockAlign.END] when it ends within 3 % of the running
      * text's end margin and starts neither near its start margin nor where a column of it starts,
      * else [BlockAlign.START]. Never throws for any numbers, NaN among them.
      */
@@ -437,13 +439,14 @@ object TextBlocks {
             align[block] = linedUp[block] ?: run {
                 val others = running.filter { it !== block }
                 val body = if (others.isEmpty()) null else Body(others)
-                if (centredOnPage(block.left, block.right, pageWidth) && !body.fromMarginToMargin(block.left, block.right, pageWidth)) BlockAlign.CENTER else BlockAlign.START
+                val centred = centredOnPage(block.left, block.right, pageWidth) && !body.fromMarginToMargin(block.left, block.right, pageWidth)
+                if (centred && !startsWithAnother(block, blocks, pageWidth)) BlockAlign.CENTER else BlockAlign.START
             }
         }
         // Then single lines, against the margins and columns of the running text.
         val bodyBlocks = blocks.filter { align[it] == BlockAlign.START }
         val body = if (bodyBlocks.isEmpty()) null else Body(bodyBlocks)
-        for (block in blocks) if (block.lines.size == 1) align[block] = single(block, body, pageWidth)
+        for (block in blocks) if (block.lines.size == 1) align[block] = single(block, body, blocks, pageWidth)
         return blocks.map { block ->
             SourceBlock(
                 block.lines.map { it.source }, text(block.lines), block.left, block.top, block.right, block.bottom,
@@ -474,11 +477,23 @@ object TextBlocks {
         return BlockAlign.START
     }
 
-    /** How a block of one line is aligned, measured against the page and its running text [body] (see [group]). */
-    private fun single(block: Block, body: Body?, pageWidth: Float): BlockAlign {
+    /**
+     * Whether [block] starts where another of [blocks] starts (within [ALIGNED_EDGES_EM] font
+     * sizes), one that isn't centred on the page: then it is lined up with it, and only looks centred
+     * because the page's margins are alike, as a long line or a justified paragraph does.
+     */
+    private fun startsWithAnother(block: Block, blocks: List<Block>, pageWidth: Float): Boolean = blocks.any { other ->
+        other !== block && !centredOnPage(other.left, other.right, pageWidth) &&
+            (if (block.rtl) abs(other.right - block.right) else abs(other.left - block.left)) <= ALIGNED_EDGES_EM * block.size
+    }
+
+    /** How a block of one line is aligned, measured against the page, its running text [body] and its other [blocks] (see [group]). */
+    private fun single(block: Block, body: Body?, blocks: List<Block>, pageWidth: Float): BlockAlign {
         val left = block.left
         val right = block.right
-        if (centredOnPage(left, right, pageWidth) && !body.fromMarginToMargin(left, right, pageWidth)) return BlockAlign.CENTER
+        if (centredOnPage(left, right, pageWidth) && !body.fromMarginToMargin(left, right, pageWidth) && !startsWithAnother(block, blocks, pageWidth)) {
+            return BlockAlign.CENTER
+        }
         if (body == null || !pageWidth.isFinite() || pageWidth <= 0f) return BlockAlign.START
         val near = NEAR_EDGE_SHARE * pageWidth
         val atEnd = if (block.rtl) abs(left - body.left) <= near else abs(right - body.right) <= near

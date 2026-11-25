@@ -60,4 +60,22 @@ class TextBlocksDocumentsTest {
         val cell = listOf(line("Abat-jour en lin naturel", 56f, 217f, 176f, size = 10f), line("et coton tissé à la main", 56f, 229.5f, 170f, size = 10f))
         assertEquals(listOf("Abat-jour en lin naturel et coton tissé à la main"), texts(group(cell)))
     }
+
+    @Test fun textThatOnlyLooksCentredIsLeftAligned() {
+        // Under a heading at the left margin, a long line and a paragraph of lines all as wide,
+        // from 60 to 530 points: their middles are the page's, as the margins are nearly alike.
+        val heading = line("Before you go hiking", 60f, 62f, 310f, size = 18f)
+        val intro = line("Good preparation makes walking more pleasant and safer, so here is what to carry.", 60f, 99f, 530f)
+        val paragraph = paragraph(
+            listOf("Children play until nightfall, while the old people chat on the benches" to 470f, "in the shade of the plane trees, and from far away comes the music of" to 470f, "a dance that will go on until morning in the village square." to 470f),
+            60f, 560f, size = 15f,
+        )
+        val blocks = group(listOf(heading, intro) + paragraph)
+        assertEquals(listOf(BlockAlign.START, BlockAlign.START, BlockAlign.START), blocks.map { it.align })
+        // A subtitle centred under a centred title starts where nothing else does: centred.
+        val title = line("Bees return to the city", 170f, 50f, 425f, size = 24f)
+        val subtitle = line("How the roofs of Paris became a refuge for pollinating insects", 82f, 88f, 513f, size = 12f)
+        val column = paragraph(listOf("For about ten years, bees have found an unexpected refuge" to 238f, "in large cities, far from the fields." to 160f), 50f, 152f, size = 10f)
+        assertEquals(listOf(BlockAlign.CENTER, BlockAlign.CENTER, BlockAlign.START), group(listOf(title, subtitle) + column).map { it.align })
+    }
 }
