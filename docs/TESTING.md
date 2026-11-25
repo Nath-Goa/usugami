@@ -1032,7 +1032,9 @@ On a phone or emulator, with the release APKs:
 
 CI and the release workflow also check the three APKs' manifests with
 `.github/scripts/check-apk-permissions.sh`. It fails if an APK requests any permission besides
-the app's own signature-level `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`, or if a library brings
+the app's own signature-level `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` (and, only for Usugami.apk,
+which the workflows mark with `--standard`, `INTERNET` and `ACCESS_NETWORK_STATE`, which Translate
+PDF's language packs need), or if a library brings
 back an upload backend for ML Kit's usage metrics or the EmojiCompat startup initializer. They
 check with `.github/scripts/check-no-google-code.sh` that Usugami Lite and Usugami OCR contain no
 Google ML Kit, Play services, Firebase or DataTransport classes (listed with apkanalyzer and R8's
