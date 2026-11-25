@@ -258,16 +258,26 @@ internal fun exampleImageName(typed: String, pagesText: String, pageCount: Int):
  * The pages to convert: typed into a field (all of them while it is empty), or tapped in the row of
  * pages, drawn from [shown]; the two stay in step. The pages are made in page order, so a tap writes
  * them sorted. [onTap] changes the text as it is then: two pages tapped before the screen redraws
- * are both chosen.
+ * are both chosen. [hint], [allPages] (while the field is empty) and [somePages] (how many of how
+ * many) say what is done with the pages: converting them unless another tool says otherwise.
  */
 @Composable
-internal fun PagesChoice(input: PdfInput, shown: PdfInput, text: String, onText: (String) -> Unit, onTap: (change: (String) -> String) -> Unit) {
+internal fun PagesChoice(
+    input: PdfInput,
+    shown: PdfInput,
+    text: String,
+    onText: (String) -> Unit,
+    onTap: (change: (String) -> String) -> Unit,
+    @StringRes hint: Int = R.string.export_pages_hint,
+    @StringRes allPages: Int = R.string.export_pages_all,
+    @StringRes somePages: Int = R.string.export_pages_count,
+) {
     val chosen = remember(text, input.pageCount) { typedPages(text, input.pageCount).toSet() }
     WellField(
         value = text,
         onValueChange = onText,
         label = { Text(stringResource(R.string.export_pages)) },
-        supportingText = { Text(stringResource(R.string.export_pages_hint)) },
+        supportingText = { Text(stringResource(hint)) },
         singleLine = true,
         modifier = Modifier.padding(top = 16.dp).fillMaxWidth(),
     )
@@ -275,7 +285,7 @@ internal fun PagesChoice(input: PdfInput, shown: PdfInput, text: String, onText:
     // read (a range half typed), none count, as in Reorganize PDF's Selected pages; the button says
     // what is wrong.
     Text(
-        if (text.isBlank()) stringResource(R.string.export_pages_all) else stringResource(R.string.export_pages_count, chosen.size, input.pageCount),
+        if (text.isBlank()) stringResource(allPages) else stringResource(somePages, chosen.size, input.pageCount),
         style = MaterialTheme.typography.titleSmall,
         modifier = Modifier.padding(top = 8.dp).padding(horizontal = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
     )
