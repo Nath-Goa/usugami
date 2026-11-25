@@ -378,12 +378,32 @@ private class PdfTranslator(
                 val padY = if (padded) max(MIN_PAD, PAD_Y * size) else 0f
                 return TranslationOverlay.pixels(left, top, right, bottom, padX, padY, perX, perY, bitmap.width, bitmap.height)
             }
-            // Read before anything is painted over.
-            colors = drawn.map { (block, _) -> TranslationOverlay.colors(bitmap, rect(block.left, block.top, block.right, block.bottom, block.size, padded = true)) }
-            val boxes = drawn.flatMapIndexed { i, (block, _) ->
-                block.lines.map { line -> rect(line.left, line.top, line.right, line.bottom, block.size, padded = true) to colors[i].background }
+            fun reach(share: Float, size: Float, per: Float) = (share * size * per).toInt()
+            // Each line's own box, where its letters are.
+            val boxes = IdentityHashMap<SourceLine, Rect>()
+            for (block in blocks) for (line in block.lines) boxes[line] = rect(line.left, line.top, line.right, line.bottom, block.size, padded = false)
+            // Read before anything is painted over: the colours of what is replaced, and all of the
+            // letters of what stays near it, which painting must leave whole.
+            colors = drawn.map { (block, _) ->
+                val others = blocks.filter { it !== block }.flatMap { it.lines }.mapNotNull(boxes::get)
+                TranslationOverlay.colors(bitmap, rect(block.left, block.top, block.right, block.bottom, block.size, padded = true), others)
             }
-            TranslationOverlay.paintOver(bitmap, boxes, kept.map { rect(it.left, it.top, it.right, it.bottom, it.size, padded = false) })
+            val nobody = TranslationOverlay.Painter(bitmap, emptyList())
+            val near = drawn.map { (block, _) -> rect(block.left, block.top, block.right, block.bottom, block.size * 2, padded = true) }
+            val keep = kept.flatMap { block -> block.lines.map { line -> line to block.size } }.mapNotNull { (line, size) ->
+                val box = rect(line.left, line.top, line.right, line.bottom, size, padded = false)
+                if (near.none { Rect.intersects(it, box) }) return@mapNotNull null
+                val reach = reach(KEPT_GROW, size, perY)
+                nobody.grown(box, TranslationOverlay.colors(bitmap, box).background, reach, reach, reach(KEPT_GROW, size, perX))
+            }
+            // Line by line, top to bottom, so a box over a varied background takes its colours from what is painted above it.
+            val lines = drawn.flatMapIndexed { i, (block, _) -> block.lines.map { line -> Triple(line, block.size, colors[i]) } }.sortedBy { it.first.top }
+            val painter = TranslationOverlay.Painter(bitmap, keep, lines.mapNotNull { boxes[it.first] })
+            for ((line, size, lineColors) in lines) {
+                val box = rect(line.left, line.top, line.right, line.bottom, size, padded = true)
+                val grown = painter.grown(box, lineColors.background, reach(GROW_UP, size, perY), reach(GROW_DOWN, size, perY), reach(GROW_SIDE, size, perX))
+                painter.paint(grown, lineColors, boxes[line])
+            }
         }
         val page = newPage(width, height)
 
@@ -396,8 +416,8 @@ private class PdfTranslator(
             val (block, text) = pair
             val area = BlockArea(block.left, block.top, block.right, block.bottom)
             val limits = TextFit.limits(block, blocks, width, height)
-            val fit = TextFit.fit(text, block.size, area, limits, TranslationOverlay.measurer(block.bold, block.align))
-            TranslationOverlay.draw(onStamp.canvas, text, fit, block.bold, colors[i].ink, block.align)
+            val fit = TextFit.fit(text, block.size, area, limits, TranslationOverlay.measurer(block.bold, block.align, block.rtl))
+            TranslationOverlay.draw(onStamp.canvas, text, fit, block.bold, colors[i].ink, block.align, block.rtl)
         }
         stampDoc.finishPage(onStamp)
         stamped += Stamped(page, image, stampWidth, stampHeight)
@@ -689,6 +709,14 @@ private class PdfTranslator(
         const val PAD_X = 0.06f
         const val PAD_Y = 0.04f
         const val MIN_PAD = 0.5f
+
+        /** How far, in font sizes, a painted line's box may grow over its letters' strokes beyond it (see TranslationOverlay.Painter.grown). */
+        const val GROW_UP = 0.25f
+        const val GROW_DOWN = 0.3f
+        const val GROW_SIDE = 0.25f
+
+        /** How far, in font sizes, what stays near a painted box is kept beyond its letters' boxes, over its strokes. */
+        const val KEPT_GROW = 0.15f
 
         /** Texts up to this long are kept once translated, at most [CACHE_ENTRIES] of them. */
         const val CACHED_LENGTH = 300
