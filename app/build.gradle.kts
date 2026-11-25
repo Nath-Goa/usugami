@@ -61,6 +61,8 @@ android {
             isDefault = true
             buildConfigField("String", "EDITION", "\"standard\"")
             buildConfigField("boolean", "HAS_OCR", "true")
+            // Translate PDF (Google ML Kit): the standard edition only.
+            buildConfigField("boolean", "HAS_TRANSLATION", "true")
             proguardFile("proguard-standard.pro")
             // ML Kit pulls in AppCompat, whose own keep rule for SearchView would keep ~200 KB of
             // unused AppCompat code and resources. The app is pure Compose and never uses it.
@@ -71,11 +73,13 @@ android {
             applicationIdSuffix = ".lite"
             buildConfigField("String", "EDITION", "\"lite\"")
             buildConfigField("boolean", "HAS_OCR", "false")
+            buildConfigField("boolean", "HAS_TRANSLATION", "false")
         }
         create("ocr") {
             dimension = "edition"
             buildConfigField("String", "EDITION", "\"ocr\"")
             buildConfigField("boolean", "HAS_OCR", "true")
+            buildConfigField("boolean", "HAS_TRANSLATION", "false")
             // Phones are ARM; x86_64 is only for emulators, and release builds leave it out (below).
             ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         }
