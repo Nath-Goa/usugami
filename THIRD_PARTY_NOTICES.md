@@ -11,8 +11,8 @@ under About) applies to that release. It covers Usugami's three editions and say
 contain each part:
 
 - "All editions": Usugami, Usugami Lite and Usugami OCR.
-- "Usugami only": only in Usugami, the main edition, whose text recognition uses Google ML Kit
-  and Google Play services. Usugami Lite and Usugami OCR contain no Google libraries.
+- "Usugami only": only in Usugami, the main edition, whose text recognition and Translate PDF use
+  Google ML Kit and Google Play services. Usugami Lite and Usugami OCR contain no Google libraries.
 - "Usugami and Usugami OCR": the two editions with text recognition.
 - "Usugami OCR only": the open-source text recognition built into Usugami OCR.
 
@@ -103,6 +103,11 @@ Usugami only, because Google ML Kit depends on them:
 Usugami itself doesn't use them, and the build's code shrinker removes the parts that are never
 used.
 
+Usugami only, because Google ML Kit's translation depends on them:
+
+- com.squareup.okhttp3: okhttp 3.0.0 (OkHttp). Copyright Square, Inc.
+- com.squareup.okio: okio 1.6.0 (Okio). Copyright Square, Inc.
+
 ### Compose Multiplatform metadata
 
 Copyright 2020-2021 JetBrains s.r.o. and respective authors and developers.
@@ -148,8 +153,8 @@ Copyright Google LLC. Google ML Kit uses these internally.
 - com.google.firebase: firebase-annotations 16.0.0, firebase-components 16.1.0,
   firebase-encoders 16.1.0, firebase-encoders-json 17.1.0
 
-Usugami unregisters DataTransport's upload backend, so ML Kit's usage metrics are dropped, and
-the app has no internet permission.
+Usugami unregisters DataTransport's upload backend, so ML Kit's usage metrics are dropped and
+never sent.
 
 ### Small libraries
 
@@ -522,17 +527,18 @@ follows the steps of PaddleOCR's Python code (DBPostProcess, CTCLabelDecode) but
 
 ## 5. Google ML Kit and Google Play services (not open source), Usugami only
 
-Usugami, the main edition, uses Google ML Kit for text recognition (OCR). These libraries are made
-by Google LLC and are not open source. They are used under Google's terms, and Usugami's license
-gives an additional permission for them (LICENSE-EXCEPTION.md). Google does not endorse Usugami.
-Usugami Lite and Usugami OCR don't contain them.
+Usugami, the main edition, uses Google ML Kit for text recognition (OCR) and for Translate PDF.
+These libraries are made by Google LLC and are not open source. They are used under Google's terms,
+and Usugami's license gives an additional permission for them (LICENSE-EXCEPTION.md). Google does
+not endorse Usugami. Usugami Lite and Usugami OCR don't contain them.
 
 Under the ML Kit Terms of Service (https://developers.google.com/ml-kit/terms):
 
 - com.google.android.gms: play-services-mlkit-text-recognition 19.0.1,
   play-services-mlkit-text-recognition-devanagari 16.0.1,
   play-services-mlkit-text-recognition-common 19.1.0
-- com.google.mlkit: common 18.11.0, vision-common 17.3.0, vision-interfaces 16.3.0
+- com.google.mlkit: common 18.11.0, language-id 17.0.6, language-id-common 16.1.0, translate 17.0.3,
+  vision-common 17.3.0, vision-interfaces 16.3.0
 
 Under the Android Software Development Kit License (https://developer.android.com/studio/terms):
 
@@ -542,7 +548,9 @@ Under the Android Software Development Kit License (https://developer.android.co
 
 The text-recognition models are not part of Usugami. Google Play services downloads each model
 (one for English, French, Spanish, German, Portuguese and Indonesian, one for Hindi) the first time
-it is used, under Google's own terms.
+it is used, under Google's own terms. Nor are the translation language packs: ML Kit downloads each
+language's pack (about 30 MB) the first time Translate PDF needs it, under Google's own terms.
+English is built into the translation library, and so is the language identification's model.
 
 Google's API terms: https://developers.google.com/terms
 
@@ -561,7 +569,7 @@ The file is also inside Usugami: About → Open-source licenses shows it after t
 
 Components listed by Google in these libraries:
 
-Android SDK; Android SDK Platforms; AndroidX activity library;
+Abseil; Android SDK; Android SDK Platforms; AndroidX activity library;
 AndroidX annotation experimental library; AndroidX annotation jvm library;
 AndroidX annotation library; AndroidX architecture core common library;
 AndroidX architecture core library; AndroidX architecture core runtime library;
@@ -577,10 +585,19 @@ AndroidX lifecycle viewmodel library; AndroidX lifecycle viewmodel savedstate li
 AndroidX loader library; AndroidX localbroadcastmanager library; AndroidX media base library;
 AndroidX print library; AndroidX savedstate library; AndroidX swiperefreshlayout library;
 AndroidX tracing library; AndroidX versionedparcelable library; AndroidX viewpager library;
-Animal Sniffer; apksig; Checker Framework Annotations; Dagger; Error Prone; Firebase; Google Auto;
-gsfclient; Guava JDK5; Guava JDK7; J2ObjC; Jakarta Inject; java_annotations;
-JsInterop Annotations; JSpecify; JSR 250; JSR 305; JSR 330; Kotlin; Kotlin coroutines;
-kotlinx_atomicfu; SafeParcelable library; TensorFlow Lite Support.
+Animal Sniffer; apksig; Bazel Platforms; BoringSSL; Brotli; bzip2; c-ares;
+Checker Framework Annotations; cnpy; coremltools; cppitertools; cpu_features; cpuinfo;
+Crunchy Crypt; Dagger; Darts-clone; double-conversion; ecclesia; Edge TPU (0); Edge TPU (1);
+Edge TPU firmware callback; Eigen 3; Error Prone; Firebase; FlatBuffers; FP16; FXdiv; gemmlowp;
+Google Auto; gsfclient; Gson; Guava JDK5; Guava JDK7; HighwayHash; hwloc; ICU4C; J2ObjC;
+Jakarta Inject; java_annotations; JsInterop Annotations; JSpecify; JSR 250; JSR 305; JSR 330;
+KleidiAI; Kotlin; Kotlin coroutines; kotlinx_atomicfu; legacy_libcxx_sort; libexecinfo; libpfm4;
+liburing; MARISA v0.2.6; mecab; minizip; ml_dtypes; mobstore; Mosys; mozilla_psl;
+Nano Protocol Buffers; neon2sse; nsync; okhttp4; Okio; Ooura FFT; perfetto; program_image_remapper;
+Proto Converter; Protocol Buffers; pthreadpool; RE2; Riegeli; ruy; SafeParcelable library;
+sentencepiece; sha3; splitfile; TCMalloc; TensorFlow; TensorFlow Lite Support; TensorFlow Models;
+Tink; tz database; UTF; utf8_range; Web Tracing Framework C++ Bindings; XNNPACK; Zippy; zlib;
+Zstandard.
 
 
 ## 7. License texts
