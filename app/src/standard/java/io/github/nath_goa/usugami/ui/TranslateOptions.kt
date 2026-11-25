@@ -157,9 +157,18 @@ internal fun TranslateOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsView
                 }
             }
         }
-        // A PDF of one page has no pages to choose from.
+        // A PDF of one page has no pages to choose from. The pages are translated, not converted.
         if (input.pageCount > 1) {
-            PagesChoice(input, shown, pages, onText = { pages = it }, onTap = { change -> pages = change(pages) })
+            PagesChoice(
+                input,
+                shown,
+                pages,
+                onText = { pages = it },
+                onTap = { change -> pages = change(pages) },
+                hint = R.string.translate_pages_hint,
+                allPages = R.string.translate_pages_all,
+                somePages = R.string.translate_pages_count,
+            )
         }
         Text(
             stringResource(R.string.translate_scans_note),

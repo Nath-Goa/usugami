@@ -25,6 +25,9 @@
         <item quantity="one">%1$s भाषा पैक चाहिए, लगभग 40 MB। यह एक ही बार डाउनलोड होता है; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
         <item quantity="other">%1$s भाषा पैक चाहिए, हर एक लगभग 40 MB। ये एक ही बार डाउनलोड होते हैं; उसके बाद अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</item>
     </plurals>
+    <string name="translate_pages_hint" tools:ignore="TypographyDashes">सभी पेजों के लिए खाली छोड़ें। या कुछ पेज लिखें, जैसे 1,3,5-8, या उनकी झलक पर टैप करें।</string>
+    <string name="translate_pages_all">अनुवाद के लिए: सभी पेज</string>
+    <string name="translate_pages_count">अनुवाद के लिए: %2$d में से %1$d</string>
     <string name="translate_scans_note">स्कैन किए गए पेज (टेक्स्ट की तस्वीरें) पहले टेक्स्ट पहचान से पढ़े जाते हैं। यह लैटिन लिपि में लिखी भाषाएं, और हिंदी व मराठी पढ़ती है।</string>
 
     <string name="translate_packs_intro">हर पैक लगभग 40 MB का है। इस फ़ोन पर मौजूद पैक से अनुवाद के लिए इंटरनेट की ज़रूरत नहीं।</string>

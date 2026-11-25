@@ -27,6 +27,9 @@
         <item quantity="many">Nécessite les packs %1$s, environ 40 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
         <item quantity="other">Nécessite les packs %1$s, environ 40 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
     </plurals>
+    <string name="translate_pages_hint" tools:ignore="TypographyDashes">Laissez vide pour toutes les pages. Ou saisissez des numéros, comme 1,3,5-8, ou touchez les aperçus.</string>
+    <string name="translate_pages_all">À traduire : toutes les pages</string>
+    <string name="translate_pages_count">À traduire : %1$d sur %2$d</string>
     <string name="translate_scans_note">Les pages numérisées (images de texte) sont d\'abord lues par la reconnaissance de texte. Elle lit les langues écrites en alphabet latin, ainsi que le hindi et le marathi.</string>
 
     <string name="translate_packs_intro">Chaque pack fait environ 40 Mo. Avec les packs présents sur ce téléphone, la traduction se fait sans Internet.</string>
