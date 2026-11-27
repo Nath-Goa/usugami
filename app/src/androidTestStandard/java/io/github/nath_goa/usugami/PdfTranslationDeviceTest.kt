@@ -948,6 +948,33 @@ class PdfTranslationDeviceTest {
         }
     }
 
+    @Test fun aHintJustUnderABoxIsPaintedOverInThePapersColour() {
+        // A form's date box, its grey border 0.7 points wide, with a small hint 2 points under it, as
+        // the form's "JJ MM AAAA" are: the border's soft edge reaches into what is read around the hint.
+        val file = File(dir, "hint.pdf")
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c ->
+                c.setLineWidth(0.7f)
+                c.setStrokingColor(0.333f)
+                c.addRect(70f, 842f - 227.05f, 60f, 18f)
+                c.stroke()
+                c.line(72f, 842f - 235.36f, "Jour", 6.5f)
+            }
+            doc.save(file)
+        }
+        val outcome = translate(import(file), translation = FakeEngine { if (it == "Jour") "x" else marked(it) })
+        val page = render(outcome.file.file, 0)
+        // Right of the translation, where the hint was: painted white, not a grey blended from the border.
+        val right = 72f + PDType1Font.HELVETICA.getStringWidth("Jour") / 1000 * 6.5f
+        var grey = 0
+        for (y in ((229.8f) * 2).toInt() until (237.5f * 2).toInt()) for (x in ((72f + 6f) * 2).toInt() until ((right - 0.5f) * 2).toInt()) {
+            if (Color.red(page.getPixel(x, y)) < 250) grey++
+        }
+        assertEquals("Grey pixels where the hint was", 0, grey)
+    }
+
     @Test fun aTranslationGrowsOverNoBoxOrPicture() {
         val file = File(dir, "form.pdf")
         val boxAt = 72f + PDType1Font.HELVETICA.getStringWidth("Nom :") / 1000 * 11 + 8f

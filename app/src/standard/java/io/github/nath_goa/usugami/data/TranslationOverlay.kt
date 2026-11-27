@@ -184,9 +184,10 @@ internal object TranslationOverlay {
         // Whether what is around the box is plain, as paper or a band is, not a photo or a gradient:
         // a thin ring that is nearly all the background's colour, the same above as below and on
         // the left as on the right. Other lines' text ([text]'s boxes, and letters nearer the ink's
-        // colour) doesn't count.
+        // colour) doesn't count, nor does a rule running along the box (see [ruleRows]).
         val ringBox = Rect(box.left - RING, box.top - RING, box.right + RING, box.bottom + RING)
         val others = text.filter { Rect.intersects(it, ringBox) }
+        val rules = ruleRows(pixels, w, h, left, top, right, bottom, background)
         val sides = Array(4) { LongArray(4) }
         var counted = 0
         var alike = 0
@@ -198,6 +199,7 @@ internal object TranslationOverlay {
                 x >= right -> 3
                 else -> continue
             }
+            if (y in rules) continue
             if (others.any { it.contains(x + x0, y + y0) }) continue
             val p = pixels[y * w + x]
             val fromPaper = distance(p, background)
@@ -213,6 +215,76 @@ internal object TranslationOverlay {
         val uniform = counted == 0 || alike >= UNIFORM_SHARE * counted && !differ(sides[0], sides[1]) && !differ(sides[2], sides[3])
         return Colors(background, ink, uniform)
     }
+
+    /**
+     * The rows of [pixels] ([w] × [h]) in the ring above and below the box [left]..[right] ×
+     * [top]..[bottom] that a rule runs along, just outside it (a box's border over a form's hint, a
+     * line to write on under a label): rows of ink on [background] (further than [GROW_DISTANCE]
+     * from it) along more than [RULE_SHARE] of the box's width, each nearly all of one colour, no
+     * more than [MAX_RULE] of them, with paper beyond them (past a soft edge); and the rows between
+     * them and the box that aren't paper, their soft edge. A band or a gradient runs on further, a
+     * photo isn't of one colour.
+     */
+    private fun ruleRows(pixels: IntArray, w: Int, h: Int, left: Int, top: Int, right: Int, bottom: Int, background: Int): Set<Int> {
+        // Along the box itself: the sides of a box it is under may come down beside it.
+        val x0 = max(0, left)
+        val x1 = min(w, right)
+        if (x1 <= x0) return emptySet()
+        fun inRange(y: Int) = y in 0 until h
+        fun paper(y: Int): Boolean {
+            var n = 0
+            for (x in x0 until x1) if (distance(pixels[y * w + x], background) <= ALIKE_DISTANCE) n++
+            return n >= UNIFORM_SHARE * (x1 - x0)
+        }
+        fun rule(y: Int): Boolean {
+            var n = 0
+            var r = 0L
+            var g = 0L
+            var b = 0L
+            for (x in x0 until x1) {
+                val p = pixels[y * w + x]
+                if (distance(p, background) <= GROW_DISTANCE) continue
+                n++
+                r += (p shr 16 and 0xFF).toLong()
+                g += (p shr 8 and 0xFF).toLong()
+                b += (p and 0xFF).toLong()
+            }
+            if (n <= RULE_SHARE * (x1 - x0)) return false
+            // Of one colour, but where a box's side meets it.
+            val mean = (0xFF shl 24) or ((r / n).toInt() shl 16) or ((g / n).toInt() shl 8) or (b / n).toInt()
+            var alike = 0
+            for (x in x0 until x1) {
+                val p = pixels[y * w + x]
+                if (distance(p, background) > GROW_DISTANCE && distance(p, mean) <= ALIKE_DISTANCE) alike++
+            }
+            return alike >= UNIFORM_SHARE * n
+        }
+        val rows = HashSet<Int>()
+        for (step in intArrayOf(-1, 1)) {
+            val near = if (step < 0) top - 1 else bottom
+            // Where in the ring the rule starts, past paper and its soft edge.
+            var start = near
+            while (inRange(start) && abs(start - near) < RING && !rule(start)) start += step
+            if (!inRange(start) || abs(start - near) >= RING) continue
+            var end = start
+            while (inRange(end + step) && rule(end + step) && abs(end + step - start) < MAX_RULE) end += step
+            // Paper beyond it, past its other soft edge.
+            var beyond = end + step
+            if (inRange(beyond) && rule(beyond)) continue
+            if (inRange(beyond) && !paper(beyond)) beyond += step
+            if (inRange(beyond) && !paper(beyond)) continue
+            var y = near
+            while (true) {
+                if (abs(y - near) >= abs(start - near) || !paper(y)) rows += y
+                if (y == end) break
+                y += step
+            }
+        }
+        return rows
+    }
+
+    /** A rule [ruleRows] leaves out is at most this many rows thick. */
+    private const val MAX_RULE = 3
 
     /** More than the widest ring PageColors reads around a box, in pixels. */
     private const val AROUND = 8
