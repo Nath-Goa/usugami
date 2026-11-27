@@ -161,6 +161,14 @@ class TextBlocksDocumentsTest {
         assertEquals(shop.map { it.text }, texts(group(shop)))
     }
 
+    @Test fun aContentsEntryIsLinedUpAtItsStart() {
+        // Entries of two levels, from 70 and 92 points, all ending at 525 with their page numbers.
+        val dots = " " + ".".repeat(50) + " "
+        val entries = listOf("Avant-propos${dots}3" to 70f, "1. Présentation de l'entreprise${dots}5" to 70f, "1.1 Notre histoire${dots}6" to 92f, "1.2 Nos valeurs et notre organisation${dots}8" to 92f, "2. Les résultats de l'année${dots}11" to 70f)
+            .mapIndexed { i, (text, left) -> line(text, left, 160f + 22f * i, 525f) }
+        assertEquals(List(entries.size) { BlockAlign.START }, group(entries).map { it.align })
+    }
+
     @Test fun eachFootnoteStartsAtItsNumber() {
         // Two footnotes in 9-point type, each after its number in 6-point type.
         val notes = listOf(

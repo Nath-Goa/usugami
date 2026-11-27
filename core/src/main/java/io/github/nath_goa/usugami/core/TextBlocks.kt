@@ -225,7 +225,8 @@ object TextBlocks {
      * [BlockAlign.END] when it ends within 3 % of the running
      * text's end margin and starts neither near its start margin nor where a column of it starts, or
      * when it ends where a line of one just above or below it ends and starts elsewhere (a total's
-     * label over the next), else [BlockAlign.START]. Never throws for any numbers, NaN among them.
+     * label over the next), else [BlockAlign.START]; a single line with leader dots (a contents
+     * entry) is always [BlockAlign.START]. Never throws for any numbers, NaN among them.
      */
     fun group(lines: List<SourceLine>, pageWidth: Float, pageHeight: Float): List<SourceBlock> {
         val usable = lines.mapNotNull { usable(it, pageWidth, pageHeight) }
@@ -580,6 +581,9 @@ object TextBlocks {
 
     /** How a block of one line is aligned, measured against the page, its running text [body] and its other [blocks] (see [group]). */
     private fun single(block: Block, body: Body?, blocks: List<Block>, pageWidth: Float): BlockAlign {
+        // A contents entry runs from its title, where entries of its level start, by leader dots to a
+        // page number that ends where the others' do: it is lined up at its start.
+        if (LEADER.containsMatchIn(block.last.text)) return BlockAlign.START
         val left = block.left
         val right = block.right
         if (centredOnPage(left, right, pageWidth) && !body.fromMarginToMargin(left, right, pageWidth) && !startsWithAnother(block, blocks, pageWidth)) {
