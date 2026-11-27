@@ -99,6 +99,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -609,18 +610,20 @@ private fun CornersStep(session: CropSession, source: OriginalImage?, photo: Bit
             )
             val notAPage = stringResource(if (card) R.string.card_crop_not_a_card else R.string.crop_not_a_page)
             val align = if (wide) TextAlign.Start else TextAlign.Center
+            // In lines of about the same length, rather than a last word alone, as the scan's Photos hint.
+            val style = MaterialTheme.typography.bodyMedium.copy(lineBreak = LineBreak.Heading)
             // As tall as the longer of its two texts, whichever shows: the image below stays
             // where it is when they change places under a corner being dragged.
             Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
                     if (usable) notAPage else page,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = style,
                     textAlign = align,
                     modifier = Modifier.fillMaxWidth().alpha(0f).clearAndSetSemantics {},
                 )
                 Text(
                     if (usable) page else notAPage,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = style,
                     color = if (usable) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
                     textAlign = align,
                     modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
