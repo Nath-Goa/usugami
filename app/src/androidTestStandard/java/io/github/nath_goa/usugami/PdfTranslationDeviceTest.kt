@@ -665,6 +665,19 @@ class PdfTranslationDeviceTest {
         assertTrue(heading.minOf { it.xDirAdj } > 100f)
     }
 
+    @Test fun japaneseAndChineseGetTheirOwnLetterShapes() {
+        val input = import(articlePdf())
+        // Characters that Japanese and Chinese write differently: the phone's language mustn't decide.
+        fun drawn(target: String): Bitmap = render(translate(input, target = target, translation = FakeEngine { "直角骨" }).file.file, 0)
+        val japanese = drawn("ja")
+        val chinese = drawn("zh")
+        var differ = 0
+        for (y in (842 - 770) * 2 until (842 - 735) * 2) for (x in 72 * 2 until 300 * 2) if (japanese.getPixel(x, y) != chinese.getPixel(x, y)) differ++
+        japanese.recycle()
+        chinese.recycle()
+        assertTrue("$differ pixels differ", differ > 100)
+    }
+
     @Test fun withoutTextRecognitionThePagesWithTextAreStillTranslated() {
         val file = File(dir, "charts.pdf")
         PDDocument().use { doc ->

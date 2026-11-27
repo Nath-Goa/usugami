@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.os.LocaleList
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextDirectionHeuristics
@@ -42,20 +43,31 @@ internal object TranslationOverlay {
 
     private val bold: Typeface by lazy { Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD) }
 
-    /** How a translation is drawn: sans-serif, bold for a bold paragraph, [size] points (at [SCALE]), in [color]. */
-    fun paint(size: Float, bold: Boolean, color: Int): TextPaint =
+    /**
+     * How a translation is drawn: sans-serif, bold for a bold paragraph, [size] points (at [SCALE]),
+     * in [color], with the letters' shapes of [language] when it is given.
+     */
+    fun paint(size: Float, bold: Boolean, color: Int, language: Language? = null): TextPaint =
         TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG or Paint.LINEAR_TEXT_FLAG).apply {
             typeface = if (bold) this@TranslationOverlay.bold else Typeface.SANS_SERIF
             textSize = size * SCALE
             this.color = color
+            if (language != null) textLocales = language.locales
         }
 
     /** [width] points as layout pixels, rounded up: the same for measuring and drawing. */
     fun layoutWidth(width: Float): Int = ceil(width * SCALE - 0.001f).toInt().coerceAtLeast(1)
 
-    /** The language a translation is written in, by its tag (see [TranslationEngine]): whether it is written right to left. */
+    /**
+     * The language a translation is written in, by its tag (see [TranslationEngine]): whether it is
+     * written right to left, and the shapes its letters take where languages share them (Japanese
+     * kanji aren't drawn as Chinese ones, nor the other way round, whatever the phone's language).
+     */
     class Language(tag: String) {
         val rightToLeft: Boolean = tag in RIGHT_TO_LEFT
+
+        /** ML Kit's Chinese is simplified Chinese: said so, the phone needn't guess its script. */
+        val locales: LocaleList = LocaleList.forLanguageTags(if (tag == "zh") "zh-Hans" else tag)
     }
 
     /** Arabic, Persian, Hebrew and Urdu, as ML Kit names them. */
@@ -110,7 +122,7 @@ internal object TranslationOverlay {
 
     /** Measures text in [language] as [draw] draws it for a block that is [bold] and lined up as [align] says, in points. */
     fun measurer(bold: Boolean, align: BlockAlign, rtl: Boolean, language: Language): TextMeasurer {
-        val paint = paint(1f, bold, BLACK)
+        val paint = paint(1f, bold, BLACK, language)
         return TextMeasurer { text, size, width ->
             paint.textSize = size * SCALE
             layout(text, paint, width, align, rtl, language).height / SCALE
@@ -125,7 +137,7 @@ internal object TranslationOverlay {
      * [color], lined up as [align] says of its block, written right to left when [rtl].
      */
     fun draw(canvas: Canvas, text: String, fit: Fit, bold: Boolean, color: Int, align: BlockAlign, rtl: Boolean, language: Language) {
-        val layout = layout(text, paint(fit.size, bold, color), fit.area.width, align, rtl, language)
+        val layout = layout(text, paint(fit.size, bold, color, language), fit.area.width, align, rtl, language)
         canvas.withTranslation(fit.area.left, fit.area.top) {
             scale(1 / SCALE, 1 / SCALE)
             layout.draw(this)
