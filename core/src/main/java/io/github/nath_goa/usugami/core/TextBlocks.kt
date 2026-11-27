@@ -74,7 +74,8 @@ data class SourceBlock(
  * after a note's number set smaller than it (a footnote's), and a table's row: a line with a number
  * alone after it in its row, as large as it (an amount, a quantity), which also says nothing of the
  * page's line spacing. An e-mail or web address on a line of its own is a block of its own, which
- * nothing continues: it isn't translated with the lines around it. A line with leader dots or a blank to
+ * nothing continues: it isn't translated with the lines around it (unless the line above ends
+ * with "-", "/", "@" or "_": the address's start, broken there). A line with leader dots or a blank to
  * fill in ("....", "____") ends its block, so each entry of a contents page, a price list or a form
  * is a block of its own (a title that runs on to a second line, which has the dots, stays whole). A
  * block can't go on past a line below its last line that overlaps it sideways, so a heading or a
@@ -198,6 +199,9 @@ object TextBlocks {
      * "Famili-" "en", "mi-" "nor").
      */
     private val SUSPENDED = Regex("^(?:und|oder|bzw\\.?|bis|sowie|and|or|et|ou|of|y|e|o|u)(?=\\s)")
+
+    /** What an e-mail or web address broken at a line's end ends that line with. */
+    private const val ADDRESS_BREAKS = "-/@_"
 
     /** A note's number or sign, as a footnote starts with… */
     private val NOTE_MARK = Regex("\\d{1,3}|[*†‡§]{1,3}")
@@ -447,7 +451,9 @@ object TextBlocks {
         if (LEADER.containsMatchIn(prev.text)) return false
         // An e-mail or web address on a line of its own, under an address's or a letterhead's lines or
         // at a paragraph's end: an entry of its own, which a translator would change if it had it in a text.
-        if (TranslatableText.isAddresses(prev.text) || TranslatableText.isAddresses(line.text)) return false
+        // Not the end of one broken at the line above's end ("www.reparons-" over "lyon.fr."): it runs on.
+        val brokenAddress = prev.text.lastOrNull()?.let { it in ADDRESS_BREAKS } == true
+        if (!brokenAddress && (TranslatableText.isAddresses(prev.text) || TranslatableText.isAddresses(line.text))) return false
         // A line narrower than running text over one starting with a capital or a digit: the lines of
         // an address or of labels, each an entry of its own ("Mrs Sophie Durand" over "Purchasing
         // Department", "Invoice no. 12" over "Date: 3 May"), however they are aligned.
@@ -616,14 +622,25 @@ object TextBlocks {
                     last == SOFT_HYPHEN -> out.setLength(out.length - 1)
                     // "Vor-" "und Nachname", "short-" "and long-term": the hyphen stands for the end of the word after "und".
                     hyphen && SUSPENDED.containsMatchIn(text) -> out.append(' ')
-                    // "exam-" "ple": a word broken at the line's end; "Jean-" "Pierre" and "COVID-" "19" keep their hyphen.
-                    hyphen -> if (Character.isLowerCase(next) && Character.isLetter(out.codePointBefore(out.length - 1))) out.setLength(out.length - 1)
+                    // "exam-" "ple": a word broken at the line's end; "Jean-" "Pierre" and "COVID-" "19" keep their hyphen,
+                    // as does an address broken at its own ("www.reparons-" "lyon.fr", "dpo@library-" "exeter.org.uk").
+                    hyphen -> if (Character.isLowerCase(next) && Character.isLetter(out.codePointBefore(out.length - 1)) && !endsInAddress(out)) out.setLength(out.length - 1)
                     else -> out.append(WordSpacing.between(last, next))
                 }
             }
             out.append(text)
         }
         return out.toString()
+    }
+
+    /** Whether the last word of [text], which ends with a hyphen, is the start of an e-mail or web address: it has an "@", a "." or a "/". */
+    private fun endsInAddress(text: CharSequence): Boolean {
+        var i = text.length - 2
+        while (i >= 0 && !Character.isWhitespace(text[i])) {
+            if (text[i] == '@' || text[i] == '.' || text[i] == '/') return true
+            i--
+        }
+        return false
     }
 
     private fun spread(values: List<Float>): Float = values.max() - values.min()

@@ -159,6 +159,12 @@ class TextBlocksDocumentsTest {
         // A web address on its own line under a line of opening hours.
         val shop = listOf(line("Ouverts du mardi au samedi, de 9 h à 19 h", 56f, 300f, 262f, size = 10f), line("www.cooplait-monts.fr/magasins", 56f, 314f, 205f, size = 10f))
         assertEquals(shop.map { it.text }, texts(group(shop)))
+        // An address broken at its hyphen at a line's end runs on with the sentence it ends.
+        val note = listOf(
+            line("Prochain atelier : samedi 5 décembre, de 10 h à 13 h,", 315f, 590f, 537f, size = 8.5f),
+            line("12 rue d'Austerlitz. Renseignements sur www.reparons-", 315f, 601f, 533f, size = 8.5f), line("lyon.fr.", 315f, 612f, 345f, size = 8.5f),
+        )
+        assertEquals(listOf("${note[0].text} ${note[1].text}${note[2].text}"), texts(group(note)))
     }
 
     @Test fun aContentsEntryIsLinedUpAtItsStart() {
