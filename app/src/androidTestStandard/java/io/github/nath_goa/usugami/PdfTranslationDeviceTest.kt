@@ -39,6 +39,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOut
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
 import com.tom_roush.pdfbox.util.Matrix
+import io.github.nath_goa.usugami.core.TextBlocks
 import io.github.nath_goa.usugami.core.TranslatedPages
 import io.github.nath_goa.usugami.data.NothingToTranslate
 import io.github.nath_goa.usugami.data.OcrEngine
@@ -876,6 +877,46 @@ class PdfTranslationDeviceTest {
             var read: PageLines? = null
             PageLineReader(setOf(0), {}) { _, lines -> read = lines }.read(doc)
             assertEquals(listOf("1", notes[0], "2", notes[1]), read!!.lines.map { it.text })
+        }
+    }
+
+    @Test fun aClausesNumberHangsApartAndANoteNumberIsntReadIntoItsWord() {
+        // A contract's clauses as a word processor sets them: the number, then the text 16 points
+        // further, its second line under the text; a note's number raised and smaller after a word.
+        val file = File(dir, "clauses.pdf")
+        val font = PDType1Font.TIMES_ROMAN
+        val first = "Le prestataire s'engage à exécuter les prestations décrites à l'annexe 1 avec tout le soin et la"
+        val second = "compétence attendus d'un professionnel pendant toute la durée de son terme"
+        val next = "Il s'engage en particulier à respecter le calendrier fixé."
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c ->
+                c.line(57f, 700f, "3.1", font = font)
+                c.line(87f, 700f, first, font = font)
+                c.beginText()
+                c.setFont(font, 11f)
+                c.newLineAtOffset(87f, 685.7f)
+                c.showText(second)
+                c.newLineAtOffset(font.getStringWidth(second) / 1000 * 11f, 3.6f)
+                c.setFont(font, 7.15f)
+                c.showText("1")
+                c.newLineAtOffset(font.getStringWidth("1") / 1000 * 7.15f, -3.6f)
+                c.setFont(font, 11f)
+                c.showText(".")
+                c.endText()
+                c.line(57f, 664.4f, "3.2", font = font)
+                c.line(87f, 664.4f, next, font = font)
+            }
+            doc.save(file)
+        }
+        PDDocument.load(file).use { doc ->
+            var read: PageLines? = null
+            PageLineReader(setOf(0), {}) { _, lines -> read = lines }.read(doc)
+            val blocks = TextBlocks.group(read!!.lines, 595f, 842f)
+            assertEquals(listOf("3.1", "$first $second.", "1", "3.2", next), blocks.map { it.text })
+            // The clause's lines start under its text, not its number.
+            assertEquals(87f, blocks[1].left, 0.5f)
         }
     }
 

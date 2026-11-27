@@ -42,7 +42,9 @@ internal class PageLines(val lines: List<SourceLine>, val hasText: Boolean)
  * page, and text drawn invisibly (as the text layer of a scan is), stay as they are on the picture
  * too. A line is cut where two glyphs next to each other are more than [GAP_EM] font sizes apart,
  * so the cells of a table's row, or items set apart with tabs, are lines of their own; and after a
- * bullet or a note's number that goes apart from its text (see [markEnd]). A glyph that starts more
+ * bullet, an item's or a clause's number or a note's number that goes apart from its text (see
+ * [markEnd]). A note's number raised after a word ("terme¹") is a line of its own, out of its line's
+ * text (see [raisedNotes]). A glyph that starts more
  * than a point outside the crop box is left out, as the page shows only what is inside it. The
  * storage running full while a page is read is no unreadable page: it goes up as it is.
  */
@@ -176,7 +178,7 @@ internal class PageLineReader(
                 continue
             }
             lineLetters += lettersOf(glyph)
-            val placed = Placed(glyph, box, sizeOf(glyph))
+            val placed = Placed(glyph, box, sizeOf(glyph), baselineOf(glyph, frame))
             if (last != null) {
                 val gap = max(box.left - last.box.right, last.box.left - box.right)
                 if (gap > GAP_EM * max(placed.size, last.size)) {
@@ -197,16 +199,23 @@ internal class PageLineReader(
         return if (Redactor.readable(unicode)) unicode.count(Char::isLetter) else 0
     }
 
-    /** A glyph with its box on the page as shown and its font size. */
-    private class Placed(val glyph: TextPosition, val box: GlyphBox, val size: Float)
+    /** A glyph with its box on the page as shown, its font size, and how far down the page as shown its baseline is. */
+    private class Placed(val glyph: TextPosition, val box: GlyphBox, val size: Float, val baseline: Float)
+
+    /** How far down the page as shown [glyph]'s baseline is, a text rise included: its text rendering matrix's origin. */
+    private fun baselineOf(glyph: TextPosition, frame: PageFrame): Float {
+        val trm = glyph.textMatrix
+        val (_, shownY) = frame.toShown(trm.translateX + frame.left, trm.translateY + frame.bottom)
+        return frame.shownHeight - shownY
+    }
 
     /**
      * Where the rest of [piece] starts after its first word, when that word is a mark that goes
-     * apart from the line's text: a bullet or an item's number set apart from it by more than
-     * [MARKER_GAP_EM] font sizes (the text's second line starts under the text, not the mark), or a
-     * note's number (or *, †) smaller than the text after it, as footnotes start. The first word
-     * ends at a gap or at a space drawn as a glyph, as word processors draw their spaces. -1 for
-     * none, and always in right-to-left text, whose first word drawn is its last read.
+     * apart from the line's text: a bullet, an item's number or a clause's ("3.1", "4.2.1") set
+     * apart from it by more than [MARKER_GAP_EM] font sizes (the text's second line starts under the
+     * text, not the mark), or a note's number (or *, †) smaller than the text after it, as footnotes
+     * start. The first word ends at a gap or at a space drawn as a glyph, as word processors draw
+     * their spaces. -1 for none, and always in right-to-left text, whose first word drawn is its last read.
      */
     private fun markEnd(piece: List<Placed?>): Int {
         val end = piece.indexOfFirst { it == null || it.glyph.unicode.isNullOrBlank() }
@@ -218,9 +227,58 @@ internal class PageLineReader(
         if (rightToLeft(rest.joinToString("") { it.glyph.unicode.orEmpty() })) return -1
         val size = median(rest.map { it.size })
         val gap = rest.first().box.left - word.last().box.right
-        val listed = LIST_MARK.matches(mark) && gap > MARKER_GAP_EM * size
+        val listed = (LIST_MARK.matches(mark) || CLAUSE_MARK.matches(mark)) && gap > MARKER_GAP_EM * size
         val noted = NOTE_MARK.matches(mark) && median(word.map { it.size }) < SMALL_MARK * size
         return if (listed || noted) end else -1
+    }
+
+    /**
+     * The runs of [piece] that are a note's number raised after a word ("terme¹", "Code²,"): digits
+     * smaller than [SMALL_MARK] of the line's size, their baseline at least [RAISED_EM] of it above
+     * the line's, right after a word of three letters or more, a number of four digits or more (a
+     * year) or closing punctuation. A unit's power ("m²", "km²", "10⁶") isn't one. None in
+     * right-to-left text.
+     */
+    private fun raisedNotes(piece: List<Placed?>): List<IntRange> {
+        val placed = piece.filterNotNull()
+        if (placed.size < 2 || rightToLeft(placed.joinToString("") { it.glyph.unicode.orEmpty() })) return emptyList()
+        val size = median(placed.map { it.size })
+        val body = placed.filter { it.size >= SMALL_MARK * size }
+        if (body.isEmpty()) return emptyList()
+        val baseline = median(body.map { it.baseline })
+        fun raised(p: Placed?) = p != null && p.size < SMALL_MARK * size && baseline - p.baseline >= RAISED_EM * size &&
+            p.glyph.unicode.orEmpty().let { it.isNotEmpty() && it.all(Char::isDigit) }
+        val runs = ArrayList<IntRange>()
+        var i = 1
+        while (i < piece.size) {
+            if (!raised(piece[i]) || raised(piece[i - 1]) || !afterAWord(piece, i)) {
+                i++
+                continue
+            }
+            var end = i
+            while (end + 1 < piece.size && raised(piece[end + 1])) end++
+            runs += i..end
+            i = end + 1
+        }
+        return runs
+    }
+
+    /** Whether what [piece] has right before [at] is a word of three letters or more, a number of four digits or more, or closing punctuation. */
+    private fun afterAWord(piece: List<Placed?>, at: Int): Boolean {
+        val before = piece[at - 1]?.glyph?.unicode.orEmpty()
+        val last = before.lastOrNull() ?: return false
+        if (last in AFTER_WORD) return true
+        val letters = last.isLetter()
+        if (!letters && !last.isDigit()) return false
+        var count = 0
+        var j = at - 1
+        while (j >= 0) {
+            val unicode = piece[j]?.glyph?.unicode.orEmpty()
+            if (unicode.isEmpty() || !unicode.all { if (letters) it.isLetter() else it.isDigit() }) break
+            count += unicode.length
+            j--
+        }
+        return count >= if (letters) 3 else 4
     }
 
     /** Adds [piece] as a line of the page, unless it is blank: a line of numbers too, which stays as it is on the page. */
@@ -234,6 +292,16 @@ internal class PageLineReader(
             var from = mark
             while (from < piece.size && piece[from].let { it == null || it.glyph.unicode.isNullOrBlank() }) from++
             addLine(piece.subList(from, piece.size))
+            return
+        }
+        val notes = raisedNotes(piece)
+        if (notes.isNotEmpty()) {
+            // The line's text without them, so "terme¹" isn't read as "terme1", and each a line of its
+            // own, which stays as it is on the page, where the translation runs past it.
+            val inNote = BooleanArray(piece.size)
+            for (run in notes) for (i in run) inNote[i] = true
+            addLine(piece.filterIndexed { i, _ -> !inNote[i] })
+            for (run in notes) addLine(piece.subList(run.first, run.last + 1))
             return
         }
         val byGlyph = IdentityHashMap<TextPosition, Placed>()
@@ -311,14 +379,23 @@ internal class PageLineReader(
         /** A bullet, a dash, a symbol font's bullet, or an item's number or letter: "1.", "(2)", "a)", "iv.". */
         private val LIST_MARK = Regex("[•◦▪▫‣⁃∙●○■□►▸▹➢➤✓✔✗✘·*\\-–—\\uE000-\\uF8FF]|\\(?\\d{1,3}[.)]|\\(?[a-zA-Z][.)]|\\(?[ivxIVX]{1,5}[.)]")
 
+        /** A clause's number: "3.1", "4.2.1", "2.3.". */
+        private val CLAUSE_MARK = Regex("\\d{1,3}(?:\\.\\d{1,3})+\\.?")
+
         /** A note's number or sign, as footnotes start with. */
         private val NOTE_MARK = Regex("\\d{1,3}|[*†‡§]{1,3}")
 
         /** A mark this many font sizes or more before its text goes apart from it… */
         private const val MARKER_GAP_EM = 0.5f
 
-        /** …as does a note's number smaller than this share of the text's size. */
+        /** …as does a note's number smaller than this share of the text's size… */
         private const val SMALL_MARK = 0.8f
+
+        /** …and, after a word, its baseline raised this share of the text's size or more above the text's. */
+        private const val RAISED_EM = 0.15f
+
+        /** Closing punctuation a note's number may follow. */
+        private const val AFTER_WORD = ".,;:!?)]»”’\"'"
 
         /** Whether most of [text]'s letters are written right to left: Hebrew, Arabic, Syriac, Thaana. */
         fun rightToLeft(text: String): Boolean {

@@ -77,10 +77,10 @@ data class SourceBlock(
  *   3 font sizes or the new line's first word, which would have fitted on it had the paragraph gone on.
  *
  * A line that starts with a bullet or a number ("•", "-", "–", "*", "1.", "1)", "(1)", "a)", "iv.")
- * always starts a new block, as does the line beside a bullet or a number standing alone, or just
- * after a note's number set smaller than it (a footnote's), and a table's row: a line with a number
- * alone after it in its row, as large as it (an amount, a quantity), which also says nothing of the
- * page's line spacing. An e-mail or web address on a line of its own is a block of its own, which
+ * always starts a new block, as does the line beside a bullet or a number standing alone (a clause's
+ * "3.1" too), or just after a note's number set smaller than it (a footnote's), and a table's row: a
+ * line with a number alone after it in its row, as large as it (an amount, a quantity), which also
+ * says nothing of the page's line spacing. An e-mail or web address on a line of its own is a block of its own, which
  * nothing continues: it isn't translated with the lines around it (unless the line above ends
  * with "-", "/", "@" or "_": the address's start, broken there). A line with leader dots or a blank to
  * fill in ("....", "____") ends its block, so each entry of a contents page, a price list or a form
@@ -193,7 +193,9 @@ object TextBlocks {
     private const val MARKER_PATTERN = "(?:[•◦▪▫‣⁃∙●○■□►▸▹➢➤✓✔✗✘·*\\-–\\uE000-\\uF8FF]|\\d{1,3}[.)]|\\(\\d{1,3}\\)" +
         "|[a-z]\\)|[a-h]\\.|\\([a-zA-Z]\\)|[A-Z]\\)|$ROMAN[.)]|\\((?:$ROMAN|$CAPITAL_ROMAN)\\)|(?=[IVX]{2})$CAPITAL_ROMAN[.)])"
     private val MARKER = Regex("^$MARKER_PATTERN(?:\\s|$)")
-    private val MARKER_ONLY = Regex("^$MARKER_PATTERN$")
+
+    /** A marker alone on its line, or a clause's number ("3.1", "4.2.1"), which only a line of its own tells from a number starting a sentence. */
+    private val MARKER_ONLY = Regex("^(?:$MARKER_PATTERN|\\d{1,3}(?:\\.\\d{1,3})+\\.?)$")
 
     /**
      * Leader dots (". . . .", "....", "····", "・・・・", "………") or a blank to fill in ("____"). Up to
@@ -595,6 +597,7 @@ object TextBlocks {
         val linedUp = HashMap<Block, BlockAlign?>()
         for (block in blocks) if (block.lines.size > 1) linedUp[block] = lineUp(block)
         val running = blocks.filter { it.lines.size > 1 && (linedUp[it] ?: BlockAlign.START) == BlockAlign.START }
+        val notes = raisedNotes(blocks)
         val align = HashMap<Block, BlockAlign>()
         for (block in blocks) {
             if (block.lines.size < 2) continue
@@ -602,13 +605,13 @@ object TextBlocks {
                 val others = running.filter { it !== block }
                 val body = if (others.isEmpty()) null else Body(others)
                 val centred = centredOnPage(block.left, block.right, pageWidth) && !body.fromMarginToMargin(block.left, block.right, pageWidth)
-                if (centred && !startsWithAnother(block, blocks, pageWidth)) BlockAlign.CENTER else BlockAlign.START
+                if (centred && !startsWithAnother(block, blocks, pageWidth, notes)) BlockAlign.CENTER else BlockAlign.START
             }
         }
         // Then single lines, against the margins and columns of the running text.
         val bodyBlocks = blocks.filter { align[it] == BlockAlign.START }
         val body = if (bodyBlocks.isEmpty()) null else Body(bodyBlocks)
-        for (block in blocks) if (block.lines.size == 1) align[block] = single(block, body, blocks, pageWidth)
+        for (block in blocks) if (block.lines.size == 1) align[block] = single(block, body, blocks, pageWidth, notes)
         return blocks.map { block ->
             SourceBlock(
                 block.lines.map { it.source }, text(block.lines), block.left, block.top, block.right, block.bottom,
@@ -639,13 +642,22 @@ object TextBlocks {
         return BlockAlign.START
     }
 
+    /** The blocks of [blocks] that are a number alone with its middle inside another block's box: a note's number raised in a line of text. */
+    private fun raisedNotes(blocks: List<Block>): Set<Block> = blocks.filterTo(HashSet()) { note ->
+        val x = (note.left + note.right) / 2
+        val y = (note.top + note.bottom) / 2
+        note.lines.none { line -> line.text.any(Char::isLetter) } &&
+            blocks.any { it !== note && x > it.left && x < it.right && y > it.top && y < it.bottom }
+    }
+
     /**
      * Whether [block] starts where another of [blocks] starts (within [ALIGNED_EDGES_EM] font
      * sizes), one that isn't centred on the page: then it is lined up with it, and only looks centred
-     * because the page's margins are alike, as a long line or a justified paragraph does.
+     * because the page's margins are alike, as a long line or a justified paragraph does. Not one of
+     * [notes], which starts where it is raised in a line of text.
      */
-    private fun startsWithAnother(block: Block, blocks: List<Block>, pageWidth: Float): Boolean = blocks.any { other ->
-        other !== block && !centredOnPage(other.left, other.right, pageWidth) &&
+    private fun startsWithAnother(block: Block, blocks: List<Block>, pageWidth: Float, notes: Set<Block>): Boolean = blocks.any { other ->
+        other !== block && other !in notes && !centredOnPage(other.left, other.right, pageWidth) &&
             (if (block.rtl) abs(other.right - block.right) else abs(other.left - block.left)) <= ALIGNED_EDGES_EM * block.size
     }
 
@@ -668,13 +680,13 @@ object TextBlocks {
     }
 
     /** How a block of one line is aligned, measured against the page, its running text [body] and its other [blocks] (see [group]). */
-    private fun single(block: Block, body: Body?, blocks: List<Block>, pageWidth: Float): BlockAlign {
+    private fun single(block: Block, body: Body?, blocks: List<Block>, pageWidth: Float, notes: Set<Block>): BlockAlign {
         // A contents entry runs from its title, where entries of its level start, by leader dots to a
         // page number that ends where the others' do: it is lined up at its start.
         if (LEADER.containsMatchIn(block.last.text)) return BlockAlign.START
         val left = block.left
         val right = block.right
-        if (centredOnPage(left, right, pageWidth) && !body.fromMarginToMargin(left, right, pageWidth) && !startsWithAnother(block, blocks, pageWidth)) {
+        if (centredOnPage(left, right, pageWidth) && !body.fromMarginToMargin(left, right, pageWidth) && !startsWithAnother(block, blocks, pageWidth, notes)) {
             return BlockAlign.CENTER
         }
         if (endsWithTheLineBeside(block, blocks)) return BlockAlign.END

@@ -433,17 +433,22 @@ private class PdfTranslator(
                     val box = rect(line.left, line.top, line.right, line.bottom, size, padded = true)
                     nobody.grown(box, colors[i].background, reach(GROW_UP, size, perY), reach(GROW_DOWN, size, perY), reach(GROW_SIDE, size, perX))
                 }
+                // A note's number kept inside its lines (see PageLineReader) is no neighbour to keep clear of.
+                val neighbours = blocks.filter { it === block || it in replaced || !noteInside(it, block) }
                 TranslationOverlay.fit(
                     bitmap, perX, perY, text, block, rect(block.left, block.top, block.right, block.bottom, size, padded = true), painted,
-                    TextFit.limits(block, blocks, width, height), colors[i], TranslationOverlay.measurer(block.bold, block.align, block.rtl, language),
+                    TextFit.limits(block, neighbours, width, height), colors[i], TranslationOverlay.measurer(block.bold, block.align, block.rtl, language),
                 )
             }
             val near = drawn.map { (block, _) -> rect(block.left, block.top, block.right, block.bottom, block.size * 2, padded = true) }
-            val keep = kept.flatMap { block -> block.lines.map { line -> line to block.size } }.mapNotNull { (line, size) ->
+            val keep = kept.flatMap { block -> block.lines.map { line -> Triple(line, block.size, block) } }.mapNotNull { (line, size, block) ->
                 val box = rect(line.left, line.top, line.right, line.bottom, size, padded = false)
                 if (near.none { Rect.intersects(it, box) }) return@mapNotNull null
                 val reach = reach(KEPT_GROW, size, perY)
-                nobody.grown(box, TranslationOverlay.colors(bitmap, box).background, reach, reach, reach(KEPT_GROW, size, perX))
+                // A note's number raised after a word has its strokes within its box: grown sideways, it
+                // would keep a piece of the word's last letter, which the word's line paints over.
+                val side = if (drawn.any { (other, _) -> noteInside(block, other) }) 0 else reach(KEPT_GROW, size, perX)
+                nobody.grown(box, TranslationOverlay.colors(bitmap, box).background, reach, reach, side)
             }
             // Line by line, top to bottom, so a box over a varied background takes its colours from what is painted above it.
             val lines = drawn.flatMapIndexed { i, (block, _) -> block.lines.map { line -> Triple(line, block.size, colors[i]) } }.sortedBy { it.first.top }
@@ -468,6 +473,14 @@ private class PdfTranslator(
         stampDoc.finishPage(onStamp)
         stamped += Stamped(page, image, stampWidth, stampHeight)
         if (stamped.size >= STAMP_PAGES) flushStamp()
+    }
+
+    /** Whether [other], a block without letters, has its middle inside [block]'s box: a note's number raised in one of its lines. */
+    private fun noteInside(other: SourceBlock, block: SourceBlock): Boolean {
+        if (other.text.any(Char::isLetter)) return false
+        val x = (other.left + other.right) / 2
+        val y = (other.top + other.bottom) / 2
+        return x > block.left && x < block.right && y > block.top && y < block.bottom
     }
 
     /** Page [index] as a picture of itself: now, or once a page has something to translate (see [waiting]). */
