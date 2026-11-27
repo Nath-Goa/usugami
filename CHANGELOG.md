@@ -36,7 +36,7 @@ All notable changes to Usugami are listed here. The format is based on
     Numbers, names, addresses and text already in the language chosen stay on the picture. The
     title and bookmarks are translated; form fields, comments, links, metadata and scripts aren't
     kept (what the page shows of a field or a comment is in the picture). Notes under the result
-    name the pages left as they were and those where some text was.
+    name the pages left as they were and those where some text was left untranslated.
   - Its limits are in the README (*What can't Translate PDF do?*): translations are set ragged
     and can differ in size from paragraph to paragraph; text turned more than about 10 degrees,
     upside down or running down the page is left as it is; over a photo or a gradient the patch
@@ -74,13 +74,12 @@ All notable changes to Usugami are listed here. The format is based on
 - **Usugami.apk has the internet permission** (`INTERNET` and `ACCESS_NETWORK_STATE`, which ML
   Kit's translation asks for), only so that Android's download manager can fetch language packs;
   About and the privacy policy say so. Usugami's own process opens no connection: from its start
-  it refuses every http, https and ftp address, so ML Kit can't register with Google's Firebase or
-  fetch its settings, and OkHttp, which ML Kit brought only for that, is left out. Usugami.apk's
-  Java code, Google's libraries' included, no longer writes debug and info messages to the phone's
-  system log; ML Kit's native code still writes the text it translates, and the translation, there.
-  Usugami
-  Lite and Usugami OCR still have no internet permission and none of Translate PDF's code or
-  texts.
+  it refuses every http, https and ftp address, which stops ML Kit fetching its settings from
+  Google's Firebase, and OkHttp, which ML Kit brought only to register with Firebase, is left out,
+  with a stand-in that opens no connection. Usugami.apk's Java code, Google's libraries' included,
+  no longer writes debug and info messages to the phone's system log; ML Kit's native code still
+  writes the text it translates, and the translation, there. Usugami Lite and Usugami OCR still
+  have no internet permission and none of Translate PDF's code or texts.
 
 ## [3.0.1] - 2026-11-20
 
