@@ -34,6 +34,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +42,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -300,12 +302,22 @@ internal fun LookChoice(
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(10.dp)
     val bringIntoView = remember { BringIntoViewRequester() }
-    // Clear of the row's faded edges, so that one tapped at an edge shows whole once chosen.
-    val clear = with(LocalDensity.current) { Rect(-LOOK_MARGIN.toPx(), 0f, (width + LOOK_MARGIN).toPx(), 1f) }
-    LaunchedEffect(reveal, selected) { if (selected) bringIntoView.bringIntoView(clear) }
+    // Whole, and clear of the row's faded edges, so that one tapped at an edge shows whole once chosen.
+    val margin = with(LocalDensity.current) { LOOK_MARGIN.toPx() }
+    val size = remember { IntArray(2) }
+    LaunchedEffect(reveal, selected) {
+        if (!selected) return@LaunchedEffect
+        // Not laid out yet as the row first comes: its size is known once a frame has been drawn.
+        if (size[1] == 0) withFrameNanos {}
+        bringIntoView.bringIntoView(Rect(-margin, 0f, size[0] + margin, size[1].toFloat()))
+    }
     Column(
         Modifier
             .width(width)
+            .onSizeChanged {
+                size[0] = it.width
+                size[1] = it.height
+            }
             .bringIntoViewRequester(bringIntoView)
             .clip(shape)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
