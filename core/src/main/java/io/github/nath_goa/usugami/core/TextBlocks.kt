@@ -73,7 +73,8 @@ data class SourceBlock(
  * always starts a new block, as does the line beside a bullet or a number standing alone, or just
  * after a note's number set smaller than it (a footnote's), and a table's row: a line with a number
  * alone after it in its row, as large as it (an amount, a quantity), which also says nothing of the
- * page's line spacing. A line with leader dots or a blank to
+ * page's line spacing. An e-mail or web address on a line of its own is a block of its own, which
+ * nothing continues: it isn't translated with the lines around it. A line with leader dots or a blank to
  * fill in ("....", "____") ends its block, so each entry of a contents page, a price list or a form
  * is a block of its own (a title that runs on to a second line, which has the dots, stays whole). A
  * block can't go on past a line below its last line that overlaps it sideways, so a heading or a
@@ -443,6 +444,9 @@ object TextBlocks {
         if (margin != null && abs(start - margin) > NEW_PARAGRAPH_INDENT_EM * em) return false
         // A line with leader dots or a blank to fill in ends its entry: a contents line, a price, a form's field.
         if (LEADER.containsMatchIn(prev.text)) return false
+        // An e-mail or web address on a line of its own, under an address's or a letterhead's lines or
+        // at a paragraph's end: an entry of its own, which a translator would change if it had it in a text.
+        if (TranslatableText.isAddresses(prev.text) || TranslatableText.isAddresses(line.text)) return false
         // A line narrower than running text over one starting with a capital or a digit: the lines of
         // an address or of labels, each an entry of its own ("Mrs Sophie Durand" over "Purchasing
         // Department", "Invoice no. 12" over "Date: 3 May"), however they are aligned.

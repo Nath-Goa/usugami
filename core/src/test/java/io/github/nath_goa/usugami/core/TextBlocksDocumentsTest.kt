@@ -150,6 +150,17 @@ class TextBlocksDocumentsTest {
         assertEquals(1, blocks.count { it.startsWith("Paiement") && it.endsWith("recouvrement.") })
     }
 
+    @Test fun anAddressOnALineOfItsOwnIsABlock() {
+        // A letterhead's address, right-aligned in 8.5-point type, its last lines an e-mail and a web
+        // address starting with small letters.
+        val head = listOf("14, place des Carmes" to 459f, "31000 Toulouse" to 482f, "Tél. 05 61 22 48 90" to 466f, "contact@delorme-immo.fr" to 444f, "www.delorme-immo.fr" to 460f)
+            .mapIndexed { i, (text, left) -> line(text, left, 40f + 11f * i, 539f, size = 8.5f) }
+        assertEquals(head.map { it.text }, texts(group(head)))
+        // A web address on its own line under a line of opening hours.
+        val shop = listOf(line("Ouverts du mardi au samedi, de 9 h à 19 h", 56f, 300f, 262f, size = 10f), line("www.cooplait-monts.fr/magasins", 56f, 314f, 205f, size = 10f))
+        assertEquals(shop.map { it.text }, texts(group(shop)))
+    }
+
     @Test fun eachFootnoteStartsAtItsNumber() {
         // Two footnotes in 9-point type, each after its number in 6-point type.
         val notes = listOf(

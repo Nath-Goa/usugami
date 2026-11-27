@@ -40,8 +40,7 @@ object TranslatableText {
         val trimmed = text.trim()
         if (trimmed.codePoints().filter(Character::isLetter).limit(2).count() < 2) return false
         val tokens = trimmed.split(WHITESPACE)
-        // A Windows path may have spaces in it (C:\Program Files\...).
-        if (tokens.all(::isAddress) || PATH.matches(trimmed)) return false
+        if (isAddresses(trimmed)) return false
         // Letters one at a time among digits: a code. Without digits ("U.S.A.") it may be an abbreviation.
         if (!hasWord(trimmed) && trimmed.any(Char::isDigit)) return false
         // Chinese, Japanese and Thai put no space between words, so a whole paragraph of them is one run.
@@ -51,6 +50,17 @@ object TranslatableText {
             return false
         }
         return true
+    }
+
+    /**
+     * Whether each word of [text] is a web or e-mail address or a file's name or path (see
+     * [isWorthTranslating]), or the whole of it is a path: a Windows path may have spaces in it
+     * (C:\Program Files\...). Blank text isn't.
+     */
+    fun isAddresses(text: String): Boolean {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return false
+        return trimmed.split(WHITESPACE).all(::isAddress) || PATH.matches(trimmed)
     }
 
     /** Whether [token], without the brackets, quotes and punctuation around it, is a web or e-mail address or a file's name or path. */
