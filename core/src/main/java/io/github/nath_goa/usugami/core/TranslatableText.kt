@@ -129,6 +129,9 @@ object TextChunks {
     /** May follow the end of a sentence: closing quotes and brackets. */
     private const val CLOSERS = "\"'”’»)]}」』）】》〉›"
 
+    /** The most closing quotes and brackets looked past for the end of a sentence, so a long run of them is cut as fast as any long word. */
+    private const val MAX_CLOSERS = 7
+
     /**
      * [text] cut into pieces of at most [max] characters, each trimmed: after the end of a sentence
      * where one is within reach, else at a space, else (Chinese, Japanese, Thai and the like, or a
@@ -174,7 +177,7 @@ object TextChunks {
     private fun sentenceEnd(s: String, start: Int, limit: Int): Int {
         for (cut in limit downTo start + 1) {
             var j = cut - 1
-            while (j > start && s[j] in CLOSERS) j--
+            while (j > start && j >= cut - MAX_CLOSERS && s[j] in CLOSERS) j--
             val c = s[j]
             if (c in UNSPACED_SENTENCE_ENDS) return cut
             if (c in SENTENCE_ENDS && (cut == s.length || s[cut].isWhitespace())) return cut

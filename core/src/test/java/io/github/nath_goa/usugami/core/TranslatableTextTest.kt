@@ -158,6 +158,16 @@ class TranslatableTextTest {
         assertEquals(unbroken, TextChunks.join(cut))
     }
 
+    @Test fun aLongRunOfClosingBracketsIsCutLikeAnyLongWord() {
+        // A title of a million closing brackets, as a hostile PDF can hold: cut where it must be, at once.
+        val text = "ab" + ")".repeat(1_000_000)
+        val pieces = TextChunks.split(text)
+        assertTrue(pieces.all { it.length <= TextChunks.MAX_CHARS })
+        assertEquals(text, pieces.joinToString(""))
+        // A sentence's end is still found behind the quotes and brackets that close it.
+        assertEquals(listOf("“It is (late.)”", "Go home."), TextChunks.split("“It is (late.)” Go home.", max = 16))
+    }
+
     @Test fun piecesNeverSplitACharacter() {
         // An emoji is two chars; a cut at 3 would fall between its halves.
         val text = "ab\uD83D\uDE00cd"
