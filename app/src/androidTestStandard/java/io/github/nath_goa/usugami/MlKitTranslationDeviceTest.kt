@@ -69,6 +69,11 @@ class MlKitTranslationDeviceTest {
         assertEquals("fr", engine.detect("Bonjour tout le monde, comment allez-vous ?"))
     }
 
+    /** Language identification calls Tagalog "fil", and ML Kit's translation "tl". */
+    @Test fun detectsTagalog() = runBlocking {
+        assertEquals("tl", engine.detect("Magandang umaga sa inyong lahat. Kumusta kayo ngayong araw? Salamat po sa inyong pagdalo sa aming pulong."))
+    }
+
     /** ML Kit can't stop a download, but cancelling stops the wait for it at once. */
     @Test fun cancellingStopsWaitingForADownload() = runBlocking {
         if ("de" in engine.downloaded()) engine.delete("de")

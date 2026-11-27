@@ -157,15 +157,18 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
 
     /**
      * ML Kit's language identification (built in: no download, no internet), when it is at least
-     * 50 % sure, as the tag of a language ML Kit translates; null when it isn't sure or the
-     * language isn't one of [languages] (as Hindi written in Latin letters, "hi-Latn").
+     * 50 % sure, as the tag of a language ML Kit translates (its "fil" is Tagalog, "tl"); null when
+     * it isn't sure or the language isn't one of [languages] (as Hindi written in Latin letters,
+     * "hi-Latn").
      */
     override suspend fun detect(text: String): String? = unavailableUnless {
         if (text.isBlank()) return@unavailableUnless null
         val identifier = LanguageIdentification.getClient()
         try {
             val tag = identifier.identifyLanguage(text).await()
-            if (tag == LanguageIdentifier.UNDETERMINED_LANGUAGE_TAG) null else TranslateLanguage.fromLanguageTag(tag)
+            // Language identification calls Tagalog "fil", after Filipino; translation calls it "tl".
+            if (tag == LanguageIdentifier.UNDETERMINED_LANGUAGE_TAG) null
+            else TranslateLanguage.fromLanguageTag(if (tag == "fil") TranslateLanguage.TAGALOG else tag)
         } finally {
             identifier.close()
         }
