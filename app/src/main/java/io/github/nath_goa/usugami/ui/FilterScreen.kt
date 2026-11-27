@@ -189,8 +189,8 @@ internal fun LookedPage(image: ImageBitmap?, rotation: Int, busy: Boolean, modif
 
 /**
  * The looks in a row that scrolls sideways, each shown on the page ([images], turned [rotation]
- * degrees), [look] the one chosen. The one chosen scrolls into view as the row comes, and again each
- * time [reveal] changes (another page shown).
+ * degrees), [look] the one chosen. The one chosen scrolls into view as the row comes, as it is chosen,
+ * and again each time [reveal] changes (another page shown).
  */
 @Composable
 internal fun LooksRow(images: Map<PageLook, ImageBitmap>, rotation: Int, look: PageLook, onLook: (PageLook) -> Unit, reveal: Any? = Unit) {
@@ -283,7 +283,8 @@ internal suspend fun lookSamples(plain: Bitmap, onMade: (Map<PageLook, ImageBitm
 /**
  * One of the looks, like a radio button: the page in it ([image], turned [rotation] degrees, once it
  * is made) over its name, in [nameStyle], marked when it is the one chosen. It is [width] wide, its
- * name 8 dp narrower. The one chosen scrolls into view, and again when [reveal] changes.
+ * name 8 dp narrower. The one chosen scrolls into view, clear of the row's faded edges, and again
+ * when [reveal] changes.
  */
 @Composable
 internal fun LookChoice(
@@ -299,7 +300,9 @@ internal fun LookChoice(
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(10.dp)
     val bringIntoView = remember { BringIntoViewRequester() }
-    LaunchedEffect(reveal) { if (selected) bringIntoView.bringIntoView() }
+    // Clear of the row's faded edges, so that one tapped at an edge shows whole once chosen.
+    val clear = with(LocalDensity.current) { Rect(-LOOK_MARGIN.toPx(), 0f, (width + LOOK_MARGIN).toPx(), 1f) }
+    LaunchedEffect(reveal, selected) { if (selected) bringIntoView.bringIntoView(clear) }
     Column(
         Modifier
             .width(width)
@@ -482,6 +485,9 @@ private const val SAMPLE_LOOK_MAX = 512
 
 /** How wide each look is in the row, its name under it. */
 private val SAMPLE_WIDTH = 80.dp
+
+/** How far in from the looks row's ends the look chosen is brought: clear of the faded edges (see fadingEdges). */
+private val LOOK_MARGIN = 48.dp
 
 /** How long the choices stay put before the page is made again with them. */
 private const val LOOK_DELAY_MS = 150L
