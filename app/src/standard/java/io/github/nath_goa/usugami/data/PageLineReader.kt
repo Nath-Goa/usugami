@@ -204,14 +204,15 @@ internal class PageLineReader(
      * Where the rest of [piece] starts after its first word, when that word is a mark that goes
      * apart from the line's text: a bullet or an item's number set apart from it by more than
      * [MARKER_GAP_EM] font sizes (the text's second line starts under the text, not the mark), or a
-     * note's number (or *, †) smaller than the text after it, as footnotes start. -1 for none, and
-     * always in right-to-left text, whose first word drawn is its last read.
+     * note's number (or *, †) smaller than the text after it, as footnotes start. The first word
+     * ends at a gap or at a space drawn as a glyph, as word processors draw their spaces. -1 for
+     * none, and always in right-to-left text, whose first word drawn is its last read.
      */
     private fun markEnd(piece: List<Placed?>): Int {
-        val end = piece.indexOfFirst { it == null }
+        val end = piece.indexOfFirst { it == null || it.glyph.unicode.isNullOrBlank() }
         if (end <= 0) return -1
         val word = piece.subList(0, end).filterNotNull()
-        val rest = piece.subList(end, piece.size).filterNotNull()
+        val rest = piece.subList(end, piece.size).filterNotNull().filter { !it.glyph.unicode.isNullOrBlank() }
         if (word.isEmpty() || rest.isEmpty()) return -1
         val mark = word.joinToString("") { it.glyph.unicode.orEmpty() }.trim()
         if (rightToLeft(rest.joinToString("") { it.glyph.unicode.orEmpty() })) return -1
@@ -229,7 +230,10 @@ internal class PageLineReader(
         val mark = markEnd(piece)
         if (mark > 0) {
             addLine(piece.subList(0, mark))
-            addLine(piece.subList(mark, piece.size))
+            // The text starts at its first letter, not at the space before it.
+            var from = mark
+            while (from < piece.size && piece[from].let { it == null || it.glyph.unicode.isNullOrBlank() }) from++
+            addLine(piece.subList(from, piece.size))
             return
         }
         val byGlyph = IdentityHashMap<TextPosition, Placed>()

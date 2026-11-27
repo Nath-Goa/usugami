@@ -843,6 +843,35 @@ class PdfTranslationDeviceTest {
         }
     }
 
+    @Test fun aFootnoteWhoseNumberASpaceFollowsStartsAtItsText() {
+        // As a word processor writes footnotes: the number small on a raised baseline, then right after
+        // it a space and the note, drawn as glyphs.
+        val file = File(dir, "notes.pdf")
+        val notes = listOf("Les informations publiques ne sont pas concernées.", "Les pénalités sont exigibles sans rappel.")
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c ->
+                notes.forEachIndexed { i, note ->
+                    c.beginText()
+                    c.newLineAtOffset(72f, 103f - 14f * i)
+                    c.setFont(PDType1Font.TIMES_ROMAN, 5.5f)
+                    c.showText("${i + 1}")
+                    c.newLineAtOffset(PDType1Font.TIMES_ROMAN.getStringWidth("${i + 1}") / 1000 * 5.5f, -3f)
+                    c.setFont(PDType1Font.TIMES_ROMAN, 8.5f)
+                    c.showText(" $note")
+                    c.endText()
+                }
+            }
+            doc.save(file)
+        }
+        PDDocument.load(file).use { doc ->
+            var read: PageLines? = null
+            PageLineReader(setOf(0), {}) { _, lines -> read = lines }.read(doc)
+            assertEquals(listOf("1", notes[0], "2", notes[1]), read!!.lines.map { it.text })
+        }
+    }
+
     @Test fun aTranslationGrowsOverNoBoxOrPicture() {
         val file = File(dir, "form.pdf")
         val boxAt = 72f + PDType1Font.HELVETICA.getStringWidth("Nom :") / 1000 * 11 + 8f
