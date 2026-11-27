@@ -1,5 +1,6 @@
 package io.github.nath_goa.usugami
 
+import android.app.DownloadManager
 import android.os.SystemClock
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
@@ -9,6 +10,7 @@ import io.github.nath_goa.usugami.data.translationEngine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -24,7 +26,9 @@ import org.junit.Test
  * Translate PDF's pipeline and screen are tested with a fake engine elsewhere.
  */
 class MlKitTranslationDeviceTest {
-    private val engine = translationEngine(InstrumentationRegistry.getInstrumentation().targetContext)!!
+    private val context = InstrumentationRegistry.getInstrumentation().targetContext
+    private val engine = translationEngine(context)!!
+    private val downloads = context.getSystemService(DownloadManager::class.java)
 
     /** [TranslationEngine.ensureReady], skipping the test when the pack can't be downloaded here. */
     private suspend fun ensureReadyOrSkip(source: String, target: String, onDownload: (Float?) -> Unit = {}) {
@@ -33,6 +37,16 @@ class MlKitTranslationDeviceTest {
         } catch (e: TranslationUnavailableException) {
             assumeTrue("No language pack without internet (${e.problem})", e.problem != TranslationProblem.NO_INTERNET && e.problem != TranslationProblem.DOWNLOAD_FAILED)
             throw e
+        }
+    }
+
+    /** The addresses of the app's downloads that Android's download manager is still at. */
+    private fun unfinishedDownloads(): List<String> {
+        val unfinished = DownloadManager.Query()
+            .setFilterByStatus(DownloadManager.STATUS_PENDING or DownloadManager.STATUS_RUNNING or DownloadManager.STATUS_PAUSED)
+        return downloads.query(unfinished).use { rows ->
+            val uri = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_URI)
+            buildList { while (rows.moveToNext()) add(rows.getString(uri)) }
         }
     }
 
@@ -74,28 +88,43 @@ class MlKitTranslationDeviceTest {
         assertEquals("tl", engine.detect("Magandang umaga sa inyong lahat. Kumusta kayo ngayong araw? Salamat po sa inyong pagdalo sa aming pulong."))
     }
 
-    /** ML Kit can't stop a download, but cancelling stops the wait for it at once. */
-    @Test fun cancellingStopsWaitingForADownload() = runBlocking {
+    /**
+     * Cancelling stops the wait for a download at once, and the download itself: Android's download
+     * manager has nothing of it left and the pack isn't there. The next try downloads it again.
+     */
+    @Test fun cancellingStopsADownload() = runBlocking {
         if ("de" in engine.downloaded()) engine.delete("de")
-        val downloading = CompletableDeferred<TranslationUnavailableException?>()
-        val job = launch(Dispatchers.Default) {
-            try {
-                engine.ensureReady("en", "de") { downloading.complete(null) }
-            } catch (e: TranslationUnavailableException) {
-                downloading.complete(e)
-            }
-        }
         try {
-            val problem = withTimeout(60_000) { downloading.await() }
-            assumeTrue("No language pack without internet (${problem?.problem})", problem == null)
-            val cancelled = SystemClock.elapsedRealtime()
-            job.cancelAndJoin()
-            val took = SystemClock.elapsedRealtime() - cancelled
-            assertTrue("The wait should have been cancelled, not finished", job.isCancelled)
-            assertTrue("Cancelling took $took ms", took < 2000)
+            repeat(2) { attempt ->
+                val going = CompletableDeferred<Float>()
+                val job = launch(Dispatchers.Default) {
+                    try {
+                        engine.ensureReady("en", "de") { fraction -> if (fraction != null) going.complete(fraction) }
+                    } catch (e: TranslationUnavailableException) {
+                        going.completeExceptionally(e)
+                    }
+                }
+                val first = try {
+                    withTimeout(120_000) { going.await() }
+                } catch (e: TranslationUnavailableException) {
+                    assumeTrue("No language pack without internet (${e.problem})", false)
+                    throw e
+                }
+                Log.i(TAG, "German's download ${attempt + 1} going: $first; downloads ${unfinishedDownloads()}")
+                val cancelled = SystemClock.elapsedRealtime()
+                job.cancelAndJoin()
+                val took = SystemClock.elapsedRealtime() - cancelled
+                assertTrue("The wait should have been cancelled, not finished", job.isCancelled)
+                assertTrue("Cancelling took $took ms", took < 2000)
+                assertFalse("de" in engine.downloaded())
+                // Watched for a while, as ML Kit does its work on a download a moment after it is asked.
+                repeat(10) {
+                    assertEquals(emptyList<String>(), unfinishedDownloads())
+                    delay(500)
+                }
+            }
         } finally {
-            job.cancelAndJoin()
-            // Also stops ML Kit's download. Not to hide why the test ended if it fails.
+            // Not to hide why the test ended if it fails.
             runCatching { engine.delete("de") }.onFailure { Log.w(TAG, "Deleting German's pack failed", it) }
         }
     }

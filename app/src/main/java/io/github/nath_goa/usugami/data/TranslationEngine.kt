@@ -42,7 +42,8 @@ interface TranslationEngine {
      * that are missing first (ML Kit translates through English: a pair without English needs the
      * packs of both its languages; English has no pack, it is built in). [onDownload] is called
      * only when a download is needed, with the fraction done (0..1), or null while the size is
-     * unknown or the download is waiting. Cancellable.
+     * unknown or the download is waiting. Cancellable. When it fails or is cancelled, nothing it
+     * started goes on downloading, and a pack it didn't finish isn't kept.
      * @throws TranslationUnavailableException when it can't be made ready.
      */
     suspend fun ensureReady(source: String, target: String, onDownload: (Float?) -> Unit = {})

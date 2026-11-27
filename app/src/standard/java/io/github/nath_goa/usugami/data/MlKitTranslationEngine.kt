@@ -16,8 +16,10 @@ import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ExecutionException
 import kotlin.time.Duration.Companion.milliseconds
@@ -58,8 +60,10 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
      * for [OFFLINE_LIMIT] during the download, and with [TranslationProblem.DOWNLOAD_FAILED] when,
      * online, it gets nowhere for [STALL_LIMIT] (Google's servers can't be reached; the download
      * manager would go on retrying for about a quarter of an hour). When it fails, or the coroutine
-     * is cancelled, only the wait stops: the download manager carries on (waiting for a network if
-     * need be), and the next call takes the download up where it is. [delete] of the pack stops it.
+     * is cancelled, the packs it was downloading that haven't arrived are deleted, which also
+     * stops their downloads in the download manager: nothing goes on downloading once the user has
+     * been told it stopped, and the next call starts those packs again from the beginning. A pack
+     * that arrived stays.
      */
     override suspend fun ensureReady(source: String, target: String, onDownload: (Float?) -> Unit) {
         try {
@@ -69,7 +73,12 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
             // Offline, the download manager would wait for a network without a word.
             if (!isOnline()) throw TranslationUnavailableException(TranslationProblem.NO_INTERNET)
             onDownload(null)
-            download(manager, missing, onDownload)
+            try {
+                download(manager, missing, onDownload)
+            } catch (t: Throwable) {
+                removeUnfinished(manager, missing)
+                throw t
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: TranslationUnavailableException) {
@@ -132,6 +141,28 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
                 waiting.cancel()
             }
         }
+
+    /**
+     * Deletes those of [packs] that haven't arrived. ML Kit can't cancel a download, but deleting its
+     * pack removes it from the download manager, which would otherwise go on with it, on any network,
+     * also with the app closed.
+     */
+    private suspend fun removeUnfinished(manager: RemoteModelManager, packs: List<TranslateRemoteModel>) {
+        // Above all when cancelled. A delete takes about a tenth of a second; the limit is for ML Kit hanging.
+        withContext(NonCancellable) {
+            withTimeoutOrNull(CLEANUP_LIMIT) {
+                for (pack in packs) {
+                    try {
+                        if (!manager.isModelDownloaded(pack).await()) manager.deleteDownloadedModel(pack).await()
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // Nothing more to do for this pack; the other is still deleted.
+                    }
+                }
+            }
+        }
+    }
 
     /** Whether the phone has a network that reaches the internet (connected; not necessarily validated). */
     private fun isOnline(): Boolean {
@@ -304,3 +335,6 @@ private val STALL_LIMIT = 2.minutes
 
 /** A download not finished after this long has failed, however it was going. */
 private val DOWNLOAD_LIMIT = 30.minutes
+
+/** How long deleting the packs of a download that failed or was cancelled may take at most. */
+private val CLEANUP_LIMIT = 10.seconds
