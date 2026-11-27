@@ -256,6 +256,13 @@ class PdfTranslationDeviceTest {
         }
     }
 
+    /** The lines of [page] of [file] as drawn: each its glyphs' text from left to right, spaces together as one. */
+    private fun drawnLines(file: File, page: Int): List<String> =
+        glyphs(file, page).groupBy { Math.round(it.yDirAdj) }.toSortedMap().values.map { line ->
+            line.sortedBy { it.xDirAdj }.joinToString("") { it.unicode }
+                .filterNot { Character.getType(it) == Character.FORMAT.toInt() }.replace(Regex("\\s+"), " ")
+        }
+
     /** [page] of [file] drawn [perPoint] pixels to the point. */
     private fun render(file: File, page: Int, perPoint: Float = 2f): Bitmap =
         ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
@@ -947,8 +954,113 @@ class PdfTranslationDeviceTest {
         assertEquals(emptyList<Int>(), outcome.partly)
     }
 
+    @Test fun whatTheTranslatorChangesIsKeptFromItAndPutBack() {
+        val file = File(dir, "references.pdf")
+        val lines = listOf(
+            "Réf. : LOC-2026-0457", "Réf. : LOC-2026-0458", "Écrivez à contact@delorme-immo.fr.", "Tél. 04 78 48 52 10",
+            "Prochaine séance samedi, plus sur www.delorme-immo.fr.",
+        )
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c -> lines.forEachIndexed { i, line -> c.line(72f, 760f - 80f * i, line) } }
+            doc.save(file)
+        }
+        // It changes the references and the addresses, as ML Kit does, and keeps the phone number. It
+        // loses the placeholder of the first address however it is written, and leaves words out
+        // around the second's when it is written {1} or [1].
+        val translation = FakeEngine { text ->
+            when {
+                text.startsWith("Réf.") -> text.replace("Réf.", "Ref.").replace("LOC-", "LAG-")
+                text.startsWith("Tél.") -> text.replace("Tél.", "Tel.")
+                text.startsWith("Écrivez") -> if ("@" in text) "Write to contact@delore-immo.fr." else "Write to."
+                "www." in text -> "Next session on Saturday, more on www.delore-immo.fr."
+                "⟦1⟧" in text -> "Next session on Saturday, more on ⟦1⟧."
+                else -> "More on " + text.substringAfter("sur ")
+            }
+        }
+        val outcome = translate(import(file), translation = translation)
+        val text = textOf(outcome.file.file)
+        // The first address can't be given apart: its translation, as before.
+        for (line in listOf(
+            "Ref. : LOC-2026-0457", "Ref. : LOC-2026-0458", "Write to contact@delore-immo.fr.", "Tel. 04 78 48 52 10",
+            "Next session on Saturday, more on www.delorme-immo.fr.",
+        )) {
+            assertTrue("$line in: $text", text.contains(line))
+        }
+        // The two references, which differ only in their codes, share one translation with a placeholder, each with its own code.
+        assertEquals(
+            listOf(
+                "Réf. : LOC-2026-0457", "Réf. : {1}", "Réf. : LOC-2026-0458",
+                "Écrivez à contact@delorme-immo.fr.", "Écrivez à {1}.", "Écrivez à [1].", "Écrivez à ⟦1⟧.", "Tél. 04 78 48 52 10",
+                "Prochaine séance samedi, plus sur www.delorme-immo.fr.", "Prochaine séance samedi, plus sur {1}.",
+                "Prochaine séance samedi, plus sur [1].", "Prochaine séance samedi, plus sur ⟦1⟧.",
+            ),
+            translation.asked,
+        )
+    }
+
+    /**
+     * ML Kit's own translator, French into English, Hindi and Arabic (the first run downloads the
+     * packs): a letter's reference, IBAN, BIC, postcode, phone number, e-mail and web address, which
+     * it changes when it is given them, come back as they were. The new PDFs are kept in test-results.
+     */
+    @Test fun codesAndAddressesComeBackFromTheRealTranslatorAsTheyWere() {
+        val translation = translationEngine(context)!!
+        val file = File(dir, "lettre.pdf")
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c ->
+                LETTER.forEachIndexed { i, text -> c.line(72f, 760f - 40f * i, text) }
+                PARAGRAPH.forEachIndexed { i, text -> c.line(72f, 560f - 14f * i, text) }
+            }
+            doc.save(file)
+        }
+        val input = import(file)
+        for (target in listOf("en", "hi", "ar")) {
+            try {
+                runBlocking { translation.ensureReady("fr", target) }
+            } catch (e: TranslationUnavailableException) {
+                assumeTrue("No language pack without internet (${e.problem})", e.problem != TranslationProblem.NO_INTERNET && e.problem != TranslationProblem.DOWNLOAD_FAILED)
+                throw e
+            }
+            val outcome = translate(input, translation = translation, target = target)
+            outcome.file.file.copyTo(File(results, "kept-fr-$target.pdf"), overwrite = true)
+            val text = textOf(outcome.file.file)
+            Log.i(TAG, "Translated into $target: $text")
+            // Written right to left, a line's text is read back in an order of PDFBox's: what is kept
+            // must read left to right as drawn ("0117 496 0321", not "0321 496 0117").
+            val drawn = drawnLines(outcome.file.file, 0)
+            for (token in KEPT) {
+                assertTrue("$token, into $target: $text\n$drawn", if (target == "ar") drawn.any { it.contains(token) } else text.contains(token))
+            }
+            assertEquals(emptyList<Int>(), outcome.partly)
+        }
+    }
+
     private companion object {
         const val TAG = "UsugamiTest"
+
+        /**
+         * A letter's lines and a paragraph holding what the translator must give back as it is
+         * ([KEPT]); what has spaces in it on short lines, which a translation into Arabic doesn't
+         * wrap inside it, as PDFBox reads a line that does in another order.
+         */
+        val LETTER = listOf(
+            "Réf. : LOC-2026-0457",
+            "Facture INV-2026-0412 du 15 octobre 2026 : 742,00 €",
+            "IBAN : FR76 3000 6000 0112 3456 7890 189 – BIC : CMCIFR2A",
+            "Notre agence de Bristol BS6 5RT vous répond au 04 78 48 52 10.",
+        )
+        val PARAGRAPH = listOf(
+            "Merci de régler la facture avant le 15 octobre. Pour toute question, écrivez",
+            "à contact@delorme-immo.fr ou consultez notre site www.delorme-immo.fr.",
+        )
+        val KEPT = listOf(
+            "LOC-2026-0457", "FR76 3000 6000 0112 3456 7890 189", "CMCIFR2A", "INV-2026-0412", "BS6 5RT", "04 78 48 52 10",
+            "contact@delorme-immo.fr", "www.delorme-immo.fr",
+        )
 
         /** The made-up translation: the letters backwards, between marks. */
         fun marked(text: String) = "«" + text.reversed() + "»"

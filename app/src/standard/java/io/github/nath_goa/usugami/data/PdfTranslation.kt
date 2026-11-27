@@ -31,6 +31,7 @@ import io.github.nath_goa.usugami.core.ExportText
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.Fit
 import io.github.nath_goa.usugami.core.PageFrame
+import io.github.nath_goa.usugami.core.Placeholder
 import io.github.nath_goa.usugami.core.SourceBlock
 import io.github.nath_goa.usugami.core.SourceLine
 import io.github.nath_goa.usugami.core.TextBlocks
@@ -252,7 +253,10 @@ private class PdfTranslator(
     /** The language the translations are drawn in. */
     private val language = TranslationOverlay.Language(target)
 
-    /** Short texts already translated in this run (a running head, a label), most recently used last. */
+    /**
+     * Short texts already translated in this run (a running head, a label), and texts with
+     * placeholders for what is kept from the translator (see [translatePiece]), most recently used last.
+     */
     private val cache = object : LinkedHashMap<String, String>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > CACHE_ENTRIES
     }
@@ -591,25 +595,60 @@ private class PdfTranslator(
      * on it. Packs gone ([TranslationUnavailableException]) and a cancel end the run.
      */
     private suspend fun translate(text: String): String? {
-        cache[text]?.let { return it }
         val pieces = TextChunks.split(text)
         if (pieces.isEmpty()) return text
         val translated = ArrayList<String>(pieces.size)
-        for (piece in pieces) {
-            // ML Kit can't stop a translation once it has started: only the wait for it stops.
-            check()
-            translated += try {
-                translator.translate(piece)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: TranslationUnavailableException) {
-                throw e
-            } catch (_: Exception) {
-                return null
-            }
-            check()
+        for (piece in pieces) translated += translatePiece(piece) ?: return null
+        return TextChunks.join(translated)
+    }
+
+    /**
+     * [piece] translated with its addresses, codes, postcodes and phone numbers as they are (see
+     * [TranslatableText.protect]), reading left to right in a language written right to left. The
+     * translator often gives them back as they were, and its sentence reads best when it saw them;
+     * when it changed one, the piece goes to it again with placeholders for them, put back after,
+     * written another way when it loses or doubles one ([Placeholder]), or when its translation is
+     * much shorter than the first ([WHOLE]): it left words out around them. When it does each time,
+     * the piece's first translation is taken, as it is.
+     */
+    private suspend fun translatePiece(piece: String): String? {
+        val translated = translateText(piece) ?: return null
+        val kept = TranslatableText.protect(piece)
+        // Nothing to keep, or given back as it was (a name and a code): as it is.
+        if (kept.tokens.isEmpty() || translated.trim() == piece.trim()) return translated
+        kept.unchangedIn(translated, leftToRight = language.rightToLeft)?.let { return it }
+        // Of translations that left words out, the one nearest the first's length.
+        var shortened: String? = null
+        for (form in Placeholder.entries) {
+            val protected = TranslatableText.protect(piece, form)
+            // Pieces that differ only in what is kept share the translation, each with its own put back.
+            val masked = translateText(protected.masked) ?: break
+            // Given back as it was (a name and a code): the piece is its own translation.
+            if (masked.trim() == protected.masked.trim()) return piece
+            val restored = protected.restore(masked, leftToRight = language.rightToLeft) ?: continue
+            if (restored.length >= WHOLE * translated.length) return restored
+            if (restored.length > (shortened?.length ?: 0)) shortened = restored
         }
-        return TextChunks.join(translated).also { if (text.length <= CACHED_LENGTH) cache[text] = it }
+        return shortened ?: translated
+    }
+
+    /** [text] as the translator gives it, or gave it before in this run ([cache]); null when it fails on it. */
+    private suspend fun translateText(text: String): String? {
+        cache[text]?.let { return it }
+        // ML Kit can't stop a translation once it has started: only the wait for it stops.
+        check()
+        val translated = try {
+            translator.translate(text)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: TranslationUnavailableException) {
+            throw e
+        } catch (_: Exception) {
+            return null
+        }
+        check()
+        if (text.length <= CACHED_LENGTH) cache[text] = translated
+        return translated
     }
 
     /**
@@ -810,6 +849,13 @@ private class PdfTranslator(
 
         /** How far, in font sizes, what stays near a painted box is kept beyond its letters' boxes, over its strokes. */
         const val KEPT_GROW = 0.15f
+
+        /**
+         * A translation with placeholders shorter than this share of the translation without them left
+         * words out around them: German "Nächstes Treffen: ..., 10 bis 13 Uhr" lost both in French, its
+         * web address a placeholder.
+         */
+        const val WHOLE = 0.85f
 
         /** Texts up to this long are kept once translated, at most [CACHE_ENTRIES] of them. */
         const val CACHED_LENGTH = 300

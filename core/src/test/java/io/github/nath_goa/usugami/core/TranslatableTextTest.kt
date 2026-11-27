@@ -2,10 +2,12 @@ package io.github.nath_goa.usugami.core
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** What Translate PDF translates, and how a long block is cut for the translator and joined again. */
+/** What Translate PDF translates, what it keeps from the translator, and how a long block is cut for the translator and joined again. */
 class TranslatableTextTest {
     private fun worth(text: String) = TranslatableText.isWorthTranslating(text)
 
@@ -113,6 +115,142 @@ class TranslatableTextTest {
         )) {
             assertFalse(text, worth(text))
         }
+    }
+
+    private fun kept(text: String) = TranslatableText.protect(text).tokens
+
+    @Test fun codesAddressesPostcodesAndPhoneNumbersAreKeptFromTheTranslator() {
+        // Sentences of real letters and invoices, and what in them must come back as it is.
+        for ((text, tokens) in listOf(
+            "Merci de régler la somme de 742,00 € par virement sur le compte FR76 3000 6000 0112 3456 7890 189 (BIC CMCIFR2A) avant le 15 octobre 2026."
+                to listOf("FR76 3000 6000 0112 3456 7890 189", "CMCIFR2A"),
+            "Vous pouvez y accéder en écrivant à accueil@cooplait-monts.fr ou en appelant le 04 78 48 52 10." to listOf("accueil@cooplait-monts.fr", "04 78 48 52 10"),
+            "Conformément à l'article L. 441-10 du Code de commerce, une indemnité de 40 € est due." to listOf("441-10"),
+            "Renseignements sur www.reparons-lyon.fr." to listOf("www.reparons-lyon.fr"),
+            "Our ref.: LET-2026-0457" to listOf("LET-2026-0457"),
+            "Our office is at 14 Park Row, Bristol BS6 5RT, and opens at 9 am." to listOf("BS6 5RT"),
+            "Please pay into account GB33 BUKB 2045 7741 2678 90 (sort code 20-45-77) by 30 November." to listOf("GB33 BUKB 2045 7741 2678 90", "20-45-77"),
+            "Hartwell Property Management Ltd – Registered in England No. 04126789 – VAT No. GB 412 6789 03" to listOf("GB 412 6789 03"),
+            "Brandt & Partner GmbH – Amtsgericht Köln HRB 81234 – USt-IdNr. DE 412 678 903" to listOf("DE 412 678 903"),
+            "Call us on +44 (0)161 496 0732 or write to Brightwork Lighting, 12 Canal Street, Manchester M3 3JE." to listOf("+44 (0)161 496 0732", "M3 3JE"),
+            "The report is saved as annual_report_2026.pdf in /home/jane/reports and at https://example.com/r?id=3." to
+                listOf("annual_report_2026.pdf", "/home/jane/reports", "https://example.com/r?id=3"),
+            "Bitte überweisen Sie den Betrag auf das Konto DE89 3704 0044 0532 0130 00 (BIC: COBADEFFXXX) bis zum 30. November." to
+                listOf("DE89 3704 0044 0532 0130 00", "COBADEFFXXX"),
+            "Schreiben Sie an info@brandt-verwaltung.de oder rufen Sie 0221 924 51 80 an, Wohnung 3B." to listOf("info@brandt-verwaltung.de", "0221 924 51 80", "3B"),
+            "Puede escribirnos a info@taller-luz.es o llamarnos al +34 912 345 678." to listOf("info@taller-luz.es", "+34 912 345 678"),
+            "Referencia: FAC-2026-0412, artículos AMP-12 y B-41267890." to listOf("FAC-2026-0412", "AMP-12", "B-41267890"),
+            // Chinese and Japanese run into what is kept, without spaces.
+            "お問い合わせはinfo@example.co.jpまで、型番ABC-1234X-JPは03-1234-5678へ。" to listOf("info@example.co.jp", "ABC-1234X-JP", "03-1234-5678"),
+            "基于Node.js的开发" to listOf("Node.js"),
+        )) {
+            assertEquals(text, tokens, kept(text))
+        }
+        val bank = TranslatableText.protect("Payez sur FR76 3000 6000 0112 3456 7890 189 (BIC CMCIFR2A), réf. INV-2026-0412.")
+        assertEquals("Payez sur {1} (BIC {2}), réf. {3}.", bank.masked)
+    }
+
+    @Test fun amountsDatesWordsInCapitalsAndNamesGoToTheTranslator() {
+        // The translator writes amounts and dates its language's way; it knows words in capitals; no rule knows a name.
+        for (text in listOf(
+            "Le total TTC s'élève à 1 234,56 € au 15/10/2026, soit 2 500 € de plus qu'en 2025.",
+            "Les ventes ont atteint 12 345 678 € le 3 mars 2026 (page 3 of 10, ISO 9001).",
+            "FACTURE n° 12 – TOTAL HT – TVA 20 %",
+            "Claire Delorme, Gestionnaire locative, Agence Immobilière Delorme",
+            "e.g. the U.S.A., p.ej. en España, z.B. in Köln, etc.",
+            "Ab dem 1. Januar 2027 erhöht sich die Miete von 742,00 € auf 758,30 €, Seite 12-15.",
+            "Die Ergebnisse 3.1 und 4.2 vom 15.10.2026 sind in 1.234.567 Fällen gleich.",
+        )) {
+            assertEquals(text, emptyList<String>(), kept(text))
+        }
+    }
+
+    @Test fun theTranslationGetsBackWhatWasKeptWhereverItsPlaceholdersAre() {
+        val protected = TranslatableText.protect("Écrivez à dpo@mediatheque-quimper.fr ou appelez le 02 98 95 74 10.")
+        assertEquals("Écrivez à {1} ou appelez le {2}.", protected.masked)
+        assertEquals("Write to dpo@mediatheque-quimper.fr or call 02 98 95 74 10.", protected.restore("Write to {1} or call {2}."))
+        // Moved about, written full-width, with spaces inside or in another script's digits.
+        assertEquals("Call 02 98 95 74 10 or write to dpo@mediatheque-quimper.fr.", protected.restore("Call {2} or write to {1}."))
+        assertEquals("dpo@mediatheque-quimper.frまたは02 98 95 74 10へ。", protected.restore("｛１｝または{ 2 }へ。"))
+        assertEquals("اكتب إلى dpo@mediatheque-quimper.fr أو اتصل 02 98 95 74 10", protected.restore("اكتب إلى {١} أو اتصل {٢}"))
+        assertEquals("dpo@mediatheque-quimper.fr को लिखें, 02 98 95 74 10", protected.restore("{१} को लिखें, {२}"))
+        // Written right to left, what is kept reads left to right between marks, its digits' groups in their order.
+        assertEquals("اكتب إلى \u200Edpo@mediatheque-quimper.fr\u200E أو اتصل \u200E02 98 95 74 10\u200E", protected.restore("اكتب إلى {1} أو اتصل {2}", leftToRight = true))
+        // Lost, twice, or one it didn't have: the translation can't be put together.
+        for (broken in listOf("Write to or call {2}.", "Write to {1} or {1} call {2}.", "Write to {1} or call {2} {3}.", "Write to [1] or call [2].", "Write to {1}1° or call {2}.")) {
+            assertNull(broken, protected.restore(broken))
+        }
+        // The other ways of writing them.
+        val brackets = TranslatableText.protect("Écrivez à dpo@mediatheque-quimper.fr.", Placeholder.BRACKETS)
+        assertEquals("Écrivez à [1].", brackets.masked)
+        assertEquals("Write to dpo@mediatheque-quimper.fr.", brackets.restore("Write to 【1】."))
+        assertNull(brackets.restore("Write to {1}."))
+        val white = TranslatableText.protect("Écrivez à dpo@mediatheque-quimper.fr.", Placeholder.WHITE_BRACKETS)
+        assertEquals("Écrivez à ⟦1⟧.", white.masked)
+        assertEquals("dpo@mediatheque-quimper.fr को लिखें।", white.restore("⟦१⟧ को लिखें।"))
+    }
+
+    @Test fun aTranslationOfTheTextItselfIsTakenWhenItKeptEachToken() {
+        val protected = TranslatableText.protect("Écrivez à dpo@mediatheque-quimper.fr ou appelez le 02 98 95 74 10, réf. AMP-12 et AMP-12.")
+        val good = "Write to dpo@mediatheque-quimper.fr or call 02 98 95 74 10, ref. AMP-12 and AMP-12."
+        assertSame(good, protected.unchangedIn(good))
+        // One changed, run into a word, or there once where the text has it twice: the translator changed it.
+        for (changed in listOf(
+            "Write to dpo@mediathheque-quimper.fr or call 02 98 95 74 10, ref. AMP-12 and AMP-12.",
+            "Write to dpo@mediatheque-quimper.fr or call 0298957410, ref. AMP-12 and AMP-12.",
+            "Write to dpo@mediatheque-quimper.fr or call 02 98 95 74 10, ref. AMP-123 and AMP-12.",
+            "Write to dpo@mediatheque-quimper.fr or call 02 98 95 74 10, ref. AMP-12 and Amp-12.",
+        )) {
+            assertNull(changed, protected.unchangedIn(changed))
+        }
+        // Written right to left, each between left-to-right marks.
+        assertEquals(
+            "اكتب إلى \u200Edpo@mediatheque-quimper.fr\u200E أو اتصل \u200E02 98 95 74 10\u200E، \u200EAMP-12\u200E و\u200EAMP-12\u200E",
+            protected.unchangedIn("اكتب إلى dpo@mediatheque-quimper.fr أو اتصل 02 98 95 74 10، AMP-12 وAMP-12", leftToRight = true),
+        )
+    }
+
+    @Test fun whatIsKeptAtTheEndsTwiceInBracketsOrAloneComesBackAsItWas() {
+        fun same(text: String, translation: (String) -> String = { it }) = TranslatableText.protect(text).let { it.restore(translation(it.masked)) }
+        // At the start and the end.
+        val ends = TranslatableText.protect("LET-2026-0457 est notre référence, écrivez à contact@delorme-immo.fr")
+        assertEquals("{1} est notre référence, écrivez à {2}", ends.masked)
+        // The same twice: each its own placeholder.
+        val twice = TranslatableText.protect("Le code AMP-12 remplace AMP-12.")
+        assertEquals("Le code {1} remplace {2}.", twice.masked)
+        assertEquals("The code AMP-12 replaces AMP-12.", twice.restore("The code {1} replaces {2}."))
+        // Beside punctuation and in brackets and quotes.
+        val around = TranslatableText.protect("(www.example.org), «LB-204», [M3 3JE]: contact@x-y.fr.")
+        assertEquals("({1}), «{2}», [{3}]: {4}.", around.masked)
+        assertEquals("(www.example.org), «LB-204», [M3 3JE]: contact@x-y.fr.", same("(www.example.org), «LB-204», [M3 3JE]: contact@x-y.fr."))
+        // Placeholders written in the text already are kept as they are.
+        val written = TranslatableText.protect("Voir [1] et {2} pour AMP-12.")
+        assertEquals(listOf("[1]", "{2}", "AMP-12"), written.tokens)
+        assertEquals("See [1] and {2} for AMP-12.", written.restore("See {1} and {2} for {3}."))
+        // Nothing to keep: the text as it is, its translation too.
+        val plain = "Le loyer passera de 742,00 € à 758,30 € au 1er janvier 2027."
+        val nothing = TranslatableText.protect(plain)
+        assertSame(plain, nothing.masked)
+        assertEquals(emptyList<String>(), nothing.tokens)
+        assertEquals("The rent will rise.", nothing.restore("The rent will rise."))
+        // Only what is kept.
+        val only = TranslatableText.protect("LET-2026-0457 contact@delorme-immo.fr")
+        assertEquals("{1} {2}", only.masked)
+        assertEquals("LET-2026-0457 contact@delorme-immo.fr", only.restore(only.masked))
+    }
+
+    @Test fun aLongTextIsKeptPieceByPieceAsItIsCut() {
+        // Each piece TextChunks cuts is protected on its own, numbered from 1, and put together again.
+        val text = (1..60).joinToString(" ") { "La pièce LB-$it est livrée à contact$it@atelier-lumiere.fr avant le $it mars." }
+        val pieces = TextChunks.split(text)
+        assertTrue(pieces.size >= 3)
+        val back = pieces.map { piece ->
+            val protected = TranslatableText.protect(piece)
+            assertTrue(protected.masked, protected.masked.startsWith("La pièce {1} est livrée à {2} "))
+            assertEquals(protected.tokens.size, Regex("\\{\\d+\\}").findAll(protected.masked).count())
+            protected.restore(protected.masked)!!
+        }
+        assertEquals(text, TextChunks.join(back))
     }
 
     /** A paragraph of [count] sentences of different lengths, each ending with a full stop. */
