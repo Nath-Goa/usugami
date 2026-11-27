@@ -14,9 +14,9 @@ internet. Every other tool works offline in all three. Usugami Lite and Usugami 
 internet permission; Usugami.apk has it only for those downloads, and Usugami's own code opens no
 connection. In Usugami.apk, text recognition and translating use Google's ML Kit, which runs on
 your phone but is closed source; Usugami Lite and Usugami OCR contain no Google code. The rest of
-Usugami is GPL-3.0-or-later. All three files are signed with the same key. Usugami and Usugami OCR are the same app: install one over
-the other to switch. Usugami Lite is an app of its own (package name `io.github.nath_goa.usugami.lite`)
-that installs next to them.
+Usugami is GPL-3.0-or-later. All three files are signed with the same key. Usugami and Usugami OCR
+are the same app: install one over the other to switch. Usugami Lite is an app of its own (package
+name `io.github.nath_goa.usugami.lite`) that installs next to them.
 
 Had Usugami Lite 1.5.0? It was still the same app as Usugami, so Usugami-lite.apk now installs as a
 new app, "Usugami Lite", next to it. Save any PDFs you need from the old one, then uninstall it (it
