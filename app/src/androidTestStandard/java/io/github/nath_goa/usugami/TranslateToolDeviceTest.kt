@@ -39,6 +39,7 @@ import io.github.nath_goa.usugami.ui.languageName
 import io.github.nath_goa.usugami.ui.namesListed
 import io.github.nath_goa.usugami.ui.runTranslate
 import io.github.nath_goa.usugami.ui.translationTag
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -52,6 +53,7 @@ import org.junit.Test
 import java.io.File
 import java.util.Collections
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Translate PDF's screen (standard edition only), with an engine of its own in place of ML Kit's
@@ -336,6 +338,78 @@ class TranslateToolDeviceTest {
         onMain { vm.translate.ocrProblem.value = OcrProblem.DOWNLOAD_FAILED }
         find("the way out through the pages field") { it.says(retry) }
         assertTrue("Usugami OCR can't translate", nodes().none { it.says(help) })
+    }
+
+    /**
+     * A run tapped the moment the PDF's language is detected, or asked for while it is still being
+     * detected, in an activity started afresh, ends at the result, which stays: detection ending
+     * before the run, while it works, or as its result comes in takes nothing away, and back from the
+     * result From is the language detected.
+     */
+    @Test fun aRunAsDetectionEndsKeepsItsResult() {
+        TranslationTestHook.engine = { FakeEngine(onPhone = languages.toSet()) }
+        val make = TranslationTestHook.runner
+        val heading = app.getString(R.string.result_heading_one)
+        for (order in listOf("before the run", "during the run", "as the result comes in")) {
+            val detection = CompletableDeferred<Unit>()
+            val work = CompletableDeferred<Unit>()
+            val detections = AtomicInteger()
+            val working = AtomicInteger()
+            TranslationTestHook.detector = { _, _, _, _ ->
+                detections.incrementAndGet()
+                detection.await()
+                "fr"
+            }
+            TranslationTestHook.runner = { engine, input, pages, translation, ocr, source, target, typedName, check, onProgress ->
+                working.incrementAndGet()
+                work.await()
+                make(engine, input, pages, translation, ocr, source, target, typedName, check, onProgress)
+            }
+            if (order != "during the run") work.complete(Unit)
+            runs.clear()
+            val main = launch()
+            val vm = openWithAlpha(main)
+            val locale = main.resources.configuration.locales[0]
+            fun chip(label: Int, value: String) = app.getString(R.string.option_value, app.getString(label), value)
+            val target = defaultTarget(AppLanguage.shownIn(main).translationTag(), "fr")
+            val input = onMain { vm.inputs.value.single() }
+            find("From, detecting ($order)") { it.says(chip(R.string.translate_from, app.getString(R.string.translate_detecting))) }
+            assertEquals(1, detections.get())
+            when (order) {
+                "before the run" -> {
+                    detection.complete(Unit)
+                    // Tapped as soon as the button is on.
+                    val deadline = SystemClock.uptimeMillis() + 10_000
+                    while (true) {
+                        val button = actionButton()
+                        if (button.isEnabled) {
+                            click(button)
+                            break
+                        }
+                        check(SystemClock.uptimeMillis() < deadline) { "Timed out waiting for the button to be on" }
+                    }
+                }
+                "during the run" -> {
+                    onMain { vm.runTranslate(input, "", "fr", target, "alpha") }
+                    waitUntil("the run to work") { working.get() == 1 }
+                    detection.complete(Unit)
+                    // Detection's end reaches the screen, under the working dialog, before the run's.
+                    Thread.sleep(1_000)
+                    work.complete(Unit)
+                }
+                else -> {
+                    onMain { vm.runTranslate(input, "", "fr", target, "alpha") }
+                    find("the result coming in") { it.says(heading) }
+                    detection.complete(Unit)
+                }
+            }
+            find("the result screen ($order)") { it.says(heading) }
+            Thread.sleep(3L * Motion.SCREEN)
+            assertTrue("The result stays ($order): ${nodes().mapNotNull { it.text }}", nodes().any { it.says(heading) })
+            assertEquals(order, listOf(Triple(listOf(0, 1, 2), "fr", target)), runs.toList())
+            onMain { vm.backToEditing() }
+            find("From, detected, back from the result ($order)") { it.says(chip(R.string.translate_from, languageName("fr", locale))) }
+        }
     }
 
     /** A pack that can't download (no internet) is said in a dialog, and there is no result. */
