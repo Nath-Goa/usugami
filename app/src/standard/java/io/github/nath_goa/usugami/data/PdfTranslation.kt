@@ -58,8 +58,9 @@ import kotlinx.coroutines.ensureActive
 /**
  * How far a translation run is. [Stage.DOWNLOAD]: language packs download, [done] per cent of
  * [total] 100, or [total] 0 while the size isn't known. [Stage.DOWNLOAD_OCR]: the same for text
- * recognition's model. [Stage.PAGE]: [done] pages of the pages chosen are finished and the next is
- * being worked on, of [total].
+ * recognition's model. [Stage.PAGE]: the page being worked on is the one after the first [done] of
+ * the [total] pages chosen, and [done] is [total] once all are made. Pages with nothing to translate
+ * before the first page with something are drawn once there is one, and told again as they are.
  */
 data class TranslateProgress(val stage: Stage, val done: Int, val total: Int) {
     enum class Stage { DOWNLOAD, DOWNLOAD_OCR, PAGE }
@@ -355,7 +356,7 @@ private class PdfTranslator(
             }
         }
         translatedAny = true
-        flushWaiting()
+        flushWaiting(index)
 
         val drawn = ArrayList<Pair<SourceBlock, String>>()
         var leftAsItWas = false
@@ -441,13 +442,25 @@ private class PdfTranslator(
         drawPlain(index)
     }
 
-    /** The pages waiting to be drawn as they are, now that a page has something to translate. */
-    private fun flushWaiting() {
+    /**
+     * The pages waiting to be drawn as they are, now that page [current] has something to translate:
+     * each told as it is drawn, then [current] again.
+     */
+    private fun flushWaiting(current: Int) {
+        if (waiting.isEmpty()) return
         for (index in waiting) {
             check()
+            tellPage(index)
             drawPlain(index)
         }
         waiting.clear()
+        tellPage(current)
+    }
+
+    /** Tells that page [index] is being worked on. */
+    private fun tellPage(index: Int) {
+        // The pages are sorted, each once.
+        onProgress(TranslateProgress(TranslateProgress.Stage.PAGE, pages.binarySearch(index), pages.size))
     }
 
     private fun drawPlain(index: Int) {
@@ -577,17 +590,22 @@ private class PdfTranslator(
         val engine = ocr ?: return null
         // A page that only looks scanned (a photo, a chart) is no reason to lose the pages translated.
         if (ocrUnavailable != null) return null
+        var downloaded = false
         val reader = recognizer ?: try {
             engine.ensureReady(language) { fraction ->
                 check()
+                downloaded = true
                 onProgress(downloading(TranslateProgress.Stage.DOWNLOAD_OCR, fraction))
             }
             check()
             engine.open(language).also { recognizer = it }
         } catch (e: OcrUnavailableException) {
             ocrUnavailable = e
+            if (downloaded) tellPage(index)
             return null
         }
+        // The download is over: back to the page.
+        if (downloaded) tellPage(index)
         val picture = try {
             drawForReading(renderer, index)
         } catch (e: CancellationException) {

@@ -685,6 +685,27 @@ class PdfTranslationDeviceTest {
         assertTrue(output.list().isNullOrEmpty())
     }
 
+    @Test fun progressFollowsPagesDrawnLateAndComesBackAfterTextRecognitionDownloads() {
+        val file = File(dir, "late.pdf")
+        PDDocument().use { doc ->
+            // A blank page, a scan, then the article.
+            doc.addPage(PDPage(PDRectangle.A4))
+            doc.addPage(PDPage(PDRectangle.A4).also { page -> PDPageContentStream(doc, page).use { it.drawImage(noise(doc, 40, 60), 0f, 0f, PDRectangle.A4.width, PDRectangle.A4.height) } })
+            doc.addPage(PDPage(PDRectangle.A4).also { article(it, doc) })
+            doc.save(file)
+        }
+        val progress = ArrayList<TranslateProgress>()
+        translate(import(file), ocr = FakeOcr(listOf("Texte lu sur le scan" to listOf(0.12f, 0.1f, 0.6f, 0.13f)), downloads = true), progress = progress)
+        fun page(done: Int) = TranslateProgress(TranslateProgress.Stage.PAGE, done, 3)
+        fun ocr(done: Int, total: Int) = TranslateProgress(TranslateProgress.Stage.DOWNLOAD_OCR, done, total)
+        assertEquals(
+            // Back to the scan once text recognition is downloaded; the blank page drawn once the scan has
+            // something to translate, then back to the scan.
+            listOf(page(0), page(1), ocr(0, 0), ocr(100, 100), page(1), page(0), page(1), page(2), page(3)),
+            progress.filter { it.stage != TranslateProgress.Stage.DOWNLOAD },
+        )
+    }
+
     @Test fun theLanguageIsDetectedFromTheFirstPagesWithText() {
         val translation = FakeEngine().apply { detected = "fr" }
         val input = import(articlePdf())
