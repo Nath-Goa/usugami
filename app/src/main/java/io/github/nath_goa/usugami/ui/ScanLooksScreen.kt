@@ -64,7 +64,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.CropQuad
@@ -240,8 +239,8 @@ private fun PageFilters(
 }
 
 /**
- * Brightness and contrast, each on one line with its name before it while the names take little of
- * the width (with the usual text size), otherwise each name over its slider.
+ * Brightness and contrast, each on one line with its name before it while the slider keeps a good
+ * length beside it, otherwise each name over its slider (a narrow column, large text).
  */
 @Composable
 private fun Sliders(adjustments: LookAdjustments, onBrightness: (Int) -> Unit, onContrast: (Int) -> Unit, onRest: () -> Unit) {
@@ -249,8 +248,12 @@ private fun Sliders(adjustments: LookAdjustments, onBrightness: (Int) -> Unit, o
         val names = listOf(stringResource(R.string.filter_brightness), stringResource(R.string.filter_contrast))
         val style = MaterialTheme.typography.labelLarge
         val measurer = rememberTextMeasurer()
-        val widest = with(LocalDensity.current) { names.maxOf { measurer.measure(it, style).size.width }.toDp() }
-        val labelWidth = (widest + LABEL_GAP).takeIf { it <= maxWidth * LABEL_SHARE }
+        val density = LocalDensity.current
+        val widest = with(density) { names.maxOf { measurer.measure(it, style).size.width }.toDp() }
+        // Beside a slider on its line: its value at its widest, and its reset button (see AdjustmentSlider).
+        val value = with(density) { measurer.measure("-${LookAdjustments.MAX}", Usugami.type.tabular(style)).size.width.toDp() }
+        val beside = 16.dp + 8.dp + value + 48.dp + 4.dp
+        val labelWidth = (widest + LABEL_GAP).takeIf { maxWidth - it - beside >= SLIDER_SHORTEST }
         Column {
             AdjustmentSlider(R.string.filter_brightness, R.string.filter_reset_brightness, adjustments.brightness, onBrightness, onRest, labelWidth)
             AdjustmentSlider(R.string.filter_contrast, R.string.filter_reset_contrast, adjustments.contrast, onContrast, onRest, labelWidth)
@@ -327,19 +330,21 @@ private fun PagesRow(pages: List<ImageItem>, selected: Long, cropping: Set<Long>
 
 /**
  * A page of the pages row, like a radio button: the page in its look and turn on a tile [PAGE_TILE]
- * tall, its [number] over its corner, marked when it is the one [selected], with a ring over it while
+ * tall (more with larger text), its [number] over its corner, marked when it is the one [selected], with a ring over it while
  * it is [beingCropped].
  */
 @Composable
 private fun PageChoice(number: Int, page: ImageItem, selected: Boolean, beingCropped: Boolean, thumbnails: Thumbnails, onClick: () -> Unit) {
     val label = stringResource(if (beingCropped) R.string.cropping_page else R.string.pdf_page_number, number)
+    // Taller with larger text, up to half as tall again, so that its number covers no more of the page.
+    val height = PAGE_TILE * LocalDensity.current.fontScale.coerceIn(1f, 1.5f)
     // A page being cropped is still its photo: it takes a page's shape until it is made.
     val aspect = if (beingCropped) PAGE_ASPECT else page.shownWidth.toFloat() / page.shownHeight.coerceAtLeast(1)
     // As wide as the page is on it, within bounds: a page on its side shows wider.
-    val width = (PAGE_INSET * 2 + (PAGE_TILE - PAGE_INSET * 2) * aspect).coerceIn(PAGE_TILE_NARROWEST, PAGE_TILE_WIDEST)
+    val width = (PAGE_INSET * 2 + (height - PAGE_INSET * 2) * aspect).coerceIn(height * NARROWEST, height * WIDEST)
     Box(
         Modifier
-            .size(width, PAGE_TILE)
+            .size(width, height)
             .tile(selected)
             .selectable(
                 selected = selected,
@@ -446,9 +451,9 @@ private val ROW_MARGIN = 48.dp
 /** Between a tile's edge and its page. */
 private val PAGE_INSET = 6.dp
 
-/** The narrowest and widest a page's tile gets, for a tall page and one on its side. */
-private val PAGE_TILE_NARROWEST: Dp = 44.dp
-private val PAGE_TILE_WIDEST: Dp = 96.dp
+/** The narrowest and widest a page's tile gets, for its height, for a tall page and one on its side. */
+private const val NARROWEST = 0.7f
+private const val WIDEST = 1.5f
 
 /** The controls, the pages row and the buttons together take at most this much of the height. */
 private const val CONTROLS_SHARE = 0.6f
@@ -456,8 +461,9 @@ private const val CONTROLS_SHARE = 0.6f
 /** Between a slider's name and the slider, when they share a line. */
 private val LABEL_GAP = 12.dp
 
-/** The most of the width the sliders' names take when they share their sliders' lines. */
-private const val LABEL_SHARE = 0.3f
+/** The shortest a slider gets beside its name: on a narrower screen the name goes over it. */
+private val SLIDER_SHORTEST = 160.dp
+
 
 /** How wide the column of controls is beside the page on a wide screen, as on the crop screen. */
 private val SIDE_WIDTH = 320.dp
