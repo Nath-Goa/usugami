@@ -385,7 +385,11 @@ internal fun AdjustmentSlider(
     if (labelWidth != null) {
         // The value as wide as its widest, so the slider keeps its length as it changes.
         val measurer = rememberTextMeasurer()
-        val valueWidth = with(LocalDensity.current) { measurer.measure("-${LookAdjustments.MAX}", valueStyle).size.width.toDp() }
+        val density = LocalDensity.current
+        // Measured once, not at each step of the slider.
+        val valueWidth = remember(valueStyle, density, measurer) {
+            with(density) { measurer.measure("-${LookAdjustments.MAX}", valueStyle).size.width.toDp() }
+        }
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             // The slider says both to a screen reader.
             Text(name, style = MaterialTheme.typography.labelLarge, modifier = Modifier.width(labelWidth).clearAndSetSemantics {})

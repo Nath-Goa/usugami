@@ -249,9 +249,15 @@ private fun Sliders(adjustments: LookAdjustments, onBrightness: (Int) -> Unit, o
         val style = MaterialTheme.typography.labelLarge
         val measurer = rememberTextMeasurer()
         val density = LocalDensity.current
-        val widest = with(density) { names.maxOf { measurer.measure(it, style).size.width }.toDp() }
+        val valueStyle = Usugami.type.tabular(style)
+        // Measured once, not at each step of a slider.
+        val (widest, value) = remember(names, style, valueStyle, density, measurer) {
+            with(density) {
+                names.maxOf { measurer.measure(it, style).size.width }.toDp() to
+                    measurer.measure("-${LookAdjustments.MAX}", valueStyle).size.width.toDp()
+            }
+        }
         // Beside a slider on its line: its value at its widest, and its reset button (see AdjustmentSlider).
-        val value = with(density) { measurer.measure("-${LookAdjustments.MAX}", Usugami.type.tabular(style)).size.width.toDp() }
         val beside = 16.dp + 8.dp + value + 48.dp + 4.dp
         val labelWidth = (widest + LABEL_GAP).takeIf { maxWidth - it - beside >= SLIDER_SHORTEST }
         Column {
