@@ -75,9 +75,9 @@ reinstalling. A listing in the main F-Droid repository is planned; the builds ar
 
 - **Translate PDF**, in Usugami.apk: a new tool under Convert from PDF that makes a copy of a PDF
   in another language, on your phone, with Google's ML Kit. Usugami works out the PDF's language
-  from its text, and you choose the one to translate to, from 59. Each language's pack, about 40 MB,
-  downloads once, after Usugami asks; then translating needs no internet. Scanned pages are read
-  with text recognition first. The new PDF shows each page as it was, with the translation written
+  from its text, and you choose the one to translate to, from 59. Each language's pack, about
+  40 MB, downloads once, after Usugami asks; then translating needs no internet. Scanned pages are
+  read with text recognition first. The new PDF shows each page as it was, with the translation written
   over the original text as real text you can search and copy. See [Translate PDF](#translate-pdf)
   for what it does and what it can't. Usugami Lite and Usugami OCR don't have it.
 - **A new way to scan**, in all three editions. **Scan document** takes all the photos first: the
@@ -770,13 +770,14 @@ old "PDFer".
   may report to Google how these Google APIs were used, along with diagnostics and usage metrics
   about ML Kit (see
   [Google's ML Kit data disclosure](https://developers.google.com/ml-kit/android-data-disclosure)).
-  Your images, your PDFs and their text, and the translations are not part of this and never leave
-  your phone. Usugami also disables ML Kit's own metrics uploader inside the app.
+  Your images, your PDFs, their text and the translations never leave your phone. Usugami also
+  disables ML Kit's own metrics uploader inside the app.
 - **Translate PDF and the system log:** Google's translation library writes the text it translates,
   and the translation, into the phone's system log. Other apps you install can't read that log,
   but a computer connected to the phone for USB debugging can, and so can a bug report made on the
-  phone. Usugami removes what it can of this (the library's own Java messages), but not these lines,
-  which come from the library's native code.
+  phone. Usugami keeps the Java code of Google's libraries from writing their debug and info
+  messages there, but these lines come from the translation library's native code, which it can't
+  silence.
 - **Usugami Lite and Usugami OCR** contain no Google code, don't need Google Play services and
   make no network connections. Usugami OCR has text recognition built in; Usugami Lite has none.
 
