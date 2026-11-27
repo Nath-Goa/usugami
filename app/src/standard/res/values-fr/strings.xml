@@ -2,6 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Reconnaître les mots figurant sur ces images et ajouter du texte recherchable au PDF. La première fois que vous utilisez une langue, sa reconnaissance de texte est téléchargée, ce qui nécessite une connexion Internet.</string>
+    <string name="about_privacy">Pas de publicité, pas de suivi, pas de compte. Vos fichiers ne quittent jamais votre téléphone. Usugami n\'a l\'autorisation d\'accéder à Internet que pour télécharger les packs de langue de Traduire un PDF.</string>
 
     <string name="translate_title">Traduire un PDF</string>
     <string name="translate_detail">Lire un PDF dans une autre langue</string>

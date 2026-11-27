@@ -2,6 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Reconhece as palavras nestas imagens e adiciona texto pesquisável ao PDF. Na primeira vez que você usa cada idioma, o reconhecimento de texto dele é baixado, o que exige conexão com a internet.</string>
+    <string name="about_privacy">Sem anúncios, sem rastreamento, sem conta. Seus arquivos nunca saem do seu celular. O Usugami só tem permissão de acesso à internet para baixar os pacotes de idioma do Traduzir PDF.</string>
 
     <string name="translate_title">Traduzir PDF</string>
     <string name="translate_detail">Leia um PDF em outro idioma</string>

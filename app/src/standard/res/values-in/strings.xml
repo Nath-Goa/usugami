@@ -2,6 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Mengenali kata pada gambar ini, lalu menambahkan teks yang dapat ditelusuri ke PDF. Pengenalan teks untuk setiap bahasa didownload saat bahasa itu pertama kali digunakan, sehingga memerlukan koneksi internet.</string>
+    <string name="about_privacy">Tanpa iklan, tanpa pelacakan, tanpa akun. File Anda tidak pernah keluar dari ponsel. Usugami memiliki izin akses internet hanya agar Terjemahkan PDF dapat mendownload paket bahasa.</string>
 
     <string name="translate_title">Terjemahkan PDF</string>
     <string name="translate_detail">Baca PDF dalam bahasa lain</string>

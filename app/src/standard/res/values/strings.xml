@@ -2,6 +2,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Recognize words on these images and add searchable text to the PDF. The first time you use each language, its text recognition is downloaded, which needs an internet connection.</string>
+    <!-- Standard edition: About's privacy note. Usugami Lite and Usugami OCR have no internet permission; this edition has it, only for Translate PDF's language packs. -->
+    <string name="about_privacy">No ads, no tracking, no account. Your files never leave your phone. Usugami has the internet permission only so that Translate PDF can download language packs.</string>
 
     <!-- Translate PDF (this edition only): makes a new PDF of a PDF with its text in another language. Its name on Home and at the top of its screen. -->
     <string name="translate_title">Translate PDF</string>
