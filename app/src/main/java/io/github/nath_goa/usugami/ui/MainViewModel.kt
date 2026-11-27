@@ -77,6 +77,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
@@ -106,13 +107,14 @@ data class ConvertChoices(val fileName: String, val ocrLanguage: OcrLanguage?)
  * The crop screen, showing image [itemId] turned [rotation] degrees clockwise, as on its page. Its
  * corners start at [start]; Reset puts them on [found], the page the automatic search found
  * ([foundPage]), or else a little in from the image's edges. The corners are on the image as it shows
- * upright, [width] × [height] pixels (see [shown] and [upright]). A photo just taken ([fromCamera])
- * goes if the screen is left without cropping; an image of a scan ([queued], see [ScanQueue]) stays
- * as it is, and so do the scan's images after it. [opened] tells one opening from the next. The
- * page's look starts as [look], with [adjustments]. [side] says which side of an ID card the page is
- * (by its place on the card's page, also when cropped again from the editor), null for a page of its
- * own; a side being added by the ID card flow ([cardScan]) goes if the screen is left without
- * cropping, however it was added.
+ * upright, [width] × [height] pixels (see [shown] and [upright]). [fromCamera] says the image is a
+ * photo taken. An image of a scan ([staged], see [ScanQueue]) has its corners chosen alone, one image
+ * after another: Back goes to the image before, and a photo can be discarded there, an uploaded image
+ * left as it is with the rest. [opened] tells one opening from the next. The page's look starts as
+ * [look], with [adjustments]. [side] says which side of an ID card the page is (by its place on the
+ * card's page, also when cropped again from the editor), null for a page of its own; a side being
+ * added by the ID card flow ([cardScan]) goes if the screen is left without cropping, however it was
+ * added.
  */
 @Parcelize
 @TypeParceler<CropQuad, CropQuadParceler>
@@ -129,7 +131,7 @@ data class CropSession(
     val opened: Long,
     val look: PageLook = PageLook.ORIGINAL,
     val adjustments: LookAdjustments = LookAdjustments.NONE,
-    val queued: Boolean = false,
+    val staged: Boolean = false,
     val side: CardSide? = null,
     val cardScan: Boolean = false,
 ) : Parcelable {
@@ -143,21 +145,43 @@ data class CropSession(
     fun upright(quad: CropQuad, turn: Int = rotation): CropQuad = quad.transformed(ImageTransform.rotation(turn).inverse()).ordered(width, height)
 }
 
+/** The stages of a scan, in order: its photos taken, each image cropped, the pages' looks. */
+enum class ScanStage { PHOTOS, CROP, LOOKS }
+
 /**
- * Images picked with Home's Upload images, which the crop screen takes one after another, in the
- * order they were picked: [waiting] have been added and not been through it yet (the first is the
- * one it shows, while it does), [coming] are still being added, and [done] have been through it.
+ * A scan, from its first photo (or the images picked with Home's Upload images) until Save puts its
+ * pages in the editor, at [stage]. [pages] are its images that are still there, in the order taken or
+ * picked: [camera] says they are photos taken for it, which go when it is discarded. While they are
+ * cropped, [waiting] have not been through the crop screen yet (the first is the one it shows, while
+ * it does: they are always the last of [pages]), and [whole] were left whole there. [coming] are images
+ * picked that are still being added. On the looks, [selected] is the page shown large ([shownPage]),
+ * and [sameLook] gives a look to every page of the scan; [styled] says its pages have had their first
+ * look, which they get once. Its pages are in the editor's list from the moment each is added, so that
+ * the saved state keeps them, but the editor and its PDF wait for Save.
  */
 @Parcelize
-data class ScanQueue(val waiting: List<Long> = emptyList(), val coming: Int = 0, val done: Int = 0) : Parcelable {
-    /** The image showing, or next to, counted from 1 among [total]. */
-    val place: Int get() = done + 1
+data class ScanQueue(
+    val stage: ScanStage = ScanStage.CROP,
+    val camera: Boolean = false,
+    val pages: List<Long> = emptyList(),
+    val waiting: List<Long> = emptyList(),
+    val whole: List<Long> = emptyList(),
+    val coming: Int = 0,
+    val selected: Long = 0,
+    val sameLook: Boolean = false,
+    val styled: Boolean = false,
+) : Parcelable {
+    /** The image showing on the crop screen, or next to, counted from 1 among [total]. */
+    val place: Int get() = pages.size - waiting.size + 1
 
     /** How many images the scan has, those dropped (unreadable, or removed) left out. */
-    val total: Int get() = done + waiting.size + coming
+    val total: Int get() = pages.size + coming
 
     /** Whether the image showing is the scan's last. */
     val isLast: Boolean get() = waiting.size <= 1 && coming == 0
+
+    /** The page the looks show large: the one [selected], or else the first. */
+    val shownPage: Long? get() = selected.takeIf { it in pages } ?: pages.firstOrNull()
 }
 
 /**
@@ -237,12 +261,21 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     val card: StateFlow<CardScan?> = _card.asStateFlow()
 
     /**
-     * The images picked with Home's Upload images that are still to go through the crop screen, while
-     * there are any. Kept in the saved state; the images still being added when Android closed
-     * Usugami are gone (the user is told), so it goes on without them.
+     * The scan going on, if one is (see [ScanQueue]). Kept in the saved state, at every stage, while it
+     * has a page, or while its first photo is being taken or added; the images picked that were still
+     * being added when Android closed Usugami are gone (the user is told), so it goes on without them.
      */
-    private val _scan = MutableStateFlow(handle.get<ScanQueue>(KEY_SCAN)?.copy(coming = 0)?.takeIf { it.waiting.isNotEmpty() })
+    private val _scan = MutableStateFlow(restoredScan())
     val scan: StateFlow<ScanQueue?> = _scan.asStateFlow()
+
+    /**
+     * The scan is in the saved state as soon as it changes, not a moment later: a scan's camera opens
+     * right after it starts, and Android may stop Usugami while it is open.
+     */
+    private fun setScan(scan: ScanQueue?) {
+        _scan.value = scan
+        handle[KEY_SCAN] = scan
+    }
 
     /** Counts the scans started: the images of one that has ended are added as any others are. */
     private var scans = 0
@@ -271,10 +304,20 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             _cameraOpen.value = value != null
         }
 
-    /** The photos taken that are waiting to be added, in the saved state until each is (see [addPhoto]). */
+    /**
+     * The photos taken that are waiting to be added, in the saved state until each is (see [addPhoto]).
+     * One taken out of it before it is added (its scan discarded, or every image) isn't added.
+     */
     private var pendingPhotos: List<PendingPhoto>
         get() = handle.get<ArrayList<PendingPhoto>>(KEY_PENDING_PHOTOS).orEmpty()
-        set(value) { handle[KEY_PENDING_PHOTOS] = ArrayList(value) }
+        set(value) {
+            handle[KEY_PENDING_PHOTOS] = ArrayList(value)
+            _photosAdding.value = value.count { it.card == 0L }
+        }
+
+    private val _photosAdding = MutableStateFlow(pendingPhotos.count { it.card == 0L })
+    /** How many photos taken for a scan are still being added. */
+    val photosAdding: StateFlow<Int> = _photosAdding.asStateFlow()
 
     /**
      * The files of the photos that the state Android saved last names as waiting: Usugami may start
@@ -282,15 +325,6 @@ class MainViewModel(private val app: Application, private val handle: SavedState
      * names it is saved. On the main thread only.
      */
     private val photosInSavedState = pendingPhotos.mapTo(HashSet()) { it.path }
-
-    /**
-     * The look chosen last on the crop screen, which the next photo taken (or image of a scan) starts
-     * with: pages scanned one after another look alike. A new scan (from Home, or once every page has
-     * gone) starts on Enhanced, as a scanner's pages are.
-     */
-    private var lastLook: PageLook
-        get() = handle.get<PageLook>(KEY_LOOK) ?: PageLook.ENHANCED
-        set(value) { handle[KEY_LOOK] = value }
 
     /**
      * The pages being cropped, in the saved state from the moment their corners are chosen: the
@@ -551,10 +585,30 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         viewModelScope.launch { _result.collect(keptResult::keep) }
         viewModelScope.launch { _saved.collect { handle[KEY_SAVED] = it } }
         viewModelScope.launch { _crop.collect { handle[KEY_CROP] = it } }
-        viewModelScope.launch { _scan.collect { handle[KEY_SCAN] = it } }
         viewModelScope.launch { _card.collect { handle[KEY_CARD] = it } }
-        // A scan Android closed Usugami in the middle of goes on, once the cleanup is done (see openCrop).
+        // As it came back (see setScan).
+        handle[KEY_SCAN] = _scan.value
+        // A scan Android closed Usugami in the middle of cropping goes on, once the cleanup is done (see openCrop).
         advanceScan()
+    }
+
+    /**
+     * The scan Android closed Usugami in the middle of, if it is still to go on (see [scan]): its
+     * images that came back, and none of those that were still being added.
+     */
+    private fun restoredScan(): ScanQueue? {
+        val saved = handle.get<ScanQueue>(KEY_SCAN) ?: return null
+        val ids = _items.value.mapTo(HashSet()) { it.id }
+        val scan = saved.copy(
+            pages = saved.pages.filter { it in ids },
+            waiting = saved.waiting.filter { it in ids },
+            whole = saved.whole.filter { it in ids },
+            coming = 0,
+        )
+        // Its first photo is still in the camera app, or waits to be added (see addPhoto).
+        val photoComing = scan.stage == ScanStage.PHOTOS &&
+            (handle.get<String>(KEY_CAPTURE) != null || handle.get<ArrayList<PendingPhoto>>(KEY_PENDING_PHOTOS).orEmpty().any { it.card == 0L })
+        return scan.takeIf { it.pages.isNotEmpty() || photoComing }
     }
 
     // ---- Picking images ----
@@ -565,29 +619,31 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     /**
-     * Adds the images picked with Home's Upload images, and takes each through the crop screen in
-     * turn, the first as soon as it is added (see [ScanQueue]): a new scan (see [newScan]).
+     * Adds the images picked with Home's Upload images as a scan, which takes each through the crop
+     * screen in turn, the first as soon as it is added (see [ScanQueue]). Over a scan or an ID card
+     * already going on, they are added as images picked in the editor are.
      */
     fun scanImages(uris: List<Uri>) {
         if (uris.isEmpty()) return
-        newScan()
+        if (_scan.value != null || _card.value != null) return addImages(uris)
         val scan = ++scans
-        _scan.value = ScanQueue(coming = uris.size)
+        setScan(ScanQueue(stage = ScanStage.CROP, coming = uris.size))
         importImages(uris, refused = 0) { added ->
             val queue = _scan.value
-            if (scan == scans && queue != null) {
-                _scan.value = queue.copy(waiting = if (added == null) queue.waiting else queue.waiting + added.id, coming = queue.coming - 1)
-                advanceScan()
+            if (scan != scans || queue == null) return@importImages
+            val left = queue.copy(coming = queue.coming - 1)
+            when {
+                added == null -> setScan(left)
+                // Stopped cropping while it was being added: it is one of the pages given their looks.
+                left.stage == ScanStage.LOOKS -> {
+                    replaceItem(added.withScanLook(left))
+                    setScan(left.copy(pages = left.pages + added.id))
+                }
+                else -> setScan(left.copy(pages = left.pages + added.id, waiting = left.waiting + added.id))
             }
+            advanceScan()
+            endScanIfEmpty()
         }
-    }
-
-    /**
-     * A scan from Home starts a new document, whose first page starts on Enhanced again (see
-     * [lastLook]), as one does once every page has gone.
-     */
-    fun newScan() {
-        handle.remove<PageLook>(KEY_LOOK)
     }
 
     /**
@@ -950,10 +1006,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         picksUnderWay = 0
         // Photos waiting their turn are discarded too: a state saved now mustn't bring them back.
         pendingPhotos = emptyList()
-        _scan.value = null
+        setScan(null)
         _card.value = null
-        // What comes next starts a new document.
-        newScan()
         val all = items.value
         val replaced = superseded.toList()
         superseded.clear()
@@ -1010,17 +1064,27 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         // closed below, so that the prompt then showing is the right side's.
         _card.update { scan -> scan?.copy(side = if (list.any { it.card == scan.card }) CardSide.BACK else CardSide.FRONT) }
         // A scan's images that have gone are left out of it at once, so that it counts its images
-        // and finishes on its last as it is now.
+        // and finishes on its last as it is now. A scan left with none is over.
         _scan.value?.let { scan ->
             val ids = list.mapTo(HashSet()) { it.id }
-            if (!ids.containsAll(scan.waiting)) _scan.value = scan.copy(waiting = scan.waiting.filter { it in ids })
+            if (!ids.containsAll(scan.pages)) {
+                setScan(
+                    scan.copy(
+                        pages = scan.pages.filter { it in ids },
+                        waiting = scan.waiting.filter { it in ids },
+                        whole = scan.whole.filter { it in ids },
+                        selected = scan.selected.takeIf { it in ids } ?: 0,
+                    ),
+                )
+                endScanIfEmpty()
+            }
         }
         // The crop screen's image has gone (removed, or its copy cleared): there is nothing to crop. A
         // scan goes on with its next image.
         _crop.value?.let { session ->
             if (list.none { it.id == session.itemId }) {
                 _crop.value = null
-                if (session.queued) advanceScan()
+                if (session.staged) advanceScan()
             }
         }
     }
@@ -1042,9 +1106,25 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     /**
+     * Starts a scan with its camera (see [ScanQueue]), unless one is going on already, as when Take
+     * another opens the camera for the next photo. In the saved state before the camera opens: the
+     * photo may come back after Android has started Usugami again. Returns whether the scan takes
+     * photos now: not while another scan is past its photos, a page's crop screen shows or opens, the
+     * ID card flow goes on or a PDF is being made.
+     */
+    fun startScan(): Boolean {
+        _scan.value?.let { return it.stage == ScanStage.PHOTOS && it.camera }
+        if (_card.value != null || _crop.value != null || _openingCrop.value || _progress.value != null) return false
+        scans++
+        setScan(ScanQueue(stage = ScanStage.PHOTOS, camera = true))
+        return true
+    }
+
+    /**
      * The camera app has closed, having saved a photo ([taken]) or not. The photo is added after any
-     * images still being added, and the crop screen opens for it: during the ID card flow, as the
-     * side of the card it asked for. A photo not taken leaves nothing.
+     * images still being added: to the scan taking photos (see [startScan]), or during the ID card
+     * flow as the side of the card it asked for, whose crop screen then opens. A photo not taken
+     * leaves nothing, and a scan that has no photo is then over.
      */
     fun photoTaken(taken: Boolean) {
         val path = capture ?: return
@@ -1052,6 +1132,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val file = File(path)
         if (!taken) {
             viewModelScope.launch(fileOps) { file.delete() }
+            endScanIfEmpty()
             return
         }
         val scan = _card.value
@@ -1068,9 +1149,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     private fun cardSideName(): String = "ID_card_${timestamp()}"
 
     /**
-     * Adds [photo] after any images still being added (an ID card's side after the card's other
-     * side), and opens the crop screen for it. A side of a card whose flow has ended meanwhile
-     * (Cancel, No back side) is not added.
+     * Adds [photo] after any images still being added: as the scan's next photo, or as an ID card's
+     * side (after the card's other side), whose crop screen opens. A side of a card whose flow has
+     * ended meanwhile (Cancel, No back side) is not added, nor is a photo of a scan discarded
+     * meanwhile. With no scan taking photos, it is a page as it is.
      */
     private fun addPhoto(photo: PendingPhoto) {
         _pendingImports.update { it + 1 }
@@ -1086,6 +1168,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     // Some camera apps return without saving the photo.
                     if (generation != importGeneration || file.length() == 0L) null else store.addPhoto(file, id, photo.name, keepFile = true)
                 }
+                // Its scan was discarded while it was being added (see discardScan).
+                val dropped = photo !in pendingPhotos
                 pendingPhotos = pendingPhotos - photo
                 // A photo added that the state saved last names as waiting is added from its file
                 // again if Usugami starts again from that state: the file goes with the next one.
@@ -1101,16 +1185,24 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                 }
                 _pendingImports.update { it - 1 }
                 when {
-                    r is ImageStore.ImportResult.Added && photo.card != 0L && _card.value?.card != photo.card ->
+                    r is ImageStore.ImportResult.Added && (dropped || photo.card != 0L && _card.value?.card != photo.card) ->
                         viewModelScope.launch(fileOps) { store.delete(r.item) }
                     r is ImageStore.ImportResult.Added -> {
                         val item = r.item.copy(card = photo.card)
                         setItems(PageGroups.withAdded(items.value, item) { it.card })
-                        openCrop(item, fromCamera = true)
+                        if (photo.card != 0L) {
+                            openCrop(item, fromCamera = true)
+                        } else {
+                            // In the same step as it joins the list: the scan is never seen without it.
+                            _scan.value?.takeIf { it.stage == ScanStage.PHOTOS && it.camera }?.let { setScan(it.copy(pages = it.pages + item.id)) }
+                        }
                     }
+                    dropped -> Unit
                     r == ImageStore.ImportResult.NoSpace -> pluralMessage(R.plurals.msg_import_no_space, 1)
                     else -> pluralMessage(R.plurals.msg_failed_import, 1)
                 }
+                // A scan whose only photo couldn't be added is over.
+                endScanIfEmpty()
             }
         }
     }
@@ -1119,8 +1211,8 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     /**
      * Starts Home's ID card flow for a new card, asking for its front (see [card]). Not while a PDF
-     * is being made, a page's crop screen shows or opens, a scan of images goes on or another card's
-     * flow does.
+     * is being made, a page's crop screen shows or opens, a scan goes on (at any stage) or another
+     * card's flow does.
      */
     fun startCard() {
         if (cardBlocked()) return
@@ -1160,32 +1252,45 @@ class MainViewModel(private val app: Application, private val handle: SavedState
 
     // ---- Cropping ----
 
-    /** Opens the crop screen for image [id], with its corners on the page if one is found. */
+    /**
+     * Opens the crop screen for image [id], the editor's page, with its corners on the page if one is
+     * found. Not while a scan goes on, whose pages the editor doesn't show.
+     */
     fun openCrop(id: Long) {
         val item = items.value.firstOrNull { it.id == id } ?: return
         // Not while its last crop is being made: it would start from the page before.
-        if (id in _cropping.value) return
+        if (id in _cropping.value || _scan.value != null) return
         openCrop(item, fromCamera = false)
     }
 
     /**
-     * Opens the crop screen for [item], once its page has been looked for: a photo just taken
-     * ([fromCamera]) or an image of a scan ([queued]) starts with the look chosen last, a side the ID
-     * card flow is adding with the flow's look, any other page with its own. An image of a scan that
-     * can't be opened is left out of it, and a side whose flow has ended meanwhile is removed.
+     * Opens the crop screen for [item], once its page has been looked for: a side the ID card flow is
+     * adding starts with the flow's look, any other page with its own. An image of a scan ([staged],
+     * the first it waits for) whose page is still being made is opened once it is, with the corners
+     * it was made with; one that can't be opened is left out of the scan's cropping, and a side whose
+     * flow has ended meanwhile is removed.
      */
-    private fun openCrop(item: ImageItem, fromCamera: Boolean, queued: Boolean = false) {
+    private fun openCrop(item: ImageItem, fromCamera: Boolean, staged: Boolean = false) {
         // A second tap while the page is looked for, or with the screen open, does nothing.
         if (_openingCrop.value || _crop.value != null || _progress.value != null) return
         // Asked now, not once the page has been looked for: Cancel and No back side can be pressed meanwhile.
         val cardScan = item.card != 0L && _card.value?.card == item.card
+        // The scan's next image, as long as it still is: Back may go to the image before meanwhile.
+        fun next() = !staged || _scan.value?.waiting?.firstOrNull() == item.id
         _openingCrop.value = true
         viewModelScope.launch {
             try {
+                // Gone back to, as its page is made: opened now, it would be cropped again from the
+                // photo, and the page being made would then take the place of the new one.
+                var opening = item
+                if (staged && item.id in _cropping.value) {
+                    _cropping.first { item.id !in it }
+                    opening = items.value.firstOrNull { it.id == item.id }?.takeIf { next() } ?: return@launch
+                }
                 // The image a page was cropped from may have been cleared from the cache: the page is
                 // then cropped as it is.
-                val checked = withContext(fileOps) { store.stillThere(item) }
-                val source = takeIn(listOf(item), listOf(checked)).singleOrNull()?.source ?: return@launch
+                val checked = withContext(fileOps) { store.stillThere(opening) }
+                val source = takeIn(listOf(opening), listOf(checked)).singleOrNull()?.source ?: return@launch
                 val found = withContext(Dispatchers.IO) {
                     try {
                         PageCropper.findPage(source)?.takeIf { it.confident }?.quad
@@ -1196,11 +1301,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                         null
                     }
                 }
-                // Removed or cropped meanwhile, or being made into a PDF; or the scan it is next in was
-                // stopped while its page was looked for.
+                // Removed or cropped meanwhile, or being made into a PDF; or the scan it is next in went
+                // back, or on, while its page was looked for.
                 val current = items.value.firstOrNull { it.id == item.id }
-                if (current == null || current.source != source || _progress.value != null) return@launch
-                if (queued && _scan.value?.waiting?.firstOrNull() != item.id) return@launch
+                if (current == null || current.source != source || _progress.value != null || !next()) return@launch
                 // A side of the ID card flow, which was ended while its page was looked for: nothing was added.
                 val flow = _card.value
                 if (cardScan && flow?.card != item.card) return@launch remove(item.id)
@@ -1210,26 +1314,30 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     if (page?.first()?.id == item.id) CardSide.FRONT else CardSide.BACK
                 }
                 val reset = found ?: CropQuad.inset(PageCrop.INSET)
+                val scan = _scan.value?.takeIf { staged }
                 _crop.value = CropSession(
                     itemId = item.id,
-                    fromCamera = fromCamera,
+                    fromCamera = fromCamera || scan?.camera == true,
                     rotation = current.rotation,
                     width = source.uprightWidth,
                     height = source.uprightHeight,
-                    start = current.original?.corners ?: reset,
+                    // A scan's image left whole comes back whole, as a page cropped comes back on its corners.
+                    start = if (scan != null && item.id in scan.whole) CropQuad.WHOLE else current.original?.corners ?: reset,
                     found = reset,
                     foundPage = found != null,
                     opened = SystemClock.uptimeMillis(),
-                    look = if (cardScan && flow != null) flow.look else if (fromCamera || queued) lastLook else current.look,
+                    look = if (cardScan && flow != null) flow.look else current.look,
                     adjustments = current.adjustments,
-                    queued = queued,
+                    staged = staged,
                     side = side,
                     cardScan = cardScan,
                 )
             } finally {
                 _openingCrop.value = false
-                if (queued && _crop.value == null) {
-                    _scan.update { scan -> scan?.copy(waiting = scan.waiting - item.id) }
+                if (staged && _crop.value == null) {
+                    // It couldn't be opened, and is left as it is. Once the scan has gone back to the image
+                    // before (or on), that one opens instead.
+                    _scan.value?.takeIf { it.waiting.firstOrNull() == item.id }?.let { setScan(it.copy(waiting = it.waiting.drop(1))) }
                     advanceScan()
                 }
             }
@@ -1237,31 +1345,175 @@ class MainViewModel(private val app: Application, private val handle: SavedState
     }
 
     /**
-     * Opens the crop screen for the scan's next image, unless it shows already, or ends the scan once
-     * each image has been through it. Images removed meanwhile are left out; one still being added
-     * is waited for.
+     * While a scan's images are cropped, opens the crop screen for the next, unless it shows (or opens)
+     * already, and goes on to the looks once each image has been through it; a scan left with none
+     * is over. Images removed meanwhile are left out; one still being added is waited for.
      */
     private fun advanceScan() {
-        val scan = _scan.value ?: return
-        val left = scan.copy(waiting = scan.waiting.filter { id -> items.value.any { it.id == id } })
-        // A PDF being made has the pages as they are.
-        if ((left.waiting.isEmpty() && left.coming == 0) || _progress.value != null) {
-            _scan.value = null
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.CROP } ?: return
+        if (scan.waiting.isEmpty() && scan.coming == 0) {
+            if (scan.pages.isEmpty()) setScan(null) else toLooks(scan)
             return
         }
-        _scan.value = left
-        if (_crop.value != null || _openingCrop.value) return
-        val next = left.waiting.firstOrNull() ?: return
-        openCrop(items.value.first { it.id == next }, fromCamera = false, queued = true)
+        // Not over a PDF being made, which has the pages as they are (Make PDF waits for the scan).
+        if (_crop.value != null || _openingCrop.value || _progress.value != null) return
+        val next = scan.waiting.firstOrNull() ?: return
+        openCrop(items.value.first { it.id == next }, fromCamera = false, staged = true)
+    }
+
+    /**
+     * The scan goes on to its pages' looks, the first page shown large: the first time, each page
+     * starts on Enhanced, as a scanner's pages are. Only the scan's pages: those in the editor before
+     * keep theirs.
+     */
+    private fun toLooks(scan: ScanQueue) {
+        if (!scan.styled) {
+            val ids = scan.pages.toHashSet()
+            setItems(items.value.map { if (it.id in ids) it.copy(look = PageLook.ENHANCED, adjustments = LookAdjustments.NONE) else it })
+        }
+        setScan(scan.copy(stage = ScanStage.LOOKS, waiting = emptyList(), styled = true))
+    }
+
+    /** Ends the scan once it has nothing left: no image, none still being added, and no photo on its way. */
+    private fun endScanIfEmpty() {
+        val scan = _scan.value ?: return
+        val photoComing = scan.stage == ScanStage.PHOTOS && (capture != null || pendingPhotos.any { it.card == 0L })
+        if (scan.pages.isEmpty() && scan.coming == 0 && !photoComing) setScan(null)
+    }
+
+    /**
+     * Done on a scan's photos: each is cropped in turn, in the order taken (see [advanceScan]). Not
+     * while a photo is still on its way, which would miss its turn.
+     */
+    fun cropScan() {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.PHOTOS } ?: return
+        if (scan.pages.isEmpty() || _cameraOpen.value || pendingPhotos.any { it.card == 0L }) return
+        setScan(scan.copy(stage = ScanStage.CROP, waiting = scan.pages))
+        advanceScan()
+    }
+
+    /**
+     * Back while a scan's images are cropped: the image before, with the corners it was given (once
+     * its page is made, if it still is being made). On the first image, a scan's photos show again,
+     * nothing lost; images picked stop being cropped (see [stopScanCropping]). The corners moved on
+     * the image left, and not given to it with Next, are forgotten: it starts again as it was.
+     */
+    fun scanBack() {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.CROP } ?: return
+        val done = scan.pages.size - scan.waiting.size
+        if (done == 0) {
+            if (!scan.camera) return stopScanCropping()
+            _crop.value = null
+            setScan(scan.copy(stage = ScanStage.PHOTOS, waiting = emptyList()))
+            return
+        }
+        _crop.value = null
+        setScan(scan.copy(waiting = listOf(scan.pages[done - 1]) + scan.waiting))
+        advanceScan()
+    }
+
+    /**
+     * A scan's photo on the crop screen discarded: it goes, and the scan goes on with the next (or to
+     * the looks, after its last; the scan is over with none left).
+     */
+    fun discardScanPhoto() {
+        val session = _crop.value?.takeIf { it.staged } ?: return
+        if (_scan.value?.camera != true) return
+        // Which closes the screen and goes on (see setItems).
+        remove(session.itemId)
+    }
+
+    /**
+     * Stop cropping, on a scan of images picked: those not cropped yet stay whole, also those still
+     * being added, and the scan goes on to its pages' looks. With none added yet, the scan is over,
+     * and they are added as they come, as images picked in the editor are.
+     */
+    fun stopScanCropping() {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.CROP && !it.camera } ?: return
+        _crop.value = null
+        if (scan.pages.isEmpty()) setScan(null) else toLooks(scan)
+    }
+
+    /**
+     * Leaving a scan's photos for good: they go, also those still being added, and the scan is over.
+     */
+    fun discardScan() {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.PHOTOS && it.camera } ?: return
+        // A photo taken out of the list while it is being added isn't added (see addPhoto).
+        pendingPhotos = pendingPhotos.filter { it.card != 0L }
+        setScan(null)
+        val ids = scan.pages.toHashSet()
+        val gone = items.value.filter { it.id in ids }
+        setItems(items.value.filterNot { it.id in ids })
+        gone.forEach(thumbnails::remove)
+        viewModelScope.launch(fileOps) { gone.forEach(store::delete) }
+    }
+
+    /** Shows the scan's page [id] large on its looks. */
+    fun selectScanPage(id: Long) {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.LOOKS && id in it.pages } ?: return
+        setScan(scan.copy(selected = id))
+    }
+
+    /** Gives [look] to the page shown large on the scan's looks, or to each of its pages with [ScanQueue.sameLook]. */
+    fun setScanLook(look: PageLook) = styleScan { it.copy(look = look) }
+
+    /** As [setScanLook], for the brightness and contrast. */
+    fun setScanAdjustments(adjustments: LookAdjustments) = styleScan { it.copy(adjustments = adjustments) }
+
+    /**
+     * The same look for every page of the scan, or not: turned on, each takes the look, brightness
+     * and contrast of the page shown; turned off, each keeps what it has.
+     */
+    fun setScanSameLook(on: Boolean) {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.LOOKS } ?: return
+        setScan(scan.copy(sameLook = on))
+        if (on) {
+            val shown = items.value.firstOrNull { it.id == scan.shownPage } ?: return
+            styleScan { it.copy(look = shown.look, adjustments = shown.adjustments) }
+        }
+    }
+
+    /** [style] given to the page shown large on the scan's looks, or to each of its pages with [ScanQueue.sameLook]. */
+    private fun styleScan(style: (ImageItem) -> ImageItem) {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.LOOKS } ?: return
+        val ids = if (scan.sameLook) scan.pages.toHashSet() else setOfNotNull(scan.shownPage)
+        setItems(items.value.map { if (it.id in ids) style(it) else it })
+    }
+
+    /** [this], a page coming to the scan's looks late (see [stopScanCropping]), with the look the scan's pages start on. */
+    private fun ImageItem.withScanLook(scan: ScanQueue): ImageItem {
+        val shown = items.value.firstOrNull { it.id == scan.shownPage }?.takeIf { scan.sameLook }
+        return copy(look = shown?.look ?: PageLook.ENHANCED, adjustments = shown?.adjustments ?: LookAdjustments.NONE)
+    }
+
+    /** Back on the scan's looks: its last image's crop screen again. */
+    fun scanLooksBack() {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.LOOKS } ?: return
+        val last = scan.pages.lastOrNull() ?: return
+        setScan(scan.copy(stage = ScanStage.CROP, waiting = listOf(last)))
+        advanceScan()
+    }
+
+    /**
+     * Save on the scan's looks: the scan is over, and its pages are in the editor, in its order, after
+     * the pages that were there.
+     */
+    fun saveScan() {
+        val scan = _scan.value?.takeIf { it.stage == ScanStage.LOOKS } ?: return
+        setScan(null)
+        val byId = items.value.associateBy { it.id }
+        val ids = scan.pages.toHashSet()
+        setItems(items.value.filterNot { it.id in ids } + scan.pages.mapNotNull(byId::get))
     }
 
     /**
      * Crops the crop screen's page to [shown] (its corners as the screen shows the image, turned
      * [rotation] degrees clockwise, which the page takes), gives it [look] and [adjustments] (and
-     * every page, with [allPages]) and closes the screen; the page is made in the background, and a
-     * scan goes on with its next image. The whole image puts the page back as it was picked or taken.
-     * Returns false, leaving the screen open, when the corners don't make a page. What isn't given
-     * stays as the page has it.
+     * every page, with [allPages]) and closes the screen; the page is made in the background. The
+     * whole image puts the page back as it was picked or taken. Returns false, leaving the screen
+     * open, when the corners don't make a page. What isn't given stays as the page has it. An image
+     * of a scan takes its corners and turn alone, and the scan goes on (see [finishScanImage]).
      */
     fun finishCrop(
         shown: CropQuad,
@@ -1276,6 +1528,7 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             _crop.value = null
             return false
         }
+        if (session.staged) return finishScanImage(session, picked, shown, rotation)
         val source = picked.source
         val turn = Math.floorMod(rotation ?: session.rotation, 360)
         val quad = session.upright(shown, turn)
@@ -1294,17 +1547,44 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             else _card.update { it?.copy(side = CardSide.BACK, look = chosen) }
         }
         _crop.value = null
-        // The next photo starts with the look chosen, not with one a page only kept. An ID card's look
-        // stays the card's (a card isn't paper), unless it is given to every page.
-        val remembered = if (session.side != null) allPages else session.fromCamera || session.queued || allPages || look != session.look
-        if (look != null && remembered) lastLook = look
         if (allPages) {
             setItems(items.value.map { it.copy(look = chosen, adjustments = adjusted) })
-            // And the images still being added, such as the rest of a scan, as each comes.
+            // And the images still being added, such as those shared meanwhile, as each comes.
             allPagesChoice = AllPagesChoice(chosen, adjusted, through = importBatches)
         }
         val item = picked.copy(look = chosen, adjustments = adjusted, rotation = turn)
         if (item != picked) replaceItem(item)
+        cropTo(item, source, quad)
+        return true
+    }
+
+    /**
+     * Next on a scan's image: its page is cropped to [shown] (as the screen shows the image, turned
+     * [rotation] degrees clockwise, which the page takes) in the background, and the scan goes on with
+     * its next image, or to its pages' looks after the last. As [finishCrop], false keeps the screen.
+     */
+    private fun finishScanImage(session: CropSession, picked: ImageItem, shown: CropQuad, rotation: Int?): Boolean {
+        val source = picked.source
+        val turn = Math.floorMod(rotation ?: session.rotation, 360)
+        val quad = session.upright(shown, turn)
+        val whole = quad.isWhole()
+        if (!whole && !quad.isUsable(source.uprightWidth, source.uprightHeight)) return false
+        _crop.value = null
+        val item = picked.copy(rotation = turn)
+        if (item != picked) replaceItem(item)
+        cropTo(item, source, quad)
+        _scan.value?.let { scan ->
+            val others = scan.whole - item.id
+            setScan(scan.copy(waiting = scan.waiting - item.id, whole = if (whole) others + item.id else others))
+        }
+        // In the same step: the next image's opening (or the looks) follows this one at once.
+        advanceScan()
+        return true
+    }
+
+    /** [item]'s page made from [source], cropped inside [quad], in the background; the whole image puts it back as it was. */
+    private fun cropTo(item: ImageItem, source: OriginalImage, quad: CropQuad) {
+        val whole = quad.isWhole()
         when {
             // Nothing changed.
             if (whole) item.original == null else item.original?.corners?.isCloseTo(quad) == true -> Unit
@@ -1315,22 +1595,15 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             }
             else -> crop(item, source, quad)
         }
-        if (session.queued) {
-            _scan.update { scan -> scan?.copy(waiting = scan.waiting - session.itemId, done = scan.done + 1) }
-            advanceScan()
-        }
-        return true
     }
 
     /**
-     * Leaves the crop screen without cropping. A photo just taken is discarded, and so is a side the
-     * ID card flow added, whose prompt then shows again. A scan stops, also while its next image is
-     * awaited: the images not through the crop screen stay as they are.
+     * Leaves the crop screen without cropping: a side the ID card flow added is discarded, and its
+     * prompt shows again; a page cropped again stays as it was. A scan's image has ways of its own
+     * ([scanBack], [discardScanPhoto], [stopScanCropping]).
      */
     fun closeCrop() {
-        val session = _crop.value
-        if (session == null || session.queued) _scan.value = null
-        session ?: return
+        val session = _crop.value?.takeIf { !it.staged } ?: return
         if (session.cardScan) {
             // Removed first: that closes the screen (see setItems) with the flow's side already right.
             remove(session.itemId)
@@ -1338,13 +1611,12 @@ class MainViewModel(private val app: Application, private val handle: SavedState
             return
         }
         _crop.value = null
-        if (session.fromCamera) remove(session.itemId)
     }
 
     /**
-     * Whether a scan's page is still to reach the editor: the camera app is open, the crop screen
-     * shows, is being opened or awaits a scan's next image, or the ID card flow goes on. A page
-     * cropped in the background is in the editor already.
+     * Whether a scan's page is still to reach the editor: the camera app is open, a scan goes on (at
+     * any stage), the crop screen shows or is being opened, or the ID card flow goes on. A page
+     * cropped again in the background is in the editor already.
      */
     fun scanUnderWay(): Boolean = _cameraOpen.value || _openingCrop.value || _crop.value != null || _scan.value != null || _card.value != null
 
@@ -1534,10 +1806,11 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         val language = ocrLanguage?.takeIf { engine != null }
         val snapshot = items.value
         if (snapshot.isEmpty() || _progress.value != null || _pendingImports.value > 0) return
-        // Not while a page's crop screen shows or is opening, as it does for a photo just taken: the
-        // page would go into the PDF uncropped, and closing that screen later would remove it. Nor
-        // while the ID card flow goes on: its card isn't finished.
-        if (_crop.value != null || _openingCrop.value || _card.value != null) return
+        // Not while a page's crop screen shows or is opening, as it does for an ID card's side just
+        // added: the page would go into the PDF uncropped, and closing that screen later would remove
+        // it. Nor while the ID card flow goes on, whose card isn't finished, or a scan, whose photos are
+        // in the list before they are cropped and given their looks.
+        if (_crop.value != null || _openingCrop.value || _card.value != null || _scan.value != null) return
         // The setting and the sheet count pages: an ID card's sides make one.
         val single = pages(snapshot).size == 1
         if (!single) {
@@ -1932,7 +2205,6 @@ class MainViewModel(private val app: Application, private val handle: SavedState
         private const val KEY_PICKS_UNDER_WAY = "picks_under_way"
         private const val KEY_CROP = "crop"
         private const val KEY_CAPTURE = "capture"
-        private const val KEY_LOOK = "look"
         private const val KEY_PENDING_CROPS = "pending_crops"
         private const val KEY_PENDING_PHOTOS = "pending_photos"
         private const val KEY_SCAN = "scan"

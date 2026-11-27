@@ -58,6 +58,7 @@ import io.github.nath_goa.usugami.core.ZipArchive
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.Appearance
+import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.ImageStore
 import io.github.nath_goa.usugami.data.LegalDocument
 import io.github.nath_goa.usugami.data.PdfFile
@@ -112,7 +113,9 @@ fun UsugamiApp(
     val crop by vm.crop.collectAsStateWithLifecycle()
     val openingCrop by vm.openingCrop.collectAsStateWithLifecycle()
     val cameraOpen by vm.cameraOpen.collectAsStateWithLifecycle()
+    // The scan going on, from its photos to its pages' looks.
     val scan by vm.scan.collectAsStateWithLifecycle()
+    val photosAdding by vm.photosAdding.collectAsStateWithLifecycle()
     // The ID card being scanned, while Home's ID card flow goes on.
     val card by vm.card.collectAsStateWithLifecycle()
     val cropping by vm.cropping.collectAsStateWithLifecycle()
@@ -263,10 +266,10 @@ fun UsugamiApp(
         val sharedOver = (route == "share" || isPdfToolRoute(route)) && vm.scanUnderWay()
         if (route != "images" && !sharedOver) scanFromHome = false
     }
-    // Once the camera and the crop screen have closed, the scan from Home is over. With a page in the
-    // editor, the editor is as it always is from then on, also when the user removes that page while
-    // it is still being cropped. With no page, once nothing is still being added, it goes back to Home
-    // rather than to an empty editor: the camera closed without a photo, the photo discarded, or
+    // Once the camera and the scan's screens have closed, the scan from Home is over. With a page in
+    // the editor, the editor is as it always is from then on, also when the user removes that page
+    // while it is still being cropped. With no page, once nothing is still being added, it goes back to
+    // Home rather than to an empty editor: the camera closed without a photo, the photos discarded, or
     // nothing picked could be added. The view model is asked as it is now: its flows reach the screen
     // one at a time.
     LaunchedEffect(scanFromHome, route, items.isEmpty(), pendingImports, openingCrop, crop, scan, cameraOpen, card) {
@@ -275,8 +278,8 @@ fun UsugamiApp(
     }
     // An ID card flow is never left behind Home (see afterTool), where nothing could show it again.
     LaunchedEffect(route) { if (route == "home") vm.endCard() }
-    // Scan document's Upload images: the images picked are added, and cropped one after another.
-    // Nothing picked leaves Home as it was.
+    // Scan document's Upload images: the images picked are added, cropped one after another, then
+    // given their looks. Nothing picked leaves Home as it was.
     val scanPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia()) { uris ->
         if (uris.isNotEmpty()) {
             vm.scanImages(uris)
@@ -340,8 +343,10 @@ fun UsugamiApp(
     }
 
     // Images shared while the user stayed with a tool's PDF wait for them in the editor, and an ID card
-    // flow (a tool opened over its prompt for files shared or opened) waits there too.
-    fun afterTool(): String = if (vm.items.value.isNotEmpty() || vm.pendingImports.value > 0 || vm.card.value != null) "images" else "home"
+    // flow or a scan (a tool opened over it for files shared or opened) waits there too, also a scan
+    // whose first photo is still in the camera app.
+    fun afterTool(): String =
+        if (vm.items.value.isNotEmpty() || vm.pendingImports.value > 0 || vm.card.value != null || vm.scan.value != null) "images" else "home"
 
     /**
      * Where the shared files waiting, or else being copied in, open (see [sharedRoute]); null for none.
@@ -472,11 +477,18 @@ fun UsugamiApp(
     )
 
     /**
-     * Opens the camera app to take a photo for a page; it is added and cropped when it comes back.
-     * Returns whether it opened.
+     * Opens the camera app to take a photo: for a page, the scan's next photo (a scan starts with it
+     * if none is going on), which its photos show when it comes back; during the ID card flow, the
+     * side it asks for, which is cropped when it comes back. Returns whether it opened.
      */
     fun takePhoto(): Boolean {
         if (!opener.open()) return false
+        // The scan is in the saved state before the camera opens: the photo may come back after
+        // Android has started Usugami again, and it goes to the scan.
+        if (vm.card.value == null && !vm.startScan()) {
+            opener.notOpened()
+            return false
+        }
         try {
             camera.launch(vm.newCapture())
             return true
@@ -494,15 +506,17 @@ fun UsugamiApp(
     // Counts the tools opened from Home. Each opening is a screen of its own, with choices of its own,
     // also when a tool is opened again while its last screen is still sliding away.
     var toolOpening by rememberSaveable { mutableIntStateOf(0) }
-    // What the crop screen chose for its page (the corners moved, the step, the look) is kept while
-    // files shared to Usugami open their tool over it, so Back returns to the page as it was left.
+    // What the crop screen chose for its page (the corners moved, the step, the look), and what a
+    // scan's other screens show, is kept while files shared to Usugami open their tool over them, so
+    // Back returns to the page as it was left.
     val cropStates = rememberSaveableStateHolder()
-    // Counts the times the crop screen opened. Each is a screen of its own, whose choices are
-    // forgotten once its pages are done with.
+    // Counts the times the crop screen, or a scan, opened. Each is a screen of its own (a scan's
+    // stages one each), whose choices are forgotten once its pages are done with: not between a
+    // scan's stages, which go back and forth.
     var cropOpening by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(crop == null && scan == null) {
         if (crop == null && scan == null) {
-            cropStates.removeState(cropOpening)
+            ScanScreens.forEach { cropStates.removeState(scanStateKey(it, cropOpening)) }
             cropOpening++
         }
     }
@@ -542,10 +556,9 @@ fun UsugamiApp(
         route = tool.name.lowercase()
     }
 
-    /** Starts a scan from Home: the camera opens over the editor, where its photo is added. */
+    /** Starts a scan from Home: the camera opens over the scan's photos, where its photo is added. */
     fun startScan() {
         if (takePhoto()) {
-            vm.newScan()
             route = "images"
             scanFromHome = true
         }
@@ -570,7 +583,7 @@ fun UsugamiApp(
             // As files shared to Usugami ask: over a result not saved yet, or work done on the tool's PDF (in
             // the reader, Annotate's additions not saved).
             unsaved = tool != null && (if (pdfVm.result.value != null) !pdfVm.saved.value else pdfVm.hasUnsavedWork(tool)),
-            // No photo is added while a scan's page is still on its way (the camera, the crop screen).
+            // No photo is added while a scan's page is still on its way (the camera, a scan's stages).
             editorIdle = route == "images" && vm.result.value == null && !vm.scanUnderWay(),
         )
     }
@@ -589,9 +602,9 @@ fun UsugamiApp(
         confirmDiscard = false
         confirmShortcut = null
         when (target) {
-            // A scan still going on behind a tool or Choose a tool (the crop screen, the next image of
-            // several) is shown again: a new scan would drop its look, and its photo would skip the crop
-            // screen. Otherwise the camera opens; with no camera app, Usugami says so and stays where it was.
+            // A scan still going on behind a tool or Choose a tool (its photos, the crop screen, the
+            // looks) is shown again: there is one scan at a time. Otherwise the camera opens; with no
+            // camera app, Usugami says so and stays where it was.
             ShortcutTarget.SCAN -> if (vm.scanUnderWay()) {
                 toolFromShare = false
                 docsFromShare = false
@@ -620,7 +633,7 @@ fun UsugamiApp(
                 val target = vm.takeShortcut() ?: return@collect
                 when (ShortcutRules.step(target, shortcutScene())) {
                     ShortcutStep.OPEN -> runShortcut(target)
-                    // As the editor's own Take photo: the photo joins its images.
+                    // As the editor's own Take photo: a scan whose pages join its images.
                     ShortcutStep.ADD_PHOTO -> takePhoto()
                     ShortcutStep.ASK -> confirmShortcut = target.id
                     // Not remembered: it would ask "Discard?" minutes later, when the job ends.
@@ -783,13 +796,16 @@ fun UsugamiApp(
     // ("settings/about/privacy") and the GitHub Sponsors steps Donate opens ("settings/donate/github");
     // that depth decides the slide direction.
     // A tool opened from Choose a tool ("share") sits one level deeper than it. The crop screen sits
-    // beside the editor's result; a scan of images picked keeps it showing while its next image is
-    // awaited. The ID card flow's prompt ("images/card") sits beside them.
+    // beside the editor's result, and so do a scan's stages, one after another (see comesOver): its
+    // photos ("images/photos"), the crop screen, which keeps showing while its next image is awaited,
+    // and its pages' looks ("images/looks"). The ID card flow's prompt ("images/card") sits beside them.
+    val scanning = scan
     val base = when {
         route == "home" || route.startsWith("settings") || route == "share" || route == "recent" -> route
         route == "images" -> when {
             result != null -> "images/result"
-            crop != null || scan != null -> "images/crop"
+            crop != null -> "images/crop"
+            scanning != null -> scanScreen(scanning.stage)
             card != null -> "images/card"
             else -> "images"
         }
@@ -819,7 +835,7 @@ fun UsugamiApp(
             when {
                 screen.endsWith("/view") -> previewOpening
                 isPdfToolRoute(route) -> toolOpening
-                screen == "images/crop" -> cropOpening
+                screen in ScanScreens -> cropOpening
                 else -> 0
             },
         ),
@@ -829,7 +845,7 @@ fun UsugamiApp(
         modifier = Modifier.background(Usugami.colors.screenDim),
         transitionSpec = {
             Motion.screenTransition(
-                forward = screenDepth(targetState.screen) >= screenDepth(initialState.screen),
+                forward = comesOver(targetState.screen, initialState.screen),
                 depth = screenDepth(targetState.screen),
                 rtl = rtl,
             )
@@ -843,7 +859,7 @@ fun UsugamiApp(
         val active = transition.targetState == EnterExitState.Visible
         // A screen that came over the one before slides in, decided once as it is first shown. Only its
         // picture moves: it is in its place from the first frame.
-        val cameOver = remember { screens.segment.let { screenDepth(it.targetState.screen) >= screenDepth(it.initialState.screen) } }
+        val cameOver = remember { screens.segment.let { comesOver(it.targetState.screen, it.initialState.screen) } }
         val away = slideInProgress(cameOver)
         val screenSnackbar = if (active) snackbar else idleSnackbar
         Box(Modifier.screenSlide(away, rtl).then(if (active) Modifier else Modifier.clearAndSetSemantics {})) {
@@ -870,7 +886,6 @@ fun UsugamiApp(
                         onScanPhoto = ::startScan,
                         // Its prompt shows over the editor, which a scan from Home leaves for Home if it adds nothing.
                         onScanCard = {
-                            vm.newScan()
                             vm.startCard()
                             route = "images"
                             scanFromHome = true
@@ -1007,18 +1022,39 @@ fun UsugamiApp(
                             sort = vm::sort,
                             clearAll = vm::clearAll,
                             // Not while a PDF is being made: a tap that lands just after Create would open the
-                            // sheet again over the progress. Nor while a page's crop screen is opening, as it
-                            // does for a photo just taken: it would open under the sheet, and Create would make
-                            // the PDF with that screen still open.
-                            convert = { if (vm.progress.value == null && !vm.openingCrop.value) showConvertSheet = true },
+                            // sheet again over the progress. Nor while a page's crop screen is opening: it would
+                            // open under the sheet, and Create would make the PDF with that screen still open.
+                            // Nor once a scan has started (the editor still sliding away), whose photos are
+                            // to be cropped first.
+                            convert = { if (vm.progress.value == null && !vm.openingCrop.value && vm.scan.value == null) showConvertSheet = true },
                         ),
                         onBack = leave,
                         cropping = cropping,
                     )
                 }
+                current == "images/photos" -> {
+                    // Back is the screen's own: it asks before the photos go.
+                    cropStates.SaveableStateProvider(scanStateKey(current, shown.opening)) {
+                        ScanPhotosScreen(
+                            photos = scanPages(freezeWhen(!active, scan), freezeWhen(!active, items)),
+                            adding = freezeWhen(!active, photosAdding),
+                            thumbnails = vm.thumbnails,
+                            active = active,
+                            snackbar = screenSnackbar,
+                            actions = ScanPhotosActions(
+                                // Once per burst of taps, as every Take photo.
+                                takeAnother = { takePhoto() },
+                                done = vm::cropScan,
+                                remove = vm::remove,
+                                discard = vm::discardScan,
+                            ),
+                        )
+                    }
+                }
                 current == "images/crop" -> {
-                    // Back is the screen's own: on its second step, it goes back to the first.
-                    cropStates.SaveableStateProvider(shown.opening) {
+                    // Back is the screen's own: on its second step, it goes back to the first; on a scan's
+                    // image, to the image before.
+                    cropStates.SaveableStateProvider(scanStateKey(current, shown.opening)) {
                         CropScreen(
                             session = freezeWhen(!active, crop),
                             items = freezeWhen(!active, items),
@@ -1028,9 +1064,33 @@ fun UsugamiApp(
                             snackbar = screenSnackbar,
                             actions = CropActions(
                                 done = { vm.finishCrop(it.corners, it.look, it.allPages, it.adjustments, it.rotation) },
-                                // A second tap, once the first has closed the screen, opens no second camera.
-                                takeAnother = { if (vm.finishCrop(it.corners, it.look, it.allPages, it.adjustments, it.rotation)) takePhoto() },
                                 close = vm::closeCrop,
+                                back = vm::scanBack,
+                                discard = vm::discardScanPhoto,
+                                stop = vm::stopScanCropping,
+                            ),
+                        )
+                    }
+                }
+                current == "images/looks" -> {
+                    // Back is the screen's own: the scan's last image on the crop screen again.
+                    cropStates.SaveableStateProvider(scanStateKey(current, shown.opening)) {
+                        val shownScan = freezeWhen(!active, scan)
+                        ScanLooksScreen(
+                            pages = scanPages(shownScan, freezeWhen(!active, items)),
+                            selected = shownScan?.selected ?: 0L,
+                            sameForAll = shownScan?.sameLook == true,
+                            cropping = freezeWhen(!active, cropping),
+                            thumbnails = vm.thumbnails,
+                            active = active,
+                            snackbar = screenSnackbar,
+                            actions = ScanLooksActions(
+                                select = vm::selectScanPage,
+                                look = vm::setScanLook,
+                                adjust = vm::setScanAdjustments,
+                                sameForAll = vm::setScanSameLook,
+                                save = vm::saveScan,
+                                back = vm::scanLooksBack,
                             ),
                         )
                     }
@@ -1536,6 +1596,37 @@ private data class Shown(val screen: String, val opening: Int)
 
 /** Where the choices of the tool opened [opening]th are kept. */
 private fun toolStateKey(opening: Int) = "tool$opening"
+
+/** A scan's screens, in the order of its stages; the crop screen also shows alone, to crop a page again. */
+private val ScanScreens = listOf("images/photos", "images/crop", "images/looks")
+
+/** The screen of a scan at [stage]. */
+private fun scanScreen(stage: ScanStage): String = when (stage) {
+    ScanStage.PHOTOS -> "images/photos"
+    ScanStage.CROP -> "images/crop"
+    ScanStage.LOOKS -> "images/looks"
+}
+
+/** Where what [screen], a scan's (or the crop screen), shows the [opening]th time is kept. */
+private fun scanStateKey(screen: String, opening: Int) = "$screen#$opening"
+
+/** The [scan]'s pages, in its order, among [items]. */
+private fun scanPages(scan: ScanQueue?, items: List<ImageItem>): List<ImageItem> {
+    val pages = scan?.pages ?: return emptyList()
+    val byId = items.associateBy { it.id }
+    return pages.mapNotNull(byId::get)
+}
+
+/**
+ * Whether [target] comes over [initial], sliding in, rather than [initial] sliding away from it: a
+ * deeper screen comes over, and so does a scan's later stage, beside the one before at the same depth.
+ */
+private fun comesOver(target: String, initial: String): Boolean {
+    val (to, from) = screenDepth(target) to screenDepth(initial)
+    if (to != from) return to > from
+    val (later, earlier) = ScanScreens.indexOf(target) to ScanScreens.indexOf(initial)
+    return later < 0 || earlier < 0 || later >= earlier
+}
 
 /**
  * Opens other apps' screens (a picker, the "Save as" screen, the share screen, a PDF viewer, a

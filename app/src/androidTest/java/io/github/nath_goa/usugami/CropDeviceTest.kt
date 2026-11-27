@@ -23,6 +23,7 @@ import io.github.nath_goa.usugami.data.OriginalImage
 import io.github.nath_goa.usugami.data.PageCropper
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.ScanQueue
+import io.github.nath_goa.usugami.ui.ScanStage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -43,14 +44,14 @@ import kotlin.math.hypot
 /**
  * Cropping a page out of a photo: the page found on it, straightened onto a rectangle (also from a
  * photo stored sideways with an EXIF orientation, and a PNG), and through the view model a photo
- * taken with the camera app added and cropped, cropped again from the original, put back whole,
- * discarded, kept through the saved state, and a photo not taken leaving nothing behind; a crop not
- * finished when Android stops Usugami made again (from the photo when the page cropped before has
- * gone, and not at all when the photo has), a photo back as Usugami starts again kept, a page removed
- * while it is cropped going quietly, and a page outlasting the image it was cropped from kept; the
- * turn, look and adjustments chosen reaching the page (or every page, also those still being added),
- * and a scan of uploaded images taking each in turn, leaving out one removed, stopping when closed and
- * going on after Android stops Usugami.
+ * taken with the camera app for a scan, added and cropped, cropped again from the original, put back
+ * whole, discarded, kept through the saved state, and a photo not taken leaving nothing behind; no
+ * PDF and no ID card while a scan goes on; a crop not finished when Android stops Usugami made again
+ * (from the photo when the page cropped before has gone, and not at all when the photo has), a photo
+ * back as Usugami starts again kept, a page removed while it is cropped going quietly, and a page
+ * outlasting the image it was cropped from kept; the turn, look and adjustments chosen reaching the
+ * page (or every page, also those still being added), and a scan of uploaded images taking each in
+ * turn, leaving out one removed, stopping when asked and going on after Android stops Usugami.
  */
 class CropDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -183,28 +184,41 @@ class CropDeviceTest {
         val handle = SavedStateHandle()
         val vm = onMain { MainViewModel(app, handle) }
         runBlocking { vm.awaitFileWork() }
-        // The camera app saves the photo into the file Usugami gives it.
-        val uri = onMain { vm.newCapture() }
+        // The camera app saves the photo into the file Usugami gives it, for a scan.
+        val uri = onMain {
+            assertTrue(vm.startScan())
+            vm.newCapture()
+        }
         assertEquals("${app.packageName}.files", uri.authority)
         app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
         onMain { vm.photoTaken(true) }
 
-        // The crop screen opens for it, on the page found.
+        // It is the scan's photo; Done opens the crop screen for it, on the page found.
+        waitUntil("the scan's photo") { vm.scan.value?.pages?.size == 1 }
+        val taken = onMain { vm.items.value.single() }
+        assertEquals(listOf(taken.id), onMain { vm.scan.value!!.pages })
+        onMain { vm.cropScan() }
         waitUntil("the crop screen") { vm.crop.value != null }
         val session = onMain { vm.crop.value!! }
-        val taken = onMain { vm.items.value.single() }
         assertEquals(taken.id, session.itemId)
         assertTrue(session.fromCamera)
+        assertTrue(session.staged)
         assertTrue(session.foundPage)
         assertTrue("${session.found}", session.found.isCloseTo(PagePhotos.QUAD, 0.012f))
         assertEquals(session.found, session.start)
         assertTrue(taken.name, taken.name.startsWith("Scan_") && taken.name.endsWith(".jpg"))
         assertTrue("The camera's file has gone", captures().isEmpty())
 
-        // Done crops it to the corners as the screen shows them. Its page is in the editor from then on,
-        // while it is made: a scan from Home that took it is over.
+        // Next crops it to the corners as the screen shows them, and its looks come. Save puts its page
+        // in the editor while it is made: a scan from Home that took it is over.
         assertTrue(onMain { vm.scanUnderWay() })
-        assertEquals(Triple(true, true, false), onMain { Triple(vm.finishCrop(session.shown(PagePhotos.QUAD)), vm.cropping.value.isNotEmpty(), vm.scanUnderWay()) })
+        val (next, stage, over) = onMain {
+            val next = vm.finishCrop(session.shown(PagePhotos.QUAD))
+            val stage = vm.scan.value?.stage
+            vm.saveScan()
+            Triple(next, stage, vm.cropping.value.isNotEmpty() && !vm.scanUnderWay())
+        }
+        assertEquals(Triple(true, ScanStage.LOOKS, true), Triple(next, stage, over))
         assertNull(onMain { vm.crop.value })
         waitUntil("the page to be cropped") { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 }
         val cropped = onMain { vm.items.value.single() }
@@ -260,10 +274,7 @@ class CropDeviceTest {
 
     @Test fun cornersThatMakeNoPageAreRefusedAndCrossedOnesPutInOrder() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
-        val uri = onMain { vm.newCapture() }
-        app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
-        onMain { vm.photoTaken(true) }
-        waitUntil("the crop screen") { vm.crop.value != null }
+        takePhoto(vm)
         // A corner pushed inside the others: an arrow head, not a page.
         val dart = CropQuad(listOf(CropPoint(0.1f, 0.1f), CropPoint(0.9f, 0.1f), CropPoint(0.4f, 0.4f), CropPoint(0.1f, 0.9f)))
         assertFalse(onMain { vm.finishCrop(dart) })
@@ -283,61 +294,100 @@ class CropDeviceTest {
         val images = File(app.cacheDir, "images")
         val before = images.list().orEmpty().toSet()
 
-        // Cancelled in the camera app, which had opened the file.
-        app.contentResolver.openOutputStream(onMain { vm.newCapture() })!!.close()
+        // Cancelled in the camera app, which had opened the file: the scan it started is over.
+        app.contentResolver.openOutputStream(
+            onMain {
+                assertTrue(vm.startScan())
+                vm.newCapture()
+            },
+        )!!.close()
         assertEquals(1, captures().size)
         onMain { vm.photoTaken(false) }
+        assertNull(onMain { vm.scan.value })
         runBlocking { vm.awaitFileWork() }
         assertTrue(captures().isEmpty())
         assertTrue(onMain { vm.items.value.isEmpty() })
 
-        // The camera app said it saved the photo, but didn't.
+        // The camera app said it saved the photo, but didn't: that scan is over too.
         onMain {
+            assertTrue(vm.startScan())
             vm.newCapture()
             vm.photoTaken(true)
         }
         waitUntil("the empty photo to be dropped") { vm.pendingImports.value == 0 }
+        assertNull(onMain { vm.scan.value })
         assertTrue(captures().isEmpty())
         assertTrue(onMain { vm.items.value.isEmpty() })
 
-        // Taken, then the crop screen left: the photo is discarded.
-        val uri = onMain { vm.newCapture() }
+        // Taken, then the scan's photos discarded, the second while it is still being added: neither is kept.
+        scanPhoto(vm)
+        val uri = onMain {
+            assertTrue(vm.startScan())
+            vm.newCapture()
+        }
         app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
-        onMain { vm.photoTaken(true) }
-        waitUntil("the crop screen") { vm.crop.value != null }
-        onMain { vm.closeCrop() }
+        onMain {
+            vm.photoTaken(true)
+            assertEquals(1, vm.photosAdding.value)
+            vm.discardScan()
+        }
+        assertNull(onMain { vm.scan.value })
+        waitUntil("the photo being added to be dropped") { vm.pendingImports.value == 0 }
         assertTrue(onMain { vm.items.value.isEmpty() })
+
+        // Taken, then discarded on the crop screen: the scan of that photo alone is over.
+        takePhoto(vm)
+        onMain { vm.discardScanPhoto() }
+        assertTrue(onMain { vm.items.value.isEmpty() && vm.scan.value == null && vm.crop.value == null })
         runBlocking { vm.awaitFileWork() }
         assertEquals(before, images.list().orEmpty().toSet())
         assertTrue(captures().isEmpty())
     }
 
-    /** No PDF is made while a photo's crop screen is opening or shows: the photo would go in uncropped. */
-    @Test fun noPdfIsMadeWhileAPhotosCropScreenOpensOrShows() {
+    /**
+     * No PDF is made, and no ID card started, while a scan goes on, at each of its stages: its photos
+     * would go in uncropped, without their looks.
+     */
+    @Test fun noPdfOrIdCardIsMadeWhileAScanGoesOn() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
-        val uri = onMain { vm.newCapture() }
+        runBlocking { vm.awaitFileWork() }
+        fun refused(stage: String) = onMain {
+            assertTrue(stage, vm.scanUnderWay())
+            vm.convert(merge = true, fileName = "Uncropped", compression = Compression.RECOMMENDED)
+            assertNull(stage, vm.progress.value)
+            vm.startCard()
+            assertNull(stage, vm.card.value)
+        }
+        val uri = onMain {
+            assertTrue(vm.startScan())
+            vm.newCapture()
+        }
+        refused("the camera")
         app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
         onMain { vm.photoTaken(true) }
-        val convert = {
-            vm.convert(merge = true, fileName = "Uncropped", compression = Compression.RECOMMENDED)
-            vm.progress.value
-        }
+        waitUntil("the scan's photo") { vm.scan.value?.pages?.size == 1 && vm.pendingImports.value == 0 }
+        refused("the photos")
+        onMain { vm.cropScan() }
         waitUntil("the crop screen to open") { vm.openingCrop.value || vm.crop.value != null }
-        assertNull(onMain(convert))
+        refused("the crop screen opening")
         waitUntil("the crop screen") { vm.crop.value != null }
-        assertNull(onMain(convert))
-        onMain { vm.closeCrop() }
-        assertTrue(onMain { vm.items.value.isEmpty() && vm.result.value == null })
+        refused("the crop screen")
+        onMain { assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD))) }
+        waitUntil("the page to be cropped") { vm.pendingImports.value == 0 }
+        refused("the looks")
+        onMain { vm.saveScan() }
+        assertTrue(onMain { !vm.scanUnderWay() && vm.result.value == null })
+        onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
 
     @Test fun croppedPagesAndTheCropScreenSurviveTheSavedState() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
-        val uri = onMain { vm.newCapture() }
-        app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
-        onMain { vm.photoTaken(true) }
-        waitUntil("the crop screen") { vm.crop.value != null }
-        onMain { vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD)) }
+        takePhoto(vm)
+        onMain {
+            vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD))
+            vm.saveScan()
+        }
         waitUntil("the page to be cropped") { vm.cropping.value.isEmpty() && vm.items.value.single().original != null }
         val cropped = onMain { vm.items.value.single().rotatedBy(270) }
         onMain { vm.rotate(cropped.id, 270) }
@@ -367,13 +417,28 @@ class CropDeviceTest {
         assertFalse(File(cropped.original!!.path).exists())
     }
 
-    /** A photo taken as the crop screen shows it. */
-    private fun takePhoto(vm: MainViewModel): ImageItem {
-        val uri = onMain { vm.newCapture() }
+    /**
+     * A photo taken for the scan going on (one starts with it if none is): the camera app saves it into
+     * the file Usugami gives it. Its id, once it is the scan's last photo.
+     */
+    private fun scanPhoto(vm: MainViewModel): Long {
+        val count = onMain { vm.scan.value?.pages?.size ?: 0 }
+        val uri = onMain {
+            assertTrue(vm.startScan())
+            vm.newCapture()
+        }
         app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
         onMain { vm.photoTaken(true) }
-        waitUntil("the crop screen") { vm.crop.value != null }
-        return onMain { vm.items.value.single { it.id == vm.crop.value!!.itemId } }
+        waitUntil("the photo among the scan's") { vm.scan.value?.pages?.size == count + 1 }
+        return onMain { vm.scan.value!!.pages.last() }
+    }
+
+    /** A photo taken as the crop screen shows it: a scan of that photo, gone on to cropping it. */
+    private fun takePhoto(vm: MainViewModel): ImageItem {
+        val id = scanPhoto(vm)
+        onMain { vm.cropScan() }
+        waitUntil("the crop screen") { vm.crop.value?.itemId == id }
+        return onMain { vm.items.value.single { it.id == id } }
     }
 
     /** The page's corners on the photo, one moved a little. */
@@ -389,7 +454,10 @@ class CropDeviceTest {
         val vm = onMain { MainViewModel(app, handle) }
         runBlocking { vm.awaitFileWork() }
         val taken = takePhoto(vm)
-        onMain { assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD))) }
+        onMain {
+            assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD)))
+            vm.saveScan()
+        }
         waitUntil("the page to be made") { vm.cropping.value.isEmpty() }
         val before = onMain { vm.items.value.single() }
         onMain { vm.openCrop(taken.id) }
@@ -408,11 +476,12 @@ class CropDeviceTest {
         val vm = onMain { MainViewModel(app, handle) }
         runBlocking { vm.awaitFileWork() }
         val taken = takePhoto(vm)
-        // Take another: the page is made in the background, and Android saves Usugami's state as the
-        // camera app opens, before the page is ready. ("items" and "pending_crops" are MainViewModel's
-        // saved-state keys.)
+        // Next: the page is made in the background while the looks show, and Android saves Usugami's
+        // state with the look chosen there, before the page is ready. ("items" and "pending_crops" are
+        // MainViewModel's saved-state keys.)
         val saved = onMain {
-            assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD), PageLook.GRAYSCALE))
+            assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD)))
+            vm.setScanLook(PageLook.GRAYSCALE)
             assertNull(vm.items.value.single().original)
             mapOf("items" to MainViewModel.packItems(vm.items.value), "pending_crops" to handle.get<Any>("pending_crops"))
         }
@@ -506,16 +575,21 @@ class CropDeviceTest {
         val handle = SavedStateHandle()
         val vm = onMain { MainViewModel(app, handle) }
         runBlocking { vm.awaitFileWork() }
-        val uri = onMain { vm.newCapture() }
-        app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
-        // Android stopped Usugami while the camera app was open; the photo comes back as Usugami
-        // starts again, before its cleanup has run. ("capture" is MainViewModel's saved-state key.)
-        val restored = onMain {
-            MainViewModel(app, SavedStateHandle(mapOf("capture" to handle.get<String>("capture")))).also { it.photoTaken(true) }
+        val uri = onMain {
+            assertTrue(vm.startScan())
+            vm.newCapture()
         }
-        waitUntil("the photo's crop screen") { restored.crop.value != null }
+        app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        // Android stopped Usugami while the camera app was open for a scan's first photo; the photo
+        // comes back as Usugami starts again, before its cleanup has run, and is the scan's.
+        // ("capture" and "scan" are MainViewModel's saved-state keys.)
+        val restored = onMain {
+            val saved = mapOf("capture" to handle.get<String>("capture"), "scan" to handle.get<ScanQueue>("scan"))
+            MainViewModel(app, SavedStateHandle(saved)).also { it.photoTaken(true) }
+        }
+        waitUntil("the scan's photo") { restored.scan.value?.pages?.size == 1 }
         assertEquals(1, onMain { restored.items.value.size })
-        onMain { restored.closeCrop() }
+        onMain { restored.discardScan() }
         runBlocking { restored.awaitFileWork() }
         assertTrue(captures().isEmpty())
     }
@@ -528,25 +602,28 @@ class CropDeviceTest {
         val handle = SavedStateHandle()
         val vm = onMain { MainViewModel(app, handle) }
         runBlocking { vm.awaitFileWork() }
-        val uri = onMain { vm.newCapture() }
+        val uri = onMain {
+            assertTrue(vm.startScan())
+            vm.newCapture()
+        }
         app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
         val saved = onMain {
             vm.photoTaken(true)
             handle.savedStateProvider().saveState()
-            mapOf("items" to MainViewModel.packItems(emptyList()), "pending_photos" to handle.get<Any>("pending_photos"))
+            mapOf("items" to MainViewModel.packItems(emptyList()), "pending_photos" to handle.get<Any>("pending_photos"), "scan" to handle.get<Any>("scan"))
         }
-        waitUntil("the photo's crop screen") { vm.crop.value != null }
+        waitUntil("the scan's photo") { vm.scan.value?.pages?.size == 1 }
         runBlocking { vm.awaitFileWork() }
         assertEquals("Kept while the state saved last names it", 1, captures().size)
 
-        // Android closes Usugami and starts it again from that state.
+        // Android closes Usugami and starts it again from that state: the photo is the scan's.
         val restoredHandle = SavedStateHandle(saved)
         val restored = onMain { MainViewModel(app, restoredHandle) }
-        waitUntil("the photo's crop screen") { restored.crop.value != null }
+        waitUntil("the scan's photo") { restored.scan.value?.pages?.size == 1 }
         assertEquals(1, onMain { restored.items.value.size })
         onMain { restoredHandle.savedStateProvider().saveState() }
         waitUntil("the camera's file to go") { captures().isEmpty() }
-        onMain { restored.closeCrop() }
+        onMain { restored.discardScan() }
         runBlocking { restored.awaitFileWork() }
     }
 
@@ -559,6 +636,8 @@ class CropDeviceTest {
         onMain {
             assertTrue(vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD)))
             vm.remove(taken.id)
+            // A scan left with no page is over.
+            assertNull(vm.scan.value)
         }
         waitUntil("the crop to end") { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 }
         // No "couldn't crop the page" about a page that has gone.
@@ -571,7 +650,10 @@ class CropDeviceTest {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
         runBlocking { vm.awaitFileWork() }
         takePhoto(vm)
-        onMain { vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD)) }
+        onMain {
+            vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD))
+            vm.saveScan()
+        }
         waitUntil("the page to be cropped") { vm.cropping.value.isEmpty() && vm.items.value.single().original != null }
         val cropped = onMain { vm.items.value.single() }
 
@@ -608,22 +690,27 @@ class CropDeviceTest {
     }
 
     /**
-     * The turn, look and adjustments chosen on the crop screen reach the page, cropped where the page
-     * is however the screen turned it. Opened again, a page starts as it is; a new photo starts with
-     * the look chosen last (Enhanced, at first) and no adjustments, and a new scan on Enhanced again.
+     * The turn chosen on the crop screen, and the look and adjustments chosen on the scan's looks, reach
+     * the page, cropped where the page is however the screen turned it. Opened again, a page starts as
+     * it is; the next scan's page starts on Enhanced with no adjustments, not on the look chosen last.
      */
     @Test fun theTurnLookAndAdjustmentsChosenReachThePage() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
         runBlocking { vm.awaitFileWork() }
         takePhoto(vm)
         val session = onMain { vm.crop.value!! }
-        assertEquals(PageLook.ENHANCED, session.look)
-        assertEquals(LookAdjustments.NONE, session.adjustments)
 
-        // Turned a quarter right on the screen, the corners with it.
-        val adjustments = LookAdjustments(brightness = 20, contrast = -30)
+        // Turned a quarter right on the screen, the corners with it; on the looks, the page starts on
+        // Enhanced, with no adjustments.
         val turned = session.shown(PagePhotos.QUAD).turned(90)
-        assertTrue(onMain { vm.finishCrop(turned, PageLook.SUPER_ENHANCED, adjustments = adjustments, rotation = 90) })
+        assertTrue(onMain { vm.finishCrop(turned, rotation = 90) })
+        assertEquals(PageLook.ENHANCED to LookAdjustments.NONE, onMain { vm.items.value.single().run { look to adjustments } })
+        val adjustments = LookAdjustments(brightness = 20, contrast = -30)
+        onMain {
+            vm.setScanLook(PageLook.SUPER_ENHANCED)
+            vm.setScanAdjustments(adjustments)
+            vm.saveScan()
+        }
         waitUntil("the page to be cropped") { vm.cropping.value.isEmpty() && vm.items.value.single().original != null }
         val page = onMain { vm.items.value.single() }
         assertEquals(90, page.rotation)
@@ -638,17 +725,9 @@ class CropDeviceTest {
         val again = onMain { vm.crop.value!! }
         assertEquals(listOf(90, PageLook.SUPER_ENHANCED, adjustments), listOf(again.rotation, again.look, again.adjustments))
         onMain { vm.closeCrop() }
-        takePhoto(vm)
-        val next = onMain { vm.crop.value!! }
-        assertEquals(PageLook.SUPER_ENHANCED, next.look)
-        assertEquals(LookAdjustments.NONE, next.adjustments)
-        // A new scan from Home starts on Enhanced again.
-        onMain {
-            vm.closeCrop()
-            vm.newScan()
-        }
-        takePhoto(vm)
-        assertEquals(PageLook.ENHANCED, onMain { vm.crop.value!!.look })
+        val next = takePhoto(vm)
+        assertTrue(onMain { vm.finishCrop(CropQuad.WHOLE) })
+        assertEquals(PageLook.ENHANCED to LookAdjustments.NONE, onMain { vm.items.value.single { it.id == next.id }.run { look to adjustments } })
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
@@ -674,8 +753,8 @@ class CropDeviceTest {
     }
 
     /**
-     * Apply to all pages chosen on a scan's first image reaches an image still being added: it comes in
-     * with that look and those adjustments, and its crop screen opens with them.
+     * Apply to all pages chosen on a page cropped again reaches an image still being added (shared, say):
+     * it comes in with that look and those adjustments.
      */
     @Test fun applyToAllReachesTheImagesStillBeingAdded() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
@@ -686,15 +765,15 @@ class CropDeviceTest {
         val late = File(dir, "late.jpg").also { Os.mkfifo(it.path, "600".toInt(8)) }
         val letIn = thread(start = false, isDaemon = true) { FileOutputStream(late).use { it.write(photo) } }
         try {
-            onMain { vm.scanImages(listOf(first, Uri.fromFile(late))) }
-            waitUntil("the first image's crop screen") { vm.crop.value != null }
-            assertEquals(1, onMain { vm.scan.value!!.coming })
+            onMain { vm.addImages(listOf(first)) }
+            waitUntil("the first image") { vm.items.value.size == 1 && vm.pendingImports.value == 0 }
+            onMain { vm.openCrop(vm.items.value.single().id) }
+            waitUntil("its crop screen") { vm.crop.value != null }
+            onMain { vm.addImages(listOf(Uri.fromFile(late))) }
             val adjustments = LookAdjustments(brightness = 30)
             assertTrue(onMain { vm.finishCrop(CropQuad.WHOLE, PageLook.BLACK_WHITE, allPages = true, adjustments = adjustments) })
             letIn.start()
-            waitUntil("the second image's crop screen") { vm.crop.value != null }
-            val second = onMain { vm.crop.value!! }
-            assertEquals(PageLook.BLACK_WHITE to adjustments, second.look to second.adjustments)
+            waitUntil("the second image") { vm.items.value.size == 2 && vm.pendingImports.value == 0 }
             assertEquals(listOf(PageLook.BLACK_WHITE to adjustments, PageLook.BLACK_WHITE to adjustments), onMain { vm.items.value.map { it.look to it.adjustments } })
         } finally {
             // Also when the test failed first, so the image being added doesn't wait for ever.
@@ -705,9 +784,9 @@ class CropDeviceTest {
     }
 
     /**
-     * The images uploaded for a scan go through the crop screen one after another, in order, each
-     * starting with the look chosen last; one removed meanwhile is left out, and closing the screen
-     * stops the scan, also while the next is being opened, leaving the rest as they were added.
+     * The images uploaded for a scan go through the crop screen one after another, in order; one
+     * removed meanwhile is left out, and Stop cropping, also while the next is being opened, leaves
+     * the rest as they were added and goes on to the looks, every page starting on Enhanced.
      */
     @Test fun aScanTakesEachImageInTurnLeavesOutOneRemovedAndStopsWhenClosed() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
@@ -719,40 +798,43 @@ class CropDeviceTest {
         waitUntil("the images to be added") { vm.items.value.size == 5 && vm.pendingImports.value == 0 }
         val ids = onMain { vm.items.value.map { it.id } }
         val first = onMain { vm.crop.value!! }
-        assertTrue(first.queued)
+        assertTrue(first.staged)
+        assertFalse(first.fromCamera)
         assertEquals(ids[0], first.itemId)
-        assertEquals(PageLook.ENHANCED, first.look)
-        assertEquals(ScanQueue(waiting = ids), onMain { vm.scan.value })
+        assertEquals(ScanQueue(stage = ScanStage.CROP, pages = ids, waiting = ids), onMain { vm.scan.value })
 
-        assertTrue(onMain { vm.finishCrop(first.shown(PagePhotos.QUAD), PageLook.GRAYSCALE) })
+        assertTrue(onMain { vm.finishCrop(first.shown(PagePhotos.QUAD)) })
         waitUntil("the second image's crop screen") { vm.crop.value?.itemId == ids[1] }
         val second = onMain { vm.crop.value!! }
-        assertEquals(PageLook.GRAYSCALE, second.look)
         onMain { vm.remove(ids[2]) }
         // Counted out at once, while the second still shows.
         assertEquals(2 to 4, onMain { vm.scan.value!!.run { place to total } })
         // Next, and stopped at once, while the fourth is being opened: it isn't.
         val scan = onMain {
-            assertTrue(vm.finishCrop(second.shown(PagePhotos.QUAD), second.look))
-            vm.scan.value!!.also { vm.closeCrop() }
+            assertTrue(vm.finishCrop(second.shown(PagePhotos.QUAD)))
+            vm.scan.value!!.also { vm.stopScanCropping() }
         }
         assertEquals(listOf(ids[3], ids[4]), scan.waiting)
         assertEquals(3 to 4, scan.place to scan.total)
-        assertNull(onMain { vm.scan.value })
+        assertEquals(ScanStage.LOOKS, onMain { vm.scan.value?.stage })
         assertNull(runBlocking { withTimeoutOrNull(2_000) { vm.crop.first { it != null } } })
         waitUntil("the pages to be cropped") { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 }
         val pages = onMain { vm.items.value }
         assertEquals(listOf(ids[0], ids[1], ids[3], ids[4]), pages.map { it.id })
-        assertTrue("$pages", pages.take(2).all { it.original != null && it.look == PageLook.GRAYSCALE })
-        assertTrue("$pages", pages.drop(2).all { it.original == null && it.look == PageLook.ORIGINAL })
-        assertNull(onMain { vm.crop.value })
+        assertTrue("$pages", pages.take(2).all { it.original != null })
+        assertTrue("$pages", pages.drop(2).all { it.original == null })
+        assertTrue("$pages", pages.all { it.look == PageLook.ENHANCED })
+        onMain { vm.saveScan() }
+        assertNull(onMain { vm.scan.value })
+        assertEquals(pages, onMain { vm.items.value })
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
 
     /**
      * A scan goes on when Android starts Usugami again from the state it saved, without the images
-     * that were still being added (which are gone), and ends with the last image that was added.
+     * that were still being added (which are gone), and goes on to the looks after the last image that
+     * was added.
      */
     @Test fun aScanGoesOnWhenUsugamiStartsAgain() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
@@ -765,18 +847,20 @@ class CropDeviceTest {
         // "scan" are MainViewModel's saved-state keys.)
         val saved = mapOf(
             "items" to MainViewModel.packItems(onMain { vm.items.value }),
-            "scan" to ScanQueue(waiting = ids.drop(1), coming = 1, done = 1),
+            "scan" to ScanQueue(stage = ScanStage.CROP, pages = ids, waiting = ids.drop(1), coming = 1),
         )
         val restored = onMain { MainViewModel(app, SavedStateHandle(saved)) }
         waitUntil("the second image's crop screen") { restored.crop.value != null }
         assertEquals(ids[1], onMain { restored.crop.value!!.itemId })
-        assertEquals(ScanQueue(waiting = ids.drop(1), done = 1), onMain { restored.scan.value })
+        assertEquals(ScanQueue(stage = ScanStage.CROP, pages = ids, waiting = ids.drop(1)), onMain { restored.scan.value })
         assertTrue(onMain { restored.finishCrop(CropQuad.WHOLE) })
         waitUntil("the third image's crop screen") { restored.crop.value?.itemId == ids[2] }
         assertTrue(onMain { restored.scan.value!!.isLast })
         assertTrue(onMain { restored.finishCrop(CropQuad.WHOLE) })
-        assertNull(onMain { restored.scan.value })
+        assertEquals(ScanStage.LOOKS, onMain { restored.scan.value?.stage })
         assertNull(onMain { restored.crop.value })
+        onMain { restored.saveScan() }
+        assertNull(onMain { restored.scan.value })
         onMain { restored.clearAll() }
         runBlocking { restored.awaitFileWork() }
     }
