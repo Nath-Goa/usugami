@@ -47,6 +47,8 @@ import io.github.nath_goa.usugami.data.OcrLine
 import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.data.OcrRecognizer
 import io.github.nath_goa.usugami.data.OcrUnavailableException
+import io.github.nath_goa.usugami.data.PageLineReader
+import io.github.nath_goa.usugami.data.PageLines
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfToolsEngine
 import io.github.nath_goa.usugami.data.ScannedLines
@@ -775,6 +777,33 @@ class PdfTranslationDeviceTest {
         assertEquals(1, ocr.read)
         assertEquals(listOf(1), outcome.noText)
         assertTrue(textOf(outcome.file.file, 0).contains(marked("Texte lu sur le scan")))
+    }
+
+    @Test fun tiltedAndUpsideDownTextIsLeftAsItIs() {
+        val file = File(dir, "tilted.pdf")
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c ->
+                c.line(72f, 760f, HEADING, 20f)
+                // A stamp turned 20 degrees, and a folded card's line upside down.
+                c.beginText()
+                c.setFont(PDType1Font.HELVETICA_BOLD, 40f)
+                c.setTextMatrix(Matrix.getRotateInstance(Math.toRadians(20.0), 300f, 500f))
+                c.showText("PAYE")
+                c.setFont(PDType1Font.HELVETICA, 14f)
+                c.setTextMatrix(Matrix.getRotateInstance(Math.PI, 400f, 200f))
+                c.showText("Table numero douze")
+                c.endText()
+            }
+            doc.save(file)
+        }
+        PDDocument.load(file).use { doc ->
+            var read: PageLines? = null
+            PageLineReader(setOf(0), {}) { _, lines -> read = lines }.read(doc)
+            assertEquals(listOf(HEADING), read!!.lines.map { it.text })
+            assertTrue(read!!.hasText)
+        }
     }
 
     @Test fun theLanguageIsDetectedFromTheFirstPagesWithText() {

@@ -23,9 +23,11 @@ data class RedactBox(val page: Int, val left: Float, val top: Float, val right: 
 
 /**
  * A glyph's box on a page as shown, in points from the page's top-left corner (y down). [across]
- * says whether its line of text runs across the page, rather than up or down it.
+ * says whether its line of text runs across the page, rather than up or down it; [level] whether
+ * it runs left to right across it within about 10 degrees, not tilted (a stamp, a watermark) or
+ * upside down.
  */
-data class GlyphBox(val left: Float, val top: Float, val right: Float, val bottom: Float, val across: Boolean)
+data class GlyphBox(val left: Float, val top: Float, val right: Float, val bottom: Float, val across: Boolean, val level: Boolean = across)
 
 object Redaction {
     /** Redacted pages are drawn at this resolution, where even small print stays easy to read… */

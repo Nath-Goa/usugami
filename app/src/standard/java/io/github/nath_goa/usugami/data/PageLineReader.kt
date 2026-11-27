@@ -19,7 +19,7 @@ import kotlinx.coroutines.CancellationException
 /**
  * What [PageLineReader] read on a page: its [lines] to translate, and whether it shows letters
  * ([hasText]): any in its lines, or many ([PageLineReader.TURNED_LETTERS] or more) in text it
- * doesn't translate (turned, or running down the page). A page that does is not a scan to read with
+ * doesn't translate (tilted, upside down, running down the page). A page that does is not a scan to read with
  * text recognition; a scan with a few such letters on it (a watermark, a stamp) still is.
  */
 internal class PageLines(val lines: List<SourceLine>, val hasText: Boolean)
@@ -35,10 +35,12 @@ internal class PageLines(val lines: List<SourceLine>, val hasText: Boolean)
  * content). A page without contents is neither started nor given.
  *
  * Each line's text is made as [PageTextReader] makes it (words in reading order, gaps as
- * [ExportText.gap] writes them, cleaned by [ExportText.clean]). Only lines running across the page
- * as shown are given, those of numbers alone too (an amount, a superscript), which stay as they are
- * on the page's picture and mustn't be painted over: text running up or down the page, and text
- * drawn invisibly (as the text layer of a scan is), stay as they are on the picture too. A line is
+ * [ExportText.gap] writes them, cleaned by [ExportText.clean]). Only lines running left to right
+ * across the page as shown, level within about 10 degrees (see [GlyphBox.level]), are given, those
+ * of numbers alone too (an amount, a superscript), which stay as they are on the page's picture and
+ * mustn't be painted over: text tilted (a stamp, a watermark), upside down or running up or down the
+ * page, and text drawn invisibly (as the text layer of a scan is), stay as they are on the picture
+ * too. A line is
  * cut where two glyphs next to each other are more than [GAP_EM] font sizes apart, so the cells of a
  * table's row, or items set apart with tabs, are lines of their own; and after a bullet or a note's
  * number that goes apart from its text (see [markEnd]). A glyph that starts more than a
@@ -149,7 +151,7 @@ internal class PageLineReader(
     override fun endArticle() = endLine()
 
     /**
-     * The line read so far, cut into pieces where it doesn't run across the page or where two
+     * The line read so far, cut into pieces where it doesn't run level across the page or where two
      * glyphs next to each other are far apart (see [GAP_EM]), each piece a line of the page.
      */
     private fun endLine() {
@@ -166,8 +168,8 @@ internal class PageLineReader(
                 continue
             }
             val box = Redactor.glyphBox(glyph, frame)
-            if (box == null || !box.across) {
-                // Text that runs up or down the page as shown isn't translated.
+            if (box == null || !box.level) {
+                // Text that runs up or down the page as shown, is tilted or upside down isn't translated.
                 turnedLetters += lettersOf(glyph)
                 addLine(piece)
                 piece = ArrayList()
