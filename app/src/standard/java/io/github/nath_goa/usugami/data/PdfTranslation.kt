@@ -160,7 +160,8 @@ internal suspend fun PdfToolsEngine.detectSourceLanguage(input: PdfInput, transl
                 withText++
                 for (line in words) {
                     if (letters >= DETECT_LETTERS) break
-                    text.append(line.text).append('\n')
+                    // A contents page's leader dots say nothing of its language, and so many of them keep it from being told.
+                    text.append(LEADER_DOTS.replace(line.text, " ")).append('\n')
                     letters += line.text.count(Char::isLetter)
                 }
             }
@@ -198,6 +199,9 @@ private const val DETECT_LETTERS = 3000
 /** …looking at no more than this many pages, so many pages at a time. */
 private const val DETECT_LOOK = 50
 private const val DETECT_BATCH = 10
+
+/** Leader dots or a blank to fill in, as TextBlocks tells them: left out of the text a language is detected from. */
+private val LEADER_DOTS = Regex("(?:[.．·・•∙⋅]\\s?){4,}|[…‥]{3,}|[_＿]{4,}")
 
 /** A download's progress as the screen is told it: per cent of 100, or 0 of 0 while its size isn't known. */
 private fun downloading(stage: TranslateProgress.Stage, fraction: Float?): TranslateProgress =

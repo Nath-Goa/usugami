@@ -910,6 +910,25 @@ class PdfTranslationDeviceTest {
         assertNull("Nothing to detect from", unasked.detectedFrom)
     }
 
+    @Test fun aContentsPagesLanguageIsDetectedWithoutItsLeaderDots() {
+        val file = File(dir, "contents.pdf")
+        val entries = listOf("Avant-propos" to "3", "1. Présentation de l'entreprise" to "5", "1.1 Notre histoire" to "6", "2. Les résultats de l'année" to "11")
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c ->
+                c.line(72f, 760f, "Sommaire", 20f)
+                entries.forEachIndexed { i, (title, number) -> c.line(72f, 720f - 22f * i, "$title ${".".repeat(60)} $number") }
+            }
+            doc.save(file)
+        }
+        val translation = FakeEngine().apply { detected = "fr" }
+        assertEquals("fr", runBlocking { engine.detectSourceLanguage(import(file), translation) {} })
+        val sent = translation.detectedFrom!!
+        assertTrue(sent, entries.all { (title, _) -> sent.contains(title) })
+        assertFalse("Leader dots in: $sent", sent.contains("...."))
+    }
+
     /** ML Kit's own translator, French to English (the first run downloads French's pack). The new PDF is kept in test-results. */
     @Test fun frenchToEnglishWithTheRealTranslator() {
         val translation = translationEngine(context)!!
