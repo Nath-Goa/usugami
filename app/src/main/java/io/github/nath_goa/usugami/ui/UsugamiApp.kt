@@ -564,6 +564,17 @@ fun UsugamiApp(
         }
     }
 
+    /**
+     * After [step], which may end the scan (its photos discarded, its last photo removed or discarded,
+     * its cropping stopped before an image came): a scan from Home that kept nothing goes straight
+     * back Home, in the same step, not by way of the empty editor, as the end of a scan would a moment
+     * later.
+     */
+    fun leavingScan(step: () -> Unit) {
+        step()
+        if (scanFromHome && route == "images" && vm.items.value.isEmpty() && vm.pendingImports.value == 0 && !vm.scanUnderWay()) route = "home"
+    }
+
     /** Where Usugami is for a launcher shortcut used now (see ShortcutRules). The view models are asked as they are now. */
     fun shortcutScene(): ShortcutScene {
         // The reader's route gives PdfTool.READER: a tool here, whose file only being read is put away.
@@ -1045,8 +1056,8 @@ fun UsugamiApp(
                                 // Once per burst of taps, as every Take photo.
                                 takeAnother = { takePhoto() },
                                 done = vm::cropScan,
-                                remove = vm::remove,
-                                discard = vm::discardScan,
+                                remove = { id -> leavingScan { vm.remove(id) } },
+                                discard = { leavingScan(vm::discardScan) },
                             ),
                         )
                     }
@@ -1065,9 +1076,9 @@ fun UsugamiApp(
                             actions = CropActions(
                                 done = { vm.finishCrop(it.corners, it.look, it.allPages, it.adjustments, it.rotation) },
                                 close = vm::closeCrop,
-                                back = vm::scanBack,
-                                discard = vm::discardScanPhoto,
-                                stop = vm::stopScanCropping,
+                                back = { leavingScan(vm::scanBack) },
+                                discard = { leavingScan(vm::discardScanPhoto) },
+                                stop = { leavingScan(vm::stopScanCropping) },
                             ),
                         )
                     }
