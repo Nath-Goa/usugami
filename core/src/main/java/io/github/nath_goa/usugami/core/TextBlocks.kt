@@ -71,7 +71,9 @@ data class SourceBlock(
  *
  * A line that starts with a bullet or a number ("•", "-", "–", "*", "1.", "1)", "(1)", "a)", "iv.")
  * always starts a new block, as does the line beside a bullet or a number standing alone, or just
- * after a note's number set smaller than it (a footnote's). A line with leader dots or a blank to
+ * after a note's number set smaller than it (a footnote's), and a table's row: a line with a number
+ * alone after it in its row, as large as it (an amount, a quantity), which also says nothing of the
+ * page's line spacing. A line with leader dots or a blank to
  * fill in ("....", "____") ends its block, so each entry of a contents page, a price list or a form
  * is a block of its own (a title that runs on to a second line, which has the dots, stays whole). A
  * block can't go on past a line below its last line that overlaps it sideways, so a heading or a
@@ -227,13 +229,15 @@ object TextBlocks {
     fun group(lines: List<SourceLine>, pageWidth: Float, pageHeight: Float): List<SourceBlock> {
         val usable = lines.mapNotNull { usable(it, pageWidth, pageHeight) }
         if (usable.isEmpty()) return emptyList()
-        val spacing = spacing(usable)
+        val rows = rows(usable)
+        val tableRows = tableRows(rows)
+        val spacing = spacing(usable, tableRows)
         val blocks = ArrayList<Block>()
-        for (row in rows(usable)) {
+        for (row in rows) {
             var afterMarker = false
             var previous: Line? = null
             for (line in row) {
-                val target = if (afterMarker || previous != null && notesBeside(previous, line) || MARKER.containsMatchIn(line.text)) {
+                val target = if (afterMarker || line in tableRows || previous != null && notesBeside(previous, line) || MARKER.containsMatchIn(line.text)) {
                     null
                 } else {
                     blocks.filter { it.open && continues(it, line, spacing, pageWidth) }.minWithOrNull(
@@ -260,6 +264,29 @@ object TextBlocks {
         val gap = if (line.rtl) mark.left - line.right else line.left - mark.right
         return gap <= line.size
     }
+
+    /**
+     * The lines of [rows] that are a table's rows: each with a number alone (an amount, a quantity, a
+     * percentage) after it in its row, as large as it. A table's next row lies further below than a
+     * paragraph's next line, but a page of little running text would take that step for its spacing.
+     */
+    private fun tableRows(rows: List<List<Line>>): Set<Line> {
+        val found = HashSet<Line>()
+        for (row in rows) {
+            for (line in row) {
+                if (numbersOnly(line.text)) continue
+                val amountAfter = row.any { other ->
+                    other !== line && numbersOnly(other.text) && sameSize(other.size, line.size) &&
+                        (if (line.rtl) other.right <= line.left else other.left >= line.right)
+                }
+                if (amountAfter) found += line
+            }
+        }
+        return found
+    }
+
+    /** Whether [text] is a number alone: a digit, and no letter ("2", "85,00 €", "21 %", "£4.90"). */
+    private fun numbersOnly(text: String): Boolean = text.any(Char::isDigit) && text.none(Char::isLetter)
 
     /** A line as grouping works with it: its text trimmed, its box with left ≤ right and top ≤ bottom, a positive size. */
     private class Line(val source: SourceLine, val text: String, val left: Float, val top: Float, val right: Float, val bottom: Float, val size: Float) {
@@ -343,13 +370,13 @@ object TextBlocks {
      */
     private class Spacing(val maxStep: Float, val maxGap: Float)
 
-    private fun spacing(lines: List<Line>): Spacing {
+    private fun spacing(lines: List<Line>, tableRows: Set<Line>): Spacing {
         val steps = ArrayList<Float>()
         for (a in lines) {
-            if (a.width < LONG_LINE_EM * a.size) continue
+            if (a.width < LONG_LINE_EM * a.size || a in tableRows) continue
             var nearest = Float.MAX_VALUE
             for (b in lines) {
-                if (b === a || !sameSize(a.size, b.size)) continue
+                if (b === a || b in tableRows || !sameSize(a.size, b.size)) continue
                 val step = b.bottom - a.bottom
                 if (step < MIN_STEP_EM * a.size || step >= nearest) continue
                 if (overlaps(a.left, a.right, b.left, b.right)) nearest = step

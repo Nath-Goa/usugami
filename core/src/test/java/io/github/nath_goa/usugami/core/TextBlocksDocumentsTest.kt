@@ -118,6 +118,38 @@ class TextBlocksDocumentsTest {
         assertEquals(form.map { it.text }, texts(group(form)))
     }
 
+    @Test fun eachRowOfATableIsABlock() {
+        // An invoice's table in 9-point type, its rows 24 points apart (2.67 sizes): each row's
+        // description is as wide as running text and has its quantity, unit price and amount after it.
+        // Below it, three lines of small print. The rows' step is no line spacing of the page: each
+        // description is a block of its own, and the small print one block.
+        val descriptions = listOf(
+            "Lampe de bureau en laiton, abat-jour vert" to 172f, "Abat-jour en lin naturel, diamètre 40 cm" to 166f,
+            "Ampoules LED à filament, lumière chaude" to 164f, "Installation et réglage sur place" to 140f,
+        )
+        val rows = descriptions.flatMapIndexed { i, (text, width) ->
+            val top = 274f + 24f * i
+            listOf(
+                line(listOf("LB-204", "AJ-110", "AMP-12", "SRV-01")[i], 55f, top, 85f, size = 9f),
+                line(text, 107f, top, 107f + width, size = 9f),
+                line(listOf("2", "4", "12", "1")[i], 360f, top, 366f, size = 9f),
+                line("85,00 €", 410f, top, 450f, size = 9f),
+                line("170,00 €", 495f, top, 540f, size = 9f),
+            )
+        }
+        val note = paragraph(
+            listOf(
+                "Paiement par virement bancaire à 30 jours à compter de la date de facture. Tout retard de paiement" to 490f,
+                "entraîne l'application de pénalités au taux de trois fois le taux d'intérêt légal, ainsi qu'une" to 485f,
+                "indemnité forfaitaire de 40 € pour frais de recouvrement." to 260f,
+            ),
+            50f, 640f, size = 8f,
+        )
+        val blocks = texts(group(rows + note))
+        for ((text, _) in descriptions) assertEquals(text, 1, blocks.count { it == text })
+        assertEquals(1, blocks.count { it.startsWith("Paiement") && it.endsWith("recouvrement.") })
+    }
+
     @Test fun eachFootnoteStartsAtItsNumber() {
         // Two footnotes in 9-point type, each after its number in 6-point type.
         val notes = listOf(
