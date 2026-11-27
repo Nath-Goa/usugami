@@ -937,7 +937,7 @@
     <!-- The crop screen's close button while several uploaded images are cropped one after another: the images not cropped yet stay as they are. -->
     <string name="crop_stop">क्रॉप करना बंद करें</string>
     <string name="crop_failed">पेज क्रॉप नहीं हो सका। उसे पहले जैसा ही रखा गया है।</string>
-    <!-- The second step of cropping a page: its look, brightness and contrast. -->
+    <!-- Choosing pages' look, brightness and contrast: the second step of cropping a page again or an ID card's side, and the last screen of a scan, for all its pages. -->
     <string name="filter_title">फ़िल्टर</string>
     <string name="filter_preview_description">पेज, जैसा वह PDF में दिखेगा</string>
     <string name="filter_brightness">ब्राइटनेस</string>
@@ -945,7 +945,7 @@
     <!-- Puts the slider back in the middle, at 0. -->
     <string name="filter_reset_brightness">ब्राइटनेस रीसेट करें</string>
     <string name="filter_reset_contrast">कंट्रास्ट रीसेट करें</string>
-    <!-- Under the title while several uploaded images are cropped one after another, e.g. "Page 2 of 5". -->
+    <!-- Under the title while a scan's images are cropped one after another, and on its Filters screen for the page shown large, e.g. "Page 2 of 5". -->
     <string name="scan_place">%2$d में से पेज %1$d</string>
     <!-- What a screen reader says as each image of such a scan comes in: the step's name (Crop page, or Filters), then which image it is, e.g. "Crop page, Page 2 of 5". -->
     <string name="scan_pane_title">%1$s, %2$s</string>
@@ -960,6 +960,7 @@
     <string name="look_super_enhanced">बहुत बेहतर</string>
     <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
     <string name="look_ink_saver">स्याही बचत</string>
+    <!-- On the look step of a page cropped again or of an ID card's side: every page in the list takes the look, brightness and contrast chosen. -->
     <string name="look_all_pages">सभी पेजों पर लागू करें</string>
 
     <!-- A scan's Photos and Filters screens -->
@@ -972,6 +973,8 @@
     <!-- Asked on leaving that screen with photos taken: Discard (discard) deletes them and ends the scan, Keep (keep) stays. -->
     <string name="scan_discard_title">इन फ़ोटो को खारिज करें?</string>
     <string name="scan_discard_body">इस स्कैन के लिए ली गई फ़ोटो हटा दी जाएंगी।</string>
+    <!-- A switch on a scan's Filters screen (filter_title). On: the look, brightness and contrast chosen go to every page of the scan, and turning it on gives every page those of the page shown. Off: to the page shown only. -->
+    <string name="scan_same_look">सभी पेजों पर एक जैसा फ़िल्टर</string>
 
     <!-- Options -->
     <string name="option_value">%1$s: %2$s</string>
@@ -1047,6 +1050,7 @@
     <string name="open_file">%1$s खोलें</string>
     <string name="share_file">%1$s शेयर करें</string>
     <string name="save_file">%1$s सेव करें</string>
+    <!-- Saves a file. Also ends a scan's Filters screen: the pages go to the page list with their looks. -->
     <string name="save">सेव करें</string>
     <string name="share">शेयर करें</string>
     <string name="share_all">सभी शेयर करें</string>
