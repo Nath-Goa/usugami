@@ -6,9 +6,11 @@ import android.util.Log
 import androidx.lifecycle.viewModelScope
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.ExportText
+import io.github.nath_goa.usugami.core.isOutOfSpace
 import io.github.nath_goa.usugami.data.NothingToTranslate
 import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.data.OcrUnavailableException
+import io.github.nath_goa.usugami.data.PageNotDrawn
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.TranslateOutcome
 import io.github.nath_goa.usugami.data.TranslateProgress
@@ -114,6 +116,10 @@ private fun PdfToolsViewModel.startTranslate(request: TranslateRequest) {
             emptyList()
         } catch (e: NothingToTranslate) {
             throw ToolMessage(res.getString(if (e.unreadable) R.string.translate_none_unreadable else R.string.translate_none))
+        } catch (e: PageNotDrawn) {
+            // Named, as PDF to images or text names it, so it can be left out; the storage full is said as it is.
+            if (e.isOutOfSpace()) throw e
+            throw ToolMessage(res.getString(R.string.export_page_failed, e.page + 1))
         } finally {
             // Packs may have been downloaded, whatever came of the run: what lists them reads them again.
             translate.packs.update { it + 1 }

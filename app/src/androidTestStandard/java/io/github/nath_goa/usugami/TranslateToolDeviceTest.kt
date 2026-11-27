@@ -11,12 +11,14 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction
 import androidx.core.content.FileProvider
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.ToolSearch
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.PageNotDrawn
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.TextTranslator
 import io.github.nath_goa.usugami.data.TranslateOutcome
@@ -29,7 +31,11 @@ import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.defaultTarget
 import io.github.nath_goa.usugami.ui.languageName
 import io.github.nath_goa.usugami.ui.namesListed
+import io.github.nath_goa.usugami.ui.runTranslate
 import io.github.nath_goa.usugami.ui.translationTag
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -118,8 +124,31 @@ class TranslateToolDeviceTest {
 
     @After fun tearDown() {
         activity?.let { onMain { it.finish() } }
+        for (vm in models) {
+            onMain { vm.reset() }
+            // Its cleanup would delete the copies the next test makes.
+            runBlocking { vm.awaitFileWork() }
+        }
         TranslationTestHook.reset()
         picked.deleteRecursively()
+    }
+
+    /** View models of the tests' own, without the screen. */
+    private val models = ArrayList<PdfToolsViewModel>()
+
+    private fun newViewModel() = onMain { PdfToolsViewModel(app, SavedStateHandle()) }.also { models += it }
+
+    /** A page that can't be drawn is named, as PDF to images or text names it, so that it can be left out. */
+    @Test fun aPageThatCantBeDrawnIsNamed() {
+        TranslationTestHook.engine = { FakeEngine(onPhone = languages.toSet()) }
+        TranslationTestHook.runner = { _, _, _, _, _, _, _, _, _, _ -> throw PageNotDrawn(2, null) }
+        val vm = newViewModel()
+        onMain { vm.addPdfs(listOf(pdf("alpha.pdf")), replace = true) }
+        waitUntil("the PDF to be added") { onMain { vm.inputs.value.size } == 1 }
+        val input = onMain { vm.inputs.value.single() }
+        onMain { vm.runTranslate(input, "", "fr", "en", "alpha") }
+        val said = runBlocking { withTimeout(30_000) { vm.messages.first() } }
+        assertEquals(onMain { vm.strings.getString(R.string.export_page_failed, 3) }, said)
     }
 
     /** Home lists Translate PDF under Convert from PDF, after PDF to images or text, and its search finds it in every language. */
