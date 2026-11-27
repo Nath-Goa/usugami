@@ -274,6 +274,8 @@ class CropDeviceTest {
 
     @Test fun cornersThatMakeNoPageAreRefusedAndCrossedOnesPutInOrder() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        // The cleanup it starts with would delete a camera file made before it has run.
+        runBlocking { vm.awaitFileWork() }
         takePhoto(vm)
         // A corner pushed inside the others: an arrow head, not a page.
         val dart = CropQuad(listOf(CropPoint(0.1f, 0.1f), CropPoint(0.9f, 0.1f), CropPoint(0.4f, 0.4f), CropPoint(0.1f, 0.9f)))
@@ -383,6 +385,8 @@ class CropDeviceTest {
 
     @Test fun croppedPagesAndTheCropScreenSurviveTheSavedState() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
+        // The cleanup it starts with would delete a camera file made before it has run.
+        runBlocking { vm.awaitFileWork() }
         takePhoto(vm)
         onMain {
             vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD))
@@ -704,7 +708,7 @@ class CropDeviceTest {
         // Enhanced, with no adjustments.
         val turned = session.shown(PagePhotos.QUAD).turned(90)
         assertTrue(onMain { vm.finishCrop(turned, rotation = 90) })
-        assertEquals(PageLook.ENHANCED to LookAdjustments.NONE, onMain { vm.items.value.single().run { look to adjustments } })
+        assertEquals(PageLook.ENHANCED to LookAdjustments.NONE, onMain { vm.items.value.single().let { it.look to it.adjustments } })
         val adjustments = LookAdjustments(brightness = 20, contrast = -30)
         onMain {
             vm.setScanLook(PageLook.SUPER_ENHANCED)
@@ -727,7 +731,7 @@ class CropDeviceTest {
         onMain { vm.closeCrop() }
         val next = takePhoto(vm)
         assertTrue(onMain { vm.finishCrop(CropQuad.WHOLE) })
-        assertEquals(PageLook.ENHANCED to LookAdjustments.NONE, onMain { vm.items.value.single { it.id == next.id }.run { look to adjustments } })
+        assertEquals(PageLook.ENHANCED to LookAdjustments.NONE, onMain { vm.items.value.single { it.id == next.id }.let { it.look to it.adjustments } })
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
