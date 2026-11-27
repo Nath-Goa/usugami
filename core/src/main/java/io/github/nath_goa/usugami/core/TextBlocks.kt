@@ -201,8 +201,9 @@ object TextBlocks {
      * margin of the page's running text). Neither is centred when it starts where a block that isn't
      * centred starts: it only looks centred because the page's margins are alike. A single line is
      * [BlockAlign.END] when it ends within 3 % of the running
-     * text's end margin and starts neither near its start margin nor where a column of it starts,
-     * else [BlockAlign.START]. Never throws for any numbers, NaN among them.
+     * text's end margin and starts neither near its start margin nor where a column of it starts, or
+     * when it ends where a line of one just above or below it ends and starts elsewhere (a total's
+     * label over the next), else [BlockAlign.START]. Never throws for any numbers, NaN among them.
      */
     fun group(lines: List<SourceLine>, pageWidth: Float, pageHeight: Float): List<SourceBlock> {
         val usable = lines.mapNotNull { usable(it, pageWidth, pageHeight) }
@@ -507,6 +508,24 @@ object TextBlocks {
             (if (block.rtl) abs(other.right - block.right) else abs(other.left - block.left)) <= ALIGNED_EDGES_EM * block.size
     }
 
+    /**
+     * Whether [block], one line, ends where a line just above or below it ends (within
+     * [SAME_EDGE_EM] font sizes) and starts elsewhere (more than twice that apart): lines of their
+     * own right-aligned together, wherever on the page, as a total's labels beside their amounts are.
+     */
+    private fun endsWithTheLineBeside(block: Block, blocks: List<Block>): Boolean {
+        val rtl = block.rtl
+        val em = block.size
+        val start = if (rtl) -block.right else block.left
+        return blocks.any { other ->
+            if (other === block || other.lines.size != 1 || other.rtl != rtl || !sameSize(em, other.size)) return@any false
+            val step = abs(other.bottom - block.bottom)
+            val otherStart = if (rtl) -other.right else other.left
+            step >= MIN_STEP_EM * em && step <= MAX_STEP_EM * em && overlaps(block.left, block.right, other.left, other.right) &&
+                abs(other.end(rtl) - block.end(rtl)) <= SAME_EDGE_EM * em && abs(otherStart - start) > 2 * SAME_EDGE_EM * em
+        }
+    }
+
     /** How a block of one line is aligned, measured against the page, its running text [body] and its other [blocks] (see [group]). */
     private fun single(block: Block, body: Body?, blocks: List<Block>, pageWidth: Float): BlockAlign {
         val left = block.left
@@ -514,6 +533,7 @@ object TextBlocks {
         if (centredOnPage(left, right, pageWidth) && !body.fromMarginToMargin(left, right, pageWidth) && !startsWithAnother(block, blocks, pageWidth)) {
             return BlockAlign.CENTER
         }
+        if (endsWithTheLineBeside(block, blocks)) return BlockAlign.END
         if (body == null || !pageWidth.isFinite() || pageWidth <= 0f) return BlockAlign.START
         val near = NEAR_EDGE_SHARE * pageWidth
         val atEnd = if (block.rtl) abs(left - body.left) <= near else abs(right - body.right) <= near

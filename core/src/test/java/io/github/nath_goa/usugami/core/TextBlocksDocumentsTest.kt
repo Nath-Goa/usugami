@@ -79,6 +79,21 @@ class TextBlocksDocumentsTest {
         assertEquals(listOf(BlockAlign.CENTER, BlockAlign.CENTER, BlockAlign.START), group(listOf(title, subtitle) + column).map { it.align })
     }
 
+    @Test fun labelsRightAlignedTogetherInsideThePageAreRightAligned() {
+        // An invoice's totals: labels right-aligned at 450 points, each beside its amount at 539,
+        // under a table whose rows run from margin to margin.
+        val table = paragraph(listOf("Lampe de bureau en laiton, abat-jour en lin naturel et ampoules" to 489f, "basse consommation, installation et réglage compris dans le prix" to 470f), 56f, 300f, size = 10f)
+        val totals = listOf("Total hors taxes" to 374f, "TVA (20 %)" to 398f, "Total à payer" to 388f).flatMapIndexed { i, (label, left) ->
+            listOf(line(label, left, 400f + 16f * i, 450f, size = 10f), line("418,80 €", 500f, 400f + 16f * i, 539f, size = 10f))
+        }
+        val blocks = group(table + totals)
+        assertEquals(listOf("Total hors taxes", "TVA (20 %)", "Total à payer"), texts(blocks).filter { it.startsWith("T") })
+        assertEquals(List(3) { BlockAlign.END }, blocks.filter { it.text.startsWith("T") }.map { it.align })
+        // Left-aligned labels that only end together by chance start together too: left-aligned.
+        val address = listOf(line("Café des Arts", 320f, 200f, 380f, size = 10f), line("Rue du Port", 320f, 214f, 380.5f, size = 10f))
+        assertEquals(listOf(BlockAlign.START, BlockAlign.START), group(table + address).filter { it.left == 320f }.map { it.align })
+    }
+
     @Test fun eachFootnoteStartsAtItsNumber() {
         // Two footnotes in 9-point type, each after its number in 6-point type.
         val notes = listOf(
