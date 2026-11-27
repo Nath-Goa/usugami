@@ -8,18 +8,25 @@ object TranslatableText {
     private val WEB_ADDRESS = Regex("^(?:[a-z][a-z0-9+.-]*://|www\\.|mailto:)\\S+$", RegexOption.IGNORE_CASE)
     private val EMAIL = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
 
-    /** example.com, example.co.uk/page, report.pdf: names separated by dots, the last of two letters or more. */
-    private val DOMAIN_OR_FILE = Regex("^(?:[\\p{L}\\p{N}_-]+\\.)+\\p{L}{2,24}(?:[/:?#]\\S*)?$")
+    /**
+     * example.com, example.co.uk/page, report.pdf, 报告.pdf, रिपोर्ट.pdf: names separated by dots, the
+     * last (the ending) of two letters or more.
+     */
+    private val DOMAIN_OR_FILE = Regex("^(?:[\\p{L}\\p{M}\\p{N}_-]+\\.)+(\\p{L}{2,24})(?:[/:?#]\\S*)?$")
+
+    /** "1.Introduction", "2.1.Scope": a heading numbered with a full stop, not a domain ("163.com"). */
+    private val NUMBERED_HEADING = Regex("^(?:\\d{1,3}\\.)+\\p{Lu}\\p{Ll}")
 
     /** C:\Users, \\server\share, /home/me, ~/notes, ./a, ../b. */
     private val PATH = Regex("^(?:[A-Za-z]:[\\\\/].*|\\\\\\\\\\S+|~?/\\S+|\\.{1,2}/\\S+)$")
 
-    /** Brackets, quotes and the punctuation that ends a sentence, around an address. */
-    private const val AROUND = "()[]{}<>\"'“”‘’«».,;:!?"
+    /** Brackets, quotes and the punctuation that ends a sentence, around an address: as written with spaces, and as Chinese and Japanese write them. */
+    private const val AROUND = "()[]{}<>\"'“”‘’«».,;:!?（）［］｛｝＜＞〈〉《》「」『』【】〔〕。、，．；：！？"
 
     /**
      * Whether [text] (a block of a page) is worth translating. Not when it has fewer than two
-     * letters; when each of its words is a web address, an e-mail address or a file's name or path;
+     * letters; when each of its words is a web address, an e-mail address or a file's name or path
+     * (in any script; one that Chinese, Japanese or Thai words run into, with no space, is among words);
      * when it is a number, a date, an amount or a code with no word in it (digits with punctuation,
      * and letters only one at a time: "12.50", "03/04/2025", "A-12-B", "2025年3月"); or when it is
      * one run of more than 40 characters without a space, in writing that has spaces, that has a
@@ -47,7 +54,42 @@ object TranslatableText {
     private fun isAddress(token: String): Boolean {
         val bare = token.trim { it in AROUND }
         if (bare.isEmpty()) return false
-        return WEB_ADDRESS.matches(bare) || EMAIL.matches(bare) || DOMAIN_OR_FILE.matches(bare) || PATH.matches(bare)
+        // Chinese, Japanese and Thai put no space around an address either, so their words run into it
+        // ("请发邮件至support@example.com与我们联系"): words with an address among them.
+        if (scriptsMeet(bare)) return false
+        return WEB_ADDRESS.matches(bare) || EMAIL.matches(bare) || isDomainOrFile(bare) || PATH.matches(bare)
+    }
+
+    /**
+     * Whether [text] is a domain or a file's name. Not when its ending is in Chinese, Japanese or Thai
+     * letters, or it starts with a number and a full stop and goes on with a word: a numbered heading
+     * ("1.公司简介", "1.Introduction").
+     */
+    private fun isDomainOrFile(text: String): Boolean {
+        val ending = DOMAIN_OR_FILE.matchEntire(text)?.groupValues?.get(1) ?: return false
+        return ending.codePoints().noneMatch(WordSpacing::unspaced) && !NUMBERED_HEADING.containsMatchIn(text)
+    }
+
+    /**
+     * Whether a character of writing without spaces (Chinese, Japanese, Thai...) stands right beside
+     * a letter of other writing in [text] ("邮件support", "com与"), a mark going with the letter it is
+     * on. An address written in those scripts keeps its dots, slashes and @ between them
+     * ("https://zh.wikipedia.org/wiki/北京", "报告.pdf").
+     */
+    private fun scriptsMeet(text: String): Boolean {
+        // What the character before was: 0 neither, 1 of writing without spaces, 2 a letter of other writing.
+        var before = 0
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            i += Character.charCount(cp)
+            val type = Character.getType(cp)
+            if (type == Character.NON_SPACING_MARK.toInt() || type == Character.COMBINING_SPACING_MARK.toInt()) continue
+            val kind = if (WordSpacing.unspaced(cp)) 1 else if (Character.isLetter(cp)) 2 else 0
+            if (kind != 0 && before != 0 && kind != before) return true
+            before = kind
+        }
+        return false
     }
 
     /** Whether [text] has two letters in a row somewhere. */

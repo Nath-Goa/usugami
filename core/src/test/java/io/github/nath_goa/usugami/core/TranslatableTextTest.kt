@@ -82,6 +82,28 @@ class TranslatableTextTest {
         }
     }
 
+    @Test fun anAddressIsToldFromTheChineseJapaneseOrThaiWordsAroundIt() {
+        // No space parts an address, a dotted name or a numbered heading from the words around it.
+        for (text in listOf(
+            "如有任何问题，请通过电子邮件support@example.com与我们联系。", "お問い合わせはinfo@example.co.jpまでお願いいたします。",
+            "邮箱：support@example.com", "www.example.com上有更多信息。", "ติดต่อเราได้ที่support@example.com",
+            "基于Node.js的开发", "详情请见附件report.pdf", "1.公司简介", "2.产品与服务", "一.概述",
+            // A heading numbered with a full stop and no space, in writing with spaces too.
+            "1.Introduction", "2.1.Scope", "1.Введение",
+        )) {
+            assertTrue(text, worth(text))
+        }
+        // An address or a file's name standing alone stays as it is, in any script, also in the
+        // brackets and with the full stop of Chinese and Japanese.
+        for (text in listOf(
+            "报告.pdf", "会議資料_2025.pdf", "東京タワー.jpg", "ข้อมูล.pdf", "रिपोर्ट.pdf", "отчёт.pdf", "пример.рф",
+            "https://zh.wikipedia.org/wiki/北京", "https://ja.wikipedia.org/wiki/東京", "C:\\用户\\文档",
+            "（www.example.org）", "「report.pdf」", "support@example.com。", "163.com", "1.txt",
+        )) {
+            assertFalse(text, worth(text))
+        }
+    }
+
     /** A paragraph of [count] sentences of different lengths, each ending with a full stop. */
     private fun sentences(count: Int): String = (1..count).joinToString(" ") { i ->
         "Sentence $i of the report says " + "something more ".repeat(i % 7) + "and ends here."
