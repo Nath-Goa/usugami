@@ -19,8 +19,8 @@ import kotlinx.coroutines.CancellationException
 /**
  * What [PageLineReader] read on a page: its [lines] to translate, and whether it shows letters
  * ([hasText]): any in its lines, or many ([PageLineReader.TURNED_LETTERS] or more) in text it
- * doesn't translate (tilted, upside down, running down the page). A page that does is not a scan to read with
- * text recognition; a scan with a few such letters on it (a watermark, a stamp) still is.
+ * doesn't translate (tilted, upside down, running down the page). A page that does is not a scan
+ * to read with text recognition; a scan with a few such letters on it (a watermark, a stamp) still is.
  */
 internal class PageLines(val lines: List<SourceLine>, val hasText: Boolean)
 
@@ -40,12 +40,11 @@ internal class PageLines(val lines: List<SourceLine>, val hasText: Boolean)
  * of numbers alone too (an amount, a superscript), which stay as they are on the page's picture and
  * mustn't be painted over: text tilted (a stamp, a watermark), upside down or running up or down the
  * page, and text drawn invisibly (as the text layer of a scan is), stay as they are on the picture
- * too. A line is
- * cut where two glyphs next to each other are more than [GAP_EM] font sizes apart, so the cells of a
- * table's row, or items set apart with tabs, are lines of their own; and after a bullet or a note's
- * number that goes apart from its text (see [markEnd]). A glyph that starts more than a
- * point outside the crop box is left out, as the page shows only what is inside it. The storage
- * running full while a page is read is no unreadable page: it goes up as it is.
+ * too. A line is cut where two glyphs next to each other are more than [GAP_EM] font sizes apart,
+ * so the cells of a table's row, or items set apart with tabs, are lines of their own; and after a
+ * bullet or a note's number that goes apart from its text (see [markEnd]). A glyph that starts more
+ * than a point outside the crop box is left out, as the page shows only what is inside it. The
+ * storage running full while a page is read is no unreadable page: it goes up as it is.
  */
 internal class PageLineReader(
     private val wanted: Set<Int>,

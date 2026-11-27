@@ -669,9 +669,9 @@ private class PdfTranslator(
      */
     private fun showsImage(page: PDPage): Boolean = try {
         showsImage(page.resources, Collections.newSetFromMap(IdentityHashMap()), 0)
-    } catch (e: IOException) {
+    } catch (_: IOException) {
         true
-    } catch (e: RuntimeException) {
+    } catch (_: RuntimeException) {
         true
     }
 
