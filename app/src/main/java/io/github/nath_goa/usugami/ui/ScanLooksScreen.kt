@@ -1,6 +1,7 @@
 package io.github.nath_goa.usugami.ui
 
 import android.graphics.Bitmap
+import android.util.LruCache
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -196,11 +197,17 @@ private fun PageFilters(
     val preview by rememberLookPreview(base, page.look, adjustments)
     // Each look on the page, made from its plain thumbnail: the size the looks' small pages are made
     // at (see lookSamples), and one the pages row has most likely read already.
+    // Those of the pages shown last are kept, small as they are, so that going back to a page shows its
+    // looks at once.
+    val kept = remember { LruCache<String, Map<PageLook, ImageBitmap>>(SAMPLES_KEPT) }
     val samples by produceState<PageSamples?>(null, page.path, beingCropped) {
         if (value?.path != page.path) value = null
-        if (beingCropped || value != null) return@produceState
+        if (beingCropped || value != null || kept[page.path] != null) return@produceState
         val plain = thumbnails.load(page.copy(look = PageLook.ORIGINAL, adjustments = LookAdjustments.NONE)) ?: return@produceState
-        lookSamples(plain) { value = PageSamples(page.path, it) }
+        lookSamples(plain) { made ->
+            value = PageSamples(page.path, made)
+            if (made.size == PageLook.shown.size) kept.put(page.path, made)
+        }
     }
     // Shown at once while the large page is read: the page's thumbnail, in its look.
     val thumbnail = key(page.id) { rememberThumbnail(page, thumbnails) }
@@ -223,7 +230,7 @@ private fun PageFilters(
             // No heading over the looks, as the crop screen's look step has: their names say what they
             // are, and the page keeps the room.
             Spacer(Modifier.height(4.dp))
-            val images = samples?.takeIf { it.path == page.path }?.images.orEmpty()
+            val images = samples?.takeIf { it.path == page.path }?.images ?: kept[page.path].orEmpty()
             // The look chosen comes into view again for each page shown.
             LooksRow(images, page.rotation, page.look, actions.look, reveal = page.id)
             Sliders(
@@ -461,6 +468,9 @@ private val PAGE_INSET = 6.dp
 /** The narrowest and widest a page's tile gets, for its height, for a tall page and one on its side. */
 private const val NARROWEST = 0.7f
 private const val WIDEST = 1.5f
+
+/** The looks of this many pages are kept, the last shown: some 0.8 MB each. */
+private const val SAMPLES_KEPT = 12
 
 /** The controls, the pages row and the buttons together take at most this much of the height. */
 private const val CONTROLS_SHARE = 0.6f
