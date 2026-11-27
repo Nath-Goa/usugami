@@ -71,7 +71,9 @@ data class SourceBlock(
  *
  * A line that starts with a bullet or a number ("•", "-", "–", "*", "1.", "1)", "(1)", "a)", "iv.")
  * always starts a new block, as does the line beside a bullet or a number standing alone, or just
- * after a note's number set smaller than it (a footnote's). A
+ * after a note's number set smaller than it (a footnote's). A line with leader dots or a blank to
+ * fill in ("....", "____") ends its block, so each entry of a contents page, a price list or a form
+ * is a block of its own (a title that runs on to a second line, which has the dots, stays whole). A
  * block can't go on past a line below its last line that overlaps it sideways, so a heading or a
  * picture's caption between two parts of a column keeps them apart.
  *
@@ -178,6 +180,12 @@ object TextBlocks {
         "|[a-z]\\)|[a-h]\\.|\\([a-zA-Z]\\)|[A-Z]\\)|$ROMAN[.)]|\\((?:$ROMAN|$CAPITAL_ROMAN)\\)|(?=[IVX]{2})$CAPITAL_ROMAN[.)])"
     private val MARKER = Regex("^$MARKER_PATTERN(?:\\s|$)")
     private val MARKER_ONLY = Regex("^$MARKER_PATTERN$")
+
+    /**
+     * Leader dots (". . . .", "....", "····", "・・・・", "………") or a blank to fill in ("____"). Up to
+     * three dots, or two "…", are an ellipsis, as Chinese and Japanese write theirs ("……").
+     */
+    private val LEADER = Regex("(?:[.．·・•∙⋅]\\s?){4,}|[…‥]{3,}|[_＿]{4,}")
 
     /** A note's number or sign, as a footnote starts with… */
     private val NOTE_MARK = Regex("\\d{1,3}|[*†‡§]{1,3}")
@@ -395,6 +403,8 @@ object TextBlocks {
         // Indented (or outdented) from the margin the block's lines share: the next paragraph.
         val margin = block.margin(rtl)
         if (margin != null && abs(start - margin) > NEW_PARAGRAPH_INDENT_EM * em) return false
+        // A line with leader dots or a blank to fill in ends its entry: a contents line, a price, a form's field.
+        if (LEADER.containsMatchIn(prev.text)) return false
         // A line narrower than running text over one starting with a capital or a digit: the lines of
         // an address or of labels, each an entry of its own ("Mrs Sophie Durand" over "Purchasing
         // Department", "Invoice no. 12" over "Date: 3 May"), however they are aligned.

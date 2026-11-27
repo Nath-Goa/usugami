@@ -94,6 +94,30 @@ class TextBlocksDocumentsTest {
         assertEquals(listOf(BlockAlign.START, BlockAlign.START), group(table + address).filter { it.left == 320f }.map { it.align })
     }
 
+    @Test fun eachEntryOfAContentsPageAPriceListOrAFormIsABlock() {
+        // A contents page as a word processor sets it: entries from 72 points (chapters) or 83
+        // (sections) to their page numbers at 523, after leader dots. One section's title runs on to
+        // a second line, which has the dots: it is one entry.
+        val dots = " " + ".".repeat(60) + " "
+        val rows = listOf(
+            Triple("1 Introduction${dots}1", 72f, 523f), Triple("1.1 Scope of this report${dots}2", 83f, 523f), Triple("1.2 Method${dots}3", 83f, 523f),
+            Triple("1.3 Results of the survey of the members of the association, in", 83f, 505f), Triple("the spring and the autumn of 2026${dots}4", 83f, 523f),
+            Triple("2 Results${dots}5", 72f, 523f), Triple("2.1 Sales in Europe${dots}6", 83f, 523f), Triple("2.2 Sales in Asia${dots}8", 83f, 523f),
+            Triple("3 Outlook${dots}11", 72f, 523f), Triple("Appendix${dots}14", 72f, 523f),
+        )
+        val contents = listOf(line("Contents", 72f, 80f, 150f, size = 16f)) +
+            rows.mapIndexed { i, (text, left, right) -> line(text, left, 120f + 1.25f * 11f * i, right) }
+        val titles = rows.map { it.first }
+        assertEquals(listOf("Contents") + titles.take(3) + "${titles[3]} ${titles[4]}" + titles.drop(5), texts(group(contents)))
+        // A price list, its leaders spaced out.
+        val menu = listOf("Café crème" to "3,50 €", "Thé à la menthe" to "3,00 €", "Croissant au beurre" to "1,80 €", "Tarte aux pommes" to "4,20 €")
+            .mapIndexed { i, (dish, price) -> line("$dish ${". ".repeat(20)}$price", 150f, 200f + 15f * i, 445f) }
+        assertEquals(menu.map { it.text }, texts(group(menu)))
+        // A form's fields, each with a blank to fill in.
+        val form = listOf("Name:", "Address:", "Date of birth:").mapIndexed { i, label -> line("$label ${"_".repeat(50)}", 72f, 300f + 1.6f * 11f * i, 523f) }
+        assertEquals(form.map { it.text }, texts(group(form)))
+    }
+
     @Test fun eachFootnoteStartsAtItsNumber() {
         // Two footnotes in 9-point type, each after its number in 6-point type.
         val notes = listOf(
