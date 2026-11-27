@@ -155,7 +155,10 @@ dependencies {
     // F-Droid's recipes delete Google's dependency lines with sed. Copies of the recipes made before
     // 3.1.0 only delete the lines that name Play services' Maven group, so each of these two names
     // that group in a comment too.
-    "standardImplementation"("com.google.mlkit:translate:17.0.3") // com.google.android.gms (see above)
+    // ML Kit's translation brings the HTTP library OkHttp only to register itself with Google's
+    // Firebase, which Usugami's process never contacts: OkHttp is left out, and a stand-in that
+    // makes no connections takes its place (app/src/standard/java/okhttp3/OkHttp.kt).
+    "standardImplementation"("com.google.mlkit:translate:17.0.3") { exclude(group = "com.squareup.okhttp3") } // com.google.android.gms (see above)
     "standardImplementation"("com.google.mlkit:language-id:17.0.6") // com.google.android.gms (see above)
     // Usugami OCR's built-in engine: ncnn and its JNI bridge, built from source (see :ocr-native).
     "ocrImplementation"(project(":ocr-native"))

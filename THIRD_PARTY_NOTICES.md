@@ -103,10 +103,10 @@ Usugami only, because Google ML Kit depends on them:
 Usugami itself doesn't use them, and the build's code shrinker removes the parts that are never
 used.
 
-Usugami only, because Google ML Kit's translation depends on them:
-
-- com.squareup.okhttp3: okhttp 3.0.0 (OkHttp). Copyright Square, Inc.
-- com.squareup.okio: okio 1.6.0 (Okio). Copyright Square, Inc.
+Google ML Kit's translation also depends on OkHttp 3.0.0 and Okio 1.6.0 (Copyright Square, Inc.),
+which it uses only to register itself with Google's Firebase. Usugami leaves both out: neither is
+in the app, and a small stand-in of Usugami's own, which makes no connections, answers ML Kit's
+calls instead.
 
 ### Compose Multiplatform metadata
 
