@@ -1043,6 +1043,33 @@ what ML Kit needs in Usugami, and with `.github/scripts/check-16kb-alignment.sh`
 library is stored 16 KB aligned in the APK (`zipalign -c -P 16`) and that the 64-bit ones have
 16 KB-aligned segments (`llvm-readelf`), as phones with 16 KB memory pages need.
 
+Usugami's own process contacts no server: Android's download manager fetches the language packs,
+`NoConnections.kt` refuses every http, https and ftp URL in the app, and a stand-in for OkHttp
+(`app/src/standard/java/okhttp3/OkHttp.kt`) refuses ML Kit's request to Firebase. After updating
+Google ML Kit, check by hand that this still holds:
+
+- `./gradlew -q :app:dependencies --configuration standardReleaseRuntimeClasspath` lists no
+  `com.squareup.okhttp3`, `com.squareup.okio`, Cronet or Firebase installations library.
+- `NoConnectionsDeviceTest` passes. It fails if ML Kit calls anything of OkHttp the stand-in lacks,
+  or if ML Kit registered with Firebase.
+- In the release APK (`dexdump -d` of its dex files), nothing refers to `java.net.Socket`,
+  `javax.net.SocketFactory`, `javax.net.ssl.SSLSocketFactory`, `java.net.DatagramSocket`,
+  `java.nio.channels.SocketChannel`, `InetAddress.getByName` or `getAllByName`, the
+  `InetSocketAddress(String, int)` constructor, `android.net.Network`'s `openConnection`,
+  `bindSocket` or `getSocketFactory`, `android.system.Os.socket` or `connect`, `android.webkit.WebView`
+  or `org.chromium`: in 3.1.0 the only network code left is `HttpURLConnection`, which
+  `NoConnections.kt` refuses. `llvm-readelf --dyn-syms` on each `lib/*/*.so` shows no `socket`,
+  `connect`, `getaddrinfo` or `sendto`.
+- The release APK on an emulator started with `-tcpdump`, with its Wi-Fi off
+  (`adb shell svc wifi disable`; the capture doesn't see the emulator's Wi-Fi): translate a PDF for
+  the first time, again, and after moving the phone's clock 13 hours ahead. Usugami's uid
+  (`adb shell dumpsys netstats --uid`) has traffic only while a pack downloads, and the capture
+  shows `redirector.gvt1.com` and Google's download servers on `gvt1.com` then, and never
+  `firebaseinstallations.googleapis.com` or `firebaseremoteconfig.googleapis.com`.
+- `adb logcat --pid` of the release app while it translates has no debug or info lines from ML
+  Kit's Java code (R8 removes them, `app/proguard-standard.pro`). ML Kit's native code still logs
+  the text it translates and the translation under the tag `native`.
+
 The F-Droid workflow (`.github/workflows/fdroid.yml`) builds Usugami (the OCR edition) and Usugami
 Lite the way F-Droid does, with fdroidserver and the recipes in `.fdroid.yml` and
 `fdroid/io.github.nath_goa.usugami.lite.yml`: it runs F-Droid's scanner on the source and on the
