@@ -914,7 +914,7 @@
     <string name="crop_done">Selesai</string>
     <!-- On a scan's Photos screen: opens the camera for the next page. -->
     <string name="crop_take_another">Ambil lagi</string>
-    <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
+    <!-- During a scan of photos: takes the photo shown out of the scan. For an ID card's side: the close button, which discards the photo just taken. -->
     <string name="crop_discard">Buang foto</string>
     <string name="crop_image_description">Gambar, dengan garis tepi halaman</string>
     <!-- The handles a screen reader names; each is moved with the "Move left" etc. actions. -->
@@ -930,9 +930,9 @@
     <!-- Turn the image (and the page's outline on it) a quarter turn. -->
     <string name="crop_rotate_left">Putar ke kiri</string>
     <string name="crop_rotate_right">Putar ke kanan</string>
-    <!-- Goes on from cropping the page to choosing its look; during a scan of several images, also on to the next image. -->
+    <!-- Goes on to the next step: from cropping a page to choosing its look; during a scan, from each image to the next, and from the last to the filters; for an ID card's front, on to its back. -->
     <string name="crop_next">Berikutnya</string>
-    <!-- The crop screen's close button while several uploaded images are cropped one after another: the images not cropped yet stay as they are. -->
+    <!-- While uploaded images are cropped one after another: the images not cropped yet stay as they are, and every image goes on to the filters. -->
     <string name="crop_stop">Berhenti memangkas</string>
     <string name="crop_failed">Tidak dapat memangkas halaman. Halaman dibiarkan seperti semula.</string>
     <!-- Choosing pages' look, brightness and contrast: the second step of cropping a page again or an ID card's side, and the last screen of a scan, for all its pages. -->
@@ -945,7 +945,7 @@
     <string name="filter_reset_contrast">Setel ulang kontras</string>
     <!-- Under the title while a scan's images are cropped one after another, and on its Filters screen for the page shown large, e.g. "Page 2 of 5". -->
     <string name="scan_place">Halaman %1$d dari %2$d</string>
-    <!-- What a screen reader says as each image of such a scan comes in: the step's name (Crop page, or Filters), then which image it is, e.g. "Crop page, Page 2 of 5". -->
+    <!-- What a screen reader says as each image of a scan, or each side of an ID card, comes in: the step's name (Crop page, or Filters), then which image or side it is, e.g. "Crop page, Page 2 of 5". -->
     <string name="scan_pane_title">%1$s, %2$s</string>
     <!-- How the page looks in the PDF, chosen on the filters step: a heading over the looks. -->
     <string name="look_title">Tampilan</string>

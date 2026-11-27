@@ -978,7 +978,7 @@
     <string name="crop_done">Concluído</string>
     <!-- On a scan's Photos screen: opens the camera for the next page. -->
     <string name="crop_take_another">Tirar outra</string>
-    <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
+    <!-- During a scan of photos: takes the photo shown out of the scan. For an ID card's side: the close button, which discards the photo just taken. -->
     <string name="crop_discard">Descartar foto</string>
     <string name="crop_image_description">A imagem, com o contorno da página</string>
     <!-- The handles a screen reader names; each is moved with the "Move left" etc. actions. -->
@@ -994,9 +994,9 @@
     <!-- Turn the image (and the page's outline on it) a quarter turn. -->
     <string name="crop_rotate_left">Girar para a esquerda</string>
     <string name="crop_rotate_right">Girar para a direita</string>
-    <!-- Goes on from cropping the page to choosing its look; during a scan of several images, also on to the next image. -->
+    <!-- Goes on to the next step: from cropping a page to choosing its look; during a scan, from each image to the next, and from the last to the filters; for an ID card's front, on to its back. -->
     <string name="crop_next">Avançar</string>
-    <!-- The crop screen's close button while several uploaded images are cropped one after another: the images not cropped yet stay as they are. -->
+    <!-- While uploaded images are cropped one after another: the images not cropped yet stay as they are, and every image goes on to the filters. -->
     <string name="crop_stop">Parar de cortar</string>
     <string name="crop_failed">Não foi possível cortar a página. Ela foi mantida como estava.</string>
     <!-- Choosing pages' look, brightness and contrast: the second step of cropping a page again or an ID card's side, and the last screen of a scan, for all its pages. -->
@@ -1009,7 +1009,7 @@
     <string name="filter_reset_contrast">Redefinir contraste</string>
     <!-- Under the title while a scan's images are cropped one after another, and on its Filters screen for the page shown large, e.g. "Page 2 of 5". -->
     <string name="scan_place">Página %1$d de %2$d</string>
-    <!-- What a screen reader says as each image of such a scan comes in: the step's name (Crop page, or Filters), then which image it is, e.g. "Crop page, Page 2 of 5". -->
+    <!-- What a screen reader says as each image of a scan, or each side of an ID card, comes in: the step's name (Crop page, or Filters), then which image or side it is, e.g. "Crop page, Page 2 of 5". -->
     <string name="scan_pane_title">%1$s, %2$s</string>
     <!-- How the page looks in the PDF, chosen on the filters step: a heading over the looks. -->
     <string name="look_title">Estilo</string>
