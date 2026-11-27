@@ -303,11 +303,13 @@ class ScanFlowDeviceTest {
         val name = app.getString(label)
         val names = LOOKS.map(app::getString)
         val (left, right) = AccessibilityAction.ACTION_SCROLL_LEFT to AccessibilityAction.ACTION_SCROLL_RIGHT
-        fun choice() = nodes().firstOrNull { it.says(name) }?.let { node -> ancestor(node) { it.isCheckable } }
+        // Only a look still on the screen: the accessibility cache may keep one the row has scrolled away.
+        fun AccessibilityNodeInfo.shows(look: String) = says(look) && refresh()
+        fun choice() = nodes().firstOrNull { it.shows(name) }?.let { node -> ancestor(node) { it.isCheckable } }
         repeat(8) {
             choice()?.let { return it }
             val row = nodes().firstOrNull { (left in it.actionList || right in it.actionList) && it.holds { look -> names.any { name -> look.says(name) } } }
-            val firstShown = names.indexOfFirst { shown -> row?.holds { it.says(shown) } == true }
+            val firstShown = names.indexOfFirst { shown -> row?.holds { it.shows(shown) } == true }
             row?.performAction((if (names.indexOf(name) < firstShown) left else right).id)
             Thread.sleep(300)
         }
