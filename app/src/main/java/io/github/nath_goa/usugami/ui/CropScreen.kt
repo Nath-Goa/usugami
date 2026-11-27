@@ -5,7 +5,10 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -199,19 +202,26 @@ fun CropScreen(
         else -> scan.place
     }
     // A scan's image is one screen while it is awaited and once it shows: its page found comes in
-    // place of the wait, and only the next image (or the one before) slides. Any other opening is a
-    // screen of its own.
+    // place of the wait, and only the next image (or the one before) slides. So does the place of an
+    // image picked that is still being added. Any other opening is a screen of its own.
     val key: Any? = when {
         session?.staged == true -> ScanImage(session.itemId)
-        session == null -> scan?.waiting?.firstOrNull()?.let(::ScanImage)
-        else -> session.opened
+        session == null && scan != null -> scan.waiting.firstOrNull()?.let(::ScanImage) ?: ScanPlace(place)
+        else -> session?.opened
     }
     val pages = updateTransition(CropPage(key, place), label = "crop page")
     pages.AnimatedContent(
         modifier = Modifier.background(Usugami.colors.screenDim),
         contentKey = { it.key },
         // A later image lies over the one before: it slides in over it, and slides away from it on Back.
-        transitionSpec = { Motion.screenTransition(forward = targetState.place >= initialState.place, depth = targetState.place, rtl = rtl) },
+        // The image awaited in its place takes it without a slide.
+        transitionSpec = {
+            if (initialState.awaits(targetState)) {
+                EnterTransition.None togetherWith ExitTransition.None
+            } else {
+                Motion.screenTransition(forward = targetState.place >= initialState.place, depth = targetState.place, rtl = rtl)
+            }
+        },
     ) { page ->
         val live = active && transition.targetState == EnterExitState.Visible
         // What it shows while it is the screen showing, and still as it goes.
@@ -221,7 +231,7 @@ fun CropScreen(
         val photo by rememberUpright(item?.source)
         val read = photo?.takeIf { it.path == item?.source?.path }
         val settled = arrived && live && transition.currentState == EnterExitState.Visible
-        val cameOver = remember { pages.segment.let { it.targetState.place >= it.initialState.place } }
+        val cameOver = remember { pages.segment.let { !it.initialState.awaits(it.targetState) && it.targetState.place >= it.initialState.place } }
         val away = slideInProgress(cameOver)
         Inert(!live, slide = Modifier.screenSlide(away, rtl)) {
             val messages = if (live) snackbar else idleSnackbar
@@ -413,10 +423,16 @@ private class Upright(val path: String, val bitmap: Bitmap?)
  * another page's opening), and [place] is where among the scan's images it is (0 outside a scan),
  * which decides the side it comes in from and which lies over which.
  */
-private data class CropPage(val key: Any?, val place: Int)
+private data class CropPage(val key: Any?, val place: Int) {
+    /** Whether this is the place of an image still being added, and [next] that image in it. */
+    fun awaits(next: CropPage) = key is ScanPlace && next.key is ScanImage && next.place == place
+}
 
 /** A scan's image, by its id, on the crop screen. */
 private data class ScanImage(val id: Long)
+
+/** The place among a scan's images of one picked that is still being added, on the crop screen. */
+private data class ScanPlace(val place: Int)
 
 /**
  * A step's title, and under it [place]: for an image of a scan, which of its images this is; for an
