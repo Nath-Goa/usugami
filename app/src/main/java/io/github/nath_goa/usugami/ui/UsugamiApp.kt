@@ -859,7 +859,7 @@ fun UsugamiApp(
                 forward = comesOver(targetState.screen, initialState.screen),
                 depth = screenDepth(targetState.screen),
                 rtl = rtl,
-            )
+            ).apply { targetContentZIndex = screenLayer(targetState.screen, initialState.screen) }
         },
     ) { shown ->
         val current = shown.screen.removePrefix("share/")
@@ -1637,6 +1637,16 @@ private fun comesOver(target: String, initial: String): Boolean {
     if (to != from) return to > from
     val (later, earlier) = ScanScreens.indexOf(target) to ScanScreens.indexOf(initial)
     return later < 0 || earlier < 0 || later >= earlier
+}
+
+/**
+ * Which screen lies over which while [target] replaces [initial]: the deeper one, and of a scan's
+ * stages, all as deep, the later one, so that Back to an earlier stage slides the later one away over
+ * it, as Back does elsewhere, rather than the earlier stage coming back over it.
+ */
+private fun screenLayer(target: String, initial: String): Float {
+    val stage = ScanScreens.indexOf(target)
+    return screenDepth(target) + if (stage >= 0 && initial in ScanScreens) stage / 10f else 0f
 }
 
 /**
