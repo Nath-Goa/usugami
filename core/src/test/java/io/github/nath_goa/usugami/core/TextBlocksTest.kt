@@ -212,6 +212,26 @@ class TextBlocksTest {
         )
     }
 
+    @Test fun aHyphenStandingForAWordsEndKeepsItsSpace() {
+        // "Vor- und Nachname": the hyphen stands for "-name", and the space after it stays. A word
+        // broken at a line's end is still joined, also before its last two letters ("Kon-" "to"),
+        // and a name keeps its hyphen.
+        fun joined(vararg rows: String) =
+            group(rows.mapIndexed { i, row -> line(row, 72f, 100f + 13f * i, width = if (i < rows.size - 1) 451f else row.length * 5f) }).single().text
+        assertEquals(
+            "Bitte tragen Sie hier Ihren vollständigen Vor- und Nachnamen sowie die Nummer Ihres Konto ein, wie sie auf der Karte steht.",
+            joined("Bitte tragen Sie hier Ihren vollständigen Vor-", "und Nachnamen sowie die Nummer Ihres Kon-", "to ein, wie sie auf der Karte steht."),
+        )
+        assertEquals(
+            "The plan sets out what the city will do in the short- and long-term, with an example of each step, as Jean-Pierre Martin said.",
+            joined("The plan sets out what the city will do in the short-", "and long-term, with an exam-", "ple of each step, as Jean-", "Pierre Martin said."),
+        )
+        assertEquals(
+            "Selon votre contrat, les examens pré- et post-opératoires sont pris en charge par l'hôpital, qui les facture à votre caisse.",
+            joined("Selon votre contrat, les examens pré-", "et post-opératoires sont pris en charge par l'hôpital, qui les fac-", "ture à votre caisse."),
+        )
+    }
+
     @Test fun chineseLinesAreJoinedWithoutASpace() {
         val lines = listOf(
             line("这是一个关于翻译的段落，它的第一行在这里结束", 72f, 100f, width = 451f),

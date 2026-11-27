@@ -187,6 +187,15 @@ object TextBlocks {
      */
     private val LEADER = Regex("(?:[.．·・•∙⋅]\\s?){4,}|[…‥]{3,}|[_＿]{4,}")
 
+    /**
+     * A line's first word after which a hyphen ending the line above stands for a word's end ("Vor-"
+     * "und Nachname", "short-" "or long-term", "pré-" "et post-opératoire"): "and", "or" and the like
+     * in German, English, French, Spanish, Portuguese, Italian and Dutch. Not "to", "nor" or Dutch
+     * "en", which a word broken before its last letters leaves as well ("Kon-" "to", "pun-" "to",
+     * "Famili-" "en", "mi-" "nor").
+     */
+    private val SUSPENDED = Regex("^(?:und|oder|bzw\\.?|bis|sowie|and|or|et|ou|of|y|e|o|u)(?=\\s)")
+
     /** A note's number or sign, as a footnote starts with… */
     private val NOTE_MARK = Regex("\\d{1,3}|[*†‡§]{1,3}")
 
@@ -197,9 +206,11 @@ object TextBlocks {
      * [lines] of a page [pageWidth] × [pageHeight] points big, in any order, grouped into blocks,
      * in the reading order of their first lines (see [TextBlocks]). A block's [SourceBlock.text]
      * joins its lines with a space, or nothing between two characters of writing without spaces
-     * (Chinese, Japanese, Thai...); a hyphen ending a line after a letter goes when the next line
-     * starts with a small letter ("exam-" "ple": "example") and stays, with no space, before
-     * anything else ("Jean-" "Pierre", "COVID-" "19"), and a soft hyphen always goes. Its
+     * (Chinese, Japanese, Thai...); a hyphen ending a line after a letter stays, with a space after
+     * it, when the next line starts with "und", "and", "et" or the like ("Vor-" "und Nachname"),
+     * else goes when the next line starts with a small letter ("exam-" "ple": "example") and stays,
+     * with no space, before anything else ("Jean-" "Pierre", "COVID-" "19"), and a soft hyphen
+     * always goes. Its
      * [SourceBlock.align] comes from how its lines line up: for several lines, where they agree (all
      * starts: [BlockAlign.START]; else all centres: [BlockAlign.CENTER]; else the lines after an
      * indented first: [BlockAlign.START]; else the ends: [BlockAlign.END]; lines all of one width
@@ -568,6 +579,8 @@ object TextBlocks {
                 when {
                     // A word broken at a soft hyphen.
                     last == SOFT_HYPHEN -> out.setLength(out.length - 1)
+                    // "Vor-" "und Nachname", "short-" "and long-term": the hyphen stands for the end of the word after "und".
+                    hyphen && SUSPENDED.containsMatchIn(text) -> out.append(' ')
                     // "exam-" "ple": a word broken at the line's end; "Jean-" "Pierre" and "COVID-" "19" keep their hyphen.
                     hyphen -> if (Character.isLowerCase(next) && Character.isLetter(out.codePointBefore(out.length - 1))) out.setLength(out.length - 1)
                     else -> out.append(WordSpacing.between(last, next))
