@@ -1,6 +1,7 @@
 package io.github.nath_goa.usugami
 
 import android.app.DownloadManager
+import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
@@ -125,6 +126,28 @@ class MlKitTranslationDeviceTest {
             }
         } finally {
             // Not to hide why the test ended if it fails.
+            runCatching { engine.delete("de") }.onFailure { Log.w(TAG, "Deleting German's pack failed", it) }
+        }
+    }
+
+    /**
+     * A download's progress is its own packs': another download of the app (here one that gets
+     * nowhere, as a pack's left from an earlier run might) doesn't count, and the fraction never
+     * goes back.
+     */
+    @Test fun downloadProgressCountsOnlyItsOwnPacks() = runBlocking {
+        if ("de" in engine.downloaded()) engine.delete("de")
+        // Nothing answers on port 9, so the download manager keeps it waiting to try again.
+        val other = downloads.enqueue(DownloadManager.Request(Uri.parse("https://127.0.0.1:9/en_fr.zip")))
+        try {
+            val progress = ArrayList<Float>()
+            ensureReadyOrSkip("en", "de") { fraction -> if (fraction != null && progress.lastOrNull() != fraction) progress += fraction }
+            Log.i(TAG, "German's progress beside another download: $progress")
+            assertTrue("A fraction was told", progress.isNotEmpty())
+            assertTrue("It starts near 0, not at ${progress.first()}", progress.first() < 0.5f)
+            assertEquals("It never goes back", progress.sorted(), progress)
+        } finally {
+            downloads.remove(other)
             runCatching { engine.delete("de") }.onFailure { Log.w(TAG, "Deleting German's pack failed", it) }
         }
     }

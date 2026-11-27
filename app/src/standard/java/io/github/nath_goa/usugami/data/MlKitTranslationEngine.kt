@@ -4,6 +4,8 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.Uri
+import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.common.MlKitException
 import com.google.mlkit.common.model.DownloadConditions
@@ -51,10 +53,10 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
     /**
      * Downloads the packs of [source] and [target] that aren't on the phone yet, any kind of
      * network (the screen asks the user first). When they are all there, ML Kit's download, which
-     * would also look online for newer packs, isn't called. [onDownload] gets the fraction of the
-     * bytes downloaded, which Android's download manager tells (ML Kit itself gives no progress),
-     * and null until every pack's size is known (the first few seconds) and while the phone is
-     * offline. A download that is getting somewhere has no time limit (a slow connection may take
+     * would also look online for newer packs, isn't called. [onDownload] gets the fraction of these
+     * packs' bytes downloaded, which Android's download manager tells (ML Kit itself gives no
+     * progress), never less than it told before, and null until every pack's size is known (the
+     * first few seconds) and while the phone is offline. A download that is getting somewhere has no time limit (a slow connection may take
      * many minutes) but for a ceiling of [DOWNLOAD_LIMIT]; it fails with
      * [TranslationProblem.NO_INTERNET] at once when the phone is offline, and when it stays offline
      * for [OFFLINE_LIMIT] during the download, and with [TranslationProblem.DOWNLOAD_FAILED] when,
@@ -100,8 +102,9 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
         // A supervisor scope, so that a failed download comes out of waiting.await() as it is.
         supervisorScope {
             val conditions = DownloadConditions.Builder().build()
-            val download = Tasks.whenAll(missing.map { manager.download(it, conditions) })
-            val progress = DownloadProgress(context, missing.size)
+            val packs = missing.associate { it.language to manager.download(it, conditions) }
+            val download = Tasks.whenAll(packs.values)
+            val progress = DownloadProgress(context, packs)
             // One wait for the whole download; the loop below looks at it every POLL. Tasks.whenAll
             // reports a pack's failed download as an ExecutionException around ML Kit's own.
             val waiting = async {
@@ -242,23 +245,27 @@ private class MlKitTextTranslator(private val translator: Translator) : TextTran
 }
 
 /**
- * How far ML Kit's downloads of language packs are. ML Kit tells nothing about it, but they are
- * downloads of this app in Android's download manager, which lists an app's own downloads to it
- * (Usugami has no others: text recognition's models are downloaded by Play services).
+ * How far ML Kit's downloads of a run's language packs are. ML Kit tells nothing about it, but they
+ * are downloads of this app in Android's download manager, which lists an app's own downloads to it.
+ * Each is told by its file's name ("en_fr.zip" is French's pack), so that another download (a pack's
+ * of another language, say) isn't counted. [packs] are ML Kit's tasks for the run's packs, by tag.
  */
-private class DownloadProgress(context: Context, private val packs: Int) {
+private class DownloadProgress(context: Context, private val packs: Map<String, Task<Void>>) {
     private val downloads = context.getSystemService(DownloadManager::class.java)
 
-    /** The size of each download seen pending or running since this was made, or -1 while it isn't known. */
-    private val sizes = HashMap<Long, Long>()
+    /** Each pack's download as last seen pending, running, or finished since. */
+    private val seen = HashMap<String, PackDownload>()
+
+    /** The largest fraction told: a pack ML Kit downloads again (from its second address) doesn't take it back. */
+    private var told = 0f
 
     /** The bytes downloaded, as of the last [update]; null when the download manager couldn't be asked. */
     var bytes: Long? = null
         private set
 
     /**
-     * The fraction of the bytes downloaded, as of the last [update]; null while there are fewer
-     * downloads than [packs] or a size is unknown.
+     * The fraction of the bytes downloaded, as of the last [update], never less than before; null
+     * while a pack's download or its size isn't known.
      */
     var fraction: Float? = null
         private set
@@ -268,38 +275,62 @@ private class DownloadProgress(context: Context, private val packs: Int) {
         bytes = null
         fraction = null
         val manager = downloads ?: return
-        var done = 0L
-        val listed = HashSet<Long>()
+        val listed = HashMap<String, PackDownload>()
         try {
             val rows = manager.query(DownloadManager.Query()) ?: return
             rows.use {
                 val idColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)
+                val uriColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_URI)
                 val statusColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
                 val doneColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                 val totalColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
                 while (rows.moveToNext()) {
+                    val pack = packOf(rows.getString(uriColumn))?.takeIf { it in packs } ?: continue
                     val id = rows.getLong(idColumn)
                     val status = rows.getInt(statusColumn)
                     val active = status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING ||
                         status == DownloadManager.STATUS_PAUSED
                     // Downloads that ended before this run are not part of it.
-                    if (!active && id !in sizes) continue
+                    if (!active && seen[pack]?.id != id) continue
+                    // After a failed download ML Kit downloads the pack again from another address: the newer is the one.
+                    if (id < (listed[pack]?.id ?: Long.MIN_VALUE)) continue
                     val total = rows.getLong(totalColumn)
-                    sizes[id] = total
-                    listed += id
-                    done += if (status == DownloadManager.STATUS_SUCCESSFUL && total > 0) total else rows.getLong(doneColumn)
+                    val done = if (status == DownloadManager.STATUS_SUCCESSFUL && total > 0) total else rows.getLong(doneColumn)
+                    listed[pack] = PackDownload(id, total, done)
                 }
             }
         } catch (_: RuntimeException) {
             return // the download manager's provider failing is no reason to stop the download
         }
-        // ML Kit removes a finished download from the list once it has the pack.
-        done += sizes.filterKeys { it !in listed }.values.sumOf { it.coerceAtLeast(0) }
+        seen += listed
+        var done = 0L
+        for ((pack, task) in packs) {
+            val download = seen[pack] ?: continue
+            // ML Kit removes a pack's download from the list once it has the file; the pack is
+            // there when its task says so (until then, as after a failure, it is as far as it got).
+            done += if (pack !in listed && task.isSuccessful && download.total > 0) download.total else download.done
+        }
         bytes = done
-        if (sizes.size >= packs && sizes.values.all { it > 0 }) {
-            fraction = (done.toDouble() / sizes.values.sum()).toFloat().coerceIn(0f, 1f)
+        val totals = packs.keys.map { seen[it]?.total ?: -1 }
+        if (totals.all { it > 0 }) {
+            told = maxOf(told, (done.toDouble() / totals.sum()).toFloat().coerceIn(0f, 1f))
+            fraction = told
         }
     }
+}
+
+/** A pack's download in Android's download manager: its id, its size (-1 while unknown) and the bytes downloaded. */
+private class PackDownload(val id: Long, val total: Long, val done: Long)
+
+/**
+ * The language whose pack the download of [uri] is, from the file's name, which ML Kit makes of
+ * English and the language in alphabetical order ("en_fr.zip", "de_en.zip"); null for another file.
+ */
+private fun packOf(uri: String?): String? {
+    val name = uri?.let { Uri.parse(it).lastPathSegment }?.takeIf { it.endsWith(".zip") } ?: return null
+    val language = name.removeSuffix(".zip").split('_').filter { it != TranslateLanguage.ENGLISH }.singleOrNull() ?: return null
+    // Also as ML Kit names Hebrew's pack: "iw".
+    return TranslateLanguage.fromLanguageTag(language)
 }
 
 /** The packs a translation from [source] to [target] needs: those of the two languages, English's excepted. */
