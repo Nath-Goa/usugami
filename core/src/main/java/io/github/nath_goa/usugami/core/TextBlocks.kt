@@ -63,7 +63,14 @@ data class SourceBlock(
  *   one font size of it: a line indented (or outdented) from that margin starts the next paragraph,
  *   also where the paragraph before it ends with a full line;
  * - when the last line is narrower than running text (15 font sizes), the line doesn't start with a
- *   capital letter or a digit: such lines are an address's or labels', each an entry of its own;
+ *   capital letter or a digit: such lines are an address's or labels', each an entry of its own. Not
+ *   so when the last line is full, as running text in a narrow column is: it doesn't end a sentence,
+ *   which ends in the lines of its column below it, and it reaches the end its column's lines share
+ *   (the furthest of its neighbours', the lines of its size starting where it starts that run on
+ *   above and below it), within 1.5 font sizes or the new line's first word, which would have fitted
+ *   on it had it not been full, and goes no further than 1.5 font sizes past it. A German
+ *   paragraph's next line starts with a noun as often as not; an address's or labels' lines end no
+ *   sentence and have widths of their own, which the widest of them passes alone;
  * - unless the text is centred or right-aligned, the last line isn't clearly short: it is at least
  *   8 font sizes wide (a narrower one is an entry of a list or a table, "Apples" above "Oranges"),
  *   and it ends no further short of the block's end (its furthest line, the new one included) than
@@ -141,6 +148,9 @@ object TextBlocks {
     /** A line at least this wide (in font sizes) is running text, whose line step tells the page's line spacing. */
     internal const val LONG_LINE_EM = 15f
 
+    /** A line ending this close (in font sizes) to the end its column's lines share, before it or past it, is full. */
+    internal const val FULL_LINE_EM = 1.5f
+
     /** On a page spaced wider than [MAX_STEP_EM], a paragraph's lines may be this many times its usual step apart… */
     internal const val SPACING_SLACK = 1.1f
 
@@ -203,6 +213,10 @@ object TextBlocks {
     /** What an e-mail or web address broken at a line's end ends that line with. */
     private const val ADDRESS_BREAKS = "-/@_"
 
+    /** What ends a sentence, before any closing quote or bracket. */
+    private const val SENTENCE_ENDS = ".!?:…。！？؟।"
+    private const val CLOSING = ")]}\"'»”’"
+
     /** A note's number or sign, as a footnote starts with… */
     private val NOTE_MARK = Regex("\\d{1,3}|[*†‡§]{1,3}")
 
@@ -238,6 +252,7 @@ object TextBlocks {
         val rows = rows(usable)
         val tableRows = tableRows(rows)
         val spacing = spacing(usable, tableRows)
+        val columns = Columns(usable, spacing)
         val blocks = ArrayList<Block>()
         for (row in rows) {
             var afterMarker = false
@@ -246,7 +261,7 @@ object TextBlocks {
                 val target = if (afterMarker || line in tableRows || previous != null && notesBeside(previous, line) || MARKER.containsMatchIn(line.text)) {
                     null
                 } else {
-                    blocks.filter { it.open && continues(it, line, spacing, pageWidth) }.minWithOrNull(
+                    blocks.filter { it.open && continues(it, line, spacing, columns, pageWidth) }.minWithOrNull(
                         compareBy<Block>({ line.bottom - it.last.bottom }, { abs(line.start(it.rtl) - it.last.start(it.rtl)) }),
                     )
                 }
@@ -425,8 +440,74 @@ object TextBlocks {
     private fun across(row: List<Line>): List<Line> =
         if (row.count { it.rtl } * 2 > row.size) row.sortedByDescending { it.right } else row.sortedBy { it.left }
 
+    /**
+     * A line's column: its neighbours, the lines of its size starting where it starts (within
+     * [SAME_EDGE_EM] font sizes) above and below it, each the next line down of the one above it, as
+     * a paragraph's are (see [Spacing]). [edge] is the furthest their ends reach; [sentenceBelow]
+     * whether one of those below it ends a sentence.
+     */
+    private class Column(val edge: Float, val sentenceBelow: Boolean)
+
+    /** The columns of a page's [lines] (see [Column]), each line's found once, when it is asked for, in the direction it is asked in. */
+    private class Columns(private val lines: List<Line>, private val spacing: Spacing) {
+        private val found = HashMap<Line, Column?>()
+        private val foundMirrored = HashMap<Line, Column?>()
+
+        /** [line]'s column, measured in the direction [rtl]; null when it has no neighbours. */
+        fun of(line: Line, rtl: Boolean): Column? {
+            val cache = if (rtl) foundMirrored else found
+            if (line in cache) return cache[line]
+            val em = line.size
+            val start = line.start(rtl)
+            val column = lines.filter { it === line || sameSize(it.size, em) && abs(it.start(rtl) - start) <= SAME_EDGE_EM * em }.sortedBy { it.bottom }
+            val at = column.indexOfFirst { it === line }
+            var edge: Float? = null
+            var sentenceBelow = false
+            for (direction in listOf(-1, 1)) {
+                var last = line
+                var i = at + direction
+                while (i in column.indices) {
+                    val next = column[i]
+                    val step = abs(next.bottom - last.bottom)
+                    if (step > spacing.maxStep * em) break
+                    // Beside it in a row, not above or below it.
+                    if (step >= MIN_STEP_EM * em) {
+                        edge = max(edge ?: next.end(rtl), next.end(rtl))
+                        if (direction > 0 && endsASentence(next.text)) sentenceBelow = true
+                        last = next
+                    }
+                    i += direction
+                }
+            }
+            return edge?.let { Column(it, sentenceBelow) }.also { cache[line] = it }
+        }
+    }
+
+    /**
+     * Whether [prev], the last line of a block written in the direction [rtl], is full, as running
+     * text in a column narrower than [LONG_LINE_EM] is: it doesn't end a sentence, which goes on to
+     * its end in the lines below it; and it ends within [FULL_LINE_EM] font sizes of the end its
+     * column's lines share (see [Column]), or short of it by less than [line]'s first word, which
+     * would have fitted on it had it not been full; nor does it reach further than [FULL_LINE_EM]
+     * past it. Then [line] goes on from it whatever it starts with (a German noun). An address's or
+     * labels' lines end no sentence, and have widths of their own: one doesn't reach the end of the
+     * widest of the others, and the widest of them passes the others alone.
+     */
+    private fun full(prev: Line, line: Line, rtl: Boolean, columns: Columns): Boolean {
+        if (endsASentence(prev.text)) return false
+        val column = columns.of(prev, rtl) ?: return false
+        if (!column.sentenceBelow) return false
+        val em = prev.size
+        val end = prev.end(rtl)
+        if (end > column.edge + FULL_LINE_EM * em) return false
+        return column.edge - end <= max(FULL_LINE_EM * em, firstWordWidth(line))
+    }
+
+    /** Whether [text] ends with a full stop, a question or exclamation mark, a colon or an ellipsis, before any closing quote or bracket. */
+    private fun endsASentence(text: String): Boolean = text.trimEnd { it in CLOSING || it.isWhitespace() }.lastOrNull()?.let { it in SENTENCE_ENDS } == true
+
     /** Whether [line] goes on [block] as its next line (see [TextBlocks]). */
-    private fun continues(block: Block, line: Line, spacing: Spacing, pageWidth: Float): Boolean {
+    private fun continues(block: Block, line: Line, spacing: Spacing, columns: Columns, pageWidth: Float): Boolean {
         val prev = block.last
         val em = block.size
         if (!sameSize(em, line.size) || line.bold != block.bold) return false
@@ -456,8 +537,9 @@ object TextBlocks {
         if (!brokenAddress && (TranslatableText.isAddresses(prev.text) || TranslatableText.isAddresses(line.text))) return false
         // A line narrower than running text over one starting with a capital or a digit: the lines of
         // an address or of labels, each an entry of its own ("Mrs Sophie Durand" over "Purchasing
-        // Department", "Invoice no. 12" over "Date: 3 May"), however they are aligned.
-        if (prevEnd - prevStart < LONG_LINE_EM * em && startsAnEntry(line.text)) return false
+        // Department", "Invoice no. 12" over "Date: 3 May"), however they are aligned. Unless it is
+        // full, as running text in a narrow column is ("Laufen, Straßenfotografie und" over "Ehrenamt").
+        if (prevEnd - prevStart < LONG_LINE_EM * em && startsAnEntry(line.text) && !full(prev, line, rtl, columns)) return false
         // Centred text: the centres agree and the starts don't, or both lines are centred on the page.
         val centred = centresAlike && (abs(shift) > SAME_EDGE_EM * em || centredOnPage(prev.left, prev.right, pageWidth) && centredOnPage(line.left, line.right, pageWidth))
         if (startsAlike && !centred) {

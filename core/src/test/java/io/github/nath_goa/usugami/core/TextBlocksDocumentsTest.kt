@@ -61,6 +61,22 @@ class TextBlocksDocumentsTest {
         assertEquals(listOf("Abat-jour en lin naturel et coton tissé à la main"), texts(group(cell)))
     }
 
+    @Test fun aGermanParagraphInANarrowColumnIsOneBlock() {
+        // A CV's sidebar 12 sizes wide, in 8.5-point Arial: a paragraph whose lines are full, two of
+        // them going on to a line starting with a noun ("Häuser", "Kinder"), and one ending short of
+        // the others by less than its next line's first word ("die" "Hausaufgabenhilfe"), it is one block.
+        val rows = listOf(
+            "In meiner Freizeit laufe ich" to 99.67f, "gern am Fluss entlang," to 86.45f, "fotografiere Straßen und" to 92.13f,
+            "Häuser der Altstadt und" to 89.29f, "betreue als Ehrenamtliche" to 98.74f, "die Hausaufgabenhilfe für" to 96.86f,
+            "Kinder aus dem Stadtteil." to 94.96f,
+        )
+        val paragraph = paragraph(rows, 23f, 450f, size = 8.5f)
+        assertEquals(listOf(rows.joinToString(" ") { it.first }), texts(group(paragraph)))
+        // Labels in the same column, as long as its lines and as close: they end no sentence, each is a block.
+        val labels = paragraph(listOf("Agiles Projektmanagement" to 101.52f, "Datenanalyse (SQL, Python)" to 108.12f, "Moderation von Workshops" to 103.27f), 23f, 300f, size = 8.5f)
+        assertEquals(labels.map { it.text }, texts(group(labels)))
+    }
+
     @Test fun textThatOnlyLooksCentredIsLeftAligned() {
         // Under a heading at the left margin, a long line and a paragraph of lines all as wide,
         // from 60 to 530 points: their middles are the page's, as the margins are nearly alike.
