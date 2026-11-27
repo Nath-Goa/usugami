@@ -435,11 +435,11 @@ private data class ScanImage(val id: Long)
 private data class ScanPlace(val place: Int)
 
 /**
- * A step's title, and under it [place]: for an image of a scan, which of its images this is; for an
- * ID card's side, which side.
+ * A step's title, and under it [place]: for an image of a scan, which of its images this is (also on
+ * the scan's Filters screen, which page shows large); for an ID card's side, which side.
  */
 @Composable
-private fun StepTitle(title: String, place: String?) {
+internal fun StepTitle(title: String, place: String?) {
     Column {
         BarTitle(title)
         if (place != null) {

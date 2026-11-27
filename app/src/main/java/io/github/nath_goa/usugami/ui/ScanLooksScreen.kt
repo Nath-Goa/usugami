@@ -64,7 +64,6 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
 import io.github.nath_goa.usugami.core.CropQuad
@@ -134,7 +133,7 @@ fun ScanLooksScreen(
         modifier = Modifier.semantics { paneTitle = title },
         topBar = {
             UsugamiTopBar(
-                title = { StageTitle(title, place) },
+                title = { StepTitle(title, place) },
                 navigationIcon = {
                     GlyphButton(onClick = actions.back) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -425,23 +424,6 @@ private fun CroppingPage(number: Int, modifier: Modifier) {
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
         )
-    }
-}
-
-/** The bar's title, and under it [place]: which page is shown large. */
-@Composable
-private fun StageTitle(title: String, place: String?) {
-    Column {
-        BarTitle(title)
-        if (place != null) {
-            Text(
-                place,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
     }
 }
 
