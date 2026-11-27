@@ -16,13 +16,28 @@ Usugami is small, offline and private. Pull requests that add any of the followi
 accepted:
 
 - ads, analytics, crash reporting, tracking or accounts
-- the internet permission, network access or any feature that uploads or downloads files
+- network access in Usugami's own process, or any feature that uploads files or sends anything
+  about the user anywhere
+- the internet permission in Usugami Lite or Usugami OCR
 - new proprietary libraries
 
-Text recognition in the main edition (Usugami) is the one exception to "no network": Google Play
-services, a separate app, downloads a model the first time it is needed (one for the six
-Latin-script languages, one for Hindi). Usugami itself never connects. Usugami Lite and Usugami OCR
-must stay free of Google libraries.
+The main edition (Usugami) has two exceptions to "no network", and both are downloads that
+something outside Usugami's process makes:
+
+- Text recognition: Google Play services, a separate app, downloads a model the first time it is
+  needed (one for the six Latin-script languages, one for Hindi).
+- Translate PDF: Android's download manager downloads a language's pack from Google, about 40 MB,
+  once per language, after the user agrees. This is the only reason Usugami.apk has the
+  `INTERNET` and `ACCESS_NETWORK_STATE` permissions (the download manager only downloads for an
+  app that has the internet permission).
+
+Usugami's own process never connects: `NoConnections.kt` (in `app/src/standard`) refuses every
+http, https and ftp address from the moment the process starts, and `okhttp3/OkHttp.kt` stands in
+for the OkHttp library ML Kit would use to register with Firebase. Keep it that way: don't add a
+library or code that opens a connection, and after updating Google ML Kit, run the checks under
+"Usugami's own process contacts no server" in [docs/TESTING.md](docs/TESTING.md), since a new
+version can bring network code of its own. Usugami Lite and Usugami OCR must stay free of Google
+libraries.
 
 ## Building
 
@@ -49,8 +64,10 @@ if it's missing; they don't need the submodule or CMake.
 
 The three editions are product flavors in the `edition` dimension:
 
-- `standard` (Usugami): text recognition with Google ML Kit through Google Play services. Code in
-  `app/src/standard`; the only edition with Google libraries.
+- `standard` (Usugami): text recognition with Google ML Kit through Google Play services, and
+  Translate PDF with ML Kit's translation. Code in `app/src/standard`; the only edition with Google
+  libraries and the internet permission. Its release build has ARM code only (`arm64-v8a` and
+  `armeabi-v7a`), as the OCR edition's does.
 - `lite` (Usugami Lite): no text recognition. Code in `app/src/lite`. Its application ID has
   `.lite` added (`io.github.nath_goa.usugami.lite`) and its launcher name is "Usugami Lite", so it
   is an app of its own and installs next to the other two, which share theirs. Anything that names
@@ -63,8 +80,9 @@ The three editions are product flavors in the `edition` dimension:
   tests: a missing layer only shows when a model loads.
 
 Shared code lives in `app/src/main` and should work in all three. Each edition provides
-`ocrEngine(context)` (null in Usugami Lite); `BuildConfig.EDITION` and `BuildConfig.HAS_OCR` tell
-them apart. Release builds are only signed when a key is configured (see the README), so you don't
+`ocrEngine(context)` (null in Usugami Lite) and `translationEngine(context)` (null in Usugami Lite
+and Usugami OCR), and its own `ui/TranslateFeature.kt`; `BuildConfig.EDITION`,
+`BuildConfig.HAS_OCR` and `BuildConfig.HAS_TRANSLATION` tell them apart. Release builds are only signed when a key is configured (see the README), so you don't
 need one to contribute. [docs/TESTING.md](docs/TESTING.md) explains the tests.
 
 ## Translations
@@ -174,13 +192,17 @@ To submit or update the apps, copy the two recipes into fdroiddata as
   Google libraries, regenerate `third_party/google-notices.txt` with `tools/google_notices.py`. For
   Usugami OCR's models, run `tools/make_ocr_models.py`, which checks them against
   `tools/ocr-models.sha256`.
-- CI must pass. It also fails if any APK requests a permission (besides the app's own
-  signature-level receiver permission), or if a library adds back ML Kit's metrics upload backend
-  or the EmojiCompat initializer. If a dependency update trips this, remove the entry in
-  `app/src/main/AndroidManifest.xml` with `tools:node="remove"`, or explain in the pull request
-  why Usugami needs it. CI also fails if Usugami Lite or Usugami OCR contains any Google ML Kit,
-  Play services, Firebase or DataTransport code, or if a native library isn't aligned for phones
-  with 16 KB memory pages.
+- CI must pass. It also fails if any APK requests a permission besides the app's own
+  signature-level receiver permission (Usugami.apk alone may also request `INTERNET` and
+  `ACCESS_NETWORK_STATE`, which Translate PDF's language packs need), or if a library adds back
+  ML Kit's metrics upload backend or the EmojiCompat initializer. If a dependency update trips
+  this, remove the entry with `tools:node="remove"`: in `app/src/main/AndroidManifest.xml` for a
+  permission no edition needs, or in `app/src/lite/AndroidManifest.xml` and
+  `app/src/ocr/AndroidManifest.xml` for one only Usugami.apk keeps. Never remove `INTERNET` or
+  `ACCESS_NETWORK_STATE` in the main manifest: Usugami.apk would lose its language packs, and CI
+  doesn't notice a missing permission. Or explain in the pull request why Usugami needs it. CI
+  also fails if Usugami Lite or Usugami OCR contains any Google ML Kit, Play services, Firebase or
+  DataTransport code, or if a native library isn't aligned for phones with 16 KB memory pages.
 
 ## License of contributions
 
