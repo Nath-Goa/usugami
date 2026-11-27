@@ -820,10 +820,12 @@ On a phone or emulator, with the release APKs:
   beyond them, it says the page was found and outlines the paper as far as it shows; with the
   page filling the photo, or running off it on two sides, it says to drag the corners and the
   outline starts a little in from every side.
-- Settings → Donate opens the page with the four steps to donate through GitHub Sponsors; its
-  Open GitHub opens github.com/Nath-Goa/usugami in the browser once, however fast it is tapped
-  twice; with no browser installed, a message says no app can open web links. Back returns to
-  Settings.
+- Settings → Donate opens the page with the four steps to donate through Buy Me a Coffee; its
+  Open Buy Me a Coffee opens buymeacoffee.com/usugami in the browser once, however fast it is
+  tapped twice; with no browser installed, a message says no app can open web links. Under the
+  steps, "Donate with GitHub Sponsors instead" opens the four steps for GitHub Sponsors, whose
+  Open GitHub opens github.com/Nath-Goa/usugami in the same way. Back returns from there to
+  Donate, and from Donate to Settings.
 - Recent files: save a PDF with Save as, delete it in the Files app and come back to Usugami: it
   has left the list.
 - A digitally signed PDF that Compress PDF kept as it was and Usugami watermarked, then signed

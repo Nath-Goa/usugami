@@ -80,7 +80,7 @@ import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Where Usugami's source code is published. Its Sponsor button takes donations (see DonateScreen). */
+/** Where Usugami's source code is published. Its Sponsor button takes donations (see [GitHubSponsorsScreen]). */
 const val SOURCE_CODE_URL = "https://github.com/Nath-Goa/usugami"
 
 /** The app's version and edition, what it does with data, and its license, notices and source code. */

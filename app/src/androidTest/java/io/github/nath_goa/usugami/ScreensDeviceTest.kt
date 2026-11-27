@@ -75,6 +75,7 @@ import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.data.SignatureInk
 import io.github.nath_goa.usugami.data.office.OfficeKind
 import io.github.nath_goa.usugami.ui.CropSession
+import io.github.nath_goa.usugami.ui.DONATE_URL
 import io.github.nath_goa.usugami.ui.MainViewModel
 import io.github.nath_goa.usugami.ui.Motion
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
@@ -2915,13 +2916,27 @@ class ScreensDeviceTest {
         fun english(res: Int) = stringIn(AppLanguage.ENGLISH, res)
         click(find("Settings on Home") { it.says(english(R.string.settings)) })
         find("the GitHub link") { it.says(english(R.string.about_source_detail)) }
-        // Donate opens its steps, whose button opens Usugami's GitHub page, with the Sponsor button, in the browser.
+        // Donate opens the steps for Buy Me a Coffee, whose button opens Usugami's page there in the browser.
         click(find("the donation link") { it.says(english(R.string.settings_donate)) })
-        find("the step with the Sponsor button") { it.text?.contains(english(R.string.donate_step_sponsor)) == true }
+        find("the step with the Support button") { it.text?.contains(english(R.string.donate_coffee_step_pay)) == true }
+        val coffee = intercept(Intent.ACTION_VIEW, Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)) {
+            click(find("Open Buy Me a Coffee") { it.says(english(R.string.donate_open_coffee)) })
+        }
+        assertEquals(DONATE_URL, coffee.dataString)
+        // Under those steps, GitHub Sponsors has a page of its own, whose button opens Usugami's GitHub
+        // page, with the Sponsor button.
+        click(findBelow("the way to GitHub Sponsors") { it.says(english(R.string.donate_github_instead)) })
+        find("the step with the Sponsor button") { it.text?.contains(english(R.string.donate_github_step_sponsor)) == true }
+        // The browser caught above never covered Usugami, which opens the next screen a second after it.
+        Thread.sleep(1_100)
         val github = intercept(Intent.ACTION_VIEW, Instrumentation.ActivityResult(Activity.RESULT_CANCELED, null)) {
             click(find("Open GitHub") { it.says(english(R.string.donate_open_github)) })
         }
         assertEquals(SOURCE_CODE_URL, github.dataString)
+        // Back from GitHub Sponsors is Donate, and back from Donate is Settings.
+        click(find("GitHub Sponsors' back button") { it.says(english(R.string.back)) })
+        find("Donate, with Buy Me a Coffee's steps") { it.says(english(R.string.donate_open_coffee)) }
+        waitUntil("GitHub Sponsors to slide away") { nodes().none { it.says(english(R.string.donate_open_github)) } }
         click(find("Donate's back button") { it.says(english(R.string.back)) })
         find("About in Settings") { it.says(english(R.string.about)) }
         click(find("the language entry") { it.says(english(R.string.settings_language)) })

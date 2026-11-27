@@ -832,13 +832,20 @@
     <string name="appearance_dark">Gelap</string>
     <string name="settings_github">Kode sumber di GitHub</string>
     <string name="settings_donate">Donasi</string>
-    <string name="donate_intro">Usugami gratis dan tanpa iklan. Jika aplikasi ini bermanfaat, Anda dapat mendukungnya melalui GitHub Sponsors:</string>
-    <string name="donate_step_open">Buka halaman Usugami di GitHub:</string>
-    <string name="donate_open_github">Buka GitHub</string>
-    <string name="donate_step_sponsor">Ketuk \"Sponsor\", lalu \"Sponsor\" di samping Nath-Goa.</string>
-    <string name="donate_step_amount">Pilih \"Monthly\" (bulanan) atau \"One-time\" (sekali bayar), lalu pilih jumlahnya.</string>
-    <string name="donate_step_pay">Masuk ke GitHub jika diminta, lalu bayar.</string>
+    <string name="donate_intro">Usugami gratis dan tanpa iklan. Jika aplikasi ini bermanfaat, Anda dapat mendukungnya melalui Buy Me a Coffee:</string>
+    <string name="donate_coffee_step_open">Buka halaman Usugami di Buy Me a Coffee:</string>
+    <string name="donate_open_coffee">Buka Buy Me a Coffee</string>
+    <string name="donate_coffee_step_amount">Pilih jumlah kopi yang ingin Anda beli.</string>
+    <string name="donate_coffee_step_message">Tambahkan nama dan pesan jika Anda mau.</string>
+    <string name="donate_coffee_step_pay">Ketuk \"Support\" (dukung), lalu bayar.</string>
     <string name="donate_thanks">Terima kasih!</string>
+    <string name="donate_github_instead">Donasi melalui GitHub Sponsors saja</string>
+    <string name="donate_github_intro">Usugami gratis dan tanpa iklan. Jika aplikasi ini bermanfaat, Anda dapat mendukungnya melalui GitHub Sponsors:</string>
+    <string name="donate_github_step_open">Buka halaman Usugami di GitHub:</string>
+    <string name="donate_open_github">Buka GitHub</string>
+    <string name="donate_github_step_sponsor">Ketuk \"Sponsor\", lalu \"Sponsor\" di samping Nath-Goa.</string>
+    <string name="donate_github_step_amount">Pilih \"Monthly\" (bulanan) atau \"One-time\" (sekali bayar), lalu pilih jumlahnya.</string>
+    <string name="donate_github_step_pay">Masuk ke GitHub jika diminta, lalu bayar.</string>
     <string name="settings_about_detail">Versi, kebijakan privasi, dan lisensi</string>
 
     <!-- About -->

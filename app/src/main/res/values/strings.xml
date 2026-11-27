@@ -871,17 +871,29 @@
     <string name="appearance_dark">Dark</string>
     <string name="settings_github">Source code on GitHub</string>
     <string name="settings_donate">Donate</string>
-    <string name="settings_donate_detail" translatable="false">GitHub Sponsors</string>
+    <string name="settings_donate_detail" translatable="false">Buy Me a Coffee</string>
     <string name="settings_about_detail">Version, privacy policy and licenses</string>
 
-    <!-- Donate: how to donate through GitHub Sponsors. GitHub's own buttons (Sponsor, Monthly, One-time) are in English. -->
-    <string name="donate_intro">Usugami is free and has no ads. If you find it useful, you can support it through GitHub Sponsors:</string>
-    <string name="donate_step_open">Go to Usugami\'s page on GitHub:</string>
-    <string name="donate_open_github">Open GitHub</string>
-    <string name="donate_step_sponsor">Tap Sponsor, then Sponsor next to Nath-Goa.</string>
-    <string name="donate_step_amount">Choose Monthly or One-time, and your amount.</string>
-    <string name="donate_step_pay">Sign in to GitHub if it asks, then pay.</string>
+    <!-- Donate: how to donate through Buy Me a Coffee. Its page is in English, with its Support button, unless the
+         visitor chooses another language at the foot of it. -->
+    <string name="donate_intro">Usugami is free and has no ads. If you find it useful, you can support it through Buy Me a Coffee:</string>
+    <string name="donate_coffee_step_open">Go to Usugami\'s page on Buy Me a Coffee:</string>
+    <string name="donate_coffee_detail" translatable="false">buymeacoffee.com/usugami</string>
+    <string name="donate_open_coffee">Open Buy Me a Coffee</string>
+    <string name="donate_coffee_step_amount">Choose how many coffees to buy.</string>
+    <string name="donate_coffee_step_message">Add your name and a message, if you like.</string>
+    <string name="donate_coffee_step_pay">Tap Support, then pay.</string>
     <string name="donate_thanks">Thank you!</string>
+    <string name="donate_github_instead">Donate with GitHub Sponsors instead</string>
+
+    <!-- GitHub Sponsors, the other way to donate, on a page of its own. GitHub's own buttons (Sponsor, Monthly, One-time) are in English. -->
+    <string name="donate_github_title" translatable="false">GitHub Sponsors</string>
+    <string name="donate_github_intro">Usugami is free and has no ads. If you find it useful, you can support it through GitHub Sponsors:</string>
+    <string name="donate_github_step_open">Go to Usugami\'s page on GitHub:</string>
+    <string name="donate_open_github">Open GitHub</string>
+    <string name="donate_github_step_sponsor">Tap Sponsor, then Sponsor next to Nath-Goa.</string>
+    <string name="donate_github_step_amount">Choose Monthly or One-time, and your amount.</string>
+    <string name="donate_github_step_pay">Sign in to GitHub if it asks, then pay.</string>
 
     <!-- About -->
     <string name="about">About Usugami</string>

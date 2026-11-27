@@ -862,13 +862,20 @@
     <string name="appearance_dark">Dunkel</string>
     <string name="settings_github">Quellcode auf GitHub</string>
     <string name="settings_donate">Spenden</string>
-    <string name="donate_intro">Usugami ist kostenlos und werbefrei. Wenn dir die App hilft, kannst du sie über GitHub Sponsors unterstützen:</string>
-    <string name="donate_step_open">Öffne die Seite von Usugami auf GitHub:</string>
-    <string name="donate_open_github">GitHub öffnen</string>
-    <string name="donate_step_sponsor">Tippe auf „Sponsor“ und dann neben Nath-Goa noch einmal auf „Sponsor“.</string>
-    <string name="donate_step_amount">Wähle „Monthly“ (monatlich) oder „One-time“ (einmalig) und deinen Betrag.</string>
-    <string name="donate_step_pay">Melde dich bei GitHub an, falls du dazu aufgefordert wirst, und bezahle.</string>
+    <string name="donate_intro">Usugami ist kostenlos und werbefrei. Wenn dir die App hilft, kannst du sie über Buy Me a Coffee unterstützen:</string>
+    <string name="donate_coffee_step_open">Öffne die Seite von Usugami auf Buy Me a Coffee:</string>
+    <string name="donate_open_coffee">Buy Me a Coffee öffnen</string>
+    <string name="donate_coffee_step_amount">Wähle, wie viele Kaffees du spendieren möchtest.</string>
+    <string name="donate_coffee_step_message">Gib deinen Namen und eine Nachricht an, wenn du möchtest.</string>
+    <string name="donate_coffee_step_pay">Tippe auf „Support“ (unterstützen) und bezahle.</string>
     <string name="donate_thanks">Vielen Dank!</string>
+    <string name="donate_github_instead">Stattdessen über GitHub Sponsors spenden</string>
+    <string name="donate_github_intro">Usugami ist kostenlos und werbefrei. Wenn dir die App hilft, kannst du sie über GitHub Sponsors unterstützen:</string>
+    <string name="donate_github_step_open">Öffne die Seite von Usugami auf GitHub:</string>
+    <string name="donate_open_github">GitHub öffnen</string>
+    <string name="donate_github_step_sponsor">Tippe auf „Sponsor“ und dann neben Nath-Goa noch einmal auf „Sponsor“.</string>
+    <string name="donate_github_step_amount">Wähle „Monthly“ (monatlich) oder „One-time“ (einmalig) und deinen Betrag.</string>
+    <string name="donate_github_step_pay">Melde dich bei GitHub an, falls du dazu aufgefordert wirst, und bezahle.</string>
     <string name="settings_about_detail">Version, Datenschutzerklärung und Lizenzen</string>
 
     <!-- About -->

@@ -396,6 +396,8 @@ fun UsugamiApp(
 
     fun openSourceCode() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, SOURCE_CODE_URL.toUri())) }
 
+    fun openDonate() = launch(R.string.msg_no_browser) { context.startActivity(Intent(Intent.ACTION_VIEW, DONATE_URL.toUri())) }
+
     // No Print anywhere on a phone without printing.
     val canPrint = remember(context) { PdfPrinting.available(context) }
     val scope = rememberCoroutineScope()
@@ -777,7 +779,8 @@ fun UsugamiApp(
     // Which screen is showing. The result screens sit one level deeper than their editors, which
     // sit one level deeper than home, and so do Recent files ("recent"), Settings ("settings"), About
     // ("settings/about") and Donate ("settings/donate"), and the texts About opens
-    // ("settings/about/privacy"); that depth decides the slide direction.
+    // ("settings/about/privacy") and the GitHub Sponsors steps Donate opens ("settings/donate/github");
+    // that depth decides the slide direction.
     // A tool opened from Choose a tool ("share") sits one level deeper than it. The crop screen sits
     // beside the editor's result; a scan of images picked keeps it showing while its next image is
     // awaited. The ID card flow's prompt ("images/card") sits beside them.
@@ -920,7 +923,16 @@ fun UsugamiApp(
                 }
                 current == "settings/donate" -> {
                     BackHandler(enabled = active) { route = "settings" }
-                    DonateScreen(snackbar = screenSnackbar, onBack = { route = "settings" }, onOpenGitHub = { openSourceCode() })
+                    DonateScreen(
+                        snackbar = screenSnackbar,
+                        onBack = { route = "settings" },
+                        onOpenCoffee = { openDonate() },
+                        onGitHubSponsors = { route = "settings/donate/github" },
+                    )
+                }
+                current == "settings/donate/github" -> {
+                    BackHandler(enabled = active) { route = "settings/donate" }
+                    GitHubSponsorsScreen(snackbar = screenSnackbar, onBack = { route = "settings/donate" }, onOpenGitHub = { openSourceCode() })
                 }
                 current == "settings/about" -> {
                     BackHandler(enabled = active) { route = "settings" }
@@ -1597,6 +1609,7 @@ private fun isPdfToolRoute(route: String): Boolean = PdfTool.entries.any { it.na
 
 /**
  * How deep a screen is: home 0, a tool's editor, Choose a tool, Recent files or Settings 1, a result,
- * a tool opened from Choose a tool, About or Donate 2, a text About opens 3.
+ * a tool opened from Choose a tool, About or Donate 2, a text About opens or Donate's GitHub Sponsors
+ * steps 3.
  */
 private fun screenDepth(screen: String): Int = if (screen == "home") 0 else 1 + screen.count { it == '/' }

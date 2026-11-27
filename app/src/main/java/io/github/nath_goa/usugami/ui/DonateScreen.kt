@@ -46,19 +46,73 @@ import io.github.nath_goa.usugami.ui.kit.ButtonGlyph
 import io.github.nath_goa.usugami.ui.kit.ButtonWithGlyphPadding
 import io.github.nath_goa.usugami.ui.kit.GlyphButton
 import io.github.nath_goa.usugami.ui.kit.PrimaryButton
+import io.github.nath_goa.usugami.ui.kit.QuietButton
 import io.github.nath_goa.usugami.ui.kit.Sheet
 import io.github.nath_goa.usugami.ui.kit.SheetDivider
 import io.github.nath_goa.usugami.ui.kit.Space
 import io.github.nath_goa.usugami.ui.kit.Usugami
 import io.github.nath_goa.usugami.ui.kit.UsugamiTopBar
 
+/** Usugami's page on Buy Me a Coffee, which takes donations (see [DonateScreen]). */
+const val DONATE_URL = "https://buymeacoffee.com/usugami"
+
 /**
- * How to donate, in four steps: through GitHub Sponsors, from the Sponsor button on Usugami's page
- * on GitHub, which [onOpenGitHub] opens in the browser.
+ * How to donate, in four steps: through Buy Me a Coffee, on Usugami's page there, which
+ * [onOpenCoffee] opens in the browser. Under the steps, [onGitHubSponsors] opens the steps for
+ * GitHub Sponsors ([GitHubSponsorsScreen]).
+ */
+@Composable
+fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenCoffee: () -> Unit, onGitHubSponsors: () -> Unit) {
+    DonatePage(title = stringResource(R.string.settings_donate), intro = stringResource(R.string.donate_intro), snackbar = snackbar, onBack = onBack) { textStart ->
+        // The steps lay on the ground in 2.0.1: their sheet is drawn, and is no node of its own.
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            DonateStep(1, stringResource(R.string.donate_coffee_step_open)) {
+                StepLink(stringResource(R.string.donate_coffee_detail), stringResource(R.string.donate_open_coffee), onOpenCoffee)
+            }
+            SheetDivider(inset = textStart)
+            DonateStep(2, stringResource(R.string.donate_coffee_step_amount))
+            SheetDivider(inset = textStart)
+            DonateStep(3, stringResource(R.string.donate_coffee_step_message))
+            SheetDivider(inset = textStart)
+            DonateStep(4, stringResource(R.string.donate_coffee_step_pay))
+        }
+        Thanks()
+        // The other way to donate. Its label is centred when a long translation wraps.
+        QuietButton(onClick = onGitHubSponsors, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text(stringResource(R.string.donate_github_instead), textAlign = TextAlign.Center)
+        }
+    }
+}
+
+/**
+ * The other way to donate, in four steps: through GitHub Sponsors, from the Sponsor button on
+ * Usugami's page on GitHub, which [onOpenGitHub] opens in the browser. [onBack] returns to Donate.
+ */
+@Composable
+fun GitHubSponsorsScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: () -> Unit) {
+    DonatePage(title = stringResource(R.string.donate_github_title), intro = stringResource(R.string.donate_github_intro), snackbar = snackbar, onBack = onBack) { textStart ->
+        Sheet(Modifier.fillMaxWidth(), group = false) {
+            DonateStep(1, stringResource(R.string.donate_github_step_open)) {
+                StepLink(stringResource(R.string.about_source_detail), stringResource(R.string.donate_open_github), onOpenGitHub)
+            }
+            SheetDivider(inset = textStart)
+            DonateStep(2, stringResource(R.string.donate_github_step_sponsor))
+            SheetDivider(inset = textStart)
+            DonateStep(3, stringResource(R.string.donate_github_step_amount))
+            SheetDivider(inset = textStart)
+            DonateStep(4, stringResource(R.string.donate_github_step_pay))
+        }
+        Thanks()
+    }
+}
+
+/**
+ * A page of steps to donate: its [title] on the bar, the [intro], then [content], which is given
+ * where a step's text starts, for the lines between the steps.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: () -> Unit) {
+private fun DonatePage(title: String, intro: String, snackbar: SnackbarHostState, onBack: () -> Unit, content: @Composable ColumnScope.(textStart: Dp) -> Unit) {
     // A hairline shows under the bar once the page scrolls under it.
     val barScroll = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -66,7 +120,7 @@ fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: 
         topBar = {
             UsugamiTopBar(
                 scrollBehavior = barScroll,
-                title = { BarTitle(stringResource(R.string.settings_donate)) },
+                title = { BarTitle(title) },
                 navigationIcon = {
                     GlyphButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
@@ -82,38 +136,33 @@ fun DonateScreen(snackbar: SnackbarHostState, onBack: () -> Unit, onOpenGitHub: 
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(Modifier.widthIn(max = Space.content).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.gap)) {
-                Text(stringResource(R.string.donate_intro), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 8.dp))
-                val textStart = stepTextStart()
-                // The steps lay on the ground in 2.0.1: their sheet is drawn, and is no node of its own.
-                Sheet(Modifier.fillMaxWidth(), group = false) {
-                    DonateStep(1, stringResource(R.string.donate_step_open)) {
-                        Text(
-                            stringResource(R.string.about_source_detail),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        PrimaryButton(onClick = onOpenGitHub, modifier = Modifier.padding(top = 8.dp), contentPadding = ButtonWithGlyphPadding) {
-                            ButtonGlyph(Icons.AutoMirrored.Rounded.OpenInNew)
-                            Text(stringResource(R.string.donate_open_github))
-                        }
-                    }
-                    SheetDivider(inset = textStart)
-                    DonateStep(2, stringResource(R.string.donate_step_sponsor))
-                    SheetDivider(inset = textStart)
-                    DonateStep(3, stringResource(R.string.donate_step_amount))
-                    SheetDivider(inset = textStart)
-                    DonateStep(4, stringResource(R.string.donate_step_pay))
-                }
-                Text(
-                    stringResource(R.string.donate_thanks),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 4.dp, end = 8.dp),
-                )
+                Text(intro, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 8.dp))
+                content(stepTextStart())
             }
         }
     }
+}
+
+/** Under a step's text: the [address] its button opens, then the button, which says [open]. */
+@Composable
+private fun StepLink(address: String, open: String, onOpen: () -> Unit) {
+    Text(address, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    PrimaryButton(onClick = onOpen, modifier = Modifier.padding(top = 8.dp), contentPadding = ButtonWithGlyphPadding) {
+        ButtonGlyph(Icons.AutoMirrored.Rounded.OpenInNew)
+        Text(open)
+    }
+}
+
+/** "Thank you!", under the steps. */
+@Composable
+private fun Thanks() {
+    Text(
+        stringResource(R.string.donate_thanks),
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth().padding(start = 8.dp, top = 4.dp, end = 8.dp),
+    )
 }
 
 /** A step's padding in its sheet, and the gap between its number circle and its text. */
