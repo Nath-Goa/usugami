@@ -73,7 +73,8 @@ data class TranslateProgress(val stage: Stage, val done: Int, val total: Int) {
  * that was translated, in page order, among the pages chosen:
  * - [noText]: pages with no text to translate (a picture, a blank page, only numbers): in the new PDF as they are.
  * - [unread]: pages that look scanned but couldn't be read (no text recognition for the language, or it failed on the page): as they are.
- * - [partly]: pages where a paragraph was left as it was, because translating it failed or this phone has no font that draws its translation.
+ * - [partly]: pages where a paragraph was left as it was, because translating it failed or this phone has no font that draws its translation;
+ *   and pages of more lines than a page has (see [PdfTranslator.MAX_PAGE_LINES]), left as they are.
  */
 class TranslateOutcome(val file: PdfFile, val noText: List<Int>, val unread: List<Int>, val partly: List<Int>)
 
@@ -337,6 +338,13 @@ private class PdfTranslator(
         val width = frame.shownWidth
         val height = frame.shownHeight
         if (!(width > 0f && height > 0f && width.isFinite() && height.isFinite())) throw PageNotDrawn(index, null)
+        if (lines != null && lines.lines.size > MAX_PAGE_LINES) {
+            // Grouping compares each line with the others: so many would hold up the run, and Cancel, for
+            // minutes. The page stays as it is.
+            partly += index
+            plain(index)
+            return
+        }
         var blocks = lines?.let { TextBlocks.group(it.lines, width, height) }.orEmpty()
         var chosen = blocks.filter { TranslatableText.isWorthTranslating(it.text) }
         if (chosen.isEmpty()) {
@@ -756,6 +764,9 @@ private class PdfTranslator(
     companion object {
         /** Pages read at a time. */
         const val READ_BATCH = 20
+
+        /** A page with more lines than this stays as it is: a real page, a dense table too, has a few thousand at most. */
+        const val MAX_PAGE_LINES = 5_000
 
         /** Pages of a stamp PDF: then its text is put on its pages and it is closed. */
         const val STAMP_PAGES = 20

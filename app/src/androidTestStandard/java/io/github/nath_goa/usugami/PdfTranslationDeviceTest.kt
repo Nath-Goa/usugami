@@ -38,6 +38,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOut
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineNode
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.text.TextPosition
+import com.tom_roush.pdfbox.util.Matrix
 import io.github.nath_goa.usugami.core.TranslatedPages
 import io.github.nath_goa.usugami.data.NothingToTranslate
 import io.github.nath_goa.usugami.data.OcrEngine
@@ -718,6 +719,32 @@ class PdfTranslationDeviceTest {
         val outcome = translate(import(file), ocr = FakeOcr(emptyList()), source = "ja")
         assertEquals(listOf(0), outcome.noText)
         assertEquals(listOf(1), outcome.unread)
+    }
+
+    @Test fun aPageOfVeryManyLinesIsLeftAsItIs() {
+        val file = File(dir, "dense.pdf")
+        PDDocument().use { doc ->
+            // 5 600 cells of two letters, each far from the next: a line each.
+            doc.addPage(PDPage(PDRectangle.A4).also { page ->
+                PDPageContentStream(doc, page).use { c ->
+                    c.beginText()
+                    c.setFont(PDType1Font.HELVETICA, 3f)
+                    for (row in 0 until 140) for (col in 0 until 40) {
+                        c.setTextMatrix(Matrix.getTranslateInstance(20f + col * 14f, 820f - row * 5.6f))
+                        c.showText("ab")
+                    }
+                    c.endText()
+                }
+            })
+            doc.addPage(PDPage(PDRectangle.A4).also { article(it, doc) })
+            doc.save(file)
+        }
+        val started = SystemClock.elapsedRealtime()
+        val outcome = translate(import(file))
+        Log.i(TAG, "A page of 5 600 lines and the article in ${SystemClock.elapsedRealtime() - started} ms")
+        assertEquals(listOf(0), outcome.partly)
+        assertFalse(textOf(outcome.file.file, 0).contains(marked("ab")))
+        assertTrue(textOf(outcome.file.file, 1).contains(marked(HEADING)))
     }
 
     @Test fun theLanguageIsDetectedFromTheFirstPagesWithText() {
