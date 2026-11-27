@@ -234,8 +234,30 @@ dates, PDF/A identification, the wrapper) written as it was.
 For launcher shortcuts they cover what a shortcut does wherever Usugami is: refused with a message
 while a job runs, ignored while shared files wait or a question shows, asking over unsaved work in
 a tool, opening over saved work, Home and Choose a tool, and in Images to PDF keeping the images
-(Scan document adds a photo only on the plain image list; Merge and Compress open over them); and a
-shortcut found by its id and nothing else. For Usugami OCR they also check that its Latin
+(Scan document starts a scan whose pages join them only on the plain image list; Merge and
+Compress open over them); and a shortcut found by its id and nothing else.
+
+For Translate PDF they cover how a page's lines are grouped into paragraphs to translate: a
+paragraph of several lines one block and a short last line ending it, headings, running heads,
+footers, table cells and list items apart, columns read side by side and never joined, lines given
+in any order giving the same blocks, a centred title of two lines, a word broken at a line's end
+joined again and a hyphen standing for a word's end ("Vor- und Nachname") kept with its space,
+Chinese lines joined without a space, right-to-left paragraphs read from the right, indents and
+hanging indents, a superscript, double spacing and each block's alignment; and, on pages laid out
+as letters, invoices and articles are, short paragraphs kept apart, an address's lines and labels
+one block each, text that only looks centred kept left-aligned, labels right-aligned together,
+each entry of a contents page, a price list or a form a block of its own, and each footnote
+starting at its number. They cover what is translated and what stays (web and e-mail addresses,
+file names, numbers, dates, amounts and codes; Chinese, Japanese and Thai paragraphs with digits
+translated, and an address told from the words around it); a long block cut for the translator at
+its sentences' ends, else between words, never inside a character (a long run of closing brackets
+too), and joined again with spaces only between spaced writing; a translation fitted into its
+place (left as it is when it fits, a paragraph growing down and a line towards its end, right to
+left to the left and centred both ways, short of its neighbours and the margins, then made smaller
+in steps of 7 % down to a smallest size, past which it runs on); the colour a block sits on and the
+colour of its letters (a coloured band, white on dark, a rule through the ring left out, a contrast
+of at least 3:1 measured as WCAG does); and a translated page's picture at 150 dpi, a huge page kept
+in its shape within 12 million pixels. For Usugami OCR they also check that its Latin
 dictionary has every German and Portuguese letter (ä, ö, ü, ß, ã, õ, ç and the accented vowels,
 capitals too). The translations are checked as well (`TranslationsTest`): each language has every
 English text and no other, with the same placeholders, plural forms and line breaks, apostrophes
@@ -258,6 +280,24 @@ tests wait a fixed time for the screen: `ScreensDeviceTest` scrolls down Home ha
 step, so on a machine under load a test such as `severalPdfsAreSharedOrSavedAsOneZip` can time out
 looking for a tool on Home. That is the test's timing, not the app's (2.0.1 does the same): run it
 again once the machine is quiet.
+
+A full run of Usugami's tests (over 500 of them, about 25 minutes on an emulator) needs:
+
+- **An Android 15 (API 35) image.** On an Android 17 image,
+  `ImageTypesDeviceTest#tilesGiveTheColoursAndroidGives` fails on `tiles.heic`, a Display P3
+  picture: asked for sRGB, Android 17's own decoders hand back its P3 numbers unconverted, so the
+  test's reference is wrong there, while Usugami converts them right. It passed on Android 15 in
+  3.0's full run.
+- **The Play Store kept from updating apps.** On an emulator with Google Play, the Play Store
+  updates apps during the run: that slows the screens enough for tests waiting a fixed time (such
+  as `EditionDeviceTest` and `MarkSwitchDeviceTest`) to time out, and it can fill the storage so
+  that the next install fails. Block only the Play Store's network, leaving Google Play services
+  theirs: `adb shell cmd connectivity set-chain3-enabled true`, then
+  `adb shell cmd connectivity set-package-networking-enabled false com.android.vending`.
+- **A network.** Some tests need the internet (see the end of this section); an emulator's saved
+  state can start it in airplane mode, which must be turned off.
+- **Nothing that stops Gradle's daemon** while the tests run (`gradlew --stop` anywhere on the
+  computer ends the run part way).
 
 They use small synthetic PDFs, a made-up Word report and a made-up slide deck in
 `app/src/androidTest/assets` (the two Office files are rebuilt with `tools/make_office_fixtures.py`,
@@ -438,26 +478,25 @@ which needs python-docx and python-pptx), and check, with PDFBox text extraction
   widened with buttons, the preview naming the chosen box and stepping to the next, a box drawn
   with injected touches, all of it surviving the activity being recreated, deleting a box, "Remove
   all" asking first, the redacted result, and the boxes still there after going back from it; Take
-  photo with the camera app caught and answered (it may write the file it is given): the crop
-  screen on the page found, a corner moved with a screen reader's actions and another chosen like a
-  radio button and moved with the arrow buttons, both kept through the activity being recreated,
-  Take another cropping the photo and taking the next, the next one discarded, a page's Crop button
-  opening it again with Back instead, and the message on a phone without a camera app; a corner
-  dragged with injected touches past the others and back, staying under the finger while the hint
-  says the corners make no page, with the image not moving; a side dragged moving across itself,
-  its corners going along the sides beside it; Rotate left and right on the crop step turning the
-  page, cropped as it was; the Filters step's looks as radio buttons, a new scan starting on
-  Enhanced, the look, brightness and contrast kept through the activity being recreated and
-  reaching the page, the next photo starting on the look chosen last with the sliders at 0, and
-  Grayscale and more contrast given to both pages with Apply to all pages, which each page then
-  says to a screen reader; Scan document's title read as one heading; Scan document's Take photo
-  opening the camera over the editor, and a scan from Home that leaves no page going back to Home
-  (the camera closed without a photo, or saying it took one it never saved, and an image that can't
-  be read), also after a document shared to Usugami opened its tool over the scan and Back came
-  back to it, while once a page was kept the editor stays, also when that page is removed; Scan
-  document's Upload images taking the images through both steps one after another, "Page 2 of 5"
-  under the title and in the name a screen reader hears, Next until the last, which has Done, and
-  the rest left in the editor as they were added when the screen is closed part way;
+  photo with the camera app caught and answered (it may write the file it is given): the scan's
+  Photos screen, then the crop screen on the page found, a corner moved with a screen reader's
+  actions and another chosen like a radio button and moved with the arrow buttons, both kept
+  through the activity being recreated, a page's Crop button opening it again with Back, Next and
+  Done, and the message on a phone without a camera app; a corner dragged with injected touches
+  past the others and back, staying under the finger while the hint says the corners make no page,
+  with the image not moving; a side dragged moving across itself, its corners going along the sides
+  beside it; Rotate left and right on the crop screen turning the page, cropped as it was; the
+  scan's Filters screen, its looks as radio buttons, every page starting on Enhanced, the look,
+  brightness and contrast kept through the activity being recreated and reaching the page shown, or
+  every page of the scan with Same filter for all pages, and a look given to every page with Apply
+  to all pages on a page cropped again, which each page then says to a screen reader; Scan
+  document's title read as one heading; Scan document's Take photo opening the camera over the
+  editor, and a scan from Home that leaves no page going back to Home (the camera closed without a
+  photo, or saying it took one it never saved, and an image that can't be read), also after a
+  document shared to Usugami opened its tool over the scan and Back came back to it, while once a
+  page was kept the editor stays, also when that page is removed; Scan document's Upload images
+  cropping the images one after another, "Page 2 of 5" under the title and in the name a screen
+  reader hears, with Next on each, and Stop cropping leaving the rest whole and going on to Filters;
   the
   result screen's "Share or save as ZIP" menu for a split and for one PDF per image, with the share
   screen and the "Save as" screen it starts caught and answered (the type, the name and the ZIP
@@ -491,33 +530,58 @@ opening Choose a tool;
   shape, each corner's colour in its corner and the line straight across the middle, from a JPEG,
   a PNG (which stays a PNG) and a 17-megapixel photo (made at most 3000 pixels long), with no EXIF
   data or location left. Through the view model, a photo the camera app saves into the file Usugami
-  gives it is added and the crop screen opens on the page found; Done crops it and keeps the photo,
-  cropping again starts from the photo with the corners as they were and turned with the page,
-  Whole image puts the photo back, and the pages cropped before are deleted (a page cropped again
-  only once a saved state no longer names it); corners that make no
-  page are refused and crossed ones put in order; a photo cancelled, not saved or discarded on the
-  crop screen leaves no file; cropped pages and an open crop screen survive the saved state; a crop
-  not finished when Android stops Usugami is made again from the saved state (also a page cropped
-  again, whose new crop was made before Android closed Usugami), a photo the camera app
-  hands back as Usugami starts again is kept, a page removed while it is cropped goes without a
-  message, and a page whose photo the system cleared from the cache stays, at start and when made
-  into a PDF. The turn, look, brightness and contrast chosen reach the page, which opens on them
-  again, while a new photo starts with the look chosen last (Enhanced at first, and again for a new
-  scan) and the sliders at 0; Apply to all pages gives every page the look, brightness and contrast
-  and leaves each its turn, and reaches an image of the scan still being added; a scan's uploaded
-  images go through the crop screen in order, one removed meanwhile left out (and out of the count
-  at once), and closing stops the scan, also while the next is being opened, leaving the rest as
-  added; and a scan goes on when Usugami starts again from the saved state, without the images
-  still being added
+  gives it joins a scan, and once the photos are done the crop screen opens on the page found; Next
+  crops it and keeps the photo, cropping again starts from the photo with the corners as they were
+  and turned with the page, Whole image puts the photo back, and the pages cropped before are
+  deleted (a page cropped again only once a saved state no longer names it); corners that make no
+  page are refused and crossed ones put in order; a photo cancelled or not saved, the photos
+  discarded on the Photos screen (one still being added too), and Discard photo on a scan's only
+  photo leave no file; no PDF and no ID card can be made while a scan goes on, with the camera open,
+  on the photos, while the crop screen opens or shows, or on the Filters screen; cropped pages and
+  an open crop screen survive the saved state; a crop not finished when Android stops Usugami is
+  made again from the saved state, with the look given meanwhile (also a page cropped again, whose
+  new crop was made before Android closed Usugami), a photo the camera app hands back as Usugami
+  starts again joins the scan, a page removed while it is cropped goes without a message, and a page
+  whose photo the system cleared from the cache stays, at start and when made into a PDF. The turn
+  chosen on the crop screen and the look, brightness and contrast chosen on the Filters screen
+  reach the page, which opens on them again when it is cropped again, while the next scan's pages
+  start on Enhanced with the sliders at 0; Apply to all pages on a page cropped again gives every
+  page the look, brightness and contrast and leaves each its turn, and reaches an image still being
+  added; a scan's uploaded images go through the crop screen in order, one removed meanwhile left
+  out (and out of the count at once), and Stop cropping, also while the next is being opened, leaves
+  the rest as they were added and goes on to the Filters screen, every page on Enhanced; and a scan
+  goes on when Usugami starts again from the saved state, without the images still being added, and
+  on to the Filters screen after the last
+- a scan through the view model (`ScanDeviceTest`): the photos waiting for Done in the order taken,
+  with no crop screen; then each cropped in turn ("Page 1 of 2"), its page made in the background;
+  Back going to the image before, once its page is made, with the corners it was given or as the
+  whole image, and from the first image back to the photos with none lost; Next on the last going
+  on to the Filters screen, every page on Enhanced; Discard photo going on to the next image, or to
+  the Filters screen after the last, and ending a scan of one photo with the pages from before kept
+  and no file left; an uploaded image still being added when cropping stops joining the Filters
+  screen whole, with the look every page was given; each stage as it was when Android starts
+  Usugami again (the photos, also with the camera open for the next; the crop screen; the Filters
+  screen with the page shown and Same filter for all pages); and a page removed at each stage left
+  out at once, the scan ending with its last page
+- a scan's Photos and Filters screens on their own (`ScanPhotosAndFiltersDeviceTest`), over real
+  photos, their state held by the test: a photo taken out with its button, Take another and Done
+  handed on; Done off with no photo (the other button then says Take photo) and while a photo is
+  still being added; Back with photos asking first (Keep stays, Discard discards) and without
+  photos leaving at once; on the Filters screen, a page tapped chosen, a look, Same filter for all
+  pages, Save and Back handed on; a slider handed on once let go, not at each step, and a screen
+  reader's change at once; and a scan of one page with no row of pages and no switch
 - page looks, with a photo of a page in shadow: each look in the PDF as it needs (black and white
   and Ink saver a 1-bit CCITT G4 image, grayscale a one-component JPEG) at the compression levels'
   sizes, drawn by Android's renderer and by PDFBox with the paper white and a black bar black (in
   Ink saver hollow, in Lighten the shadow softened, not taken out), brightness and contrast reaching
   the page; the size of an A4 page in each look at each level (logged; black and white a fraction of
   the photo's); and through the view model, a look for one page or for every page, a page opening on
-  its look, the next photo starting with the look chosen last (not with one a gallery photo only
-  kept), and the looks kept through the saved state; and each colour look made in the picture
-  itself, the same as beside it
+  its look, a scan's pages starting on Enhanced (once, not on the look chosen last) and taking a
+  look one by one, as the page shown, or all together with Same filter for all pages, never the
+  other pages of Images to PDF nor an image shared meanwhile, the switch turned off changing
+  nothing, the looks staying through going back to cropping, Save putting the scan's pages after
+  the others in its order, and the looks kept through the saved state; and each colour look made in
+  the picture itself, the same as beside it
 - the OCR text layer, in the editions with text recognition: Devanagari and Latin text together,
   and text that follows tilted lines
 - text recognition with Google ML Kit (Usugami only, `app/src/androidTestStandard`) in English,
@@ -542,12 +606,49 @@ opening Choose a tool;
   rather than as a space, German and Portuguese letters are read (umlauts, ß, tildes and
   cedillas), an ID card's two sides are each read onto their own side, and PDF to images or text
   reads a page that is only a picture of printed words for its text
+- Translate PDF's engine (Usugami only, `PdfTranslationDeviceTest`), with a made-up translator that
+  writes a text's letters backwards, so a translation is easy to tell from its source: paragraphs
+  replaced by their translation as real text, an amount left on the picture; only the pages chosen,
+  with the title and bookmarks translated (a bookmark under one to a page left out moving up); no
+  form fields, comments, metadata or scripts kept, a field's value translated as the page's text;
+  cancelling at any point leaving no file; a paragraph the translator fails on, or whose translation
+  no font draws, left as it was; packs gone midway ending the run; a turned page translated as it
+  shows; a password-protected PDF; a poster-sized page, and many pages with memory staying flat;
+  pictures and blank pages kept as they are; scans read with text recognition (made-up and real),
+  their hidden text layer ignored, their lines given their paragraph's size, and a scan with a
+  watermark still read; tilted and upside-down text left as it is, on scans and on pages of text;
+  other scripts drawn as real text in their direction, and Japanese and Chinese with their own
+  letter shapes; without text recognition, the pages with text still translated; the progress
+  following pages drawn late and coming back after text recognition downloads; in a language text
+  recognition can't read, only a page with a picture said to look scanned; a page of very many lines
+  left as it is; a longer translation growing over no box or picture; the language detected from
+  the first pages with text; and French to English with ML Kit's real translator
+- ML Kit's translation itself (Usugami only, `MlKitTranslationDeviceTest`), with real language
+  packs: Spanish's downloaded, used to translate and deleted, English built in; French and Tagalog
+  detected; a full storage told apart from other download failures; cancelling stopping the download
+  in Android's download manager, also a second time; and the download's progress counting only its
+  own packs and never going back
+- Translate PDF's screen (Usugami only, `TranslateToolDeviceTest`), with an engine of the test's own
+  and no network: Home listing the tool and its search finding it in every language; the languages
+  starting as detected and as the app's, and the same language twice turning the button off; packs
+  missing from the phone asked about before a run, which ends at the result with its notes; From and
+  the pages belonging to their PDF, through the activity being recreated, Back to editing and Start
+  over; a PDF whose text can't be read as its language is detected leaving From to the user (no
+  crash); a page that can't be drawn named; the text-recognition dialog offering only what this
+  screen has; a run's result kept when the language is detected just before it; and a pack that
+  can't download said in a dialog. Its list of packs (`TranslatePacksDeviceTest`) leaves English
+  out and deletes a pack
+- Usugami's own process contacting no server (Usugami only, `NoConnectionsDeviceTest`): URL
+  connections failing at once, before a name is looked up, to any host (also a server of the test's
+  own on the phone's loopback address, which a plain socket reaches), also with a proxy set for the
+  phone, and ML Kit's own request to Firebase refused the same way
 - the editions: text recognition (an engine, the text layer's font, the OCR switch in the
   Convert sheet with its text-language menu, and Home's words for Images to PDF in all seven
   languages) in Usugami and Usugami OCR and nowhere in Usugami Lite, the Google notices only in
-  Usugami, and each of the seven languages known from its phone's locale (Portuguese from Portugal,
-  German from Austria and Indonesian written "in" too), a language Usugami lacks falling back to
-  English
+  Usugami, Translate PDF only in Usugami (`TranslateAbsentDeviceTest`: in Usugami Lite and Usugami
+  OCR no such tool and no text of it, and Home neither lists nor finds it), and each of the seven
+  languages known from its phone's locale (Portuguese from Portugal, German from Austria and
+  Indonesian written "in" too), a language Usugami lacks falling back to English
 - opening files: Usugami is in Android's "Open with" list once, under its own name, for the six PDF
   and document types, and for binary data, a ZIP file or no type when the address ends in .pdf,
   .PDF (after several dots too), .docx, .xlsx, .pptx or .epub, but not for binary data without such
@@ -698,7 +799,12 @@ opening Choose a tool;
 
 Usugami gets its text-recognition model from Google Play services, so its OCR tests need a device
 or emulator with Google Play services and, the first time each model is tested (one for the
-Latin-script languages, one for Hindi), an internet connection.
+Latin-script languages, one for Hindi), an internet connection. The tests that use ML Kit's real
+translator (`MlKitTranslationDeviceTest`, and
+`PdfTranslationDeviceTest#frenchToEnglishWithTheRealTranslator`) download Spanish's and French's
+packs, about 40 MB each, the first time; without internet those are skipped.
+`PdfTranslationDeviceTest#aScanReadByTheRealTextRecognition` needs text recognition's model, as
+the OCR tests do. The other Translate PDF tests use a made-up translator or engine and no network.
 
 ## 3. End-to-end check with independent PDF tools
 
@@ -749,23 +855,42 @@ On a phone or emulator, with the release APKs:
   on a large PDF and a ZIP of many PDFs keep the screen on to the end, and it goes off 15 seconds
   after each one ends, fails or is cancelled.
 - Scan document's Take photo on a real phone: the camera app opens at once, and closing it without
-  a photo goes back to Home. Scan a few school pages one after another with Take another: drag a
-  corner and a side (the magnifier follows), rotate left and right on both steps, and on Filters
-  try each look with the sliders on a page in a shadow and under a warm lamp. Try a white page on a
-  white desk and a page held in your hand: Usugami should find them by their edges.
-- Scan document's Upload images with five images: "Page 1 of 5" to "Page 5 of 5", Next on each and
-  Done on the last, then the page list. Again, closing on page 3: pages 3 to 5 stay in the page list
-  as they were added. Picking nothing leaves Home as it was.
-- Android closing Usugami on each step: put Usugami in the background on the crop step, on Filters
-  with a look and the sliders moved, and on page 3 of an upload, stop it as Android does
-  (`adb shell am kill io.github.nath_goa.usugami`), and open it again from the recent apps: the
-  step, corners, turn, look, sliders and page count are as they were.
-- Apply to all pages with a look, brightness and contrast: every page gets all three, and each page
-  keeps its own turn. Make the PDF and check in another PDF viewer that each page looks as Filters
-  showed it; compare the sizes of a page in Black & white, Ink saver and Enhanced.
-- In the editor: Take photo, and a page's crop button on a gallery photo and on a page turned in the
-  editor, go through both steps; crop a page again and use Whole image; with TalkBack, move a corner
-  and a side with their actions, and the sliders.
+  a photo goes back to Home. Photograph a few school pages one after another: after each, the
+  Photos screen shows them numbered in the order taken; remove one with its button, take another
+  with Take another, and try Back (it asks first; Keep stays). Done: each photo comes in turn on
+  the crop screen ("Page 2 of 4"): drag a corner and a side (the magnifier follows), rotate left
+  and right, and Next; Back goes to the page before with the corners it was given, and from the
+  first to the photos; Discard photo takes one out. On Filters, tap each page in the row and try
+  each look with the sliders on a page in a shadow and under a warm lamp; turn on Same filter for
+  all pages (every page takes the look, brightness and contrast of the page shown) and off again
+  (nothing changes); Back goes to the last page's crop screen. Save: the pages are in Images to PDF,
+  after those already there. Try a white page on a white desk and a page held in your hand: Usugami
+  should find them by their edges.
+- Scan document's Upload images with five images: "Page 1 of 5" to "Page 5 of 5" with Next on each,
+  then Filters, then Save. Again, with Stop cropping on page 3: pages 3 to 5 go on to Filters whole.
+  Picking nothing leaves Home as it was.
+- Android closing Usugami during a scan: put Usugami in the background on the Photos screen, also
+  with the camera open for the next photo, on the crop screen with a corner moved, on page 3 of an
+  upload, and on Filters with a page chosen, a look, the sliders moved and Same filter for all pages
+  on; stop it as Android does (`adb shell am kill io.github.nath_goa.usugami`), and open it again
+  from the recent apps: the step, the photos, the corners, turn, page chosen, looks, sliders,
+  switch and page count are as they were, and a photo taken while Usugami was stopped joins the
+  photos.
+- While a scan goes on, at each step: Convert to PDF and the ID card can't start, the Scan document
+  shortcut brings the scan back at the same step, and a file shared to Usugami opens its tool over
+  the scan, with Back returning to the same step.
+- Filters with TalkBack: each page in the row is read as "Page 2" with Selected or Not selected,
+  the looks, the sliders and the switch say their state, and a page still being cropped is read
+  once, as "Cropping page 2…". At the largest font, in landscape and on a 360 dp phone, the Photos
+  and Filters screens have nothing cut off, and Save stays in sight.
+- Apply to all pages, on a page cropped again from its crop button, with a look, brightness and
+  contrast: every page gets all three, and each page keeps its own turn. Make the PDF and check in
+  another PDF viewer that each page looks as Filters showed it; compare the sizes of a page in
+  Black & white, Ink saver and Enhanced.
+- In the editor: Take photo starts a scan whose pages Save adds after the others; a page's crop
+  button, on a gallery photo and on a page turned in the editor, goes through both steps (Crop page,
+  then Filters, with Done); crop a page again and use Whole image; with TalkBack, move a corner and
+  a side with their actions, and the sliders.
 - Split, merge in page mode, and compress, including a password-protected PDF. Compress a
   password-protected PDF that is already as small as it gets: Usugami says it couldn't be made any
   smaller, alone and with another PDF.
@@ -891,6 +1016,36 @@ On a phone or emulator, with the release APKs:
   first-launch language screen follow; System default follows the phone again.
 - Usugami: the first OCR downloads the model through Google Play services (one for English, French,
   Spanish, German, Portuguese and Indonesian, and one for Hindi).
+- Translate PDF in Usugami, freshly installed, on a phone with Google Play:
+  - First use, a French PDF of a few pages: From says French with "Detected from the PDF's text",
+    To the app's language, and the packs line names the French pack and about 40 MB. Translate PDF
+    asks "Download a language pack?"; Download and translate shows Android's download
+    notification and, in the working dialog, "Downloading the French pack…" with its percent, then
+    "Translating page 1 of 3", and ends at the result with Report_translated.pdf. In another
+    viewer, the translation can be selected and searched, and the title and bookmarks are
+    translated. Settings → Apps → Usugami shows the pack's download in its data usage.
+  - Again: no question and no download, also in flight mode.
+  - Cancel while a pack downloads: the download notification goes, Language packs doesn't list the
+    pack, and the next try asks again and starts from 0%.
+  - Offline with a pack missing: "Can't translate right now" and the no-internet text, at once.
+    Flight mode turned on while a pack downloads: the same after about a minute, and once back
+    online, nothing goes on downloading.
+  - With the phone's storage nearly full: "There isn't enough free storage for the language packs",
+    within seconds.
+  - French to German: both packs are asked for. Language packs lists the packs on the phone, never
+    English; deleting one asks first, and the packs line then says it is needed again.
+  - A scanned PDF on a phone whose Play services hasn't got text recognition yet: online, it is
+    downloaded and the pages read; offline, the "Text recognition isn't available" dialog. A PDF
+    of scans and pages of text, offline: the pages of text are translated and the scans noted as
+    unread. A scanned page in Chinese or Arabic: the note that text recognition can't read this
+    language.
+  - The other answers: the same language twice (the line under the chips, the button off), a PDF
+    with no text ("These pages have no text to translate."), a PDF needing a password (asked for
+    once), a PDF of one page (no Pages field).
+  - German at the largest font, Hindi at 200 % and the dark theme: the screen, the packs list, the
+    dialogs and the result's notes have nothing cut off.
+  - Usugami Lite and Usugami OCR: Home has no Translate PDF, and searching "translate" finds
+    nothing.
 - Usugami OCR: OCR works with the internet turned off, on a real ARM phone, with a few photographed
   pages in each language (one upside down); note the time per page. A poster or a sign photographed
   close up, and a postcard, have their very large words read whole.
@@ -929,7 +1084,7 @@ On a phone or emulator, with the release APKs:
   in ("Usugami was closed before it had opened your file").
 - A file opened with Usugami over an unsaved Compress result (the question; Keep, then leaving the
   tool opens it), over the reader with additions, over a running Images to PDF job (it waits), over
-  the crop screen and over the language screen of a fresh install.
+  each step of a scan (Back returns to it) and over the language screen of a fresh install.
 - Documents in the reader: one of each kind, a 300-page book and a wide workbook; Cancel during the
   conversion; a .doc (its message); Save as PDF and its result (Share, Save, Print and the watermark
   switch); Annotate on a .docx, with Save as PDF hidden while Save PDF shows.
@@ -965,12 +1120,13 @@ On a phone or emulator, with the release APKs:
   Compress PDF, in that order, with round lilac icons. Each with Usugami closed (also a cold start
   behind the language screen), on Home, in a tool with changes ("Discard your changes?"), on a saved
   result (it opens, no question), on an unsaved image or text result ("Discard what you made?"),
-  during a long Compress (the message, and the job goes on), in Images to PDF (Scan document adds a
-  photo; Merge PDF opens over the images and Back returns to them), with Usugami in the background
-  on the editor (Scan document opens the camera), on Choose a tool, and during a scan (it brings the
-  scan back). Not looked at yet: Samsung's launcher, a pinned shortcut after reinstalling, the reader
-  with additions not saved (asks) or a file only read (opens), a shortcut while a picker or the
-  print screen is open, and Android 16 and 8.
+  during a long Compress (the message, and the job goes on), in Images to PDF (Scan document starts
+  a scan whose pages join the images; Merge PDF opens over the images and Back returns to them),
+  with Usugami in the background on the editor (Scan document opens the camera), on Choose a tool,
+  and during a scan, on the Photos, crop and Filters screens (it brings the scan back). Not looked
+  at yet: Samsung's launcher, a pinned shortcut after reinstalling, the reader with additions not
+  saved (asks) or a file only read (opens), a shortcut while a picker or the print screen is open,
+  and Android 16 and 8.
 - Results that aren't PDFs, on Android 10, 13 and 16: a JPG saved to Downloads keeps its name and
   shows in a gallery, a .txt opens in a text viewer or says there is no app; on Android 8 and 9,
   Save as… offers the file with its type and name; Save to folder with images on another documents
