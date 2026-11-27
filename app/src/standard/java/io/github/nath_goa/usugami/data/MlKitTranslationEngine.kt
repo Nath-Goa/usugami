@@ -4,7 +4,7 @@ import android.app.DownloadManager
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.net.Uri
+import androidx.core.net.toUri
 import com.google.android.gms.tasks.Task
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.common.MlKitException
@@ -358,7 +358,7 @@ private class PackDownload(val id: Long, val total: Long, val done: Long, val no
  * English and the language in alphabetical order ("en_fr.zip", "de_en.zip"); null for another file.
  */
 private fun packOf(uri: String?): String? {
-    val name = uri?.let { Uri.parse(it).lastPathSegment }?.takeIf { it.endsWith(".zip") } ?: return null
+    val name = uri?.toUri()?.lastPathSegment?.takeIf { it.endsWith(".zip") } ?: return null
     val language = name.removeSuffix(".zip").split('_').filter { it != TranslateLanguage.ENGLISH }.singleOrNull() ?: return null
     // Also as ML Kit names Hebrew's pack: "iw".
     return TranslateLanguage.fromLanguageTag(language)
