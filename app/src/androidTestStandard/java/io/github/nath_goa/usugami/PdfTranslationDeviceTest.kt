@@ -618,6 +618,22 @@ class PdfTranslationDeviceTest {
         assertTrue(lines[2].top < 130f - 2f && lines[2].bottom >= 135f)
     }
 
+    @Test fun scannedTextTiltedOrUpsideDownIsLeftAsItIs() {
+        fun read(text: String, vararg corners: Int) = OcrLine(text, corners.toList().chunked(2).map { (x, y) -> Point(x, y) })
+        val lines = ScannedLines.of(
+            listOf(
+                // Level, a page scanned 3 degrees askew, a watermark at 35 degrees, a line upside down.
+                read("Une ligne droite", 100, 100, 900, 100, 900, 140, 100, 140),
+                read("Une ligne penchee", 100, 300, 900, 342, 898, 382, 98, 340),
+                read("CONFIDENTIEL", 100, 900, 900, 340, 923, 373, 123, 933),
+                read("A l'envers", 900, 600, 100, 600, 100, 560, 900, 560),
+            ),
+            0.5f,
+            0.5f,
+        )
+        assertEquals(listOf("Une ligne droite", "Une ligne penchee"), lines.map { it.text })
+    }
+
     @Test fun manyPagesUseSeveralStampsAndKeepMemoryFlat() {
         val input = import(numberedPages(File(dir, "long.pdf"), 25))
         val heap = ArrayList<Long>()

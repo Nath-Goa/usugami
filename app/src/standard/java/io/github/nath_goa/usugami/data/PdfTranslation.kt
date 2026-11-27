@@ -821,8 +821,10 @@ private class PdfTranslator(
 
 /**
  * What text recognition read on a scanned page, as the lines of the page, each with its font size
- * and a box as a font's would be (from its ascent to its descent), in points; a tilted line's
- * translation is drawn level, over the bounds of its corners.
+ * and a box as a font's would be (from its ascent to its descent), in points; a line tilted a little
+ * (a page scanned askew) has its translation drawn level, over the bounds of its corners. A line
+ * tilted more than about 10 degrees (a watermark, a stamp) or upside down is left out: it stays as it
+ * is on the picture, as such text of a PDF does (see [PageLineReader]).
  *
  * Text recognition's boxes reach from a line's tallest letters to its lowest, so how much of the
  * font size they take depends on the letters: about 0.7 of it for capitals, digits and letters
@@ -835,6 +837,9 @@ private class PdfTranslator(
 internal object ScannedLines {
     /** Sizes within this share of each other are one size. */
     private const val SIMILAR = 0.15f
+
+    /** A line rising or falling more than this for each point it runs (about 10 degrees, as a PDF's text) isn't level. */
+    private const val LEVEL_SLOPE = 0.18f
 
     /** How high capitals, digits, ascenders and accents reach, and small letters alone, as shares of the size… */
     private const val CAPITALS = 0.7f
@@ -862,8 +867,13 @@ internal object ScannedLines {
             if (text.isEmpty()) return@mapNotNull null
             val xs = line.corners.map { it.x * toPointsX }
             val ys = line.corners.map { it.y * toPointsY }
-            // Across the line, from its top edge to its bottom edge, however it is tilted.
             val (topLeft, topRight, bottomRight, bottomLeft) = line.corners
+            // Along the line, from its start to its end: it must run left to right, nearly level. Else
+            // its box, the bounds of its corners, would be painted over or kept as a whole.
+            val runX = (topRight.x - topLeft.x + bottomRight.x - bottomLeft.x) * toPointsX / 2
+            val runY = (topRight.y - topLeft.y + bottomRight.y - bottomLeft.y) * toPointsY / 2
+            if (!(runX > 0f && abs(runY) <= LEVEL_SLOPE * runX)) return@mapNotNull null
+            // Across the line, from its top edge to its bottom edge, however it is tilted.
             val height = (distance(topLeft, bottomLeft) + distance(topRight, bottomRight)) / 2
             if (!(height > 0f)) return@mapNotNull null
             val deep = text.any { it in DEEP }
