@@ -39,6 +39,49 @@ class TranslatableTextTest {
         assertTrue(worth("Donaudampfschifffahrtsgesellschaftskapitänsmütze"))
     }
 
+    @Test fun chineseJapaneseAndThaiParagraphsWithDigitsAreTranslated() {
+        // Written without spaces, a paragraph is one run of more than 40 characters, and a date, a
+        // price or a number in it doesn't make it an id: each has words, so each is translated.
+        for (text in listOf(
+            // A date and counts (50 characters).
+            "本公司成立于2010年，现有员工500余名，业务覆盖全国30多个省市自治区，是行业内领先的企业之一。",
+            // A date in full-width digits (48).
+            "本説明会は２０２５年１１月２７日（木）午後２時から、東京本社１２階の大会議室にて開催いたします。",
+            // A price (48).
+            "本产品售价为人民币1,299元（含税及运费），购买三件及以上可享受九折优惠，详情请咨询客服热线。",
+            // A model number (57).
+            "型番ABC-1234X-JPの製品につきましては、2024年3月以降に製造されたものに限り、無償で修理いたします。",
+            // Thai: an amount and a date (80).
+            "กรุณาชำระเงินจำนวน1,500บาทภายในวันที่30พฤศจิกายน2568เพื่อหลีกเลี่ยงค่าปรับล่าช้า",
+            // A phone number and opening hours (50).
+            "如需帮助，请拨打客服电话400-820-8820，工作时间为每周一至周五上午9:00至下午6:00。",
+            // A heading, its number and title apart by an ideographic space.
+            "第3章　产品规格与技术参数",
+            // A label with a phone number: the label is a word.
+            "電話：03-1234-5678",
+        )) {
+            assertTrue(text, worth(text))
+        }
+        for (text in listOf(
+            // A web address alone, its path in Chinese.
+            "https://zh.wikipedia.org/wiki/北京",
+            // An e-mail address alone.
+            "service@example.co.jp",
+            // A file's name alone.
+            "会議資料_2025.pdf",
+            // A date with no word: its 年, 月 and 日 each stand between digits.
+            "２０２５年１１月２７日",
+            // A number: fewer than two letters.
+            "１２３，４５６",
+            // A phone number alone.
+            "03-1234-5678",
+            // A product code: one run of 47 characters with digits, in writing that has spaces.
+            "SKU-2025-JP-000123-ABCDEFGHIJKLMNOPQRSTU-998877",
+        )) {
+            assertFalse(text, worth(text))
+        }
+    }
+
     /** A paragraph of [count] sentences of different lengths, each ending with a full stop. */
     private fun sentences(count: Int): String = (1..count).joinToString(" ") { i ->
         "Sentence $i of the report says " + "something more ".repeat(i % 7) + "and ends here."

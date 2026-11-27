@@ -22,9 +22,9 @@ object TranslatableText {
      * letters; when each of its words is a web address, an e-mail address or a file's name or path;
      * when it is a number, a date, an amount or a code with no word in it (digits with punctuation,
      * and letters only one at a time: "12.50", "03/04/2025", "A-12-B", "2025年3月"); or when it is
-     * one run of more than 40 characters without a space that has a digit in it (an id). A word is
-     * two letters or more in a row, so "Invoice 12" is translated, and so is "U.S.A.", which has no
-     * digit. What isn't translated stays as it is on the page.
+     * one run of more than 40 characters without a space, in writing that has spaces, that has a
+     * digit in it (an id). A word is two letters or more in a row, so "Invoice 12" is translated, and
+     * so is "U.S.A.", which has no digit. What isn't translated stays as it is on the page.
      */
     fun isWorthTranslating(text: String): Boolean {
         val trimmed = text.trim()
@@ -34,7 +34,12 @@ object TranslatableText {
         if (tokens.all(::isAddress) || PATH.matches(trimmed)) return false
         // Letters one at a time among digits: a code. Without digits ("U.S.A.") it may be an abbreviation.
         if (!hasWord(trimmed) && trimmed.any(Char::isDigit)) return false
-        if (tokens.size == 1 && trimmed.length > LONG_TOKEN && trimmed.any(Char::isDigit)) return false
+        // Chinese, Japanese and Thai put no space between words, so a whole paragraph of them is one run.
+        if (tokens.size == 1 && trimmed.length > LONG_TOKEN && trimmed.any(Char::isDigit) &&
+            trimmed.codePoints().noneMatch(WordSpacing::unspaced)
+        ) {
+            return false
+        }
         return true
     }
 
