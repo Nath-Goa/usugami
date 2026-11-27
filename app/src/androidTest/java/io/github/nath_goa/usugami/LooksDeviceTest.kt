@@ -27,6 +27,7 @@ import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.PageLooks
 import io.github.nath_goa.usugami.data.PdfExporter
 import io.github.nath_goa.usugami.ui.MainViewModel
+import io.github.nath_goa.usugami.ui.ScanStage
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -42,9 +43,9 @@ import kotlin.math.min
  * (black and white a bit a pixel with CCITT G4, grey as a one-component JPEG) at the compression
  * levels' resolutions, far smaller in black and white, and drawn right by Android's PDF renderer
  * and PDFBox's, with brightness and contrast reaching the page, and the colour looks made in the
- * picture itself; and through the view model, a look chosen for a page or for every page, the next
- * photo starting with it (not with a look a page only kept), and the looks kept through the saved
- * state.
+ * picture itself; and through the view model, a look chosen for a page or for every page, a scan's
+ * pages starting on Enhanced and taking a look one by one or all together (and no other page), and
+ * the looks kept through the saved state.
  */
 class LooksDeviceTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -225,60 +226,116 @@ class LooksDeviceTest {
         assertEquals(second.copy(look = PageLook.GRAYSCALE), items[1])
         assertTrue("The first page stays cropped", items[0].original != null)
 
-        // Opened again, a page starts on its look; the next photo taken starts on the look chosen last.
+        // Opened again, a page starts on its look.
         onMain { vm.openCrop(first.id) }
         waitUntil("the crop screen again") { vm.crop.value != null }
         assertEquals(PageLook.GRAYSCALE, onMain { vm.crop.value!!.look })
         // Leaving with the look changed only: the corners stay, the look is the new one.
-        assertTrue(onMain { vm.finishCrop(vm.crop.value!!.shown(items[0].original!!.corners), PageLook.ENHANCED) })
-        assertEquals(items[0].copy(look = PageLook.ENHANCED), onMain { vm.items.value[0] })
-        val uri = onMain { vm.newCapture() }
+        assertTrue(onMain { vm.finishCrop(vm.crop.value!!.shown(items[0].original!!.corners), PageLook.LIGHTEN) })
+        assertEquals(items[0].copy(look = PageLook.LIGHTEN), onMain { vm.items.value[0] })
+        // A scan's photo starts on Enhanced on the looks, not on the look chosen last.
+        val uri = onMain {
+            assertTrue(vm.startScan())
+            vm.newCapture()
+        }
         app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
         onMain { vm.photoTaken(true) }
-        waitUntil("the photo's crop screen") { vm.crop.value?.fromCamera == true }
-        assertEquals(PageLook.ENHANCED, onMain { vm.crop.value!!.look })
-        onMain { vm.closeCrop() }
+        waitUntil("the scan's photo") { vm.scan.value?.pages?.size == 1 }
+        onMain { vm.cropScan() }
+        waitUntil("its crop screen") { vm.crop.value?.staged == true }
+        assertTrue(onMain { vm.finishCrop(CropQuad.WHOLE) })
+        val photo = onMain { vm.scan.value!!.pages.single() }
+        assertEquals(PageLook.ENHANCED, onMain { vm.items.value.single { it.id == photo }.look })
+        onMain { vm.remove(photo) }
 
         // Android stops Usugami: the pages come back with their looks.
         val kept = onMain { vm.items.value }
         val restored = onMain { MainViewModel(app, SavedStateHandle(mapOf("items" to MainViewModel.packItems(kept)))) }
         runBlocking { restored.awaitFileWork() }
         assertEquals(kept, onMain { restored.items.value })
-        assertEquals(listOf(PageLook.ENHANCED, PageLook.GRAYSCALE), kept.map { it.look })
+        assertEquals(listOf(PageLook.LIGHTEN, PageLook.GRAYSCALE), kept.map { it.look })
 
         onMain { restored.clearAll() }
         runBlocking { restored.awaitFileWork() }
     }
 
-    @Test fun aLookOnlyKeptLeavesTheNextPhotosLook() {
+    /**
+     * On a scan's looks its pages start on Enhanced, once, whatever look a page of the editor kept; a
+     * look goes to the page shown, or with the same filter for all to each page of the scan, never to
+     * the editor's pages, nor to an image shared meanwhile. Turned off, the same filter for all changes
+     * nothing. Save puts the scan's pages, in its order, after the others.
+     */
+    @Test fun aScansLooksGoToThePageShownOrEveryPageOfTheScanOnly() {
         val vm = onMain { MainViewModel(app, SavedStateHandle()) }
         runBlocking { vm.awaitFileWork() }
+        // A page in the editor before the scan, in black and white.
         onMain { vm.addImages(listOf(Uri.fromFile(PagePhotos.jpeg(PagePhotos.photo(), File(dir, "gallery.jpg"))))) }
         waitUntil("the photo") { vm.items.value.size == 1 && vm.pendingImports.value == 0 }
-        val gallery = onMain { vm.items.value.single() }
-        fun takePhoto() {
-            val uri = onMain { vm.newCapture() }
+        val gallery = onMain { vm.items.value.single() }.id
+        onMain { vm.openCrop(gallery) }
+        waitUntil("its crop screen") { vm.crop.value?.itemId == gallery }
+        assertTrue(onMain { vm.finishCrop(CropQuad.WHOLE, PageLook.BLACK_WHITE) })
+        fun takePhoto(): Long {
+            val count = onMain { vm.scan.value?.pages?.size ?: 0 }
+            val uri = onMain {
+                assertTrue(vm.startScan())
+                vm.newCapture()
+            }
             app.contentResolver.openOutputStream(uri)!!.use { PagePhotos.photo().compress(Bitmap.CompressFormat.JPEG, 92, it) }
             onMain { vm.photoTaken(true) }
-            waitUntil("the photo's crop screen") { vm.crop.value?.fromCamera == true }
+            waitUntil("the scan's photo") { vm.scan.value?.pages?.size == count + 1 }
+            return onMain { vm.scan.value!!.pages.last() }
+        }
+        val first = takePhoto()
+        val second = takePhoto()
+        onMain { vm.cropScan() }
+        for (id in listOf(first, second)) {
+            waitUntil("its crop screen") { vm.crop.value?.itemId == id }
+            assertTrue(onMain { vm.finishCrop(CropQuad.WHOLE) })
         }
 
-        // A page scanned in black and white.
-        takePhoto()
-        assertTrue(onMain { vm.finishCrop(vm.crop.value!!.shown(PagePhotos.QUAD), PageLook.BLACK_WHITE) })
-        // The photo from the gallery has its corners put right, its look left as it was.
-        onMain { vm.openCrop(gallery.id) }
-        waitUntil("its crop screen") { vm.crop.value?.itemId == gallery.id }
-        val session = onMain { vm.crop.value!! }
-        assertEquals(PageLook.ORIGINAL, session.look)
-        assertTrue(onMain { vm.finishCrop(session.shown(PagePhotos.QUAD), session.look) })
-        // The next page scanned starts in black and white, as the one before.
-        takePhoto()
-        assertEquals(PageLook.BLACK_WHITE, onMain { vm.crop.value!!.look })
-        onMain { vm.closeCrop() }
+        // The looks, with the first page shown: each page of the scan on Enhanced.
+        assertEquals(ScanStage.LOOKS to first, onMain { vm.scan.value!!.run { stage to shownPage } })
+        fun looks() = onMain { vm.items.value.associate { it.id to (it.look to it.adjustments) } }
+        val enhanced = PageLook.ENHANCED to LookAdjustments.NONE
+        val blackWhite = PageLook.BLACK_WHITE to LookAdjustments.NONE
+        assertEquals(mapOf(gallery to blackWhite, first to enhanced, second to enhanced), looks())
+        // A look and adjustments for the page shown.
+        val adjustments = LookAdjustments(brightness = 10, contrast = -20)
+        onMain {
+            vm.selectScanPage(second)
+            vm.setScanLook(PageLook.GRAYSCALE)
+            vm.setScanAdjustments(adjustments)
+        }
+        assertEquals(mapOf(gallery to blackWhite, first to enhanced, second to (PageLook.GRAYSCALE to adjustments)), looks())
+        // An image shared meanwhile is one of the editor's pages, not the scan's.
+        onMain { vm.addImages(listOf(Uri.fromFile(PagePhotos.jpeg(PagePhotos.photo(), File(dir, "shared.jpg"))))) }
+        waitUntil("the image shared") { vm.items.value.size == 4 && vm.pendingImports.value == 0 }
+        val shared = onMain { vm.items.value.last().id }
+        val original = PageLook.ORIGINAL to LookAdjustments.NONE
+        // The same filter for all: each page of the scan takes the page shown's, and the next look too.
+        onMain { vm.setScanSameLook(true) }
+        val grey = PageLook.GRAYSCALE to adjustments
+        assertEquals(mapOf(gallery to blackWhite, first to grey, second to grey, shared to original), looks())
+        onMain { vm.setScanLook(PageLook.INK_SAVER) }
+        val inkSaver = PageLook.INK_SAVER to adjustments
+        assertEquals(mapOf(gallery to blackWhite, first to inkSaver, second to inkSaver, shared to original), looks())
+        // Turned off, nothing changes; a look goes to the page shown alone again.
+        onMain { vm.setScanSameLook(false) }
+        assertEquals(mapOf(gallery to blackWhite, first to inkSaver, second to inkSaver, shared to original), looks())
+        onMain { vm.setScanLook(PageLook.ORIGINAL) }
+        val chosen = mapOf(gallery to blackWhite, first to inkSaver, second to (PageLook.ORIGINAL to adjustments), shared to original)
+        assertEquals(chosen, looks())
 
-        waitUntil("the pages to be cropped") { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 }
-        assertEquals(listOf(PageLook.ORIGINAL, PageLook.BLACK_WHITE), onMain { vm.items.value.map { it.look } })
+        // Back to the last image's crop screen, and on again: the looks stay as chosen, the page shown too.
+        onMain { vm.scanLooksBack() }
+        waitUntil("the last image's crop screen") { vm.crop.value?.itemId == second }
+        assertTrue(onMain { vm.finishCrop(CropQuad.WHOLE) })
+        assertEquals(ScanStage.LOOKS to second, onMain { vm.scan.value!!.run { stage to shownPage } })
+        assertEquals(chosen, looks())
+        // Save: the scan's pages, in its order, after the others.
+        onMain { vm.saveScan() }
+        assertEquals(listOf(gallery, shared, first, second), onMain { vm.items.value.map { it.id } })
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
