@@ -53,27 +53,53 @@ internal object TranslationOverlay {
     /** [width] points as layout pixels, rounded up: the same for measuring and drawing. */
     fun layoutWidth(width: Float): Int = ceil(width * SCALE - 0.001f).toInt().coerceAtLeast(1)
 
+    /** The language a translation is written in, by its tag (see [TranslationEngine]): whether it is written right to left. */
+    class Language(tag: String) {
+        val rightToLeft: Boolean = tag in RIGHT_TO_LEFT
+    }
+
+    /** Arabic, Persian, Hebrew and Urdu, as ML Kit names them. */
+    private val RIGHT_TO_LEFT = setOf("ar", "fa", "he", "ur")
+
     /**
-     * [text] laid out with [paint] [width] points wide, in the direction its first letters give
-     * (right to left for Arabic or Hebrew), without hyphenation, its lines as tall as the main
-     * font's (other scripts' fonts on the phone are made to fit them), lined up as [align] says of
-     * its block, which is written right to left when [rtl]: at the start of the translation's
-     * direction for [BlockAlign.START], at its end for [BlockAlign.END]. A translation written the
-     * other way than its block (French into Arabic) starts on its own reading side either way: a
-     * right-aligned date stays at the right, and a paragraph lined up on the left of the page is
-     * read from its right.
+     * Whether [text], a translation into [language], is written right to left: in a language written
+     * so, when it has a letter of a script written so, however many Latin letters (a name, a brand)
+     * it starts with or has; in another, when most of its letters are.
+     */
+    fun rightToLeft(text: String, language: Language): Boolean {
+        if (!language.rightToLeft) return PageLineReader.rightToLeft(text)
+        var i = 0
+        while (i < text.length) {
+            val cp = text.codePointAt(i)
+            i += Character.charCount(cp)
+            if (!Character.isLetter(cp)) continue
+            val direction = Character.getDirectionality(cp)
+            if (direction == Character.DIRECTIONALITY_RIGHT_TO_LEFT || direction == Character.DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC) return true
+        }
+        return false
+    }
+
+    /**
+     * [text], a translation into [language], laid out with [paint] [width] points wide, in its
+     * direction (see [rightToLeft]), without hyphenation, its lines as tall as the main font's (other
+     * scripts' fonts on the phone are made to fit them), lined up as [align] says of its block,
+     * which is written right to left when [rtl]: at the start of the translation's direction for
+     * [BlockAlign.START], at its end for [BlockAlign.END]. A translation written the other way than
+     * its block (French into Arabic) starts on its own reading side either way: a right-aligned date
+     * stays at the right, and a paragraph lined up on the left of the page is read from its right.
      */
     @SuppressLint("WrongConstant")
-    fun layout(text: String, paint: TextPaint, width: Float, align: BlockAlign, rtl: Boolean): StaticLayout {
+    fun layout(text: String, paint: TextPaint, width: Float, align: BlockAlign, rtl: Boolean, language: Language): StaticLayout {
+        val written = rightToLeft(text, language)
         val alignment = when {
             align == BlockAlign.CENTER -> Layout.Alignment.ALIGN_CENTER
-            TextDirectionHeuristics.FIRSTSTRONG_LTR.isRtl(text, 0, text.length) != rtl -> Layout.Alignment.ALIGN_NORMAL
+            written != rtl -> Layout.Alignment.ALIGN_NORMAL
             align == BlockAlign.END -> Layout.Alignment.ALIGN_OPPOSITE
             else -> Layout.Alignment.ALIGN_NORMAL
         }
         return StaticLayout.Builder.obtain(text, 0, text.length, paint, layoutWidth(width))
             .setAlignment(alignment)
-            .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
+            .setTextDirection(if (written) TextDirectionHeuristics.RTL else TextDirectionHeuristics.LTR)
             .setLineSpacing(0f, 1f)
             .setIncludePad(false)
             // Layout's constants are LineBreaker's, which lint asks for but which only came in Android 10.
@@ -82,21 +108,24 @@ internal object TranslationOverlay {
             .build()
     }
 
-    /** Measures text as [draw] draws it for a block that is [bold] and lined up as [align] says, in points. */
-    fun measurer(bold: Boolean, align: BlockAlign, rtl: Boolean): TextMeasurer {
+    /** Measures text in [language] as [draw] draws it for a block that is [bold] and lined up as [align] says, in points. */
+    fun measurer(bold: Boolean, align: BlockAlign, rtl: Boolean, language: Language): TextMeasurer {
         val paint = paint(1f, bold, BLACK)
         return TextMeasurer { text, size, width ->
             paint.textSize = size * SCALE
-            layout(text, paint, width, align, rtl).height / SCALE
+            layout(text, paint, width, align, rtl, language).height / SCALE
         }
     }
 
     /** Whether a font on this phone has every character of [text] that needs drawing, as [draw] draws it. */
     fun canDraw(text: String, bold: Boolean): Boolean = WatermarkText.canDraw(text, paint(12f, bold, BLACK))
 
-    /** Draws [text] on [canvas] (in points of the page) at [fit]'s place and size, in [color], lined up as [align] says of its block, written right to left when [rtl]. */
-    fun draw(canvas: Canvas, text: String, fit: Fit, bold: Boolean, color: Int, align: BlockAlign, rtl: Boolean) {
-        val layout = layout(text, paint(fit.size, bold, color), fit.area.width, align, rtl)
+    /**
+     * Draws [text], in [language], on [canvas] (in points of the page) at [fit]'s place and size, in
+     * [color], lined up as [align] says of its block, written right to left when [rtl].
+     */
+    fun draw(canvas: Canvas, text: String, fit: Fit, bold: Boolean, color: Int, align: BlockAlign, rtl: Boolean, language: Language) {
+        val layout = layout(text, paint(fit.size, bold, color), fit.area.width, align, rtl, language)
         canvas.withTranslation(fit.area.left, fit.area.top) {
             scale(1 / SCALE, 1 / SCALE)
             layout.draw(this)

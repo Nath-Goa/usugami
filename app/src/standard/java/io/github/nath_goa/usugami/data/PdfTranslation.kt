@@ -244,6 +244,9 @@ private class PdfTranslator(
     private val unread = ArrayList<Int>()
     private val partly = ArrayList<Int>()
 
+    /** The language the translations are drawn in. */
+    private val language = TranslationOverlay.Language(target)
+
     /** Short texts already translated in this run (a running head, a label), most recently used last. */
     private val cache = object : LinkedHashMap<String, String>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?) = size > CACHE_ENTRIES
@@ -439,8 +442,8 @@ private class PdfTranslator(
             val (block, text) = pair
             val area = BlockArea(block.left, block.top, block.right, block.bottom)
             val limits = TextFit.limits(block, blocks, width, height)
-            val fit = TextFit.fit(text, block.size, area, limits, TranslationOverlay.measurer(block.bold, block.align, block.rtl))
-            TranslationOverlay.draw(onStamp.canvas, text, fit, block.bold, colors[i].ink, block.align, block.rtl)
+            val fit = TextFit.fit(text, block.size, area, limits, TranslationOverlay.measurer(block.bold, block.align, block.rtl, language))
+            TranslationOverlay.draw(onStamp.canvas, text, fit, block.bold, colors[i].ink, block.align, block.rtl, language)
         }
         stampDoc.finishPage(onStamp)
         stamped += Stamped(page, image, stampWidth, stampHeight)

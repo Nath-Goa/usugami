@@ -647,14 +647,22 @@ class PdfTranslationDeviceTest {
             assertEquals(tag, emptyList<Int>(), outcome.partly)
             val text = textOf(outcome.file.file)
             for (word in sentence.split(' ')) assertTrue("$tag: \"$word\" isn't in $text", text.contains(word))
-            if (tag == "ar") {
-                // Right to left: the heading's translation, shorter than the heading, ends at the heading's right end.
-                val heading = glyphs(outcome.file.file, 0).filter { it.yDirAdj < 842f - 740f }
-                val right = PDType1Font.HELVETICA_BOLD.getStringWidth(HEADING) / 1000 * 20 + 72
-                assertEquals(right, heading.maxOf { it.xDirAdj + it.widthDirAdj }, 4f)
-                assertTrue(heading.minOf { it.xDirAdj } > 100f)
-            }
+            if (tag == "ar") assertWrittenFromTheRight(outcome)
         }
+        // Hebrew that starts with a name in Latin letters, mostly of Latin letters even: still Hebrew,
+        // read from the right, the name it starts with at the right.
+        val outcome = translate(input, target = "he", translation = FakeEngine { "Usugami דוח" })
+        assertWrittenFromTheRight(outcome)
+        val heading = glyphs(outcome.file.file, 0).filter { it.yDirAdj < 842f - 740f }
+        assertTrue(heading.single { it.unicode == "U" }.xDirAdj > heading.single { it.unicode == "ד" }.xDirAdj)
+    }
+
+    /** The heading's translation, shorter than the heading, ends at the heading's right end. */
+    private fun assertWrittenFromTheRight(outcome: TranslateOutcome) {
+        val heading = glyphs(outcome.file.file, 0).filter { it.yDirAdj < 842f - 740f }
+        val right = PDType1Font.HELVETICA_BOLD.getStringWidth(HEADING) / 1000 * 20 + 72
+        assertEquals(right, heading.maxOf { it.xDirAdj + it.widthDirAdj }, 4f)
+        assertTrue(heading.minOf { it.xDirAdj } > 100f)
     }
 
     @Test fun withoutTextRecognitionThePagesWithTextAreStillTranslated() {
