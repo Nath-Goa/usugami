@@ -84,8 +84,9 @@ class NothingToTranslate(val unreadable: Boolean) : Exception("No page has text 
  * when it is given and reads [source]'s script (see [ocrLanguageFor]). Language packs are
  * downloaded first when missing. [check] is called often and throws to stop; [onProgress] is told as
  * the run goes. Throws [NothingToTranslate], [TranslationUnavailableException], [OcrUnavailableException]
- * and an IOException when the file can't be written (see isOutOfSpace); if it fails or is stopped,
- * nothing it made is left behind.
+ * (only when no page had anything to translate without text recognition: else the pages it would have
+ * read are [TranslateOutcome.unread]) and an IOException when the file can't be written (see
+ * isOutOfSpace); if it fails or is stopped, nothing it made is left behind.
  *
  * Each page of the new PDF is a picture of the page as shown (see [PdfToolsEngine.previewView]: with
  * what its comments and filled-in fields show), with each paragraph that was translated painted over
@@ -252,6 +253,9 @@ private class PdfTranslator(
     /** Text recognition, once a scanned page needed it. */
     private var recognizer: OcrRecognizer? = null
 
+    /** Why text recognition can't be had in this run, once it couldn't: the scanned pages after are unread too. */
+    private var ocrUnavailable: OcrUnavailableException? = null
+
     /** The stamp being drawn, and the new pages waiting for its text, in order. */
     private var stamp: PdfDocument? = null
     private val stamped = ArrayList<Stamped>()
@@ -281,7 +285,11 @@ private class PdfTranslator(
                             recognizer?.close()
                             stamp?.close()
                         }
-                        if (!translatedAny) throw NothingToTranslate(unreadable = unread.isNotEmpty())
+                        if (!translatedAny) {
+                            // Only text recognition could have found something to translate: why it couldn't is the run's answer.
+                            ocrUnavailable?.let { throw it }
+                            throw NothingToTranslate(unreadable = unread.isNotEmpty())
+                        }
                         describe()
                         onProgress(TranslateProgress(TranslateProgress.Stage.PAGE, pages.size, pages.size))
                         // The last check for a cancel: nothing suspends from here on.
@@ -560,19 +568,25 @@ private class PdfTranslator(
 
     /**
      * The lines text recognition reads on scanned page [index], [width] × [height] points; null when
-     * it can't be read: no text recognition for [source]'s script, or it failed on the page. Text
-     * recognition is made ready (its model downloaded) the first time a page needs it.
+     * it can't be read: no text recognition for [source]'s script, it can't be had on this phone now
+     * (see [ocrUnavailable]), or it failed on the page. Text recognition is made ready (its model
+     * downloaded) the first time a page needs it.
      */
     private suspend fun readScan(index: Int, width: Float, height: Float): List<SourceLine>? {
         val language = ocrLanguageFor(source) ?: return null
         val engine = ocr ?: return null
-        val reader = recognizer ?: run {
+        // A page that only looks scanned (a photo, a chart) is no reason to lose the pages translated.
+        if (ocrUnavailable != null) return null
+        val reader = recognizer ?: try {
             engine.ensureReady(language) { fraction ->
                 check()
                 onProgress(downloading(TranslateProgress.Stage.DOWNLOAD_OCR, fraction))
             }
             check()
             engine.open(language).also { recognizer = it }
+        } catch (e: OcrUnavailableException) {
+            ocrUnavailable = e
+            return null
         }
         val picture = try {
             drawForReading(renderer, index)
@@ -591,7 +605,8 @@ private class PdfTranslator(
         } catch (e: CancellationException) {
             throw e
         } catch (e: OcrUnavailableException) {
-            throw e
+            ocrUnavailable = e
+            return null
         } catch (_: Exception) {
             return null
         } catch (_: OutOfMemoryError) {

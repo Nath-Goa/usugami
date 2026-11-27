@@ -43,6 +43,7 @@ import io.github.nath_goa.usugami.data.NothingToTranslate
 import io.github.nath_goa.usugami.data.OcrEngine
 import io.github.nath_goa.usugami.data.OcrLanguage
 import io.github.nath_goa.usugami.data.OcrLine
+import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.data.OcrRecognizer
 import io.github.nath_goa.usugami.data.OcrUnavailableException
 import io.github.nath_goa.usugami.data.PdfInput
@@ -121,12 +122,25 @@ class PdfTranslationDeviceTest {
         var detectedFrom: String? = null
     }
 
-    /** Text recognition that reads [lines] on every page: each a text and its box as shares of the page (left, top, right, bottom). */
-    private class FakeOcr(private val lines: List<Pair<String, List<Float>>>) : OcrEngine {
+    /**
+     * Text recognition that reads [lines] on every page: each a text and its box as shares of the
+     * page (left, top, right, bottom). It downloads its model first when [downloads]; it can't be
+     * had at all when [unavailable] says why.
+     */
+    private class FakeOcr(
+        private val lines: List<Pair<String, List<Float>>>,
+        private val downloads: Boolean = false,
+        private val unavailable: OcrProblem? = null,
+    ) : OcrEngine {
         var readied = 0
         var read = 0
         override suspend fun ensureReady(language: OcrLanguage, onDownload: (Float?) -> Unit) {
             readied++
+            if (downloads) {
+                onDownload(null)
+                onDownload(1f)
+            }
+            if (unavailable != null) throw OcrUnavailableException(unavailable)
         }
         override fun open(language: OcrLanguage): OcrRecognizer = object : OcrRecognizer {
             override suspend fun recognize(page: Bitmap): List<OcrLine> {
@@ -636,6 +650,39 @@ class PdfTranslationDeviceTest {
                 assertTrue(heading.minOf { it.xDirAdj } > 100f)
             }
         }
+    }
+
+    @Test fun withoutTextRecognitionThePagesWithTextAreStillTranslated() {
+        val file = File(dir, "charts.pdf")
+        PDDocument().use { doc ->
+            // A chart without a word, the article, the chart again.
+            fun chart() = PDPage(PDRectangle.A4).also { page ->
+                PDPageContentStream(doc, page).use { c ->
+                    c.addRect(100f, 300f, 200f, 150f)
+                    c.fill()
+                }
+            }
+            doc.addPage(chart())
+            doc.addPage(PDPage(PDRectangle.A4).also { article(it, doc) })
+            doc.addPage(chart())
+            doc.save(file)
+        }
+        val ocr = FakeOcr(emptyList(), unavailable = OcrProblem.DOWNLOAD_FAILED)
+        val outcome = translate(import(file), ocr = ocr)
+        assertEquals(3, outcome.file.pageCount)
+        assertEquals(listOf(0, 2), outcome.unread)
+        assertEquals("Asked once", 1, ocr.readied)
+        assertTrue(textOf(outcome.file.file, 1).contains(marked(HEADING)))
+
+        // With nothing else to translate, the run says why text recognition can't be had.
+        val charts = import(File(dir, "chart-only.pdf").also { f -> PDDocument.load(file).use { it.removePage(1); it.save(f) } })
+        try {
+            translate(charts, ocr = ocr)
+            fail("Text recognition can't be had")
+        } catch (e: OcrUnavailableException) {
+            assertEquals(OcrProblem.DOWNLOAD_FAILED, e.problem)
+        }
+        assertTrue(output.list().isNullOrEmpty())
     }
 
     @Test fun theLanguageIsDetectedFromTheFirstPagesWithText() {
