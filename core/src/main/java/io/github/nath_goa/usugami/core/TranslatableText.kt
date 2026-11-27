@@ -31,7 +31,8 @@ object TranslatableText {
      * letters; when each of its words is a web address, an e-mail address or a file's name or path
      * (in any script; one that Chinese, Japanese or Thai words run into, with no space, is among words);
      * when it is a number, a date, an amount or a code with no word in it (digits with punctuation,
-     * and letters only one at a time: "12.50", "03/04/2025", "A-12-B", "2025年3月"); or when it is
+     * and letters only one at a time: "12.50", "03/04/2025", "A-12-B", "2025年3月"); when it is one run
+     * of capitals and digits, a code ("LB-204", "AMP-12"); or when it is
      * one run of more than 40 characters without a space, in writing that has spaces, that has a
      * digit in it (an id). A word is two letters or more in a row, so "Invoice 12" is translated, and
      * so is "U.S.A.", which has no digit. What isn't translated stays as it is on the page.
@@ -43,6 +44,9 @@ object TranslatableText {
         if (isAddresses(trimmed)) return false
         // Letters one at a time among digits: a code. Without digits ("U.S.A.") it may be an abbreviation.
         if (!hasWord(trimmed) && trimmed.any(Char::isDigit)) return false
+        // One run of capitals and digits: an item's code or a reference ("LB-204", "AMP-12", "F-2026-0412"),
+        // which a translator would change ("Lb-204").
+        if (tokens.size == 1 && isCode(trimmed)) return false
         // Chinese, Japanese and Thai put no space between words, so a whole paragraph of them is one run.
         if (tokens.size == 1 && trimmed.length > LONG_TOKEN && trimmed.any(Char::isDigit) &&
             trimmed.codePoints().noneMatch(WordSpacing::unspaced)
@@ -103,6 +107,13 @@ object TranslatableText {
         }
         return false
     }
+
+    /**
+     * Whether [text], a run without spaces, is a code: digits and capital letters, every letter a
+     * capital ("LB-204", "COVID-19"); not letters of writing without capitals among digits ("東京2020").
+     */
+    private fun isCode(text: String): Boolean =
+        text.any(Char::isDigit) && text.any(Char::isUpperCase) && text.none { it.isLetter() && !it.isUpperCase() }
 
     /** Whether [text] has two letters in a row somewhere. */
     private fun hasWord(text: String): Boolean {

@@ -30,6 +30,17 @@ class TranslatableTextTest {
         assertFalse(worth("INV2025000123ABCDEFGHIJKLMNOPQRSTUVWXYZ0042"))
     }
 
+    @Test fun anItemsCodeIsNotTranslated() {
+        // An invoice's references: capitals and digits, which a translator changes ("LB-204" -> "Lb-204").
+        for (code in listOf("LB-204", "AMP-12", "SRV-01", "F-2026-0412", "CMCIFR2A", "COVID-19")) {
+            assertFalse(code, worth(code))
+        }
+        // Words with digits in writing without capitals, and a code among words, are still translated.
+        for (text in listOf("東京2020", "Réf. LB-204", "Covid-19", "B2B-Kunden")) {
+            assertTrue(text, worth(text))
+        }
+    }
+
     @Test fun wordsAreTranslated() {
         // "U.S.A." has no word of two letters, but no digit either: an abbreviation, not a code.
         for (text in listOf("Invoice 12", "Total", "No.", "12 kg", "Page 3 of 10", "東京", "नमस्ते", "Étude", "U.S.A.", "e.g.")) {
