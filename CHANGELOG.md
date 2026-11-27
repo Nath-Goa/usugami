@@ -6,17 +6,81 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
-## [3.0.2] - 2026-11-27
+## [4.0.0] - 2026-11-27
+
+### Added
+
+- **Translate PDF**, in Usugami (Usugami.apk) only, under Convert from PDF on Home and in Choose a
+  tool: a copy of a PDF in another language, made on the phone with Google ML Kit's translation.
+  **From** is the PDF's language, worked out on the phone from its text ("Detected from the PDF's
+  text"), or chosen when Usugami can't tell; **To** starts on the app's language (on English when
+  the PDF is already in that). Both list the 59 languages ML Kit translates. The pages are chosen
+  as in PDF to images or text.
+  - **Language packs:** each language but English, which is built in, needs a pack of about 40 MB,
+    downloaded once. Before a run that needs one, Usugami asks; Android's download manager then
+    fetches it from Google, with Android's own notification, while the working dialog says how
+    much has come. Cancel stops the download and removes a pack that hadn't finished. Usugami says
+    at once when the phone isn't connected, after about a minute when the connection goes during a
+    download, after two minutes when a download gets nowhere, and within seconds when the storage
+    can't hold the pack. After that, translating needs no internet. **Language packs**, on the
+    tool's screen, lists the packs on the phone, and each can be deleted.
+  - **Scanned pages** are read with text recognition first (languages written in the Latin
+    alphabet, Hindi and Marathi), which Google Play services downloads the first time. When text
+    recognition can't be had, the pages with text are still translated, and its dialog shows only
+    when nothing else could be.
+  - **The new PDF** (such as Report_translated.pdf) shows each page as a 150-dpi picture of itself,
+    with the original text painted out and the translation written in its place as real text you
+    can search and copy: in the original's colour, at about its size, bold where it was bold, right
+    to left in Arabic, Hebrew, Persian and Urdu, and with Japanese or simplified Chinese letter
+    shapes. Each entry of a contents page, a price list or a form is translated on its own.
+    Numbers, names, addresses and text already in the language chosen stay on the picture. The
+    title and bookmarks are translated; form fields, comments, links, metadata and scripts aren't
+    kept (what the page shows of a field or a comment is in the picture). Notes under the result
+    name the pages left as they were and those where some text was.
+  - Its limits are in the README (*What can't Translate PDF do?*): translations are set ragged
+    and can differ in size from paragraph to paragraph; text turned more than about 10 degrees,
+    upside down or running down the page is left as it is; over a photo or a gradient the patch
+    under a translation can show streaks; scanned pages get no bold.
 
 ### Changed
 
+- **Scan document takes all the photos first**, in all three editions. After each photo the new
+  **Photos** screen shows the photos taken so far, numbered in the order taken, each with a button
+  that removes it, with **Take another** and **Done**; leaving it with photos taken asks first.
+  **Done** crops each photo in turn on the crop screen's corners step, "Page 2 of 5" under the
+  title, with **Next** on every one. Back goes to the image before, with the corners it was given
+  (from the first photo, back to the photos), and **Discard photo** takes a photo out of the scan.
+  After the last, one **Filters** screen shows the page chosen large in its look, the scan's pages
+  in a row under it, the looks, Brightness and Contrast, and **Same filter for all pages**, which
+  gives every page of the scan the chosen page's look, brightness and contrast. Every page starts
+  on Enhanced. **Save** puts the pages in Images to PDF, after those already there. Images picked
+  with Upload images are cropped one after another the same way, with **Stop cropping** to leave
+  the rest whole, and go on to Filters. The pages screen's Take photo and the Scan document
+  shortcut start the same kind of scan. Android stopping Usugami at any step loses nothing.
+  Before, each photo was cropped and given its look before the next was taken, and a new photo
+  started on the look chosen last. Cropping a page again with its crop button, and the ID card
+  scan, work as before.
 - Settings → **Donate** opens a page with the four steps to donate through
   [Buy Me a Coffee](https://buymeacoffee.com/usugami): open Usugami's page there (its button opens
   it in your browser), choose how many coffees to buy, add your name and a message if you like,
   and tap Support to pay. Under the steps, **Donate with GitHub Sponsors instead** opens the four
   steps for [GitHub Sponsors](https://github.com/sponsors/Nath-Goa), which were on this page
   before. The Sponsor button on Usugami's GitHub page lists Buy Me a Coffee too, and the F-Droid
-  listings' Donate link goes there. Usugami itself still has no internet permission.
+  listings' Donate link goes there.
+- **Usugami.apk** is about 19 MB (it was 5.1 MB), because ML Kit's translation is inside; its
+  native code is kept compressed in the APK and unpacked once when the app is installed. It is for
+  ARM phones now (virtually all phones), like Usugami OCR: it no longer installs on x86 Android
+  without ARM translation, such as Waydroid or plain x86 emulators. Usugami Lite still does.
+- **Usugami.apk has the internet permission** (`INTERNET` and `ACCESS_NETWORK_STATE`, which ML
+  Kit's translation asks for), only so that Android's download manager can fetch language packs;
+  About and the privacy policy say so. Usugami's own process opens no connection: from its start
+  it refuses every http, https and ftp address, so ML Kit can't register with Google's Firebase or
+  fetch its settings, and OkHttp, which ML Kit brought only for that, is left out. Usugami.apk's
+  Java code, Google's libraries' included, no longer writes debug and info messages to the phone's
+  system log; ML Kit's native code still writes the text it translates, and the translation, there.
+  Usugami
+  Lite and Usugami OCR still have no internet permission and none of Translate PDF's code or
+  texts.
 
 ## [3.0.1] - 2026-11-20
 
@@ -1110,8 +1174,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v3.0.2...HEAD
-[3.0.2]: https://github.com/Nath-Goa/usugami/compare/v3.0.1...v3.0.2
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/Nath-Goa/usugami/compare/v3.0.1...v4.0.0
 [3.0.1]: https://github.com/Nath-Goa/usugami/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/Nath-Goa/usugami/compare/v2.0.1...v3.0.0
 [2.0.1]: https://github.com/Nath-Goa/usugami/compare/v2.0.0...v2.0.1
