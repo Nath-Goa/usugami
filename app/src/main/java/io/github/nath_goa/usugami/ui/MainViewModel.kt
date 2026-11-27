@@ -1188,7 +1188,10 @@ class MainViewModel(private val app: Application, private val handle: SavedState
                     r is ImageStore.ImportResult.Added && (dropped || photo.card != 0L && _card.value?.card != photo.card) ->
                         viewModelScope.launch(fileOps) { store.delete(r.item) }
                     r is ImageStore.ImportResult.Added -> {
-                        val item = r.item.copy(card = photo.card)
+                        // Taken after going back to the photos of a scan whose pages have had their first
+                        // look: it starts as they did (see toLooks), which is given only once.
+                        val styled = _scan.value?.takeIf { photo.card == 0L && it.stage == ScanStage.PHOTOS && it.camera && it.styled }
+                        val item = r.item.copy(card = photo.card).let { if (styled != null) it.withScanLook(styled) else it }
                         setItems(PageGroups.withAdded(items.value, item) { it.card })
                         if (photo.card != 0L) {
                             openCrop(item, fromCamera = true)

@@ -467,6 +467,31 @@ class ScanFlowDeviceTest {
     }
 
     /**
+     * A photo taken after going back from the Filters to the photos starts on Enhanced, as the scan's
+     * other pages did when they first reached the Filters, whose own looks are kept.
+     */
+    @Test fun aPhotoTakenAfterGoingBackFromTheFiltersStartsOnEnhancedLikeTheOthers() {
+        val vm = launch()
+        takePhotos(1)
+        press(R.string.crop_done)
+        nextOnEach(1)
+        chooseLook(R.string.look_grayscale)
+        backKey()
+        scanImage(1, 1)
+        backKey()
+        scanPhotos(1)
+        withCamera {
+            press(R.string.crop_take_another)
+            scanPhotos(2)
+        }
+        press(R.string.crop_done)
+        nextOnEach(2)
+        showPage(2)
+        waitUntil("Enhanced, the new page's look") { look(R.string.look_enhanced).chosen }
+        assertEquals(listOf(PageLook.GRAYSCALE, PageLook.ENHANCED), onMain { vm.items.value.map { it.look } })
+    }
+
+    /**
      * Discard photo on the crop screen takes the photo shown out of the scan, and the next shows; on a
      * scan's only photo, the scan is over, and a scan from Home goes back Home.
      */
