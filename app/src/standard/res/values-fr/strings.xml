@@ -18,14 +18,14 @@
     <string name="translate_same">Choisissez deux langues différentes.</string>
     <string name="translate_packs">Packs de langue</string>
     <plurals name="translate_packs_ready" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Le pack %1$s est sur ce téléphone : la traduction se fait sans Internet.</item>
-        <item quantity="many">Les packs %1$s sont sur ce téléphone : la traduction se fait sans Internet.</item>
-        <item quantity="other">Les packs %1$s sont sur ce téléphone : la traduction se fait sans Internet.</item>
+        <item quantity="one">Le pack %1$s est sur ce téléphone : la traduction se fait sans Internet.</item>
+        <item quantity="many">Les packs %1$s sont sur ce téléphone : la traduction se fait sans Internet.</item>
+        <item quantity="other">Les packs %1$s sont sur ce téléphone : la traduction se fait sans Internet.</item>
     </plurals>
     <plurals name="translate_packs_needed" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Nécessite le pack %1$s, environ 40 Mo. Il se télécharge une seule fois ; ensuite, la traduction se fait sans Internet.</item>
-        <item quantity="many">Nécessite les packs %1$s, environ 40 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
-        <item quantity="other">Nécessite les packs %1$s, environ 40 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="one">Nécessite le pack %1$s, environ 40 Mo. Il se télécharge une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="many">Nécessite les packs %1$s, environ 40 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="other">Nécessite les packs %1$s, environ 40 Mo chacun. Ils se téléchargent une seule fois ; ensuite, la traduction se fait sans Internet.</item>
     </plurals>
     <string name="translate_pages_hint" tools:ignore="TypographyDashes">Laissez vide pour toutes les pages. Ou saisissez des numéros, comme 1,3,5-8, ou touchez les aperçus.</string>
     <string name="translate_pages_all">À traduire : toutes les pages</string>
@@ -35,20 +35,20 @@
     <string name="translate_packs_intro">Chaque pack fait environ 40 Mo. Avec les packs présents sur ce téléphone, la traduction se fait sans Internet.</string>
     <string name="translate_packs_none">Aucun pack de langue sur ce téléphone. Ils se téléchargent lorsqu\'une traduction en a besoin.</string>
     <string name="translate_pack_delete">Supprimer le pack %1$s</string>
-    <string name="translate_pack_delete_title">Supprimer le pack %1$s ?</string>
+    <string name="translate_pack_delete_title">Supprimer le pack %1$s ?</string>
     <string name="translate_pack_delete_body">Il sera de nouveau téléchargé (environ 40 Mo) la prochaine fois qu\'une traduction en aura besoin.</string>
     <string name="translate_pack_delete_confirm">Supprimer</string>
     <string name="translate_pack_delete_failed">Impossible de supprimer le pack de langue. Réessayez.</string>
 
     <plurals name="translate_download_title" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Télécharger un pack de langue ?</item>
-        <item quantity="many">Télécharger des packs de langue ?</item>
-        <item quantity="other">Télécharger des packs de langue ?</item>
+        <item quantity="one">Télécharger un pack de langue ?</item>
+        <item quantity="many">Télécharger des packs de langue ?</item>
+        <item quantity="other">Télécharger des packs de langue ?</item>
     </plurals>
     <plurals name="translate_download_body" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Pour traduire, il faut d\'abord télécharger le pack %1$s : environ 40 Mo, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
-        <item quantity="many">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 40 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
-        <item quantity="other">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 40 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="one">Pour traduire, il faut d\'abord télécharger le pack %1$s : environ 40 Mo, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="many">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 40 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
+        <item quantity="other">Pour traduire, il faut d\'abord télécharger les packs %1$s : environ 40 Mo chacun, par Internet. Cela n\'a lieu qu\'une fois ; ensuite, la traduction se fait sans Internet.</item>
     </plurals>
     <string name="translate_download_confirm">Télécharger et traduire</string>
 
@@ -62,29 +62,29 @@
     <string name="translate_problem_download">Impossible de télécharger les packs de langue. Vérifiez votre connexion Internet et réessayez.</string>
     <string name="translate_problem_storage">L\'espace de stockage disponible est insuffisant pour les packs de langue. Libérez de l\'espace et réessayez.</string>
     <string name="translate_problem_failed">Impossible de lancer la traduction. Réessayez.</string>
-    <string name="translate_ocr_retry">Pour traduire dès maintenant les pages qui contiennent du texte, indiquez uniquement celles-ci dans « Pages » et réessayez.</string>
+    <string name="translate_ocr_retry">Pour traduire dès maintenant les pages qui contiennent du texte, indiquez uniquement celles-ci dans « Pages » et réessayez.</string>
     <string name="translate_none">Ces pages ne contiennent aucun texte à traduire.</string>
-    <string name="translate_none_unreadable">Ces pages semblent numérisées et leur texte n\'a pas pu être lu : il n\'y a rien à traduire.</string>
+    <string name="translate_none_unreadable">Ces pages semblent numérisées et leur texte n\'a pas pu être lu : il n\'y a rien à traduire.</string>
     <string name="translate_unavailable">La traduction n\'est pas disponible sur ce téléphone.</string>
 
     <plurals name="translate_note_no_text" tools:ignore="ImpliedQuantity">
         <item quantity="one">La page %2$s ne contenait aucun texte à traduire et reste telle quelle.</item>
-        <item quantity="many">%1$d pages ne contenaient aucun texte à traduire et restent telles quelles : %2$s.</item>
-        <item quantity="other">%1$d pages ne contenaient aucun texte à traduire et restent telles quelles : %2$s.</item>
+        <item quantity="many">%1$d pages ne contenaient aucun texte à traduire et restent telles quelles : %2$s.</item>
+        <item quantity="other">%1$d pages ne contenaient aucun texte à traduire et restent telles quelles : %2$s.</item>
     </plurals>
     <plurals name="translate_note_unread_language" tools:ignore="ImpliedQuantity">
         <item quantity="one">La page %2$s semble numérisée et reste telle quelle, car la reconnaissance de texte ne lit pas cette langue.</item>
-        <item quantity="many">%1$d pages semblent numérisées et restent telles quelles, car la reconnaissance de texte ne lit pas cette langue : %2$s.</item>
-        <item quantity="other">%1$d pages semblent numérisées et restent telles quelles, car la reconnaissance de texte ne lit pas cette langue : %2$s.</item>
+        <item quantity="many">%1$d pages semblent numérisées et restent telles quelles, car la reconnaissance de texte ne lit pas cette langue : %2$s.</item>
+        <item quantity="other">%1$d pages semblent numérisées et restent telles quelles, car la reconnaissance de texte ne lit pas cette langue : %2$s.</item>
     </plurals>
     <plurals name="translate_note_unread_failed" tools:ignore="ImpliedQuantity">
         <item quantity="one">La page %2$s semble numérisée et reste telle quelle, car la reconnaissance de texte n\'a pas pu la lire.</item>
-        <item quantity="many">%1$d pages semblent numérisées et restent telles quelles, car la reconnaissance de texte n\'a pas pu les lire : %2$s.</item>
-        <item quantity="other">%1$d pages semblent numérisées et restent telles quelles, car la reconnaissance de texte n\'a pas pu les lire : %2$s.</item>
+        <item quantity="many">%1$d pages semblent numérisées et restent telles quelles, car la reconnaissance de texte n\'a pas pu les lire : %2$s.</item>
+        <item quantity="other">%1$d pages semblent numérisées et restent telles quelles, car la reconnaissance de texte n\'a pas pu les lire : %2$s.</item>
     </plurals>
     <plurals name="translate_note_partly" tools:ignore="ImpliedQuantity">
-        <item quantity="one">Sur la page %2$s, une partie du texte est restée telle quelle : elle n\'a pas pu être traduite, ou ce téléphone n\'a pas de police pour cette langue.</item>
-        <item quantity="many">Sur %1$d pages, une partie du texte est restée telle quelle, faute de traduction ou de police pour cette langue sur ce téléphone : %2$s.</item>
-        <item quantity="other">Sur %1$d pages, une partie du texte est restée telle quelle, faute de traduction ou de police pour cette langue sur ce téléphone : %2$s.</item>
+        <item quantity="one">Sur la page %2$s, une partie du texte est restée telle quelle : elle n\'a pas pu être traduite, ou ce téléphone n\'a pas de police pour cette langue.</item>
+        <item quantity="many">Sur %1$d pages, une partie du texte est restée telle quelle, faute de traduction ou de police pour cette langue sur ce téléphone : %2$s.</item>
+        <item quantity="other">Sur %1$d pages, une partie du texte est restée telle quelle, faute de traduction ou de police pour cette langue sur ce téléphone : %2$s.</item>
     </plurals>
 </resources>
