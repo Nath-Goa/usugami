@@ -17,6 +17,7 @@ import com.google.mlkit.nl.translate.TranslateRemoteModel
 import com.google.mlkit.nl.translate.Translation
 import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
+import io.github.nath_goa.usugami.core.isOutOfSpace
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
@@ -56,16 +57,18 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
      * would also look online for newer packs, isn't called. [onDownload] gets the fraction of these
      * packs' bytes downloaded, which Android's download manager tells (ML Kit itself gives no
      * progress), never less than it told before, and null until every pack's size is known (the
-     * first few seconds) and while the phone is offline. A download that is getting somewhere has no time limit (a slow connection may take
-     * many minutes) but for a ceiling of [DOWNLOAD_LIMIT]; it fails with
-     * [TranslationProblem.NO_INTERNET] at once when the phone is offline, and when it stays offline
-     * for [OFFLINE_LIMIT] during the download, and with [TranslationProblem.DOWNLOAD_FAILED] when,
-     * online, it gets nowhere for [STALL_LIMIT] (Google's servers can't be reached; the download
-     * manager would go on retrying for about a quarter of an hour). When it fails, or the coroutine
-     * is cancelled, the packs it was downloading that haven't arrived are deleted, which also
-     * stops their downloads in the download manager: nothing goes on downloading once the user has
-     * been told it stopped, and the next call starts those packs again from the beginning. A pack
-     * that arrived stays.
+     * first few seconds) and while the phone is offline. A download that is getting somewhere has
+     * no time limit (a slow connection may take many minutes) but for a ceiling of
+     * [DOWNLOAD_LIMIT]; it fails with [TranslationProblem.NO_INTERNET] at once when the phone is
+     * offline, and when it stays offline for [OFFLINE_LIMIT] during the download, with
+     * [TranslationProblem.DOWNLOAD_FAILED] when, online, it gets nowhere for [STALL_LIMIT]
+     * (Google's servers can't be reached; the download manager would go on retrying for about a
+     * quarter of an hour), and with [TranslationProblem.NO_STORAGE] as soon as the download manager
+     * finds no room for a pack (it would wait for room, and ML Kit with it, without a word). When
+     * it fails, or the coroutine is cancelled, the packs it was downloading that haven't arrived
+     * are deleted, which also stops their downloads in the download manager: nothing goes on
+     * downloading once the user has been told it stopped, and the next call starts those packs
+     * again from the beginning. A pack that arrived stays.
      */
     override suspend fun ensureReady(source: String, target: String, onDownload: (Float?) -> Unit) {
         try {
@@ -86,7 +89,7 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
         } catch (e: TranslationUnavailableException) {
             throw e
         } catch (e: MlKitException) {
-            throw TranslationUnavailableException(problemFor(e.errorCode), e)
+            throw TranslationUnavailableException(problemOf(e), e)
         } catch (e: OcrUnavailableException) {
             // Task.await's word for a task that ended as cancelled: ML Kit cancels a pack's download
             // when the pack is deleted meanwhile.
@@ -124,6 +127,7 @@ internal class MlKitTranslationEngine(private val context: Context) : Translatio
                     if (isOnline()) {
                         offlineSince = null
                         progress.update()
+                        if (progress.full) throw TranslationUnavailableException(TranslationProblem.NO_STORAGE)
                         // A download the download manager can't tell about isn't taken for stuck.
                         val bytes = progress.bytes
                         if (bytes == null || bytes != lastBytes) {
@@ -253,7 +257,20 @@ private class MlKitTextTranslator(private val translator: Translator) : TextTran
 private class DownloadProgress(context: Context, private val packs: Map<String, Task<Void>>) {
     private val downloads = context.getSystemService(DownloadManager::class.java)
 
-    /** Each pack's download as last seen pending, running, or finished since. */
+    /**
+     * The app's downloads when the run began (ML Kit adds its own a moment later); null when the
+     * download manager couldn't be asked.
+     */
+    private val before: Set<Long>? = try {
+        downloads?.query(DownloadManager.Query())?.use { rows ->
+            val idColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)
+            buildSet { while (rows.moveToNext()) add(rows.getLong(idColumn)) }
+        }
+    } catch (_: RuntimeException) {
+        null
+    }
+
+    /** Each pack's download of this run, as last seen. */
     private val seen = HashMap<String, PackDownload>()
 
     /** The largest fraction told: a pack ML Kit downloads again (from its second address) doesn't take it back. */
@@ -270,10 +287,18 @@ private class DownloadProgress(context: Context, private val packs: Map<String, 
     var fraction: Float? = null
         private set
 
+    /**
+     * Whether a pack's download stopped for want of room, as of the last [update]. The download
+     * manager then waits for room without a word, and so does ML Kit.
+     */
+    var full = false
+        private set
+
     /** Asks the download manager how far the downloads are. */
     fun update() {
         bytes = null
         fraction = null
+        full = false
         val manager = downloads ?: return
         val listed = HashMap<String, PackDownload>()
         try {
@@ -282,6 +307,7 @@ private class DownloadProgress(context: Context, private val packs: Map<String, 
                 val idColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)
                 val uriColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_URI)
                 val statusColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)
+                val reasonColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON)
                 val doneColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
                 val totalColumn = rows.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
                 while (rows.moveToNext()) {
@@ -291,18 +317,20 @@ private class DownloadProgress(context: Context, private val packs: Map<String, 
                     val active = status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING ||
                         status == DownloadManager.STATUS_PAUSED
                     // Downloads that ended before this run are not part of it.
-                    if (!active && seen[pack]?.id != id) continue
+                    if (!active && seen[pack]?.id != id && before?.contains(id) != false) continue
                     // After a failed download ML Kit downloads the pack again from another address: the newer is the one.
                     if (id < (listed[pack]?.id ?: Long.MIN_VALUE)) continue
                     val total = rows.getLong(totalColumn)
                     val done = if (status == DownloadManager.STATUS_SUCCESSFUL && total > 0) total else rows.getLong(doneColumn)
-                    listed[pack] = PackDownload(id, total, done)
+                    val noRoom = status == DownloadManager.STATUS_FAILED && rows.getInt(reasonColumn) == DownloadManager.ERROR_INSUFFICIENT_SPACE
+                    listed[pack] = PackDownload(id, total, done, noRoom)
                 }
             }
         } catch (_: RuntimeException) {
             return // the download manager's provider failing is no reason to stop the download
         }
         seen += listed
+        full = listed.values.any { it.noRoom }
         var done = 0L
         for ((pack, task) in packs) {
             val download = seen[pack] ?: continue
@@ -319,8 +347,11 @@ private class DownloadProgress(context: Context, private val packs: Map<String, 
     }
 }
 
-/** A pack's download in Android's download manager: its id, its size (-1 while unknown) and the bytes downloaded. */
-private class PackDownload(val id: Long, val total: Long, val done: Long)
+/**
+ * A pack's download in Android's download manager: its id, its size (-1 while unknown), the bytes
+ * downloaded, and whether it stopped for want of room.
+ */
+private class PackDownload(val id: Long, val total: Long, val done: Long, val noRoom: Boolean)
 
 /**
  * The language whose pack the download of [uri] is, from the file's name, which ML Kit makes of
@@ -344,9 +375,15 @@ private fun tagOf(tag: String): String =
     requireNotNull(TranslateLanguage.fromLanguageTag(tag)) { "ML Kit doesn't translate \"$tag\"" }
 
 /**
- * [code] is an [MlKitException] code. Codes for a mistake in how ML Kit is called are kept apart
- * from download problems.
+ * What [e], ML Kit's word on a download, means. ML Kit's translation reports a full storage as an
+ * internal error: the download manager's "Downloading error 1006", or an unzip whose IOException
+ * says ENOSPC. Codes for a mistake in how ML Kit is called are kept apart from download problems.
  */
+internal fun problemOf(e: MlKitException): TranslationProblem = when {
+    e.isOutOfSpace() || e.message == "Downloading error ${DownloadManager.ERROR_INSUFFICIENT_SPACE}" -> TranslationProblem.NO_STORAGE
+    else -> problemFor(e.errorCode)
+}
+
 private fun problemFor(code: Int): TranslationProblem = when (code) {
     MlKitException.NOT_ENOUGH_SPACE -> TranslationProblem.NO_STORAGE
     MlKitException.NETWORK_ISSUE -> TranslationProblem.NO_INTERNET

@@ -5,8 +5,10 @@ import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
+import com.google.mlkit.common.MlKitException
 import io.github.nath_goa.usugami.data.TranslationProblem
 import io.github.nath_goa.usugami.data.TranslationUnavailableException
+import io.github.nath_goa.usugami.data.problemOf
 import io.github.nath_goa.usugami.data.translationEngine
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +22,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import java.io.IOException
 
 /**
  * Google ML Kit's translation itself (standard edition only), with the real language packs: the
@@ -87,6 +90,16 @@ class MlKitTranslationDeviceTest {
     /** Language identification calls Tagalog "fil", and ML Kit's translation "tl". */
     @Test fun detectsTagalog() = runBlocking {
         assertEquals("tl", engine.detect("Magandang umaga sa inyong lahat. Kumusta kayo ngayong araw? Salamat po sa inyong pagdalo sa aming pulong."))
+    }
+
+    /** ML Kit's translation reports a full storage as an internal error, which is still told apart. */
+    @Test fun aFullStorageIsToldApartFromOtherDownloadFailures() {
+        val downloadManagerFull = MlKitException("Downloading error ${DownloadManager.ERROR_INSUFFICIENT_SPACE}", MlKitException.INTERNAL)
+        assertEquals(TranslationProblem.NO_STORAGE, problemOf(downloadManagerFull))
+        val unzipFull = MlKitException("Could not unzip translate model file", MlKitException.INTERNAL, IOException("write failed: ENOSPC (No space left on device)"))
+        assertEquals(TranslationProblem.NO_STORAGE, problemOf(unzipFull))
+        val other = MlKitException("Downloading error ${DownloadManager.ERROR_HTTP_DATA_ERROR}", MlKitException.INTERNAL)
+        assertEquals(TranslationProblem.DOWNLOAD_FAILED, problemOf(other))
     }
 
     /**
