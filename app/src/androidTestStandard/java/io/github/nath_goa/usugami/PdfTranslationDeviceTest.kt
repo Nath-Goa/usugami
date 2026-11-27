@@ -56,6 +56,8 @@ import io.github.nath_goa.usugami.data.TranslateProgress
 import io.github.nath_goa.usugami.data.TranslationEngine
 import io.github.nath_goa.usugami.data.TranslationProblem
 import io.github.nath_goa.usugami.data.TranslationUnavailableException
+import io.github.nath_goa.usugami.data.WatermarkColor
+import io.github.nath_goa.usugami.data.WatermarkOpacity
 import io.github.nath_goa.usugami.data.detectSourceLanguage
 import io.github.nath_goa.usugami.data.ocrEngine
 import io.github.nath_goa.usugami.data.translatePdf
@@ -745,6 +747,34 @@ class PdfTranslationDeviceTest {
         assertEquals(listOf(0), outcome.partly)
         assertFalse(textOf(outcome.file.file, 0).contains(marked("ab")))
         assertTrue(textOf(outcome.file.file, 1).contains(marked(HEADING)))
+    }
+
+    @Test fun aScanWithAWatermarkIsStillReadWithTextRecognition() {
+        val file = File(dir, "scan.pdf")
+        PDDocument().use { doc ->
+            doc.addPage(PDPage(PDRectangle.A4).also { page -> PDPageContentStream(doc, page).use { it.drawImage(noise(doc, 40, 60), 0f, 0f, PDRectangle.A4.width, PDRectangle.A4.height) } })
+            // Lines running up the page: many letters, which no scan has.
+            doc.addPage(PDPage(PDRectangle.A4).also { page ->
+                PDPageContentStream(doc, page).use { c ->
+                    c.beginText()
+                    c.setFont(PDType1Font.HELVETICA, 12f)
+                    for (i in 0 until 3) {
+                        c.setTextMatrix(Matrix(0f, 1f, -1f, 0f, 100f + 20f * i, 72f))
+                        c.showText("Une ligne de texte qui monte le long de la page")
+                    }
+                    c.endText()
+                }
+            })
+            doc.save(file)
+        }
+        // Usugami's own watermark, along the portrait pages' diagonal.
+        val watermarked = File(dir, "watermarked.pdf")
+        engine.addWatermark(import(file), "CONFIDENTIEL", WatermarkColor.GRAY, WatermarkOpacity.SEMI, "watermarked").file.copyTo(watermarked)
+        val ocr = FakeOcr(listOf("Texte lu sur le scan" to listOf(0.12f, 0.1f, 0.6f, 0.13f)))
+        val outcome = translate(import(watermarked), ocr = ocr)
+        assertEquals(1, ocr.read)
+        assertEquals(listOf(1), outcome.noText)
+        assertTrue(textOf(outcome.file.file, 0).contains(marked("Texte lu sur le scan")))
     }
 
     @Test fun theLanguageIsDetectedFromTheFirstPagesWithText() {

@@ -348,8 +348,9 @@ private class PdfTranslator(
         var blocks = lines?.let { TextBlocks.group(it.lines, width, height) }.orEmpty()
         var chosen = blocks.filter { TranslatableText.isWorthTranslating(it.text) }
         if (chosen.isEmpty()) {
-            // Something drawn, but no letters: a scan, perhaps with a page number. One that shows
-            // letters PageLineReader leaves alone (turned text, say) has nothing to translate.
+            // Something drawn, but no letters: a scan, perhaps with a page number or a watermark's few
+            // letters. One that shows many letters PageLineReader leaves alone (turned text, say) has
+            // nothing to translate.
             if ((started || annotated) && lines?.hasText != true) {
                 val scanned = readScan(index, width, height)
                 if (scanned == null) {

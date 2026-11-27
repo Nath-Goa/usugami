@@ -17,9 +17,10 @@ import kotlin.math.max
 import kotlinx.coroutines.CancellationException
 
 /**
- * What [PageLineReader] read on a page: its [lines] to translate, and whether it shows any letters
- * at all ([hasText]), also in text it doesn't translate (turned, or running down the page): a page
- * that does is not a scan to read with text recognition.
+ * What [PageLineReader] read on a page: its [lines] to translate, and whether it shows letters
+ * ([hasText]): any in its lines, or many ([PageLineReader.TURNED_LETTERS] or more) in text it
+ * doesn't translate (turned, or running down the page). A page that does is not a scan to read with
+ * text recognition; a scan with a few such letters on it (a watermark, a stamp) still is.
  */
 internal class PageLines(val lines: List<SourceLine>, val hasText: Boolean)
 
@@ -55,8 +56,9 @@ internal class PageLineReader(
     /** The page's lines so far. */
     private val lines = ArrayList<SourceLine>()
 
-    /** Whether the page shows letters, in any direction. */
-    private var hasText = false
+    /** The letters of the page so far in the lines given, and in text that isn't (see [PageLines.hasText]). */
+    private var lineLetters = 0
+    private var turnedLetters = 0
 
     /** What was read of the page, once it is read to its end. */
     private var read: PageLines? = null
@@ -98,7 +100,8 @@ internal class PageLineReader(
     override fun startPage(page: PDPage) {
         line.clear()
         lines.clear()
-        hasText = false
+        lineLetters = 0
+        turnedLetters = 0
         read = null
         frame = page.shownFrame()
         val box = page.cropBox
@@ -117,8 +120,6 @@ internal class PageLineReader(
         val x = text.textMatrix.translateX
         val y = text.textMatrix.translateY
         if (x < -SPARE || x > cropWidth + SPARE || y < -SPARE || y > cropHeight + SPARE) return
-        val unicode = text.unicode.orEmpty()
-        if (!hasText && Redactor.readable(unicode) && unicode.any(Char::isLetter)) hasText = true
         super.processTextPosition(alongItsLine(text))
     }
 
@@ -167,11 +168,13 @@ internal class PageLineReader(
             val box = Redactor.glyphBox(glyph, frame)
             if (box == null || !box.across) {
                 // Text that runs up or down the page as shown isn't translated.
+                turnedLetters += lettersOf(glyph)
                 addLine(piece)
                 piece = ArrayList()
                 last = null
                 continue
             }
+            lineLetters += lettersOf(glyph)
             val placed = Placed(glyph, box, sizeOf(glyph))
             if (last != null) {
                 val gap = max(box.left - last.box.right, last.box.left - box.right)
@@ -185,6 +188,12 @@ internal class PageLineReader(
         }
         addLine(piece)
         line.clear()
+    }
+
+    /** How many letters [glyph] shows: none when it stands for something unreadable. */
+    private fun lettersOf(glyph: TextPosition): Int {
+        val unicode = glyph.unicode.orEmpty()
+        return if (Redactor.readable(unicode)) unicode.count(Char::isLetter) else 0
     }
 
     /** A glyph with its box on the page as shown and its font size. */
@@ -270,7 +279,7 @@ internal class PageLineReader(
 
     override fun endPage(page: PDPage) {
         endLine()
-        read = PageLines(ArrayList(lines), hasText)
+        read = PageLines(ArrayList(lines), hasText = lineLetters > 0 || turnedLetters >= TURNED_LETTERS)
     }
 
     private object NoWriter : Writer() {
@@ -285,6 +294,12 @@ internal class PageLineReader(
 
         /** Glyphs further apart than this many font sizes are in lines of their own. */
         const val GAP_EM = 1.5f
+
+        /**
+         * A page with this many letters or more in text it doesn't translate (a turned table, a page of
+         * text running up it) has text; fewer (a watermark, a stamp, a code) don't make a scan text.
+         */
+        const val TURNED_LETTERS = 40
 
         private val BOLD_NAME = Regex("bold|black|heavy", RegexOption.IGNORE_CASE)
 
