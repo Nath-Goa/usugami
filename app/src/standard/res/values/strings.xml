@@ -45,8 +45,8 @@
     <string name="translate_pages_all">To translate: all pages</string>
     <!-- %1$d pages are chosen, out of the %2$d pages in the PDF. -->
     <string name="translate_pages_count">To translate: %1$d of %2$d</string>
-    <!-- A note under the choices. Scanned pages are pictures of text. The Latin alphabet is the one of English, French, Spanish and the like. -->
-    <string name="translate_scans_note">Scanned pages (pictures of text) are read with text recognition first. It reads languages written in the Latin alphabet, and Hindi and Marathi.</string>
+    <!-- A note under the choices. Scanned pages are pictures of text. The Latin alphabet is the one of English, French, Spanish and the like. Text recognition is downloaded the first time it is used, as in Images to PDF. -->
+    <string name="translate_scans_note">Scanned pages (pictures of text) are read with text recognition first. It reads languages written in the Latin alphabet, and Hindi and Marathi. It is downloaded the first time, which needs an internet connection.</string>
 
     <!-- The list of language packs on the phone. MB is megabytes. -->
     <string name="translate_packs_intro">Each pack is about 40 MB. With the packs on this phone, translating needs no internet.</string>

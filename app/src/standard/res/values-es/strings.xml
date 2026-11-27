@@ -30,7 +30,7 @@
     <string name="translate_pages_hint" tools:ignore="TypographyDashes">Déjalo vacío para todas las páginas. O escribe algunas, como 1,3,5-8, o toca las vistas previas.</string>
     <string name="translate_pages_all">Páginas a traducir: todas</string>
     <string name="translate_pages_count">Páginas a traducir: %1$d de %2$d</string>
-    <string name="translate_scans_note">Las páginas escaneadas (imágenes de texto) se leen primero con reconocimiento de texto, que lee idiomas escritos con el alfabeto latino, además de hindi y maratí.</string>
+    <string name="translate_scans_note">Las páginas escaneadas (imágenes de texto) se leen primero con reconocimiento de texto, que lee idiomas escritos con el alfabeto latino, además de hindi y maratí. El reconocimiento de texto se descarga la primera vez que se usa, lo que requiere conexión a Internet.</string>
 
     <string name="translate_packs_intro">Cada paquete ocupa unos 40 MB. Con los paquetes que hay en este teléfono, traducir no requiere Internet.</string>
     <string name="translate_packs_none">No hay paquetes de idioma en este teléfono. Se descargan cuando una traducción los necesita.</string>
