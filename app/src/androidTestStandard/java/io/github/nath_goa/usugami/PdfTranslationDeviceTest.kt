@@ -706,6 +706,20 @@ class PdfTranslationDeviceTest {
         )
     }
 
+    @Test fun inALanguageTextRecognitionCantReadOnlyAPageWithAPictureLooksScanned() {
+        val file = File(dir, "japanese.pdf")
+        PDDocument().use { doc ->
+            // A page showing only its number, a photo, then text.
+            doc.addPage(PDPage(PDRectangle.A4).also { page -> PDPageContentStream(doc, page).use { it.line(290f, 40f, "4") } })
+            doc.addPage(PDPage(PDRectangle.A4).also { page -> PDPageContentStream(doc, page).use { it.drawImage(noise(doc, 60, 40), 100f, 400f, 300f, 200f) } })
+            doc.addPage(PDPage(PDRectangle.A4).also { page -> PDPageContentStream(doc, page).use { it.line(72f, 700f, "Enfin du texte a traduire") } })
+            doc.save(file)
+        }
+        val outcome = translate(import(file), ocr = FakeOcr(emptyList()), source = "ja")
+        assertEquals(listOf(0), outcome.noText)
+        assertEquals(listOf(1), outcome.unread)
+    }
+
     @Test fun theLanguageIsDetectedFromTheFirstPagesWithText() {
         val translation = FakeEngine().apply { detected = "fr" }
         val input = import(articlePdf())

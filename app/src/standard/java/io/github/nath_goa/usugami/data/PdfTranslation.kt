@@ -8,11 +8,13 @@ import android.graphics.pdf.PdfDocument
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import androidx.core.graphics.createBitmap
+import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.multipdf.LayerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
@@ -212,7 +214,8 @@ private fun downloading(stage: TranslateProgress.Stage, fraction: Float?): Trans
  * 1. its lines (see [PageLineReader]) are grouped into blocks ([TextBlocks]), and those worth
  *    translating ([TranslatableText]) are chosen. A page with none, that shows no letters at all
  *    but has something drawn on it, looks scanned: it is read with text recognition once (when
- *    [ocr] reads [source]'s script, else it is [unread]), and its lines grouped in the same way.
+ *    [ocr] reads [source]'s script; else it is [unread] if it shows a picture, and has no text if
+ *    not), and its lines grouped in the same way.
  * 2. Each block chosen is translated (texts met before in the run are taken from [cache]). A block
  *    whose translation fails, or that the phone has no font for, is left as it was (the page is
  *    [partly] translated); one whose translation is its own text (a name) is left as it was too.
@@ -342,7 +345,9 @@ private class PdfTranslator(
             if ((started || annotated) && lines?.hasText != true) {
                 val scanned = readScan(index, width, height)
                 if (scanned == null) {
-                    unread += index
+                    // Where text recognition can't read the language, a page is a scan only if it shows a
+                    // picture: a page number or a drawing alone has no text.
+                    if (ocrLanguageFor(source) == null && !showsImage(view.getPage(index))) noText += index else unread += index
                     plain(index)
                     return
                 }
@@ -634,6 +639,30 @@ private class PdfTranslator(
         return ScannedLines.of(lines, toPointsX, toPointsY)
     }
 
+    /**
+     * Whether [page] draws a picture, as a scan does: an image among its resources or those of a
+     * form it draws (not one drawn inline in its content). True when that can't be told.
+     */
+    private fun showsImage(page: PDPage): Boolean = try {
+        showsImage(page.resources, Collections.newSetFromMap(IdentityHashMap()), 0)
+    } catch (e: IOException) {
+        true
+    } catch (e: RuntimeException) {
+        true
+    }
+
+    private fun showsImage(resources: PDResources?, seen: MutableSet<COSBase>, depth: Int): Boolean {
+        // A form inside itself, or forms too deep to be anything but a trap, show no more.
+        if (resources == null || depth > MAX_FORM_DEPTH || !seen.add(resources.cosObject)) return false
+        for (name in resources.xObjectNames) {
+            when (val drawn = resources.getXObject(name)) {
+                is PDImageXObject -> return true
+                is PDFormXObject -> if (showsImage(drawn.resources, seen, depth + 1)) return true
+            }
+        }
+        return false
+    }
+
     /** The new PDF's title (the PDF's own, translated) and language, and its bookmarks to the pages it has. */
     private suspend fun describe() {
         out.documentCatalog.language = target
@@ -757,6 +786,9 @@ private class PdfTranslator(
 
         const val MAX_BOOKMARKS = 10_000
         const val MAX_BOOKMARK_DEPTH = 32
+
+        /** Forms drawn inside forms are looked into this deep for a picture. */
+        const val MAX_FORM_DEPTH = 16
     }
 }
 
