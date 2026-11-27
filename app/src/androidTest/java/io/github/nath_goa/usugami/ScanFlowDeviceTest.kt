@@ -24,6 +24,7 @@ import io.github.nath_goa.usugami.core.PageLook
 import io.github.nath_goa.usugami.core.ShortcutTarget
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.AppShortcuts
+import io.github.nath_goa.usugami.data.ImageItem
 import io.github.nath_goa.usugami.data.RecentFiles
 import io.github.nath_goa.usugami.ui.CropSession
 import io.github.nath_goa.usugami.ui.MainViewModel
@@ -358,7 +359,7 @@ class ScanFlowDeviceTest {
     }
 
     /** The editor's pages, once each is made: their ids, crops and looks. */
-    private fun pagesMade(count: Int): List<io.github.nath_goa.usugami.data.ImageItem> {
+    private fun pagesMade(count: Int): List<ImageItem> {
         val vm = vm()
         waitUntil("the $count pages to be made") {
             onMain { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 && vm.items.value.size == count && vm.scan.value == null }
