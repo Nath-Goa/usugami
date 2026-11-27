@@ -219,7 +219,9 @@ private fun PageFilters(
             } else {
                 val shown = preview?.takeIf { base != null && it.base === base }
                 val made = remember(shown?.image) { shown?.image?.asImageBitmap() }
-                val busy = shown == null || shown.look != page.look || shown.adjustments != adjustments
+                // A file that can't be read stays as its thumbnail shows it, with no ring.
+                val unread = large?.path == page.path && base == null
+                val busy = !unread && (shown == null || shown.look != page.look || shown.adjustments != adjustments)
                 LookedPage(made ?: thumbnail.image, page.rotation, busy, modifier)
             }
         },
@@ -325,6 +327,8 @@ private fun PagesRow(pages: List<ImageItem>, selected: Long, cropping: Set<Long>
     // The page chosen comes whole into view, clear of the faded edges, unless it is there already.
     LaunchedEffect(at) {
         val shown = state.layoutInfo
+        // Not laid out yet: the row starts at the page before it (see above).
+        if (shown.visibleItemsInfo.isEmpty()) return@LaunchedEffect
         val tile = shown.visibleItemsInfo.firstOrNull { it.index == at }
         val inView = tile != null && tile.offset >= shown.viewportStartOffset + margin && tile.offset + tile.size <= shown.viewportEndOffset - margin
         if (!inView) state.animateScrollToItem(at, -margin)
@@ -343,8 +347,8 @@ private fun PagesRow(pages: List<ImageItem>, selected: Long, cropping: Set<Long>
 
 /**
  * A page of the pages row, like a radio button: the page in its look and turn on a tile [PAGE_TILE]
- * tall (more with larger text), its [number] over its corner, marked when it is the one [selected], with a ring over it while
- * it is [beingCropped].
+ * tall (more with larger text), its [number] in the tile's corner, marked when it is the one
+ * [selected]; blank, with a ring, while it is [beingCropped].
  */
 @Composable
 private fun PageChoice(number: Int, page: ImageItem, selected: Boolean, beingCropped: Boolean, thumbnails: Thumbnails, onClick: () -> Unit) {
@@ -378,7 +382,8 @@ private fun PageChoice(number: Int, page: ImageItem, selected: Boolean, beingCro
         } else {
             PageThumbnail(page, thumbnails, Modifier.padding(PAGE_INSET).aspectRatio(aspect))
         }
-        // In the tile's corner, rounded with it: 3 dp in from its 12 dp corner, a pill 18 dp tall (12 - 3 = 9).
+        // In the tile's corner and rounded with it: 3 dp in from its 12 dp corner, a pill 18 dp tall
+        // (radius 9 = 12 - 3).
         Text(
             "$number",
             style = Usugami.type.tabular(MaterialTheme.typography.labelMedium).withEmLineHeight(),

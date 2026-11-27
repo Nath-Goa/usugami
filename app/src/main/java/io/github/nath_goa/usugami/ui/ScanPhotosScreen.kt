@@ -129,8 +129,7 @@ fun ScanPhotosScreen(
                 photos = { hint, modifier ->
                     if (empty) {
                         // A photo goes here: the camera is opening, or every photo was taken out. The hint
-                        // stays where it is when the first photo comes.
-                        // In from the sides as the photos are, so the hint keeps its lines when they come.
+                        // is in from the sides as over the photos, so it keeps its place and lines when they come.
                         Column(modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             hint?.invoke()
                             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
@@ -235,7 +234,8 @@ private fun PhotoGrid(
     // The newest photo is the last, which may be below the fold when it comes.
     var seen by rememberSaveable { mutableIntStateOf(count) }
     LaunchedEffect(count) {
-        if (count > seen) grid.animateScrollToItem(grid.layoutInfo.totalItemsCount - 1)
+        // The hint, if there, is the grid's first item.
+        if (count > seen) grid.animateScrollToItem(count - 1 + if (hint != null) 1 else 0)
         seen = count
     }
     LazyVerticalGrid(
