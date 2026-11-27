@@ -51,6 +51,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -196,27 +197,41 @@ fun CropScreen(
         session?.staged == true -> scan.pages.indexOf(session.itemId) + 1
         else -> scan.place
     }
-    val pages = updateTransition(CropPage(session, place), label = "crop page")
+    // A scan's image is one screen while it is awaited and once it shows: its page found comes in
+    // place of the wait, and only the next image (or the one before) slides. Any other opening is a
+    // screen of its own.
+    val key: Any? = when {
+        session?.staged == true -> ScanImage(session.itemId)
+        session == null -> scan?.waiting?.firstOrNull()?.let(::ScanImage)
+        else -> session.opened
+    }
+    val pages = updateTransition(CropPage(key, place), label = "crop page")
     pages.AnimatedContent(
         modifier = Modifier.background(Usugami.colors.screenDim),
-        // Each opening is a screen of its own: one image of a scan slides away as the next comes.
-        contentKey = { it.session?.opened },
-        transitionSpec = { Motion.screenTransition(forward = targetState.place >= initialState.place, rtl = rtl) },
+        contentKey = { it.key },
+        // A later image lies over the one before: it slides in over it, and slides away from it on Back.
+        transitionSpec = { Motion.screenTransition(forward = targetState.place >= initialState.place, depth = targetState.place, rtl = rtl) },
     ) { page ->
-        val shown = page.session
         val live = active && transition.targetState == EnterExitState.Visible
+        // What it shows while it is the screen showing, and still as it goes.
+        val shown = freezeWhen(!live, session)
+        val item = freezeWhen(!live, items.firstOrNull { it.id == ((page.key as? ScanImage)?.id ?: shown?.itemId) })
+        // The image read while its page is still looked for: a scan's image then shows with it at once.
+        val photo by rememberUpright(item?.source)
+        val read = photo?.takeIf { it.path == item?.source?.path }
         val settled = arrived && live && transition.currentState == EnterExitState.Visible
         val cameOver = remember { pages.segment.let { it.targetState.place >= it.initialState.place } }
         val away = slideInProgress(cameOver)
         Inert(!live, slide = Modifier.screenSlide(away, rtl)) {
             val messages = if (live) snackbar else idleSnackbar
-            if (shown == null) {
+            if (shown == null || (shown.staged && item != null && read == null)) {
                 ScanWaiting(freezeWhen(!live, scan), live, messages, actions)
             } else {
                 val shownScan = freezeWhen(!live, scan)?.takeIf { shown.staged }
                 CropSteps(
                     session = shown,
-                    item = items.firstOrNull { it.id == shown.itemId },
+                    item = item?.takeIf { it.id == shown.itemId },
+                    photo = read?.bitmap,
                     // The images of the scan still being added are pages too: Apply to all pages reaches them.
                     pageCount = items.size + (shownScan?.coming ?: 0),
                     scan = shownScan,
@@ -239,6 +254,7 @@ fun CropScreen(
 private fun CropSteps(
     session: CropSession,
     item: ImageItem?,
+    photo: Bitmap?,
     pageCount: Int,
     scan: ScanQueue?,
     live: Boolean,
@@ -251,15 +267,6 @@ private fun CropSteps(
         CropState(session.shown(session.start), session.rotation, session.look, session.adjustments)
     }
     val source = item?.source
-    val window = LocalWindowInfo.current.containerSize
-    val previewSide = min(PREVIEW_MAX, max(window.width, window.height))
-    // The image upright, read once: the steps show it turned as the page is.
-    val photo by produceState<Bitmap?>(null, source?.path) {
-        val shown = source ?: return@produceState
-        value = withContext(Dispatchers.IO) {
-            runCatching { PageCropper.upright(shown, 0, previewSide) }.getOrNull()
-        }
-    }
     BackHandler(enabled = live) {
         when {
             // A scan's image: the image before, or out of cropping on the first.
@@ -384,10 +391,31 @@ private fun CropSteps(
 private enum class CropStep { CROP, FILTERS }
 
 /**
- * What the crop screen shows: [session]'s page, or the scan's next image awaited; [place] is where
- * among the scan's images it is (0 outside a scan), which decides the side it comes in from.
+ * [source] upright, read once in the background at the size the crop screen shows it (the steps show
+ * it turned as the page is): null until it has been read, then with its bitmap, null if it couldn't be.
  */
-private data class CropPage(val session: CropSession?, val place: Int)
+@Composable
+private fun rememberUpright(source: OriginalImage?): State<Upright?> {
+    val window = LocalWindowInfo.current.containerSize
+    val side = min(PREVIEW_MAX, max(window.width, window.height))
+    return produceState<Upright?>(null, source?.path) {
+        val shown = source ?: return@produceState
+        value = withContext(Dispatchers.IO) { Upright(shown.path, runCatching { PageCropper.upright(shown, 0, side) }.getOrNull()) }
+    }
+}
+
+/** The image at [path], upright, as the crop screen shows it: [bitmap], null when it couldn't be read. */
+private class Upright(val path: String, val bitmap: Bitmap?)
+
+/**
+ * Which screen the crop screen shows: [key] tells them apart (a scan's image, awaited or shown, or
+ * another page's opening), and [place] is where among the scan's images it is (0 outside a scan),
+ * which decides the side it comes in from and which lies over which.
+ */
+private data class CropPage(val key: Any?, val place: Int)
+
+/** A scan's image, by its id, on the crop screen. */
+private data class ScanImage(val id: Long)
 
 /**
  * A step's title, and under it [place]: for an image of a scan, which of its images this is; for an
@@ -411,8 +439,8 @@ private fun StepTitle(title: String, place: String?) {
 
 /**
  * The crop screen while a scan waits for its next image: one still being added, its page being looked
- * for, or (gone back to) being made. Back goes back as on an image; images picked can be left as they
- * are from here too.
+ * for or its photo read, or (gone back to) being made. Back goes back as on an image; images picked
+ * can be left as they are from here too.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
