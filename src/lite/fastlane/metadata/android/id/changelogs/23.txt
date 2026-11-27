@@ -1,0 +1,4 @@
+• Pindai dokumen: ambil semua foto dulu, pangkas satu per satu sesuai urutan, lalu atur tampilan halaman di satu layar Filter, dengan Filter yang sama untuk semua halaman
+• Setelan → Donasi menunjukkan cara berdonasi melalui Buy Me a Coffee dalam empat langkah
+• Tombol di bawah langkah-langkah itu membuka langkah-langkah untuk GitHub Sponsors
+• Terjemahkan PDF baru ada di Usugami.apk di GitHub, edisi dengan library Google; Usugami Lite tidak memilikinya dan tetap tanpa izin akses internet

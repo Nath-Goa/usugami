@@ -1,0 +1,4 @@
+• Scan document: take all the photos first, crop each one in turn, then give the pages their looks on one Filters screen, with Same filter for all pages
+• Settings → Donate shows how to donate through Buy Me a Coffee, in four steps
+• A button under the steps opens the steps for GitHub Sponsors
+• Translate PDF is new in Usugami.apk on GitHub, the edition with Google's libraries; Usugami Lite doesn't have it and still has no internet permission

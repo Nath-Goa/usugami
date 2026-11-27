@@ -1,2 +1,0 @@
-• Settings → Donate shows how to donate through Buy Me a Coffee, in four steps
-• A button under the steps opens the steps for GitHub Sponsors

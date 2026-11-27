@@ -1,0 +1,4 @@
+• Dokument scannen: erst alle Fotos, dann jedes nacheinander zuschneiden, dann das Aussehen der Seiten auf einem Bildschirm „Filter“ wählen, mit „Gleicher Filter für alle Seiten“
+• Einstellungen → Spenden zeigt in vier Schritten, wie du über Buy Me a Coffee spenden kannst
+• Eine Schaltfläche darunter öffnet die Schritte für GitHub Sponsors
+• „PDF übersetzen“ ist neu in Usugami.apk auf GitHub, der Edition mit Googles Bibliotheken; diese App hat es nicht und bleibt ohne Internetberechtigung

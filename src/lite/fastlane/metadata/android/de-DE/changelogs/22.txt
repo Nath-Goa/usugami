@@ -1,2 +1,0 @@
-• Einstellungen → Spenden zeigt in vier Schritten, wie du über Buy Me a Coffee spenden kannst
-• Eine Schaltfläche darunter öffnet die Schritte für GitHub Sponsors

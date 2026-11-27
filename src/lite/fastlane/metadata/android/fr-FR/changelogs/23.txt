@@ -1,0 +1,4 @@
+• Numériser un document : toutes les photos d'abord, puis chacune recadrée à son tour, puis l'aspect des pages sur un seul écran Filtres, avec Même filtre pour toutes les pages
+• Paramètres → Faire un don explique en quatre étapes comment faire un don avec Buy Me a Coffee
+• Un bouton sous ces étapes ouvre celles de GitHub Sponsors
+• Traduire un PDF est nouveau dans Usugami.apk sur GitHub, l'édition avec les bibliothèques de Google ; Usugami Lite ne l'a pas et reste sans autorisation Internet

@@ -1,0 +1,4 @@
+• Digitalizar documento: primeiro todas as fotos, depois cada uma é cortada na ordem e uma só tela de Filtros define o estilo das páginas, com Mesmo filtro em todas as páginas
+• Configurações → Doar mostra em quatro passos como doar pelo Buy Me a Coffee
+• Um botão abaixo dos passos abre os passos do GitHub Sponsors
+• Traduzir PDF é novo no Usugami.apk do GitHub, a edição com as bibliotecas do Google; este app não tem essa ferramenta e continua sem permissão de acesso à internet
