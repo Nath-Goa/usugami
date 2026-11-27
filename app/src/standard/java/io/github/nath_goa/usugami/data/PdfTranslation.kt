@@ -728,23 +728,42 @@ private class PdfTranslator(
 }
 
 /**
- * What text recognition read on a scanned page, as the lines of the page: each line's box (its
- * corners' bounds: a tilted line's translation is drawn level, over the box) in points, and its
- * font size. Text recognition's boxes reach from a line's tallest letters to its lowest, so a
- * line of small letters ("ocean") is shorter than one with capitals and descenders ("Paying"):
- * each line takes the median height of the page's lines of about its height, so a paragraph's
- * lines get one size and stay together (see [TextBlocks]).
+ * What text recognition read on a scanned page, as the lines of the page, each with its font size
+ * and a box as a font's would be (from its ascent to its descent), in points; a tilted line's
+ * translation is drawn level, over the bounds of its corners.
+ *
+ * Text recognition's boxes reach from a line's tallest letters to its lowest, so how much of the
+ * font size they take depends on the letters: about 0.7 of it for capitals, digits and letters
+ * with an ascender or an accent ("Service des achats"), 0.88 with a descender as well ("Paris,
+ * gâteaux"), 0.48 for small letters alone ("une rue"). A line's size is its height over that share,
+ * then the median of the sizes of the page's lines within [SIMILAR] of it, so the lines of a
+ * paragraph get one size and stay together (see [TextBlocks]). Its baseline is its box's bottom, or
+ * a descender's depth above it; its box is then [ASCENT] of the size above that, [DESCENT] below.
  */
 internal object ScannedLines {
-    /** Lines whose heights are within this share of each other are of one size. */
-    private const val SIMILAR = 0.25f
+    /** Sizes within this share of each other are one size. */
+    private const val SIMILAR = 0.15f
 
-    /** A line's font size, from the height of its box. */
-    const val SIZE_PER_HEIGHT = 0.8f
+    /** How high capitals, digits, ascenders and accents reach, and small letters alone, as shares of the size… */
+    private const val CAPITALS = 0.7f
+    private const val SMALL_LETTERS = 0.48f
+
+    /** …and how deep a descender reaches. */
+    private const val DESCENDER = 0.18f
+
+    /** Writing other than the Latin alphabet's: its box's height as a share of the size. */
+    private const val OTHER_SCRIPT = 0.9f
+
+    /** A font's box, as shares of its size: up from the baseline and down from it. */
+    private const val ASCENT = 0.9f
+    private const val DESCENT = 0.22f
+
+    private const val TALL = "bdfhklt"
+    private const val DEEP = "gjpqyçQ,;()[]{}|/"
 
     /** [lines] read on a picture [toPointsX] and [toPointsY] points to the pixel, as lines of the page. */
     fun of(lines: List<OcrLine>, toPointsX: Float, toPointsY: Float): List<SourceLine> {
-        class Read(val text: String, val left: Float, val top: Float, val right: Float, val bottom: Float, val height: Float)
+        class Read(val text: String, val left: Float, val top: Float, val right: Float, val bottom: Float, val size: Float, val deep: Boolean)
         fun distance(a: Point, b: Point) = hypot((a.x - b.x) * toPointsX, (a.y - b.y) * toPointsY)
         val read = lines.mapNotNull { line ->
             val text = ExportText.clean(line.text).trim()
@@ -755,14 +774,23 @@ internal object ScannedLines {
             val (topLeft, topRight, bottomRight, bottomLeft) = line.corners
             val height = (distance(topLeft, bottomLeft) + distance(topRight, bottomRight)) / 2
             if (!(height > 0f)) return@mapNotNull null
-            Read(text, xs.min(), ys.min(), xs.max(), ys.max(), height)
+            val deep = text.any { it in DEEP }
+            Read(text, xs.min(), ys.min(), xs.max(), ys.max(), height / share(text, deep), deep)
         }
         return read.map { line ->
-            val alike = read.filter { abs(it.height - line.height) <= SIMILAR * line.height }.map { it.height }
+            val size = PageLineReader.median(read.filter { abs(it.size - line.size) <= SIMILAR * line.size }.map { it.size })
+            val baseline = line.bottom - if (line.deep) DESCENDER * size else 0f
             SourceLine(
-                line.text, line.left, line.top, line.right, line.bottom, PageLineReader.median(alike) * SIZE_PER_HEIGHT,
+                line.text, line.left, min(line.top, baseline - ASCENT * size), line.right, max(line.bottom, baseline + DESCENT * size), size,
                 bold = false, rtl = PageLineReader.rightToLeft(line.text),
             )
         }
+    }
+
+    /** How much of its font size a line of [text] takes from its tallest letters to its lowest, [deep] when it has a descender. */
+    private fun share(text: String, deep: Boolean): Float {
+        if (text.any { it.isLetter() && it.code > 0x24F }) return OTHER_SCRIPT
+        val tall = text.any { it.isUpperCase() || it.isDigit() || it in TALL || it in "ij" || it.isLetter() && it.code in 0xC0..0x24F }
+        return (if (tall) CAPITALS else SMALL_LETTERS) + if (deep) DESCENDER else 0f
     }
 }

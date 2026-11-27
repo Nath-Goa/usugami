@@ -47,6 +47,7 @@ import io.github.nath_goa.usugami.data.OcrRecognizer
 import io.github.nath_goa.usugami.data.OcrUnavailableException
 import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.PdfToolsEngine
+import io.github.nath_goa.usugami.data.ScannedLines
 import io.github.nath_goa.usugami.data.TextTranslator
 import io.github.nath_goa.usugami.data.TranslateOutcome
 import io.github.nath_goa.usugami.data.TranslateProgress
@@ -584,6 +585,18 @@ class PdfTranslationDeviceTest {
         val outcome = translate(import(file), ocr = ocr)
         val text = textOf(outcome.file.file)
         assertTrue("Read: $text", text.contains("ruojnoB"))
+    }
+
+    @Test fun scannedLinesOfOneParagraphGetItsSize() {
+        // Three lines of 11-point type as text recognition boxes them, from their tallest letters to
+        // their lowest, in tenths of a point: capitals, then descenders too, then small letters alone.
+        fun read(text: String, top: Int, height: Int) = OcrLine(text, listOf(Point(500, top), Point(4000, top), Point(4000, top + height), Point(500, top + height)))
+        val read = listOf(read("Service des achats", 1000, 75), read("Paris, gâteaux et pains", 1140, 97), read("une rue en mer", 1300, 50))
+        val lines = ScannedLines.of(read, 0.1f, 0.1f)
+        assertEquals(1, lines.map { it.size }.distinct().size)
+        assertEquals(11f, lines[0].size, 1f)
+        // The small letters' line is as tall as a line of the font: its box reaches up for capitals.
+        assertTrue(lines[2].top < 130f - 2f && lines[2].bottom >= 135f)
     }
 
     @Test fun manyPagesUseSeveralStampsAndKeepMemoryFlat() {
