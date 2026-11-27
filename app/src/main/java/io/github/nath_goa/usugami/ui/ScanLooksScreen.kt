@@ -358,9 +358,9 @@ private fun PageChoice(number: Int, page: ImageItem, selected: Boolean, beingCro
     ) {
         if (beingCropped) {
             // Until then it is the photo, which isn't shown: blank paper, with the ring in ink purple,
-            // which shows on white in both themes.
+            // which shows on white in both themes. The tile says it is being cropped.
             Box(Modifier.padding(PAGE_INSET).fillMaxSize().paper(), contentAlignment = Alignment.Center) {
-                CircularProgress(Modifier.size(20.dp), strokeWidth = 2.dp, color = Usugami.colors.paperInk)
+                CircularProgress(Modifier.size(20.dp).clearAndSetSemantics {}, strokeWidth = 2.dp, color = Usugami.colors.paperInk)
             }
         } else {
             PageThumbnail(page, thumbnails, Modifier.padding(PAGE_INSET).aspectRatio(aspect))
@@ -397,7 +397,8 @@ private fun PageThumbnail(page: ImageItem, thumbnails: Thumbnails, modifier: Mod
 @Composable
 private fun CroppingPage(number: Int, modifier: Modifier) {
     Column(modifier.padding(16.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        CircularProgress()
+        // The line under it says what it is waiting for.
+        CircularProgress(Modifier.clearAndSetSemantics {})
         Spacer(Modifier.height(16.dp))
         Text(
             stringResource(R.string.cropping_page, number),
