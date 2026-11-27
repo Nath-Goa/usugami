@@ -942,8 +942,9 @@
     <string name="crop_not_a_page">Die Ecken ergeben keine Seite: Setze jede auf eine Ecke der Seite.</string>
     <string name="crop_reset">Zurücksetzen</string>
     <string name="crop_whole">Ganzes Bild</string>
+    <!-- Finishes the screen: a page cropped again, an ID card. On a scan's Photos screen it goes on to cropping the photos taken. -->
     <string name="crop_done">Fertig</string>
-    <!-- Crops this photo and opens the camera for the next page. -->
+    <!-- On a scan's Photos screen: opens the camera for the next page. -->
     <string name="crop_take_another">Weiteres Foto</string>
     <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
     <string name="crop_discard">Foto verwerfen</string>
@@ -992,6 +993,17 @@
     <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
     <string name="look_ink_saver">Tintensparend</string>
     <string name="look_all_pages">Auf alle Seiten anwenden</string>
+
+    <!-- A scan's Photos and Filters screens -->
+    <!-- The title of a scan's first screen: the photos taken so far, before they are cropped. -->
+    <string name="scan_photos_title">Fotos</string>
+    <!-- Under the title of that screen. "Done" is the name of the button at its foot (crop_done): use the same word as there. -->
+    <string name="scan_photos_hint">Fotografiere jede Seite der Reihe nach und tippe dann auf „Fertig“, um sie zuzuschneiden.</string>
+    <!-- What a screen reader says for the place of a photo just taken while it is being added to that screen. -->
+    <string name="scan_adding_photo">Foto wird hinzugefügt…</string>
+    <!-- Asked on leaving that screen with photos taken: Discard (discard) deletes them and ends the scan, Keep (keep) stays. -->
+    <string name="scan_discard_title">Diese Fotos verwerfen?</string>
+    <string name="scan_discard_body">Die Fotos, die du für diesen Scan aufgenommen hast, werden gelöscht.</string>
 
     <!-- Options -->
     <!-- An option and its current value on the editor's chips, e.g. "Margin: Small". -->

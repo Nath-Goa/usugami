@@ -944,8 +944,9 @@
     <string name="crop_not_a_page">Les coins ne forment pas une page : placez chacun sur un coin de la page.</string>
     <string name="crop_reset">Réinitialiser</string>
     <string name="crop_whole">Image entière</string>
+    <!-- Finishes the screen: a page cropped again, an ID card. On a scan's Photos screen it goes on to cropping the photos taken. -->
     <string name="crop_done">Terminé</string>
-    <!-- Crops this photo and opens the camera for the next page. -->
+    <!-- On a scan's Photos screen: opens the camera for the next page. -->
     <string name="crop_take_another">Une autre photo</string>
     <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
     <string name="crop_discard">Supprimer la photo</string>
@@ -992,6 +993,17 @@
     <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
     <string name="look_ink_saver">Économie d\'encre</string>
     <string name="look_all_pages">Appliquer à toutes les pages</string>
+
+    <!-- A scan's Photos and Filters screens -->
+    <!-- The title of a scan's first screen: the photos taken so far, before they are cropped. -->
+    <string name="scan_photos_title">Photos</string>
+    <!-- Under the title of that screen. "Done" is the name of the button at its foot (crop_done): use the same word as there. -->
+    <string name="scan_photos_hint">Prenez une photo de chaque page dans l\'ordre, puis appuyez sur « Terminé » pour les recadrer.</string>
+    <!-- What a screen reader says for the place of a photo just taken while it is being added to that screen. -->
+    <string name="scan_adding_photo">Ajout de la photo…</string>
+    <!-- Asked on leaving that screen with photos taken: Discard (discard) deletes them and ends the scan, Keep (keep) stays. -->
+    <string name="scan_discard_title">Supprimer ces photos ?</string>
+    <string name="scan_discard_body">Les photos prises pour cette numérisation seront supprimées.</string>
 
     <!-- Options -->
     <string name="option_value">%1$s : %2$s</string>

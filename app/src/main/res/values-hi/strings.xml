@@ -912,8 +912,9 @@
     <string name="crop_not_a_page">ये कोने पेज नहीं बनाते: हर कोने को पेज के किसी कोने पर रखें।</string>
     <string name="crop_reset">रीसेट करें</string>
     <string name="crop_whole">पूरी इमेज</string>
+    <!-- Finishes the screen: a page cropped again, an ID card. On a scan's Photos screen it goes on to cropping the photos taken. -->
     <string name="crop_done">हो गया</string>
-    <!-- Crops this photo and opens the camera for the next page. -->
+    <!-- On a scan's Photos screen: opens the camera for the next page. -->
     <string name="crop_take_another">एक और लें</string>
     <!-- The crop screen's close button for a photo just taken: leaving discards the photo. -->
     <string name="crop_discard">फ़ोटो हटाएं</string>
@@ -960,6 +961,17 @@
     <!-- Black and white that prints lighter, to save ink or toner: thin print, large dark areas left hollow. -->
     <string name="look_ink_saver">स्याही बचत</string>
     <string name="look_all_pages">सभी पेजों पर लागू करें</string>
+
+    <!-- A scan's Photos and Filters screens -->
+    <!-- The title of a scan's first screen: the photos taken so far, before they are cropped. -->
+    <string name="scan_photos_title">फ़ोटो</string>
+    <!-- Under the title of that screen. "Done" is the name of the button at its foot (crop_done): use the same word as there. -->
+    <string name="scan_photos_hint">हर पेज की फ़ोटो क्रम से लें, फिर उन्हें क्रॉप करने के लिए \"हो गया\" पर टैप करें।</string>
+    <!-- What a screen reader says for the place of a photo just taken while it is being added to that screen. -->
+    <string name="scan_adding_photo">फ़ोटो जोड़ी जा रही है…</string>
+    <!-- Asked on leaving that screen with photos taken: Discard (discard) deletes them and ends the scan, Keep (keep) stays. -->
+    <string name="scan_discard_title">इन फ़ोटो को खारिज करें?</string>
+    <string name="scan_discard_body">इस स्कैन के लिए ली गई फ़ोटो हटा दी जाएंगी।</string>
 
     <!-- Options -->
     <string name="option_value">%1$s: %2$s</string>
