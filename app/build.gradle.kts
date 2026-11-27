@@ -153,7 +153,7 @@ dependencies {
     "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
     "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.1")
     // F-Droid's recipes delete Google's dependency lines with sed. Copies of the recipes made before
-    // 3.1.0 only delete the lines that name Play services' Maven group, so each of these two names
+    // 4.0.0 only delete the lines that name Play services' Maven group, so each of these two names
     // that group in a comment too.
     // ML Kit's translation brings the HTTP library OkHttp only to register itself with Google's
     // Firebase, which Usugami's process never contacts: OkHttp is left out, and a stand-in that

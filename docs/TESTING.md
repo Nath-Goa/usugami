@@ -1057,7 +1057,7 @@ Google ML Kit, check by hand that this still holds:
   `java.nio.channels.SocketChannel`, `InetAddress.getByName` or `getAllByName`, the
   `InetSocketAddress(String, int)` constructor, `android.net.Network`'s `openConnection`,
   `bindSocket` or `getSocketFactory`, `android.system.Os.socket` or `connect`, `android.webkit.WebView`
-  or `org.chromium`: in 3.1.0 the only network code left is `HttpURLConnection`, which
+  or `org.chromium`: in 4.0.0 the only network code left is `HttpURLConnection`, which
   `NoConnections.kt` refuses. `llvm-readelf --dyn-syms` on each `lib/*/*.so` shows no `socket`,
   `connect`, `getaddrinfo` or `sendto`.
 - The release APK on an emulator started with `-tcpdump`, with its Wi-Fi off

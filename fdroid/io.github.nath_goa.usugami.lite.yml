@@ -35,7 +35,7 @@ MaintainerNotes: |-
   neither the ncnn submodule nor CMake is needed (Gradle still wants the NDK to configure the
   ocr-native module, which only the "ocr" edition uses). The "standard" edition uses Google ML Kit
   and is not built here: its sources and its four Google dependency lines are removed (each of
-  them also names com.google.android.gms in a comment, so the sed of recipes older than 3.1.0
+  them also names com.google.android.gms in a comment, so the sed of recipes older than 4.0.0
   removes them too), and so are the OCR edition's model files (data the Lite build doesn't use).
   Usugami itself (the "ocr" edition) is io.github.nath_goa.usugami, built from the same repository
   with the recipe in .fdroid.yml there. The store texts are in src/lite/fastlane; the graphics
