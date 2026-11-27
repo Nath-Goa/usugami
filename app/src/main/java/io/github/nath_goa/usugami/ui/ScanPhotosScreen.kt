@@ -130,7 +130,8 @@ fun ScanPhotosScreen(
                     if (empty) {
                         // A photo goes here: the camera is opening, or every photo was taken out. The hint
                         // stays where it is when the first photo comes.
-                        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+                        // In from the sides as the photos are, so the hint keeps its lines when they come.
+                        Column(modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             hint?.invoke()
                             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                                 Box(Modifier.size(88.dp, 112.dp).dashedOutline(), contentAlignment = Alignment.Center) {
