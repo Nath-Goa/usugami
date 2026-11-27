@@ -14,8 +14,11 @@ object TranslatableText {
      */
     private val DOMAIN_OR_FILE = Regex("^(?:[\\p{L}\\p{M}\\p{N}_-]+\\.)+(\\p{L}{2,24})(?:[/:?#]\\S*)?$")
 
-    /** "1.Introduction", "2.1.Scope": a heading numbered with a full stop, not a domain ("163.com"). */
-    private val NUMBERED_HEADING = Regex("^(?:\\d{1,3}\\.)+\\p{Lu}\\p{Ll}")
+    /**
+     * "1.Introduction", "2.1.Scope", "1.مقدمة": a heading numbered with a full stop, its word
+     * capitalised or not in Latin letters; not a domain or a file's name ("163.com", "1.txt", "1.JPG").
+     */
+    private val NUMBERED_HEADING = Regex("^(?:\\p{Nd}{1,3}\\.)+(?:\\p{Lu}\\p{Ll}|[^A-Za-z])")
 
     /** C:\Users, \\server\share, /home/me, ~/notes, ./a, ../b. */
     private val PATH = Regex("^(?:[A-Za-z]:[\\\\/].*|\\\\\\\\\\S+|~?/\\S+|\\.{1,2}/\\S+)$")
@@ -62,8 +65,7 @@ object TranslatableText {
 
     /**
      * Whether [text] is a domain or a file's name. Not when its ending is in Chinese, Japanese or Thai
-     * letters, or it starts with a number and a full stop and goes on with a word: a numbered heading
-     * ("1.公司简介", "1.Introduction").
+     * letters, or it is numbered as a heading is: those are headings ("1.公司简介", "一.概述", "1.Introduction").
      */
     private fun isDomainOrFile(text: String): Boolean {
         val ending = DOMAIN_OR_FILE.matchEntire(text)?.groupValues?.get(1) ?: return false

@@ -89,7 +89,7 @@ class TranslatableTextTest {
             "邮箱：support@example.com", "www.example.com上有更多信息。", "ติดต่อเราได้ที่support@example.com",
             "基于Node.js的开发", "详情请见附件report.pdf", "1.公司简介", "2.产品与服务", "一.概述",
             // A heading numbered with a full stop and no space, in writing with spaces too.
-            "1.Introduction", "2.1.Scope", "1.Введение",
+            "1.Introduction", "2.1.Scope", "1.Введение", "1.مقدمة", "١.مقدمة", "1.소개",
         )) {
             assertTrue(text, worth(text))
         }
@@ -98,7 +98,7 @@ class TranslatableTextTest {
         for (text in listOf(
             "报告.pdf", "会議資料_2025.pdf", "東京タワー.jpg", "ข้อมูล.pdf", "रिपोर्ट.pdf", "отчёт.pdf", "пример.рф",
             "https://zh.wikipedia.org/wiki/北京", "https://ja.wikipedia.org/wiki/東京", "C:\\用户\\文档",
-            "（www.example.org）", "「report.pdf」", "support@example.com。", "163.com", "1.txt",
+            "（www.example.org）", "「report.pdf」", "support@example.com。", "163.com", "1.txt", "1.JPG",
         )) {
             assertFalse(text, worth(text))
         }
