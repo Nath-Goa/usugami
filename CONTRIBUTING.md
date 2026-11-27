@@ -12,8 +12,8 @@ problem is perfect. Security problems go through private reporting instead (see
 
 ## What fits Usugami
 
-Usugami is small, offline and private. Pull requests that add any of the following won't be
-accepted:
+Usugami is small, works offline and keeps your files on your phone. Pull requests that add any of
+the following won't be accepted:
 
 - ads, analytics, crash reporting, tracking or accounts
 - network access in Usugami's own process, or any feature that uploads files or sends anything
@@ -34,9 +34,9 @@ something outside Usugami's process makes:
 Usugami's own process never connects: `NoConnections.kt` (in `app/src/standard`) refuses every
 http, https and ftp address from the moment the process starts, and `okhttp3/OkHttp.kt` stands in
 for the OkHttp library ML Kit would use to register with Firebase. Keep it that way: don't add a
-library or code that opens a connection, and after updating Google ML Kit, run the checks under
-"Usugami's own process contacts no server" in [docs/TESTING.md](docs/TESTING.md), since a new
-version can bring network code of its own. Usugami Lite and Usugami OCR must stay free of Google
+library or code that opens a connection, and after updating Google ML Kit, run the checks at the
+end of section 4 of [docs/TESTING.md](docs/TESTING.md) ("Usugami's own process contacts no
+server"), since a new version can bring network code of its own. Usugami Lite and Usugami OCR must stay free of Google
 libraries.
 
 ## Building
