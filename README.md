@@ -66,14 +66,18 @@ signed with the same key, so you can switch between F-Droid, GitHub and Obtainiu
 reinstalling. A listing in the main F-Droid repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 3.0.1
+## What's new in 3.0.2
 
-The About screen writes the app's name with its trademark sign: Usugami™ (Usugami™ Lite and
-Usugami™ OCR in those editions).
+Settings → **Donate** now shows how to donate through
+[Buy Me a Coffee](https://buymeacoffee.com/usugami), in four steps. A button under the steps opens
+the steps for [GitHub Sponsors](https://github.com/sponsors/Nath-Goa).
 
-3.0.0, the day before, brought **a new look.** Usugami now looks like the thin paper it is named
-after: a pale lilac ground with lighter sheets on it and ink purple in place of red, in a light
-and a dark theme. Every tool and feature is still there and works as before.
+3.0.1, a week before: the About screen writes the app's name with its trademark sign: Usugami™
+(Usugami™ Lite and Usugami™ OCR in those editions).
+
+3.0.0, the day before that, brought **a new look.** Usugami now looks like the thin paper it is
+named after: a pale lilac ground with lighter sheets on it and ink purple in place of red, in a
+light and a dark theme. Every tool and feature is still there and works as before.
 
 - **Home** shows its tools as rows on one sheet under each heading, with Scan document on top.
 - **Every PDF tool** keeps its main button at the foot of the screen, and a page is shown as real

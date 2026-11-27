@@ -1,0 +1,2 @@
+• Ajustes → Donar muestra en cuatro pasos cómo donar con Buy Me a Coffee
+• Un botón debajo de los pasos abre los de GitHub Sponsors

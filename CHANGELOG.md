@@ -6,6 +6,8 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-11-27
+
 ### Changed
 
 - Settings → **Donate** opens a page with the four steps to donate through
@@ -1108,7 +1110,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v3.0.1...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v3.0.2...HEAD
+[3.0.2]: https://github.com/Nath-Goa/usugami/compare/v3.0.1...v3.0.2
 [3.0.1]: https://github.com/Nath-Goa/usugami/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/Nath-Goa/usugami/compare/v2.0.1...v3.0.0
 [2.0.1]: https://github.com/Nath-Goa/usugami/compare/v2.0.0...v2.0.1

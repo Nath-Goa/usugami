@@ -1,0 +1,2 @@
+• Setelan → Donasi menunjukkan cara berdonasi melalui Buy Me a Coffee dalam empat langkah
+• Tombol di bawah langkah-langkah itu membuka langkah-langkah untuk GitHub Sponsors
