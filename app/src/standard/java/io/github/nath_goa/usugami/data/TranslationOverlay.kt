@@ -1,5 +1,6 @@
 package io.github.nath_goa.usugami.data
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -9,6 +10,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextDirectionHeuristics
 import android.text.TextPaint
+import androidx.core.graphics.withTranslation
 import io.github.nath_goa.usugami.core.BlockAlign
 import io.github.nath_goa.usugami.core.Fit
 import io.github.nath_goa.usugami.core.PageColors
@@ -61,6 +63,7 @@ internal object TranslationOverlay {
      * right-aligned date stays at the right, and a paragraph lined up on the left of the page is
      * read from its right.
      */
+    @SuppressLint("WrongConstant")
     fun layout(text: String, paint: TextPaint, width: Float, align: BlockAlign, rtl: Boolean): StaticLayout {
         val alignment = when {
             align == BlockAlign.CENTER -> Layout.Alignment.ALIGN_CENTER
@@ -73,6 +76,7 @@ internal object TranslationOverlay {
             .setTextDirection(TextDirectionHeuristics.FIRSTSTRONG_LTR)
             .setLineSpacing(0f, 1f)
             .setIncludePad(false)
+            // Layout's constants are LineBreaker's, which lint asks for but which only came in Android 10.
             .setBreakStrategy(Layout.BREAK_STRATEGY_SIMPLE)
             .setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE)
             .build()
@@ -93,11 +97,10 @@ internal object TranslationOverlay {
     /** Draws [text] on [canvas] (in points of the page) at [fit]'s place and size, in [color], lined up as [align] says of its block, written right to left when [rtl]. */
     fun draw(canvas: Canvas, text: String, fit: Fit, bold: Boolean, color: Int, align: BlockAlign, rtl: Boolean) {
         val layout = layout(text, paint(fit.size, bold, color), fit.area.width, align, rtl)
-        canvas.save()
-        canvas.translate(fit.area.left, fit.area.top)
-        canvas.scale(1 / SCALE, 1 / SCALE)
-        layout.draw(canvas)
-        canvas.restore()
+        canvas.withTranslation(fit.area.left, fit.area.top) {
+            scale(1 / SCALE, 1 / SCALE)
+            layout.draw(this)
+        }
     }
 
     /**
