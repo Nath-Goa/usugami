@@ -27,9 +27,9 @@ import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDDoc
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineNode
 import com.tom_roush.pdfbox.util.Matrix
-import io.github.nath_goa.usugami.core.BlockArea
 import io.github.nath_goa.usugami.core.ExportText
 import io.github.nath_goa.usugami.core.FileNames
+import io.github.nath_goa.usugami.core.Fit
 import io.github.nath_goa.usugami.core.PageFrame
 import io.github.nath_goa.usugami.core.SourceBlock
 import io.github.nath_goa.usugami.core.SourceLine
@@ -221,8 +221,9 @@ private fun downloading(stage: TranslateProgress.Stage, fraction: Float?): Trans
  *    whose translation fails, or that the phone has no font for, is left as it was (the page is
  *    [partly] translated); one whose translation is its own text (a name) is left as it was too.
  * 3. The page is drawn at [TranslatedPages.DPI]; the colours of each block to replace are read
- *    from it; the blocks are painted over (never what stays as it is); the picture becomes the new
- *    page; and the translations are fitted (see [TextFit]) and drawn as real text on a page of a
+ *    from it, and its translation fitted (see [TextFit], and [TranslationOverlay.fit]: it grows over
+ *    nothing else drawn there); the blocks are painted over (never what stays as it is); the picture
+ *    becomes the new page; and the translations are drawn as real text on a page of a
  *    "stamp" PDF, put over the picture once [STAMP_PAGES] pages are stamped (or the run ends), so
  *    no more than that many pages' text is held at once.
  * A page with nothing to translate is in the new PDF as a picture of itself ([noText]); those
@@ -396,6 +397,7 @@ private class PdfTranslator(
         val replaced = Collections.newSetFromMap(IdentityHashMap<SourceBlock, Boolean>()).apply { drawn.forEach { add(it.first) } }
         val kept = blocks.filter { it !in replaced }
         var colors: List<TranslationOverlay.Colors> = emptyList()
+        var fits: List<Fit> = emptyList()
         val image = picture(index, width, height) { bitmap ->
             val perX = bitmap.width / width
             val perY = bitmap.height / height
@@ -415,6 +417,19 @@ private class PdfTranslator(
                 TranslationOverlay.colors(bitmap, rect(block.left, block.top, block.right, block.bottom, block.size, padded = true), others)
             }
             val nobody = TranslationOverlay.Painter(bitmap, emptyList())
+            // Fitted before anything is painted: a translation takes more room only where nothing else is
+            // drawn, its own letters, where its lines will be painted over, aside.
+            fits = drawn.mapIndexed { i, (block, text) ->
+                val size = block.size
+                val painted = block.lines.map { line ->
+                    val box = rect(line.left, line.top, line.right, line.bottom, size, padded = true)
+                    nobody.grown(box, colors[i].background, reach(GROW_UP, size, perY), reach(GROW_DOWN, size, perY), reach(GROW_SIDE, size, perX))
+                }
+                TranslationOverlay.fit(
+                    bitmap, perX, perY, text, block, rect(block.left, block.top, block.right, block.bottom, size, padded = true), painted,
+                    TextFit.limits(block, blocks, width, height), colors[i], TranslationOverlay.measurer(block.bold, block.align, block.rtl, language),
+                )
+            }
             val near = drawn.map { (block, _) -> rect(block.left, block.top, block.right, block.bottom, block.size * 2, padded = true) }
             val keep = kept.flatMap { block -> block.lines.map { line -> line to block.size } }.mapNotNull { (line, size) ->
                 val box = rect(line.left, line.top, line.right, line.bottom, size, padded = false)
@@ -440,10 +455,7 @@ private class PdfTranslator(
         onStamp.canvas.scale(stampWidth / width, stampHeight / height)
         for ((i, pair) in drawn.withIndex()) {
             val (block, text) = pair
-            val area = BlockArea(block.left, block.top, block.right, block.bottom)
-            val limits = TextFit.limits(block, blocks, width, height)
-            val fit = TextFit.fit(text, block.size, area, limits, TranslationOverlay.measurer(block.bold, block.align, block.rtl, language))
-            TranslationOverlay.draw(onStamp.canvas, text, fit, block.bold, colors[i].ink, block.align, block.rtl, language)
+            TranslationOverlay.draw(onStamp.canvas, text, fits[i], block.bold, colors[i].ink, block.align, block.rtl, language)
         }
         stampDoc.finishPage(onStamp)
         stamped += Stamped(page, image, stampWidth, stampHeight)

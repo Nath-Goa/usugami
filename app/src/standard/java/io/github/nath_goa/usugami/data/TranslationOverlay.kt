@@ -13,8 +13,11 @@ import android.text.TextDirectionHeuristics
 import android.text.TextPaint
 import androidx.core.graphics.withTranslation
 import io.github.nath_goa.usugami.core.BlockAlign
+import io.github.nath_goa.usugami.core.BlockArea
 import io.github.nath_goa.usugami.core.Fit
 import io.github.nath_goa.usugami.core.PageColors
+import io.github.nath_goa.usugami.core.SourceBlock
+import io.github.nath_goa.usugami.core.TextFit
 import io.github.nath_goa.usugami.core.TextMeasurer
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -229,6 +232,150 @@ internal object TranslationOverlay {
      * that one colour (paper, a band), not a photo or a gradient.
      */
     class Colors(val background: Int, val ink: Int, val uniform: Boolean)
+
+    /**
+     * [text], the translation of [block], fitted in its place (see [TextFit.fit]) on its page's
+     * picture [bitmap], [perX] and [perY] pixels to the point, read before anything is painted on
+     * it. It takes more room within [limits] only where nothing else is drawn: not over an empty
+     * box of a form, a line to write on, a table's border, a photo or a chart beside or under its
+     * block, which the page's text doesn't tell of. On paper or a band ([colors] uniform) what
+     * strays more than [CLEAR_DISTANCE] from its colour is in the way; on a photo or a gradient,
+     * what strays that far from the colours on either side of where it would go (an edge, a shape),
+     * so it grows there only where the picture runs on as smoothly as around its block. It stops
+     * [TextFit.NEIGHBOUR_GAP] short of what is in the way, as of another block. [box] is the block's
+     * box on the picture, with its padding; [painted] are where its lines' letters will be painted
+     * over, which are never in its way.
+     */
+    fun fit(
+        bitmap: Bitmap, perX: Float, perY: Float, text: String, block: SourceBlock, box: Rect, painted: List<Rect>,
+        limits: BlockArea, colors: Colors, measurer: TextMeasurer,
+    ): Fit {
+        val own = BlockArea(block.left, block.top, block.right, block.bottom)
+        var room = limits
+        // Each side is cut back at most once, at what is nearest in its way there: this ends.
+        repeat(MAX_CLEAR_TRIES) {
+            val fit = TextFit.fit(text, block.size, own, room, measurer)
+            val clear = Clearing(bitmap, colors, painted).clear(perX, perY, own, box, fit.area, room)
+            if (clear == room) return fit
+            room = clear
+        }
+        return TextFit.fit(text, block.size, own, room, measurer)
+    }
+
+    /** Where a translation may go on a page's [bitmap], read before anything is painted: see [fit]. */
+    private class Clearing(private val bitmap: Bitmap, private val colors: Colors, painted: List<Rect>) {
+        private val width = bitmap.width
+        private val height = bitmap.height
+
+        /** Where the block's own letters are, and how far they reach: the colours a photo or a gradient should have are taken beyond them. */
+        private val painted = painted.filter { !it.isEmpty }
+        private val paintedTop = this.painted.minOfOrNull { it.top } ?: Int.MAX_VALUE
+        private val paintedBottom = this.painted.maxOfOrNull { it.bottom } ?: Int.MIN_VALUE
+        private val paintedLeft = this.painted.minOfOrNull { it.left } ?: Int.MAX_VALUE
+        private val paintedRight = this.painted.maxOfOrNull { it.right } ?: Int.MIN_VALUE
+
+        /**
+         * [room] cut back where [area] (points) reaches past [own] (to the right, the left, or down),
+         * over something in the way: to [TextFit.NEIGHBOUR_GAP] short of the nearest column (or row)
+         * with a pixel in the way, but never into [own]. [box] is [own] on the picture.
+         */
+        fun clear(perX: Float, perY: Float, own: BlockArea, box: Rect, area: BlockArea, room: BlockArea): BlockArea {
+            var left = room.left
+            var right = room.right
+            var bottom = room.bottom
+            if (area.right > own.right) {
+                column(box.right, min(width, ceil(area.right * perX).toInt()), box.top, box.bottom)?.let { x ->
+                    right = max(own.right, min(right, x / perX - TextFit.NEIGHBOUR_GAP))
+                }
+            }
+            if (area.left < own.left) {
+                column(box.left - 1, max(0, floor(area.left * perX).toInt()) - 1, box.top, box.bottom)?.let { x ->
+                    left = min(own.left, max(left, (x + 1) / perX + TextFit.NEIGHBOUR_GAP))
+                }
+            }
+            if (area.bottom > own.bottom) {
+                row(box.bottom, min(height, ceil(area.bottom * perY).toInt()), box.left, box.right)?.let { y ->
+                    bottom = max(own.bottom, min(bottom, y / perY - TextFit.NEIGHBOUR_GAP))
+                }
+            }
+            return BlockArea(left, room.top, right, bottom)
+        }
+
+        /**
+         * The first column from [from] towards [to] (not taken) with a pixel in the way between rows
+         * [top] and [bottom]; null for none. Off a plain background, what each column should have is
+         * mixed from the colours just above and below the block's letters.
+         */
+        private fun column(from: Int, to: Int, top: Int, bottom: Int): Int? {
+            val step = if (to > from) 1 else -1
+            val x0 = if (step > 0) max(0, from) else max(0, to + 1)
+            val x1 = if (step > 0) min(width, to) else min(width, from + 1)
+            if (x1 <= x0 || bottom <= top) return null
+            // The rows the colours are taken from, outside the letters: just above and below them.
+            val above = min(top, paintedTop) - 1
+            val below = max(bottom, paintedBottom)
+            val y0 = max(0, above)
+            val y1 = min(height, below + 1)
+            val w = x1 - x0
+            val pixels = IntArray(w * (y1 - y0))
+            bitmap.getPixels(pixels, 0, w, x0, y0, w, y1 - y0)
+            val near = painted.filter { it.right > x0 && it.left < x1 }
+            var x = if (step > 0) x0 else x1 - 1
+            while (x in x0 until x1) {
+                val i = x - x0
+                val first = if (above >= y0) pixels[(above - y0) * w + i] else null
+                val last = if (below < y1) pixels[(below - y0) * w + i] else null
+                for (y in max(top, y0) until min(bottom, y1)) {
+                    if (near.any { it.contains(x, y) }) continue
+                    val expected = expected(first, last, (y - above).toFloat() / (below - above)) ?: return x
+                    if (distance(pixels[(y - y0) * w + i], expected) > CLEAR_DISTANCE) return x
+                }
+                x += step
+            }
+            return null
+        }
+
+        /**
+         * The first row from [from] down to [to] (not taken) with a pixel in the way between columns
+         * [left] and [right]; null for none. Off a plain background, what each row should have is
+         * mixed from the colours just left and right of the block's letters.
+         */
+        private fun row(from: Int, to: Int, left: Int, right: Int): Int? {
+            val first = min(left, paintedLeft) - 1
+            val last = max(right, paintedRight)
+            val x0 = max(0, first)
+            val x1 = min(width, last + 1)
+            if (to <= from || x1 <= x0) return null
+            val w = x1 - x0
+            val line = IntArray(w)
+            for (y in max(0, from) until to) {
+                bitmap.getPixels(line, 0, w, x0, y, w, 1)
+                val near = painted.filter { y >= it.top && y < it.bottom }
+                val start = if (first >= x0) line[first - x0] else null
+                val end = if (last < x1) line[last - x0] else null
+                for (x in max(left, x0) until min(right, x1)) {
+                    if (near.any { x >= it.left && x < it.right }) continue
+                    val expected = expected(start, end, (x - first).toFloat() / (last - first)) ?: return y
+                    if (distance(line[x - x0], expected) > CLEAR_DISTANCE) return y
+                }
+            }
+            return null
+        }
+
+        /** What a pixel [t] of the way from [a] to [b] should be: the block's background on a plain one; null when it can't be told. */
+        private fun expected(a: Int?, b: Int?, t: Float): Int? {
+            if (colors.uniform) return colors.background
+            if (a == null || b == null) return a ?: b
+            fun channel(shift: Int) = ((a shr shift and 0xFF) * (1 - t) + (b shr shift and 0xFF) * t).toInt().coerceIn(0, 255)
+            return (0xFF shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
+        }
+    }
+
+    /** A pixel this far from what a translation's room should show there is in its way (see [fit])… */
+    private const val CLEAR_DISTANCE = 40
+
+    /** …and its room is cut back at most this many times, once a side. */
+    private const val MAX_CLEAR_TRIES = 4
 
     /** The distance between two colours in RGB, each channel 0 to 255. */
     private fun distance(a: Int, b: Int): Int {

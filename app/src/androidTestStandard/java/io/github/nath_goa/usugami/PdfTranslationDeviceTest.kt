@@ -827,6 +827,31 @@ class PdfTranslationDeviceTest {
         }
     }
 
+    @Test fun aTranslationGrowsOverNoBoxOrPicture() {
+        val file = File(dir, "form.pdf")
+        val boxAt = 72f + PDType1Font.HELVETICA.getStringWidth("Nom :") / 1000 * 11 + 8f
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c ->
+                // A label with an empty box 8 points after it, and a paragraph 8 points above a photo.
+                c.line(72f, 760f, "Nom :")
+                c.addRect(boxAt, 754f, 200f, 20f)
+                c.stroke()
+                PARAGRAPH_ONE.forEachIndexed { i, text -> c.line(72f, 700f - 14f * i, text) }
+                c.drawImage(noise(doc, 60, 40), 72f, 400f, 400f, 247f)
+            }
+            doc.save(file)
+        }
+        // Each longer than its source: the label much longer, the paragraph twice as long.
+        val outcome = translate(import(file), translation = FakeEngine { if (it == "Nom :") "Surname:" else marked(it) + " " + marked(it) })
+        val placed = glyphs(outcome.file.file, 0)
+        val label = placed.filter { it.yDirAdj < 842f - 740f }
+        assertTrue("The label ends at ${label.maxOf { it.xDirAdj + it.widthDirAdj }}, the box at $boxAt", label.maxOf { it.xDirAdj + it.widthDirAdj } < boxAt)
+        val paragraph = placed.filter { it.yDirAdj > 842f - 740f }
+        assertTrue("The paragraph's last line is at ${paragraph.maxOf { it.yDirAdj }}, the photo at ${842f - 647f}", paragraph.maxOf { it.yDirAdj } < 842f - 647f - 1f)
+    }
+
     @Test fun theLanguageIsDetectedFromTheFirstPagesWithText() {
         val translation = FakeEngine().apply { detected = "fr" }
         val input = import(articlePdf())
