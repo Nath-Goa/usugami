@@ -1597,12 +1597,71 @@ class ScreensDeviceTest {
         waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.settings)) } }
     }
 
-    /** Opens Images to PDF from Home and takes a photo, with a [Camera] standing in; returns its crop screen's session. */
+    /**
+     * Opens Images to PDF from Home and takes a photo, with a [Camera] standing in: the scan's photos
+     * show it, and Done takes it on to the crop screen. Returns that screen's session.
+     */
     private fun photoOnTheCropScreen(vm: MainViewModel): CropSession {
         openImagesToPdf()
         click(button(R.string.add_from_camera))
+        scanPhotos(1)
+        press(R.string.crop_done)
         find("the crop screen, which found the page") { it.says(app.getString(R.string.crop_found)) }
         return checkNotNull(onMain { vm.crop.value })
+    }
+
+    /**
+     * Waits for a scan's Photos screen to show [count] photos, each with its Remove button, none still
+     * being added. Its hint tells it from the editor, whose pages have Remove buttons too.
+     */
+    private fun scanPhotos(count: Int) {
+        val hint = app.getString(R.string.scan_photos_hint)
+        val adding = app.getString(R.string.scan_adding_photo)
+        fun remove(number: Int) = app.getString(R.string.remove_page, number)
+        try {
+            waitUntil("the scan's photos, $count of them") {
+                val shown = nodes()
+                shown.any { it.says(hint) } && shown.none { it.says(adding) } &&
+                    shown.any { it.says(remove(count)) } && shown.none { it.says(remove(count + 1)) }
+            }
+        } catch (e: IllegalStateException) {
+            throw IllegalStateException("${e.message}. On screen: ${texts()}", e)
+        }
+    }
+
+    /** Waits for a scan's crop screen to show its image [place] of [total], and returns that image's session. */
+    private fun scanImage(vm: MainViewModel, place: Int, total: Int): CropSession {
+        find("image $place of $total on the crop screen") { it.says(app.getString(R.string.scan_place, place, total)) }
+        find("its page found") { it.says(app.getString(R.string.crop_found)) }
+        val id = onMain { vm.scan.value!!.pages[place - 1] }
+        waitUntil("image $place's crop screen") { onMain { vm.crop.value?.itemId == id } }
+        return onMain { vm.crop.value!! }
+    }
+
+    /** Waits for a scan's Filters screen. */
+    private fun scanFilters() = find("the scan's filters") { it.says(app.getString(R.string.filter_title)) }
+
+    /** Page [number] in the row of a scan's pages on its Filters screen, chosen like a radio button. */
+    private fun scanPage(number: Int): AccessibilityNodeInfo {
+        val label = app.getString(R.string.pdf_page_number, number)
+        val page = find("page $number in the row of the scan's pages") { it.says(label) && ancestor(it) { node -> node.isCheckable } != null }
+        return ancestor(page) { it.isCheckable }!!
+    }
+
+    /**
+     * Shows the scan's page [number] large on its Filters screen, tapped as a screen reader does until it
+     * is: a page on a screen still sliding in may not take the tap yet (see [press]).
+     */
+    private fun showPage(number: Int) = waitUntil("page $number to be shown") {
+        val page = scanPage(number)
+        if (!page.chosen) page.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        page.chosen
+    }
+
+    /** The Filters screen's Same filter for all pages switch. */
+    private fun sameFilterSwitch(): AccessibilityNodeInfo {
+        val label = app.getString(R.string.scan_same_look)
+        return checkNotNull(ancestor(find("the \"$label\" switch") { it.says(label) }) { it.isCheckable })
     }
 
     /** Where the crop step's handle [name] (a corner or a side) is on the screen. */
@@ -1613,10 +1672,10 @@ class ScreensDeviceTest {
 
     /** Waits for the crop step's image to stay put, once the screen has slid in. */
     private fun awaitCropImageStill() {
-        // Named as a pane once it has come in.
+        // Named as a pane once it has come in: with the image's place among a scan's.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             val title = app.getString(R.string.crop_title)
-            waitUntil("the crop step to come in") { nodes().any { it.paneTitle?.toString() == title } }
+            waitUntil("the crop step to come in") { nodes().any { it.paneTitle?.toString()?.startsWith(title) == true } }
         }
         val image = app.getString(R.string.crop_image_description)
         fun bounds() = Rect().also(find("the image") { it.says(image) }::getBoundsInScreen)
@@ -1645,16 +1704,38 @@ class ScreensDeviceTest {
         repeat(5) { touch(downTime, MotionEvent.ACTION_MOVE, toX, toY) }
     }
 
-    /** The filters step's look [label], like a radio button, scrolled to as a screen reader would. */
+    /**
+     * The look [label], like a radio button, on the filters step or a scan's Filters screen, scrolled
+     * to as a screen reader would: along the looks' own row (not the row of the scan's pages above it),
+     * towards the look, which may lie before those shown, or after.
+     */
     private fun look(label: Int): AccessibilityNodeInfo {
         val name = app.getString(label)
-        val right = AccessibilityAction.ACTION_SCROLL_RIGHT
+        val names = LOOKS.map(app::getString)
+        val (left, right) = AccessibilityAction.ACTION_SCROLL_LEFT to AccessibilityAction.ACTION_SCROLL_RIGHT
         repeat(8) {
-            nodes().firstOrNull { it.says(name) && it.isCheckable }?.let { return it }
-            nodes().firstOrNull { right in it.actionList }?.performAction(right.id) ?: return radio(name)
+            nodes().firstOrNull { it.says(name) }?.let { node -> ancestor(node) { it.isCheckable } }?.let { return it }
+            val row = nodes().firstOrNull { (left in it.actionList || right in it.actionList) && it.holds { look -> names.any { name -> look.says(name) } } }
+                ?: return radio(name)
+            val firstShown = names.indexOfFirst { shown -> row.holds { it.says(shown) } }
+            row.performAction((if (names.indexOf(name) < firstShown) left else right).id)
             Thread.sleep(300)
         }
         return radio(name)
+    }
+
+    /** Whether one of the nodes under [this] [match]es. */
+    private fun AccessibilityNodeInfo.holds(match: (AccessibilityNodeInfo) -> Boolean): Boolean =
+        (0 until childCount).any { i -> getChild(i)?.let { match(it) || it.holds(match) } == true }
+
+    /**
+     * Chooses the look [label], as a screen reader would, and waits for it to be the one chosen: a look
+     * on a screen still sliding in may not take the tap yet (see [press]).
+     */
+    private fun chooseLook(label: Int) = waitUntil("${app.getString(label)} to be chosen") {
+        val choice = look(label)
+        if (!choice.chosen) choice.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        choice.chosen
     }
 
     /** The filters step's slider [label]. */
@@ -1674,13 +1755,26 @@ class ScreensDeviceTest {
         assertTrue(slider(label).performAction(AccessibilityAction.ACTION_SET_PROGRESS.id, arguments))
     }
 
+    /**
+     * A scan's photos, taken with Take another, then cropped in turn with a screen reader's actions:
+     * the corners are items of their own, moved with actions or, once chosen, with the arrow buttons,
+     * and kept when the activity is recreated. Discard photo takes the photo shown out of the scan. The
+     * page's own Crop button opens it again from the photo, in two steps, with Back.
+     */
     @Test fun photosAreTakenAndCroppedWithAScreenReadersActions() {
         val first = launch()
         val vm = onMain { ViewModelProvider(first)[MainViewModel::class.java] }
         val camera = Camera(PagePhotos.photo())
         withCamera(camera) {
-            val session = photoOnTheCropScreen(vm)
-            assertEquals(1, camera.taken)
+            openImagesToPdf()
+            click(button(R.string.add_from_camera))
+            scanPhotos(1)
+            // Take another opens the camera for the next page, whose photo joins the first.
+            press(R.string.crop_take_another)
+            scanPhotos(2)
+            assertEquals(2, camera.taken)
+            press(R.string.crop_done)
+            val session = scanImage(vm, 1, 2)
             assertTrue(session.fromCamera)
 
             // The corners are items of their own, which a screen reader moves with actions: the
@@ -1703,14 +1797,13 @@ class ScreensDeviceTest {
             val activity = recreatedFrom(first)
             find("the crop screen, again") { it.says(app.getString(R.string.crop_found)) }
 
-            // Next goes on to the page's look, where Take another crops this photo and takes the next.
+            // Next crops the first photo, and the second shows; Discard photo takes that one out of
+            // the scan, which goes on to its filters with the first alone.
             press(R.string.crop_next)
-            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
-            press(R.string.crop_take_another)
-            waitUntil("the next photo's crop screen") { onMain { vm.crop.value?.let { it.itemId != session.itemId } == true } }
-            assertEquals(2, camera.taken)
-            // Leaving the crop screen of a photo just taken discards it.
+            scanImage(vm, 2, 2)
             press(R.string.crop_discard)
+            scanFilters()
+            press(R.string.save)
             find("the editor") { it.says(app.getString(R.string.convert)) }
             waitUntil("the page to be cropped") { onMain { vm.items.value.size == 1 && vm.items.value.single().original != null } }
             val page = onMain { vm.items.value.single() }
@@ -1749,65 +1842,77 @@ class ScreensDeviceTest {
     }
 
     /**
-     * The filters step: the looks are chosen like radio buttons (a new scan starts Enhanced), and the
-     * look, brightness and contrast reach the page, or with Apply to all pages every page. They are
-     * kept when the activity is recreated; the next photo starts with the look chosen last and the
-     * sliders at 0.
+     * A scan's Filters screen: the looks are chosen like radio buttons (each page starts Enhanced),
+     * and the look, brightness and contrast reach the page shown, the others keeping theirs, or with
+     * Same filter for all pages every page of the scan. They are kept when the activity is recreated.
+     * In the editor, each page says its look.
      */
     @Test fun theLookBrightnessAndContrastChosenReachThePageOrEveryPage() {
         val first = launch()
         val vm = onMain { ViewModelProvider(first)[MainViewModel::class.java] }
-        val allPages = app.getString(R.string.look_all_pages)
-        val camera = Camera(PagePhotos.photo())
-        withCamera(camera) {
-            val session = photoOnTheCropScreen(vm)
-            press(R.string.crop_next)
-            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
-            // With no other page, there is nothing to apply them to.
-            waitUntil("Enhanced to be chosen") { look(R.string.look_enhanced).chosen }
-            assertTrue(nodes().none { it.says(allPages) })
-            click(look(R.string.look_black_white))
-            waitUntil("black and white to be chosen") { look(R.string.look_black_white).chosen && !look(R.string.look_enhanced).chosen }
-            setSlider(R.string.filter_brightness, 30f)
-            setSlider(R.string.filter_contrast, -20f)
-
-            // Kept when the activity is recreated, as on rotation.
-            onMain { first.recreate() }
-            val activity = recreatedFrom(first)
-            find("the filters step, again") { it.says(app.getString(R.string.filter_title)) }
-            waitUntil("black and white, still chosen") { look(R.string.look_black_white).chosen }
-            assertEquals(30f, sliderValue(R.string.filter_brightness))
-            assertEquals(-20f, sliderValue(R.string.filter_contrast))
-
-            // Take another: the page has them, and the next photo starts in black and white, the
-            // sliders at 0, with another page now to apply them to. Grayscale and more contrast, for both.
+        withCamera(Camera(PagePhotos.photo())) {
+            openImagesToPdf()
+            click(button(R.string.add_from_camera))
+            scanPhotos(1)
             press(R.string.crop_take_another)
-            waitUntil("the next photo's crop screen") { onMain { vm.crop.value?.let { it.itemId != session.itemId } == true } }
-            assertEquals(2, camera.taken)
-            val firstPage = onMain { vm.items.value.first() }
-            assertEquals(PageLook.BLACK_WHITE, firstPage.look)
-            assertEquals(LookAdjustments(brightness = 30, contrast = -20), firstPage.adjustments)
-            press(R.string.crop_next)
-            find("the second filters step") { it.says(app.getString(R.string.filter_title)) }
-            waitUntil("black and white, chosen for the next photo") { look(R.string.look_black_white).chosen }
-            assertEquals(0f, sliderValue(R.string.filter_brightness))
-            click(look(R.string.look_grayscale))
-            setSlider(R.string.filter_contrast, 50f)
-            val toggle = checkNotNull(ancestor(find("the \"$allPages\" check box") { it.says(allPages) }) { it.isCheckable })
-            click(toggle)
-            waitUntil("the box to be ticked") { toggle.chosen }
-            press(R.string.crop_done)
-            find("the editor") { it.says(app.getString(R.string.convert)) }
-            waitUntil("both pages to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.size == 2 && vm.items.value.all { it.original != null } } }
-            assertEquals(listOf(PageLook.GRAYSCALE, PageLook.GRAYSCALE), onMain { vm.items.value.map { it.look } })
-            assertEquals(List(2) { LookAdjustments(contrast = 50) }, onMain { vm.items.value.map { it.adjustments } })
-            // Each page says its look to a screen reader.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val grayscale = app.getString(R.string.look_grayscale)
-                waitUntil("the pages to say their look") { nodes().count { it.stateDescription?.toString() == grayscale } == 2 }
-            }
-            onMain { ViewModelProvider(activity)[MainViewModel::class.java].clearAll() }
+            scanPhotos(2)
         }
+        press(R.string.crop_done)
+        for (place in 1..2) {
+            scanImage(vm, place, 2)
+            press(R.string.crop_next)
+        }
+        scanFilters()
+        fun page(index: Int) = onMain { vm.items.value[index].run { look to adjustments } }
+
+        // The first page shows, on Enhanced: black and white, brighter, less contrast, for it alone.
+        waitUntil("page 1 to be shown") { scanPage(1).chosen }
+        waitUntil("Enhanced to be chosen") { look(R.string.look_enhanced).chosen }
+        chooseLook(R.string.look_black_white)
+        assertFalse(look(R.string.look_enhanced).chosen)
+        setSlider(R.string.filter_brightness, 30f)
+        setSlider(R.string.filter_contrast, -20f)
+        waitUntil("the first page to have them") { page(0) == PageLook.BLACK_WHITE to LookAdjustments(brightness = 30, contrast = -20) }
+        assertEquals(PageLook.ENHANCED to LookAdjustments.NONE, page(1))
+
+        // Kept when the activity is recreated, as on rotation.
+        onMain { first.recreate() }
+        val activity = recreatedFrom(first)
+        scanFilters()
+        waitUntil("black and white, still chosen") { look(R.string.look_black_white).chosen }
+        assertEquals(30f, sliderValue(R.string.filter_brightness))
+        assertEquals(-20f, sliderValue(R.string.filter_contrast))
+
+        // The second page has its own: still Enhanced, the sliders at 0. Grayscale and more contrast, for it.
+        showPage(2)
+        assertFalse(scanPage(1).chosen)
+        waitUntil("its own look, Enhanced") { look(R.string.look_enhanced).chosen }
+        assertEquals(0f, sliderValue(R.string.filter_brightness))
+        chooseLook(R.string.look_grayscale)
+        setSlider(R.string.filter_contrast, 50f)
+        waitUntil("the second page to have them") { page(1) == PageLook.GRAYSCALE to LookAdjustments(contrast = 50) }
+        assertEquals(PageLook.BLACK_WHITE to LookAdjustments(brightness = 30, contrast = -20), page(0))
+
+        // Same filter for all pages: every page takes the page shown's, and what is chosen next.
+        val same = sameFilterSwitch()
+        assertFalse(same.chosen)
+        click(same)
+        waitUntil("the switch to be on") { same.chosen }
+        waitUntil("both pages in grayscale") { (0..1).all { page(it) == PageLook.GRAYSCALE to LookAdjustments(contrast = 50) } }
+        chooseLook(R.string.look_lighten)
+        setSlider(R.string.filter_brightness, -10f)
+        waitUntil("both pages lightened") { (0..1).all { page(it) == PageLook.LIGHTEN to LookAdjustments(brightness = -10, contrast = 50) } }
+
+        press(R.string.save)
+        find("the editor") { it.says(app.getString(R.string.convert)) }
+        waitUntil("both pages to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.size == 2 && vm.items.value.all { it.original != null } } }
+        assertEquals(List(2) { PageLook.LIGHTEN to LookAdjustments(brightness = -10, contrast = 50) }, listOf(page(0), page(1)))
+        // Each page says its look to a screen reader.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val lighten = app.getString(R.string.look_lighten)
+            waitUntil("the pages to say their look") { nodes().count { it.stateDescription?.toString() == lighten } == 2 }
+        }
+        onMain { ViewModelProvider(activity)[MainViewModel::class.java].clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
 
@@ -1841,10 +1946,12 @@ class ScreensDeviceTest {
             find("the hint that the page was found") { it.says(app.getString(R.string.crop_found)) }
             assertEquals(before, imageBounds())
 
-            // The page is cropped with the corner where the finger let go of it.
+            // The page is cropped with the corner where the finger let go of it. A scan of one page
+            // has no other page to give its look to.
             press(R.string.crop_next)
-            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
-            press(R.string.crop_done)
+            scanFilters()
+            assertTrue(nodes().none { it.says(app.getString(R.string.scan_same_look)) })
+            press(R.string.save)
             waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
             val corner = onMain { vm.items.value.single() }.original!!.corners[CropQuad.TOP_LEFT]
             val found = session.found
@@ -1879,8 +1986,8 @@ class ScreensDeviceTest {
             moveFinger(start, x, y, x, y - 60)
             touch(start, MotionEvent.ACTION_UP, x, y - 60)
             press(R.string.crop_next)
-            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
-            press(R.string.crop_done)
+            scanFilters()
+            press(R.string.save)
             waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
             val corners = onMain { vm.items.value.single() }.original!!.corners
             assertEquals(found[CropQuad.TOP_LEFT].y - 60 / height, corners[CropQuad.TOP_LEFT].y, 0.01f)
@@ -1911,8 +2018,8 @@ class ScreensDeviceTest {
                 bottomRight.exactCenterX() - topLeft.exactCenterX() > bottomRight.exactCenterY() - topLeft.exactCenterY()
             }
             press(R.string.crop_next)
-            find("the filters step") { it.says(app.getString(R.string.filter_title)) }
-            press(R.string.crop_done)
+            scanFilters()
+            press(R.string.save)
             waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
             val page = onMain { vm.items.value.single() }
             assertEquals(90, page.rotation)
@@ -1923,10 +2030,11 @@ class ScreensDeviceTest {
     }
 
     /**
-     * Scan document's Take photo opens the camera at once, over the editor. A scan from Home that
-     * leaves no page goes back to Home, not to an empty editor: the camera closed without a photo, or
-     * saying it took one it never saved, and an image picked that can't be read. Once a page is kept,
-     * the editor stays, also when that page is removed while it is still being cropped.
+     * Scan document's Take photo opens the camera at once, over the scan's photos. A scan from Home
+     * that leaves no page goes back to Home, not to an empty editor: the camera closed without a photo,
+     * or saying it took one it never saved, an image picked that can't be read, the only photo taken
+     * out, and the photos discarded. Once a page is saved, the editor stays, also when that page is
+     * removed while it is still being cropped.
      */
     @Test fun aScanFromHomeThatLeavesNoPageGoesBackHome() {
         val activity = launch()
@@ -1978,11 +2086,26 @@ class ScreensDeviceTest {
         stillHome(told = true)
 
         withCamera(Camera(PagePhotos.photo())) {
+            // The only photo taken out.
             click(button(R.string.add_from_camera))
-            // The photo is added and its page looked for before its crop screen comes in.
+            scanPhotos(1)
+            click(find("the photo's Remove button") { it.says(app.getString(R.string.remove_page, 1)) })
+            stillHome(told = false)
+            // The photos discarded, as Back asks.
+            click(button(R.string.add_from_camera))
+            scanPhotos(1)
+            backKey()
+            click(button(R.string.discard))
+            stillHome(told = false)
+
+            click(button(R.string.add_from_camera))
+            scanPhotos(1)
+            press(R.string.crop_done)
+            // The page is looked for before its crop screen comes in.
             find("the crop screen, which found the page") { it.says(app.getString(R.string.crop_found)) }
             press(R.string.crop_next)
-            press(R.string.crop_done)
+            scanFilters()
+            press(R.string.save)
         }
         // Removed as soon as the editor shows it, also while it is still being cropped.
         click(find("the page's Remove button") { it.says(app.getString(R.string.remove_page, 1)) })
@@ -2098,31 +2221,33 @@ class ScreensDeviceTest {
     }
 
     /**
-     * A document shared to Usugami while a scan from Home is on the crop screen opens its converter,
-     * and Back from there returns to the scan, still from Home: its photo discarded, Home shows again.
+     * A document shared to Usugami while a scan from Home shows its photos opens its converter, and
+     * Back from there returns to the scan, still from Home: its photos discarded, Home shows again.
      */
     @Test fun aScanFromHomeLeftForASharedDocumentStillGoesBackHome() {
         val activity = launch()
         val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
         withCamera(Camera(PagePhotos.photo())) {
             click(button(R.string.add_from_camera))
-            find("the crop screen") { it.says(app.getString(R.string.crop_found)) }
+            scanPhotos(1)
         }
         val stamp = System.currentTimeMillis()
         val word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         shareTo(shareIntent(word, inDownloads("Report $stamp.docx", word, asset("report.docx"))))
         find("the shared document in Word to PDF") { it.says("Report $stamp.docx") }
         backKey()
-        find("the scan's crop screen, again") { it.says(app.getString(R.string.crop_found)) }
-        press(R.string.crop_discard)
+        scanPhotos(1)
+        backKey()
+        click(button(R.string.discard))
         waitUntil("Home") { nodes().any { it.says(app.getString(R.string.scan_title)) } }
         assertTrue(nodes().none { it.says(app.getString(R.string.empty_title)) })
         assertTrue(onMain { vm.items.value.isEmpty() })
     }
 
     /**
-     * A document shared to Usugami while a page is on the crop screen's filters step opens its
-     * converter, and Back from there returns to that step with the corner moved and the look chosen,
+     * A document shared to Usugami while a scan's image is on the crop screen, or its pages on the
+     * Filters screen, opens its converter, and Back from there returns to the same image with its
+     * corner moved (not yet given to it with Next), or to the same page shown with the look chosen,
      * also after the activity was recreated in the converter.
      */
     @Test fun aPageLeftForASharedDocumentKeepsItsCornersAndLook() {
@@ -2130,38 +2255,50 @@ class ScreensDeviceTest {
         val vm = onMain { ViewModelProvider(activity)[MainViewModel::class.java] }
         withCamera(Camera(PagePhotos.photo())) {
             click(button(R.string.add_from_camera))
-            find("the crop screen") { it.says(app.getString(R.string.crop_found)) }
+            scanPhotos(1)
+            press(R.string.crop_take_another)
+            scanPhotos(2)
         }
-        val session = checkNotNull(onMain { vm.crop.value })
+        press(R.string.crop_done)
+        val session = scanImage(vm, 1, 2)
         val left = app.getString(R.string.edit_move_left)
         repeat(5) {
             val corner = find("the top-left corner") { it.says(app.getString(R.string.crop_corner_top_left)) && it.action(left) != null }
             assertTrue(corner.performAction(corner.action(left)!!.id))
         }
-        press(R.string.crop_next)
-        find("the filters step") { it.says(app.getString(R.string.filter_title)) }
-        waitUntil("Enhanced to be chosen") { look(R.string.look_enhanced).chosen }
-        click(look(R.string.look_black_white))
-        waitUntil("black and white to be chosen") { look(R.string.look_black_white).chosen }
 
-        val stamp = System.currentTimeMillis()
-        val word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        shareTo(shareIntent(word, inDownloads("Report $stamp.docx", word, asset("report.docx"))))
-        find("the shared document in Word to PDF") { it.says("Report $stamp.docx") }
-        // Also when the activity is recreated meanwhile, as on rotation.
-        onMain { activity.recreate() }
-        recreatedFrom(activity)
-        find("the shared document, again") { it.says("Report $stamp.docx") }
-        backKey()
-        find("the filters step, again") { it.says(app.getString(R.string.filter_title)) }
+        /** A document shared to Usugami, the activity recreated in its converter (as on rotation), and Back. */
+        fun leftForADocument(shown: MainActivity): MainActivity {
+            val stamp = System.currentTimeMillis()
+            val word = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            shareTo(shareIntent(word, inDownloads("Report $stamp.docx", word, asset("report.docx"))))
+            find("the shared document in Word to PDF") { it.says("Report $stamp.docx") }
+            onMain { shown.recreate() }
+            val recreated = recreatedFrom(shown)
+            find("the shared document, again") { it.says("Report $stamp.docx") }
+            backKey()
+            return recreated
+        }
+        val recreated = leftForADocument(activity)
+        scanImage(vm, 1, 2)
+        press(R.string.crop_next)
+        scanImage(vm, 2, 2)
+        press(R.string.crop_next)
+        scanFilters()
+        showPage(2)
+        chooseLook(R.string.look_black_white)
+
+        leftForADocument(recreated)
+        scanFilters()
+        waitUntil("page 2, still shown") { scanPage(2).chosen }
         waitUntil("black and white, still chosen") { look(R.string.look_black_white).chosen }
-        press(R.string.crop_done)
-        waitUntil("the page to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.singleOrNull()?.original != null } }
-        val page = onMain { vm.items.value.single() }
-        assertEquals(PageLook.BLACK_WHITE, page.look)
+        press(R.string.save)
+        waitUntil("the pages to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.items.value.size == 2 && vm.items.value.all { it.original != null } } }
+        val pages = onMain { vm.items.value }
+        assertEquals(listOf(PageLook.ENHANCED, PageLook.BLACK_WHITE), pages.map { it.look })
         // Each step is 0.4% of the photo's long side.
         val step = 0.004f * PagePhotos.PHOTO_HEIGHT / PagePhotos.PHOTO_WIDTH
-        assertEquals(session.found[CropQuad.TOP_LEFT].x - 5 * step, page.original!!.corners[CropQuad.TOP_LEFT].x, 1e-3f)
+        assertEquals(session.found[CropQuad.TOP_LEFT].x - 5 * step, pages[0].original!!.corners[CropQuad.TOP_LEFT].x, 1e-3f)
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
     }
@@ -2190,9 +2327,10 @@ class ScreensDeviceTest {
     }
 
     /**
-     * Scan document's Upload images: the images picked go through both steps one after another, the
-     * count under the title (and in the name a screen reader hears), Next until the last, which has
-     * Done. Closed part way, the screen leaves the rest as they were added, in the editor.
+     * Scan document's Upload images: the images picked are cropped one after another, the count under
+     * the title (and in the name a screen reader hears), Next on each, Back to the image before.
+     * Stopped part way, the images not cropped yet stay whole, and the scan goes on to its Filters,
+     * every image among its pages, then to the editor.
      */
     @Test fun uploadedImagesAreCroppedOneAfterAnotherAndTheRestKeptWhenClosed() {
         val activity = launch()
@@ -2203,33 +2341,31 @@ class ScreensDeviceTest {
         waitUntil("the images to be added") { onMain { vm.items.value.size == 3 && vm.pendingImports.value == 0 } }
         val ids = onMain { vm.items.value.map { it.id } }
         for (i in 0..1) {
-            waitUntil("image ${i + 1}'s crop screen") { onMain { vm.crop.value?.itemId == ids[i] } }
-            find("its place") { it.says(app.getString(R.string.scan_place, i + 1, 3)) }
+            assertEquals(ids[i], scanImage(vm, i + 1, 3).itemId)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 val pane = app.getString(R.string.scan_pane_title, app.getString(R.string.crop_title), app.getString(R.string.scan_place, i + 1, 3))
                 waitUntil("its step to be named with its place") { nodes().any { it.paneTitle?.toString() == pane } }
             }
             press(R.string.crop_next)
-            find("its filters step") { it.says(app.getString(R.string.filter_title)) }
-            press(R.string.crop_next)
         }
-        waitUntil("the last image's crop screen") { onMain { vm.crop.value?.itemId == ids[2] } }
-        find("its place") { it.says(app.getString(R.string.scan_place, 3, 3)) }
-        press(R.string.crop_next)
-        find("its filters step") { it.says(app.getString(R.string.filter_title)) }
-        actionButton(R.string.crop_done)
-        assertTrue("Done, not Next, on the last", nodes().none { it.says(app.getString(R.string.crop_next)) })
-
-        // Back to its crop step, and closed there: the scan stops, and the last image stays as it was.
+        // The image before comes back, and goes on again.
+        assertEquals(ids[2], scanImage(vm, 3, 3).itemId)
         backKey()
-        find("its crop step, again") { it.says(app.getString(R.string.crop_found)) }
+        assertEquals(ids[1], scanImage(vm, 2, 3).itemId)
+        press(R.string.crop_next)
+        assertEquals(ids[2], scanImage(vm, 3, 3).itemId)
+
+        // Stopped on the last: it stays whole, and the scan's Filters have all three.
         press(R.string.crop_stop)
+        scanFilters()
+        scanPage(3)
+        press(R.string.save)
         find("the editor") { it.says(app.getString(R.string.convert)) }
         waitUntil("the pages to be cropped") { onMain { vm.cropping.value.isEmpty() && vm.pendingImports.value == 0 } }
         val pages = onMain { vm.items.value }
         assertEquals(ids, pages.map { it.id })
-        assertTrue("$pages", pages.take(2).all { it.original != null && it.look == PageLook.ENHANCED })
-        assertTrue("$pages", pages[2].original == null && pages[2].look == PageLook.ORIGINAL)
+        assertEquals("$pages", listOf(true, true, false), pages.map { it.original != null })
+        assertTrue("$pages", pages.all { it.look == PageLook.ENHANCED })
         assertNull(onMain { vm.scan.value })
         onMain { vm.clearAll() }
         runBlocking { vm.awaitFileWork() }
@@ -3511,5 +3647,11 @@ class ScreensDeviceTest {
     private companion object {
         /** How old binary Word and PowerPoint files (.doc, .ppt) start. */
         val OLD_BINARY_HEADER = byteArrayOf(0xD0.toByte(), 0xCF.toByte(), 0x11, 0xE0.toByte(), 0xA1.toByte(), 0xB1.toByte(), 0x1A, 0xE1.toByte())
+
+        /** The looks' names. */
+        val LOOKS = listOf(
+            R.string.look_original, R.string.look_lighten, R.string.look_enhanced, R.string.look_super_enhanced,
+            R.string.look_grayscale, R.string.look_black_white, R.string.look_ink_saver,
+        )
     }
 }
