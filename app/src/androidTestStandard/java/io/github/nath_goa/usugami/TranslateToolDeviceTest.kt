@@ -14,6 +14,8 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.ToolSearch
 import io.github.nath_goa.usugami.data.AppLanguage
@@ -29,6 +31,7 @@ import io.github.nath_goa.usugami.data.TranslationEngine
 import io.github.nath_goa.usugami.data.TranslationProblem
 import io.github.nath_goa.usugami.data.TranslationTestHook
 import io.github.nath_goa.usugami.data.TranslationUnavailableException
+import io.github.nath_goa.usugami.ui.Motion
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.defaultTarget
 import io.github.nath_goa.usugami.ui.detectLanguage
@@ -252,6 +255,61 @@ class TranslateToolDeviceTest {
     }
 
     /**
+     * From and the pages belong to their PDF: kept when the activity is recreated, as on rotation,
+     * and back from the result. After Start over, the next PDF's language is detected afresh and its
+     * pages start empty, while To stays.
+     */
+    @Test fun fromAndPagesBelongToTheirPdf() {
+        TranslationTestHook.engine = { FakeEngine(onPhone = languages.toSet()) }
+        val first = launch()
+        val vm = openWithAlpha(first)
+        val locale = first.resources.configuration.locales[0]
+        fun chip(label: Int, tag: String) = app.getString(R.string.option_value, app.getString(label), languageName(tag, locale))
+        val target = defaultTarget(AppLanguage.shownIn(first).translationTag(), "fr")
+        val to = if (target == "es") "pt" else "es"
+
+        // alpha: German chosen for From, another language for To, and page 2 typed.
+        click(find("From, detected") { it.says(chip(R.string.translate_from, "fr")) })
+        click(find("German in the menu") { it.says(languageName("de", locale)) })
+        find("From, German") { it.says(chip(R.string.translate_from, "de")) }
+        click(find("To, the app's language") { it.says(chip(R.string.translate_to, target)) })
+        click(find("${languageName(to, locale)} in the menu") { it.says(languageName(to, locale)) })
+        find("To, chosen") { it.says(chip(R.string.translate_to, to)) }
+        // The empty field; the other, the file name, has the name in it.
+        type(find("the pages field") { it.isEditable && it.text.isNullOrEmpty() }, "2")
+        val oneOfThree = app.getString(R.string.translate_pages_count, 1, 3)
+        findBelow("page 2 of three") { it.says(oneOfThree) }
+
+        // Kept when the activity is recreated, as on rotation.
+        onMain { first.recreate() }
+        recreatedFrom(first)
+        find("From, still German") { it.says(chip(R.string.translate_from, "de")) }
+        findBelow("still page 2 of three") { it.says(oneOfThree) }
+
+        // And back from the result.
+        click(actionButton())
+        find("the result screen") { it.says(app.getString(R.string.result_heading_one)) }
+        Thread.sleep(2L * Motion.SCREEN)
+        onMain { vm.backToEditing() }
+        find("From, German, back from the result") { it.says(chip(R.string.translate_from, "de")) }
+        findBelow("page 2 of three, back from the result") { it.says(oneOfThree) }
+        assertEquals(listOf(Triple(listOf(1), "de", to)), runs.toList())
+
+        // After Start over, beta (two pages) starts afresh but for To.
+        click(actionButton())
+        find("the result screen, again") { it.says(app.getString(R.string.result_heading_one)) }
+        // Once the tool's screen has slid away, its choices are put by for Back to editing.
+        Thread.sleep(2L * Motion.SCREEN)
+        onMain { vm.startOver() }
+        find("the card to pick a PDF, again") { it.says(app.getString(R.string.pick_pdf)) }
+        onMain { vm.addPdfs(listOf(pdf("beta.pdf")), replace = true) }
+        find("beta's From, detected") { it.says(chip(R.string.translate_from, "fr")) }
+        find("the detected hint") { it.says(app.getString(R.string.translate_detected)) }
+        find("To, still chosen") { it.says(chip(R.string.translate_to, to)) }
+        findBelow("all of beta's pages") { it.says(app.getString(R.string.translate_pages_all)) }
+    }
+
+    /**
      * When text recognition can't run, its dialog doesn't send the user to Usugami OCR, which has no
      * Translate PDF, and points to the pages field only where there is one: not for a PDF of one page.
      */
@@ -314,6 +372,17 @@ class TranslateToolDeviceTest {
         onMain { vm.addPdfs(listOf(pdf(fixture)), replace = true) }
         waitUntil("the PDF to be added") { onMain { vm.inputs.value.size } == 1 }
         return vm
+    }
+
+    /** The activity Android made in place of [old], as on rotation. */
+    private fun recreatedFrom(old: MainActivity): MainActivity {
+        var found: MainActivity? = null
+        waitUntil("the activity to be recreated") {
+            val resumed = onMain { ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED) }
+            found = (resumed.singleOrNull() as? MainActivity)?.takeIf { it !== old }
+            found != null
+        }
+        return found!!.also { activity = it }
     }
 
     /** A test PDF the way a picker gives it: a content:// URI with a display name. */

@@ -74,11 +74,13 @@ internal fun TranslateOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsView
     val locale = LocalConfiguration.current.locales[0]
     val languages = remember(engine, locale) { byName(engine?.languages.orEmpty(), locale) }
     val appTag = AppLanguage.shownIn(context).translationTag()
-    var detecting by rememberSaveable(input.id) { mutableStateOf(true) }
-    var detected by rememberSaveable(input.id) { mutableStateOf<String?>(null) }
-    var chosenSource by rememberSaveable(input.id) { mutableStateOf<String?>(null) }
+    // Saved under the PDF, as OutputNameField's name is: a PDF put in the place of another, as after
+    // Start over, never takes what was found, chosen or typed for that one. To stays.
+    var detecting by key(input.id) { rememberSaveable { mutableStateOf(true) } }
+    var detected by key(input.id) { rememberSaveable { mutableStateOf<String?>(null) } }
+    var chosenSource by key(input.id) { rememberSaveable { mutableStateOf<String?>(null) } }
     var chosenTarget by rememberSaveable { mutableStateOf<String?>(null) }
-    var pages by rememberSaveable(input.id) { mutableStateOf("") }
+    var pages by key(input.id) { rememberSaveable { mutableStateOf("") } }
     var showPacks by rememberSaveable { mutableStateOf(false) }
     // Once per PDF: not again after a rotation or the result screen, which keep what was found.
     LaunchedEffect(input.id) {
