@@ -677,18 +677,19 @@ internal object Redactor {
             dx != 0f || dy != 0f -> abs(dx) >= abs(dy)
             else -> abs(topShownY - startShownY) >= abs(topShownX - startShownX)
         }
-        // Whether it also runs left to right and level, from its advance, or without one its text's own
-        // baseline (a slanted "up", as synthetic italics have, doesn't count): not tilted, not upside down.
-        val level = across && when {
-            vertical -> true
-            dx != 0f || dy != 0f -> isLevel(dx, dy)
-            else -> {
-                val (baseX, baseY) = shown(startX + trm.scaleX, startY + trm.shearY)
-                val (originX, originY) = shown(startX, startY)
-                val bx = baseX - originX
-                val by = baseY - originY
-                bx == 0f && by == 0f || isLevel(bx, by)
-            }
+        // Whether it also runs left to right and level, from its text's own baseline (a slanted "up", as
+        // synthetic italics have, doesn't count), or without one from its advance: not tilted, not upside
+        // down. Not from the advance first: text extraction's start is raised by a text rise (a
+        // superscript set with Ts) and its end isn't, so a narrow raised digit's advance looks steep.
+        val (baseX, baseY) = shown(startX + trm.scaleX, startY + trm.shearY)
+        val (originX, originY) = shown(startX, startY)
+        val bx = baseX - originX
+        val by = baseY - originY
+        val level = when {
+            vertical -> across
+            bx.isFinite() && by.isFinite() && (bx != 0f || by != 0f) -> isLevel(bx, by)
+            dx != 0f || dy != 0f -> across && isLevel(dx, dy)
+            else -> across
         }
         return GlyphBox(points.minOf { it.first }, points.minOf { it.second }, points.maxOf { it.first }, points.maxOf { it.second }, across, level)
     }

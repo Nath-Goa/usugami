@@ -879,6 +879,34 @@ class PdfTranslationDeviceTest {
         }
     }
 
+    @Test fun aNoteNumberRaisedWithATextRiseIsRead() {
+        // The number raised with a text rise (Ts) rather than by moving the baseline: text extraction
+        // raises the glyph's start and not its end, but the number runs as level as its note.
+        val file = File(dir, "rise.pdf")
+        val note = "Les pénalités sont exigibles sans rappel."
+        PDDocument().use { doc ->
+            val page = PDPage(PDRectangle.A4)
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { c ->
+                c.beginText()
+                c.newLineAtOffset(72f, 100f)
+                c.setFont(PDType1Font.TIMES_ROMAN, 5.5f)
+                c.setTextRise(3f)
+                c.showText("1")
+                c.setTextRise(0f)
+                c.setFont(PDType1Font.TIMES_ROMAN, 8.5f)
+                c.showText(" $note")
+                c.endText()
+            }
+            doc.save(file)
+        }
+        PDDocument.load(file).use { doc ->
+            var read: PageLines? = null
+            PageLineReader(setOf(0), {}) { _, lines -> read = lines }.read(doc)
+            assertEquals(listOf("1", note), read!!.lines.map { it.text })
+        }
+    }
+
     @Test fun aTranslationGrowsOverNoBoxOrPicture() {
         val file = File(dir, "form.pdf")
         val boxAt = 72f + PDType1Font.HELVETICA.getStringWidth("Nom :") / 1000 * 11 + 8f
