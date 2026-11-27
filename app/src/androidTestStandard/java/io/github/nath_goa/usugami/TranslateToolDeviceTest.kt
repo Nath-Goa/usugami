@@ -20,6 +20,7 @@ import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
 import io.github.nath_goa.usugami.data.PageNotDrawn
 import io.github.nath_goa.usugami.data.PdfFile
+import io.github.nath_goa.usugami.data.PdfInput
 import io.github.nath_goa.usugami.data.TextTranslator
 import io.github.nath_goa.usugami.data.TranslateOutcome
 import io.github.nath_goa.usugami.data.TranslateProgress
@@ -29,6 +30,7 @@ import io.github.nath_goa.usugami.data.TranslationTestHook
 import io.github.nath_goa.usugami.data.TranslationUnavailableException
 import io.github.nath_goa.usugami.ui.PdfToolsViewModel
 import io.github.nath_goa.usugami.ui.defaultTarget
+import io.github.nath_goa.usugami.ui.detectLanguage
 import io.github.nath_goa.usugami.ui.languageName
 import io.github.nath_goa.usugami.ui.namesListed
 import io.github.nath_goa.usugami.ui.runTranslate
@@ -39,6 +41,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -149,6 +152,20 @@ class TranslateToolDeviceTest {
         onMain { vm.runTranslate(input, "", "fr", "en", "alpha") }
         val said = runBlocking { withTimeout(30_000) { vm.messages.first() } }
         assertEquals(onMain { vm.strings.getString(R.string.export_page_failed, 3) }, said)
+    }
+
+    /**
+     * A PDF whose text can't be read as its language is detected (a page of millions of letters,
+     * or nested deeper than PDFBox goes) leaves From to the user rather than closing Usugami.
+     */
+    @Test fun detectingAPdfThatCantBeReadLeavesFromToTheUser() {
+        val engine = FakeEngine(onPhone = emptySet())
+        val vm = newViewModel()
+        val input = PdfInput(1, File(picked, "unread.pdf").path, "unread.pdf", 1)
+        for (error in listOf(OutOfMemoryError(), StackOverflowError(), NoClassDefFoundError())) {
+            TranslationTestHook.detector = { _, _, _, _ -> throw error }
+            assertNull("$error", runBlocking { vm.detectLanguage(input, engine) })
+        }
     }
 
     /** Home lists Translate PDF under Convert from PDF, after PDF to images or text, and its search finds it in every language. */

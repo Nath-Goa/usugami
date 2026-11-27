@@ -177,6 +177,14 @@ internal suspend fun PdfToolsViewModel.detectLanguage(input: PdfInput, translati
     } catch (_: Exception) {
         // A PDF that can't be read here can't be translated either, which the run says: the user chooses meanwhile.
         null
+    } catch (_: OutOfMemoryError) {
+        // A page of millions of letters, or nested deeper than PDFBox goes: as above, never closing Usugami
+        // as the PDF is shown. The run says these as every tool does.
+        null
+    } catch (_: StackOverflowError) {
+        null
+    } catch (_: LinkageError) {
+        null
     }
     return found?.let(::engineTag)?.takeIf { it in translation.languages }
 }
