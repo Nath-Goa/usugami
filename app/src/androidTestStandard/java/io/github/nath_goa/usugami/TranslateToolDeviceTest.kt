@@ -18,6 +18,7 @@ import io.github.nath_goa.usugami.core.FileNames
 import io.github.nath_goa.usugami.core.ToolSearch
 import io.github.nath_goa.usugami.data.AppLanguage
 import io.github.nath_goa.usugami.data.AppLanguages
+import io.github.nath_goa.usugami.data.OcrProblem
 import io.github.nath_goa.usugami.data.PageNotDrawn
 import io.github.nath_goa.usugami.data.PdfFile
 import io.github.nath_goa.usugami.data.PdfInput
@@ -250,6 +251,35 @@ class TranslateToolDeviceTest {
         assertTrue("The packs downloaded stay", engine.packs.containsAll(missing))
     }
 
+    /**
+     * When text recognition can't run, its dialog doesn't send the user to Usugami OCR, which has no
+     * Translate PDF, and points to the pages field only where there is one: not for a PDF of one page.
+     */
+    @Test fun theTextRecognitionDialogOffersOnlyWhatThisScreenHas() {
+        TranslationTestHook.engine = { FakeEngine(onPhone = languages.toSet()) }
+        val main = launch()
+        val vm = openWith(main, "english_image.pdf")
+        val title = app.getString(R.string.ocr_problem_title)
+        val retry = app.getString(R.string.translate_ocr_retry)
+        val help = app.getString(R.string.ocr_problem_help)
+
+        onMain { vm.translate.ocrProblem.value = OcrProblem.DOWNLOAD_FAILED }
+        find("the dialog") { it.says(title) }
+        find("why") { it.says(app.getString(R.string.ocr_problem_download)) }
+        val said = nodes().mapNotNull { it.text?.toString() }
+        assertFalse("A PDF of one page has no pages field: $said", retry in said)
+        assertFalse("Usugami OCR can't translate: $said", help in said)
+        click(find("OK") { it.says(app.getString(R.string.ok)) })
+        waitUntil("the dialog to go") { nodes().none { it.says(title) } }
+
+        // alpha's three pages have the field.
+        onMain { vm.addPdfs(listOf(pdf("alpha.pdf")), replace = true) }
+        waitUntil("alpha to be added") { onMain { vm.inputs.value.singleOrNull()?.pageCount } == 3 }
+        onMain { vm.translate.ocrProblem.value = OcrProblem.DOWNLOAD_FAILED }
+        find("the way out through the pages field") { it.says(retry) }
+        assertTrue("Usugami OCR can't translate", nodes().none { it.says(help) })
+    }
+
     /** A pack that can't download (no internet) is said in a dialog, and there is no result. */
     @Test fun aPackThatCantDownloadIsSaidInADialog() {
         TranslationTestHook.engine = { FakeEngine(onPhone = languages.toSet()) }
@@ -273,12 +303,15 @@ class TranslateToolDeviceTest {
     }
 
     /** Opens Translate PDF from Home with alpha.pdf (three pages) in it. */
-    private fun openWithAlpha(main: MainActivity): PdfToolsViewModel {
+    private fun openWithAlpha(main: MainActivity): PdfToolsViewModel = openWith(main, "alpha.pdf")
+
+    /** Opens Translate PDF from Home with the test PDF [fixture] in it. */
+    private fun openWith(main: MainActivity, fixture: String): PdfToolsViewModel {
         find("Home") { it.says(app.getString(R.string.settings)) }
         click(findBelow("Translate PDF on Home") { it.says(app.getString(R.string.translate_title)) })
         waitUntil("Home to slide away") { nodes().none { it.says(app.getString(R.string.settings)) } }
         val vm = onMain { ViewModelProvider(main)[PdfToolsViewModel::class.java] }
-        onMain { vm.addPdfs(listOf(pdf("alpha.pdf")), replace = true) }
+        onMain { vm.addPdfs(listOf(pdf(fixture)), replace = true) }
         waitUntil("the PDF to be added") { onMain { vm.inputs.value.size } == 1 }
         return vm
     }

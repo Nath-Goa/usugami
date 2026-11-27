@@ -348,10 +348,17 @@ fun ProgressDialog(progress: Progress, cancelling: Boolean, onCancel: () -> Unit
 
 /**
  * Shown instead of converting when text recognition can't run; the user can turn OCR off and retry,
- * as its last line, [retry], says (PDF to images or text names its own switch).
+ * as its last line, [retry], says (PDF to images or text names its own switch). [help] says how
+ * the standard edition gets text recognition. Either is null where it would point to nothing the
+ * user can use.
  */
 @Composable
-fun OcrProblemDialog(problem: OcrProblem, @StringRes retry: Int = R.string.ocr_problem_retry, onDismiss: () -> Unit) {
+fun OcrProblemDialog(
+    problem: OcrProblem,
+    @StringRes retry: Int? = R.string.ocr_problem_retry,
+    @StringRes help: Int? = R.string.ocr_problem_help,
+    onDismiss: () -> Unit,
+) {
     UsugamiDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.ocr_problem_title)) },
@@ -371,8 +378,8 @@ fun OcrProblemDialog(problem: OcrProblem, @StringRes retry: Int = R.string.ocr_p
                 )
                 // How the standard edition gets text recognition (from Google Play services, where the
                 // other problems come from): no help with an unexpected error.
-                if (problem != OcrProblem.FAILED_TO_START && Edition.current == Edition.STANDARD) Text(stringResource(R.string.ocr_problem_help))
-                Text(stringResource(retry))
+                if (help != null && problem != OcrProblem.FAILED_TO_START && Edition.current == Edition.STANDARD) Text(stringResource(help))
+                retry?.let { Text(stringResource(it)) }
             }
         },
         confirmButton = { QuietButton(onClick = onDismiss) { Text(stringResource(R.string.ok)) } },

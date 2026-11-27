@@ -191,7 +191,16 @@ internal fun TranslateOptions(input: PdfInput, shown: PdfInput, vm: PdfToolsView
     val problem by vm.translate.problem.collectAsStateWithLifecycle()
     problem?.let { TranslationProblemDialog(it, onDismiss = { vm.translate.problem.value = null }) }
     val ocrProblem by vm.translate.ocrProblem.collectAsStateWithLifecycle()
-    ocrProblem?.let { OcrProblemDialog(it, retry = R.string.translate_ocr_retry, onDismiss = { vm.translate.ocrProblem.value = null }) }
+    // No way out through Pages where there is no Pages field (one page, which is the scan), and no
+    // Usugami OCR, which has no Translate PDF.
+    ocrProblem?.let {
+        OcrProblemDialog(
+            it,
+            retry = if (input.pageCount > 1) R.string.translate_ocr_retry else null,
+            help = null,
+            onDismiss = { vm.translate.ocrProblem.value = null },
+        )
+    }
 }
 
 /** A chip, "[label]: [value]", whose menu offers [languages] by name, [selected] checked. */
