@@ -26,7 +26,7 @@ import java.io.IOException
 
 /**
  * Google ML Kit's translation itself (standard edition only), with the real language packs: the
- * first run downloads Spanish's (about 30 MB), so it needs internet, and is skipped without it.
+ * first run downloads Spanish's (about 40 MB), so it needs internet, and is skipped without it.
  * Translate PDF's pipeline and screen are tested with a fake engine elsewhere.
  */
 class MlKitTranslationDeviceTest {

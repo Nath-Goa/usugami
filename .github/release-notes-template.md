@@ -9,7 +9,7 @@
 | [Usugami-ocr.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Usugami-ocr.apk) | ${OCR_MB} MB | Your phone has no Google Play services, or you want text recognition with no network use at all. ARM phones (virtually all phones). | Open source and built into the app (PaddleOCR's models, run by ncnn). Works without internet, ever. |
 
 Translate PDF is in Usugami.apk only: Google's ML Kit downloads each language's pack once (about
-30 MB), then translates on your phone without internet. Every other tool works offline in all
+40 MB), then translates on your phone without internet. Every other tool works offline in all
 three. Usugami Lite and Usugami OCR have no internet permission; Usugami.apk has it for those
 downloads. In Usugami.apk, text recognition and translating use Google's ML Kit, which runs on your
 phone but is closed source; Usugami Lite and Usugami OCR contain no Google code. The rest of Usugami is GPL-3.0-or-later. All

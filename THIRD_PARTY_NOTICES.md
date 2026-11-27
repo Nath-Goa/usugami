@@ -549,7 +549,7 @@ Under the Android Software Development Kit License (https://developer.android.co
 The text-recognition models are not part of Usugami. Google Play services downloads each model
 (one for English, French, Spanish, German, Portuguese and Indonesian, one for Hindi) the first time
 it is used, under Google's own terms. Nor are the translation language packs: ML Kit downloads each
-language's pack (about 30 MB) the first time Translate PDF needs it, under Google's own terms.
+language's pack (about 40 MB) the first time Translate PDF needs it, under Google's own terms.
 English is built into the translation library, and so is the language identification's model.
 
 Google's API terms: https://developers.google.com/terms
