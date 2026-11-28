@@ -141,7 +141,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.exifinterface:exifinterface:1.4.2")
     implementation("sh.calvin.reorderable:reorderable:3.1.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0") {
         // BouncyCastle is only used for certificate-encrypted PDFs, which Usugami doesn't open.
         // Leaving it out saves space and drops an outdated crypto library.
@@ -150,8 +150,8 @@ dependencies {
     // Only the standard edition has Google libraries: ML Kit's text recognition, whose models
     // Google Play services downloads, and for Translate PDF ML Kit's translation, which downloads
     // each language's pack itself, and its language identification, which is built in.
-    "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.1")
-    "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.1")
+    "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition:19.0.2")
+    "standardImplementation"("com.google.android.gms:play-services-mlkit-text-recognition-devanagari:16.0.2")
     // F-Droid's recipes delete Google's dependency lines with sed. Copies of the recipes made before
     // 4.0.0 only delete the lines that name Play services' Maven group, so each of these two names
     // that group in a comment too.
