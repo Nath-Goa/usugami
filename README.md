@@ -43,15 +43,15 @@ Use Obtainium? Its badge adds Usugami with automatic updates. On Android 8.0 or 
 | Pick it if | You're not sure, or you want Translate PDF | You don't need text recognition and want the smallest app, with no Google code at all | Your phone has no Google services (for example Huawei or a de-Googled phone), or you want text recognition with no network use at all |
 
 > [!NOTE]
-> **About internet access:** no edition uploads anything. Usugami Lite and Usugami OCR have **no
-> internet permission**. The main **Usugami.apk** has it for one reason: so that Android's download
-> manager can fetch a language pack for Translate PDF from Google, once per language, after you say
-> yes to the download. Usugami's own code opens no connection (see [Privacy](#privacy)). Usugami.apk
-> also needs an internet connection for text recognition (OCR) the first time you use it: Google
-> Play services downloads its recognition model (one model reads English, French, Spanish, German,
-> Portuguese and Indonesian, and Hindi has a second one), and again if Play services has removed it
-> since. Everything else works offline. If you want text recognition built in, with no download
-> ever, get **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**
+> **About internet access:** no edition uploads your files or anything made from them. Usugami
+> Lite and Usugami OCR have **no internet permission**. The main **Usugami.apk** has it for one
+> reason: so that Android's download manager can fetch a language pack for Translate PDF from
+> Google, once per language, after you say yes to the download. Usugami's own code opens no
+> connection (see [Privacy](#privacy)). Usugami.apk also needs an internet connection for text
+> recognition (OCR) the first time you use it: Google Play services downloads its recognition model
+> (one model reads English, French, Spanish, German, Portuguese and Indonesian, and Hindi has a
+> second one), and again if Play services has removed it since. Everything else works offline. If
+> you want text recognition built in, with no download ever, get **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**
 > instead. If you don't need text recognition at all, **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**
 > is the smallest. Neither has Translate PDF.
 
@@ -65,10 +65,12 @@ over the other; your files and settings are kept. Usugami Lite is an app of its 
 **F-Droid:** add Usugami's own F-Droid repository, easiest from **[nathank.me/usugami](https://nathank.me/usugami/)**
 on your phone (one tap in F-Droid, Droid-ify or Neo Store), or by hand: address
 `https://nathank.me/usugami/fdroid/repo`, fingerprint
-`8D92FFB46DB5C052B334438D8E012974D3969A27EACFF4AEEE687B99A4760DA8`. It serves Usugami (with the
-open-source text recognition of Usugami OCR) and Usugami Lite: exactly the APKs published here,
-signed with the same key, so you can switch between F-Droid, GitHub and Obtainium without
-reinstalling. A listing in the main F-Droid repository is planned; the builds are
+`8D92FFB46DB5C052B334438D8E012974D3969A27EACFF4AEEE687B99A4760DA8`. It serves Usugami, which is
+Usugami-ocr.apk (no Translate PDF, no internet permission and no Google code), and Usugami Lite:
+exactly the APKs published here, signed with the same key, so you can switch between F-Droid,
+GitHub and Obtainium without reinstalling. Installing Usugami.apk over F-Droid's Usugami makes it
+the main edition, with Translate PDF and the internet permission. A listing in the main F-Droid
+repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
 ## What's new in 4.0.0
@@ -140,11 +142,9 @@ light and a dark theme. Every tool and feature is still there and works as befor
 - **Redact PDF** finds Chinese, Japanese and Korean text as it is written, also down the page, and
   says which pages it couldn't read.
 - **German, Brazilian Portuguese and Indonesian**, for the app and for text recognition.
+- **Donate:** Settings has a Donate link.
 - Still no permissions, and nothing leaves your phone. The tables that read Chinese, Japanese and
   Korean fonts add about 1.2 MB to each app.
-
-1.6.6, the day before it: Settings has a **Donate** link. Usugami itself still has no internet
-permission.
 
 1.6.0 to 1.6.5, before it: Scan document at the top of Home with seven page looks, Excel to PDF,
 Recent files, HEIC, AVIF, WebP, BMP and GIF images, the optional Usugami watermark, footnotes and
@@ -168,7 +168,8 @@ sharing files straight to Usugami, safer redaction, Usugami's own
 ## Install
 
 Usugami isn't on the Play Store, so you install the APK file yourself. It takes about a minute and
-works on Android 8.0 or newer. Menu names differ a little between phones.
+works on Android 8.0 or newer; Usugami.apk and Usugami-ocr.apk need an ARM phone (virtually all
+phones are). Menu names differ a little between phones.
 
 1. **Download.** On your phone, open this page and tap **[Usugami.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami.apk)**
    (or **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)** or **[Usugami-ocr.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-ocr.apk)**).
@@ -210,8 +211,10 @@ If you skipped step 3 or want to change it later:
 settings are kept. To get updates automatically, use [Obtainium](#automatic-updates-with-obtainium).
 
 **Switching editions:** install Usugami.apk over Usugami OCR, or Usugami-ocr.apk over Usugami. No
-need to uninstall first. Usugami Lite is a separate app: install it next to the others, and
-uninstall the one you no longer want (save any PDFs you need to Downloads first).
+need to uninstall first. Usugami.apk brings Translate PDF and the internet permission. Usugami OCR
+keeps any language packs Translate PDF downloaded, but can't show or delete them: delete them under
+Language packs first if you don't want them. Usugami Lite is a separate app: install it next to
+the others, and uninstall the one you no longer want (save any PDFs you need to Downloads first).
 
 **Had Usugami Lite 1.5.0?** It was still the same app as Usugami. Since 1.5.1, Usugami Lite has a
 package name of its own, so **[Usugami-lite.apk](https://github.com/Nath-Goa/usugami/releases/latest/download/Usugami-lite.apk)**
@@ -243,18 +246,22 @@ old "PDFer".
   photos taken asks first whether to discard them.
 - **Crop page:** each photo, or each uploaded image, in turn ("Page 2 of 5" under the title), with
   **Next** on every one (see *Crop and straighten* below). Back goes to the image before, with the
-  corners it was given; from the first photo, back to the photos. **Discard photo** takes a photo
-  out of the scan; for uploaded images, **Stop cropping** leaves the rest whole and goes on.
+  corners it was given. From the first photo it goes back to the photos; from the first uploaded
+  image it goes on to Filters with the images left whole, as Stop cropping does. **Discard photo**
+  (the bin at the top) takes a photo out of the scan; for uploaded images, **Stop cropping** (the ✕
+  at the top) leaves the rest whole and goes on to Filters.
 - **Filters:** one screen for the whole scan. The page chosen is shown large, in its look, with the
   scan's pages in a row under it, then the looks, **Brightness** and **Contrast** (see *A look for
   each page* below). Every page starts on Enhanced. Tap a page in the row to give it a look of its
   own, or turn on **Same filter for all pages** to give every page of the scan the chosen page's
-  look, brightness and contrast, and whatever you choose after; turning it off changes nothing.
-  Back goes to the last page's crop screen.
+  look, brightness and contrast, and whatever you choose after; turning it off changes nothing. A
+  scan of one page has no row and no switch. Back goes to the last page's crop screen.
 - **Save** puts the scan's pages in Images to PDF, after any pages already there, where you reorder
   them and make the PDF as usual.
-- If Android stops Usugami in the background during a scan, nothing is lost: the photos, the page
-  being cropped, the looks and the page chosen come back.
+- If Android stops Usugami in the background during a scan, the scan comes back where it was: the
+  photos (also one taken while Usugami was stopped), the page being cropped with its corners, the
+  looks and the page chosen. Uploaded images that were still being added don't come back: Usugami
+  says so, and you add the missing ones again.
 - **ID card: both sides on one page**, the quieter button under Take photo and Upload images: take a
   photo of the card's front with the camera app or choose one image, crop it and give it a look
   (it starts on Original), then the same for the back, which starts with the front's look. **No
@@ -638,10 +645,11 @@ old "PDFer".
 - Makes a copy of a PDF in another language, on your phone, with Google's ML Kit. It is under
   **Convert from PDF** on Home, and in Choose a tool for a PDF shared to Usugami.
 - **From** is the PDF's language, worked out on the phone from its text; if Usugami can't tell,
-  choose it. **To** starts on the app's language (on English when the PDF is already in that).
-  Both menus list the 59 languages Google's ML Kit translates, among them all seven of Usugami's,
-  Chinese, Japanese, Korean, Arabic and Russian. Choose the pages to translate as in PDF to images
-  or text, or leave the field empty for all.
+  choose it. **To** starts on the app's language (on English when the PDF is already in that, and
+  on Spanish when the app and the PDF are both in English). Both menus list the 59 languages
+  Google's ML Kit translates, among them all seven of Usugami's, Chinese, Japanese, Korean, Arabic
+  and Russian. Choose the pages to translate as in PDF to images or text, or leave the field empty
+  for all.
 - **Language packs:** each language but English, which is built in, needs its pack: French to
   English needs French's, French to German both. A pack is about 40 MB and downloads once, the
   first time a translation needs it: Usugami asks first, then Android's download manager fetches it
@@ -656,8 +664,13 @@ old "PDFer".
 - **The new PDF** (such as Report_translated.pdf) shows each page as a picture of itself, at 150 dpi,
   with the original text painted out and the translation written in its place as real text, which
   you can search, select and copy: in the colour of the original, at about its size, and bold where
-  it was bold. Numbers, names and text already in the language you chose stay as they were, on the
-  picture. The PDF's title and bookmarks are translated too. Notes under the result name the pages
+  it was bold. Text that is only a number, a date, an amount, a code, a file's name or an e-mail or
+  web address stays as it was, on the picture, and so does text the translator gives back
+  unchanged, such as a name on its own or text already in the language you chose. Inside a
+  translated sentence, codes and references, postcodes, IBANs and BICs, phone numbers, and e-mail
+  and web addresses come back as written. Names of people, companies and places, and a lone number
+  or year, can still be changed by the translator: check them in the result. The PDF's title and
+  bookmarks are translated too. Notes under the result name the pages
   left as they were (no text to translate, or scanned and couldn't be read) and those where some
   text couldn't be translated or the phone has no font for the language.
 - It is machine translation, with limits: see *What can't Translate PDF do?* under
@@ -750,11 +763,12 @@ old "PDFer".
   download manager, a part of Android outside Usugami, can fetch Translate PDF's language packs
   from Google. Usugami itself opens no connection: from the moment it starts, it refuses to open
   any web address, and nothing else in it, Google's libraries included, opens one (checked in the
-  app's code and by recording its network traffic). The packs' downloads count as Usugami's in
-  Android's data usage.
+  app's code and by recording, on an emulator, the network traffic of its release build). The
+  packs' downloads count as Usugami's in Android's data usage.
 - **No ads, no analytics, no tracking, no accounts, no in-app purchases.**
-- **Only the files you pick.** Usugami asks for no permissions (Usugami.apk's internet permission is
-  one Android grants when it installs an app, without asking); Android gives it access to just the
+- **Only the files you pick.** Usugami asks for no permissions (Usugami.apk's two, internet access
+  and seeing whether the phone is online, are ones Android grants when it installs an app, without
+  asking); Android gives it access to just the
   images, PDFs and documents you choose, share or open with Usugami. **Take photo** opens your
   phone's camera app, which Usugami lets save just that one photo into its private storage; Usugami
   can't use the camera itself.
@@ -768,16 +782,20 @@ old "PDFer".
   language the first time you use it. Translate PDF runs inside Usugami, with Google's ML Kit. For
   both, Google's libraries inside Usugami talk to Play services on your phone, and Play services
   may report to Google how these Google APIs were used, along with diagnostics and usage metrics
-  about ML Kit (see
-  [Google's ML Kit data disclosure](https://developers.google.com/ml-kit/android-data-disclosure)).
-  Your images, your PDFs, their text and the translations never leave your phone. Usugami also
-  disables ML Kit's own metrics uploader inside the app.
+  about ML Kit. According to
+  [Google's ML Kit data disclosure](https://developers.google.com/ml-kit/android-data-disclosure),
+  these can include the phone's model and Android version, identifiers for the device and for this
+  installation and, for Translate PDF, the languages translated from and to and the language
+  detected. Your images, your PDFs, their text and the translations never leave your phone.
+  Usugami also disables ML Kit's own metrics uploader inside the app.
 - **Translate PDF and the system log:** Google's translation library writes the text it translates,
   and the translation, into the phone's system log. Other apps you install can't read that log,
   but a computer connected to the phone for USB debugging can, and so can a bug report made on the
-  phone. Usugami keeps the Java code of Google's libraries from writing their debug and info
-  messages there, but these lines come from the translation library's native code, which it can't
-  silence.
+  phone. Android keeps the log in memory, where newer lines replace older ones, and on most phones
+  a restart clears it. Usugami keeps the Java code of Google's libraries from writing their debug
+  and info messages there, but these lines come from the translation library's native code, which
+  Usugami doesn't silence: that would take native code of its own, and only Android 11 and newer
+  allow it.
 - **Usugami Lite and Usugami OCR** contain no Google code, don't need Google Play services and
   make no network connections. Usugami OCR has text recognition built in; Usugami Lite has none.
 
@@ -1131,15 +1149,40 @@ Translate PDF (in Usugami.apk) keeps each page as a picture and writes the trans
 original text. That keeps the page's look, but it has limits:
 
 - **It is machine translation**, made on your phone by Google's ML Kit, and it makes mistakes: in a
-  test it turned "six heures trente" (half past six) into "six minutes". Check anything that
-  matters against the original.
-- **Only the translation is text.** Everything else on the page, numbers and names included, is
-  part of the picture, so it can't be selected or searched any more.
-- **The text is set ragged**, never justified, and a paragraph's indented first line isn't kept. A
-  translation much longer than its original is set smaller, so paragraphs next to each other can
-  come out in different sizes; a shorter one leaves a gap. A translation grows only where the page
-  around it is clear, never over a box, a line, a frame, a photo or a chart; a short label in a
-  form, translated much longer, can run on under its line.
+  test it turned "six heures trente" (half past six) into "six minutes". It can also leave a
+  sentence in the original language, which the notes under the result don't mention. Check
+  anything that matters against the original.
+- **Names and some numbers can change.** The translator can change names of people, companies and
+  places: in a test, Claire Delorme became Delicate and Atelier Lumière became WORKSHOP. It can
+  also change a lone number or year (Hindi wrote 1987 as 1 9 87), numbers in groups of three
+  (412 678 903), a code joined to a word by an apostrophe (l'INV-2026-0412), and a web address
+  whose path isn't in Latin letters. Check names and numbers in the result.
+- **Codes are held back from the translator.** When it changes a code, a reference, a postcode, an
+  IBAN or BIC, a phone number or an e-mail or web address, the sentence is translated again with
+  that item held back, then put back as written. The words right around it then have less context
+  (No. INV-2026-0412 became Nein. INV-2026-0412). If the translator keeps losing the item, the
+  sentence is translated as before, and the item may come out changed.
+- **Only the translation is text.** Everything left as it was, such as a number or a name on its
+  own, is part of the picture, so it can't be selected or searched any more.
+- **Only the phone's own font.** The translation is drawn in the phone's sans-serif font, bold
+  where the original was bold. Italic and the original typeface aren't kept.
+- **The text is set ragged**, never justified, with tighter line spacing than many originals, and
+  a paragraph's indented first line isn't kept. A translation much longer than its original is set
+  smaller, a single line down to about 55 %, so paragraphs next to each other can come out in
+  different sizes; a shorter one leaves a gap. A translation grows only where the page around it
+  is clear, never over a box, a line, a frame, a photo or a chart; a short label in a form,
+  translated much longer, can run on under its line.
+- **Very short labels** are translated without context: in a form, "Fait à" and "le" became "In"
+  and "the", and the date hint JJ became AA.
+- **A contents page** keeps its leader dots inside the translated lines, so the page numbers no
+  longer stand in a straight column.
+- **Right-to-left pages aren't mirrored.** Arabic, Hebrew, Persian and Urdu translations read right
+  to left within each paragraph, but columns stay where they were, and short lines such as a
+  greeting stay in their place on the left. Codes and numbers kept in them read left to right.
+- **Narrow columns,** such as a CV's sidebar: a paragraph that ends a sentence at a line's end
+  before a line starting with a capital, or a fragment with no full stop, is translated in pieces.
+  Two lines of labels or of an address that end at about the same place, with a sentence under
+  them, can be translated together.
 - **Links, form fields and comments aren't kept.** What the page shows of them is in the picture,
   and a filled-in field's text is translated with the rest of the page.
 - **Turned and tilted text is left as it is:** text turned more than a little (about 10 degrees),
@@ -1148,12 +1191,23 @@ original text. That keeps the page's look, but it has limits:
   with them.
 - **Over a photo or a colour gradient**, the patch under the translation is blended from what is
   around it, and can show streaks.
-- **A footnote mark** inside a translated paragraph stays where it was, and the translation runs
-  over it.
-- **Scanned pages** are read with text recognition, so their translation is never bold, its size
-  is estimated, grey text that is too light comes out black, and a letter text recognition missed
-  can stay visible. A scanned page in a language text recognition can't read (it reads the Latin
-  alphabet, Hindi and Marathi) is left as it was.
+- **A footnote number** raised after a word stays where it was, in its original small type, and
+  the translation is drawn over the paragraph without it, so the number can sit inside or over a
+  translated word. After a word of one or two letters or a short number (m², 10⁶), it is read as
+  part of the text.
+- **A clause's number** (3.1) stays as it was, in the original typeface, with the translation
+  beside it. A one-line clause whose translation is longer is set smaller instead of wrapping.
+- **Light grey text**, such as a form's small hint, can come out black: when its grey has less
+  than 3:1 contrast with the paper, the translation is drawn black.
+- **Scanned pages** are read with text recognition, so their translation is never bold, grey small
+  print comes out black and near body size, sizes are estimated and can differ between
+  neighbouring blocks, a code or a phone number text recognition misread comes back as it was
+  read, and a letter it missed can stay visible. On a tilted photo of a page, a rule next to a
+  translated line can be painted over, and grey smears can appear behind lines near other tilted
+  text. A scanned page in a language text recognition can't read (it reads the Latin alphabet,
+  Hindi and Marathi) is left as it was.
+- **If Android clears Usugami's cache** to free space while the new PDF is being written, the run
+  fails: start it again.
 
 </details>
 
@@ -1180,8 +1234,9 @@ again.
 <details>
 <summary><b>How much storage does Usugami use?</b></summary>
 
-The app takes about 19 MB to download, most of it the translation engine (Usugami Lite about
-4.8 MB, and Usugami OCR about 16 MB, since its recognition engine and models are inside). A file
+Usugami takes about 19 MB to download, most of it the translation engine, and about 37 MB on the
+phone, because Android unpacks the engine when it installs the app. Usugami Lite takes about
+4.8 MB, and Usugami OCR about 16 MB, since its recognition engine and models are inside. A file
 you open in the reader is copied into Usugami's cache while it is open, so a very large one needs
 that much free storage.
 While you work, Usugami keeps temporary copies of your files in its cache and deletes them
