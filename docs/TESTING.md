@@ -245,11 +245,17 @@ joined again and a hyphen standing for a word's end ("Vor- und Nachname") kept w
 Chinese lines joined without a space, right-to-left paragraphs read from the right, indents and
 hanging indents, a superscript, double spacing and each block's alignment; and, on pages laid out
 as letters, invoices and articles are, short paragraphs kept apart, an address's lines and labels
-one block each, text that only looks centred kept left-aligned, labels right-aligned together,
-each entry of a contents page, a price list or a form a block of its own, and each footnote
-starting at its number. They cover what is translated and what stays (web and e-mail addresses,
-file names, numbers, dates, amounts and codes; Chinese, Japanese and Thai paragraphs with digits
-translated, and an address told from the words around it); a long block cut for the translator at
+one block each, an address on a line of its own a block, each row of a table a block, text that
+only looks centred kept left-aligned, labels right-aligned together, each entry of a contents page,
+a price list or a form a block of its own, each footnote starting at its number, and a German
+paragraph in a narrow column one block while the labels beside it stay apart. They cover what is
+translated and what stays (web and e-mail addresses, file names, numbers, dates, amounts and codes;
+Chinese, Japanese and Thai paragraphs with digits translated, and an address told from the words
+around it); what is held back from the translator inside a sentence and put back (codes,
+references, postcodes, IBANs, BICs, phone numbers and addresses, while amounts, dates, words in
+capitals and names go to the translator), a translation whose placeholders are lost, doubled,
+unknown or moved, other scripts' digits, right-to-left marks, and a long text held back piece by
+piece as it is cut; a long block cut for the translator at
 its sentences' ends, else between words, never inside a character (a long run of closing brackets
 too), and joined again with spaces only between spaced writing; a translation fitted into its
 place (left as it is when it fits, a paragraph growing down and a line towards its end, right to
@@ -570,6 +576,16 @@ opening Choose a tool;
   photos leaving at once; on the Filters screen, a page tapped chosen, a look, Same filter for all
   pages, Save and Back handed on; a slider handed on once let go, not at each step, and a screen
   reader's change at once; and a scan of one page with no row of pages and no switch
+- a scan through the real screens (`ScanFlowDeviceTest`), with a made-up camera app: the whole flow
+  from Take photo to Save; Back on the photos (asking first, Discard going Home), on the crop
+  screen (the image before, and from the first to the photos) and on the Filters screen (the last
+  image); a photo taken after going back from the Filters screen starting on Enhanced; Discard
+  photo; the camera closed without a photo; Take another after coming back from cropping; a scan
+  started from the pages screen adding its pages after the others and giving them alone its looks;
+  the pages screen out of reach while a scan goes on, and the Scan document and Images to PDF
+  shortcuts bringing the scan back at the same stage after Merge PDF opened over it; each stage
+  kept when the phone is turned and when Android stops Usugami; and a screen reader working the
+  scan's screens
 - page looks, with a photo of a page in shadow: each look in the PDF as it needs (black and white
   and Ink saver a 1-bit CCITT G4 image, grayscale a one-component JPEG) at the compression levels'
   sizes, drawn by Android's renderer and by PDFBox with the paper white and a black bar black (in
@@ -622,7 +638,13 @@ opening Choose a tool;
   following pages drawn late and coming back after text recognition downloads; in a language text
   recognition can't read, only a page with a picture said to look scanned; a page of very many lines
   left as it is; a longer translation growing over no box or picture; the language detected from
-  the first pages with text; and French to English with ML Kit's real translator
+  the first pages with text, and that of a PDF starting with a contents page told without its
+  leader dots; a footnote whose number a space follows starting at its text; a clause's number
+  kept apart from its text, and a note's raised number, also one raised with a text rise, not read
+  into its word; a hint just under a box painted over in the paper's colour; codes and addresses
+  the translator changes held back and put back, with a made-up translator, and coming back as
+  written from ML Kit's real translator into English, Hindi and Arabic; and French to English with
+  ML Kit's real translator
 - ML Kit's translation itself (Usugami only, `MlKitTranslationDeviceTest`), with real language
   packs: Spanish's downloaded, used to translate and deleted, English built in; French and Tagalog
   detected; a full storage told apart from other download failures; cancelling stopping the download
@@ -800,9 +822,11 @@ opening Choose a tool;
 Usugami gets its text-recognition model from Google Play services, so its OCR tests need a device
 or emulator with Google Play services and, the first time each model is tested (one for the
 Latin-script languages, one for Hindi), an internet connection. The tests that use ML Kit's real
-translator (`MlKitTranslationDeviceTest`, and
-`PdfTranslationDeviceTest#frenchToEnglishWithTheRealTranslator`) download Spanish's and French's
-packs, about 40 MB each, the first time; without internet those are skipped.
+translator (`MlKitTranslationDeviceTest`,
+`PdfTranslationDeviceTest#frenchToEnglishWithTheRealTranslator` and
+`PdfTranslationDeviceTest#codesAndAddressesComeBackFromTheRealTranslatorAsTheyWere`) download
+Spanish's, French's, Hindi's and Arabic's packs, about 40 MB each, the first time; without internet
+those are skipped.
 `PdfTranslationDeviceTest#aScanReadByTheRealTextRecognition` needs text recognition's model, as
 the OCR tests do. The other Translate PDF tests use a made-up translator or engine and no network.
 
@@ -868,7 +892,8 @@ On a phone or emulator, with the release APKs:
   should find them by their edges.
 - Scan document's Upload images with five images: "Page 1 of 5" to "Page 5 of 5" with Next on each,
   then Filters, then Save. Again, with Stop cropping on page 3: pages 3 to 5 go on to Filters whole.
-  Picking nothing leaves Home as it was.
+  Again, with Back on page 1: Filters with every image whole, as Stop cropping does, and Back there
+  returns to the last image. Picking nothing leaves Home as it was.
 - Android closing Usugami during a scan: put Usugami in the background on the Photos screen, also
   with the camera open for the next photo, on the crop screen with a corner moved, on page 3 of an
   upload, and on Filters with a page chosen, a look, the sliders moved and Same filter for all pages
@@ -876,9 +901,11 @@ On a phone or emulator, with the release APKs:
   from the recent apps: the step, the photos, the corners, turn, page chosen, looks, sliders,
   switch and page count are as they were, and a photo taken while Usugami was stopped joins the
   photos.
-- While a scan goes on, at each step: Convert to PDF and the ID card can't start, the Scan document
-  shortcut brings the scan back at the same step, and a file shared to Usugami opens its tool over
-  the scan, with Back returning to the same step.
+- While a scan goes on, at each step: the pages screen (with Convert to PDF) and Home (with the ID
+  card button) can't be reached. Open Merge PDF over the scan with its shortcut, then use the
+  Images to PDF shortcut: the scan shows again at the same step, as it does with the Scan document
+  shortcut. A file shared to Usugami opens its tool over the scan, and Back returns to the same
+  step.
 - Filters with TalkBack: each page in the row is read as "Page 2" with Selected or Not selected,
   the looks, the sliders and the switch say their state, and a page still being cropped is read
   once, as "Cropping page 2…". At the largest font, in landscape and on a 360 dp phone, the Photos
@@ -1027,7 +1054,8 @@ On a phone or emulator, with the release APKs:
   - Again: no question and no download, also in flight mode.
   - Cancel while a pack downloads: the download notification goes, Language packs doesn't list the
     pack, and the next try asks again and starts from 0%.
-  - Offline with a pack missing: "Can't translate right now" and the no-internet text, at once.
+  - Offline with a pack missing: Translate PDF still asks "Download a language pack?"; after
+    Download and translate, "Can't translate right now" and the no-internet text come at once.
     Flight mode turned on while a pack downloads: the same after about a minute, and once back
     online, nothing goes on downloading.
   - With the phone's storage nearly full: "There isn't enough free storage for the language packs",
@@ -1037,8 +1065,16 @@ On a phone or emulator, with the release APKs:
   - A scanned PDF on a phone whose Play services hasn't got text recognition yet: online, it is
     downloaded and the pages read; offline, the "Text recognition isn't available" dialog. A PDF
     of scans and pages of text, offline: the pages of text are translated and the scans noted as
-    unread. A scanned page in Chinese or Arabic: the note that text recognition can't read this
-    language.
+    unread. A PDF in Chinese or Arabic with a page of text and a scanned page (choose From if it
+    isn't detected): the page of text is translated, and the result's note says text recognition
+    can't read this language. A PDF that is only such a scan ends with "These pages look scanned,
+    and their text couldn't be read, so there is nothing to translate."
+  - What the translator may still change: a French letter with a person's name, a reference, a
+    postcode, a phone number and an e-mail address in its sentences, into English: the reference,
+    postcode, phone number and address come back exactly as printed, and the name may change (a
+    known limit). Into Arabic: each paragraph reads right to left, the page isn't mirrored, and the
+    kept codes read left to right. A contents page: its leader dots stay in the translated lines.
+    Italic text comes out upright, in the phone's sans-serif.
   - The other answers: the same language twice (the line under the chips, the button off), a PDF
     with no text ("These pages have no text to translate."), a PDF needing a password (asked for
     once), a PDF of one page (no Pages field).
@@ -1220,7 +1256,8 @@ Google ML Kit, check by hand that this still holds:
   (`adb shell svc wifi disable`; the capture doesn't see the emulator's Wi-Fi): translate a PDF for
   the first time, again, and after moving the phone's clock 13 hours ahead. Usugami's uid
   (`adb shell dumpsys netstats --uid`) has traffic only while a pack downloads, and the capture
-  shows `redirector.gvt1.com` and Google's download servers on `gvt1.com` then, and never
+  shows only Google's download servers then (such as `redirector.gvt1.com`, a server on
+  `gvt1.com` or `dl.google.com`; their names change), and never
   `firebaseinstallations.googleapis.com` or `firebaseremoteconfig.googleapis.com`.
 - `adb logcat --pid` of the release app while it translates has no debug or info lines from ML
   Kit's Java code (R8 removes them, `app/proguard-standard.pro`). ML Kit's native code still logs
