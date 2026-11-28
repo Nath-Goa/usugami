@@ -3,6 +3,7 @@
     <!-- Standard edition: Google Play services downloads each language's text recognition the first time it is used. -->
     <string name="ocr_detail">Reconoce las palabras de estas imágenes y añade texto buscable al PDF. La primera vez que usas cada idioma, se descarga su reconocimiento de texto, lo que requiere conexión a Internet.</string>
     <string name="about_privacy">Sin anuncios, sin seguimiento y sin cuenta. Tus archivos nunca salen de tu teléfono. Usugami solo tiene permiso de acceso a Internet para descargar los paquetes de idioma de Traducir PDF.</string>
+    <string name="about_privacy_standard">El reconocimiento de texto lo proporcionan los Servicios de Google Play, que descargan el modelo de cada idioma la primera vez que lo usas. Los Servicios de Google Play también pueden enviar a Google estadísticas sobre el uso del reconocimiento de texto y de Traducir PDF, pero nunca tus archivos ni su texto. Usugami Lite y Usugami OCR no usan los Servicios de Google Play.</string>
 
     <string name="translate_title">Traducir PDF</string>
     <string name="translate_detail">Lee un PDF en otro idioma</string>
