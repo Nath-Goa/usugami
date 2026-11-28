@@ -21,8 +21,8 @@ the following won't be accepted:
 - the internet permission in Usugami Lite or Usugami OCR
 - new proprietary libraries
 
-The main edition (Usugami) has two exceptions to "no network", and both are downloads that
-something outside Usugami's process makes:
+The main edition (Usugami) has three exceptions to "no network", all made by something outside
+Usugami's process:
 
 - Text recognition: Google Play services, a separate app, downloads a model the first time it is
   needed (one for the six Latin-script languages, one for Hindi).
@@ -30,6 +30,9 @@ something outside Usugami's process makes:
   once per language, after the user agrees. This is the only reason Usugami.apk has the
   `INTERNET` and `ACCESS_NETWORK_STATE` permissions (the download manager only downloads for an
   app that has the internet permission).
+- Usage records: Google ML Kit (text recognition, translation and language identification) hands
+  records of its use to Google Play services on the phone, which may send them to Google (see
+  [PRIVACY.md](PRIVACY.md)). Usugami doesn't stop this.
 
 Usugami's own process never connects: `NoConnections.kt` (in `app/src/standard`) refuses every
 http, https and ftp address from the moment the process starts, and `okhttp3/OkHttp.kt` stands in
