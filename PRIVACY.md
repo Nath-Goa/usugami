@@ -1,17 +1,21 @@
 # Usugami Privacy Policy
 
-Effective date: 27 November 2026
+Effective date: 28 November 2026
 
 Usugami is an Android app that turns images, Word documents, PowerPoint presentations, Excel
 workbooks and EPUB e-books into PDFs; opens, annotates, prints, splits, merges, reorganizes,
 compresses, signs, redacts and translates PDFs; and turns PDFs into images or text. It works on
-your phone. It has no ads, no analytics, no tracking, no accounts and no in-app purchases, and it
-does not collect, share or sell any data about you.
+your phone. It has no ads, no analytics of its own, no tracking, no accounts and no in-app
+purchases, and it does not collect, share or sell any data about you. In Usugami (the main
+edition), Google's libraries inside the app hand records of their use to Google Play services on
+your phone, which may send them to Google (see below).
 
-This policy covers all three editions of Usugami: "Usugami" (the main edition), "Usugami Lite"
-and "Usugami OCR". The differences that matter for privacy are text recognition (OCR) and, in the
-main edition only, Translate PDF and the internet permission its language packs need, explained
-below.
+This policy covers all three editions of Usugami: "Usugami" (the main edition, Usugami.apk, from
+GitHub and Obtainium only), "Usugami Lite" and "Usugami OCR". The app called "Usugami" in
+Usugami's F-Droid repository is Usugami OCR, and so is the edition made for Google Play
+(Usugami-ocr.aab): they have no Translate PDF, no internet permission and no Google code. The
+differences that matter for privacy are text recognition (OCR) and, in the main edition only,
+Translate PDF and the internet permission its language packs need, explained below.
 
 ## Who is responsible
 
@@ -67,12 +71,18 @@ public, so please don't include personal details. To report a security problem p
   what is in it, while one of them is on the list, and uses it only to open, share and check on
   those files. Usugami gives each permission back once no file on the list needs it.
 - Language packs (Usugami, the main edition): the packs Translate PDF has downloaded, about 45 MB
-  each once unpacked, in Usugami's private storage. Beside them, Google's translation library keeps
-  a random identifier it makes for itself and the packs' checksums. It keeps no Firebase
-  identifier, token or settings.
+  each once unpacked, in Usugami's private storage. Beside them, Google's libraries keep a random
+  identifier ML Kit makes for this installation, the packs' checksums and a database of usage
+  events. Google's ML Kit data disclosure lists identifiers of this kind among what ML Kit collects
+  with its usage records (see "Translate PDF" below). They keep no Firebase identifier, token or
+  settings.
 - Usugami excludes its data from Android's cloud backup and device-to-device transfer.
 
-Nothing is stored anywhere else. Usugami has no servers.
+Usugami stores nothing anywhere else, and it has no servers. Outside Usugami's own storage, two
+things on your phone hold traces of its use in Usugami (the main edition): the phone's system log
+holds, for a while, the text Translate PDF translated and the translation (see "Translate PDF"
+below), and Google Play services keeps the text-recognition models and receives the usage records
+Google's libraries hand it (see "Text recognition" and "Translate PDF" below).
 
 ## Text recognition (OCR)
 
@@ -133,8 +143,8 @@ Usugami Lite and Usugami OCR don't have it, its permission or its Google code.
   built in. The first time a translation needs a pack, Usugami asks you first. If you agree,
   Android's download manager, a part of Android outside Usugami, downloads it from Google's
   servers: about 40 MB, once per language. As with any download, Google's servers receive the
-  request, which comes from your phone's internet address, and Google's Privacy Policy applies to
-  it: https://policies.google.com/privacy. Android counts the download as Usugami's in its data
+  request, which comes from your phone's internet address and names the language pack being
+  downloaded, and Google's Privacy Policy applies to it: https://policies.google.com/privacy. Android counts the download as Usugami's in its data
   usage. If you cancel, the download stops and a pack that hadn't finished is removed. A pack then
   stays on your phone, and translating needs no internet, until you delete it under Language packs
   on Translate PDF's screen.
@@ -150,13 +160,19 @@ Usugami Lite and Usugami OCR don't have it, its permission or its Google code.
   none when translating again, hours or days later, offline or left idle.
 - **Usage records.** As with text recognition, using the translation library hands a record of its
   use to Google Play services on your phone, which may send it to Google. According to Google's ML
-  Kit data disclosure (above), such records are about how the feature was used and how it
-  performed. What Google Play services sends is covered by Google's policies, not by Usugami.
+  Kit data disclosure (above), such records can hold, among other things, the phone's maker, model
+  and Android version, the app's name and version, identifiers for the device and for this
+  installation, how much text went in and out and how long it took, and, for Translate PDF, the
+  languages chosen and the language detected. What Google Play services sends is covered by
+  Google's policies, not by Usugami.
 - **The system log.** Google's translation library writes the text it translates, and the
   translation, into the phone's system log. Other apps you install can't read the system log, but
   a computer connected to the phone for USB debugging can, and so can a bug report made on the
-  phone, which you might send to someone. Usugami removes the library's own Java log messages, but
-  not these lines, which come from its native code.
+  phone, which you might send to someone. Android keeps the log in memory, where newer lines
+  replace older ones, and on most phones a restart clears it. Usugami keeps the Java code of
+  Google's libraries from writing debug and info messages (their warnings and errors, which hold no
+  text, stay), but not these lines, which come from the library's native code: silencing them would
+  take native code of Usugami's own, and only Android 11 and newer allow it.
 - **Scanned pages** are read with text recognition first, as described above for the main edition,
   including its own first download through Google Play services.
 
@@ -164,8 +180,10 @@ If you want no network use of any kind, install Usugami OCR or Usugami Lite.
 
 ## Data collection and sharing
 
-Usugami does not collect personal data. It has no analytics, crash reporting, advertising IDs or
-accounts. The developer receives nothing from the app and cannot see what you do with it.
+Usugami does not collect personal data. It has no analytics of its own, crash reporting,
+advertising IDs or accounts; in Usugami (the main edition), what Google's libraries hand to Google
+Play services is described above. The developer receives nothing from the app and cannot see what
+you do with it.
 
 ## Children
 
@@ -178,12 +196,16 @@ Usugami does not collect personal information from anyone, including children.
   all on Home). The files themselves stay where you saved them.
 - To delete everything Usugami stores on your phone, go to Settings > Apps > Usugami > Storage and
   tap "Clear storage", or uninstall Usugami.
+- In Usugami (the main edition), clearing its storage doesn't remove the lines Translate PDF's
+  library wrote to the phone's system log; on most phones, restarting the phone does.
 - PDFs you saved to Downloads or another folder are your files. They stay until you delete them,
   even if you uninstall Usugami.
 - In Usugami (the main edition), the text-recognition models are kept and managed by Google Play
   services. In Usugami OCR they are part of the app and go when you uninstall it.
 - In Usugami (the main edition), Translate PDF's language packs stay until you delete them under
-  Language packs on its screen, clear Usugami's storage or uninstall it.
+  Language packs on its screen, clear Usugami's storage or uninstall it. Installing Usugami OCR
+  over Usugami keeps them, and Usugami OCR can't show or delete them: delete them before you
+  switch, or clear its storage.
 
 ## Changes to this policy
 
