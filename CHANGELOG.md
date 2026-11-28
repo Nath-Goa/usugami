@@ -6,6 +6,8 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+## [4.0.1] - 2026-11-28
+
 ### Changed
 
 - **Usugami watermark:** the word "Usugami" is written as the app's banners write it, in Segoe UI
@@ -1193,7 +1195,8 @@ Private test build, named PDFer (package `com.nathan.pdfer`), not published.
 - Open, Share, Save to Downloads, or Save as… to any folder.
 - No internet permission: nothing is uploaded.
 
-[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/Nath-Goa/usugami/compare/v4.0.1...HEAD
+[4.0.1]: https://github.com/Nath-Goa/usugami/compare/v4.0.0...v4.0.1
 [4.0.0]: https://github.com/Nath-Goa/usugami/compare/v3.0.1...v4.0.0
 [3.0.1]: https://github.com/Nath-Goa/usugami/compare/v3.0.0...v3.0.1
 [3.0.0]: https://github.com/Nath-Goa/usugami/compare/v2.0.1...v3.0.0

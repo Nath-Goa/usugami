@@ -73,7 +73,12 @@ the main edition, with Translate PDF and the internet permission. A listing in t
 repository is planned; the builds are
 [reproducible](https://f-droid.org/docs/Reproducible_Builds/) for that.
 
-## What's new in 4.0.0
+## What's new in 4.0.1
+
+The optional **Usugami watermark** writes the word as the app's banners do, in the logo's deep
+purple, with the app's logo to its right. The opacity slider fades both together.
+
+4.0.0, earlier the same day, brought:
 
 - **Translate PDF**, in Usugami.apk: a new tool under Convert from PDF that makes a copy of a PDF
   in another language, on your phone, with Google's ML Kit. Usugami works out the PDF's language
@@ -96,7 +101,7 @@ repository is planned; the builds are
   code still opens no connection, and your files never leave your phone. Usugami Lite and Usugami
   OCR still have no internet permission and no Google code.
 
-3.0.1, a week before: the About screen writes the app's name with its trademark sign: Usugami™
+3.0.1, a week before that: the About screen writes the app's name with its trademark sign: Usugami™
 (Usugami™ Lite and Usugami™ OCR in those editions).
 
 3.0.0, the day before that, brought **a new look.** Usugami now looks like the thin paper it is
