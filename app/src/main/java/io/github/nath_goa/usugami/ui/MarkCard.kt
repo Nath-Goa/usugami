@@ -34,8 +34,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -56,6 +59,7 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import io.github.nath_goa.usugami.R
+import io.github.nath_goa.usugami.core.MarkLayer
 import io.github.nath_goa.usugami.core.MarkLayout
 import io.github.nath_goa.usugami.core.MarkStyle
 import io.github.nath_goa.usugami.data.MarkSetting
@@ -276,20 +280,28 @@ private fun MarkPage(preview: MarkPreview?, style: MarkStyle, on: Boolean) {
                 val place = MarkLayout.place(style, width, height)
                 // The same outlines as in the PDF, made at their size there: before Android 9, a path
                 // drawn scaled up is a picture of it at its own size, stretched.
-                val word = wordPath(place.fontSize * scale)
-                val color = Color(MarkLayout.GRAY, MarkLayout.GRAY, MarkLayout.GRAY)
-                val alpha = if (on) style.alpha else style.alpha * OFF_ALPHA
+                val fontSize = place.fontSize * scale
+                val shapes = MarkLayout.LAYERS.map { layer -> layerPath(layer, fontSize) to Color(layer.red, layer.green, layer.blue, layer.alpha) }
+                val bounds = Rect(MarkLayout.INK_LEFT * fontSize, -MarkLayout.INK_TOP * fontSize, MarkLayout.INK_RIGHT * fontSize, MarkLayout.DESCENT * fontSize).inflate(1f)
+                val faded = Paint().apply { alpha = if (on) style.alpha else style.alpha * OFF_ALPHA }
                 onDrawBehind {
-                    translate(place.x * scale, size.height - place.y * scale) { drawPath(word, color, alpha = alpha) }
+                    translate(place.x * scale, size.height - place.y * scale) {
+                        // Faded as a whole, as in the PDFs: the logo's shapes don't show through one another.
+                        drawIntoCanvas { canvas ->
+                            canvas.saveLayer(bounds, faded)
+                            for ((path, color) in shapes) drawPath(path, color)
+                            canvas.restore()
+                        }
+                    }
                 }
             },
         )
     }
 }
 
-/** The word as the PDFs draw it, [fontSize] pixels: its outlines, the baseline starting at the origin, y down. */
-private fun wordPath(fontSize: Float) = Path().also { path ->
-    MarkLayout.drawWord(
+/** [layer] of the mark as the PDFs draw it, [fontSize] pixels: its outlines, the word's baseline starting at the origin, y down. */
+private fun layerPath(layer: MarkLayer, fontSize: Float) = Path().also { path ->
+    layer.draw(
         object : MarkLayout.Pen {
             override fun moveTo(x: Float, y: Float) = path.moveTo(x, -y)
             override fun lineTo(x: Float, y: Float) = path.lineTo(x, -y)

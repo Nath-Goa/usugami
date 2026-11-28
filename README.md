@@ -725,9 +725,10 @@ old "PDFer".
   whose pages join the images there, and a scan still going on comes back instead of a new one
   starting.
 - **Usugami watermark**, off unless you turn it on: to support the app, the switch at the top of the
-  result screen, above Open, Share and Save, puts the word "Usugami" in the bottom-right corner of
-  every page of the PDFs just made, small and light grey unless you change it, upright and in the
-  corner you see, also on turned or cropped pages. Turn it off and the mark comes off those same
+  result screen, above Open, Share and Save, puts the word "Usugami", as the app's banners write it
+  in its deep purple, with the app's logo to its right, in the bottom-right corner of every page of
+  the PDFs just made, small and faint unless you change it, upright and in the corner you see,
+  also on turned or cropped pages. Turn it off and the mark comes off those same
   PDFs, without making them again. The arrow on the switch opens **Size** (from barely visible up to
   half the page's width) and **Opacity** (from faint to solid) sliders, with a live preview. Usugami
   remembers the switch and the sliders, so once it's on, every PDF you make gets the mark until you
@@ -1276,9 +1277,9 @@ changes how you install Usugami, this page will be updated.
 
 Not unless you turn it on. The **Usugami watermark** switch at the top of the result screen, above
 Open, Share and Save, is off at first. If you'd like to support Usugami, turn it on: a small
-"Usugami" goes in the bottom-right corner of each page, and the arrow on the switch sets its size
-and opacity. Turn it off again and the mark comes off the PDFs you just made; Usugami remembers
-your choice. This is separate from **Add watermark**, which writes your own text across the pages.
+"Usugami" with the app's logo goes in the bottom-right corner of each page, and the arrow on the
+switch sets its size and opacity. Turn it off again and the mark comes off the PDFs you just made;
+Usugami remembers your choice. This is separate from **Add watermark**, which writes your own text across the pages.
 
 The mark is drawn, not written as text, so it doesn't turn up when you search or copy the PDF's
 text. A digitally signed PDF keeps its signatures: the mark is added after the signed part, as

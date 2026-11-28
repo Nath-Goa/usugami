@@ -29,18 +29,19 @@ import kotlin.math.abs
 /**
  * Puts the small "Usugami" mark ([MarkStyle], see [MarkLayout]) on every page of a PDF Usugami made,
  * changes it, or takes it off again, in place: in the bottom-right corner of each page as it is shown
- * (its crop box, turned by its rotation), upright, in a dark grey at the chosen opacity. The word is
- * drawn as the outlines of its letters, filled shapes rather than text, so the PDF's text search and
- * copy, and screen readers, don't find it.
+ * (its crop box, turned by its rotation), upright, at the chosen opacity: the word as the banners
+ * write it, in the logo's deep purple, with the logo to its right. They are drawn as outlines, filled
+ * shapes rather than text, so the PDF's text search and copy, and screen readers, don't find the word.
  *
  * What it adds is all marked with [MARKER], so it can be found and taken out again, leaving each page
  * as it was:
- * - a form XObject that draws the word, with its own opacity, one for the whole PDF;
+ * - a form XObject that draws the mark at the chosen opacity, one for the whole PDF, and in it the
+ *   transparency group that paints the mark's shapes, so that the mark fades as a whole;
  * - before each page's own content, a stream that saves the graphics state (q), one for the whole PDF;
  * - after it, a stream of the page's own that restores that state (Q), so nothing the page's content
  *   leaves behind can move or recolour the mark, and draws the form at the page's corner, marked as a
  *   pagination artifact so that screen readers and other accessibility tools pass over it. Its marker
- *   keeps the mark's version (1.6.1 wrote the word as text), the style, where on the page it was
+ *   keeps the mark's version (1.6.1 wrote the word as text, 1.6.2 to 4.0.0 drew it in grey), the style, where on the page it was
  *   drawn, the form's name, what the page's content was, and which resources were added;
  * - the form's name in the page's XObject resources.
  *
@@ -141,7 +142,7 @@ class PageMark(context: Context) {
         if (mark == null) return ours.isEmpty()
         val marker = markers(page.cosObject).singleOrNull() ?: return false
         if (ours.size != 2 || marker.getInt(KEY_SIZE, -1) != mark.size || marker.getInt(KEY_OPACITY, -1) != mark.opacity) return false
-        // One written as text, by 1.6.1, is drawn anew.
+        // One an earlier version drew (as text, or in grey without the logo) is drawn anew.
         if (marker.getInt(KEY_VERSION, 1) != VERSION) return false
         // A page turned or cropped since it was marked has the mark in the wrong place.
         val drawn = marker.getDictionaryObject(KEY_MATRIX) as? COSArray ?: return false
@@ -262,25 +263,57 @@ class PageMark(context: Context) {
         )
     }
 
-    /** The form that draws the word in [mark]'s opacity, at a font size of 1, its baseline starting at the origin. */
+    /**
+     * The form that draws the mark in [mark]'s opacity, at a font size of 1, the word's baseline
+     * starting at the origin. Its shapes are painted in a transparency group of their own, which the
+     * opacity applies to as a whole: the logo's shapes, laid over one another, don't show through.
+     */
     private fun form(doc: PDDocument, mark: MarkStyle): COSStream {
-        val state = COSDictionary().apply {
-            setItem(COSName.TYPE, COSName.EXT_G_STATE)
-            setFloat(COSName.CA_NS, mark.alpha)
+        val states = COSDictionary().apply {
+            for ((index, layer) in MarkLayout.LAYERS.withIndex()) {
+                if (layer.alpha < 1f) setItem(COSName.getPDFName(MarkLayout.pdfStateName(index)), opacity(layer.alpha))
+            }
         }
-        val resources = COSDictionary().apply {
-            setItem(COSName.EXT_G_STATE, COSDictionary().apply { setItem(STATE_NAME, state) })
-        }
-        val gray = number(MarkLayout.GRAY)
-        return stream(doc, "/${STATE_NAME.name} gs\n$gray g\n${MarkLayout.pdfWord()}", compressed = true).apply {
+        val shapes = stream(doc, MarkLayout.pdfMark(), compressed = true).apply {
             setItem(COSName.TYPE, COSName.XOBJECT)
             setItem(COSName.SUBTYPE, COSName.FORM)
-            // Round the word's letters, with room to spare.
-            val bounds = listOf(MarkLayout.INK_LEFT - 0.1f, -MarkLayout.DESCENT - 0.1f, MarkLayout.INK_RIGHT + 0.1f, MarkLayout.INK_TOP + 0.1f)
-            setItem(COSName.BBOX, COSArray().apply { bounds.forEach { add(COSFloat(number(it))) } })
+            setItem(COSName.BBOX, markBounds())
+            setItem(
+                COSName.GROUP,
+                COSDictionary().apply {
+                    setItem(COSName.TYPE, COSName.GROUP)
+                    setItem(COSName.S, COSName.TRANSPARENCY)
+                    setItem(COSName.CS, COSName.DEVICERGB)
+                    // Painted on nothing, then onto the page.
+                    setBoolean(COSName.I, true)
+                },
+            )
+            setItem(COSName.RESOURCES, COSDictionary().apply { setItem(COSName.EXT_G_STATE, states) })
+            setItem(MARKER, COSBoolean.TRUE)
+        }
+        val resources = COSDictionary().apply {
+            setItem(COSName.EXT_G_STATE, COSDictionary().apply { setItem(STATE_NAME, opacity(mark.alpha)) })
+            setItem(COSName.XOBJECT, COSDictionary().apply { setItem(SHAPES_NAME, shapes) })
+        }
+        return stream(doc, "/${STATE_NAME.name} gs\n/${SHAPES_NAME.name} Do\n").apply {
+            setItem(COSName.TYPE, COSName.XOBJECT)
+            setItem(COSName.SUBTYPE, COSName.FORM)
+            setItem(COSName.BBOX, markBounds())
             setItem(COSName.RESOURCES, resources)
             setItem(MARKER, COSBoolean.TRUE)
         }
+    }
+
+    /** Round the mark's shapes, with room to spare: at a font size of 1, the word's baseline starting at the origin. */
+    private fun markBounds() = COSArray().apply {
+        listOf(MarkLayout.INK_LEFT - 0.1f, -MarkLayout.DESCENT - 0.1f, MarkLayout.INK_RIGHT + 0.1f, MarkLayout.INK_TOP + 0.1f)
+            .forEach { add(COSFloat(number(it))) }
+    }
+
+    /** A graphics state that fills at [alpha]. */
+    private fun opacity(alpha: Float) = COSDictionary().apply {
+        setItem(COSName.TYPE, COSName.EXT_G_STATE)
+        setFloat(COSName.CA_NS, alpha)
     }
 
     private fun stream(doc: PDDocument, content: String, compressed: Boolean = false): COSStream = doc.document.createCOSStream().apply {
@@ -378,6 +411,7 @@ class PageMark(context: Context) {
 
         private val FORM_NAME = COSName.getPDFName("UsugamiMark")
         private val STATE_NAME = COSName.getPDFName("GS")
+        private val SHAPES_NAME = COSName.getPDFName("Shapes")
         private val KEY_VERSION = COSName.getPDFName("Version")
         private val KEY_SIZE = COSName.getPDFName("Size")
         private val KEY_OPACITY = COSName.getPDFName("Opacity")
@@ -388,8 +422,11 @@ class PageMark(context: Context) {
         private val KEY_MADE_RESOURCES = COSName.getPDFName("MadeResources")
         private val KEY_ORIGINAL_LENGTH = COSName.getPDFName("OriginalLength")
 
-        /** The mark's version: 1.6.1's, without one, wrote the word as text; this one draws its outlines. */
-        private const val VERSION = 2
+        /**
+         * The mark's version: 1.6.1's, without one, wrote the word as text; 2 drew its outlines in grey;
+         * 3 draws the word as the banners write it, in colour, with the logo.
+         */
+        private const val VERSION = 3
 
         /** How deep a page tree or a form's fields are followed. */
         private const val MAX_DEPTH = 64

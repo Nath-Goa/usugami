@@ -367,6 +367,11 @@ authorization of the copyright holder.
 All fonts here are licensed under the SIL Open Font License, Version 1.1 (full text in section
 7).
 
+The word in the Usugami watermark is not a font: it is Usugami's logo, the outlines of the word as
+the app's banners write it in Segoe UI Semibold, Microsoft's font, which Microsoft lets logos be
+made with. They are kept in core/src/main/java/io/github/nath_goa/usugami/core/MarkGlyphs.kt, made
+with tools/make_mark_glyphs.py. No font file of Segoe UI is included.
+
 ### Usugami OCR font (fonts/UsugamiOcr-Regular.ttf), Usugami and Usugami OCR
 
 An invisible font used only for the searchable text layer that text recognition adds to a PDF.
@@ -385,11 +390,6 @@ renamed so it uses no Reserved Font Name, and it is distributed under the same l
 
 Liberation Sans Regular is included in PdfBox-Android (used by PDFBox as a fallback font).
 Unmodified.
-
-The Usugami watermark draws the word "Usugami" with the outlines of its letters in Liberation Sans
-Bold, kept in core/src/main/java/io/github/nath_goa/usugami/core/MarkGlyphs.kt. They were taken from
-the font with tools/make_mark_glyphs.py from Usugami's source code, and are distributed under the
-same license. No font file of Liberation Sans Bold is included.
 
 ```text
 Digitized data copyright (c) 2010 Google Corporation

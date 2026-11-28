@@ -25,6 +25,7 @@ import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission
 import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
+import com.tom_roush.pdfbox.pdmodel.graphics.form.PDTransparencyGroup
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImage
 import com.tom_roush.pdfbox.pdmodel.interactive.digitalsignature.PDSignature
 import com.tom_roush.pdfbox.text.PDFTextStripper
@@ -63,6 +64,7 @@ import java.io.File
 import java.io.IOException
 import java.util.Calendar
 import java.util.zip.ZipInputStream
+import kotlin.math.roundToInt
 
 /**
  * The Usugami mark on a PDF's pages: in the bottom-right corner of each page as shown, upright, in the
@@ -133,14 +135,25 @@ class PageMarkDeviceTest {
         }
     }
 
-    /** A shape filled on a page: the points of its outline on the page, and its grey and opacity. */
-    private class Fill(val points: List<PointF>, val gray: Float, val alpha: Float)
+    /**
+     * A shape filled on a page: the points of its outline on the page, its colour's components and
+     * opacity, and the opacity of the transparency group it is painted in (1 outside one).
+     */
+    private class Fill(val points: List<PointF>, val colour: List<Float>, val alpha: Float, val groupAlpha: Float)
 
     /** The shapes filled on [page], as a PDF viewer draws them. */
     private fun fills(page: PDPage): List<Fill> = ArrayList<Fill>().also { fills ->
         val points = ArrayList<PointF>()
         object : PDFGraphicsStreamEngine(page) {
             private var current = PointF()
+            private var groupAlpha = 1f
+
+            override fun showTransparencyGroup(form: PDTransparencyGroup) {
+                val outer = groupAlpha
+                groupAlpha = graphicsState.nonStrokeAlphaConstant.toFloat()
+                super.showTransparencyGroup(form)
+                groupAlpha = outer
+            }
 
             override fun appendRectangle(p0: PointF, p1: PointF, p2: PointF, p3: PointF) {
                 points += listOf(p0, p1, p2, p3)
@@ -168,7 +181,7 @@ class PageMarkDeviceTest {
 
             override fun fillPath(windingRule: Path.FillType) {
                 val state = graphicsState
-                fills += Fill(points.toList(), state.nonStrokingColor.components.single(), state.nonStrokeAlphaConstant.toFloat())
+                fills += Fill(points.toList(), state.nonStrokingColor.components.toList(), state.nonStrokeAlphaConstant.toFloat(), groupAlpha)
                 points.clear()
             }
 
@@ -178,34 +191,47 @@ class PageMarkDeviceTest {
     }
 
     /** Where the word's outline starts, in font sizes from its baseline's start: its "U". */
-    private val start: PointF by lazy {
-        var first: PointF? = null
-        MarkLayout.drawWord(
-            object : MarkLayout.Pen {
-                override fun moveTo(x: Float, y: Float) {
-                    if (first == null) first = PointF(x, y)
-                }
-                override fun lineTo(x: Float, y: Float) = Unit
-                override fun quadTo(x1: Float, y1: Float, x: Float, y: Float) = Unit
-                override fun close() = Unit
-            },
-        )
-        first!!
+    private val start: PointF by lazy { wordPoints.first() }
+
+    /** The points of the word's outline (the mark's first layer), in font sizes from its baseline's start. */
+    private val wordPoints: List<PointF> by lazy {
+        ArrayList<PointF>().also { points ->
+            MarkLayout.LAYERS.first().draw(
+                object : MarkLayout.Pen {
+                    override fun moveTo(x: Float, y: Float) = lineTo(x, y)
+                    override fun lineTo(x: Float, y: Float) {
+                        points += PointF(x, y)
+                    }
+                    override fun quadTo(x1: Float, y1: Float, x: Float, y: Float) {
+                        points += PointF(x1, y1)
+                        points += PointF(x, y)
+                    }
+                    override fun close() = Unit
+                },
+            )
+        }
     }
 
     /**
      * Checks that each page of [file] has the mark once, in [style], where it goes on the page as shown,
-     * upright, filled in its grey and opacity; and that it isn't text, which a search would find.
+     * upright: the word and the logo's shapes, each filled in its colour and opacity, together in a group
+     * at the style's opacity; and that it isn't text, which a search would find.
      */
     private fun checkMarked(file: File, style: MarkStyle) = PDDocument.load(file).use { doc ->
         assertFalse(PDFTextStripper().getText(doc).contains(MarkLayout.TEXT))
         for ((index, page) in doc.pages.withIndex()) {
-            val fill = fills(page).singleOrNull() ?: throw AssertionError("Page ${index + 1} has the mark once")
+            val found = fills(page)
+            assertEquals("Page ${index + 1} has the mark once", MarkLayout.LAYERS.size, found.size)
+            for ((layer, fill) in MarkLayout.LAYERS.zip(found)) {
+                assertEquals(listOf(layer.red, layer.green, layer.blue), fill.colour.map { (it * 255).roundToInt() / 255f })
+                assertEquals(layer.alpha, fill.alpha, 0.0001f)
+                assertEquals(style.alpha, fill.groupAlpha, 0.0001f)
+            }
             val box = page.cropBox
             val frame = PageFrame(box.lowerLeftX, box.lowerLeftY, box.width, box.height, page.rotation)
             val place = MarkLayout.place(style, frame.shownWidth, frame.shownHeight)
             val f = place.fontSize
-            val shown = fill.points.map { frame.toShown(it.x, it.y) }
+            val shown = found.flatMap { it.points }.map { frame.toShown(it.x, it.y) }
             // Its outlines reach as far as the word's letters do, from where the word starts.
             assertEquals("Page ${index + 1}: its left", place.x + MarkLayout.INK_LEFT * f, shown.minOf { it.first }, 0.05f)
             assertEquals("Page ${index + 1}: its right", place.x + MarkLayout.INK_RIGHT * f, shown.maxOf { it.first }, 0.05f)
@@ -214,16 +240,11 @@ class PageMarkDeviceTest {
             // Upright as shown: its "U" starts where it does in the word.
             assertEquals(place.x + start.x * f, shown.first().first, 0.05f)
             assertEquals(place.y + start.y * f, shown.first().second, 0.05f)
-            assertTrue("Page ${index + 1}: the word ends before the page's right edge", shown.maxOf { it.first } < frame.shownWidth)
-            assertEquals(MarkLayout.GRAY, fill.gray, 0.001f)
-            assertEquals(style.alpha, fill.alpha, 0.0001f)
+            assertTrue("Page ${index + 1}: the mark ends before the page's right edge", shown.maxOf { it.first } < frame.shownWidth)
         }
     }
 
     @Test fun marksEachPageAsShownChangesItAndTakesItOffAgain() {
-        // The word is as wide as Helvetica Bold made it before.
-        PDFBoxResourceLoader.init(app)
-        assertEquals(PDType1Font.HELVETICA_BOLD.getStringWidth(MarkLayout.TEXT) / 1000, MarkLayout.TEXT_WIDTH, 0.001f)
         val file = pdf()
         val before = pages(file)
 
@@ -435,10 +456,10 @@ class PageMarkDeviceTest {
         val place = MarkLayout.place(style, PDRectangle.A4.width, PDRectangle.A4.height)
         val scale = bitmap.width / PDRectangle.A4.width
         val f = place.fontSize
-        val left = ((place.x + MarkLayout.INK_LEFT * f) * scale).toInt()
-        val right = ((place.x + MarkLayout.INK_RIGHT * f) * scale).toInt()
-        val top = bitmap.height - ((place.y + MarkLayout.INK_TOP * f) * scale).toInt()
-        val bottom = bitmap.height - ((place.y - MarkLayout.DESCENT * f) * scale).toInt()
+        val left = ((place.x + wordPoints.minOf { it.x } * f) * scale).toInt()
+        val right = ((place.x + wordPoints.maxOf { it.x } * f) * scale).toInt()
+        val top = bitmap.height - ((place.y + wordPoints.maxOf { it.y } * f) * scale).toInt()
+        val bottom = bitmap.height - ((place.y + wordPoints.minOf { it.y } * f) * scale).toInt()
         var dark = 0
         for (x in left until right) for (y in top until bottom) if (Color.red(bitmap.getPixel(x, y)) < 128) dark++
         return dark.toFloat() / ((right - left) * (bottom - top))

@@ -6,6 +6,15 @@ All notable changes to Usugami are listed here. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- **Usugami watermark:** the word "Usugami" is written as the app's banners write it, in Segoe UI
+  Semibold and the logo's deep purple (#4A3F6B), with the app's logo (its lilac circle, the disc
+  and the sheet of paper) to its right. The opacity slider fades the word and the logo together.
+  The sizes are as before: the word is about as big at each, and the whole mark starts on the
+  page's middle at the largest. PDFs that already have the old grey mark get the new one when the
+  watermark is next changed or turned on for them.
+
 ## [4.0.0] - 2026-11-28
 
 ### Added
